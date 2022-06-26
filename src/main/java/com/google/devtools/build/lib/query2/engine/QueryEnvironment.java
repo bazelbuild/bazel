@@ -17,12 +17,14 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.annotation.Nonnull;
@@ -190,10 +192,27 @@ public interface QueryEnvironment<T> {
    */
   interface CustomFunctionQueryEnvironment<T> extends QueryEnvironment<T> {
     /**
-     * Computes the transitive closure of dependencies at most maxDepth away from the given targets,
-     * and calls the given callback with the results.
+     * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the given
+     * {@code expr} and passing of the results to the given {@code callback}.
+     *
+     * <p>This provides callers the option to decide whether or not to batch futures resulting from
+     * the given {@code expr}.
+     *
+     * @param expr The expression to evaluate
+     * @param callback The caller's callback to notify when results are available
+     * @param batch Whether or not to invoke the callback with a single batch of the result set
      */
-    void deps(Iterable<T> from, int maxDepth, QueryExpression caller, Callback<T> callback)
+    QueryTaskFuture<Void> eval(
+        QueryExpression expr,
+        QueryExpressionContext<T> context,
+        Callback<T> callback,
+        boolean batch);
+
+    /**
+     * Computes the transitive closure of dependencies at most maxDepth away from the given targets
+     * (if set), and calls the given callback with the results.
+     */
+    void deps(Iterable<T> from, OptionalInt maxDepth, QueryExpression caller, Callback<T> callback)
         throws InterruptedException, QueryException;
 
     /** Computes some path from a node in 'from' to a node in 'to'. */
@@ -211,7 +230,7 @@ public interface QueryEnvironment<T> {
     void rdeps(
         Iterable<T> from,
         Iterable<T> universe,
-        int maxDepth,
+        OptionalInt maxDepth,
         QueryExpression caller,
         Callback<T> callback)
         throws InterruptedException, QueryException;
@@ -256,12 +275,19 @@ public interface QueryEnvironment<T> {
    * Construct the dependency graph for a depth-bounded forward transitive closure of all nodes in
    * "targetNodes". The identity of the calling expression is required to produce error messages.
    *
-   * <p>If a larger transitive closure was already built, returns it to improve incrementality,
-   * since all depth-constrained methods filter it after it is built anyway.
+   * <p>The closure may not be loaded, depending on the value of {@code maxDepth} and the
+   * implementation of this {@code QueryEnvironment}.
+   *
+   * <p>Passing {@link OptionalInt#empty} for {@code maxDepth} means that the full closure should be
+   * preloaded.
    */
   void buildTransitiveClosure(
-      QueryExpression caller, ThreadSafeMutableSet<T> targetNodes, int maxDepth)
+      QueryExpression caller, ThreadSafeMutableSet<T> targetNodes, OptionalInt maxDepth)
       throws QueryException, InterruptedException;
+
+  static boolean shouldVisit(OptionalInt maxDepth, int currentDepth) {
+    return !maxDepth.isPresent() || maxDepth.getAsInt() >= currentDepth;
+  }
 
   /** Returns the ordered sequence of nodes on some path from "from" to "to". */
   Iterable<T> getNodesOnPath(T from, T to, QueryExpressionContext<T> context)
@@ -296,18 +322,18 @@ public interface QueryEnvironment<T> {
    * deadlocks by design!
    */
   @ThreadSafe
-  public abstract class QueryTaskFuture<T> {
+  abstract class QueryTaskFuture<T> {
     // We use a public abstract class with a private constructor so that this type is visible to all
     // the query codebase, but yet the only possible implementation is under our control in this
     // file.
     private QueryTaskFuture() {}
 
     /**
-     * If this {@link QueryTasksFuture}'s encapsulated computation is currently complete and
+     * If this {@link QueryTaskFuture}'s encapsulated computation is currently complete and
      * successful, returns the result. This method is intended to be used in combination with {@link
      * #whenSucceedsCall}.
      *
-     * <p>See the javadoc for the various helper methods that produce {@link QueryTasksFuture} for
+     * <p>See the javadoc for the various helper methods that produce {@link QueryTaskFuture} for
      * the precise definition of "successful".
      */
     public abstract T getIfSuccessful();

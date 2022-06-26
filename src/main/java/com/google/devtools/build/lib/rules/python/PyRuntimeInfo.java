@@ -54,17 +54,20 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   private final Location location;
   @Nullable private final PathFragment interpreterPath;
   @Nullable private final Artifact interpreter;
-  // Validated on initalization to contain Artifact
+  // Validated on initialization to contain Artifact
   @Nullable private final Depset files;
   /** Invariant: either PY2 or PY3. */
   private final PythonVersion pythonVersion;
+
+  private final String stubShebang;
 
   private PyRuntimeInfo(
       @Nullable Location location,
       @Nullable PathFragment interpreterPath,
       @Nullable Artifact interpreter,
       @Nullable Depset files,
-      PythonVersion pythonVersion) {
+      PythonVersion pythonVersion,
+      @Nullable String stubShebang) {
     Preconditions.checkArgument((interpreterPath == null) != (interpreter == null));
     Preconditions.checkArgument((interpreter == null) == (files == null));
     Preconditions.checkArgument(pythonVersion.isTargetValue());
@@ -73,6 +76,11 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
     this.interpreterPath = interpreterPath;
     this.interpreter = interpreter;
     this.pythonVersion = pythonVersion;
+    if (stubShebang != null && !stubShebang.isEmpty()) {
+      this.stubShebang = stubShebang;
+    } else {
+      this.stubShebang = PyRuntimeInfoApi.DEFAULT_STUB_SHEBANG;
+    }
   }
 
   @Override
@@ -87,20 +95,29 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
 
   /** Constructs an instance from native rule logic (built-in location) for an in-build runtime. */
   public static PyRuntimeInfo createForInBuildRuntime(
-      Artifact interpreter, NestedSet<Artifact> files, PythonVersion pythonVersion) {
+      Artifact interpreter,
+      NestedSet<Artifact> files,
+      PythonVersion pythonVersion,
+      @Nullable String stubShebang) {
     return new PyRuntimeInfo(
         /*location=*/ null,
         /*interpreterPath=*/ null,
         interpreter,
         Depset.of(Artifact.TYPE, files),
-        pythonVersion);
+        pythonVersion,
+        stubShebang);
   }
 
   /** Constructs an instance from native rule logic (built-in location) for a platform runtime. */
   public static PyRuntimeInfo createForPlatformRuntime(
-      PathFragment interpreterPath, PythonVersion pythonVersion) {
+      PathFragment interpreterPath, PythonVersion pythonVersion, @Nullable String stubShebang) {
     return new PyRuntimeInfo(
-        /*location=*/ null, interpreterPath, /*interpreter=*/ null, /*files=*/ null, pythonVersion);
+        /*location=*/ null,
+        interpreterPath,
+        /*interpreter=*/ null,
+        /*files=*/ null,
+        pythonVersion,
+        stubShebang);
   }
 
   @Override
@@ -113,12 +130,13 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
     PyRuntimeInfo otherInfo = (PyRuntimeInfo) other;
     return (this.interpreterPath.equals(otherInfo.interpreterPath)
         && this.interpreter.equals(otherInfo.interpreter)
-        && this.files.equals(otherInfo.files));
+        && this.files.equals(otherInfo.files)
+        && this.stubShebang.equals(otherInfo.stubShebang));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(PyRuntimeInfo.class, interpreterPath, interpreter, files);
+    return Objects.hash(PyRuntimeInfo.class, interpreterPath, interpreter, files, stubShebang);
   }
 
   /**
@@ -151,6 +169,11 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   @Nullable
   public Artifact getInterpreter() {
     return interpreter;
+  }
+
+  @Override
+  public String getStubShebang() {
+    return stubShebang;
   }
 
   @Nullable
@@ -191,6 +214,7 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
+        String stubShebang,
         StarlarkThread thread)
         throws EvalException {
       String interpreterPath =
@@ -225,14 +249,20 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
           filesDepset = Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
         return new PyRuntimeInfo(
-            loc, /*interpreterPath=*/ null, interpreter, filesDepset, parsedPythonVersion);
+            loc,
+            /*interpreterPath=*/ null,
+            interpreter,
+            filesDepset,
+            parsedPythonVersion,
+            stubShebang);
       } else {
         return new PyRuntimeInfo(
             loc,
             PathFragment.create(interpreterPath),
             /*interpreter=*/ null,
             /*files=*/ null,
-            parsedPythonVersion);
+            parsedPythonVersion,
+            stubShebang);
       }
     }
   }

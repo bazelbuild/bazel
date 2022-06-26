@@ -13,14 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.collect.Maps;
+import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
 public interface InMemoryGraph extends ProcessableGraph {
+
+  /** Creates a new in-memory graph suitable for incremental builds. */
+  static InMemoryGraph create() {
+    return new InMemoryGraphImpl();
+  }
+
+  /**
+   * Creates a new in-memory graph that discards graph edges to save memory and cannot be used for
+   * incremental builds.
+   */
+  static InMemoryGraph createEdgeless() {
+    return new EdgelessInMemoryGraphImpl();
+  }
+
   @Override
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 
   @Nullable
   @Override
@@ -36,14 +55,27 @@ public interface InMemoryGraph extends ProcessableGraph {
    */
   Map<SkyKey, SkyValue> getValues();
 
+  default int valuesSize() {
+    return getValues().size();
+  }
+
   /**
    * Returns a read-only live view of the done values in the graph. Dirty, changed, and error values
    * are not present in the returned map
    */
-  Map<SkyKey, SkyValue> getDoneValues();
+  default Map<SkyKey, SkyValue> getDoneValues() {
+    return transformDoneEntries(getAllValuesMutable());
+  }
 
   // Only for use by MemoizingEvaluator#delete
-  Map<SkyKey, ? extends NodeEntry> getAllValues();
+  Map<SkyKey, InMemoryNodeEntry> getAllValues();
 
-  Map<SkyKey, ? extends NodeEntry> getAllValuesMutable();
+  ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable();
+
+  static Map<SkyKey, SkyValue> transformDoneEntries(Map<SkyKey, InMemoryNodeEntry> nodeMap) {
+    return Collections.unmodifiableMap(
+        Maps.filterValues(
+            Maps.transformValues(nodeMap, entry -> entry.isDone() ? entry.getValue() : null),
+            Objects::nonNull));
+  }
 }

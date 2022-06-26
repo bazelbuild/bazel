@@ -22,9 +22,11 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -36,10 +38,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 
 /**
- * Tests for {@link InMemoryFileSystem}. Note that most tests are inherited from {@link
- * SymlinkAwareFileSystemTest} and ancestors. This specific file focuses only on concurrency tests.
+ * Tests for {@link InMemoryFileSystem}.
+ *
+ * <p>Note that most tests are inherited from {@link SymlinkAwareFileSystemTest} and ancestors.
  */
-public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
+public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   public FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
@@ -47,9 +50,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   @Override
-  public void destroyFileSystem(FileSystem fileSystem) {
-    // Nothing.
-  }
+  public void destroyFileSystem(FileSystem fileSystem) {}
 
   private static final int NUM_THREADS_FOR_CONCURRENCY_TESTS = 10;
   private static final String TEST_FILE_DATA = "data";
@@ -64,13 +65,13 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   /**
-   * Tests concurrent creation of a substantial tree hierarchy including
-   * files, directories, symlinks, file contents, and permissions.
+   * Tests concurrent creation of a substantial tree hierarchy including files, directories,
+   * symlinks, file contents, and permissions.
    */
   @Test
   public void testConcurrentTreeConstruction() throws Exception {
-    final int NUM_TO_WRITE = 10000;
-    final AtomicInteger baseSelector = new AtomicInteger();
+    int n = 10000;
+    AtomicInteger baseSelector = new AtomicInteger();
 
     // 1) Define the intended path structure.
     TestRunnable pathCreator =
@@ -78,7 +79,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
           Path base = testFS.getPath("/base" + baseSelector.getAndIncrement());
           base.createDirectory();
 
-          for (int i = 0; i < NUM_TO_WRITE; i++) {
+          for (int i = 0; i < n; i++) {
             Path subdir1 = base.getRelative("subdir1_" + i);
             subdir1.createDirectory();
             Path subdir2 = base.getRelative("subdir2_" + i);
@@ -127,7 +128,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
           assertThat(base.exists()).isTrue();
           assertThat(base.getRelative("notreal").exists()).isFalse();
 
-          for (int i = 0; i < NUM_TO_WRITE; i++) {
+          for (int i = 0; i < n; i++) {
             Path subdir1 = base.getRelative("subdir1_" + i);
             assertThat(subdir1.exists()).isTrue();
             assertThat(subdir1.isDirectory()).isTrue();
@@ -183,17 +184,17 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
    */
   @Test
   public void testConcurrentDirectoryConstruction() throws Exception {
-   final int NUM_TO_WRITE = 10000;
-    final AtomicInteger baseSelector = new AtomicInteger();
+    int n = 10000;
+    AtomicInteger baseSelector = new AtomicInteger();
 
     // 1) Define the intended path structure.
     TestRunnable pathCreator =
         () -> {
-          final int threadId = baseSelector.getAndIncrement();
+          int threadId = baseSelector.getAndIncrement();
           Path base = testFS.getPath("/common_dir");
           base.createDirectory();
 
-          for (int i = 0; i < NUM_TO_WRITE; i++) {
+          for (int i = 0; i < n; i++) {
             Path file = base.getRelative("somefile_" + threadId + "_" + i);
             writeToFile(file, TEST_FILE_DATA);
             file.setReadable(i % 2 == 0);
@@ -220,11 +221,11 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     // 3) Define the validation logic.
     TestRunnable pathValidator =
         () -> {
-          final int threadId = baseSelector.getAndIncrement();
+          int threadId = baseSelector.getAndIncrement();
           Path base = testFS.getPath("/common_dir");
           assertThat(base.exists()).isTrue();
 
-          for (int i = 0; i < NUM_TO_WRITE; i++) {
+          for (int i = 0; i < n; i++) {
             Path file = base.getRelative("somefile_" + threadId + "_" + i);
             assertThat(file.exists()).isTrue();
             assertThat(file.isFile()).isTrue();
@@ -266,21 +267,21 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
    */
   @Test
   public void testConcurrentDeletion() throws Exception {
-    final int NUM_TO_WRITE = 10000;
-    final AtomicInteger baseSelector = new AtomicInteger();
+    int n = 10000;
+    AtomicInteger baseSelector = new AtomicInteger();
 
-    final Path base = testFS.getPath("/base");
+    Path base = testFS.getPath("/base");
     base.createDirectory();
 
     // 1) Create a bunch of files.
-    for (int i = 0; i < NUM_TO_WRITE; i++) {
+    for (int i = 0; i < n; i++) {
       writeToFile(base.getRelative("file" + i), TEST_FILE_DATA);
     }
 
     // 2) Define our deletion strategy.
     TestRunnable fileDeleter =
         () -> {
-          for (int i = 0; i < NUM_TO_WRITE / NUM_THREADS_FOR_CONCURRENCY_TESTS; i++) {
+          for (int i = 0; i < n / NUM_THREADS_FOR_CONCURRENCY_TESTS; i++) {
             int whichFile = baseSelector.getAndIncrement();
             Path file = base.getRelative("file" + whichFile);
             if (whichFile % 25 != 0) {
@@ -306,7 +307,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     }
 
     // 4) Check the results.
-    for (int i = 0; i < NUM_TO_WRITE; i++) {
+    for (int i = 0; i < n; i++) {
       Path file = base.getRelative("file" + i);
       if (i % 25 != 0) {
         assertThat(file.exists()).isFalse();
@@ -322,21 +323,21 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
    */
   @Test
   public void testConcurrentRenaming() throws Exception {
-    final int NUM_TO_WRITE = 10000;
-    final AtomicInteger baseSelector = new AtomicInteger();
+    int n = 10000;
+    AtomicInteger baseSelector = new AtomicInteger();
 
-    final Path base = testFS.getPath("/base");
+    Path base = testFS.getPath("/base");
     base.createDirectory();
 
     // 1) Create a bunch of files.
-    for (int i = 0; i < NUM_TO_WRITE; i++) {
+    for (int i = 0; i < n; i++) {
       writeToFile(base.getRelative("file" + i), TEST_FILE_DATA);
     }
 
     // 2) Define our renaming strategy.
     TestRunnable fileDeleter =
         () -> {
-          for (int i = 0; i < NUM_TO_WRITE / NUM_THREADS_FOR_CONCURRENCY_TESTS; i++) {
+          for (int i = 0; i < n / NUM_THREADS_FOR_CONCURRENCY_TESTS; i++) {
             int whichFile = baseSelector.getAndIncrement();
             Path file = base.getRelative("file" + whichFile);
             if (whichFile % 25 != 0) {
@@ -363,7 +364,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     }
 
     // 4) Check the results.
-    for (int i = 0; i < NUM_TO_WRITE; i++) {
+    for (int i = 0; i < n; i++) {
       Path file = base.getRelative("file" + i);
       if (i % 25 != 0) {
         assertThat(file.exists()).isFalse();
@@ -385,7 +386,7 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     Path b = testFS.getPath(bName);
     a.createSymbolicLink(PathFragment.create(bName));
     b.createSymbolicLink(PathFragment.create(aName));
-    IOException e = assertThrows(IOException.class, () -> a.stat());
+    IOException e = assertThrows(IOException.class, a::stat);
     assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
   }
 
@@ -396,7 +397,33 @@ public class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
     Path a = testFS.getPath(aName);
     a.createSymbolicLink(PathFragment.create(aName));
-    IOException e = assertThrows(IOException.class, () -> a.stat());
+    IOException e = assertThrows(IOException.class, a::stat);
     assertThat(e).hasMessageThat().isEqualTo(aName + " (Too many levels of symbolic links)");
   }
+
+  @Test
+  public void getxattr_symlink_returnsNull() throws Exception {
+    Path dir = testFS.getPath("/any/dir");
+    dir.createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(dir.getRelative("file.txt"), "contents");
+    Path symlink = dir.getRelative("link");
+    symlink.createSymbolicLink(PathFragment.create("file.txt"));
+
+    assertThat(symlink.getxattr("some.xattr")).isNull();
+  }
+
+  // createSeekableByteChannel is not supported by InMemoryFileSystem.
+  @Test
+  @Override
+  public void testCreateReadWriteByteChannelWrite(@TestParameter boolean overwrite) {}
+
+  // createSeekableByteChannel is not supported by InMemoryFileSystem.
+  @Test
+  @Override
+  public void testCreateReadWriteByteChannelWriteAfterSeek() {}
+
+  // createSeekableByteChannel is not supported by InMemoryFileSystem.
+  @Test
+  @Override
+  public void testCreateReadWriteByteChannelRead(@TestParameter({"0"}) int seekPosition) {}
 }

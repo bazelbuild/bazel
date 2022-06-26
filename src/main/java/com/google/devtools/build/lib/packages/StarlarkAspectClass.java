@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /** {@link AspectClass} for aspects defined in Starlark. */
-@AutoCodec
 @Immutable
 public final class StarlarkAspectClass implements AspectClass {
   private final Label extensionLabel;
@@ -40,12 +38,12 @@ public final class StarlarkAspectClass implements AspectClass {
   }
 
   @Override
-  public final String getName() {
-    return getExtensionLabel() + "%" + getExportedName();
+  public String getName() {
+    return extensionLabel + "%" + exportedName;
   }
 
   @Override
-  public final boolean equals(Object o) {
+  public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
@@ -61,7 +59,12 @@ public final class StarlarkAspectClass implements AspectClass {
   }
 
   @Override
-  public final int hashCode() {
-    return Objects.hash(getExtensionLabel(), getExportedName());
+  public int hashCode() {
+    return Objects.hash(extensionLabel, exportedName);
+  }
+
+  @Override
+  public String toString() {
+    return getName();
   }
 }

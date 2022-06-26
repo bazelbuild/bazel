@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -91,24 +89,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String tvosSimulatorDevice;
 
   @Option(
-    name = "objc_generate_linkmap",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Specifies whether to generate a linkmap file."
-  )
-  public boolean generateLinkmap;
-
-  @Option(
-      name = "objccopt",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Additional options to pass to Objective C compilation.")
-  public List<String> copts;
-
-  @Option(
     name = "ios_memleaks",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.TESTING,
@@ -138,17 +118,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     help = "Uses these strings as objc fastbuild compiler options."
   )
   public List<String> fastbuildOptions;
-
-  @Option(
-      name = "objc_enable_binary_stripping",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help =
-          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
-              + "strippings will be performed if both this flag and --compilation_mode=opt are "
-              + "specified.")
-  public boolean enableBinaryStripping;
 
   @Option(
     name = "ios_signing_cert_name",
@@ -185,50 +154,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean deviceDebugEntitlements;
 
   @Option(
-      name = "objc_use_dotd_pruning",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If set, .d files emitted by clang will be used to prune the set of inputs passed into "
-              + "objc compiles.")
-  public boolean useDotdPruning;
-
-  @Option(
-    name = "enable_apple_binary_native_protos",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set, apple_binary will generate and link objc protos into the output binary."
-  )
-  public boolean enableAppleBinaryNativeProtos;
-
-  @Option(
-      name = "experimental_objc_include_scanning",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.CHANGES_INPUTS
-      },
-      help = "Whether to perform include scanning for objective C/C++.")
-  public boolean scanIncludes;
-
-  @Option(
-    name = "apple_sdk",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Location of target that will provide the appropriate Apple SDK for the current build "
-            + "configuration."
-  )
-  public Label appleSdk;
-
-  @Option(
       name = "incompatible_avoid_hardcoded_objc_compilation_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -238,15 +163,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.ACTION_COMMAND_LINES,
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Prevents Bazel from adding compiler options to Objective-C compilation actions. Options"
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
+  /** @deprecated delete when we are sure it's not used anywhere. */
+  @Deprecated
   @Option(
       name = "incompatible_disable_native_apple_binary_rule",
       defaultValue = "false",
@@ -254,12 +178,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       effectTags = {
         OptionEffectTag.EAGERNESS_TO_EXIT,
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, direct usage of the native apple_binary rule is disabled. Please use the"
-              + " Starlark rule from https://github.com/bazelbuild/rules_apple instead.")
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
 }

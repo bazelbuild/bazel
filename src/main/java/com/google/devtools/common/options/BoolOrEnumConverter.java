@@ -27,8 +27,8 @@ import com.google.devtools.common.options.Converters.BooleanConverter;
  * line.
  */
 public abstract class BoolOrEnumConverter<T extends Enum<T>> extends EnumConverter<T> {
-  private T falseValue;
-  private T trueValue;
+  private final T falseValue;
+  private final T trueValue;
 
   /**
    * You *must* implement a zero-argument constructor that delegates

@@ -136,6 +136,25 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     return ltoCompilationContext;
   }
 
+  @Override
+  public LtoCompilationContext getLtoCompilationContextForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return ltoCompilationContext;
+  }
+
+  @Override
+  public Sequence<Artifact> getStarlarkDwoFiles(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getDwoFiles());
+  }
+
+  @Override
+  public Sequence<Artifact> getStarlarkPicDwoFiles(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getPicDwoFiles());
+  }
+
   /**
    * Returns an unmodifiable view of the .dwo files set.
    */

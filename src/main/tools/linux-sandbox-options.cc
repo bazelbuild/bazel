@@ -73,6 +73,9 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
           "  -D  if set, debug info will be printed\n"
+          "  -h <sandbox-dir>  if set, chroot to sandbox-dir and only "
+          " mount whats been specified with -M/-m for improved hermeticity. "
+          " The working-dir should be a folder inside the sandbox-dir\n"
           "  @FILE  read newline-separated arguments from FILE\n"
           "  --  command to run inside sandbox, followed by arguments\n");
   exit(EXIT_FAILURE);
@@ -94,7 +97,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   bool source_specified = false;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:HNRUD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:HNRUD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -170,6 +173,26 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
                 "Cannot write stats to more than one destination.");
         }
         break;
+      case 'h':
+        opt.hermetic = true;
+        if (opt.sandbox_root.empty()) {
+          std::string sandbox_root(optarg);
+          // Make sure that the sandbox_root path has no trailing slash.
+          if (sandbox_root.back() == '/') {
+            ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+            opt.sandbox_root.assign(sandbox_root, 0, sandbox_root.length() - 1);
+            if (opt.sandbox_root.back() == '/') {
+              Usage(args->front(),
+                    "Sandbox root path should not have trailing slashes");
+            }
+          } else {
+            opt.sandbox_root.assign(sandbox_root);
+          }
+        } else {
+          Usage(args->front(),
+                "Multiple sandbox roots (-s) specified, expected one.");
+        }
+        break;
       case 'H':
         opt.fake_hostname = true;
         break;
@@ -204,6 +227,13 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
     }
   }
 
+  if (!opt.working_dir.empty() && !opt.sandbox_root.empty() &&
+      opt.working_dir.find(opt.sandbox_root) == std::string::npos) {
+    Usage(args->front(),
+          "working-dir %s (-W) should be a "
+          "subdirectory of sandbox-dir %s (-h)",
+          opt.working_dir.c_str(), opt.sandbox_root.c_str());
+  }
   if (optind < static_cast<int>(args->size())) {
     if (opt.args.empty()) {
       opt.args.assign(args->begin() + optind, args->end());

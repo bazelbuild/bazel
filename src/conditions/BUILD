@@ -67,6 +67,24 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_mips64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:mips64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_riscv64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:riscv64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_x86_64",
     constraint_values = [
         "@platforms//os:linux",
@@ -100,6 +118,10 @@ config_setting(
 
 config_setting(
     name = "darwin_arm64_flag",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
     values = {"cpu": "darwin_arm64"},
 )
 
@@ -146,6 +168,49 @@ config_setting(
 config_setting(
     name = "windows",
     constraint_values = ["@platforms//os:windows"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_arm64_constraint",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+# TODO(https://github.com/bazelbuild/bazel/issues/7260)
+# Remove the flag after toolchain cc resolution is fixed
+config_setting(
+    name = "windows_x64_arm64_flag",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    values = {"cpu": "x64_arm64_windows"},
+)
+
+config_setting(
+    name = "windows_arm64_flag",
+    values = {"cpu": "arm64_windows"},
+)
+
+selects.config_setting_group(
+    name = "windows_arm64",
+    match_any = [
+        ":windows_arm64_constraint",
+        ":windows_arm64_flag",
+        ":windows_x64_arm64_flag",
+    ],
     visibility = ["//visibility:public"],
 )
 

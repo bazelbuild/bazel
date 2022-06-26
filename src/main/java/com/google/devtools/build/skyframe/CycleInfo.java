@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -40,6 +42,7 @@ public class CycleInfo {
   public CycleInfo(Iterable<SkyKey> pathToCycle, Iterable<SkyKey> cycle) {
     this.pathToCycle = ImmutableList.copyOf(pathToCycle);
     this.cycle = ImmutableList.copyOf(cycle);
+    checkArgument(!this.cycle.isEmpty(), "Cycle cannot be empty: %s", this);
   }
 
   // If a cycle is already known, but we are processing a value in the middle of the cycle, we need
@@ -68,6 +71,10 @@ public class CycleInfo {
 
   public ImmutableList<SkyKey> getPathToCycle() {
     return pathToCycle;
+  }
+
+  public SkyKey getTopKey() {
+    return pathToCycle.isEmpty() ? cycle.get(0) : pathToCycle.get(0);
   }
 
   // Given a cycle and a value, if the value is part of the cycle, shift the cycle. Otherwise,

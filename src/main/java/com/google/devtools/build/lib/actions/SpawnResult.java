@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -170,6 +172,14 @@ public interface SpawnResult {
   String getRunnerSubtype();
 
   /**
+   * Returns the start time for the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  Optional<Instant> getStartTime();
+
+  /**
    * Returns the wall time taken by the {@link Spawn}'s execution.
    *
    * @return the measurement, or empty in case of execution errors or when the measurement is not
@@ -217,6 +227,16 @@ public interface SpawnResult {
    */
   Optional<Long> getNumInvoluntaryContextSwitches();
 
+  /**
+   * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
+   * based on the maximum resident set size during command execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  // TODO(b/181317827) implement for windows systems.
+  Optional<Long> getMemoryInKb();
+
   SpawnMetrics getMetrics();
 
   /** Returns whether the spawn result was a cache hit. */
@@ -249,6 +269,23 @@ public interface SpawnResult {
   /** Whether the spawn result was obtained through remote strategy. */
   boolean wasRemote();
 
+  /** A unique identifier for the spawn. */
+  @AutoValue
+  @Immutable
+  public abstract class Digest {
+    public abstract String getHash();
+
+    public abstract Long getSizeBytes();
+
+    public static Digest of(String hash, Long sizeBytes) {
+      return new AutoValue_SpawnResult_Digest(hash, sizeBytes);
+    }
+  }
+
+  default Optional<Digest> getDigest() {
+    return Optional.empty();
+  }
+
   /** Basic implementation of {@link SpawnResult}. */
   @Immutable
   @ThreadSafe
@@ -260,12 +297,14 @@ public interface SpawnResult {
     private final String runnerName;
     private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
+    private final Optional<Instant> startTime;
     private final Optional<Duration> wallTime;
     private final Optional<Duration> userTime;
     private final Optional<Duration> systemTime;
     private final Optional<Long> numBlockOutputOperations;
     private final Optional<Long> numBlockInputOperations;
     private final Optional<Long> numInvoluntaryContextSwitches;
+    private final Optional<Long> memoryKb;
     private final Optional<MetadataLog> actionMetadataLog;
     private final boolean cacheHit;
     private final String failureMessage;
@@ -273,7 +312,9 @@ public interface SpawnResult {
     // Invariant: Either both have a value or both are null.
     @Nullable private final ActionInput inMemoryOutputFile;
     @Nullable private final ByteString inMemoryContents;
+
     private final boolean remote;
+    private final Optional<Digest> digest;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -285,18 +326,21 @@ public interface SpawnResult {
       this.spawnMetrics = builder.spawnMetrics != null
           ? builder.spawnMetrics
           : SpawnMetrics.forLocalExecution(builder.wallTime.orElse(Duration.ZERO));
+      this.startTime = builder.startTime;
       this.wallTime = builder.wallTime;
       this.userTime = builder.userTime;
       this.systemTime = builder.systemTime;
       this.numBlockOutputOperations = builder.numBlockOutputOperations;
       this.numBlockInputOperations = builder.numBlockInputOperations;
       this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
+      this.memoryKb = builder.memoryInKb;
       this.cacheHit = builder.cacheHit;
       this.failureMessage = builder.failureMessage;
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
       this.inMemoryContents = builder.inMemoryContents;
       this.actionMetadataLog = builder.actionMetadataLog;
       this.remote = builder.remote;
+      this.digest = builder.digest;
     }
 
     @Override
@@ -336,6 +380,11 @@ public interface SpawnResult {
     }
 
     @Override
+    public Optional<Instant> getStartTime() {
+      return startTime;
+    }
+
+    @Override
     public Optional<Duration> getWallTime() {
       return wallTime;
     }
@@ -363,6 +412,11 @@ public interface SpawnResult {
     @Override
     public Optional<Long> getNumInvoluntaryContextSwitches() {
       return numInvoluntaryContextSwitches;
+    }
+
+    @Override
+    public Optional<Long> getMemoryInKb() {
+      return memoryKb;
     }
 
     @Override
@@ -423,6 +477,11 @@ public interface SpawnResult {
     public boolean wasRemote() {
       return remote;
     }
+
+    @Override
+    public Optional<Digest> getDigest() {
+      return digest;
+    }
   }
 
   /** Builder class for {@link SpawnResult}. */
@@ -434,12 +493,14 @@ public interface SpawnResult {
     private String runnerName = "";
     private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
+    private Optional<Instant> startTime = Optional.empty();
     private Optional<Duration> wallTime = Optional.empty();
     private Optional<Duration> userTime = Optional.empty();
     private Optional<Duration> systemTime = Optional.empty();
     private Optional<Long> numBlockOutputOperations = Optional.empty();
     private Optional<Long> numBlockInputOperations = Optional.empty();
     private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
+    private Optional<Long> memoryInKb = Optional.empty();
     private Optional<MetadataLog> actionMetadataLog = Optional.empty();
     private boolean cacheHit;
     private String failureMessage = "";
@@ -447,7 +508,9 @@ public interface SpawnResult {
     // Invariant: Either both have a value or both are null.
     @Nullable private ActionInput inMemoryOutputFile;
     @Nullable private ByteString inMemoryContents;
+
     private boolean remote;
+    private Optional<Digest> digest = Optional.empty();
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
@@ -517,6 +580,11 @@ public interface SpawnResult {
       return this;
     }
 
+    public Builder setStartTime(Instant startTime) {
+      this.startTime = Optional.of(startTime);
+      return this;
+    }
+
     public Builder setWallTime(Duration wallTime) {
       this.wallTime = Optional.of(wallTime);
       return this;
@@ -547,6 +615,11 @@ public interface SpawnResult {
       return this;
     }
 
+    public Builder setMemoryInKb(long memoryInKb) {
+      this.memoryInKb = Optional.of(memoryInKb);
+      return this;
+    }
+
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
       return this;
@@ -570,6 +643,11 @@ public interface SpawnResult {
 
     public Builder setRemote(boolean remote) {
       this.remote = remote;
+      return this;
+    }
+
+    public Builder setDigest(Optional<Digest> digest) {
+      this.digest = digest;
       return this;
     }
   }

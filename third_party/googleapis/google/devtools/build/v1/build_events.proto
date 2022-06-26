@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC.
+// Copyright 2020 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,13 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 
 syntax = "proto3";
 
 package google.devtools.build.v1;
 
-import "google/api/annotations.proto";
 import "google/devtools/build/v1/build_status.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/timestamp.proto";
@@ -27,6 +25,7 @@ option go_package = "google.golang.org/genproto/googleapis/devtools/build/v1;bui
 option java_multiple_files = true;
 option java_outer_classname = "BuildEventProto";
 option java_package = "com.google.devtools.build.v1";
+option php_namespace = "Google\\Cloud\\Build\\V1";
 
 // An event representing some state change that occurred in the build. This
 // message does not include field for uniquely identifying an event.
@@ -38,7 +37,7 @@ message BuildEvent {
     // invocation attempt replacing the current one a client is processing.
     int64 attempt_number = 1;
 
-    // Additional details about the invocation.
+    // Arbitrary details about the invocation attempt.
     google.protobuf.Any details = 2;
   }
 
@@ -46,6 +45,9 @@ message BuildEvent {
   message InvocationAttemptFinished {
     // Final status of the invocation.
     BuildStatus invocation_status = 3;
+
+    // Arbitrary details about the invocation attempt.
+    google.protobuf.Any details = 4;
   }
 
   // Notification that the build request is enqueued.
@@ -60,6 +62,9 @@ message BuildEvent {
   message BuildFinished {
     // Final status of the build.
     BuildStatus status = 1;
+
+    // Additional details about the Build.
+    google.protobuf.Any details = 2;
   }
 
   // Textual output written to standard output or standard error.
@@ -112,8 +117,7 @@ message BuildEvent {
     // An invocation attempt has finished.
     InvocationAttemptFinished invocation_attempt_finished = 52;
 
-    // The build is enqueued (just inserted to the build queue or put back
-    // into the build queue due to a previous build failure).
+    // The build is enqueued.
     BuildEnqueued build_enqueued = 53;
 
     // The build has finished. Set when the build is terminated.

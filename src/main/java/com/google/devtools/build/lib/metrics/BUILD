@@ -34,13 +34,19 @@ java_library(
         ":memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_started_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe_graph_stats_event",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )
@@ -49,8 +55,10 @@ java_library(
     name = "memory-use-recorder",
     srcs = ["PostGCMemoryUseRecorder.java"],
     deps = [
+        ":garage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/common/options",
@@ -59,4 +67,9 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "garage-collection-metrics-util",
+    srcs = ["GarbageCollectionMetricsUtils.java"],
 )

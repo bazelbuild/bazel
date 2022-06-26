@@ -17,9 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -27,12 +25,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests correctness of the build summary output produced by
- * BuildTool.showBuildResult() method.
- */
-@TestSpec(size = Suite.MEDIUM_TESTS)
-public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase {
+/** Tests correctness of the build summary output produced by BuildTool.showBuildResult() method. */
+public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   private RecordingOutErr recOutErr = new RecordingOutErr();
 
   private static final String GENRULE_ERROR = "Exit 42";

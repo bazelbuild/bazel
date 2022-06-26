@@ -263,7 +263,9 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
         .addFlagPoliciesBuilder()
         .setFlagName("test_string_null_by_default")
         .setAllowValues(
-            AllowValues.newBuilder().addAllowedValues("a").setUseDefault(UseDefault.newBuilder()));
+            AllowValues.newBuilder()
+                .addAllowedValues("a")
+                .setUseDefault(UseDefault.getDefaultInstance()));
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     // Check the value before invocation policy enforcement.
     parser.parse("--test_string_null_by_default=a");
@@ -284,7 +286,9 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
         .addFlagPoliciesBuilder()
         .setFlagName("test_string_null_by_default")
         .setAllowValues(
-            AllowValues.newBuilder().addAllowedValues("a").setUseDefault(UseDefault.newBuilder()));
+            AllowValues.newBuilder()
+                .addAllowedValues("a")
+                .setUseDefault(UseDefault.getDefaultInstance()));
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     // Check the value before invocation policy enforcement.
     parser.parse("--test_string_null_by_default=b");
@@ -304,7 +308,9 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
         .addFlagPoliciesBuilder()
         .setFlagName("test_string_null_by_default")
         .setAllowValues(
-            AllowValues.newBuilder().addAllowedValues("a").setUseDefault(UseDefault.newBuilder()));
+            AllowValues.newBuilder()
+                .addAllowedValues("a")
+                .setUseDefault(UseDefault.getDefaultInstance()));
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     // Check the value before invocation policy enforcement.
     parser.parse();

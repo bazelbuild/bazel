@@ -13,18 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.LinkedHashSet;
-import java.util.Optional;
 import java.util.Set;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
@@ -44,110 +42,35 @@ final class WorkerExecRoot {
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
-    populateInputsAndDirsToCreate(inputs, workerFiles, outputs, inputsToCreate, dirsToCreate);
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        ImmutableSet.of(),
+        inputsToCreate,
+        dirsToCreate,
+        Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        outputs.files(),
+        outputs.dirs());
 
-    // Then do a full traversal of the `workDir`. This will use what we computed above, delete
-    // anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is can be left
-    // without changes (e.g., a symlink that already points to the right destination).
-    cleanExisting(workDir, inputs, inputsToCreate, dirsToCreate);
+    // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
+    // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
+    // can be left without changes (e.g., a symlink that already points to the right destination).
+    // We're traversing from workDir's parent directory because external repositories can now be
+    // symlinked as siblings of workDir when --experimental_sibling_repository_layout is in effect.
+    SandboxHelpers.cleanExisting(
+        workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate, workDir);
 
-    // Finally, create anything that is still missing.
-    createDirectories(dirsToCreate);
-    createInputs(inputsToCreate, inputs);
+    // Finally, create anything that is still missing. This is non-strict only for historical
+    // reasons,
+    // we haven't seen what would break if we make it strict.
+    SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
+    createInputs(inputsToCreate, inputs, workDir);
 
     inputs.materializeVirtualInputs(workDir);
   }
 
-  /** Populates the provided sets with the inputs and directories than need to be created. */
-  private void populateInputsAndDirsToCreate(
-      SandboxInputs inputs,
-      Set<PathFragment> workerFiles,
-      SandboxOutputs outputs,
-      Set<PathFragment> inputsToCreate,
-      LinkedHashSet<PathFragment> dirsToCreate) {
-    // Add all worker files and the ancestor directories.
-    for (PathFragment path : workerFiles) {
-      inputsToCreate.add(path);
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(path.subFragment(0, i));
-      }
-    }
-
-    // Add all inputs files and the ancestor directories.
-    Iterable<PathFragment> allInputs =
-        Iterables.concat(inputs.getFiles().keySet(), inputs.getSymlinks().keySet());
-    for (PathFragment path : allInputs) {
-      inputsToCreate.add(path);
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(path.subFragment(0, i));
-      }
-    }
-
-    // And all ancestor directories of outputs. Note that we don't add the files themselves -- any
-    // pre-existing files that have the same path as an output should get deleted.
-    for (PathFragment path : Iterables.concat(outputs.files(), outputs.dirs())) {
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(path.subFragment(0, i));
-      }
-    }
-
-    // Add all ouput directories, must be created after their parents above
-    dirsToCreate.addAll(outputs.dirs());
-  }
-
-  /**
-   * Deletes unnecessary files/directories and updates the sets if something on disk is already
-   * correct and doesn't need any changes.
-   */
-  private void cleanExisting(
-      Path root,
-      SandboxInputs inputs,
-      Set<PathFragment> inputsToCreate,
-      Set<PathFragment> dirsToCreate)
-      throws IOException {
-    for (Path path : root.getDirectoryEntries()) {
-      FileStatus stat = path.stat(Symlinks.NOFOLLOW);
-      PathFragment pathRelativeToWorkDir = path.relativeTo(workDir);
-      Optional<PathFragment> destination =
-          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
-      if (destination.isPresent()) {
-        if (stat.isSymbolicLink() && path.readSymbolicLink().equals(destination.get())) {
-          inputsToCreate.remove(pathRelativeToWorkDir);
-        } else {
-          path.delete();
-        }
-      } else if (stat.isDirectory()) {
-        if (dirsToCreate.contains(pathRelativeToWorkDir)) {
-          cleanExisting(path, inputs, inputsToCreate, dirsToCreate);
-          dirsToCreate.remove(pathRelativeToWorkDir);
-        } else {
-          path.deleteTree();
-        }
-      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
-        path.delete();
-      }
-    }
-  }
-
-  private Optional<PathFragment> getExpectedSymlinkDestination(
-      PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment);
-    if (file != null) {
-      return Optional.of(file.asFragment());
-    }
-    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
-  }
-
-  private void createDirectories(Iterable<PathFragment> dirsToCreate) throws IOException {
-    for (PathFragment fragment : dirsToCreate) {
-      workDir.getRelative(fragment).createDirectory();
-    }
-  }
-
-  private void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs)
+  static void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs, Path dir)
       throws IOException {
     for (PathFragment fragment : inputsToCreate) {
-      Path key = workDir.getRelative(fragment);
+      Path key = dir.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {

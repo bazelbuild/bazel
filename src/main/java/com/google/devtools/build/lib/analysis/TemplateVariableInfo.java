@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.TemplateVariableInfoApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
@@ -28,9 +28,9 @@ import net.starlark.java.syntax.Location;
 
 /** Provides access to make variables from the current fragments. */
 @Immutable
-@AutoCodec
 public final class TemplateVariableInfo extends NativeInfo implements TemplateVariableInfoApi {
   /** Provider singleton constant. */
+  @SerializationConstant
   public static final BuiltinProvider<TemplateVariableInfo> PROVIDER = new Provider();
 
   /** Provider for {@link TemplateVariableInfo} objects. */
@@ -50,7 +50,6 @@ public final class TemplateVariableInfo extends NativeInfo implements TemplateVa
 
   private final ImmutableMap<String, String> variables;
 
-  @AutoCodec.Instantiator
   public TemplateVariableInfo(ImmutableMap<String, String> variables, Location creationLocation) {
     super(creationLocation);
     this.variables = variables;

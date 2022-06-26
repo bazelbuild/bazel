@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +37,11 @@ public class WorkerFactoryTest {
 
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
+  @After
+  public void tearDown() {
+    WorkerMultiplexerManager.resetForTesting();
+  }
+
   /**
    * Regression test for b/64689608: The execroot of the sandboxed worker process must end with the
    * workspace name, just like the normal execroot does.
@@ -41,41 +49,30 @@ public class WorkerFactoryTest {
   @Test
   public void sandboxedWorkerPathEndsWithWorkspaceName() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
-    WorkerKey workerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
+    WorkerKey workerKey = createWorkerKey(/* mustBeSandboxed= */ true, /* multiplex= */ false);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
     assertThat(sandboxedWorkerPath.getBaseName()).isEqualTo("workspace");
-  }
-
-  protected WorkerKey createWorkerKey(boolean mustBeSandboxed, boolean proxied, String... args) {
-    return new WorkerKey(
-        /* args= */ ImmutableList.copyOf(args),
-        /* env= */ ImmutableMap.of(),
-        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
-        /* mnemonic= */ "dummy",
-        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
-        /* mustBeSandboxed= */ mustBeSandboxed,
-        /* proxied= */ proxied,
-        WorkerProtocolFormat.PROTO);
   }
 
   /** WorkerFactory should create correct worker type based on WorkerKey. */
   @Test
   public void workerCreationTypeCheck() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
-    WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
+    WorkerKey sandboxedWorkerKey =
+        createWorkerKey(/* mustBeSandboxed= */ true, /* multiplex= */ false);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
     assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
 
     WorkerKey nonProxiedWorkerKey =
-        createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ false);
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ false);
     Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
     assertThat(nonProxiedWorker.getClass()).isEqualTo(SingleplexWorker.class);
 
-    WorkerKey proxiedWorkerKey = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true);
+    WorkerKey proxiedWorkerKey =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true);
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
     // If proxied = true, WorkerProxy is created along with a WorkerMultiplexer.
     // Destroy WorkerMultiplexer to avoid unexpected behavior in WorkerMultiplexerManagerTest.
@@ -87,14 +84,46 @@ public class WorkerFactoryTest {
   @Test
   public void testMultiplexWorkersShareLogfiles() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
 
-    WorkerKey workerKey1 = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true, "arg1");
+    WorkerKey workerKey1 =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true, "arg1");
     Worker proxiedWorker1a = workerFactory.create(workerKey1);
     Worker proxiedWorker1b = workerFactory.create(workerKey1);
-    WorkerKey workerKey2 = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true, "arg2");
+    WorkerKey workerKey2 =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true, "arg2");
     Worker proxiedWorker2 = workerFactory.create(workerKey2);
     assertThat(proxiedWorker1a.getLogFile()).isEqualTo(proxiedWorker1b.getLogFile());
     assertThat(proxiedWorker1a.getLogFile()).isNotEqualTo(proxiedWorker2.getLogFile());
+  }
+
+  /** WorkerFactory should create the base dir if needed and fail if that's impossible. */
+  @Test
+  public void testCreate_createsWorkerDirectory() throws Exception {
+    Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
+    WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
+    assertThat(workerBaseDir.isDirectory()).isFalse();
+    workerFactory.create(sandboxedWorkerKey);
+    assertThat(workerBaseDir.isDirectory()).isTrue();
+
+    workerBaseDir.delete();
+    workerBaseDir.createSymbolicLink(workerBaseDir.getRelative("whatevs"));
+    assertThat(workerBaseDir.isDirectory()).isFalse();
+    assertThrows(IOException.class, () -> workerFactory.create(sandboxedWorkerKey));
+  }
+
+  protected WorkerKey createWorkerKey(boolean mustBeSandboxed, boolean multiplex, String... args) {
+    return new WorkerKey(
+        /* args= */ ImmutableList.copyOf(args),
+        /* env= */ ImmutableMap.of(),
+        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* mnemonic= */ "dummy",
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+        /* sandboxed= */ mustBeSandboxed,
+        /* multiplex= */ multiplex,
+        /* cancellable= */ false,
+        WorkerProtocolFormat.PROTO);
   }
 }

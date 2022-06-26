@@ -220,7 +220,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
     } else if (value instanceof List) {
       sb.append("[");
       String join = "";
-      for (Object item : ((List) value)) {
+      for (Object item : ((List<?>) value)) {
         sb.append(join);
         join = ",";
         printJson(item, sb, "list element in struct field", key);

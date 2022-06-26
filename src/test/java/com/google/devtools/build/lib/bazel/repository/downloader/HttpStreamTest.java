@@ -18,6 +18,7 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -59,14 +60,19 @@ public class HttpStreamTest {
 
   private static final Random randoCalrissian = new Random();
   private static final byte[] data = "hello".getBytes(UTF_8);
+
+  private static Optional<Checksum> makeChecksum(String string) {
+    try {
+      return Optional.of(Checksum.fromString(KeyType.SHA256, string));
+    } catch (Checksum.InvalidChecksumException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   private static final Optional<Checksum> GOOD_CHECKSUM =
-      Optional.of(
-          Checksum.fromString(
-              KeyType.SHA256, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+      makeChecksum("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
   private static final Optional<Checksum> BAD_CHECKSUM =
-      Optional.of(
-          Checksum.fromString(
-              KeyType.SHA256, "0000000000000000000000000000000000000000000000000000000000000000"));
+      makeChecksum("0000000000000000000000000000000000000000000000000000000000000000");
   private static final URL AURL = makeUrl("http://doodle.example");
 
   @Rule
@@ -180,9 +186,7 @@ public class HttpStreamTest {
         streamFactory.create(
             connection,
             AURL,
-            Optional.of(
-                Checksum.fromString(
-                    KeyType.SHA256, Hashing.sha256().hashBytes(bigData).toString())),
+            makeChecksum(Hashing.sha256().hashBytes(bigData).toString()),
             reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(bigData);
     }
@@ -200,6 +204,58 @@ public class HttpStreamTest {
       ByteStreams.exhaust(stream);
       fail("Should have thrown error before close()");
     }
+  }
+
+  @Test
+  public void bigDataTruncated_throwsExpectedError() throws Exception {
+    byte[] bigData = new byte[HttpStream.PRECHECK_BYTES + 70001];
+    randoCalrissian.nextBytes(bigData);
+    when(connection.getHeaderField("Content-Length"))
+        .thenReturn(String.valueOf(bigData.length + 1));
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
+
+    ContentLengthMismatchException thrown =
+        assertThrows(
+            ContentLengthMismatchException.class,
+            () -> {
+              try (HttpStream stream =
+                  streamFactory.create(
+                      connection,
+                      AURL,
+                      makeChecksum(Hashing.sha256().hashBytes(bigData).toString()),
+                      reconnector)) {
+                ByteStreams.exhaust(stream);
+              }
+            });
+
+    assertThat(thrown.getActualSize()).isEqualTo(bigData.length);
+    assertThat(thrown.getExpectedSize()).isEqualTo(bigData.length + 1);
+  }
+
+  @Test
+  public void bigDataOverflowed_throwsExpectedError() throws Exception {
+    byte[] bigData = new byte[HttpStream.PRECHECK_BYTES + 70001];
+    randoCalrissian.nextBytes(bigData);
+    when(connection.getHeaderField("Content-Length"))
+        .thenReturn(String.valueOf(bigData.length - 1));
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
+
+    ContentLengthMismatchException thrown =
+        assertThrows(
+            ContentLengthMismatchException.class,
+            () -> {
+              try (HttpStream stream =
+                  streamFactory.create(
+                      connection,
+                      AURL,
+                      makeChecksum(Hashing.sha256().hashBytes(bigData).toString()),
+                      reconnector)) {
+                ByteStreams.exhaust(stream);
+              }
+            });
+
+    assertThat(thrown.getActualSize()).isEqualTo(bigData.length);
+    assertThat(thrown.getExpectedSize()).isEqualTo(bigData.length - 1);
   }
 
   @Test

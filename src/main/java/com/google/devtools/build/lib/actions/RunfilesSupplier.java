@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.Map;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -41,7 +40,6 @@ public interface RunfilesSupplier extends StarlarkValue {
    * Returns mappings from runfiles directories to artifact mappings in that directory.
    *
    * @return runfiles' mappings
-   * @throws IOException
    */
   ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings();
 

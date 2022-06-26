@@ -35,9 +35,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,19 +47,20 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
- * A provider that provides all compiling and linking information in the transitive closure of its
- * deps that are needed for building Objective-C rules.
- *
- * <p>Most of the compilation information is stored in an embedded {@code CcCompilationContext}. The
- * objc proto strict dependency include paths are stored in a special, non-propagated field {@code
- * strictDependencyIncludes}.
+ * A provider that provides all linking and miscellaneous information in the transitive closure of
+ * its deps that are needed for building Objective-C rules. Most of the compilation information has
+ * been migrated to {@code CcInfo}. The objc proto strict dependency include paths are still here
+ * and stored in a special, non-propagated field {@code strictDependencyIncludes}.
  *
  * <p>The rest of the information is stored in two generic maps indexed by {@code ObjcProvider.Key}:
  *
@@ -118,40 +120,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "imported_library", Artifact.class);
 
   /**
-   * J2ObjC JRE emulation libraries and their dependencies. Separate from LIBRARY because these
-   * dependencies are specified further up the tree from where the dependency actually exists and
-   * they must be forced to the end of the link order.
-   */
-  public static final Key<Artifact> JRE_LIBRARY =
-      new Key<>(LINK_ORDER, "jre_library", Artifact.class);
-
-  /**
-   * Single-architecture linked binaries to be combined for the final multi-architecture binary.
-   */
-  public static final Key<Artifact> LINKED_BINARY =
-      new Key<>(STABLE_ORDER, "linked_binary", Artifact.class);
-
-  /** Combined-architecture binaries to include in the final bundle. */
-  public static final Key<Artifact> MULTI_ARCH_LINKED_BINARIES =
-      new Key<>(STABLE_ORDER, "combined_arch_linked_binary", Artifact.class);
-  /** Combined-architecture dynamic libraries to include in the final bundle. */
-  public static final Key<Artifact> MULTI_ARCH_DYNAMIC_LIBRARIES =
-      new Key<>(STABLE_ORDER, "combined_arch_dynamic_library", Artifact.class);
-  /** Combined-architecture archives to include in the final bundle. */
-  public static final Key<Artifact> MULTI_ARCH_LINKED_ARCHIVES =
-      new Key<>(STABLE_ORDER, "combined_arch_linked_archive", Artifact.class);
-
-  /**
    * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
    * the {@link #LIBRARY} and {@link #IMPORTED_LIBRARY} sets.
    */
   public static final Key<Artifact> FORCE_LOAD_LIBRARY =
       new Key<>(LINK_ORDER, "force_load_library", Artifact.class);
-
-  /**
-   * Contains all header files. These may be either public or private headers.
-   */
-  public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER, "header", Artifact.class);
 
   /**
    * Contains all source files.
@@ -166,10 +139,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       new Key<>(LINK_ORDER, "strict_include", PathFragment.class);
 
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
-  public static final Key<SdkFramework> SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "sdk_framework", SdkFramework.class);
-  public static final Key<SdkFramework> WEAK_SDK_FRAMEWORK =
-      new Key<>(STABLE_ORDER, "weak_sdk_framework", SdkFramework.class);
+  public static final Key<String> SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "sdk_framework", String.class);
+  public static final Key<String> WEAK_SDK_FRAMEWORK =
+      new Key<>(STABLE_ORDER, "weak_sdk_framework", String.class);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
@@ -185,15 +158,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   public static final Key<Artifact> MODULE_MAP =
       new Key<>(STABLE_ORDER, "module_map", Artifact.class);
 
-  /**
-   * Information about this provider's module map, in the form of a {@link CppModuleMap}. This
-   * is intransitive, and can be used to get just the target's module map to pass to clang or to
-   * get the module maps for direct but not transitive dependencies. You should only add module maps
-   * for this key using {@link Builder#addWithoutPropagating}.
-   */
-  public static final Key<CppModuleMap> TOP_LEVEL_MODULE_MAP =
-      new Key<>(STABLE_ORDER, "top_level_module_map", CppModuleMap.class);
-
   /** The static library files of user-specified static frameworks. */
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
@@ -201,18 +165,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   /** The dynamic library files of user-specified dynamic frameworks. */
   public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
-
-  /**
-   * Debug artifacts that should be exported by the top-level target.
-   */
-  public static final Key<Artifact> EXPORTED_DEBUG_ARTIFACTS =
-      new Key<>(STABLE_ORDER, "exported_debug_artifacts", Artifact.class);
-
-  /**
-   * Single-architecture link map for a binary.
-   */
-  public static final Key<Artifact> LINKMAP_FILE =
-      new Key<>(STABLE_ORDER, "linkmap_file", Artifact.class);
 
   /** Linking information from cc dependencies. */
   public static final Key<LibraryToLink> CC_LIBRARY =
@@ -253,21 +205,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * is invoked.
      */
     USES_CPP,
-
-    /** Indicates that Swift dependencies are present. This affects bundling actions. */
-    USES_SWIFT,
-
-    /**
-     * Indicates that a watchOS 1 extension is present in the bundle. (There can only be one
-     * extension for any given watchOS version in a given bundle).
-     */
-    HAS_WATCH1_EXTENSION,
-
-    /**
-     * Indicates that a watchOS 2 extension is present in the bundle. (There can only be one
-     * extension for any given watchOS version in a given bundle).
-     */
-    HAS_WATCH2_EXTENSION,
   }
 
   private final StarlarkSemantics semantics;
@@ -287,27 +224,17 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    */
   private final ImmutableListMultimap<Key<?>, ?> directItems;
 
-  private final CcCompilationContext ccCompilationContext;
-
   /** All keys in ObjcProvider that will be passed in the corresponding Starlark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_STARLARK =
       ImmutableList.<Key<?>>of(
           DYNAMIC_FRAMEWORK_FILE,
-          EXPORTED_DEBUG_ARTIFACTS,
           FORCE_LOAD_LIBRARY,
-          HEADER,
           IMPORTED_LIBRARY,
           J2OBJC_LIBRARY,
-          JRE_LIBRARY,
           LIBRARY,
           LINK_INPUTS,
-          LINKED_BINARY,
-          LINKMAP_FILE,
           LINKOPT,
           MODULE_MAP,
-          MULTI_ARCH_DYNAMIC_LIBRARIES,
-          MULTI_ARCH_LINKED_ARCHIVES,
-          MULTI_ARCH_LINKED_BINARIES,
           SDK_DYLIB,
           SDK_FRAMEWORK,
           SOURCE,
@@ -323,16 +250,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * <p>Keys:
    *
    * <ul>
-   *   <li>HEADER: To expose all header files, including generated proto header files, to IDEs.
    *   <li>SOURCE: To expose all source files, including generated J2Objc source files, to IDEs.
    *   <li>MODULE_MAP: To expose generated module maps to IDEs (only one is expected per target).
    * </ul>
    */
-  static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT =
-      ImmutableSet.<Key<?>>of(HEADER, MODULE_MAP, SOURCE);
-
-  /** Keys that are only used for direct fields, and nothing else. */
-  static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT_ONLY = ImmutableSet.<Key<?>>of(HEADER);
+  static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT = ImmutableSet.<Key<?>>of(MODULE_MAP, SOURCE);
 
   public ImmutableList<PathFragment> getStrictDependencyIncludes() {
     return strictDependencyIncludes;
@@ -348,39 +270,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   @Override
-  public Depset /*<Artifact>*/ exportedDebugArtifacts() {
-    return Depset.of(Artifact.TYPE, get(EXPORTED_DEBUG_ARTIFACTS));
-  }
-
-  public ImmutableList<PathFragment> frameworkInclude() {
-    return getCcCompilationContext().getFrameworkIncludeDirs();
-  }
-
-  @Override
   public Depset /*<Artifact>*/ forceLoadLibrary() {
     return Depset.of(Artifact.TYPE, get(FORCE_LOAD_LIBRARY));
-  }
-
-  public NestedSet<Artifact> header() {
-    return getCcCompilationContext().getDeclaredIncludeSrcs();
-  }
-
-  @Override
-  public Sequence<Artifact> directHeaders() {
-    return getDirect(HEADER);
   }
 
   @Override
   public Depset /*<Artifact>*/ importedLibrary() {
     return Depset.of(Artifact.TYPE, get(IMPORTED_LIBRARY));
-  }
-
-  public ImmutableList<PathFragment> include() {
-    ImmutableList.Builder<PathFragment> listBuilder = ImmutableList.builder();
-    return listBuilder
-        .addAll(strictDependencyIncludes)
-        .addAll(getCcCompilationContext().getIncludeDirs())
-        .build();
   }
 
   @Override
@@ -394,22 +290,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
                 .collect(ImmutableList.toImmutableList())));
   }
 
-  public ImmutableList<PathFragment> systemInclude() {
-    return getCcCompilationContext().getSystemIncludeDirs();
-  }
-
-  public ImmutableList<PathFragment> quoteInclude() {
-    return getCcCompilationContext().getQuoteIncludeDirs();
-  }
-
   @Override
   public Depset /*<Artifact>*/ j2objcLibrary() {
     return Depset.of(Artifact.TYPE, get(J2OBJC_LIBRARY));
-  }
-
-  @Override
-  public Depset /*<Artifact>*/ jreLibrary() {
-    return Depset.of(Artifact.TYPE, get(JRE_LIBRARY));
   }
 
   @Override
@@ -420,16 +303,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset /*<Artifact>*/ linkInputs() {
     return Depset.of(Artifact.TYPE, get(LINK_INPUTS));
-  }
-
-  @Override
-  public Depset /*<Artifact>*/ linkedBinary() {
-    return Depset.of(Artifact.TYPE, get(LINKED_BINARY));
-  }
-
-  @Override
-  public Depset /*<Artifact>*/ linkmapFile() {
-    return Depset.of(Artifact.TYPE, get(LINKMAP_FILE));
   }
 
   @Override
@@ -448,29 +321,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   @Override
-  public Depset /*<Artifact>*/ multiArchDynamicLibraries() {
-    return Depset.of(Artifact.TYPE, get(MULTI_ARCH_DYNAMIC_LIBRARIES));
-  }
-
-  @Override
-  public Depset /*<Artifact>*/ multiArchLinkedArchives() {
-    return Depset.of(Artifact.TYPE, get(MULTI_ARCH_LINKED_ARCHIVES));
-  }
-
-  @Override
-  public Depset /*<Artifact>*/ multiArchLinkedBinaries() {
-    return Depset.of(Artifact.TYPE, get(MULTI_ARCH_LINKED_BINARIES));
-  }
-
-  @Override
   public Depset /*<String>*/ sdkDylib() {
     return Depset.of(Depset.ElementType.STRING, get(SDK_DYLIB));
   }
 
   @Override
   public Depset sdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
+    return Depset.of(Depset.ElementType.STRING, get(SDK_FRAMEWORK));
   }
 
   @Override
@@ -503,13 +360,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset weakSdkFramework() {
-    return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(
-            WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
-  }
-
-  public CcCompilationContext getCcCompilationContext() {
-    return ccCompilationContext;
+    return Depset.of(Depset.ElementType.STRING, get(WEAK_SDK_FRAMEWORK));
   }
 
   /**
@@ -521,14 +372,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @VisibleForTesting
   static final ImmutableList<Key<?>> KEYS_NOT_IN_STARLARK =
       ImmutableList.<Key<?>>of(
-          // LibraryToLink not exposed to Starlark.
-          CC_LIBRARY,
           // Flag enum is not exposed to Starlark.
           FLAG,
-          // Linkstamp is not exposed to Starlark. See commentary at its definition.
+          // cc_library is handled specially.
+          CC_LIBRARY,
+          // linkstamp is handled specially.
           LINKSTAMP,
-          // CppModuleMap is not exposed to Starlark.
-          TOP_LEVEL_MODULE_MAP,
           // Strict include is handled specially.
           STRICT_INCLUDE);
 
@@ -572,13 +421,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       StarlarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableList<PathFragment> strictDependencyIncludes,
-      ImmutableListMultimap<Key<?>, ?> directItems,
-      CcCompilationContext ccCompilationContext) {
+      ImmutableListMultimap<Key<?>, ?> directItems) {
     this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.strictDependencyIncludes = Preconditions.checkNotNull(strictDependencyIncludes);
     this.directItems = Preconditions.checkNotNull(directItems);
-    this.ccCompilationContext = ccCompilationContext;
   }
 
   @Override
@@ -635,14 +482,21 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   /** Returns the list of .a files required for linking that arise from objc libraries. */
+  @StarlarkMethod(name = "flattened_objc_libraries", documented = false, useStarlarkThread = true)
+  public Sequence<Artifact> getObjcLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getObjcLibraries());
+  }
+
   ImmutableList<Artifact> getObjcLibraries() {
-    // JRE libraries must be ordered after all regular objc libraries.
-    NestedSet<Artifact> jreLibs = get(JRE_LIBRARY);
-    return ImmutableList.<Artifact>builder()
-        .addAll(
-            Iterables.filter(get(LIBRARY).toList(), Predicates.not(Predicates.in(jreLibs.toSet()))))
-        .addAll(jreLibs.toList())
-        .build();
+    return get(LIBRARY).toList();
+  }
+
+  @StarlarkMethod(name = "flattened_cc_libraries", documented = false, useStarlarkThread = true)
+  public Sequence<Artifact> getCcLibrariesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getCcLibraries());
   }
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
@@ -652,6 +506,34 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
   }
 
+  @StarlarkMethod(
+      name = "subtract_subtrees",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "avoid_objc_providers",
+            defaultValue = "[]",
+            documented = false,
+            named = true,
+            positional = false),
+        @Param(
+            name = "avoid_cc_providers",
+            defaultValue = "[]",
+            documented = false,
+            named = true,
+            positional = false),
+      })
+  public ObjcProvider subtractSubtreesForStarlark(
+      Sequence<?> avoidObjcProviders, Sequence<?> avoidCcProviders, StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return subtractSubtrees(
+        Sequence.cast(avoidObjcProviders, ObjcProvider.class, "avoid_objc_providers"),
+        Sequence.cast(avoidCcProviders, CcInfo.class, "avoid_cc_providers").stream()
+            .map(CcInfo::getCcLinkingContext)
+            .collect(ImmutableList.toImmutableList()));
+  }
   /**
    * Subtracts dependency subtrees from this provider and returns the result (subtraction does not
    * mutate this provider). Note that not all provider keys are subtracted; generally only keys
@@ -689,7 +571,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
       }
     }
-    ObjcProvider.NativeBuilder objcProviderBuilder = new ObjcProvider.NativeBuilder(semantics);
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
     for (Key<?> key : items.keySet()) {
       if (key == CC_LIBRARY) {
         addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
@@ -706,7 +588,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       }
     }
     objcProviderBuilder.addStrictDependencyIncludes(strictDependencyIncludes);
-    objcProviderBuilder.setCcCompilationContext(ccCompilationContext);
     return objcProviderBuilder.build();
   }
 
@@ -841,6 +722,16 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   @Override
+  public Depset /*<LibraryToLink>*/ ccLibrariesForStarlark() {
+    return Depset.of(Artifact.TYPE, get(ObjcProvider.CC_LIBRARY));
+  }
+
+  @Override
+  public Depset /*<Linkstamp>*/ linkstampForstarlark() {
+    return Depset.of(Linkstamp.TYPE, get(ObjcProvider.LINKSTAMP));
+  }
+
+  @Override
   public Depset /*<String>*/ dynamicFrameworkNamesForStarlark() {
     return Depset.of(Depset.ElementType.STRING, dynamicFrameworkNames());
   }
@@ -880,7 +771,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * A builder for this context with an API that is optimized for collecting information from
    * several transitive dependencies.
    */
-  public abstract static class Builder {
+  public static class Builder {
 
     private final StarlarkSemantics starlarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
@@ -998,48 +889,21 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       return this;
     }
 
-    abstract ObjcProvider build();
-
-    protected ObjcProvider build(CcCompilationContext ccCompilationContext) {
+    ObjcProvider build() {
       ImmutableMap.Builder<Key<?>, NestedSet<?>> propagatedBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<Key<?>, NestedSetBuilder<?>> typeEntry : items.entrySet()) {
         propagatedBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
       return new ObjcProvider(
           starlarkSemantics,
-          propagatedBuilder.build(),
+          propagatedBuilder.buildOrThrow(),
           strictDependencyIncludes.build(),
-          directItems.build(),
-          ccCompilationContext);
-    }
-  }
-
-  /** A builder for this context, specialized for native use. */
-  public static final class NativeBuilder extends Builder {
-    private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
-
-    public NativeBuilder(StarlarkSemantics semantics) {
-      super(semantics);
-    }
-
-    Builder setCcCompilationContext(CcCompilationContext ccCompilationContext) {
-      Preconditions.checkState(this.ccCompilationContext == CcCompilationContext.EMPTY);
-      Preconditions.checkNotNull(ccCompilationContext);
-      this.ccCompilationContext = ccCompilationContext;
-      return this;
-    }
-
-    @Override
-    public ObjcProvider build() {
-      return build(ccCompilationContext);
+          directItems.build());
     }
   }
 
   /** A builder for this context, specialized for Starlark use. */
   public static final class StarlarkBuilder extends Builder {
-    private final CcCompilationContext.Builder ccCompilationContextBuilder =
-        CcCompilationContext.builder(null, null, null);
-
     public StarlarkBuilder(StarlarkSemantics semantics) {
       super(semantics);
     }
@@ -1050,9 +914,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      */
     void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
-      if (!KEYS_FOR_DIRECT_ONLY.contains(key)) {
-        uncheckedAddTransitive(key, toAdd);
-      }
+      uncheckedAddTransitive(key, toAdd);
 
       if (KEYS_FOR_DIRECT.contains(key)) {
         uncheckedAddAllDirect(key, toAdd.toList());
@@ -1076,8 +938,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           } else {
             ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
-            ccCompilationContextBuilder.mergeDependentCcCompilationContext(
-                objcProvider.getCcCompilationContext());
           }
         }
       }
@@ -1094,11 +954,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
               ObjcProviderStarlarkConverters.convertToJava(STRICT_INCLUDE, starlarkToAdd);
 
       addStrictDependencyIncludes(toAdd.toList());
-    }
-
-    @Override
-    public ObjcProvider build() {
-      return build(ccCompilationContextBuilder.build());
     }
   }
 

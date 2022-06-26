@@ -24,6 +24,8 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +54,24 @@ import javax.annotation.Nullable;
  * {@link TreeFileArtifact}s.
  */
 public class TreeArtifactValue implements HasDigest, SkyValue {
+
+  /**
+   * Comparator based on exec path which works on {@link ActionInput} as opposed to {@link
+   * com.google.devtools.build.lib.actions.Artifact}. This way, we can use an {@link ActionInput} to
+   * search {@link #childData}.
+   */
+  @SerializationConstant @AutoCodec.VisibleForSerialization
+  static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
+      (input1, input2) -> input1.getExecPath().compareTo(input2.getExecPath());
+
+  private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
+      childDataBuilder().buildOrThrow();
+
+  @SuppressWarnings("unchecked")
+  private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
+      childDataBuilder() {
+    return new ImmutableSortedMap.Builder<>(EXEC_PATH_COMPARATOR);
+  }
 
   /** Returns an empty {@link TreeArtifactValue}. */
   public static TreeArtifactValue empty() {
@@ -132,12 +153,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * metadata for it.
    */
   @AutoValue
-  abstract static class ArchivedRepresentation {
-    abstract ArchivedTreeArtifact archivedTreeFileArtifact();
+  public abstract static class ArchivedRepresentation {
+    public abstract ArchivedTreeArtifact archivedTreeFileArtifact();
 
-    abstract FileArtifactValue archivedFileValue();
+    public abstract FileArtifactValue archivedFileValue();
 
-    static ArchivedRepresentation create(
+    public static ArchivedRepresentation create(
         ArchivedTreeArtifact archivedTreeFileArtifact, FileArtifactValue fileArtifactValue) {
       return new AutoValue_TreeArtifactValue_ArchivedRepresentation(
           archivedTreeFileArtifact, fileArtifactValue);
@@ -150,7 +171,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
           MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
-          ImmutableSortedMap.of(),
+          EMPTY_MAP,
           0L,
           /*archivedRepresentation=*/ null,
           /*entirelyRemote=*/ false);
@@ -180,7 +201,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     this.entirelyRemote = entirelyRemote;
   }
 
-  FileArtifactValue getMetadata() {
+  public FileArtifactValue getMetadata() {
     return FileArtifactValue.createProxy(digest);
   }
 
@@ -204,7 +225,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   /** Return archived representation of the tree artifact (if present). */
-  Optional<ArchivedRepresentation> getArchivedRepresentation() {
+  public Optional<ArchivedRepresentation> getArchivedRepresentation() {
     return Optional.ofNullable(archivedRepresentation);
   }
 
@@ -216,8 +237,24 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         : null;
   }
 
-  ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+  public ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
     return childData;
+  }
+
+  /** Returns an entry for child with given exec path or null if no such child is present. */
+  @SuppressWarnings("unchecked")
+  @Nullable
+  public Map.Entry<TreeFileArtifact, FileArtifactValue> findChildEntryByExecPath(
+      PathFragment execPath) {
+    ActionInput searchToken = ActionInputHelper.fromPath(execPath);
+    // Not really a copy -- original map is already an ImmutableSortedMap using the same comparator.
+    ImmutableSortedMap<ActionInput, FileArtifactValue> casted =
+        ImmutableSortedMap.copyOf(childData, EXEC_PATH_COMPARATOR);
+    checkState(casted == (Object) childData, "Casting children resulted with a copy");
+    Map.Entry<? extends ActionInput, FileArtifactValue> entry = casted.floorEntry(searchToken);
+    return entry != null && entry.getKey().getExecPath().equals(execPath)
+        ? (Map.Entry<TreeFileArtifact, FileArtifactValue>) entry
+        : null;
   }
 
   /** Returns true if the {@link TreeFileArtifact}s are only stored remotely. */
@@ -267,27 +304,24 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * A TreeArtifactValue that represents a missing TreeArtifact. This is occasionally useful because
    * Java's concurrent collections disallow null members.
    */
-  static final TreeArtifactValue MISSING_TREE_ARTIFACT = createMarker("MISSING_TREE_ARTIFACT");
+  public static final TreeArtifactValue MISSING_TREE_ARTIFACT =
+      createMarker("MISSING_TREE_ARTIFACT");
 
   private static TreeArtifactValue createMarker(String toStringRepresentation) {
     return new TreeArtifactValue(
-        null,
-        ImmutableSortedMap.of(),
-        0L,
-        /*archivedRepresentation=*/ null,
-        /*entirelyRemote=*/ false) {
+        null, EMPTY_MAP, 0L, /*archivedRepresentation=*/ null, /*entirelyRemote=*/ false) {
       @Override
       public ImmutableSet<TreeFileArtifact> getChildren() {
         throw new UnsupportedOperationException(toString());
       }
 
       @Override
-      ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+      public ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
         throw new UnsupportedOperationException(toString());
       }
 
       @Override
-      FileArtifactValue getMetadata() {
+      public FileArtifactValue getMetadata() {
         throw new UnsupportedOperationException(toString());
       }
 
@@ -392,7 +426,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     // points to a file under the TreeArtifact, the link target traverses outside of the
     // TreeArtifact into a/b/outside_dir.
     PathFragment intermediatePath = subDir;
-    for (String pathSegment : linkTarget.getSegments()) {
+    for (String pathSegment : linkTarget.segments()) {
       intermediatePath = intermediatePath.getRelative(pathSegment);
       if (intermediatePath.containsUplevelReferences()) {
         String errorMessage =
@@ -408,7 +442,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   /** Builder for a {@link TreeArtifactValue}. */
   public static final class Builder {
     private final ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> childData =
-        ImmutableSortedMap.naturalOrder();
+        childDataBuilder();
     private ArchivedRepresentation archivedRepresentation;
     private final SpecialArtifact parent;
 
@@ -455,7 +489,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           ArchivedRepresentation.create(archivedTreeArtifact, metadata));
     }
 
-    private Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
+    public Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
       checkState(
           this.archivedRepresentation == null,
           "Tried to add 2 archived representations for: %s",
@@ -476,7 +510,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     /** Builds the final {@link TreeArtifactValue}. */
     public TreeArtifactValue build() {
-      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData = childData.build();
+      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
+          childData.buildOrThrow();
       if (finalChildData.isEmpty() && archivedRepresentation == null) {
         return EMPTY;
       }

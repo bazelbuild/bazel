@@ -13,17 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -35,16 +33,14 @@ import javax.annotation.Nullable;
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
 
-  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap = new ConcurrentHashMap<>(1024);
-  private final boolean keepEdges;
+  protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
 
-  @VisibleForTesting
-  public InMemoryGraphImpl() {
-    this(/*keepEdges=*/ true);
+  InMemoryGraphImpl() {
+    this(/*initialCapacity=*/ 1 << 10);
   }
 
-  public InMemoryGraphImpl(boolean keepEdges) {
-    this.keepEdges = keepEdges;
+  protected InMemoryGraphImpl(int initialCapacity) {
+    this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
   }
 
   @Override
@@ -72,8 +68,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return result;
   }
 
-  protected NodeEntry newNodeEntry(SkyKey key) {
-    return keepEdges ? new InMemoryNodeEntry() : new EdgelessInMemoryNodeEntry();
+  @ForOverride
+  protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
+    return new InMemoryNodeEntry();
   }
 
   /**
@@ -81,11 +78,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
    * lambda instantiation overhead.
    */
   @SuppressWarnings("UnnecessaryLambda")
-  private final Function<SkyKey, NodeEntry> newNodeEntryFunction = k -> newNodeEntry(k);
+  private final Function<SkyKey, InMemoryNodeEntry> newNodeEntryFunction = this::newNodeEntry;
 
   @Override
   public Map<SkyKey, NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     Map<SkyKey, NodeEntry> result = CompactHashMap.createWithExpectedSize(Iterables.size(keys));
     for (SkyKey key : keys) {
       result.put(key, nodeMap.computeIfAbsent(key, newNodeEntryFunction));
@@ -100,54 +97,29 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, SkyValue> getValues() {
-    return Collections.unmodifiableMap(
-        Maps.transformValues(
-            nodeMap,
-            entry -> {
-              try {
-                return entry.toValue();
-              } catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-              }
-            }));
+    return Collections.unmodifiableMap(Maps.transformValues(nodeMap, InMemoryNodeEntry::toValue));
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getDoneValues() {
-    return Collections.unmodifiableMap(
-        Maps.filterValues(
-            Maps.transformValues(
-                nodeMap,
-                entry -> {
-                  if (!entry.isDone()) {
-                    return null;
-                  }
-                  try {
-                    return entry.getValue();
-                  } catch (InterruptedException e) {
-                    throw new IllegalStateException(e);
-                  }
-                }),
-            Predicates.notNull()));
-  }
-
-  @Override
-  public Map<SkyKey, NodeEntry> getAllValues() {
+  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
     return Collections.unmodifiableMap(nodeMap);
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
     return nodeMap;
   }
 
-  @VisibleForTesting
-  protected ConcurrentMap<SkyKey, ? extends NodeEntry> getNodeMap() {
-    return nodeMap;
-  }
+  static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
 
-  boolean keepsEdges() {
-    return keepEdges;
-  }
+    @Override
+    protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
+      return new EdgelessInMemoryNodeEntry();
+    }
 
+    @Override
+    public boolean storesReverseDeps() {
+      return false;
+    }
+  }
 }

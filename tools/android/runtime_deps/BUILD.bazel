@@ -4,7 +4,7 @@
 # extract all Android rules and tools out of Bazel and into rules_android
 # and tools_android.
 
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 filegroup(
     name = "srcs",
@@ -12,7 +12,6 @@ filegroup(
         "BUILD.android_tools",
         "BUILD.bazel",
         "WORKSPACE.android_tools",
-        "upload_android_tools.sh",
     ],
     visibility = [
         "//tools/android:__pkg__",
@@ -41,6 +40,34 @@ genrule(
 )
 
 genrule(
+    name = "gen_version_txt",
+    outs = ["version.txt"],
+    cmd = """
+embed_label="$$(grep BUILD_EMBED_LABEL bazel-out/stable-status.txt | cut -d ' ' -f 2-)"
+if [[ -z "$$embed_label" ]]; then
+  # this happens when building for tests
+  version="not_set"
+  bazel_version="not_set"
+  bazel_repo_commit="not_set"
+elif [[ "$$embed_label" =~ ^[0-9]+[.][0-9]+[.][0-9]+\\ [0-9]+[.][0-9]+[.][0-9]+\\ [0-9a-f]{40}$$ ]]; then
+  version="$$(echo $$embed_label | cut -d ' ' -f 1)"
+  bazel_version="$$(echo $$embed_label | cut -d ' ' -f 2)"
+  bazel_repo_commit="$$(echo $$embed_label | cut -d ' ' -f 3)"
+else
+  echo "bad format for --embed_label"
+  exit 1
+fi
+
+cat > $@ << EOF
+bazel_android_tools_version $$version
+bazel_repo_commit $$bazel_repo_commit
+built_with_bazel_version $$bazel_version
+EOF
+""",
+    stamp = True,
+)
+
+genrule(
     name = "desugar_jdk_libs",
     srcs = ["@desugar_jdk_libs"],
     outs = ["desugar_jdk_libs.jar"],
@@ -53,15 +80,10 @@ pkg_tar(
         "BUILD",
         "WORKSPACE",
         ":desugar_jdk_libs.jar",
+        ":version.txt",
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools_deploy.jar",
     ],
     extension = "tar.gz",
     visibility = ["//src/test/shell/bazel:__subpackages__"],
-)
-
-sh_binary(
-    name = "upload_android_tools",
-    srcs = ["upload_android_tools.sh"],
-    data = ["android_tools.tar.gz"],
 )

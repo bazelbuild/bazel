@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -31,8 +33,10 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -40,7 +44,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -67,26 +73,8 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
-  private NestedSet<Artifact> localClassPathEntries = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-
-  private JavaCompilationHelper(
-      RuleContext ruleContext,
-      JavaSemantics semantics,
-      ImmutableList<String> javacOpts,
-      JavaTargetAttributes.Builder attributes,
-      JavaToolchainProvider javaToolchainProvider,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean disableStrictDeps) {
-    this.ruleContext = ruleContext;
-    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
-    this.attributes = attributes;
-    this.customJavacOpts = javacOpts;
-    this.semantics = semantics;
-    this.additionalInputsForDatabinding = additionalInputsForDatabinding;
-    this.strictJavaDeps =
-        disableStrictDeps ? StrictDepsMode.OFF : getJavaConfiguration().getFilteredStrictJavaDeps();
-    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
-  }
+  private boolean enableJspecify = true;
+  private boolean enableDirectClasspath = true;
 
   public JavaCompilationHelper(
       RuleContext ruleContext,
@@ -95,14 +83,14 @@ public final class JavaCompilationHelper {
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
       ImmutableList<Artifact> additionalInputsForDatabinding) {
-    this(
-        ruleContext,
-        semantics,
-        javacOpts,
-        attributes,
-        javaToolchainProvider,
-        additionalInputsForDatabinding,
-        false);
+    this.ruleContext = ruleContext;
+    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
+    this.attributes = attributes;
+    this.customJavacOpts = javacOpts;
+    this.semantics = semantics;
+    this.additionalInputsForDatabinding = additionalInputsForDatabinding;
+    this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
+    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
   }
 
   public JavaCompilationHelper(
@@ -124,26 +112,29 @@ public final class JavaCompilationHelper {
       JavaSemantics semantics,
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean disableStrictDeps) {
+      ImmutableList<Artifact> additionalInputsForDatabinding) {
     this(
         ruleContext,
         semantics,
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        additionalInputsForDatabinding,
-        disableStrictDeps);
+        additionalInputsForDatabinding);
+  }
+
+  public void enableJspecify(boolean enableJspecify) {
+    this.enableJspecify = enableJspecify;
   }
 
   JavaTargetAttributes getAttributes() {
     if (builtAttributes == null) {
       builtAttributes = attributes.build();
-      if (!localClassPathEntries.isEmpty()) {
-        builtAttributes = builtAttributes.withAdditionalClassPathEntries(localClassPathEntries);
-      }
     }
     return builtAttributes;
+  }
+
+  public void enableDirectClasspath(boolean enableDirectClasspath) {
+    this.enableDirectClasspath = enableDirectClasspath;
   }
 
   public RuleContext getRuleContext() {
@@ -154,7 +145,7 @@ public final class JavaCompilationHelper {
     return ruleContext.getAnalysisEnvironment();
   }
 
-  private BuildConfiguration getConfiguration() {
+  private BuildConfigurationValue getConfiguration() {
     return ruleContext.getConfiguration();
   }
 
@@ -189,6 +180,21 @@ public final class JavaCompilationHelper {
     return result;
   }
 
+  public JavaCompileOutputs<Artifact> createOutputs(JavaOutput output) {
+    JavaCompileOutputs.Builder<Artifact> builder =
+        JavaCompileOutputs.builder()
+            .output(output.getClassJar())
+            .manifestProto(output.getManifestProto())
+            .nativeHeader(output.getNativeHeadersJar());
+    if (generatesOutputDeps()) {
+      builder.depsProto(output.getJdeps());
+    }
+    if (usesAnnotationProcessing()) {
+      builder.genClass(output.getGeneratedClassJar()).genSource(output.getGeneratedSourceJar());
+    }
+    return builder.build();
+  }
+
   public void createCompileAction(JavaCompileOutputs<Artifact> outputs)
       throws InterruptedException {
     if (outputs.genClass() != null) {
@@ -200,8 +206,24 @@ public final class JavaCompilationHelper {
     }
 
     JavaTargetAttributes attributes = getAttributes();
+
+    JspecifyInfo jspecifyInfo = javaToolchain.jspecifyInfo();
+    boolean jspecify =
+        enableJspecify
+            && getJavaConfiguration().experimentalEnableJspecify()
+            && jspecifyInfo != null
+            && jspecifyInfo.matches(ruleContext.getLabel());
+    if (jspecify) {
+      // JSpecify requires these on the compile-time classpath; see b/187113128
+      // Add them as non-direct deps (for the purposes of Strict Java Deps) to still require an
+      // explicit dep if they're directly used by the compiled source.
+      attributes =
+          attributes.appendAdditionalTransitiveClassPathEntries(
+              jspecifyInfo.jspecifyImplicitDeps());
+    }
+
     ImmutableList<Artifact> sourceJars = attributes.getSourceJars();
-    JavaPluginInfo plugins = attributes.plugins().plugins();
+    JavaPluginData plugins = attributes.plugins().plugins();
     List<Artifact> resourceJars = new ArrayList<>();
 
     boolean turbineAnnotationProcessing =
@@ -250,6 +272,33 @@ public final class JavaCompilationHelper {
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
     }
 
+    Artifact optimizedJar = null;
+    if (getJavaConfiguration().runLocalJavaOptimizations()) {
+      optimizedJar = outputs.output();
+      outputs =
+          outputs.withOutput(
+              ruleContext.getDerivedArtifact(
+                  FileSystemUtils.replaceExtension(
+                      outputs
+                          .output()
+                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+                      "-pre-optimization.jar"),
+                  outputs.output().getRoot()));
+    }
+
+    ImmutableList<String> javacopts = customJavacOpts;
+    if (jspecify) {
+      plugins =
+          JavaPluginInfo.JavaPluginData.merge(
+              ImmutableList.of(plugins, jspecifyInfo.jspecifyProcessor()));
+      javacopts =
+          ImmutableList.<String>builder()
+              .addAll(javacopts)
+              // Add JSpecify options last to discourage overridding them, at least for now.
+              .addAll(jspecifyInfo.jspecifyJavacopts())
+              .build();
+    }
+
     JavaCompileActionBuilder builder = new JavaCompileActionBuilder(ruleContext, javaToolchain);
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
@@ -261,12 +310,13 @@ public final class JavaCompilationHelper {
     builder.setCoverageArtifact(coverageArtifact);
     BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
     builder.setBootClassPath(bootClassPathInfo);
+    NestedSet<Artifact> classpath =
+        NestedSetBuilder.<Artifact>naiveLinkOrder()
+            .addTransitive(bootClassPathInfo.auxiliary())
+            .addTransitive(attributes.getCompileTimeClassPath())
+            .build();
     if (!bootClassPathInfo.auxiliary().isEmpty()) {
-      builder.setClasspathEntries(
-          NestedSetBuilder.<Artifact>naiveLinkOrder()
-              .addTransitive(bootClassPathInfo.auxiliary())
-              .addTransitive(attributes.getCompileTimeClassPath())
-              .build());
+      builder.setClasspathEntries(classpath);
       builder.setDirectJars(
           NestedSetBuilder.<Artifact>naiveLinkOrder()
               .addTransitive(bootClassPathInfo.auxiliary())
@@ -288,7 +338,7 @@ public final class JavaCompilationHelper {
       // Don't do annotation processing, but pass the processorpath through to allow service-loading
       // Error Prone plugins.
       builder.setPlugins(
-          JavaPluginInfo.create(
+          JavaPluginData.create(
               /* processorClasses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               plugins.processorClasspath(),
               plugins.data()));
@@ -298,7 +348,7 @@ public final class JavaCompilationHelper {
     ImmutableSet<Artifact> sourceFiles = attributes.getSourceFiles();
     builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(sourceJars);
-    builder.setJavacOpts(customJavacOpts);
+    builder.setJavacOpts(javacopts);
     builder.setJavacExecutionInfo(getExecutionInfo());
     builder.setCompressJar(true);
     builder.setBuiltinProcessorNames(javaToolchain.getHeaderCompilerBuiltinProcessors());
@@ -322,6 +372,20 @@ public final class JavaCompilationHelper {
 
     JavaCompileAction javaCompileAction = builder.build();
     ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
+
+    if (optimizedJar != null) {
+      JavaConfiguration.NamedLabel optimizerLabel = getJavaConfiguration().getBytecodeOptimizer();
+      createLocalOptimizationAction(
+          outputs.output(),
+          optimizedJar,
+          NestedSetBuilder.<Artifact>naiveLinkOrder()
+              .addTransitive(bootClassPathInfo.bootclasspath())
+              .addTransitive(classpath)
+              .build(),
+          javaToolchain.getLocalJavaOptimizationConfiguration(),
+          javaToolchain.getBytecodeOptimizer().tool(),
+          optimizerLabel.name());
+    }
   }
 
   /**
@@ -337,7 +401,7 @@ public final class JavaCompilationHelper {
         || !getTranslations().isEmpty();
   }
 
-  private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
+  private ImmutableMap<String, String> getExecutionInfo() {
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
     if (javaToolchain.getJavacSupportsWorkers()) {
@@ -346,13 +410,16 @@ public final class JavaCompilationHelper {
     if (javaToolchain.getJavacSupportsMultiplexWorkers()) {
       workerInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
     }
+    if (javaToolchain.getJavacSupportsWorkerCancellation()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1");
+    }
     executionInfo.putAll(
         getConfiguration()
-            .modifiedExecutionInfo(workerInfo.build(), JavaCompileActionBuilder.MNEMONIC));
+            .modifiedExecutionInfo(workerInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
-    return executionInfo.build();
+    return executionInfo.buildOrThrow();
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
@@ -427,8 +494,7 @@ public final class JavaCompilationHelper {
                   javaToolchain.getToolchainLabel()));
       return false;
     }
-    if (getJavaConfiguration().requireJavaToolchainHeaderCompilerDirect()
-        && javaToolchain.getHeaderCompilerDirect() == null) {
+    if (javaToolchain.getHeaderCompilerDirect() == null) {
       getRuleContext()
           .ruleError(
               String.format(
@@ -465,7 +531,7 @@ public final class JavaCompilationHelper {
     JavaTargetAttributes attributes = getAttributes();
 
     // only run API-generating annotation processors during header compilation
-    JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
+    JavaPluginData plugins = attributes.plugins().apiGeneratingPlugins();
 
     JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
     builder.setOutputJar(headerJar);
@@ -478,6 +544,7 @@ public final class JavaCompilationHelper {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }
+    builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
 
     artifactBuilder.setCompileTimeDependencies(headerDeps);
@@ -534,7 +601,7 @@ public final class JavaCompilationHelper {
                 .addInput(manifestProto)
                 .addInput(classJar)
                 .addOutput(genClassJar)
-                .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
+                .addTransitiveInputs(hostJavabase.javaBaseInputs())
                 .setJarExecutable(
                     JavaCommon.getHostJavaExecutable(hostJavabase),
                     getGenClassJar(ruleContext),
@@ -669,6 +736,41 @@ public final class JavaCompilationHelper {
     return jar;
   }
 
+  public void createLocalOptimizationAction(
+      Artifact unoptimizedOutputJar,
+      Artifact optimizedOutputJar,
+      NestedSet<Artifact> classpath,
+      List<Artifact> configs,
+      FilesToRunProvider optimizer,
+      String mnemonic) {
+    CustomCommandLine.Builder command =
+        CustomCommandLine.builder()
+            .add("-runtype", "LOCAL_ONLY")
+            .addExecPath("-injars", unoptimizedOutputJar)
+            .addExecPath("-outjars", optimizedOutputJar)
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-libraryjars").each(classpath));
+    for (Artifact config : configs) {
+      command.addPrefixedExecPath("@", config);
+    }
+
+    getRuleContext()
+        .registerAction(
+            new SpawnAction.Builder()
+                .addInput(unoptimizedOutputJar)
+                .addTransitiveInputs(classpath)
+                .addInputs(configs)
+                .addOutput(optimizedOutputJar)
+                .setExecutable(optimizer)
+                .addCommandLine(
+                    command.build(),
+                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                        .setFlagsOnly(true)
+                        .build())
+                .setProgressMessage("Optimizing jar %{label}")
+                .setMnemonic(mnemonic)
+                .build(getRuleContext()));
+  }
+
   private void addArgsAndJarsToAttributes(
       JavaCompilationArgsProvider args, NestedSet<Artifact> directJars) {
     // Can only be non-null when isStrict() returns true.
@@ -677,17 +779,6 @@ public final class JavaCompilationHelper {
     }
 
     attributes.merge(args);
-  }
-
-  /**
-   * Adds compile-time dependencies that will be included on the classpath, but which will not be
-   * visible to targets that depend on the current compilation.
-   */
-  public void addLocalClassPathEntries(NestedSet<Artifact> localClassPathEntries) {
-    checkState(
-        builtAttributes == null,
-        "addLocalClassPathEntries must be called before the first call to getAttributes()");
-    this.localClassPathEntries = localClassPathEntries;
   }
 
   private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps) {
@@ -854,5 +945,25 @@ public final class JavaCompilationHelper {
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
     return context.getDerivedArtifact(path, artifact.getRoot());
+  }
+
+  /**
+   * Canonical place to determine if a Java action should strip config prefixes from its output
+   * paths.
+   *
+   * <p>See {@link PathStripper}.
+   */
+  static boolean stripOutputPaths(
+      NestedSet<Artifact> actionInputs, BuildConfigurationValue configuration) {
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    return coreOptions.outputPathsMode == OutputPathsMode.STRIP
+        && PathStripper.isPathStrippable(
+            actionInputs,
+            PathFragment.create(configuration.getDirectories().getRelativeOutputPath()));
+  }
+
+  /** The output path under the exec root (i.e. "bazel-out"). */
+  static PathFragment outputBase(Artifact anyGeneratedArtifact) {
+    return anyGeneratedArtifact.getExecPath().subFragment(0, 1);
   }
 }

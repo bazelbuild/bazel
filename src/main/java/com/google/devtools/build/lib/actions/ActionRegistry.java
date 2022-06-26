@@ -14,14 +14,10 @@
 
 package com.google.devtools.build.lib.actions;
 
-/**
- * An interface for registering actions.
- */
+/** An interface for registering actions. */
 public interface ActionRegistry {
-  /**
-   * This method notifies the registry new actions.
-   */
-  void registerAction(ActionAnalysisMetadata... actions);
+  /** Notifies the registry of a new action. */
+  void registerAction(ActionAnalysisMetadata action);
 
   /** Get the key of the ConfiguredTarget/Aspect ultimately responsible for all these actions. */
   ActionLookupKey getOwner();

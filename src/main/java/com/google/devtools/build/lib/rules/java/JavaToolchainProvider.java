@@ -14,13 +14,15 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.StandardSystemProperty.JAVA_SPECIFICATION_VERSION;
+import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
@@ -28,22 +30,28 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.Iterator;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
-@AutoCodec
-public class JavaToolchainProvider extends ToolchainInfo
+public final class JavaToolchainProvider extends NativeInfo
     implements JavaToolchainStarlarkApiProviderApi {
+
+  public static final BuiltinProvider<JavaToolchainProvider> PROVIDER =
+      new BuiltinProvider<JavaToolchainProvider>(
+          "JavaToolchainInfo", JavaToolchainProvider.class) {};
 
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
@@ -59,8 +67,18 @@ public class JavaToolchainProvider extends ToolchainInfo
   private static JavaToolchainProvider from(
       ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
-    if (toolchainInfo instanceof JavaToolchainProvider) {
-      return (JavaToolchainProvider) toolchainInfo;
+    if (toolchainInfo != null) {
+      try {
+        JavaToolchainProvider provider = (JavaToolchainProvider) toolchainInfo.getValue("java");
+        if (provider != null) {
+          return provider;
+        }
+      } catch (EvalException e) {
+        if (errorConsumer != null) {
+          errorConsumer.ruleError(
+              String.format("There was an error reading the Java toolchain: %s", e));
+        }
+      }
     }
     if (errorConsumer != null) {
       errorConsumer.ruleError("The selected Java toolchain is not a JavaToolchainProvider");
@@ -71,15 +89,19 @@ public class JavaToolchainProvider extends ToolchainInfo
   public static JavaToolchainProvider create(
       Label label,
       ImmutableList<String> javacOptions,
-      ImmutableList<String> jvmOptions,
+      NestedSet<String> jvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
+      boolean javacSupportsWorkerCancellation,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
       JavaToolchainTool javaBuilder,
       @Nullable JavaToolchainTool headerCompiler,
       @Nullable JavaToolchainTool headerCompilerDirect,
       @Nullable AndroidLintTool androidLint,
+      JspecifyInfo jspecifyInfo,
+      @Nullable JavaToolchainTool bytecodeOptimizer,
+      ImmutableList<Artifact> localJavaOptimizationConfiguration,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -87,6 +109,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable Artifact oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
+      @Nullable Artifact depsChecker,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
@@ -104,6 +127,9 @@ public class JavaToolchainProvider extends ToolchainInfo
         headerCompiler,
         headerCompilerDirect,
         androidLint,
+        jspecifyInfo,
+        bytecodeOptimizer,
+        localJavaOptimizationConfiguration,
         headerCompilerBuiltinProcessors,
         reducedClasspathIncompatibleProcessors,
         forciblyDisableHeaderCompilation,
@@ -111,6 +137,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         oneVersion,
         oneVersionAllowlist,
         genClass,
+        depsChecker,
         resourceJarBuilder,
         timezoneData,
         ijar,
@@ -119,6 +146,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         jvmOptions,
         javacSupportsWorkers,
         javacSupportsMultiplexWorkers,
+        javacSupportsWorkerCancellation,
         packageConfiguration,
         jacocoRunner,
         proguardAllowlister,
@@ -133,6 +161,9 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Nullable private final JavaToolchainTool headerCompiler;
   @Nullable private final JavaToolchainTool headerCompilerDirect;
   @Nullable private final AndroidLintTool androidLint;
+  @Nullable private final JspecifyInfo jspecifyInfo;
+  @Nullable private final JavaToolchainTool bytecodeOptimizer;
+  private final ImmutableList<Artifact> localJavaOptimizationConfiguration;
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
@@ -140,22 +171,23 @@ public class JavaToolchainProvider extends ToolchainInfo
   @Nullable private final Artifact oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
+  @Nullable private final Artifact depsChecker;
   @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
-  private final ImmutableList<String> jvmOptions;
+  private final NestedSet<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
+  private final boolean javacSupportsWorkerCancellation;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
   private final FilesToRunProvider proguardAllowlister;
   private final JavaSemantics javaSemantics;
   private final JavaRuntimeInfo javaRuntime;
 
-  @VisibleForSerialization
-  JavaToolchainProvider(
+  private JavaToolchainProvider(
       Label label,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
@@ -163,6 +195,9 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable JavaToolchainTool headerCompiler,
       @Nullable JavaToolchainTool headerCompilerDirect,
       @Nullable AndroidLintTool androidLint,
+      @Nullable JspecifyInfo jspecifyInfo,
+      @Nullable JavaToolchainTool bytecodeOptimizer,
+      ImmutableList<Artifact> localJavaOptimizationConfiguration,
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
@@ -170,20 +205,21 @@ public class JavaToolchainProvider extends ToolchainInfo
       @Nullable Artifact oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
+      @Nullable Artifact depsChecker,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<String> javacOptions,
-      ImmutableList<String> jvmOptions,
+      NestedSet<String> jvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
+      boolean javacSupportsWorkerCancellation,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       FilesToRunProvider proguardAllowlister,
       JavaSemantics javaSemantics,
       JavaRuntimeInfo javaRuntime) {
-    super(ImmutableMap.of(), Location.BUILTIN);
 
     this.label = label;
     this.bootclasspath = bootclasspath;
@@ -192,6 +228,9 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.headerCompiler = headerCompiler;
     this.headerCompilerDirect = headerCompilerDirect;
     this.androidLint = androidLint;
+    this.jspecifyInfo = jspecifyInfo;
+    this.bytecodeOptimizer = bytecodeOptimizer;
+    this.localJavaOptimizationConfiguration = localJavaOptimizationConfiguration;
     this.headerCompilerBuiltinProcessors = headerCompilerBuiltinProcessors;
     this.reducedClasspathIncompatibleProcessors = reducedClasspathIncompatibleProcessors;
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
@@ -199,6 +238,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.oneVersion = oneVersion;
     this.oneVersionAllowlist = oneVersionAllowlist;
     this.genClass = genClass;
+    this.depsChecker = depsChecker;
     this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
@@ -207,6 +247,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
+    this.javacSupportsWorkerCancellation = javacSupportsWorkerCancellation;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
     this.proguardAllowlister = proguardAllowlister;
@@ -254,6 +295,20 @@ public class JavaToolchainProvider extends ToolchainInfo
     return androidLint;
   }
 
+  @Nullable
+  public JspecifyInfo jspecifyInfo() {
+    return jspecifyInfo;
+  }
+
+  @Nullable
+  public JavaToolchainTool getBytecodeOptimizer() {
+    return bytecodeOptimizer;
+  }
+
+  public ImmutableList<Artifact> getLocalJavaOptimizationConfiguration() {
+    return localJavaOptimizationConfiguration;
+  }
+
   /** Returns class names of annotation processors that are built in to the header compiler. */
   public ImmutableSet<String> getHeaderCompilerBuiltinProcessors() {
     return headerCompilerBuiltinProcessors;
@@ -282,6 +337,7 @@ public class JavaToolchainProvider extends ToolchainInfo
    * Return the {@link Artifact} of the binary that enforces one-version compliance of java
    * binaries.
    */
+  @Override
   @Nullable
   public Artifact getOneVersionBinary() {
     return oneVersion;
@@ -289,6 +345,7 @@ public class JavaToolchainProvider extends ToolchainInfo
 
   /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
   @Nullable
+  @Override
   public Artifact getOneVersionAllowlist() {
     return oneVersionAllowlist;
   }
@@ -302,6 +359,12 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns the {@link Artifact} of the GenClass deploy jar */
   public Artifact getGenClass() {
     return genClass;
+  }
+
+  /** Returns the {@link Artifact} of the ImportDepsChecker deploy jar */
+  @Nullable
+  public Artifact depsChecker() {
+    return depsChecker;
   }
 
   @Nullable
@@ -344,9 +407,10 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /**
-   * @return the list of default options for the JVM running the java compiler and associated tools.
+   * Returns the NestedSet of default options for the JVM running the java compiler and associated
+   * tools.
    */
-  public ImmutableList<String> getJvmOptions() {
+  public NestedSet<String> getJvmOptions() {
     return jvmOptions;
   }
 
@@ -358,6 +422,11 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** Returns whether JavaBuilders supports running persistent workers in multiplex mode */
   public boolean getJavacSupportsMultiplexWorkers() {
     return javacSupportsMultiplexWorkers;
+  }
+
+  /** Returns whether JavaBuilders supports running persistent workers with cancellation */
+  public boolean getJavacSupportsWorkerCancellation() {
+    return javacSupportsWorkerCancellation;
   }
 
   /** Returns the global {@code java_plugin_configuration} data. */
@@ -377,8 +446,16 @@ public class JavaToolchainProvider extends ToolchainInfo
     return javaSemantics;
   }
 
+  @Override
   public JavaRuntimeInfo getJavaRuntime() {
     return javaRuntime;
+  }
+
+  @Override
+  @Nullable
+  public AndroidLintTool stalarkAndroidLinter(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getAndroidLint();
   }
 
   /** Returns the input Java language level */
@@ -413,12 +490,63 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   @Override
-  public Sequence<String> getStarlarkJvmOptions() {
-    return StarlarkList.immutableCopyOf(getJvmOptions());
+  public Depset getStarlarkJvmOptions() {
+    return Depset.of(ElementType.STRING, getJvmOptions());
   }
 
   @Override
   public Depset getStarlarkTools() {
     return Depset.of(Artifact.TYPE, getTools());
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  @Nullable
+  @Override
+  public Artifact getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getTimezoneData();
+  }
+
+  @Override
+  public ImmutableList<String> getCompatibleJavacOptionsForStarlark(
+      String key, StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    return getCompatibleJavacOptions(key);
+  }
+
+  @AutoValue
+  abstract static class JspecifyInfo {
+
+    abstract JavaPluginData jspecifyProcessor();
+
+    abstract NestedSet<Artifact> jspecifyImplicitDeps();
+
+    abstract ImmutableList<String> jspecifyJavacopts();
+
+    abstract ImmutableList<PackageSpecificationProvider> jspecifyPackages();
+
+    boolean matches(Label label) {
+      for (PackageSpecificationProvider provider : jspecifyPackages()) {
+        for (PackageGroupContents specifications : provider.getPackageSpecifications().toList()) {
+          if (specifications.containsPackage(label.getPackageIdentifier())) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    static JspecifyInfo create(
+        JavaPluginData jspecifyProcessor,
+        NestedSet<Artifact> jspecifyImplicitDeps,
+        ImmutableList<String> jspecifyJavacopts,
+        ImmutableList<PackageSpecificationProvider> jspecifyPackages) {
+      return new AutoValue_JavaToolchainProvider_JspecifyInfo(
+          jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts, jspecifyPackages);
+    }
   }
 }

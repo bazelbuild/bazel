@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -25,32 +24,36 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
+import net.starlark.java.eval.EvalException;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
-@AutoCodec
-public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeInfoApi {
+public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
+
+  public static final BuiltinProvider<JavaRuntimeInfo> PROVIDER =
+      new BuiltinProvider<JavaRuntimeInfo>("JavaRuntimeInfo", JavaRuntimeInfo.class) {};
 
   public static JavaRuntimeInfo create(
       NestedSet<Artifact> javaBaseInputs,
-      NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath) {
+      PathFragment javaBinaryRunfilesPath,
+      NestedSet<Artifact> hermeticInputs,
+      @Nullable Artifact libModules) {
     return new JavaRuntimeInfo(
         javaBaseInputs,
-        javaBaseInputsMiddleman,
         javaHome,
         javaBinaryExecPath,
         javaHomeRunfilesPath,
-        javaBinaryRunfilesPath);
+        javaBinaryRunfilesPath,
+        hermeticInputs,
+        libModules);
   }
 
   @Override
@@ -69,7 +72,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   }
 
   @Nullable
-  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
+  public static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }
@@ -78,42 +81,50 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
       return null;
     }
 
-    return (JavaRuntimeInfo) prerequisite.get(ToolchainInfo.PROVIDER);
+    ToolchainInfo toolchainInfo = prerequisite.get(ToolchainInfo.PROVIDER);
+    if (toolchainInfo != null) {
+      try {
+        JavaRuntimeInfo result = (JavaRuntimeInfo) toolchainInfo.getValue("java_runtime");
+        if (result != null) {
+          return result;
+        }
+      } catch (EvalException e) {
+        ruleContext.ruleError(String.format("There was an error reading the Java runtime: %s", e));
+        return null;
+      }
+    }
+    ruleContext.ruleError("The selected Java runtime is not a JavaRuntimeInfo");
+    return null;
   }
 
   private final NestedSet<Artifact> javaBaseInputs;
-  private final NestedSet<Artifact> javaBaseInputsMiddleman;
   private final PathFragment javaHome;
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaHomeRunfilesPath;
   private final PathFragment javaBinaryRunfilesPath;
+  private final NestedSet<Artifact> hermeticInputs;
+  @Nullable private final Artifact libModules;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  JavaRuntimeInfo(
+  private JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
-      NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath) {
-    super(ImmutableMap.of(), Location.BUILTIN);
+      PathFragment javaBinaryRunfilesPath,
+      NestedSet<Artifact> hermeticInputs,
+      @Nullable Artifact libModules) {
     this.javaBaseInputs = javaBaseInputs;
-    this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
     this.javaHomeRunfilesPath = javaHomeRunfilesPath;
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
+    this.hermeticInputs = hermeticInputs;
+    this.libModules = libModules;
   }
 
   /** All input artifacts in the javabase. */
   public NestedSet<Artifact> javaBaseInputs() {
     return javaBaseInputs;
-  }
-
-  /** A middleman representing the javabase. */
-  public NestedSet<Artifact> javaBaseInputsMiddleman() {
-    return javaBaseInputsMiddleman;
   }
 
   /** The root directory of the Java installation. */
@@ -152,9 +163,30 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
     return javaBinaryRunfilesPath;
   }
 
+  /** Input artifacts required for hermetic deployments. */
+  public NestedSet<Artifact> hermeticInputs() {
+    return hermeticInputs;
+  }
+
+  @Override
+  public Depset starlarkHermeticInputs() {
+    return Depset.of(Artifact.TYPE, hermeticInputs());
+  }
+
+  @Override
+  @Nullable
+  public Artifact libModules() {
+    return libModules;
+  }
+
   @Override
   public Depset starlarkJavaBaseInputs() {
     return Depset.of(Artifact.TYPE, javaBaseInputs());
+  }
+
+  @Override
+  public com.google.devtools.build.lib.packages.Provider getProvider() {
+    return PROVIDER;
   }
 
   // Not all of JavaRuntimeInfo is exposed to Starlark, which makes implementing deep equality

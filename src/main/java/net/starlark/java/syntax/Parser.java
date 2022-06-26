@@ -113,7 +113,7 @@ final class Parser {
           .put(TokenKind.PIPE_EQUALS, TokenKind.PIPE)
           .put(TokenKind.GREATER_GREATER_EQUALS, TokenKind.GREATER_GREATER)
           .put(TokenKind.LESS_LESS_EQUALS, TokenKind.LESS_LESS)
-          .build();
+          .buildOrThrow();
 
   /**
    * Highest precedence goes last. Based on:
@@ -144,6 +144,10 @@ final class Parser {
   private boolean recoveryMode;  // stop reporting errors until next statement
 
   // Intern string literals, as some files contain many literals for the same string.
+  //
+  // Ideally we would move this to the lexer, where we already do interning of identifiers. However,
+  // the parser has a special case optimization for concatenation of string literals, which the
+  // lexer can't handle.
   private final Map<String, String> stringInterner = new HashMap<>();
 
   private Parser(Lexer lexer, List<SyntaxError> errors) {
@@ -167,9 +171,9 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input, FileOptions options) {
+  static ParseResult parseFile(ParserInput input) {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, options, errors);
+    Lexer lexer = new Lexer(input, errors);
     Parser parser = new Parser(lexer, errors);
 
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
@@ -203,10 +207,9 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  static Expression parseExpression(ParserInput input, FileOptions options)
-      throws SyntaxError.Exception {
+  static Expression parseExpression(ParserInput input) throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, options, errors);
+    Lexer lexer = new Lexer(input, errors);
     Parser parser = new Parser(lexer, errors);
     Expression result = null;
     try {
@@ -575,7 +578,8 @@ final class Parser {
     switch (token.kind) {
       case INT:
         {
-          IntLiteral literal = new IntLiteral(locs, token.raw, token.start, (Number) token.value);
+          IntLiteral literal =
+              new IntLiteral(locs, token.getRaw(), token.start, (Number) token.value);
           nextToken();
           return literal;
         }
@@ -583,7 +587,7 @@ final class Parser {
       case FLOAT:
         {
           FloatLiteral literal =
-              new FloatLiteral(locs, token.raw, token.start, (double) token.value);
+              new FloatLiteral(locs, token.getRaw(), token.start, (double) token.value);
           nextToken();
           return literal;
         }
@@ -966,7 +970,7 @@ final class Parser {
     return new LambdaExpression(locs, lambdaOffset, params, body);
   }
 
-  // parseTestNoCond parses a a single-component expression without
+  // parseTestNoCond parses a single-component expression without
   // consuming a trailing 'if expr else expr'.
   private Expression parseTestNoCond() {
     if (token.kind == TokenKind.LAMBDA) {

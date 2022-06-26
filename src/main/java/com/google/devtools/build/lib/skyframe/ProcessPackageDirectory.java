@@ -20,13 +20,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.io.FileSymlinkException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -34,12 +38,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -79,13 +83,15 @@ public final class ProcessPackageDirectory {
       RepositoryName repositoryName,
       ImmutableSet<PathFragment> excludedPaths,
       SkyFunction.Environment env)
-      throws InterruptedException {
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
 
     SkyKey fileKey = FileValue.key(rootedPath);
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileKey, IOException.class);
+    } catch (InconsistentFilesystemException e) {
+      throw new ProcessPackageDirectorySkyFunctionException(rootedPath, e);
     } catch (IOException e) {
       return reportErrorAndReturn(
           "Failed to get information about path", e, rootRelativePath, env.getListener());
@@ -117,7 +123,7 @@ public final class ProcessPackageDirectory {
 
     PackageIdentifier packageId = PackageIdentifier.create(repositoryName, rootRelativePath);
 
-    if ((packageId.getRepository().isDefault() || packageId.getRepository().isMain())
+    if (packageId.getRepository().isMain()
         && fileValue.isSymlink()
         && fileValue
             .getUnresolvedLinkTarget()
@@ -132,59 +138,41 @@ public final class ProcessPackageDirectory {
 
     SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
     SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
-    Map<
-            SkyKey,
-            ValueOrException2<
-                NoSuchPackageException, IOException>>
-        pkgLookupAndDirectoryListingDeps =
-            env.getValuesOrThrow(
-                ImmutableList.of(pkgLookupKey, dirListingKey),
-                NoSuchPackageException.class,
-                IOException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
+    SkyframeIterableResult pkgLookupAndDirectoryListingDeps =
+        env.getOrderedValuesAndExceptions(ImmutableList.of(pkgLookupKey, dirListingKey));
     PackageLookupValue pkgLookupValue;
     try {
       pkgLookupValue =
           (PackageLookupValue)
-              Preconditions.checkNotNull(
-                  pkgLookupAndDirectoryListingDeps.get(pkgLookupKey).get(),
-                  "%s %s %s",
-                  rootedPath,
-                  repositoryName,
-                  pkgLookupKey);
-    } catch (NoSuchPackageException | InconsistentFilesystemException e) {
+              pkgLookupAndDirectoryListingDeps.nextOrThrow(
+                  NoSuchPackageException.class, InconsistentFilesystemException.class);
+    } catch (NoSuchPackageException e) {
       return reportErrorAndReturn("Failed to load package", e, rootRelativePath, env.getListener());
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
+    } catch (InconsistentFilesystemException e) {
+      throw new ProcessPackageDirectorySkyFunctionException(rootedPath, e);
     }
     DirectoryListingValue dirListingValue;
     try {
       dirListingValue =
-          (DirectoryListingValue)
-              Preconditions.checkNotNull(
-                  pkgLookupAndDirectoryListingDeps.get(dirListingKey).get(),
-                  "%s %s %s",
-                  rootedPath,
-                  repositoryName,
-                  dirListingKey);
+          (DirectoryListingValue) pkgLookupAndDirectoryListingDeps.nextOrThrow(IOException.class);
     } catch (FileSymlinkException e) {
       // DirectoryListingFunction only throws FileSymlinkCycleException when FileFunction throws it,
       // but FileFunction was evaluated for rootedPath above, and didn't throw there. It shouldn't
       // be able to avoid throwing there but throw here.
       throw new IllegalStateException(
-          "Symlink cycle found after not being found for \"" + rootedPath + "\"");
+          "Symlink cycle found after not being found for \"" + rootedPath + "\"", e);
     } catch (IOException e) {
       return reportErrorAndReturn(
           "Failed to list directory contents", e, rootRelativePath, env.getListener());
-    } catch (NoSuchPackageException e) {
-      throw new IllegalStateException(e);
     }
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (env.valuesMissing()) {
       return null;
     }
+    Preconditions.checkNotNull(
+        pkgLookupValue, "%s %s %s", rootedPath, repositoryName, pkgLookupKey);
+    Preconditions.checkNotNull(
+        dirListingValue, "%s %s %s", rootedPath, repositoryName, dirListingKey);
     return new ProcessPackageDirectoryResult(
         pkgLookupValue.packageExists() && pkgLookupValue.getRoot().equals(rootedPath.getRoot()),
         getSubdirDeps(
@@ -193,8 +181,7 @@ public final class ProcessPackageDirectory {
             repositoryName,
             excludedPaths,
             starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
-        /** additionalValuesToAggregate= */
-        ImmutableMap.of());
+        /*additionalValuesToAggregate=*/ ImmutableMap.of());
   }
 
   private Iterable<SkyKey> getSubdirDeps(
@@ -281,5 +268,19 @@ public final class ProcessPackageDirectory {
       }
     }
     return true;
+  }
+
+  /** Wraps {@link InconsistentFilesystemException} in {@link ProcessPackageDirectoryException}. */
+  public static final class ProcessPackageDirectorySkyFunctionException
+      extends SkyFunctionException {
+    public ProcessPackageDirectorySkyFunctionException(
+        RootedPath directory, InconsistentFilesystemException e) {
+      super(new ProcessPackageDirectoryException(directory, e), Transience.PERSISTENT);
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return true;
+    }
   }
 }

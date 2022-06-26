@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.Collection;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -78,18 +79,28 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public Collection<DepEdge> visitLabels() throws InterruptedException {
-    return delegate.visitLabels();
+  public void visitAllLabels(BiConsumer<Attribute, Label> consumer) {
+    delegate.visitAllLabels(consumer);
   }
 
   @Override
-  public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
-    return delegate.visitLabels(attribute);
+  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {
+    delegate.visitLabels(attribute, consumer);
+  }
+
+  @Override
+  public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {
+    delegate.visitLabels(filter, consumer);
   }
 
   @Override
   public String getPackageDefaultHdrsCheck() {
     return delegate.getPackageDefaultHdrsCheck();
+  }
+
+  @Override
+  public boolean isPackageDefaultHdrsCheckSet() {
+    return delegate.isPackageDefaultHdrsCheckSet();
   }
 
   @Override

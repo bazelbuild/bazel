@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -29,13 +28,10 @@ import java.io.IOException;
  * directory or denied file system access.
  */
 public class EnvironmentalExecException extends ExecException {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   private final FailureDetail failureDetail;
 
   public EnvironmentalExecException(IOException cause, FailureDetails.Execution.Code code) {
-    super("unexpected I/O exception", cause);
-    logger.atSevere().withCause(cause).log("Unexpected I/O exception");
+    super(cause);
     this.failureDetail =
         FailureDetail.newBuilder().setExecution(Execution.newBuilder().setCode(code)).build();
   }

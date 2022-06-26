@@ -33,11 +33,11 @@ import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -91,7 +91,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
       throws ExecException {
     WorkspaceStatusAction.Context context = ctx.getContext(WorkspaceStatusAction.Context.class);
 
-    final Map<String, WorkspaceStatusAction.Key> keys = new LinkedHashMap<>();
+    Map<String, WorkspaceStatusAction.Key> keys = new TreeMap<>();
     if (writeVolatileInfo) {
       keys.putAll(context.getVolatileKeys());
     }
@@ -100,7 +100,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
       keys.putAll(context.getStableKeys());
     }
 
-    final Map<String, String> values = new LinkedHashMap<>();
+    Map<String, String> values = new HashMap<>();
     for (Artifact valueFile : getInputs().toList()) {
       try {
         values.putAll(WorkspaceStatusAction.parseValues(ctx.getInputPath(valueFile)));
@@ -116,32 +116,28 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
 
     final boolean redacted = getInputs().isEmpty();
 
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        Writer writer = new OutputStreamWriter(out, UTF_8);
+    return out -> {
+      Writer writer = new OutputStreamWriter(out, UTF_8);
 
-       for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
-          String value = redacted ? key.getValue().getRedactedValue()
-              : values.containsKey(key.getKey()) ? values.get(key.getKey())
-              : key.getValue().getDefaultValue();
+      for (Map.Entry<String, WorkspaceStatusAction.Key> key : keys.entrySet()) {
+        String value =
+            redacted
+                ? key.getValue().getRedactedValue()
+                : values.containsKey(key.getKey())
+                    ? values.get(key.getKey())
+                    : key.getValue().getDefaultValue();
 
-          switch (key.getValue().getType()) {
-            case INTEGER:
-              break;
+        switch (key.getValue().getType()) {
+          case INTEGER:
+            break;
 
-            case STRING:
-              value = quote(value);
-              break;
-
-            default:
-              throw new IllegalStateException();
-          }
-          define(writer, key.getKey(), value);
-
+          case STRING:
+            value = quote(value);
+            break;
         }
-        writer.flush();
+        define(writer, key.getKey(), value);
       }
+      writer.flush();
     };
   }
 

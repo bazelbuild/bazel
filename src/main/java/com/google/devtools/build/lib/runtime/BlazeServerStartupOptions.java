@@ -54,7 +54,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     public Map<String, String> convert(String input) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       if (input.isEmpty()) {
-        return builder.build();
+        return builder.buildOrThrow();
       }
 
       String[] elements = input.split(":");
@@ -66,7 +66,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         }
         builder.put(unescape(name), unescape(value));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
@@ -290,7 +290,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
+      help =
+          "Whether or not to exit if an exception is thrown by an internal EventBus handler. No-op"
+              + " if --fatal_async_exceptions_exclusions is available; that flag's behavior is"
+              + " preferentially used.")
   public boolean fatalEventBusExceptions;
 
   @Option(
@@ -465,18 +468,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "can be shared among them without changes. Possible values are: user-interactive, "
               + "user-initiated, default, utility, and background.")
   public String macosQosClass;
-
-  @Option(
-      name = "incompatible_enable_execution_transition",
-      defaultValue = "false", // Only for documentation; value is set by the client.
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If false, the execution transition behaves like the host transition.")
-  public boolean enableExecutionTransition;
 
   @Option(
       name = "windows_enable_symlinks",

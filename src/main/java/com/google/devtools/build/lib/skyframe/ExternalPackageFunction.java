@@ -14,15 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -34,6 +31,8 @@ import javax.annotation.Nullable;
  * that will contain all the bind statements from the WORKSPACE file.
  */
 public class ExternalPackageFunction implements SkyFunction {
+  @SerializationConstant @AutoCodec.VisibleForSerialization
+  static final SkyKey KEY = () -> SkyFunctions.EXTERNAL_PACKAGE;
 
   private final ExternalPackageHelper externalPackageHelper;
 
@@ -67,34 +66,8 @@ public class ExternalPackageFunction implements SkyFunction {
     return new PackageValue(value.getPackage());
   }
 
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  /** Returns a {@link Key} to find the WORKSPACE file at the given path. */
-  public static SkyKey key(RootedPath workspacePath) {
-    return Key.create(workspacePath);
-  }
-
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class Key extends AbstractSkyKey<RootedPath> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
-
-    private Key(RootedPath arg) {
-      super(arg);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
-      return interner.intern(new Key(arg));
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.EXTERNAL_PACKAGE;
-    }
+  /** Returns the singleton {@link SkyKey} for the external package. */
+  public static SkyKey key() {
+    return KEY;
   }
 }

@@ -59,7 +59,12 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
     aspectAttributes = ImmutableMap.<String, Attribute>of(aspectAttr.getName(), aspectAttr);
     mapper =
         new AspectAwareAttributeMapper(
-            ConfiguredAttributeMapper.of(rule, ct.getConfigConditions()), aspectAttributes);
+            ConfiguredAttributeMapper.of(
+                rule,
+                ct.getConfigConditions(),
+                ct.getConfigurationChecksum(),
+                /*alwaysSucceed=*/ false),
+            aspectAttributes);
   }
 
   @Test

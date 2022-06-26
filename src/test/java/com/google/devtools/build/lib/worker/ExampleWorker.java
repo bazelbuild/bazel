@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.worker.ExampleWorkerOptions.ExampleWorkOptions;
+import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.common.options.OptionsParser;
@@ -29,6 +30,7 @@ import com.google.gson.stream.JsonReader;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -67,6 +69,7 @@ public final class ExampleWorker {
 
   // The options passed to this worker on a per-worker-lifetime basis.
   static ExampleWorkerOptions workerOptions;
+  private static WorkerMessageProcessor messageProcessor;
 
   private static class InterruptableWorkRequestHandler extends WorkRequestHandler {
 
@@ -78,12 +81,14 @@ public final class ExampleWorker {
     }
 
     @Override
+    @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
           break;
         }
+
         currentRequest = request;
         inputs.clear();
         for (Input input : request.getInputsList()) {
@@ -92,11 +97,10 @@ public final class ExampleWorker {
         if (poisoned && workerOptions.hardPoison) {
           throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
         }
-        if (request.getRequestId() != 0) {
-          Thread t = createResponseThread(request);
-          t.start();
+        if (request.getCancel()) {
+          respondToCancelRequest(request);
         } else {
-          respondToRequest(request);
+          startResponseThread(request);
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
@@ -115,7 +119,7 @@ public final class ExampleWorker {
       parser.parse(args);
       workerOptions = parser.getOptions(ExampleWorkerOptions.class);
       WorkerProtocolFormat protocolFormat = workerOptions.workerProtocol;
-      WorkRequestHandler.WorkerMessageProcessor messageProcessor = null;
+      messageProcessor = null;
       switch (protocolFormat) {
         case JSON:
           messageProcessor =
@@ -144,6 +148,25 @@ public final class ExampleWorker {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
+    if (workerOptions.waitForCancel) {
+      try {
+        WorkRequest workRequest = messageProcessor.readWorkRequest();
+        if (workRequest.getRequestId() != currentRequest.getRequestId()) {
+          System.err.format(
+              "Got cancel request for %d while expecting cancel request for %d%n",
+              workRequest.getRequestId(), currentRequest.getRequestId());
+          return 1;
+        }
+        if (!workRequest.getCancel()) {
+          System.err.format(
+              "Got non-cancel request for %d while expecting cancel request%n",
+              workRequest.getRequestId());
+          return 1;
+        }
+      } catch (IOException e) {
+        throw new RuntimeException("Exception while waiting for cancel request", e);
+      }
+    }
     try (PrintStream ps = new PrintStream(baos)) {
       System.setOut(ps);
       System.setErr(ps);
@@ -163,6 +186,10 @@ public final class ExampleWorker {
         }
       } else {
         try {
+          if (currentRequest.getVerbosity() > 0) {
+            originalStdErr.println("VERBOSE: Pretending to do work.");
+            originalStdErr.println("VERBOSE: Running in " + new File(".").getAbsolutePath());
+          }
           parseOptionsAndLog(args);
         } catch (Exception e) {
           e.printStackTrace();

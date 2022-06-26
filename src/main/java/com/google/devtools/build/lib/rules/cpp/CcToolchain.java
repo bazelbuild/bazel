@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.io.Serializable;
 import java.util.HashMap;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -60,11 +60,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       Label.parseAbsoluteUnchecked(LOOSE_HEADER_CHECK_TARGET);
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    if (!isAppleToolchain()) {
-      CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    }
     validateToolchain(ruleContext);
     CcToolchainAttributesProvider attributes =
         new CcToolchainAttributesProvider(
@@ -103,17 +101,24 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             ccToolchainProvider,
             ruleContext.getRule().getLocation());
 
+    ToolchainInfo toolchain =
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder()
+                .put("cc", ccToolchainProvider)
+                // Add a clear signal that this is a CcToolchainProvider, since just "cc" is
+                // generic enough to possibly be re-used.
+                .put("cc_provider_in_toolchain", true)
+                .build());
     ruleConfiguredTargetBuilder
         .addNativeDeclaredProvider(ccToolchainProvider)
+        .addNativeDeclaredProvider(toolchain)
         .addNativeDeclaredProvider(templateVariableInfo)
-        .setFilesToBuild(ccToolchainProvider.getAllFiles())
-        .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
+        .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc());
     return ruleConfiguredTargetBuilder.build();
   }
 
-  static TemplateVariableInfo createMakeVariableProvider(
-      CcToolchainProvider toolchainProvider,
-      Location location) {
+  public static TemplateVariableInfo createMakeVariableProvider(
+      CcToolchainProvider toolchainProvider, Location location) {
 
     HashMap<String, String> makeVariables =
         new HashMap<>(toolchainProvider.getAdditionalMakeVariables());
@@ -121,7 +126,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // Add make variables from the toolchainProvider, also.
     ImmutableMap.Builder<String, String> ccProviderMakeVariables = new ImmutableMap.Builder<>();
     toolchainProvider.addGlobalMakeVariables(ccProviderMakeVariables);
-    makeVariables.putAll(ccProviderMakeVariables.build());
+    makeVariables.putAll(ccProviderMakeVariables.buildOrThrow());
 
     return new TemplateVariableInfo(ImmutableMap.copyOf(makeVariables), location);
   }

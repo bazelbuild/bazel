@@ -21,9 +21,9 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolc
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
+import com.google.devtools.build.lib.rules.android.AndroidPlatformsTransition;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -37,7 +37,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             ComposingTransitionFactory.of(
                 new ConfigFeatureFlagTransitionFactory(
                     AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR),
-                AndroidRuleClasses.androidBinarySelfTransition()))
+                AndroidPlatformsTransition.create()))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application
@@ -81,8 +81,6 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
                 .value(
                     environment.getToolsLabel(
                         "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
-        .useToolchainTransition(true)
         .build();
   }
 

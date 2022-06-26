@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -47,6 +48,18 @@ public class RepositoryOptions extends OptionsBase {
   public PathFragment experimentalRepositoryCache;
 
   @Option(
+      name = "registry",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Specifies the registries to use to locate Bazel module dependencies. The order is"
+              + " important: modules will be looked up in earlier registries first, and only fall"
+              + " back to later registries when they're missing from the earlier ones.")
+  public List<String> registries;
+
+  @Option(
       name = "experimental_repository_cache_hardlinks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -64,6 +77,17 @@ public class RepositoryOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If set, downloading external repositories is not allowed.")
   public boolean disableDownload;
+
+  @Option(
+      name = "experimental_repository_downloader_retries",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "The maximum number of attempts to retry a download error. If set to 0, retries are"
+              + " disabled.")
+  public int repositoryDownloaderRetries;
 
   @Option(
       name = "distdir",
@@ -156,6 +180,80 @@ public class RepositoryOptions extends OptionsBase {
               + "give, and in this case multiple URLs will be returned.")
   public String downloaderConfig;
 
+  @Option(
+      name = "experimental_enable_bzlmod",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel tries to load external repositories from the Bzlmod system before "
+              + "looking into the WORKSPACE file.")
+  public boolean enableBzlmod;
+
+  @Option(
+      name = "ignore_dev_dependency",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in "
+              + "the MODULE.bazel of the root module. Note that, those dev dependencies are always "
+              + "ignored in the MODULE.bazel if it's not the root module regardless of the value "
+              + "of this flag.")
+  public boolean ignoreDevDependency;
+
+  @Option(
+      name = "check_direct_dependencies",
+      defaultValue = "warning",
+      converter = CheckDirectDepsMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Check if the direct `bazel_dep` dependencies declared in the root module are the same"
+              + " versions you get in the resolved dependency graph. Valid values are `off` to"
+              + " disable the check, `warning` to print a warning when mismatch detected or `error`"
+              + " to escalate it to a resolution failure.")
+  public CheckDirectDepsMode checkDirectDependencies;
+
+  @Option(
+      name = "experimental_repository_cache_urls_as_default_canonical_id",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, use a string derived from the URLs of repository downloads as the canonical_id "
+              + "if not specified. This causes a change in the URLs to result in a redownload even "
+              + "if the cache contains a download with the same hash. This can be used to verify "
+              + "that URL changes don't result in broken repositories being masked by the cache.")
+  public boolean urlsAsDefaultCanonicalId;
+
+  @Option(
+      name = "experimental_check_external_repository_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check for modifications to files in external repositories. Consider setting "
+              + "this flag to false if you don't expect these files to change outside of bazel "
+              + "since it will speed up subsequent runs as they won't have to check a "
+              + "previous run's cache.")
+  public boolean checkExternalRepositoryFiles;
+
+  /** An enum for specifying different modes for checking direct dependency accuracy. */
+  public enum CheckDirectDepsMode {
+    OFF, // Don't check direct dependency accuracy.
+    WARNING, // Print warning when mismatch.
+    ERROR; // Throw an error when mismatch.
+
+    /** Converts to {@link CheckDirectDepsMode}. */
+    public static class Converter extends EnumConverter<CheckDirectDepsMode> {
+      public Converter() {
+        super(CheckDirectDepsMode.class, "direct deps check mode");
+      }
+    }
+  }
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */
@@ -163,7 +261,7 @@ public class RepositoryOptions extends OptionsBase {
 
     @Override
     public RepositoryOverride convert(String input) throws OptionsParsingException {
-      String[] pieces = input.split("=");
+      String[] pieces = input.split("=", 2);
       if (pieces.length != 2) {
         throw new OptionsParsingException(
             "Repository overrides must be of the form 'repository-name=path'", input);
@@ -174,9 +272,9 @@ public class RepositoryOptions extends OptionsBase {
             "Repository override directory must be an absolute path", input);
       }
       try {
-        return RepositoryOverride.create(RepositoryName.create("@" + pieces[0]), path);
+        return RepositoryOverride.create(RepositoryName.create(pieces[0]), path);
       } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException("Invalid repository name given to override", input);
+        throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
     }
 

@@ -15,19 +15,29 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 
 /**
  * This provider is exported by j2objc_library to export entry class information necessary for
  * J2ObjC dead code removal performed at the binary level in ObjC rules.
  */
 @Immutable
-public final class J2ObjcEntryClassProvider implements TransitiveInfoProvider {
+public final class J2ObjcEntryClassProvider extends NativeInfo {
   private final NestedSet<String> entryClasses;
+
+  public static final String NAME = "J2ObjcEntryClassInfo";
+  public static final J2ObjcEntryClassProvider.Provider PROVIDER =
+      new J2ObjcEntryClassProvider.Provider();
+
+  @Override
+  public BuiltinProvider<J2ObjcEntryClassProvider> getProvider() {
+    return PROVIDER;
+  }
 
   /**
    * A builder for J2ObjcEntryClassProvider.
@@ -75,7 +85,7 @@ public final class J2ObjcEntryClassProvider implements TransitiveInfoProvider {
      */
     public Builder addTransitive(RuleContext ruleContext) {
       if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-        addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.class));
+        addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.PROVIDER));
       }
 
       return this;
@@ -120,5 +130,12 @@ public final class J2ObjcEntryClassProvider implements TransitiveInfoProvider {
    */
   public NestedSet<String> getEntryClasses() {
     return entryClasses;
+  }
+
+  /** Provider */
+  public static class Provider extends BuiltinProvider<J2ObjcEntryClassProvider> {
+    public Provider() {
+      super(J2ObjcEntryClassProvider.NAME, J2ObjcEntryClassProvider.class);
+    }
   }
 }

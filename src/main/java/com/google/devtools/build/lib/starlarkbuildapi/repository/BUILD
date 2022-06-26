@@ -20,14 +20,11 @@ java_library(
     name = "repository",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/net/starlark/java/annot",
-        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        # TODO(cparsons): Remove dependency on Label implementation.
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:jsr305",
+        "//third_party:guava",
     ],
 )

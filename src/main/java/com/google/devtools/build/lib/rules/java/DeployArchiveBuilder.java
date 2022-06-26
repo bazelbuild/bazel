@@ -14,14 +14,15 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -30,10 +31,13 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -45,8 +49,6 @@ public class DeployArchiveBuilder {
    * recent example, 400 MB of memory was enough for about 500,000 entries.
    */
   private static final int SINGLEJAR_MEMORY_MB = 1600;
-
-  private static final String SINGLEJAR_MAX_MEMORY = "-Xmx" + SINGLEJAR_MEMORY_MB + "m";
 
   private static final ResourceSet DEPLOY_ACTION_RESOURCE_SET =
       ResourceSet.createWithRamCpu(/*memoryMb = */ SINGLEJAR_MEMORY_MB, /*cpuUsage = */ 1);
@@ -70,6 +72,12 @@ public class DeployArchiveBuilder {
   private OneVersionEnforcementLevel oneVersionEnforcementLevel = OneVersionEnforcementLevel.OFF;
   @Nullable private Artifact oneVersionAllowlistArtifact;
   @Nullable private Artifact sharedArchive;
+  private boolean multiReleaseDeployJars;
+  @Nullable private PathFragment javaHome;
+  @Nullable private Artifact libModules;
+  private NestedSet<Artifact> hermeticInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private NestedSet<String> addExports;
+  private NestedSet<String> addOpens;
 
   /** Type of compression to apply to output archive. */
   public enum Compression {
@@ -170,8 +178,38 @@ public class DeployArchiveBuilder {
     return this;
   }
 
+  public DeployArchiveBuilder setMultiReleaseDeployJars(boolean multiReleaseDeployJars) {
+    this.multiReleaseDeployJars = multiReleaseDeployJars;
+    return this;
+  }
+
   public DeployArchiveBuilder setSharedArchive(@Nullable Artifact sharedArchive) {
     this.sharedArchive = sharedArchive;
+    return this;
+  }
+
+  public DeployArchiveBuilder setJavaHome(PathFragment javaHome) {
+    this.javaHome = requireNonNull(javaHome);
+    return this;
+  }
+
+  public DeployArchiveBuilder setLibModules(@Nullable Artifact libModules) {
+    this.libModules = libModules;
+    return this;
+  }
+
+  public DeployArchiveBuilder setHermeticInputs(NestedSet<Artifact> hermeticInputs) {
+    this.hermeticInputs = requireNonNull(hermeticInputs);
+    return this;
+  }
+
+  public DeployArchiveBuilder setAddExports(NestedSet<String> addExports) {
+    this.addExports = addExports;
+    return this;
+  }
+
+  public DeployArchiveBuilder setAddOpens(NestedSet<String> addOpens) {
+    this.addOpens = addOpens;
     return this;
   }
 
@@ -185,7 +223,12 @@ public class DeployArchiveBuilder {
       boolean includeBuildData,
       Compression compress,
       Artifact launcher,
-      boolean usingNativeSinglejar) {
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
     return defaultSingleJarCommandLine(
         outputJar,
         javaMainClass,
@@ -196,9 +239,14 @@ public class DeployArchiveBuilder {
         includeBuildData,
         compress,
         launcher,
-        usingNativeSinglejar,
         OneVersionEnforcementLevel.OFF,
-        null);
+        null,
+        /* multiReleaseDeployJars= */ multiReleaseDeployJars,
+        javaHome,
+        libModules,
+        hermeticInputs,
+        addExports,
+        addOpens);
   }
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
@@ -211,9 +259,14 @@ public class DeployArchiveBuilder {
       boolean includeBuildData,
       Compression compress,
       Artifact launcher,
-      boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      @Nullable Artifact oneVersionAllowlistArtifact) {
+      @Nullable Artifact oneVersionAllowlistArtifact,
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
@@ -244,14 +297,10 @@ public class DeployArchiveBuilder {
 
     args.addExecPaths("--classpath_resources", classpathResources);
     if (runtimeClasspath != null) {
-      if (usingNativeSinglejar) {
-        args.addAll(
-            "--sources", OneVersionCheckActionBuilder.jarAndTargetVectorArg(runtimeClasspath));
-      } else {
-        args.addExecPaths("--sources", runtimeClasspath);
-      }
+      args.addAll(
+          "--sources", OneVersionCheckActionBuilder.jarAndTargetVectorArg(runtimeClasspath));
     }
-    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF && usingNativeSinglejar) {
+    if (oneVersionEnforcementLevel != OneVersionEnforcementLevel.OFF) {
       args.add("--enforce_one_version");
       // RuleErrors should have been added in Builder.build() before this command
       // line is invoked.
@@ -261,6 +310,14 @@ public class DeployArchiveBuilder {
         args.add("--succeed_on_found_violations");
       }
     }
+    if (multiReleaseDeployJars) {
+      args.add("--multi_release");
+    }
+    args.addPath("--hermetic_java_home", javaHome);
+    args.addExecPath("--jdk_lib_modules", libModules);
+    args.addExecPaths("--resources", hermeticInputs);
+    args.addAll("--add_exports", addExports);
+    args.addAll("--add_opens", addOpens);
     return args;
   }
 
@@ -343,16 +400,25 @@ public class DeployArchiveBuilder {
     if (sharedArchive != null) {
       inputs.add(sharedArchive);
     }
-    // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-    // the native singlejar is used on windows) remove support for the Java implementation
-    Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-    boolean usingNativeSinglejar = !singlejar.getFilename().endsWith(".jar");
+    inputs.addTransitive(hermeticInputs);
+    if (libModules != null) {
+      inputs.add(libModules);
+    }
 
+    Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+
+    String toolchainIdentifier = null;
+    try {
+      toolchainIdentifier =
+          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
+              .getToolchainIdentifier();
+    } catch (RuleErrorException e) {
+      // Something went wrong loading the toolchain, which is an exceptional condition.
+      throw new IllegalStateException("Unable to load cc toolchain", e);
+    }
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(
-            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
-                .getToolchainIdentifier(),
+            toolchainIdentifier,
             outputJar,
             javaStartClass,
             deployManifestLines,
@@ -362,46 +428,36 @@ public class DeployArchiveBuilder {
             includeBuildData,
             compression,
             launcher,
-            usingNativeSinglejar,
             oneVersionEnforcementLevel,
             oneVersionAllowlistArtifact,
-            sharedArchive);
+            sharedArchive,
+            /* multiReleaseDeployJars= */ multiReleaseDeployJars,
+            javaHome,
+            libModules,
+            hermeticInputs,
+            addExports,
+            addOpens);
     if (checkDesugarDeps) {
       commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
     }
 
-    List<String> jvmArgs = ImmutableList.of(SINGLEJAR_MAX_MEMORY);
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    executionInfo.putAll(
+        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
-    if (!usingNativeSinglejar) {
-      ruleContext.registerAction(
-          new SpawnAction.Builder()
-              .useDefaultShellEnvironment()
-              .addTransitiveInputs(inputs.build())
-              .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman())
-              .addOutput(outputJar)
-              .setResources(DEPLOY_ACTION_RESOURCE_SET)
-              .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)
-              .addCommandLine(
-                  commandLine,
-                  ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-              .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
-              .setMnemonic("JavaDeployJar")
-              .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
-              .build(ruleContext));
-    } else {
-      ruleContext.registerAction(
-          new SpawnAction.Builder()
-              .useDefaultShellEnvironment()
-              .addTransitiveInputs(inputs.build())
-              .addOutput(outputJar)
-              .setResources(DEPLOY_ACTION_RESOURCE_SET)
-              .setExecutable(singlejar)
-              .addCommandLine(
-                  commandLine,
-                  ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
-              .setProgressMessage("Building deploy jar %s", outputJar.prettyPrint())
-              .setMnemonic("JavaDeployJar")
-              .build(ruleContext));
-    }
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
+            .addTransitiveInputs(inputs.build())
+            .addOutput(outputJar)
+            .setResources(DEPLOY_ACTION_RESOURCE_SET)
+            .setExecutable(singlejar)
+            .addCommandLine(
+                commandLine,
+                ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
+            .setProgressMessage("Building deploy jar %{output}")
+            .setMnemonic("JavaDeployJar")
+            .setExecutionInfo(executionInfo.buildOrThrow())
+            .build(ruleContext));
   }
 }

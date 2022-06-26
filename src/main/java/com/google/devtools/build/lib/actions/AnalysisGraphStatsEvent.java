@@ -13,32 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+
 /**
  * Event transporting data about the size/shape of the analysis graph. Only emitted when Bazel is
  * forced to visit the entire analysis graph (for action/artifact conflict checking). See {@link
  * com.google.devtools.build.lib.skyframe.SkyframeBuildView#shouldCheckForConflicts}.
  */
 public final class AnalysisGraphStatsEvent {
-  private final int actionLookupValueCount;
-  private final int actionCount;
-  private final int outputArtifactCount;
+  private final BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics buildGraphMetrics;
 
   public AnalysisGraphStatsEvent(
-      int actionLookupValueCount, int actionCount, int outputArtifactCount) {
-    this.actionLookupValueCount = actionLookupValueCount;
-    this.actionCount = actionCount;
-    this.outputArtifactCount = outputArtifactCount;
+      BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics buildGraphMetrics) {
+    this.buildGraphMetrics = buildGraphMetrics;
   }
 
-  public int getActionLookupValueCount() {
-    return actionLookupValueCount;
-  }
-
-  public int getActionCount() {
-    return actionCount;
-  }
-
-  public int getOutputArtifactCount() {
-    return outputArtifactCount;
+  public BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics getBuildGraphMetrics() {
+    return buildGraphMetrics;
   }
 }

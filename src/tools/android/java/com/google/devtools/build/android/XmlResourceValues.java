@@ -22,6 +22,7 @@ import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
+import com.google.devtools.build.android.xml.MacroXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
@@ -111,7 +112,7 @@ public class XmlResourceValues {
       }
     }
     return PluralXmlResourceValue.createWithAttributesAndValues(
-        ImmutableMap.copyOf(parseTagAttributes(start)), values.build());
+        ImmutableMap.copyOf(parseTagAttributes(start)), values.buildOrThrow());
   }
 
   static XmlResourceValue parseStyle(XMLEventReader eventReader, StartElement start)
@@ -243,7 +244,7 @@ public class XmlResourceValues {
         id = Optional.of(Integer.decode(idValueAttr));
       } catch (NumberFormatException e) {
         throw new XMLStreamException(
-            String.format("<public> has invalid id number %s", start), start.getLocation());
+            String.format("<public> has invalid id number %s", start), start.getLocation(), e);
       }
     }
     if (attributes.size() > 2) {
@@ -277,6 +278,18 @@ public class XmlResourceValues {
       }
     }
     return attributeMap;
+  }
+
+  static XmlResourceValue parseMacro(
+      XMLEventReader eventReader, StartElement start, Namespaces.Collector namespacesCollector)
+      throws XMLStreamException {
+    if (isEndTag(eventReader.peek(), start.getName())) {
+      throw new XMLStreamException(
+          String.format("<macro> must have contents %s", start), start.getLocation());
+    }
+
+    String contents = readContentsAsString(eventReader, start.getName(), namespacesCollector);
+    return MacroXmlResourceValue.of(contents);
   }
 
   // TODO(corysmith): Replace this with real escaping system, preferably a performant high level xml

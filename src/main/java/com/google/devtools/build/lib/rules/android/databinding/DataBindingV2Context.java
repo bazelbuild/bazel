@@ -20,21 +20,24 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingProcessorBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
 import java.util.Collection;
@@ -133,17 +136,18 @@ class DataBindingV2Context implements DataBindingContext {
 
   @Override
   public void supplyAnnotationProcessor(
-      RuleContext ruleContext, BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) {
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {
 
-    JavaPluginInfoProvider javaPluginInfoProvider =
-        JavaInfo.getProvider(
-            JavaPluginInfoProvider.class,
-            ruleContext.getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR));
+    JavaPluginInfo javaPluginInfo =
+        (JavaPluginInfo)
+            ruleContext
+                .getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR)
+                .get(JavaPluginInfo.PROVIDER.getKey());
 
     ImmutableList<Artifact> annotationProcessorOutputs =
         DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);
 
-    consumer.accept(javaPluginInfoProvider, annotationProcessorOutputs);
+    consumer.accept(javaPluginInfo, annotationProcessorOutputs);
   }
 
   @Override
@@ -188,12 +192,12 @@ class DataBindingV2Context implements DataBindingContext {
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, transitiveBRFile));
     }
 
-    for (Artifact directSetterStoreFile : getDirectSetterStoreFiles(ruleContext)) {
+    for (Artifact directSetterStoreFile : getDirectSetterStoreFiles(ruleContext).toList()) {
       dataBindingJavaInputs.add(
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, directSetterStoreFile));
     }
 
-    for (Artifact classInfo : getDirectClassInfo(ruleContext)) {
+    for (Artifact classInfo : getDirectClassInfo(ruleContext).toList()) {
       dataBindingJavaInputs.add(
           DataBinding.symlinkDepsMetadataIntoOutputTree(ruleContext, classInfo));
     }
@@ -215,15 +219,22 @@ class DataBindingV2Context implements DataBindingContext {
     return brFiles.build();
   }
 
-  private static List<Artifact> getDirectSetterStoreFiles(RuleContext context) {
-    ImmutableList.Builder<Artifact> setterStoreFiles = ImmutableList.builder();
+  private static NestedSet<Artifact> getDirectSetterStoreFiles(RuleContext context) {
+    NestedSetBuilder<Artifact> setterStoreFiles = NestedSetBuilder.stableOrder();
     if (context.attributes().has("deps", BuildType.LABEL_LIST)) {
 
       Iterable<DataBindingV2Provider> providers =
           context.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
 
       for (DataBindingV2Provider provider : providers) {
-        setterStoreFiles.addAll(provider.getSetterStores());
+        setterStoreFiles.addTransitive(provider.getSetterStores());
+      }
+      if (context.attributes().has("application_resources")) {
+        DataBindingV2Provider p =
+            context.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+        if (p != null) {
+          setterStoreFiles.addAll(p.getSetterStores().toList());
+        }
       }
     }
     return setterStoreFiles.build();
@@ -300,35 +311,33 @@ class DataBindingV2Context implements DataBindingContext {
             .add("-zipSourceOutput", "true")
             .add("-useAndroidX", useAndroidX ? "true" : "false");
 
-    List<Artifact> dependencyClassInfo = getDirectClassInfo(ruleContext);
-    for (Artifact artifact : dependencyClassInfo) {
-      commandLineBuilder.addExecPath("-dependencyClassInfoList", artifact);
-    }
+    NestedSet<Artifact> dependencyClassInfo = getDirectClassInfo(ruleContext);
+    commandLineBuilder.addExecPaths(
+        VectorArg.addBefore("-dependencyClassInfoList").each(dependencyClassInfo));
 
-    Action[] action =
+    ruleContext.registerAction(
         new SpawnAction.Builder()
             .setExecutable(exec)
             .setMnemonic("GenerateDataBindingBaseClasses")
             .addInput(layoutInfo)
-            .addInputs(dependencyClassInfo)
+            .addTransitiveInputs(dependencyClassInfo)
             .addOutput(classInfoFile)
             .addOutput(srcOutFile)
             .addCommandLine(commandLineBuilder.build())
-            .build(ruleContext);
-    ruleContext.registerAction(action);
+            .build(ruleContext));
 
     return ImmutableList.of(srcOutFile);
   }
 
-  private static List<Artifact> getDirectClassInfo(RuleContext context) {
-    ImmutableList.Builder<Artifact> classInfoFiles = ImmutableList.builder();
+  private static NestedSet<Artifact> getDirectClassInfo(RuleContext context) {
+    NestedSetBuilder<Artifact> classInfoFiles = NestedSetBuilder.stableOrder();
     if (context.attributes().has("deps", BuildType.LABEL_LIST)) {
 
       Iterable<DataBindingV2Provider> providers =
           context.getPrerequisites("deps", DataBindingV2Provider.PROVIDER);
 
       for (DataBindingV2Provider provider : providers) {
-        classInfoFiles.addAll(provider.getClassInfos());
+        classInfoFiles.addTransitive(provider.getClassInfos());
       }
     }
     return classInfoFiles.build();
@@ -336,7 +345,14 @@ class DataBindingV2Context implements DataBindingContext {
 
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
-
+    if (shouldGetDatabindingArtifactsFromApplicationResources(ruleContext)) {
+      DataBindingV2Provider p =
+          ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+      if (p != null) {
+        builder.addNativeDeclaredProvider(p);
+        return;
+      }
+    }
     Artifact setterStoreFile =
         DataBinding.getMetadataOutput(ruleContext, useUpdatedArgs, setterStoreName);
 
@@ -397,7 +413,14 @@ class DataBindingV2Context implements DataBindingContext {
     return useAndroidX;
   }
 
-  private static Artifact getClassInfoFile(ActionConstructionContext context) {
+  private static Artifact getClassInfoFile(RuleContext context) {
+    if (shouldGetDatabindingArtifactsFromApplicationResources(context)) {
+      DataBindingV2Provider p =
+          context.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+      if (p != null) {
+        return Iterables.getOnlyElement(p.getClassInfos().toList());
+      }
+    }
     return context.getUniqueDirectoryArtifact("databinding", "class-info.zip");
   }
 
@@ -406,5 +429,16 @@ class DataBindingV2Context implements DataBindingContext {
       return DataBinding.getLayoutInfoFile(actionContext);
     }
     return injectedLayoutInfoZip;
+  }
+
+  private static boolean shouldGetDatabindingArtifactsFromApplicationResources(
+      RuleContext context) {
+    if (!context.attributes().has("application_resources")
+        || !context.attributes().isAttributeValueExplicitlySpecified("application_resources")) {
+      return false;
+    }
+    AndroidApplicationResourceInfo androidApplicationResourceInfo =
+        context.getPrerequisite("application_resources", AndroidApplicationResourceInfo.PROVIDER);
+    return !androidApplicationResourceInfo.shouldCompileJavaSrcs();
   }
 }

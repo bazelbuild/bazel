@@ -124,7 +124,7 @@ public class NestedSetFingerprintCacheTest {
     NestedSet<String> nestedSet =
         NestedSetBuilder.<String>stableOrder().add("a0").add("a1").build();
 
-    // Make sure a normal method reference doesn't get blacklisted.
+    // Make sure a normal method reference doesn't get denied.
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
           NestedSetFingerprintCacheTest::simpleExpand, new Fingerprint(), nestedSet);
@@ -136,19 +136,19 @@ public class NestedSetFingerprintCacheTest {
           NestedSetFingerprintCacheTest::simpleExpand2, new Fingerprint(), nestedSet);
     }
 
-    // Make sure a non-capturing lambda doesn't get blacklisted
+    // Make sure a non-capturing lambda doesn't get denied
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
           (s, args) -> args.accept(s + "_mapped"), new Fingerprint(), nestedSet);
     }
 
-    // Make sure a CapturingMapFn doesn't get blacklisted
+    // Make sure a CapturingMapFn doesn't get denied
     for (int i = 0; i < 2; ++i) {
       cache.addNestedSetToFingerprint(
           (CapturingMapFn<String>) (s, args) -> args.accept(s + 1), new Fingerprint(), nestedSet);
     }
 
-    // Make sure a ParametrizedMapFn doesn't get blacklisted until it exceeds its instance count
+    // Make sure a ParametrizedMapFn doesn't get denied until it exceeds its instance count
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(1), new Fingerprint(), nestedSet);
     cache.addNestedSetToFingerprint(new IntParametrizedMapFn(2), new Fingerprint(), nestedSet);
     assertThrows(
@@ -157,7 +157,7 @@ public class NestedSetFingerprintCacheTest {
             cache.addNestedSetToFingerprint(
                 new IntParametrizedMapFn(3), new Fingerprint(), nestedSet));
 
-    // Make sure a capturing method reference gets blacklisted. The for loop causes the variable i
+    // Make sure a capturing method reference gets denied. The for loop causes the variable i
     // to be captured, so that str::expand becomes a capturing lambda, not a plain method reference.
     // This test case ensures that the captured lambda cannot be used twice.
     assertThrows(
@@ -169,7 +169,7 @@ public class NestedSetFingerprintCacheTest {
           }
         });
 
-    // Do make sure that a capturing lambda gets blacklisted. The loop exists for the same reason as
+    // Do make sure that a capturing lambda gets denied. The loop exists for the same reason as
     // the above case.
     assertThrows(
         IllegalArgumentException.class,

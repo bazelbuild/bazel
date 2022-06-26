@@ -1,5 +1,4 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -81,6 +80,7 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [
+        "runfiles_test_utils.sh",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -286,6 +286,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
 )
 
 sh_test(
@@ -511,7 +512,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
     shard_count = 3,
     tags = [
@@ -530,7 +531,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
     tags = [
         "no_windows",
@@ -548,7 +549,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorkerMultiplexer_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorkerMultiplexer_deploy.jar",
     ],
     shard_count = 3,
     tags = [
@@ -567,10 +568,8 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
-    # TODO(b/34450149): remove when no longer flaky
-    flaky = 1,
     shard_count = 3,
     tags = [
         "no_windows",
@@ -790,27 +789,62 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "analysis_phase_options_test",
+    size = "medium",
+    srcs = ["analysis_phase_options_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "exec_group_test",
+    srcs = ["exec_group_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 5,
+)
+
+sh_test(
+    name = "watchfs_test",
+    srcs = ["watchfs_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "toolchain_test",
+    size = "large",
+    srcs = ["toolchain_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 5,
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "toolchain_transition_test",
+    srcs = ["toolchain_transition_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
 ########################################################################
 # Test suites.
 
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/shell:__pkg__"],
 )

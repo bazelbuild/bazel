@@ -56,7 +56,6 @@ public class PredefinedAttributes {
    * List of common (implicitly added to all rules) attributes documentation, relative to {@link
    * com.google.devtools.build.docgen}.
    */
-  // TODO(b/177233238): This should also document applicable_licenses and transitive_configs.
   public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES =
       ImmutableList.of(
           "templates/attributes/common/compatible_with.html",
@@ -98,7 +97,7 @@ public class PredefinedAttributes {
         throw new IllegalStateException("Exception while reading " + filename, e);
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   public static final ImmutableMap<String, RuleDocumentationAttribute> TYPICAL_ATTRIBUTES =

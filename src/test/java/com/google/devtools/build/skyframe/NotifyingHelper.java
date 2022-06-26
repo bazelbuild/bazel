@@ -17,7 +17,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -55,15 +54,6 @@ public class NotifyingHelper {
 
   protected final Listener graphListener;
 
-  protected final EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry> wrapEntry =
-      new EntryTransformer<SkyKey, ThinNodeEntry, NodeEntry>() {
-        @Nullable
-        @Override
-        public NotifyingNodeEntry transformEntry(SkyKey key, @Nullable ThinNodeEntry nodeEntry) {
-          return wrapEntry(key, nodeEntry);
-        }
-      };
-
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
   }
@@ -96,8 +86,7 @@ public class NotifyingHelper {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
       }
       return Maps.transformEntries(
-          delegate.getBatch(requestor, reason, keys),
-          notifyingHelper.wrapEntry);
+          delegate.getBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Nullable
@@ -129,14 +118,13 @@ public class NotifyingHelper {
 
     @Override
     public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys)
+        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
       }
       return Maps.transformEntries(
-          delegate.createIfAbsentBatch(requestor, reason, keys),
-          notifyingHelper.wrapEntry);
+          delegate.createIfAbsentBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Override
@@ -166,6 +154,7 @@ public class NotifyingHelper {
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
     GET_BATCH,
+    GET_VALUES,
     GET_TEMPORARY_DIRECT_DEPS,
     SIGNAL,
     SET_VALUE,
@@ -216,7 +205,7 @@ public class NotifyingHelper {
             e,
             "In NotifyingGraph: "
                 + Joiner.on(", ").join(key, type, order, context == null ? "null" : context));
-        throw e;
+        throw new IllegalStateException(e);
       }
     }
   }
@@ -278,9 +267,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Set<SkyKey> setValue(SkyValue value, Version version) throws InterruptedException {
+    public Set<SkyKey> setValue(
+        SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
+        throws InterruptedException {
       graphListener.accept(myKey, EventType.SET_VALUE, Order.BEFORE, value);
-      Set<SkyKey> result = super.setValue(value, version);
+      Set<SkyKey> result = super.setValue(value, graphVersion, maxTransitiveSourceVersion);
       graphListener.accept(myKey, EventType.SET_VALUE, Order.AFTER, value);
       return result;
     }
@@ -369,7 +360,7 @@ public class NotifyingHelper {
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this).add("delegate", getThinDelegate()).toString();
+      return MoreObjects.toStringHelper(this).add("delegate", delegate).toString();
     }
   }
 

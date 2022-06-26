@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.actions.CompletionContext.isGuaranteedToBeOutputFile;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -74,15 +76,26 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
+        FileArtifactValue fileMetadata =
+            completionContext.getFileArtifactValue(expandedArtifact.artifact);
+        LocalFileType outputType =
+            fileMetadata != null && isGuaranteedToBeOutputFile(fileMetadata.getType())
+                ? LocalFileType.OUTPUT_FILE
+                : LocalFileType.OUTPUT;
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().toPath(expandedArtifact.artifact),
-                LocalFileType.OUTPUT));
+                outputType,
+                fileMetadata == null ? null : expandedArtifact.artifact,
+                fileMetadata));
       } else {
+        // TODO(b/199940216): Can fileset metadata be properly handled here?
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().convertPath(expandedArtifact.target),
-                LocalFileType.OUTPUT));
+                LocalFileType.OUTPUT,
+                /*artifact=*/ null,
+                /*artifactMetadata=*/ null));
       }
     }
     return artifacts.build();
@@ -101,18 +114,18 @@ class NamedArtifactGroup implements BuildEvent {
         String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
         if (uri != null) {
-          builder.addFiles(newFileFromArtifact(expandedArtifact.artifact).setUri(uri));
+          builder.addFiles(
+              newFileFromArtifact(expandedArtifact.artifact, completionContext).setUri(uri));
         }
       } else {
         String uri =
-            converters
-                .pathConverter()
-                .apply(completionContext.pathResolver().convertPath(expandedArtifact.target));
+            pathConverter.apply(
+                completionContext.pathResolver().convertPath(expandedArtifact.target));
         if (uri != null) {
           builder.addFiles(
-              newFileFromArtifact(null, expandedArtifact.artifact, expandedArtifact.relPath)
-                  .setUri(uri)
-                  .build());
+              newFileFromArtifact(
+                      null, expandedArtifact.artifact, expandedArtifact.relPath, completionContext)
+                  .setUri(uri));
         }
       }
     }

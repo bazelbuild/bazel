@@ -41,6 +41,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -53,6 +54,7 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the channel can't be constructed.
    */
   public static ManagedChannel newChannel(
+      @Nullable Executor executor,
       String target,
       String proxy,
       AuthAndTLSOptions options,
@@ -71,6 +73,7 @@ public final class GoogleAuthUtils {
     try {
       NettyChannelBuilder builder =
           newNettyChannelBuilder(targetUrl, proxy)
+              .executor(executor)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
       if (options.grpcKeepaliveTime != null) {

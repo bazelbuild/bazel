@@ -33,19 +33,21 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /** Aggregates and reports target-wide test statuses in real-time. */
 @ThreadSafety.ThreadSafe
@@ -92,7 +94,7 @@ public final class AggregatingTestListener {
             summaryOptions.testVerboseTimeoutWarnings);
     // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     for (ConfiguredTarget target : event.getTestTargets()) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       TestResultAggregator aggregator =
@@ -105,6 +107,30 @@ public final class AggregatingTestListener {
       Preconditions.checkState(
           oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
     }
+  }
+
+  /**
+   * Creates the {@link TestResultAggregator} for the analyzed test target.
+   *
+   * <p>Since the event is fired from within a SkyFunction, it is possible to receive duplicate
+   * events. In case of duplication, simply return without creating any new aggregator.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void populateTest(TestAnalyzedEvent event) {
+    AggregationPolicy policy =
+        new AggregationPolicy(
+            eventBus,
+            executionOptions.testCheckUpToDate,
+            summaryOptions.testVerboseTimeoutWarnings);
+    ConfiguredTarget target = event.configuredTarget();
+    if (AliasProvider.isAlias(target) || aggregators.containsKey(asKey(target))) {
+      return;
+    }
+    aggregators.put(
+        asKey(target),
+        new TestResultAggregator(
+            target, event.buildConfigurationValue(), policy, event.isSkipped()));
   }
 
   /**
@@ -152,14 +178,14 @@ public final class AggregatingTestListener {
     for (ConfiguredTarget target :
         Sets.difference(
             ImmutableSet.copyOf(nonSuccessfulTargets), ImmutableSet.copyOf(skippedTargets))) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       targetFailure(asKey(target));
     }
 
     for (ConfiguredTarget target : skippedTargets) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       targetSkipped(asKey(target));
@@ -207,12 +233,14 @@ public final class AggregatingTestListener {
    * build, run only once.
    *
    * @param testTargets The list of targets being run
+   * @param validatedTargets targets with ValidateTarget aspect success or null if aspect not used
    * @param notifier A console notifier to echo results to.
    * @return true if all the tests passed, else false
    */
   public DetailedExitCode differentialAnalyzeAndReport(
       Collection<ConfiguredTarget> testTargets,
       Collection<ConfiguredTarget> skippedTargets,
+      @Nullable ImmutableSet<ConfiguredTargetKey> validatedTargets,
       TestResultNotifier notifier) {
     Preconditions.checkNotNull(testTargets);
     Preconditions.checkNotNull(notifier);
@@ -225,22 +253,37 @@ public final class AggregatingTestListener {
 
     DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
+      ConfiguredTargetKey key = asKey(testTarget);
+      TestResultAggregator aggregator = aggregators.get(key);
       TestSummary summary;
-      if (isAlias(testTarget)) {
-        ConfiguredTargetKey actualKey =
-            ConfiguredTargetKey.builder()
-                .setLabel(testTarget.getLabel())
-                .setConfigurationKey(testTarget.getConfigurationKey())
-                .build();
-        TestResultAggregator aggregator = aggregators.get(actualKey);
-        TestSummary.Builder summaryBuilder = TestSummary.newBuilder();
+      if (AliasProvider.isAlias(testTarget)) {
+        TestSummary.Builder summaryBuilder = TestSummary.newBuilder(testTarget);
         summaryBuilder.mergeFrom(aggregator.aggregateAndReportSummary(skipTargetsOnFailure));
-        summaryBuilder.setTarget(testTarget);
         summary = summaryBuilder.build();
       } else {
-        TestResultAggregator aggregator = aggregators.get(asKey(testTarget));
         summary = aggregator.aggregateAndReportSummary(skipTargetsOnFailure);
       }
+
+      if (validatedTargets != null
+          && summary.getStatus() != BlazeTestStatus.NO_STATUS
+          && !validatedTargets.contains(key)) {
+        // Approximate what targetFailure() would do for test targets that failed validation for
+        // the purposes of printing test results to console only. Note that absent -k,
+        // targetFailure() ends up marking one test as FAILED_TO_BUILD before buildComplete() marks
+        // the remaining targets NO_STATUS. While we could approximate that, for simplicity, we
+        // just use NO_STATUS for all tests with failed validations for simplicity here (absent -k).
+        // Events published on BEP are not affected by this, but validation failures are published
+        // as separate events and are additionally accounted in TargetSummary BEP messages.
+        TestSummary.Builder summaryBuilder = TestSummary.newBuilder(summary.getTarget());
+        summaryBuilder.mergeFrom(summary);
+        summaryBuilder.setStatus(
+            skipTargetsOnFailure
+                ? BlazeTestStatus.NO_STATUS
+                : TestResultAggregator.aggregateStatus(
+                    summary.getStatus(), BlazeTestStatus.FAILED_TO_BUILD));
+        summary = summaryBuilder.build();
+      }
+
       summaries.add(summary);
 
       // Finished aggregating; build the final console output.
@@ -282,15 +325,9 @@ public final class AggregatingTestListener {
         : TESTS_FAILED_DETAILED_CODE;
   }
 
-  private static boolean isAlias(ConfiguredTarget target) {
-    // I expect this to be consistent with target.getProvider(AliasProvider.class) != null.
-    return target instanceof AliasConfiguredTarget;
-  }
-
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    Preconditions.checkArgument(!isAlias(target));
     return ConfiguredTargetKey.builder()
-        .setLabel(AliasProvider.getDependencyLabel(target))
+        .setLabel(target.getLabel())
         .setConfigurationKey(target.getConfigurationKey())
         .build();
   }

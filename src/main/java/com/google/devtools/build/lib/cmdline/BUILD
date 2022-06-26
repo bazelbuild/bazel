@@ -12,10 +12,11 @@ filegroup(
 java_library(
     name = "cmdline",
     srcs = [
+        "BazelModuleContext.java",
         "Label.java",
         "LabelConstants.java",
-        "LabelSerializationProxy.java",
         "ResolvedTargets.java",
+        "SignedTargetPattern.java",
         "TargetParsingException.java",
         "TargetPattern.java",
         "TargetPatternResolver.java",
@@ -23,10 +24,14 @@ java_library(
     exports = [":cmdline-primitives"],
     deps = [
         ":LabelValidator",
+        ":batch_callback",
         ":cmdline-primitives",
+        ":query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -38,7 +43,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:error_prone_annotations",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -50,8 +55,10 @@ java_library(
     name = "cmdline-primitives",
     srcs = [
         "LabelConstants.java",
+        "LabelParser.java",
         "LabelSyntaxException.java",
         "PackageIdentifier.java",
+        "RepositoryMapping.java",
         "RepositoryName.java",
     ],
     deps = [
@@ -61,10 +68,38 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "parallel_visitor",
+    srcs = ["ParallelVisitor.java"],
+    deps = [
+        ":batch_callback",
+        ":query_exception_marker_interface",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "batch_callback",
+    srcs = ["BatchCallback.java"],
+    deps = [
+        ":query_exception_marker_interface",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+    ],
+)
+
+java_library(
+    name = "query_exception_marker_interface",
+    srcs = ["QueryExceptionMarkerInterface.java"],
 )
 
 # LabelValidator provides validation of Bazel build labels.

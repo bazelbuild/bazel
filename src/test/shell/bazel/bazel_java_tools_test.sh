@@ -152,18 +152,6 @@ function test_java_tools_has_Runner() {
   expect_path_in_java_tools "java_tools/Runner_deploy.jar"
 }
 
-function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "java_tools/jdk_compiler.jar"
-}
-
-function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_tools/java_compiler.jar"
-}
-
-function test_java_tools_has_javac() {
-  expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
-}
-
 function test_java_tools_has_Jacoco() {
   expect_path_in_java_tools "java_tools/JacocoCoverage_jarjar_deploy.jar"
 }
@@ -177,13 +165,13 @@ function test_java_tools_has_BUILD() {
 }
 
 function test_java_tools_has_jacocoagent() {
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-8.0.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-8.0.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-8.0.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent-.*.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-.*.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-.*.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-.*.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-.*.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-.*.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-.*.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/LICENSE"
 }
 

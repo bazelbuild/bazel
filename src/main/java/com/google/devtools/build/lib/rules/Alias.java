@@ -17,19 +17,16 @@ import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -38,7 +35,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class Alias implements RuleConfiguredTargetFactory {
 
   public static final String RULE_NAME = "alias";
-  public static final String ACTUAL_ATTRIBUTE_NAME = "actual";
+  private static final String ACTUAL_ATTRIBUTE_NAME = "actual";
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -60,14 +57,7 @@ public class Alias implements RuleConfiguredTargetFactory {
               + "https://github.com/bazelbuild/bazel/issues/8622 for details.");
     }
 
-    return new AliasConfiguredTarget(
-        ruleContext,
-        actual,
-        ImmutableMap.of(
-            AliasProvider.class,
-            AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
-            VisibilityProvider.class,
-            new VisibilityProviderImpl(ruleContext.getVisibility())));
+    return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
   }
 
   /**
@@ -83,6 +73,7 @@ public class Alias implements RuleConfiguredTargetFactory {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .removeAttribute(":action_listener")
           .add(
               attr(ACTUAL_ATTRIBUTE_NAME, LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -91,8 +82,9 @@ public class Alias implements RuleConfiguredTargetFactory {
           .canHaveAnyProvider()
           // Aliases themselves do not need toolchains or an execution platform, so this is fine.
           // The actual target will resolve platforms and toolchains with no issues regardless of
-          // this setting.
-          .useToolchainResolution(false)
+          // this setting. The only time an alias directly needs the platform is when it has a
+          // select() on a constraint_setting, so special-case enable those instances too.
+          .useToolchainResolution(ToolchainResolutionMode.HAS_SELECT)
           .build();
     }
 
@@ -120,7 +112,8 @@ public class Alias implements RuleConfiguredTargetFactory {
 
 <p>
   The alias rule has its own visibility declaration. In all other respects, it behaves
-  like the rule it references with some minor exceptions:
+  like the rule it references (e.g. testonly <em>on the alias</em> is ignored; the testonly-ness
+   of the referenced rule is used instead) with some minor exceptions:
 
   <ul>
     <li>

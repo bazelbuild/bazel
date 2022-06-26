@@ -17,9 +17,10 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.buildtool.AqueryBuildTool;
-import com.google.devtools.build.lib.buildtool.AqueryBuildTool.AqueryActionFilterException;
+import com.google.devtools.build.lib.buildtool.AqueryProcessor;
+import com.google.devtools.build.lib.buildtool.AqueryProcessor.AqueryActionFilterException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
@@ -109,19 +110,20 @@ public final class AqueryCommand implements BlazeCommand {
     BlazeRuntime runtime = env.getRuntime();
 
     BuildRequest request =
-        BuildRequest.create(
-            getClass().getAnnotation(Command.class).name(),
-            options,
-            runtime.getStartupOptionsProvider(),
-            topLevelTargets,
-            env.getReporter().getOutErr(),
-            env.getCommandId(),
-            env.getCommandStartTime());
+        BuildRequest.builder()
+            .setCommandName(getClass().getAnnotation(Command.class).name())
+            .setId(env.getCommandId())
+            .setOptions(options)
+            .setStartupOptions(runtime.getStartupOptionsProvider())
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(topLevelTargets)
+            .setStartTimeMillis(env.getCommandStartTime())
+            .build();
 
-    AqueryBuildTool aqueryBuildTool;
+    AqueryProcessor aqueryBuildTool;
 
     try {
-      aqueryBuildTool = new AqueryBuildTool(env, expr);
+      aqueryBuildTool = new AqueryProcessor(expr);
     } catch (AqueryActionFilterException e) {
       String message = e.getMessage() + "\n" + expr;
       env.getReporter().handle(Event.error(message));
@@ -129,11 +131,11 @@ public final class AqueryCommand implements BlazeCommand {
     }
 
     if (queryCurrentSkyframeState) {
-      return aqueryBuildTool.dumpActionGraphFromSkyframe(request);
+      return aqueryBuildTool.dumpActionGraphFromSkyframe(env);
     }
     try {
       return BlazeCommandResult.detailedExitCode(
-          aqueryBuildTool.processRequest(request, null).getDetailedExitCode());
+          new BuildTool(env, aqueryBuildTool).processRequest(request, null).getDetailedExitCode());
     } catch (StackOverflowError e) {
       String message = "Aquery output was too large to handle: " + query;
       env.getReporter().handle(Event.error(message));
@@ -163,6 +165,6 @@ public final class AqueryCommand implements BlazeCommand {
     for (QueryFunction queryFunction : env.getRuntime().getQueryFunctions()) {
       functionsBuilder.put(queryFunction.getName(), queryFunction);
     }
-    return functionsBuilder.build();
+    return functionsBuilder.buildOrThrow();
   }
 }

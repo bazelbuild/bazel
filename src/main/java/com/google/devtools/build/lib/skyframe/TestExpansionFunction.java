@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -31,16 +32,14 @@ import com.google.devtools.build.lib.skyframe.TestExpansionValue.TestExpansionKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * TestExpansionFunction takes a single test_suite target and expands all of the tests it contains,
@@ -148,28 +147,26 @@ final class TestExpansionFunction implements SkyFunction {
       Environment env, Rule rule, String attrName, List<Target> targets)
       throws InterruptedException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    List<Label> labels =
-        mapper.visitLabels(mapper.getAttributeDefinition(attrName)).stream()
-            .map(e -> e.getLabel())
-            .collect(Collectors.toList());
-
-    Set<PackageIdentifier> pkgIdentifiers = new LinkedHashSet<>();
-    for (Label label : labels) {
-      pkgIdentifiers.add(label.getPackageIdentifier());
-    }
-
-    Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
-        env.getValuesOrThrow(PackageValue.keys(pkgIdentifiers), NoSuchPackageException.class);
+    List<Label> labels = new ArrayList<>();
+    Set<PackageIdentifier> pkgIdentifiers = new HashSet<>();
+    mapper.visitLabels(
+        mapper.getAttributeDefinition(attrName),
+        label -> {
+          labels.add(label);
+          pkgIdentifiers.add(label.getPackageIdentifier());
+        });
+    ImmutableList<SkyKey> skyKeys = PackageValue.keys(pkgIdentifiers);
+    SkyframeIterableResult packages = env.getOrderedValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return false;
     }
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry : packages.entrySet()) {
+    for (SkyKey key : skyKeys) {
       try {
         packageMap.put(
-            (PackageIdentifier) entry.getKey().argument(),
-            ((PackageValue) entry.getValue().get()).getPackage());
+            (PackageIdentifier) key.argument(),
+            ((PackageValue) packages.nextOrThrow(NoSuchPackageException.class)).getPackage());
       } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         hasError = true;
@@ -203,11 +200,5 @@ final class TestExpansionFunction implements SkyFunction {
       }
     }
     return hasError;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

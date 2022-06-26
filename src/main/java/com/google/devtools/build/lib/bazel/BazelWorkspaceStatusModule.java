@@ -113,7 +113,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           } catch (IOException e) {
             throw createExecutionException(e, Code.STDERR_IO_EXCEPTION);
           }
-          return new String(stdoutStream.toByteArray(), UTF_8);
+          return stdoutStream.toString(UTF_8);
         }
       } catch (BadExitStatusException e) {
         throw createExecutionException(e, Code.NON_ZERO_EXIT);
@@ -156,7 +156,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     @Override
     public void prepare(
-        Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+        Path execRoot,
+        ArtifactPathResolver pathResolver,
+        @Nullable BulkDeleter bulkDeleter,
+        boolean cleanupArchivedArtifacts)
         throws IOException {
       // The default implementation of this method deletes all output files; override it to keep
       // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)
@@ -309,7 +312,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           BuildInfo.BUILD_EMBED_LABEL, Key.of(KeyType.STRING, options.embedLabel, "redacted"));
       builder.put(BuildInfo.BUILD_HOST, Key.of(KeyType.STRING, "hostname", "redacted"));
       builder.put(BuildInfo.BUILD_USER, Key.of(KeyType.STRING, "username", "redacted"));
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
@@ -353,8 +356,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(WorkspaceStatusAction.Options.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        ? ImmutableList.of(WorkspaceStatusAction.Options.class)
+        : ImmutableList.of();
   }
 
   @Override

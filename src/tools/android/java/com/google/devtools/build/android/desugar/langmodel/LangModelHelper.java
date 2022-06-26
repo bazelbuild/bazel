@@ -48,7 +48,7 @@ public final class LangModelHelper {
           .put(2, 1, Opcodes.DUP2_X1)
           .put(1, 2, Opcodes.DUP_X2)
           .put(2, 2, Opcodes.DUP2_X2)
-          .build();
+          .buildOrThrow();
 
   /**
    * Returns the operation code for pop operations with a single instruction support by their type
@@ -244,7 +244,7 @@ public final class LangModelHelper {
    *
    * @param mv The current method visitor that is visiting the class.
    * @param expectedTypesOnOperandStack The expected types at the bottom of the operand stack. The
-   *     end of the list corresponds to the the bottom of the operand stack.
+   *     end of the list corresponds to the bottom of the operand stack.
    */
   public static void expandObjectArrayToStackValues(
       MethodVisitor mv, ImmutableList<ClassName> expectedTypesOnOperandStack) {

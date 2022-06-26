@@ -676,7 +676,6 @@ public class AarGeneratorActionTest {
             ImmutableList.<DependencyAndroidData>of(),
             resourcesOut,
             assetsOut,
-            null,
             VariantType.LIBRARY,
             null,
             /* filteredResources= */ ImmutableList.of(),

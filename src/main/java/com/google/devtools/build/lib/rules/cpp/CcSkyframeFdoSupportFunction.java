@@ -55,10 +55,4 @@ public class CcSkyframeFdoSupportFunction implements SkyFunction {
     }
     return new CcSkyframeFdoSupportValue(fdoZipPath);
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

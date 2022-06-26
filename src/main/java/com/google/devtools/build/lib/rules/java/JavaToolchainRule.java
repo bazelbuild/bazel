@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -51,6 +51,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
+        .advertiseStarlarkProvider(JavaToolchainProvider.PROVIDER.id())
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
         See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
         </code></a>
@@ -124,6 +125,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(true))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_workers_cancellation) -->
+        True if JavaBuilder supports cancellation of persistent workers, false if it doesn't.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("javac_supports_worker_cancellation", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(tools) -->
         Labels of tools available for label-expansion in jvm_opts.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -161,6 +166,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .mandatory()
                 .singleArtifact()
                 // This needs to be in the execution configuration.
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(deps_checker) -->
+        Label of the ImportDepsChecker deploy jar.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("deps_checker", LABEL_LIST)
+                .singleArtifact()
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
@@ -292,8 +306,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("java_runtime", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .mandatory()
-                .mandatoryProviders(ToolchainInfo.PROVIDER.id())
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .useOutputLicenses())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_runner) -->
         Label of the Android Lint runner, if any.
@@ -327,6 +341,43 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .mandatoryBuiltinProviders(
                     ImmutableList.of(JavaPackageConfigurationProvider.class)))
+        .add(attr("jspecify_processor_class", STRING).value("").undocumented("experimental"))
+        .add(
+            attr("jspecify_processor", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_implicit_deps", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_javacopts", STRING_LIST)
+                .value(ImmutableList.<String>of())
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_stubs", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_packages", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes()
+                .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
+                .undocumented("experimental"))
+        .add(
+            attr(":bytecode_optimizer", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(JavaSemantics.BYTECODE_OPTIMIZER)
+                .exec())
+        .add(
+            attr(":local_java_optimization_configuration", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(JavaSemantics.LOCAL_JAVA_OPTIMIZATION_CONFIGURATION))
         .build();
   }
 

@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -40,7 +38,6 @@ import net.starlark.java.syntax.Location;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @Immutable
-@AutoCodec
 public class PlatformInfo extends NativeInfo
     implements PlatformInfoApi<ConstraintSettingInfo, ConstraintValueInfo> {
 
@@ -105,9 +102,7 @@ public class PlatformInfo extends NativeInfo
   /** execProperties will deprecate and replace remoteExecutionProperties */
   private final ImmutableMap<String, String> execProperties;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  PlatformInfo(
+  private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
       String remoteExecutionProperties,

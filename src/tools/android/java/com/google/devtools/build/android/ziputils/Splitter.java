@@ -47,10 +47,9 @@ class Splitter {
   }
 
   /**
-   * Forces mapping of the given entries to be that of the current shard.
-   * The estimated number of remaining entries to process is adjusted,
-   * by subtracting the number of as-of-yet unassigned entries from the
-   * filter.
+   * Forces mapping of the given entries to be that of the current shard. The estimated number of
+   * remaining entries to process is adjusted, by subtracting the number of as-of-yet unassigned
+   * entries from the filter.
    */
   public void assign(Collection<String> filter) {
     if (filter != null) {
@@ -64,33 +63,7 @@ class Splitter {
     }
   }
 
-  /**
-   * Forces increment of the current shard. May be called externally.
-   * Typically right after calling {@link #assign(java.util.Collection)}.
-   */
-  public void nextShard() {
-    if (shard < numberOfShards - 1) {
-      shard++;
-      size = 0;
-      addEntries(0);
-    }
-  }
-
-  /**
-   * Adjusts the number of estimated entries to be process by the given count.
-   */
-  public void addEntries(int count) {
-    this.remaining += count;
-    idealSize = numberOfShards > shard ? remaining / (numberOfShards - shard) : remaining;
-    // Before you change this, please do the math.
-    // It's not always perfect, but designed to keep shards reasonably balanced in most cases.
-    int limit = Math.min(Math.min(10, (idealSize + 3) / 4), (int) Math.log(numberOfShards));
-    almostFull = idealSize - limit;
-  }
-
-  /**
-   * Assigns the given entry to an output file.
-   */
+  /** Assigns the given entry to an output file. */
   public int assign(String path) {
     Preconditions.checkState(shard < numberOfShards, "Too many shards!");
     Integer assignment = assigned.get(path);
@@ -134,5 +107,29 @@ class Splitter {
     assigned.put(path, shard);
     size++;
     return shard;
+  }
+
+  /**
+   * Forces increment of the current shard. May be called externally.
+   * Typically right after calling {@link #assign(java.util.Collection)}.
+   */
+  public void nextShard() {
+    if (shard < numberOfShards - 1) {
+      shard++;
+      size = 0;
+      addEntries(0);
+    }
+  }
+
+  /**
+   * Adjusts the number of estimated entries to be process by the given count.
+   */
+  public void addEntries(int count) {
+    this.remaining += count;
+    idealSize = numberOfShards > shard ? remaining / (numberOfShards - shard) : remaining;
+    // Before you change this, please do the math.
+    // It's not always perfect, but designed to keep shards reasonably balanced in most cases.
+    int limit = Math.min(Math.min(10, (idealSize + 3) / 4), (int) Math.log(numberOfShards));
+    almostFull = idealSize - limit;
   }
 }

@@ -17,9 +17,10 @@ import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.io.FileSymlinkException;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.Package;
@@ -49,12 +50,6 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
 
   public LocalRepositoryLookupFunction(ExternalPackageHelper externalPackageHelper) {
     this.externalPackageHelper = externalPackageHelper;
-  }
-
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   // Implementation note: Although LocalRepositoryLookupValue.NOT_FOUND exists, it should never be
@@ -195,7 +190,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
           String path = (String) rule.getAttr("path");
           return Optional.of(
               LocalRepositoryLookupValue.success(
-                  RepositoryName.create("@" + rule.getName()), PathFragment.create(path)));
+                  RepositoryName.create(rule.getName()), PathFragment.create(path)));
         } catch (LabelSyntaxException e) {
           // This shouldn't be possible if the rule name is valid, and it should already have been
           // validated.

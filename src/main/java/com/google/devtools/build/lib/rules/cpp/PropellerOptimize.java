@@ -28,8 +28,6 @@ public final class PropellerOptimize implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-
     PropellerOptimizeInputFile inputFile = PropellerOptimizeInputFile.fromProfileRule(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;

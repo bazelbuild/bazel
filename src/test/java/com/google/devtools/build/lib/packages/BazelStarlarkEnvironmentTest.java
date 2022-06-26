@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -45,7 +46,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
             // While reading, feel free to mentally substitute overridable_rule -> cc_library and
             // overridable_symbol -> CcInfo.
             .addRuleDefinition(OVERRIDABLE_RULE)
-            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value");
+            .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
+            .addStarlarkAccessibleTopLevels("another_overridable_symbol", "another_original_value");
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -88,28 +90,32 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   /**
    * Asserts that injection for a BUILD-loaded .bzl file fails, using the given maps and expecting
-   * the given error substring.
+   * the given error substring. The overrides list is empty.
    */
   private void assertBuildBzlInjectionFailure(
-      Map<String, Object> injectedToplevels, Map<String, Object> injectedRules, String message) {
+      Map<String, Object> exportedToplevels, Map<String, Object> exportedRules, String message) {
     BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     InjectionException ex =
         assertThrows(
             InjectionException.class,
-            () -> starlarkEnv.createBuildBzlEnvUsingInjection(injectedToplevels, injectedRules));
+            () ->
+                starlarkEnv.createBuildBzlEnvUsingInjection(
+                    exportedToplevels, exportedRules, /*overridesList=*/ ImmutableList.of()));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
   /**
    * Asserts that injection for a BUILD file fails, using the given map and expecting the given
-   * error substring.
+   * error substring. The overrides list is empty.
    */
-  private void assertBuildInjectionFailure(Map<String, Object> injectedRules, String message) {
+  private void assertBuildInjectionFailure(Map<String, Object> exportedRules, String message) {
     BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     InjectionException ex =
         assertThrows(
             InjectionException.class,
-            () -> starlarkEnv.createBuildEnvUsingInjection(injectedRules));
+            () ->
+                starlarkEnv.createBuildEnvUsingInjection(
+                    exportedRules, /*overridesList=*/ ImmutableList.of()));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
@@ -119,7 +125,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     Map<String, Object> env =
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("overridable_symbol", "new_value"),
-            ImmutableMap.of("overridable_rule", "new_rule"));
+            ImmutableMap.of("overridable_rule", "new_rule"),
+            /*overridesList=*/ ImmutableList.of());
     assertThat(env).containsEntry("overridable_symbol", "new_value");
     assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
   }
@@ -128,7 +135,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   public void buildInjection() throws Exception {
     BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     Map<String, Object> env =
-        starlarkEnv.createBuildEnvUsingInjection(ImmutableMap.of("overridable_rule", "new_rule"));
+        starlarkEnv.createBuildEnvUsingInjection(
+            ImmutableMap.of("overridable_rule", "new_rule"), /*overridesList=*/ ImmutableList.of());
     assertThat(env).containsEntry("overridable_rule", "new_rule");
   }
 
@@ -137,8 +145,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertBuildBzlInjectionFailure(
         ImmutableMap.of("brand_new_toplevel", "foo"),
         ImmutableMap.of(),
-        "Injected top-level symbol 'brand_new_toplevel' must override an existing symbol by"
-            + " that name");
+        "Injected top-level symbol 'brand_new_toplevel' must override an existing one by that"
+            + " name");
   }
 
   @Test
@@ -146,10 +154,10 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertBuildBzlInjectionFailure(
         ImmutableMap.of(),
         ImmutableMap.of("brand_new_rule", "foo"),
-        "Injected rule 'brand_new_rule' must override an existing rule by that name");
+        "Injected rule 'brand_new_rule' must override an existing one by that name");
     assertBuildInjectionFailure(
         ImmutableMap.of("brand_new_rule", "foo"),
-        "Injected rule 'brand_new_rule' must override an existing rule by that name");
+        "Injected rule 'brand_new_rule' must override an existing one by that name");
   }
 
   @Test
@@ -157,7 +165,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertBuildBzlInjectionFailure(
         ImmutableMap.of("provider", "new_builtin"),
         ImmutableMap.of(),
-        "Cannot override top-level builtin 'provider' with an injected value");
+        "Cannot override 'provider' with an injected top-level symbol");
   }
 
   @Test
@@ -166,10 +174,9 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertBuildBzlInjectionFailure(
         ImmutableMap.of(),
         ImmutableMap.of("glob", "new_builtin"),
-        "Cannot override native module field 'glob' with an injected value");
+        "Cannot override 'glob' with an injected rule");
     assertBuildInjectionFailure(
-        ImmutableMap.of("glob", "new_builtin"),
-        "Cannot override top-level builtin 'glob' with an injected value");
+        ImmutableMap.of("glob", "new_builtin"), "Cannot override 'glob' with an injected rule");
   }
 
   @Test
@@ -177,7 +184,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertBuildBzlInjectionFailure(
         ImmutableMap.of("native", "new_builtin"),
         ImmutableMap.of(),
-        "Cannot override top-level builtin 'native' with an injected value");
+        "Cannot override 'native' with an injected top-level symbol");
   }
 
   @Test
@@ -185,9 +192,121 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     assertBuildBzlInjectionFailure(
         ImmutableMap.of("len", "new_builtin"),
         ImmutableMap.of(),
-        "Cannot override top-level builtin 'len' with an injected value");
+        "Cannot override 'len' with an injected top-level symbol");
     assertBuildInjectionFailure(
-        ImmutableMap.of("len", "new_builtin"),
-        "Cannot override top-level builtin 'len' with an injected value");
+        ImmutableMap.of("len", "new_builtin"), "Cannot override 'len' with an injected rule");
+  }
+
+  @Test
+  public void injectionStatus_respectsDefault() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Map<String, Object> env =
+        starlarkEnv.createBuildBzlEnvUsingInjection(
+            ImmutableMap.of(
+                "+overridable_symbol",
+                "new_value",
+                "-another_overridable_symbol",
+                "another_new_value"),
+            ImmutableMap.of("-overridable_rule", "new_rule"),
+            /*overridesList=*/ ImmutableList.of());
+    assertThat(env).containsEntry("overridable_symbol", "new_value");
+    assertThat(env).containsEntry("another_overridable_symbol", "another_original_value");
+    // Match the original rule's toString since the actual specific object is not easily accessible.
+    Object overridableRuleValue = ((Structure) env.get("native")).getValue("overridable_rule");
+    assertThat(overridableRuleValue.toString()).contains("overridable_rule");
+  }
+
+  @Test
+  public void injectionStatus_canBeOverridden() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Map<String, Object> env =
+        starlarkEnv.createBuildBzlEnvUsingInjection(
+            ImmutableMap.of(
+                "+overridable_symbol",
+                "new_value",
+                "-another_overridable_symbol",
+                "another_new_value"),
+            ImmutableMap.of("-overridable_rule", "new_rule"),
+            ImmutableList.of(
+                "-overridable_symbol", "+another_overridable_symbol", "+overridable_rule"));
+    assertThat(env).containsEntry("overridable_symbol", "original_value");
+    assertThat(env).containsEntry("another_overridable_symbol", "another_new_value");
+    assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
+  }
+
+  @Test
+  public void injectionStatus_cannotBeOverriddenForUnprefixedKeys() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Map<String, Object> env =
+        starlarkEnv.createBuildBzlEnvUsingInjection(
+            ImmutableMap.of(
+                "overridable_symbol",
+                "new_value",
+                "another_overridable_symbol",
+                "another_new_value"),
+            ImmutableMap.of(),
+            ImmutableList.of("+overridable_symbol", "-another_overridable_symbol"));
+    // Both the + and - are no-ops since the keys aren't prefixed.
+    assertThat(env).containsEntry("overridable_symbol", "new_value");
+    assertThat(env).containsEntry("another_overridable_symbol", "another_new_value");
+  }
+
+  @Test
+  public void injectionStatus_overridingUnknownKeysIsNoop() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Map<String, Object> env =
+        starlarkEnv.createBuildBzlEnvUsingInjection(
+            ImmutableMap.of("-overridable_symbol", "new_value"),
+            ImmutableMap.of(),
+            ImmutableList.of("+overridable_symbol", "+unknown_symbol", "-another_unknown_symbol"));
+    // Both the + and - are no-ops since the keys aren't prefixed.
+    assertThat(env).containsEntry("overridable_symbol", "new_value");
+  }
+
+  @Test
+  public void injectionStatus_lastOverrideTakesPrecedence() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Map<String, Object> env =
+        starlarkEnv.createBuildBzlEnvUsingInjection(
+            ImmutableMap.of("-overridable_symbol", "new_value"),
+            ImmutableMap.of(),
+            ImmutableList.of("+overridable_symbol", "-overridable_symbol"));
+    // Both the + and - are no-ops since the keys aren't prefixed.
+    assertThat(env).containsEntry("overridable_symbol", "original_value");
+  }
+
+  @Test
+  public void injectionStatus_invalidOverrideItem_empty() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    InjectionException ex =
+        assertThrows(
+            InjectionException.class,
+            () ->
+                starlarkEnv.createBuildBzlEnvUsingInjection(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of("")));
+    assertThat(ex).hasMessageThat().contains("Invalid injection override item: ''");
+  }
+
+  @Test
+  public void injectionStatus_invalidOverrideItem_unprefixed() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    InjectionException ex =
+        assertThrows(
+            InjectionException.class,
+            () ->
+                starlarkEnv.createBuildBzlEnvUsingInjection(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of("foo")));
+    assertThat(ex).hasMessageThat().contains("Invalid injection override item: 'foo'");
+  }
+
+  @Test
+  public void injectionStatus_appliesToBuildFiles() throws Exception {
+    BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
+    Map<String, Object> env =
+        starlarkEnv.createBuildEnvUsingInjection(
+            ImmutableMap.of("+overridable_rule", "new_rule"),
+            ImmutableList.of("-overridable_rule"));
+    // Match the original rule's toString since the actual specific object is not easily accessible.
+    assertThat(env.get("overridable_rule").toString()).contains("overridable_rule");
   }
 }

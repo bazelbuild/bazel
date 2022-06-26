@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.actions.FileStateValue.FILE_STATE;
 import static com.google.devtools.build.lib.skyframe.SkyFunctions.DIRECTORY_LISTING_STATE;
+import static com.google.devtools.build.lib.vfs.FileStateKey.FILE_STATE;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -35,7 +36,7 @@ import javax.annotation.Nullable;
 public class DirtinessCheckerUtils {
   private DirtinessCheckerUtils() {}
 
-  static class FileDirtinessChecker extends SkyValueDirtinessChecker {
+  private static class FileDirtinessChecker extends SkyValueDirtinessChecker {
     @Override
     public boolean applies(SkyKey skyKey) {
       return skyKey.functionName().equals(FILE_STATE);
@@ -43,10 +44,10 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-      RootedPath rootedPath = (RootedPath) key.argument();
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       try {
-        return FileStateValue.create(rootedPath, tsgm);
+        return FileStateValue.create((RootedPath) key.argument(), syscallCache, tsgm);
       } catch (IOException e) {
         // TODO(bazel-team): An IOException indicates a failure to get a file digest or a symlink
         // target, not a missing file. Such a failure really shouldn't happen, so failing early
@@ -56,7 +57,7 @@ public class DirtinessCheckerUtils {
     }
   }
 
-  static class DirectoryDirtinessChecker extends SkyValueDirtinessChecker {
+  private static class DirectoryDirtinessChecker extends SkyValueDirtinessChecker {
     @Override
     public boolean applies(SkyKey skyKey) {
       return skyKey.functionName().equals(DIRECTORY_LISTING_STATE);
@@ -64,16 +65,19 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       RootedPath rootedPath = (RootedPath) key.argument();
       try {
-        return DirectoryListingStateValue.create(rootedPath);
+        return DirectoryListingStateValue.create(syscallCache.readdir(rootedPath.asPath()));
       } catch (IOException e) {
         return null;
       }
     }
   }
 
+  // Visible for testing, referenced only from tests and
+  // SequencedSkyframeExecutor#invalidateFilesUnderPathForTestingImpl.
   static class BasicFilesystemDirtinessChecker extends SkyValueDirtinessChecker {
     private final FileDirtinessChecker fdc = new FileDirtinessChecker();
     private final DirectoryDirtinessChecker ddc = new DirectoryDirtinessChecker();
@@ -87,15 +91,16 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-      return checker.createNewValue(key, tsgm);
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
+      return checker.createNewValue(key, syscallCache, tsgm);
     }
   }
 
   static final class MissingDiffDirtinessChecker extends BasicFilesystemDirtinessChecker {
     private final Set<Root> missingDiffPackageRoots;
 
-    MissingDiffDirtinessChecker(final Set<Root> missingDiffPackageRoots) {
+    MissingDiffDirtinessChecker(Set<Root> missingDiffPackageRoots) {
       this.missingDiffPackageRoots = missingDiffPackageRoots;
     }
 
@@ -132,26 +137,44 @@ public class DirtinessCheckerUtils {
 
     @Nullable
     @Override
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
       throw new UnsupportedOperationException();
     }
 
     @Override
     public SkyValueDirtinessChecker.DirtyResult check(
-        SkyKey skyKey, SkyValue oldValue, @Nullable TimestampGranularityMonitor tsgm) {
-      SkyValue newValue = super.createNewValue(skyKey, tsgm);
-      if (Objects.equal(newValue, oldValue)) {
-        return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
-      }
+        SkyKey skyKey,
+        SkyValue oldValue,
+        SyscallCache syscallCache,
+        @Nullable TimestampGranularityMonitor tsgm) {
       FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
-      if (fileType == FileType.EXTERNAL_REPO
-          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
-        // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
-        // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
-        // parsed.
-        return SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
+      boolean cacheable = isCacheableType(fileType);
+      SkyValue newValue =
+          super.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
+      if (Objects.equal(newValue, oldValue)) {
+        return SkyValueDirtinessChecker.DirtyResult.notDirty();
       }
-      return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(oldValue, newValue);
+      if (cacheable) {
+        return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
+      }
+      // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
+      // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
+      // parsed. Similarly, output files might change during execution.
+      return SkyValueDirtinessChecker.DirtyResult.dirty();
+    }
+
+    private static boolean isCacheableType(FileType fileType) {
+      switch (fileType) {
+        case INTERNAL:
+        case EXTERNAL:
+        case BUNDLED:
+          return true;
+        case EXTERNAL_REPO:
+        case OUTPUT:
+          return false;
+      }
+      throw new AssertionError("Unknown type " + fileType);
     }
   }
 
@@ -180,14 +203,20 @@ public class DirtinessCheckerUtils {
 
     @Override
     @Nullable
-    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
-      return Preconditions.checkNotNull(getChecker(key), key).createNewValue(key, tsgm);
+    public SkyValue createNewValue(
+        SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm) {
+      return Preconditions.checkNotNull(getChecker(key), key)
+          .createNewValue(key, syscallCache, tsgm);
     }
 
     @Override
-    public DirtyResult check(SkyKey key, @Nullable SkyValue oldValue,
+    public DirtyResult check(
+        SkyKey key,
+        @Nullable SkyValue oldValue,
+        SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm) {
-      return Preconditions.checkNotNull(getChecker(key), key).check(key, oldValue, tsgm);
+      return Preconditions.checkNotNull(getChecker(key), key)
+          .check(key, oldValue, syscallCache, tsgm);
     }
   }
 }

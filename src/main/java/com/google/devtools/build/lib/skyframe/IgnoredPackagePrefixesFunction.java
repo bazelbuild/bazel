@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -130,12 +130,6 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     public ImmutableSet<PathFragment> getResult() {
       return fragments.build();
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   private static final class IgnoredPatternsFunctionException extends SkyFunctionException {

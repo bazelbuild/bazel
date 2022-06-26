@@ -19,11 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -37,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -82,7 +88,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
       throws InterruptedException {
     ImmutableList<String> linuxSandboxArgv =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true")).build();
+        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true"))
+            .setTimeout(Duration.ofSeconds(1))
+            .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
@@ -154,7 +162,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -178,8 +186,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            spawn,
-            context.getArtifactExpander(),
             execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -189,7 +195,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
-            .setTmpfsDirectories(getTmpfsPaths())
+            .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setCreateNetworkNamespace(
@@ -228,6 +234,19 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           sandboxfsMapSymlinkTargets,
           treeDeleter,
           statisticsPath);
+    } else if (getSandboxOptions().useHermetic) {
+      commandLineBuilder.setHermeticSandboxPath(sandboxPath);
+      return new HardlinkedSandboxedSpawn(
+          sandboxPath,
+          sandboxExecRoot,
+          commandLineBuilder.build(),
+          environment,
+          inputs,
+          outputs,
+          writableDirs,
+          treeDeleter,
+          statisticsPath,
+          getSandboxOptions().sandboxDebug);
     } else {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,
@@ -238,7 +257,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
-          statisticsPath);
+          statisticsPath,
+          getSandboxOptions().reuseSandboxDirectories,
+          sandboxBase,
+          spawn.getMnemonic());
     }
   }
 
@@ -258,14 +280,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     writableDirs.add(fs.getPath("/tmp"));
 
     return writableDirs.build();
-  }
-
-  private ImmutableSet<Path> getTmpfsPaths() {
-    ImmutableSet.Builder<Path> tmpfsPaths = ImmutableSet.builder();
-    for (String tmpfsPath : getSandboxOptions().sandboxTmpfsPath) {
-      tmpfsPaths.add(fileSystem.getPath(tmpfsPath));
-    }
-    return tmpfsPaths.build();
   }
 
   private SortedMap<Path, Path> getReadOnlyBindMounts(
@@ -358,6 +372,47 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 Code.MOUNT_TARGET_DOES_NOT_EXIST));
       }
     }
+  }
+
+  @Override
+  public void verifyPostCondition(
+      Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
+      throws IOException, ForbiddenActionInputException {
+    if (getSandboxOptions().useHermetic) {
+      checkForConcurrentModifications(context);
+    }
+  }
+
+  private void checkForConcurrentModifications(SpawnExecutionContext context)
+      throws IOException, ForbiddenActionInputException {
+    for (ActionInput input : context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values()) {
+      if (input instanceof VirtualActionInput) {
+        continue;
+      }
+
+      FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+      Path path = execRoot.getRelative(input.getExecPath());
+
+      try {
+        if (wasModifiedSinceDigest(metadata.getContentsProxy(), path)) {
+          throw new IOException("input dependency " + path + " was modified during execution.");
+        }
+      } catch (UnsupportedOperationException e) {
+        throw new IOException(
+            "input dependency "
+                + path
+                + " could not be checked for modifications during execution.",
+            e);
+      }
+    }
+  }
+
+  private boolean wasModifiedSinceDigest(FileContentsProxy proxy, Path path) throws IOException {
+    if (proxy == null) {
+      return false;
+    }
+    FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
+    return stat == null || !stat.isFile() || proxy.isModified(FileContentsProxy.create(stat));
   }
 
   @Override

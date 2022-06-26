@@ -619,7 +619,7 @@ EOF
   while ! grep -q "multiline error message" "$TEST_log" ; do
     sleep 1
   done
-  while ! grep -q "Executing genrule //foo:sleep" "$TEST_log" ; do
+  while ! grep -q '\[2 / 3\] Executing genrule //foo:sleep' "$TEST_log" ; do
     sleep 1
   done
   kill -SIGINT "$pid"

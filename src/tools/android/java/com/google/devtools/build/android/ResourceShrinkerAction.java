@@ -218,9 +218,6 @@ public class ResourceShrinkerAction {
     public VariantType packageType;
   }
 
-  private static AaptConfigOptions aaptConfigOptions;
-  private static Options options;
-
   private static String getManifestPackage(Path manifest)
       throws SAXException, IOException, StreamException, ParserConfigurationException {
     ManifestData manifestData = AndroidManifestParser.parse(Files.newInputStream(manifest));
@@ -246,8 +243,8 @@ public class ResourceShrinkerAction {
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
-    aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
-    options = optionsParser.getOptions(Options.class);
+    AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
+    Options options = optionsParser.getOptions(Options.class);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.

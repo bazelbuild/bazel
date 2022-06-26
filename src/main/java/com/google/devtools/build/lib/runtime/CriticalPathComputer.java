@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
-import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -63,6 +63,7 @@ public class CriticalPathComputer {
 
   private static final int LARGEST_MEMORY_COMPONENTS_SIZE = 20;
   private static final int LARGEST_INPUT_SIZE_COMPONENTS_SIZE = 20;
+  private static final int LARGEST_INPUT_COUNT_COMPONENTS_SIZE = 20;
 
   /** Selects and returns the longer of two components (the first may be {@code null}). */
   private static final BinaryOperator<CriticalPathComponent> SELECT_LONGER_COMPONENT =
@@ -78,21 +79,13 @@ public class CriticalPathComputer {
   private final ActionKeyContext actionKeyContext;
 
   /** Maximum critical path found. */
-  private final AtomicReference<CriticalPathComponent> maxCriticalPath;
+  private final AtomicReference<CriticalPathComponent> maxCriticalPath = new AtomicReference<>();
 
   private final Clock clock;
-  private final boolean checkCriticalPathInconsistencies;
-
-  public CriticalPathComputer(
-      ActionKeyContext actionKeyContext, Clock clock, boolean checkCriticalPathInconsistencies) {
-    this.actionKeyContext = actionKeyContext;
-    this.clock = clock;
-    maxCriticalPath = new AtomicReference<>();
-    this.checkCriticalPathInconsistencies = checkCriticalPathInconsistencies;
-  }
 
   public CriticalPathComputer(ActionKeyContext actionKeyContext, Clock clock) {
-    this(actionKeyContext, clock, /*checkCriticalPathInconsistencies=*/ true);
+    this.actionKeyContext = actionKeyContext;
+    this.clock = clock;
   }
 
   /**
@@ -195,6 +188,16 @@ public class CriticalPathComputer {
                     (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputBytes))));
   }
 
+  /** Returns the list of components with the largest input counts. */
+  public List<CriticalPathComponent> getLargestInputCountComponents() {
+    return uniqueActions()
+        .collect(
+            Comparators.greatest(
+                LARGEST_INPUT_COUNT_COMPONENTS_SIZE,
+                Comparator.comparingLong(
+                    (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputFiles))));
+  }
+
   /** Returns the list of slowest components. */
   public List<CriticalPathComponent> getSlowestComponents() {
     return uniqueActions()
@@ -206,8 +209,8 @@ public class CriticalPathComputer {
 
   private Stream<CriticalPathComponent> uniqueActions() {
     return outputArtifactToComponent.entrySet().stream()
-        .filter((e) -> e.getValue().isPrimaryOutput(e.getKey()))
-        .map((e) -> e.getValue());
+        .filter(e -> e.getValue().isPrimaryOutput(e.getKey()))
+        .map(Map.Entry::getValue);
   }
 
   /** Creates a CriticalPathComponent and adds the duration of input discovery and changes phase. */
@@ -338,7 +341,7 @@ public class CriticalPathComputer {
   }
 
   /** Maximum critical path component found during the build. */
-  protected CriticalPathComponent getMaxCriticalPath() {
+  CriticalPathComponent getMaxCriticalPath() {
     return maxCriticalPath.get();
   }
 
@@ -362,36 +365,12 @@ public class CriticalPathComputer {
   private void addArtifactDependency(
       CriticalPathComponent actionStats, Artifact input, long componentFinishNanos) {
     CriticalPathComponent depComponent = outputArtifactToComponent.get(input);
-    if (depComponent != null) {
-      if (depComponent.isRunning()) {
-        checkCriticalPathInconsistency(
-            (Artifact.DerivedArtifact) input, depComponent.getAction(), actionStats);
-        return;
-      }
+    // Typically, the dep component should already be finished since its output was used as an input
+    // for a just-completed action. However, we tolerate it still running for (a) action rewinding
+    // and (b) the rare case that an action depending on a previously-cached shared action sees a
+    // different shared action that is in the midst of being an action cache hit.
+    if (depComponent != null && !depComponent.isRunning()) {
       actionStats.addDepInfo(depComponent, componentFinishNanos);
-    }
-  }
-
-  private void checkCriticalPathInconsistency(
-      Artifact.DerivedArtifact input, Action dependencyAction, CriticalPathComponent actionStats) {
-    if (!checkCriticalPathInconsistencies) {
-      return;
-    }
-    // Rare case that an action depending on a previously-cached shared action sees a different
-    // shared action that is in the midst of being an action cache hit.
-    for (Artifact actionOutput : dependencyAction.getOutputs()) {
-      if (input.equals(actionOutput)
-          && input
-              .getGeneratingActionKey()
-              .equals(((Artifact.DerivedArtifact) actionOutput).getGeneratingActionKey())) {
-        // This (currently running) dependency action is the same action that produced the input for
-        // the finished actionStats CriticalPathComponent. This should be impossible.
-        throw new IllegalStateException(
-            String.format(
-                "Cannot add critical path stats when the dependency action is not finished. "
-                    + "%s. %s. %s.",
-                input, actionStats.prettyPrintAction(), dependencyAction));
-      }
     }
   }
 }

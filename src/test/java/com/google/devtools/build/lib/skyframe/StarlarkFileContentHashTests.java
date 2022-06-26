@@ -175,7 +175,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse("@//" + pkg));
+    SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.createInMainRepo(pkg));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/ false, reporter);

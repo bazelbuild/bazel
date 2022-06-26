@@ -21,6 +21,13 @@ public class LabelConstants {
   public static final PathFragment EXTERNAL_REPOSITORY_LOCATION = PathFragment.create("external");
 
   /**
+   * The subdirectory under the output base which contains temporary working directories for module
+   * extensions.
+   */
+  public static final PathFragment MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION =
+      PathFragment.create("modextwd");
+
+  /**
    * The name of the package that contains the targets representing external repositories. Only
    * works if {@code --experimental_disable_external_package} is not in effect.
    */
@@ -36,6 +43,7 @@ public class LabelConstants {
   public static final PathFragment WORKSPACE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final PathFragment WORKSPACE_DOT_BAZEL_FILE_NAME =
       PathFragment.create("WORKSPACE.bazel");
+  public static final PathFragment MODULE_DOT_BAZEL_FILE_NAME = PathFragment.create("MODULE.bazel");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   // With this prefix, non-main repositories are symlinked under

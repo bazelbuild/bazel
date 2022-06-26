@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -49,7 +52,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor,
+      TargetAccessor<KeyedConfiguredTargetValue> accessor,
       OutputType outputType,
       AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
@@ -62,7 +65,10 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
             options.includeArtifacts,
             this.actionFilters,
             options.includeParamFiles,
-            aqueryOutputHandler);
+            options.deduplicateDepsets,
+            options.includeFileWriteContents,
+            aqueryOutputHandler,
+            eventHandler);
   }
 
   public static AqueryOutputHandler constructAqueryOutputHandler(
@@ -85,23 +91,28 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
-        actionGraphDump.dumpConfiguredTarget(configuredTargetValue);
+      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
+        ConfiguredTargetValue configuredTargetValue =
+            keyedConfiguredTargetValue.getConfiguredTargetValue();
+        if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
+          // We have to include non-rule values in the graph to visit their dependencies, but they
+          // don't have any actions to print out.
+          continue;
+        }
+        actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) configuredTargetValue);
         if (options.useAspects) {
-          if (configuredTargetValue.getConfiguredTarget() instanceof RuleConfiguredTarget) {
-            for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
-              actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
-            }
+          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
+            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
           }
         }
       }
-    } catch (CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | TemplateExpansionException e) {
       throw new IOException(e.getMessage());
     }
   }
@@ -109,7 +120,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   @Override
   public void close(boolean failFast) throws IOException {
     if (!failFast) {
-      aqueryOutputHandler.close();
+      try (SilentCloseable c = Profiler.instance().profile("aqueryOutputHandler.close")) {
+        aqueryOutputHandler.close();
+      }
     }
   }
 }

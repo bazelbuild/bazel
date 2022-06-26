@@ -18,21 +18,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
+import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
-import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Builder class to create a {@link BlazeWorkspace} instance. This class is part of the module API,
@@ -50,25 +52,56 @@ public final class WorkspaceBuilder {
   // is inserted.
   private final ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions =
       ImmutableMap.builder();
-  private final ImmutableList.Builder<SkyValueDirtinessChecker> customDirtinessCheckers =
-      ImmutableList.builder();
   private AllocationTracker allocationTracker;
-  private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
+
+  @Nullable
+  private SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder = null;
+
+  @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
+  private SyscallCache perCommandSyscallCache;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
     this.binTools = binTools;
   }
 
+  public static int getSyscallCacheInitialCapacity() {
+    // The initial capacity here translates into the size of an array in ConcurrentHashMap, so
+    // oversizing by N results in memory usage of 8N bytes. So the maximum wasted memory here is
+    // 1/2^20 of heap, or 10K on a 10G heap (which would start with 1280-capacity caches).
+    long scaledMemory = Runtime.getRuntime().maxMemory() >> 23;
+    if (scaledMemory > Integer.MAX_VALUE) {
+      // Something went very wrong.
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Scaled memory was still too big: "
+                  + scaledMemory
+                  + ", "
+                  + Runtime.getRuntime().maxMemory()));
+      scaledMemory = 1024;
+    } else if (scaledMemory <= 0) {
+      // If Bazel is running in <8M of memory, very impressive.
+      scaledMemory = 32;
+    }
+    return (int) scaledMemory;
+  }
+
+  public static PerBuildSyscallCache createPerBuildSyscallCache() {
+    return PerBuildSyscallCache.newBuilder()
+        .setInitialCapacity(getSyscallCacheInitialCapacity())
+        .build();
+  }
+
   BlazeWorkspace build(
       BlazeRuntime runtime,
       PackageFactory packageFactory,
-      ConfiguredRuleClassProvider ruleClassProvider,
       SubscriberExceptionHandler eventBusExceptionHandler) throws AbruptExitException {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
-      skyframeExecutorFactory =
-          new SequencedSkyframeExecutorFactory(runtime.getDefaultBuildOptions());
+      skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
+    }
+    if (perCommandSyscallCache == null) {
+      perCommandSyscallCache = createPerBuildSyscallCache();
     }
 
     SkyframeExecutor skyframeExecutor =
@@ -79,9 +112,13 @@ public final class WorkspaceBuilder {
             runtime.getActionKeyContext(),
             workspaceStatusActionFactory,
             diffAwarenessFactories.build(),
-            skyFunctions.build(),
-            customDirtinessCheckers.build(),
-            managedDirectoriesKnowledge);
+            skyFunctions.buildOrThrow(),
+            perCommandSyscallCache,
+            skyframeExecutorRepositoryHelpersHolder,
+            skyKeyStateReceiver == null
+                ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
+                : skyKeyStateReceiver,
+            runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,
         directories,
@@ -89,7 +126,8 @@ public final class WorkspaceBuilder {
         eventBusExceptionHandler,
         workspaceStatusActionFactory,
         binTools,
-        allocationTracker);
+        allocationTracker,
+        perCommandSyscallCache);
   }
 
   /**
@@ -125,6 +163,16 @@ public final class WorkspaceBuilder {
     return this;
   }
 
+  public WorkspaceBuilder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
+    Preconditions.checkState(
+        this.perCommandSyscallCache == null,
+        "Set twice: %s %s",
+        this.perCommandSyscallCache,
+        perCommandSyscallCache);
+    this.perCommandSyscallCache = Preconditions.checkNotNull(perCommandSyscallCache);
+    return this;
+  }
+
   /**
    * Add a {@link DiffAwareness} factory. These will be used to determine which files, if any,
    * changed between Blaze commands. Note that these factories are attempted in the order in which
@@ -150,15 +198,20 @@ public final class WorkspaceBuilder {
     return this;
   }
 
-  public WorkspaceBuilder addCustomDirtinessChecker(
-      SkyValueDirtinessChecker customDirtinessChecker) {
-    this.customDirtinessCheckers.add(Preconditions.checkNotNull(customDirtinessChecker));
+  public WorkspaceBuilder setSkyframeExecutorRepositoryHelpersHolder(
+      SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder) {
+    this.skyframeExecutorRepositoryHelpersHolder = skyframeExecutorRepositoryHelpersHolder;
     return this;
   }
 
-  public WorkspaceBuilder setManagedDirectoriesKnowledge(
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
-    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+  public WorkspaceBuilder setSkyKeyStateReceiver(
+      SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver) {
+    Preconditions.checkState(
+        this.skyKeyStateReceiver == null,
+        "Multiple evaluatedSkyKeyReceiver: %s %s",
+        this.skyKeyStateReceiver,
+        skyKeyStateReceiver);
+    this.skyKeyStateReceiver = skyKeyStateReceiver;
     return this;
   }
 }

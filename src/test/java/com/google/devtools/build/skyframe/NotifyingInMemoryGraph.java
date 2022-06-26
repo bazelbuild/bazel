@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** {@link NotifyingHelper} that additionally implements the {@link InMemoryGraph} interface. */
@@ -25,7 +26,7 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
 
   @Override
   public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
       return super.createIfAbsentBatch(requestor, reason, keys);
     } catch (InterruptedException e) {
@@ -55,21 +56,27 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
 
   @Override
   public Map<SkyKey, SkyValue> getValues() {
+    notifyingHelper.graphListener.accept(
+        // Be gentle to tests that assume the key is not null
+        /*key=*/ () -> SkyFunctionName.FOR_TESTING,
+        NotifyingHelper.EventType.GET_VALUES,
+        NotifyingHelper.Order.BEFORE,
+        /*context=*/ null);
     return ((InMemoryGraph) delegate).getValues();
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getDoneValues() {
-    return ((InMemoryGraph) delegate).getDoneValues();
+  public int valuesSize() {
+    return ((InMemoryGraph) delegate).getValues().size();
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValues() {
+  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
     return ((InMemoryGraph) delegate).getAllValues();
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
     return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

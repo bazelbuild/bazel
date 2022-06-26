@@ -32,6 +32,12 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "A provider for compilation and linking of objc.")
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 
+  @StarlarkMethod(name = "cc_library", documented = false, structField = true)
+  Depset /*<LibraryToLink>*/ ccLibrariesForStarlark();
+
+  @StarlarkMethod(name = "linkstamp", documented = false, structField = true)
+  Depset /*<Linkstamp>*/ linkstampForstarlark();
+
   @StarlarkMethod(
       name = "dynamic_framework_file",
       structField = true,
@@ -41,24 +47,10 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ dynamicFrameworkFileForStarlark();
 
   @StarlarkMethod(
-      name = "exported_debug_artifacts",
-      structField = true,
-      doc = "Debug files that should be exported by the top-level target.")
-  Depset /*<FileApiT>*/ exportedDebugArtifacts();
-
-  @StarlarkMethod(
       name = "force_load_library",
       structField = true,
       doc = "Libraries to load with -force_load.")
   Depset /*<FileApiT>*/ forceLoadLibrary();
-
-  @StarlarkMethod(
-      name = "direct_headers",
-      structField = true,
-      doc =
-          "Public header files from this target directly (no transitive headers). "
-              + "These are mostly headers from the 'hdrs' attribute.")
-  Sequence<FileApiT> directHeaders();
 
   @StarlarkMethod(
       name = "imported_library",
@@ -81,12 +73,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   Depset /*<FileApiT>*/ j2objcLibrary();
 
   @StarlarkMethod(
-      name = "jre_library",
-      structField = true,
-      doc = "J2ObjC JRE emulation libraries and their dependencies.")
-  Depset /*<FileApiT>*/ jreLibrary();
-
-  @StarlarkMethod(
       name = "library",
       structField = true,
       doc = "Library (.a) files compiled by dependencies of the current target.")
@@ -101,20 +87,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + " Swift AST files) to the linker. The rule that adds these is also responsible to"
               + " add the necessary linker flags to 'linkopt'.")
   Depset /*<FileApiT>*/ linkInputs();
-
-  @StarlarkMethod(
-      name = "linked_binary",
-      structField = true,
-      doc =
-          "Single-architecture linked binaries to be combined for the final multi-architecture "
-              + "binary.")
-  Depset /*<FileApiT>*/ linkedBinary();
-
-  @StarlarkMethod(
-      name = "linkmap_file",
-      structField = true,
-      doc = "Single-architecture link map for a binary.")
-  Depset /*<FileApiT>*/ linkmapFile();
 
   @StarlarkMethod(name = "linkopt", structField = true, doc = "Linking options.")
   Depset /*<String>*/ linkopt();
@@ -132,24 +104,6 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
           "Module map files from this target directly (no transitive module maps). "
               + "Used to enforce proper use of private header files and for Swift compilation.")
   Sequence<FileApiT> directModuleMaps();
-
-  @StarlarkMethod(
-      name = "multi_arch_dynamic_libraries",
-      structField = true,
-      doc = "Combined-architecture dynamic libraries to include in the final bundle.")
-  Depset /*<FileApiT>*/ multiArchDynamicLibraries();
-
-  @StarlarkMethod(
-      name = "multi_arch_linked_archives",
-      structField = true,
-      doc = "Combined-architecture archives to include in the final bundle.")
-  Depset /*<FileApiT>*/ multiArchLinkedArchives();
-
-  @StarlarkMethod(
-      name = "multi_arch_linked_binaries",
-      structField = true,
-      doc = "Combined-architecture binaries to include in the final bundle.")
-  Depset /*<FileApiT>*/ multiArchLinkedBinaries();
 
   @StarlarkMethod(
       name = "sdk_dylib",

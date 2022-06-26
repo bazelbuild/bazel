@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
 final class LocationTemplateContext implements TemplateContext {
   private final TemplateContext delegate;
   private final ImmutableMap<String, LocationFunction> functions;
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final RepositoryMapping repositoryMapping;
   private final boolean windowsPath;
 
   private LocationTemplateContext(
@@ -57,7 +57,7 @@ final class LocationTemplateContext implements TemplateContext {
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
       boolean legacyExternalRunfiles,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      RepositoryMapping repositoryMapping,
       boolean windowsPath) {
     this.delegate = delegate;
     this.functions =
@@ -72,13 +72,14 @@ final class LocationTemplateContext implements TemplateContext {
       @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap,
       boolean execPaths,
       boolean allowData,
+      boolean collectSrcs,
       boolean windowsPath) {
     this(
         delegate,
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, collectSrcs)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
         ruleContext.getRule().getPackage().getRepositoryMapping(),

@@ -15,15 +15,16 @@ package com.google.devtools.build.lib.dynamic;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,10 +37,9 @@ public class DynamicExecutionModuleTest {
   private DynamicExecutionOptions options;
 
   @Before
-  public void setUp() {
-    module = new DynamicExecutionModule();
+  public void setUp() throws IOException {
+    module = new DynamicExecutionModule(Executors.newCachedThreadPool());
     options = new DynamicExecutionOptions();
-    options.dynamicWorkerStrategy = ""; // default
     options.dynamicLocalStrategy = Collections.emptyList(); // default
     options.dynamicRemoteStrategy = Collections.emptyList(); // default
   }
@@ -48,18 +48,6 @@ public class DynamicExecutionModuleTest {
   public void testGetLocalStrategies_getsDefaultWithNoOptions()
       throws AbruptExitException, OptionsParsingException {
     assertThat(module.getLocalStrategies(options)).isEqualTo(parseStrategies("worker,sandboxed"));
-  }
-
-  @Test
-  public void testGetLocalStrategies_dynamicWorkerStrategyTakesSingleValue()
-      throws AbruptExitException, OptionsParsingException {
-    options.dynamicWorkerStrategy = "local,worker";
-    // This looks weird, but it's expected behaviour that dynamic_worker_strategy
-    // doesn't get parsed.
-    Map<String, List<String>> expected = parseStrategies("sandboxed");
-    expected.get("").add(0, "local,worker");
-    assertThat(module.getLocalStrategies(options))
-        .isEqualTo(ImmutableMap.copyOf(expected.entrySet()));
   }
 
   @Test
@@ -102,4 +90,5 @@ public class DynamicExecutionModuleTest {
     }
     return result;
   }
+
 }

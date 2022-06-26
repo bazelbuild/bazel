@@ -25,15 +25,6 @@
 
 namespace blaze_jni {
 
-#define CHECK(condition) \
-    do { \
-      if (!(condition)) { \
-        fprintf(stderr, "%s:%d: check failed: %s\n", \
-                __FILE__, __LINE__, #condition); \
-        abort(); \
-      } \
-    } while (0)
-
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__)
 // stat64 is deprecated on OS X/BSD.
 typedef struct stat portable_stat_struct;
@@ -93,7 +84,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found);
 
 // Run sysctlbyname(3), only available on darwin
-int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
+int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep);
 
 // Used to surround an region that we want sleep disabled for.
 // push_disable_sleep to start the area.
@@ -105,17 +96,89 @@ int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
 int portable_push_disable_sleep();
 int portable_pop_disable_sleep();
 
-// Returns the number of times that the process has been suspended (SIGSTOP,
-// computer put to sleep, etc.) since Bazel started.
-int portable_suspend_count();
+// Starts up any infrastructure needed to do suspend monitoring.
+// May be called more than once.
+void portable_start_suspend_monitoring();
 
-// Returns the number of times that the system has received a memory pressure
-// warning notification since Bazel started.
-int portable_memory_pressure_warning_count();
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemSuspensionEvent.java
+typedef enum  {
+  SuspensionReasonSIGTSTP = 0,
+  SuspensionReasonSIGCONT = 1,
+  SuspensionReasonSleep = 2,
+  SuspensionReasonWake = 3
+} SuspensionReason;
 
-// Returns the number of times that the system has received a memory pressure
-// critical notification since Bazel started.
-int portable_memory_pressure_critical_count();
+// Declaration for callback function that is called by suspend monitoring
+// when a suspension is detected.
+extern void suspend_callback(SuspensionReason value);
+
+// Starts up any infrastructure needed to do thermal monitoring.
+// May be called more than once.
+void portable_start_thermal_monitoring();
+
+// Declaration for callback function that is called by thermal monitoring
+// when a thermal event is detected.
+extern void thermal_callback(int value);
+
+// Returns the current thermal load.
+int portable_thermal_load();
+
+// Starts up any infrastructure needed to do system load advisory monitoring.
+// May be called more than once.
+void portable_start_system_load_advisory_monitoring();
+
+// Declaration for callback function that is called by system load advisory
+// monitoring when a system load advisory event is detected.
+extern void system_load_advisory_callback(int value);
+
+// Returns the system load advisory.
+int portable_system_load_advisory();
+
+// Starts up any infrastructure needed to do memory pressure monitoring.
+// May be called more than once.
+void portable_start_memory_pressure_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
+typedef enum  {
+  MemoryPressureLevelNormal = 0,
+  MemoryPressureLevelWarning = 1,
+  MemoryPressureLevelCritical = 2,
+} MemoryPressureLevel;
+
+// Declaration for callback function that is called by memory pressure
+// monitoring when memory pressure is detected.
+extern void memory_pressure_callback(MemoryPressureLevel level);
+
+// Returns the current memory pressure.
+MemoryPressureLevel portable_memory_pressure();
+
+// Starts up any infrastructure needed to do disk space monitoring.
+// May be called more than once.
+void portable_start_disk_space_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemDiskSpaceEvent.java
+typedef enum  {
+  DiskSpaceLevelLow = 0,
+  DiskSpaceLevelVeryLow = 1,
+} DiskSpaceLevel;
+
+// Declaration for callback function that is called by disk space
+// monitoring when a disk space alert happens.
+extern void disk_space_callback(DiskSpaceLevel level);
+
+// Starts up any infrastructure needed to do cpu speed monitoring.
+// May be called more than once.
+void portable_start_cpu_speed_monitoring();
+
+// Returns the current CPU speed. Return -1 in case of error.
+int portable_cpu_speed();
+
+// Declaration for callback function that is called by cpu speed
+// monitoring when a cpu speed alert happens.
+extern void cpu_speed_callback(int speed);
 
 }  // namespace blaze_jni
 

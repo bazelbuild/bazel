@@ -18,15 +18,31 @@ java_test(
     srcs = ["DynamicSpawnStrategyUnitTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_policy",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ShrinkableSemaphoreTest",
+    size = "small",
+    srcs = ["ShrinkableSemaphoreTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//third_party:junit4",
         "//third_party:truth",
     ],
 )
@@ -74,20 +90,5 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
     ],
 )

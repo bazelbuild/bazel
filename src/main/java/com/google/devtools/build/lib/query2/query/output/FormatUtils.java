@@ -30,7 +30,7 @@ import net.starlark.java.syntax.Location;
  * Given a set of query options, returns a BinaryPredicate suitable for passing to {@link
  * Rule#getLabels()}, {@link XmlOutputFormatter}, etc.
  */
-class FormatUtils {
+final class FormatUtils {
 
   private FormatUtils() {}
 
@@ -42,8 +42,7 @@ class FormatUtils {
     }
     return queryOptions.includeImplicitDeps
         ? DependencyFilter.ONLY_TARGET_DEPS
-        : DependencyFilter.and(
-            DependencyFilter.NO_IMPLICIT_DEPS, DependencyFilter.ONLY_TARGET_DEPS);
+        : DependencyFilter.NO_IMPLICIT_DEPS.and(DependencyFilter.ONLY_TARGET_DEPS);
   }
 
   /** An ordering of Targets based on the ordering of their labels. */

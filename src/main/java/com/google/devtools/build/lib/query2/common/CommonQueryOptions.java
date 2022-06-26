@@ -78,7 +78,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " --universe_scope value inferred for a query expression that uses universe-scoped"
               + " functions (e.g.`allrdeps`) may not be what you want, so you should use this"
               + " option only if you know what you are doing. See"
-              + " https://docs.bazel.build/versions/master/query.html#sky-query for details and"
+              + " https://bazel.build/reference/query#sky-query for details and"
               + " examples. If --universe_scope is set, then this option's value is ignored. Note:"
               + " this option applies only to `query` (i.e. not `cquery`).")
   public boolean inferUniverseScope;
@@ -100,7 +100,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " target. That means if the top-level target is in the target configuration, only"
               + " configured targets also in the target configuration will be returned. If the"
               + " top-level target is in the host configuration, only host configured targets will"
-              + " be returned.")
+              + " be returned. This option will NOT exclude resolved toolchains.")
   public boolean includeToolDeps;
 
   @Option(
@@ -111,7 +111,8 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "If enabled, implicit dependencies will be included in the dependency graph over "
               + "which the query operates. An implicit dependency is one that is not explicitly "
-              + "specified in the BUILD file but added by bazel.")
+              + "specified in the BUILD file but added by bazel. For cquery, this option controls "
+              + "filtering resolved toolchains.")
   public boolean includeImplicitDeps;
 
   @Option(
@@ -164,12 +165,9 @@ public class CommonQueryOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "False by default, displays the target of the source file. "
+          "True by default, displays the target of the source file. "
               + "If true, displays the location of line 1 of source files in location outputs. "
               + "This flag only exists for migration purposes.")
   public boolean displaySourceFileLocation;

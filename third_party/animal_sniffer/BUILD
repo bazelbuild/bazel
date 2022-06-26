@@ -10,6 +10,6 @@ filegroup(
 )
 
 java_import(
-  name = "animal_sniffer",
-  jars = ["animal-sniffer-annotations-1.14.jar"],
+    name = "animal_sniffer",
+    jars = ["animal-sniffer-annotations-1.14.jar"],
 )

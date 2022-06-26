@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -25,6 +26,12 @@ import java.util.stream.Collectors;
 
 /** Factory methods for producing {@link Crash}-type {@link FailureDetail} messages. */
 public class CrashFailureDetails {
+
+  /**
+   * Max message length in {@link FailureDetails.Throwable} submessage, anything beyond this is
+   * truncated.
+   */
+  private static final int MAX_THROWABLE_MESSAGE_LENGTH = 2000;
 
   /**
    * At most this many {@link FailureDetails.Throwable} messages will be specified by a {@link
@@ -89,7 +96,11 @@ public class CrashFailureDetails {
   }
 
   private static FailureDetails.Throwable getThrowable(Throwable throwable) {
-    String throwableMessage = throwable.getMessage() != null ? throwable.getMessage() : "";
+    String throwableMessage =
+        Ascii.truncate(
+            throwable.getMessage() != null ? throwable.getMessage() : "",
+            MAX_THROWABLE_MESSAGE_LENGTH,
+            "[truncated]");
     FailureDetails.Throwable.Builder throwableBuilder =
         FailureDetails.Throwable.newBuilder()
             .setMessage(throwableMessage)

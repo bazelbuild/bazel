@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of {@code toolchain_type}.
@@ -33,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 public class ToolchainType implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
 
@@ -50,9 +53,11 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .useToolchainResolution(false)
+          .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+          .advertiseStarlarkProvider(ToolchainTypeInfo.PROVIDER.id())
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .removeAttribute(":action_listener")
           .build();
     }
 
@@ -74,7 +79,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 </p>
 
 <p>
-  See the <a href="../toolchains.html">Toolchains</a> page for more details.
+  See the <a href="${link toolchains}">Toolchains</a> page for more details.
 </p>
 
 <h4 id="toolchain_type_examples">Example</h4>

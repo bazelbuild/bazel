@@ -32,7 +32,6 @@ java_library(
         "ManualClock.java",
         "ManualSleeper.java",
         "Scratch.java",
-        "Suite.java",
         "TestFileOutErr.java",
         "TestRuleClassProvider.java",
         "TestSpec.java",
@@ -50,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
@@ -80,6 +80,20 @@ java_library(
 )
 
 java_library(
+    name = "action_event_recorder",
+    srcs = ["ActionEventRecorder.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
     name = "BazelPackageBuilderHelperForTesting",
     testonly = 0,
     srcs = ["BazelPackageLoadingListenerForTesting.java"],
@@ -88,12 +102,63 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "controllable_action_strategy_module",
+    srcs = ["ControllableActionStrategyModule.java"],
+    deps = [
+        ":spawn_controller",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "spawn_controller",
+    srcs = ["SpawnController.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "spawn_input_utils",
+    srcs = ["SpawnInputUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "test_interrupting_bug_reporter",
+    srcs = ["TestInterruptingBugReporter.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:junit4",
     ],
 )
 
@@ -101,8 +166,18 @@ java_library(
     name = "TestRunnableWrapper",
     srcs = ["TestRunnableWrapper.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        ":ThrowingRecordableRunnableWrapper",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "ThrowingRecordableRunnableWrapper",
+    srcs = ["ThrowableRecordingRunnableWrapper.java"],
+    deps = [
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -120,6 +195,8 @@ java_library(
     srcs = ["TestUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:jsr305",
     ],
 )
 
@@ -160,6 +237,7 @@ java_library(
         ":TestConstants",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -173,6 +251,7 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//third_party:guava",
     ],
@@ -192,7 +271,7 @@ java_library(
         "TestPackageFactoryBuilderFactory.java",
     ],
     deps = [
-        ":PackageFactoryBuilderFactoryForBazelUnitTests",
+        ":PackageFactoryBuilderFactoryForBazelUnitTests",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
     ],
 )
@@ -216,13 +295,33 @@ java_library(
     srcs = [
         "ManualSleeperTest.java",
         "MoreAssertsTest.java",
-        "TestSizeAnnotationTest.java",
+        "TestInterruptingBugReporterTest.java",
     ],
     deps = [
         ":JunitUtils",
+        ":test_interrupting_bug_reporter",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "FakeResourceOwner_lib",
+    srcs = [
+        "FakeResourceOwner.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

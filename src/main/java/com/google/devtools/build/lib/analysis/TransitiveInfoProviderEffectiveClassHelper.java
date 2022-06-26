@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import java.util.LinkedHashSet;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.collect.Sets;
 import java.util.Set;
 
 /**
@@ -31,58 +29,45 @@ import java.util.Set;
  * provider implements multiple TransitiveInfoProvider interfaces, prefer the explicit put builder
  * methods.
  */
-class TransitiveInfoProviderEffectiveClassHelper {
+final class TransitiveInfoProviderEffectiveClassHelper {
 
   private TransitiveInfoProviderEffectiveClassHelper() {}
 
   private static final LoadingCache<
           Class<? extends TransitiveInfoProvider>, Class<? extends TransitiveInfoProvider>>
-      EFFECTIVE_PROVIDER_CLASS_CACHE =
-          CacheBuilder.newBuilder()
-              .build(
-                  new CacheLoader<
-                      Class<? extends TransitiveInfoProvider>,
-                      Class<? extends TransitiveInfoProvider>>() {
+      effectiveProviderClassCache =
+          Caffeine.newBuilder()
+              .build(TransitiveInfoProviderEffectiveClassHelper::findEffectiveProviderClass);
 
-                    private Set<Class<? extends TransitiveInfoProvider>> getDirectImplementations(
-                        Class<? extends TransitiveInfoProvider> providerClass) {
-                      Set<Class<? extends TransitiveInfoProvider>> result = new LinkedHashSet<>();
-                      for (Class<?> clazz : providerClass.getInterfaces()) {
-                        if (TransitiveInfoProvider.class.equals(clazz)) {
-                          result.add(providerClass);
-                        } else if (TransitiveInfoProvider.class.isAssignableFrom(clazz)) {
-                          result.addAll(
-                              getDirectImplementations(
-                                  clazz.asSubclass(TransitiveInfoProvider.class)));
-                        }
-                      }
+  private static Class<? extends TransitiveInfoProvider> findEffectiveProviderClass(
+      Class<? extends TransitiveInfoProvider> providerClass) {
+    Set<Class<? extends TransitiveInfoProvider>> result = getDirectImplementations(providerClass);
+    checkState(
+        result.size() == 1,
+        "Effective provider class for %s is ambiguous (%s), specify explicitly.",
+        providerClass,
+        result);
+    return result.iterator().next();
+  }
 
-                      Class<?> superclass = providerClass.getSuperclass();
-                      if (superclass != null
-                          && TransitiveInfoProvider.class.isAssignableFrom(superclass)) {
-                        result.addAll(
-                            getDirectImplementations(
-                                superclass.asSubclass(TransitiveInfoProvider.class)));
-                      }
-                      return result;
-                    }
+  private static Set<Class<? extends TransitiveInfoProvider>> getDirectImplementations(
+      Class<? extends TransitiveInfoProvider> providerClass) {
+    Set<Class<? extends TransitiveInfoProvider>> result = Sets.newLinkedHashSetWithExpectedSize(1);
+    for (Class<?> clazz : providerClass.getInterfaces()) {
+      if (TransitiveInfoProvider.class.equals(clazz)) {
+        result.add(providerClass);
+      } else if (TransitiveInfoProvider.class.isAssignableFrom(clazz)) {
+        result.addAll(getDirectImplementations(clazz.asSubclass(TransitiveInfoProvider.class)));
+      }
+    }
 
-                    @Override
-                    public Class<? extends TransitiveInfoProvider> load(
-                        Class<? extends TransitiveInfoProvider> providerClass) {
-                      Set<Class<? extends TransitiveInfoProvider>> result =
-                          getDirectImplementations(providerClass);
-                      Verify.verify(!result.isEmpty()); // impossible
-                      Preconditions.checkState(
-                          result.size() == 1,
-                          "Effective provider class for %s is ambiguous (%s), specify explicitly.",
-                          providerClass,
-                          Joiner.on(',').join(result));
-                      return result.iterator().next();
-                    }
-                  });
+    Class<?> superclass = providerClass.getSuperclass();
+    if (superclass != null && TransitiveInfoProvider.class.isAssignableFrom(superclass)) {
+      result.addAll(getDirectImplementations(superclass.asSubclass(TransitiveInfoProvider.class)));
+    }
+    return result;
+  }
 
-  // TODO(arielb): see if these can be made private?
   @SuppressWarnings("unchecked")
   static <T extends TransitiveInfoProvider> Class<T> get(T provider) {
     return get((Class<T>) provider.getClass());
@@ -90,6 +75,6 @@ class TransitiveInfoProviderEffectiveClassHelper {
 
   @SuppressWarnings("unchecked")
   static <T extends TransitiveInfoProvider> Class<T> get(Class<T> providerClass) {
-    return (Class<T>) EFFECTIVE_PROVIDER_CLASS_CACHE.getUnchecked(providerClass);
+    return (Class<T>) effectiveProviderClassCache.get(providerClass);
   }
 }

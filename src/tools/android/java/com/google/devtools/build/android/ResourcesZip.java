@@ -25,6 +25,7 @@ import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ProtoResourceUsageAnalyzer;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.Closeable;
 import java.io.FileOutputStream;
@@ -39,10 +40,8 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
-import org.xml.sax.SAXException;
 
 /** Represents a collection of raw, merged resources with an optional id list. */
 public class ResourcesZip {
@@ -216,7 +215,6 @@ public class ResourcesZip {
    * @return A ShrunkProtoApk, which must be closed when finished.
    * @throws ParserConfigurationException thrown when the xml parsing not possible.
    * @throws IOException thrown when the filesystem is going pear shaped.
-   * @throws SAXException thrown when the xml parsing goes badly.
    */
   @CheckReturnValue
   public ShrunkProtoApk shrinkUsingProto(
@@ -236,7 +234,7 @@ public class ResourcesZip {
           new ProtoResourceUsageAnalyzer(packages, rTxt, proguardMapping, resourcesConfig, logFile);
 
       ProtoApk shrink = analyzer.shrink(apk, classJar, shrunkApkProto, parseToolAttributes());
-      return new ShrunkProtoApk(shrink, resourcesConfig, logFile, ids);
+      return new ShrunkProtoApk(shrink, resourcesConfig, logFile);
     }
   }
 
@@ -266,19 +264,17 @@ public class ResourcesZip {
     private final ProtoApk apk;
     private final Path resourcesConfig;
     private final Path report;
-    private final Path ids;
 
-    ShrunkProtoApk(ProtoApk apk, Path resourcesConfig, Path report, Path ids) {
+    ShrunkProtoApk(ProtoApk apk, Path resourcesConfig, Path report) {
       this.apk = apk;
       this.resourcesConfig = resourcesConfig;
       this.report = report;
-      this.ids = ids;
     }
 
     ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
         throws IOException {
       Files.copy(
-          writeAsProto ? apk.asApkPath() : linker.link(apk, ids),
+          writeAsProto ? apk.asApkPath() : linker.convertProtoApkToBinary(apk),
           binaryOut,
           StandardCopyOption.REPLACE_EXISTING);
       return this;

@@ -759,6 +759,6 @@ public final class MethodLibraryTest {
   public void testStringJoinRequiresStrings() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "expected string for sequence element 1, got 'int'", "', '.join(['foo', 2])");
+            "expected string for sequence element 1, got '2' of type int", "', '.join(['foo', 2])");
   }
 }

@@ -42,7 +42,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
     builder.put("android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
     builder.put("android_sdk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
     builder.put("has_androidsdk", Label.parseAbsoluteUnchecked(prefix + "has_androidsdk"));
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private static final ImmutableList<String> calculateToolchainsToRegister(Rule rule) {
@@ -72,7 +72,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         The version of the Android build tools to use from within the Android SDK. If not specified,
         the latest build tools version installed will be used.
 
-        <p>Bazel requires build tools version 26.0.1 or later.
+        <p>Bazel requires build tools version 30.0.0 or later.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_tools_version", STRING).nonconfigurable("WORKSPACE rule"))
         /* <!-- #BLAZE_RULE(android_sdk_repository).ATTRIBUTE(api_level) -->

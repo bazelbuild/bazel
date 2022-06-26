@@ -19,7 +19,9 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -43,11 +45,11 @@ import javax.annotation.Nullable;
  */
 public abstract class PackageLookupValue implements SkyValue {
 
-  @AutoCodec
+  @SerializationConstant
   public static final NoBuildFilePackageLookupValue NO_BUILD_FILE_VALUE =
       new NoBuildFilePackageLookupValue();
 
-  @AutoCodec
+  @SerializationConstant
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
 
@@ -68,7 +70,7 @@ public abstract class PackageLookupValue implements SkyValue {
   protected PackageLookupValue() {}
 
   public static PackageLookupValue success(
-      RepositoryValue repository, Root root, BuildFileName buildFileName) {
+      RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
     return new SuccessfulPackageLookupValue(repository, root, buildFileName);
   }
 
@@ -124,7 +126,6 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   public static Key key(PackageIdentifier pkgIdentifier) {
-    Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
     return Key.create(pkgIdentifier);
   }
 
@@ -162,20 +163,20 @@ public abstract class PackageLookupValue implements SkyValue {
      * controlling a symbolic link the path goes trough). Can be {@code null}, if does not depend on
      * such a repository; will always be {@code null} for packages in the main repository.
      */
-    @Nullable private final RepositoryValue repository;
+    @Nullable private final RepositoryDirectoryValue repository;
 
     private final Root root;
     private final BuildFileName buildFileName;
 
     SuccessfulPackageLookupValue(
-        @Nullable RepositoryValue repository, Root root, BuildFileName buildFileName) {
+        @Nullable RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
       this.repository = repository;
       this.root = root;
       this.buildFileName = buildFileName;
     }
 
     @Nullable
-    public RepositoryValue repository() {
+    public RepositoryDirectoryValue repository() {
       return repository;
     }
 
@@ -377,9 +378,11 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
     private final String repositoryName;
+    private final String reason;
 
-    NoRepositoryPackageLookupValue(String repositoryName) {
+    NoRepositoryPackageLookupValue(String repositoryName, String reason) {
       this.repositoryName = repositoryName;
+      this.reason = reason;
     }
 
     @Override
@@ -389,7 +392,7 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public String getErrorMsg() {
-      return String.format("The repository '%s' could not be resolved", repositoryName);
+      return String.format("The repository '%s' could not be resolved: %s", repositoryName, reason);
     }
   }
 }

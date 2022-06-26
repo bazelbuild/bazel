@@ -89,7 +89,7 @@ assert_eq(int("0x0b0", 0), 0xb0)
 assert_eq(int("0x0b0101", 16), 0x0b0101)
 assert_eq(int("0b0101", 2), 5)  # prefix is redundant with explicit base
 
-# This case is allowed in Python but not Skylark
+# This case is allowed in Python but not Starlark
 assert_fails(lambda: int(), "missing 1 required positional argument: x")
 
 # Unlike Python, leading and trailing whitespace is not allowed. Use int(s.strip()).

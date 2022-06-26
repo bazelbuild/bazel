@@ -17,19 +17,16 @@ import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTIO
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
-import com.google.common.base.Verify;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Flushables;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -74,6 +71,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import net.starlark.java.eval.Starlark;
 
@@ -97,10 +95,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private final BugReporter bugReporter;
   private final Object commandLock;
   private String currentClientDescription = null;
-  private String shutdownReason = null;
+  private final AtomicReference<String> shutdownReason = new AtomicReference<>();
   private OutputStream logOutputStream = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
-      CacheBuilder.newBuilder()
+      Caffeine.newBuilder()
           .build(
               new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
                 @Override
@@ -214,7 +212,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         multipleAttempts = true;
       }
-      Verify.verify(currentClientDescription == null);
       currentClientDescription = clientDescription;
     }
     // If we took the lock on the first try, force the reported wait time to 0 to avoid unnecessary
@@ -224,11 +221,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         !multipleAttempts ? 0 : (BlazeClock.nanoTime() - clockBefore) / (1000L * 1000L);
 
     try {
-      if (shutdownReason != null) {
-        String message = "Server shut down " + shutdownReason;
-        outErr.printErrLn(message);
+      String retrievedShutdownReason = this.shutdownReason.get();
+      if (retrievedShutdownReason != null) {
+        outErr.printErrLn(retrievedShutdownReason);
         return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
+            retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result =
           execExclusively(
@@ -243,9 +240,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               startupOptionsTaggedWithBazelRc,
               commandExtensions);
       if (result.shutdown()) {
-        // TODO(lberki): This also handles the case where we catch an uncaught Throwable in
-        // execExclusively() which is not an explicit shutdown.
-        shutdownReason = "explicitly by client " + clientDescription;
+        setShutdownReason(
+            "Server shut down "
+                + (result.getExitCode().isInfrastructureFailure()
+                    ? "due to a crash: " + result.getFailureDetail().getMessage()
+                    : "explicitly by client " + clientDescription));
       }
       if (!result.getDetailedExitCode().isSuccess()) {
         logger.atInfo().log("Exit status was %s", result.getDetailedExitCode());
@@ -261,7 +260,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /**
    * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
-   * long, Optional<List<Pair<String, String>>>)}, but automatically uses the current time.
+   * long, Optional, List)} but automatically uses the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -322,7 +321,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             commandEnvWarnings,
             waitTimeInMs,
             firstContactTime,
-            commandExtensions);
+            commandExtensions,
+            this::setShutdownReason);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     boolean tracerEnabled = false;
     if (commonOptions.enableTracer == TriState.YES) {
@@ -351,6 +351,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     storedEventHandler.post(profilerStartedEvent);
 
     // Enable Starlark CPU profiling (--starlark_cpu_profile=/tmp/foo.pprof.gz)
+    boolean success = false;
     if (!commonOptions.starlarkCpuProfile.isEmpty()) {
       FileOutputStream out;
       try {
@@ -362,7 +363,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             message, FailureDetails.Command.Code.STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE);
       }
       try {
-        Starlark.startCpuProfile(out, Duration.ofMillis(10));
+        success = Starlark.startCpuProfile(out, Duration.ofMillis(10));
       } catch (IllegalStateException ex) { // e.g. SIGPROF in use
         String message = Strings.nullToEmpty(ex.getMessage());
         outErr.printErrLn(message);
@@ -442,10 +443,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
-
-        runtime
-            .getRetainedHeapLimiter()
-            .update(commonOptions.oomMoreEagerlyThreshold, commonOptions.oomMessage, reporter);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -593,7 +590,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Finalize the Starlark CPU profile.
-      if (!commonOptions.starlarkCpuProfile.isEmpty()) {
+      if (!commonOptions.starlarkCpuProfile.isEmpty() && success) {
         try {
           Starlark.stopCpuProfile();
         } catch (IOException ex) {
@@ -612,12 +609,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     } catch (Throwable e) {
       logger.atSevere().withCause(e).log("Shutting down due to exception");
       Crash crash = Crash.from(e);
-      bugReporter.handleCrash(
-          crash,
-          CrashContext.keepAlive()
-              .withArgs(args)
-              .withExtraOomInfo(commonOptions.oomMessage)
-              .reportingTo(reporter));
+      bugReporter.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
       needToCallAfterCommand = false; // We are crashing.
       result = BlazeCommandResult.createShutdown(crash);
       return result;
@@ -735,12 +727,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private OptionsParser createOptionsParser(BlazeCommand command)
       throws OptionsParser.ConstructionException {
     OpaqueOptionsData optionsData;
-    try {
-      optionsData = optionsDataCache.getUnchecked(command);
-    } catch (UncheckedExecutionException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), OptionsParser.ConstructionException.class);
-      throw new IllegalStateException(e);
-    }
+    optionsData = optionsDataCache.get(command);
     Command annotation = command.getClass().getAnnotation(Command.class);
     OptionsParser parser =
         OptionsParser.builder()
@@ -772,6 +759,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   public void shutdown() {
     closeSilently(logOutputStream);
     logOutputStream = null;
+  }
+
+  private void setShutdownReason(String shutdownReason) {
+    this.shutdownReason.compareAndSet(null, shutdownReason);
   }
 
   private static BlazeCommandResult createDetailedCommandResult(

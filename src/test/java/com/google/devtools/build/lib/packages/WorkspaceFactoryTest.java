@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
@@ -76,14 +77,16 @@ public class WorkspaceFactoryTest {
   public void testRegisterExecutionPlatforms() throws Exception {
     helper.parse("register_execution_platforms('//platform:ep1')");
     assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
-        .containsExactly("//platform:ep1");
+        .containsExactly(TargetPattern.defaultParser().parse("//platform:ep1"));
   }
 
   @Test
   public void testRegisterExecutionPlatforms_multipleLabels() throws Exception {
-    helper.parse("register_execution_platforms(", "  '//platform:ep1',", "  '//platform:ep2')");
+    helper.parse("register_execution_platforms('//platform:ep1', '//platform:ep2')");
     assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
-        .containsExactly("//platform:ep1", "//platform:ep2");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//platform:ep1"),
+            TargetPattern.defaultParser().parse("//platform:ep2"));
   }
 
   @Test
@@ -93,20 +96,26 @@ public class WorkspaceFactoryTest {
         "register_execution_platforms('//platform:ep2')",
         "register_execution_platforms('//platform/...')");
     assertThat(helper.getPackage().getRegisteredExecutionPlatforms())
-        .containsExactly("//platform:ep1", "//platform:ep2", "//platform/...");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//platform:ep1"),
+            TargetPattern.defaultParser().parse("//platform:ep2"),
+            TargetPattern.defaultParser().parse("//platform/..."));
   }
 
   @Test
   public void testRegisterToolchains() throws Exception {
     helper.parse("register_toolchains('//toolchain:tc1')");
-    assertThat(helper.getPackage().getRegisteredToolchains()).containsExactly("//toolchain:tc1");
+    assertThat(helper.getPackage().getRegisteredToolchains())
+        .containsExactly(TargetPattern.defaultParser().parse("//toolchain:tc1"));
   }
 
   @Test
   public void testRegisterToolchains_multipleLabels() throws Exception {
-    helper.parse("register_toolchains(", "  '//toolchain:tc1',", "  '//toolchain:tc2')");
+    helper.parse("register_toolchains('//toolchain:tc1', '//toolchain:tc2')");
     assertThat(helper.getPackage().getRegisteredToolchains())
-        .containsExactly("//toolchain:tc1", "//toolchain:tc2");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//toolchain:tc1"),
+            TargetPattern.defaultParser().parse("//toolchain:tc2"));
   }
 
   @Test
@@ -116,7 +125,10 @@ public class WorkspaceFactoryTest {
         "register_toolchains('//toolchain:tc2')",
         "register_toolchains('//toolchain/...')");
     assertThat(helper.getPackage().getRegisteredToolchains())
-        .containsExactly("//toolchain:tc1", "//toolchain:tc2", "//toolchain/...");
+        .containsExactly(
+            TargetPattern.defaultParser().parse("//toolchain:tc1"),
+            TargetPattern.defaultParser().parse("//toolchain:tc2"),
+            TargetPattern.defaultParser().parse("//toolchain/..."));
   }
 
   @Test
@@ -128,7 +140,7 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {'@x' : '@y'},",
         ")");
-    assertMapping(helper, "@foo", "@x", "@y");
+    assertMapping(helper, "foo", "x", "y");
   }
 
   @Test
@@ -144,8 +156,8 @@ public class WorkspaceFactoryTest {
         "    path = '/bar',",
         "    repo_mapping = {'@a' : '@b'},",
         ")");
-    assertMapping(helper, "@foo", "@x", "@y");
-    assertMapping(helper, "@bar", "@a", "@b");
+    assertMapping(helper, "foo", "x", "y");
+    assertMapping(helper, "bar", "a", "b");
   }
 
   @Test
@@ -156,9 +168,9 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {'@a' : '@b', '@c' : '@d', '@e' : '@f'},",
         ")");
-    assertMapping(helper, "@foo", "@a", "@b");
-    assertMapping(helper, "@foo", "@c", "@d");
-    assertMapping(helper, "@foo", "@e", "@f");
+    assertMapping(helper, "foo", "a", "b");
+    assertMapping(helper, "foo", "c", "d");
+    assertMapping(helper, "foo", "e", "f");
   }
 
   @Test
@@ -169,7 +181,7 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {},",
         ")");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@foo"))).isEmpty();
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("foo"))).isEmpty();
   }
 
   @Test
@@ -188,13 +200,13 @@ public class WorkspaceFactoryTest {
   @Test
   public void testImplicitMainRepoRename() throws Exception {
     helper.parse("workspace(name = 'foo')");
-    assertMapping(helper, "@", "@foo", "@");
+    assertMapping(helper, "", "foo", "");
   }
 
   @Test
   public void testEmptyRepositoryHasEmptyMap() throws Exception {
     helper.parse("");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@"))).isEmpty();
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(""))).isEmpty();
   }
 
   @Test
@@ -206,17 +218,15 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {'@x' : '@y', '@bar' : '@newname'},",
         ")");
-    assertMapping(helper, "@foo", "@x", "@y");
-    assertMapping(helper, "@foo", "@bar", "@newname");
+    assertMapping(helper, "foo", "x", "y");
+    assertMapping(helper, "foo", "bar", "newname");
   }
 
   private void assertMapping(
       WorkspaceFactoryTestHelper helper, String repo, String local, String global)
       throws Exception {
-    RepositoryName localRepoName = RepositoryName.create(local);
-    RepositoryName globalRepoName = RepositoryName.create(global);
     assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(repo)))
-        .containsEntry(localRepoName, globalRepoName);
+        .containsEntry(local, RepositoryName.create(global));
   }
 
 }

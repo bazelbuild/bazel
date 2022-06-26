@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -35,13 +35,13 @@ public final class BazelShTestRule implements RuleDefinition {
         .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$launcher", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(environment.getToolsLabel("//tools/launcher:launcher")))
         // Add the script as an attribute in order for sh_test to output code coverage results for
         // code covered by CC binaries invocations.
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .singleArtifact()
                 .value(environment.getToolsLabel("//tools/test:collect_cc_coverage")));
     return builder.build();

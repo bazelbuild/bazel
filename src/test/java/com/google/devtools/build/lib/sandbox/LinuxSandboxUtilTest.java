@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.time.Duration;
 import java.util.List;
@@ -113,19 +114,19 @@ public final class LinuxSandboxUtilTest {
     Path writableDir1 = sandboxDir.getRelative("writable1");
     Path writableDir2 = sandboxDir.getRelative("writable2");
 
-    Path tmpfsDir1 = sandboxDir.getRelative("tmpfs1");
-    Path tmpfsDir2 = sandboxDir.getRelative("tmpfs2");
+    PathFragment tmpfsDir1 = sandboxDir.asFragment().getRelative("tmpfs1");
+    PathFragment tmpfsDir2 = sandboxDir.asFragment().getRelative("tmpfs2");
 
     ImmutableSet<Path> writableFilesAndDirectories = ImmutableSet.of(writableDir1, writableDir2);
 
-    ImmutableSet<Path> tmpfsDirectories = ImmutableSet.of(tmpfsDir1, tmpfsDir2);
+    ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of(tmpfsDir1, tmpfsDir2);
 
     ImmutableSortedMap<Path, Path> bindMounts =
         ImmutableSortedMap.<Path, Path>naturalOrder()
             .put(bindMountTarget1, bindMountSource1)
             .put(bindMountTarget2, bindMountSource2)
             .put(bindMountSameSourceAndTarget, bindMountSameSourceAndTarget)
-            .build();
+            .buildOrThrow();
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()

@@ -183,6 +183,11 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       return keyInterner.intern(new Key(root, label, kind));
     }
 
+    /** Returns whether this key is for a {@code @_builtins} .bzl file. */
+    public boolean isBuiltins() {
+      return kind == Kind.BUILTINS;
+    }
+
     boolean isBuildPrelude() {
       return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
     }

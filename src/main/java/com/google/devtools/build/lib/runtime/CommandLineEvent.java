@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -42,6 +43,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -255,9 +257,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     private CommandLineSection getExplicitCommandOptions() {
       List<ParsedOptionDescription> explicitOptions =
-          commandOptions
-              .asListOfExplicitOptions()
-              .stream()
+          commandOptions.asListOfExplicitOptions().stream()
               .filter(
                   parsedOptionDescription ->
                       parsedOptionDescription.getPriority().getPriorityCategory()
@@ -349,8 +349,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           .setOptionList(
               OptionList.newBuilder()
                   .addAllOption(
-                      unfilteredOptions
-                          .stream()
+                      unfilteredOptions.stream()
                           .filter(
                               option -> {
                                 String optionName = option.getOptionName();
@@ -383,6 +382,29 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
                           commandOptions.asListOfCanonicalOptions()))
                   .addAllOption(starlarkOptions))
           .build();
+    }
+
+    /**
+     * Hash including the explicit command line options as well as the residue, e.g. the targets.
+     */
+    public long getExplicitCommandLineHash() {
+      long hash = 0;
+      for (Entry<String, Object> starlarkOption : commandOptions.getStarlarkOptions().entrySet()) {
+        hash = hash * 31 + starlarkOption.toString().hashCode();
+      }
+      for (ParsedOptionDescription canonicalOptionDesc :
+          commandOptions.asListOfCanonicalOptions()) {
+        if (canonicalOptionDesc == null
+            || canonicalOptionDesc.isHidden()
+            || !"command line options".equals(canonicalOptionDesc.getSource())) {
+          continue;
+        }
+        hash = hash * 31 + canonicalOptionDesc.getCanonicalForm().hashCode();
+      }
+      for (String r : commandOptions.getResidue()) {
+        hash = hash * 31 + r.hashCode();
+      }
+      return hash;
     }
 
     @Override
@@ -468,6 +490,11 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         return "A command line, either as a simple string, or as a base64-encoded binary form of a"
             + " CommandLine proto";
       }
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("commandLine", commandLine).toString();
     }
   }
 }

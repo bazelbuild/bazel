@@ -63,7 +63,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

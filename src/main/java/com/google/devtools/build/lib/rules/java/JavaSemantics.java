@@ -22,20 +22,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -47,7 +44,7 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -85,7 +82,6 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy-src.jar");
 
   SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE = fromTemplates("%{name}_classpaths_file");
-  String TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER = "%test_runtime_classpath_file%";
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -106,8 +102,12 @@ public interface JavaSemantics {
     return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
   }
 
-  /** Name of the output group used for source jars. */
+  /** Name of the output group used for transitive source jars. */
   String SOURCE_JARS_OUTPUT_GROUP = OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
+
+  /** Name of the output group used for direct source jars. */
+  String DIRECT_SOURCE_JARS_OUTPUT_GROUP =
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
 
   /** Implementation for the :jvm attribute. */
   static Label jvmAttribute(RuleDefinitionEnvironment env) {
@@ -123,7 +123,7 @@ public interface JavaSemantics {
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
-  @AutoCodec
+  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -152,28 +152,28 @@ public interface JavaSemantics {
             return javaConfig.getJavaLauncherLabel();
           });
 
-  @AutoCodec
+  @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
   /** Implementation for the :proguard attribute. */
-  @AutoCodec
+  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> PROGUARD =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           null,
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
 
-  @AutoCodec
+  @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> EXTRA_PROGUARD_SPECS =
       LabelListLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
           (rule, attributes, javaConfig) ->
               ImmutableList.copyOf(javaConfig.getExtraProguardSpecs()));
 
-  @AutoCodec
+  @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
       LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
@@ -184,10 +184,23 @@ public interface JavaSemantics {
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
             JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
-            if (!hasProguardSpecs || !optimizer.label().isPresent()) {
+            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
+                || !optimizer.label().isPresent()) {
               return null;
             }
             return optimizer.label().get();
+          });
+
+  @SerializationConstant
+  LabelListLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
+      LabelListLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          (rule, attributes, javaConfig) -> {
+            // Don't bother adding the configuration dep if we're not going to use it.
+            if (!javaConfig.runLocalJavaOptimizations()) {
+              return ImmutableList.of();
+            }
+            return javaConfig.getLocalJavaOptimizationConfiguration();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
@@ -264,10 +277,15 @@ public interface JavaSemantics {
       boolean includeBuildData,
       Compression compression,
       Artifact launcher,
-      boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
-      Artifact sharedArchive);
+      Artifact sharedArchive,
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens);
 
   /**
    * Creates the action that writes the Java executable stub script.
@@ -325,38 +343,7 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-  /**
-   * Returns true if target is a test target, has TestConfiguration, and persistent test runner set.
-   *
-   * <p>Note that no TestConfiguration implies the TestConfiguration was pruned in some parent of
-   * the rule. Therefore, TestTarget not currently being analyzed as part of top-level and thus
-   * persistent test runner is not especially relevant.
-   */
-  static boolean isTestTargetAndPersistentTestRunner(RuleContext ruleContext) {
-    if (!ruleContext.isTestTarget()) {
-      return false;
-    }
-    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
-    return testConfiguration != null && testConfiguration.isPersistentTestRunner();
-  }
 
-  static Runfiles getTestSupportRunfiles(RuleContext ruleContext) {
-    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
-    if (testSupport == null) {
-      return Runfiles.EMPTY;
-    }
-
-    RunfilesProvider testSupportRunfilesProvider = testSupport.getProvider(RunfilesProvider.class);
-    return testSupportRunfilesProvider.getDefaultRunfiles();
-  }
-
-  static NestedSet<Artifact> getTestSupportRuntimeClasspath(RuleContext ruleContext) {
-    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
-    if (testSupport == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return JavaInfo.getProvider(JavaCompilationArgsProvider.class, testSupport).getRuntimeJars();
-  }
 
   static TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
@@ -420,21 +407,8 @@ public interface JavaSemantics {
   Iterable<String> getJvmFlags(
       RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts, List<String> userJvmFlags);
 
-  /**
-   * Adds extra providers to a Java target.
-   *
-   * @throws InterruptedException
-   */
-  void addProviders(
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      Artifact gensrcJar,
-      RuleConfiguredTargetBuilder ruleBuilder)
-      throws InterruptedException;
-
   /** Translates XMB messages to translations artifact suitable for Java targets. */
-  ImmutableList<Artifact> translate(
-      RuleContext ruleContext, JavaConfiguration javaConfig, List<Artifact> messages);
+  ImmutableList<Artifact> translate(RuleContext ruleContext, List<Artifact> messages);
 
   /**
    * Get the launcher artifact for a java binary, creating the necessary actions for it.
@@ -515,5 +489,6 @@ public interface JavaSemantics {
 
   Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 
-  void checkDependencyRuleKinds(RuleContext ruleContext);
+  /** Sets the progress message on the lint build action. */
+  void setLintProgressMessage(SpawnAction.Builder spawnAction);
 }

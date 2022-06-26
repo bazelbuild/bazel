@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Options class for aquery specific query options. */
 public class AqueryOptions extends CommonQueryOptions {
@@ -60,6 +59,16 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeParamFiles;
 
   @Option(
+      name = "include_file_write_contents",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Include the file contents for the FileWrite and SourceSymlinkManifest actions"
+              + " (potentially large). ")
+  public boolean includeFileWriteContents;
+
+  @Option(
       name = "skyframe_state",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
@@ -71,15 +80,13 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean queryCurrentSkyframeState;
 
   @Option(
-      name = "incompatible_proto_output_v2",
+      name = "deduplicate_depsets",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        OptionMetadataTag.DEPRECATED,
-      },
-      help = "No-op.")
-  public boolean protoV2;
+      help =
+          "De-duplicate non-leaf children of a dep_set_of_files in the final proto/textproto/json"
+              + " output. This does not deduplicate depsets that don't share an immediate parent."
+              + " This does not affect the final effective list of input artifacts of the actions.")
+  public boolean deduplicateDepsets;
 }

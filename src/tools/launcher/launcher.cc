@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/data_parser.h"
@@ -45,12 +46,20 @@ static wstring GetRunfilesDir(const wchar_t* argv0) {
   wstring runfiles_dir;
   // If RUNFILES_DIR is already set (probably we are either in a test or in a
   // data dependency) then use it.
-  if (GetEnv(L"RUNFILES_DIR", &runfiles_dir)) {
-    return runfiles_dir;
+  if (!GetEnv(L"RUNFILES_DIR", &runfiles_dir)) {
+    // Otherwise this is probably a top-level non-test binary (e.g. a genrule
+    // tool) and should look for its runfiles beside the executable.
+    runfiles_dir = GetBinaryPathWithExtension(argv0) + L".runfiles";
   }
-  // Otherwise this is probably a top-level non-test binary (e.g. a genrule
-  // tool) and should look for its runfiles beside the executable.
-  return GetBinaryPathWithExtension(argv0) + L".runfiles";
+  // Make sure we return a normalized absolute path.
+  if (!blaze_util::IsAbsolute(runfiles_dir)) {
+    runfiles_dir = blaze_util::GetCwdW() + L"\\" + runfiles_dir;
+  }
+  wstring result;
+  if (!NormalizePath(runfiles_dir, &result)) {
+    die(L"GetRunfilesDir Failed");
+  }
+  return result;
 }
 
 BinaryLauncherBase::BinaryLauncherBase(
@@ -73,9 +82,25 @@ BinaryLauncherBase::BinaryLauncherBase(
 }
 
 static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
-  // Look for the runfiles manifest of the binary in a runfiles directory next
-  // to the binary, then look for it (the manifest) next to the binary.
-  wstring directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
+  // If this binary X runs as the data-dependency of some other binary Y, then
+  // X has no runfiles manifest/directory and should use Y's.
+  if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
+      DoesFilePathExist(result->c_str())) {
+    return true;
+  }
+
+  wstring directory;
+  if (GetEnv(L"RUNFILES_DIR", &directory)) {
+    *result = directory + L"/MANIFEST";
+    if (DoesFilePathExist(result->c_str())) {
+      return true;
+    }
+  }
+
+  // If this binary X runs by itself (not as a data-dependency of another
+  // binary), then look for the manifest in a runfiles directory next to the
+  // main binary, then look for it (the manifest) next to the main binary.
+  directory = GetBinaryPathWithExtension(argv0) + L".runfiles";
   *result = directory + L"/MANIFEST";
   if (DoesFilePathExist(result->c_str())) {
     return true;
@@ -84,21 +109,6 @@ static bool FindManifestFileImpl(const wchar_t* argv0, wstring* result) {
   *result = directory + L"_manifest";
   if (DoesFilePathExist(result->c_str())) {
     return true;
-  }
-
-  // If the manifest is not found then this binary (X) runs as the
-  // data-dependency of some other binary (Y) and X has no runfiles
-  // manifest/directory so it should use Y's.
-  if (GetEnv(L"RUNFILES_MANIFEST_FILE", result) &&
-      DoesFilePathExist(result->c_str())) {
-    return true;
-  }
-
-  if (GetEnv(L"RUNFILES_DIR", &directory)) {
-    *result = directory + L"/MANIFEST";
-    if (DoesFilePathExist(result->c_str())) {
-      return true;
-    }
   }
 
   return false;
@@ -244,16 +254,16 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
   STARTUPINFOW startupInfo = {0};
   startupInfo.cb = sizeof(startupInfo);
   BOOL ok = CreateProcessW(
-      /* lpApplicationName */ NULL,
+      /* lpApplicationName */ nullptr,
       /* lpCommandLine */ cmdline.cmdline,
-      /* lpProcessAttributes */ NULL,
-      /* lpThreadAttributes */ NULL,
+      /* lpProcessAttributes */ nullptr,
+      /* lpThreadAttributes */ nullptr,
       /* bInheritHandles */ FALSE,
       /* dwCreationFlags */
       suppressOutput ? CREATE_NO_WINDOW  // no console window => no output
                      : 0,
-      /* lpEnvironment */ NULL,
-      /* lpCurrentDirectory */ NULL,
+      /* lpEnvironment */ nullptr,
+      /* lpCurrentDirectory */ nullptr,
       /* lpStartupInfo */ &startupInfo,
       /* lpProcessInformation */ &processInfo);
   if (!ok) {

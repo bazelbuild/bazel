@@ -14,8 +14,13 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+import static java.nio.file.StandardOpenOption.WRITE;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -27,8 +32,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
-import java.util.EnumSet;
+import java.nio.file.OpenOption;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
@@ -42,7 +50,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected InputStream getInputStream(Path path) throws IOException {
+  protected InputStream getInputStream(PathFragment path) throws IOException {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
@@ -59,13 +67,13 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  /** Allows the mapping of Path to InputStream to be overridden in subclasses. */
-  protected InputStream createFileInputStream(Path path) throws IOException {
+  /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
+  protected InputStream createFileInputStream(PathFragment path) throws IOException {
     return new FileInputStream(path.toString());
   }
 
   /** Returns either normal or profiled FileInputStream. */
-  private InputStream createMaybeProfiledInputStream(Path path) throws IOException {
+  private InputStream createMaybeProfiledInputStream(PathFragment path) throws IOException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
@@ -83,32 +91,69 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
+  private static final ImmutableSet<StandardOpenOption> READABLE_BYTE_CHANNEL_OPEN_OPTIONS =
+      Sets.immutableEnumSet(READ);
+  private static final ImmutableSet<ProfilerTask> READABLE_BYTE_CHANNEL_PROFILER_TASKS =
+      Sets.immutableEnumSet(ProfilerTask.VFS_OPEN, ProfilerTask.VFS_READ);
+  private static final ImmutableSet<StandardOpenOption> READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS =
+      Sets.immutableEnumSet(READ, WRITE, CREATE, TRUNCATE_EXISTING);
+  private static final ImmutableSet<ProfilerTask> READ_WRITE_BYTE_CHANNEL_PROFILER_TASKS =
+      Sets.immutableEnumSet(ProfilerTask.VFS_OPEN, ProfilerTask.VFS_READ, ProfilerTask.VFS_WRITE);
+
   @Override
-  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
-    final String name = path.toString();
-    if (profiler.isActive()
-        && (profiler.isProfiling(ProfilerTask.VFS_READ)
-            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
-      long startTime = Profiler.nanoTimeMaybe();
-      try {
-        // Currently, we do not proxy ReadableByteChannel for profiling.
-        return Files.newByteChannel(java.nio.file.Paths.get(name), EnumSet.of(READ));
-      } finally {
-        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
-      }
-    } else {
-      return Files.newByteChannel(java.nio.file.Paths.get(name));
+  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
+    return createSeekableByteChannelInternal(
+        path, READABLE_BYTE_CHANNEL_OPEN_OPTIONS, READABLE_BYTE_CHANNEL_PROFILER_TASKS);
+  }
+
+  @Override
+  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
+    return createSeekableByteChannelInternal(
+        path, READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS, READ_WRITE_BYTE_CHANNEL_PROFILER_TASKS);
+  }
+
+  private static SeekableByteChannel createSeekableByteChannelInternal(
+      PathFragment path,
+      ImmutableSet<? extends OpenOption> options,
+      ImmutableSet<ProfilerTask> profilerTasks)
+      throws IOException {
+    String name = path.getPathString();
+    if (!profiler.isActive() || profilerTasks.stream().noneMatch(profiler::isProfiling)) {
+      return Files.newByteChannel(Paths.get(name), options);
     }
+    long startTime = Profiler.nanoTimeMaybe();
+    try {
+      // Currently, we do not proxy SeekableByteChannel for profiling.
+      return Files.newByteChannel(Paths.get(name), options);
+    } finally {
+      profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+    }
+  }
+
+  @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    FileStatus stat = statNullable(path, /*followSymlinks=*/ false);
+    if (stat == null) {
+      return createDirectory(path);
+    }
+
+    if (!stat.isDirectory()) {
+      throw new IOException(path + " (Not a directory)");
+    }
+
+    chmod(path, 0777);
+    return false;
   }
 
   /**
    * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
    * default OutputStream instance.
    */
-  protected OutputStream createFileOutputStream(Path path, boolean append)
+  protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
     final String name = path.toString();
-    if (profiler.isActive()
+    if (!internal
+        && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
@@ -123,9 +168,10 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
     try {
-      return createFileOutputStream(path, append);
+      return createFileOutputStream(path, append, internal);
     } catch (FileNotFoundException e) {
       // Why does it throw a *FileNotFoundException* if it can't write?
       // That does not make any sense! And its in a completely different
@@ -135,6 +181,11 @@ public abstract class AbstractFileSystem extends FileSystem {
       }
       throw e;
     }
+  }
+
+  @Override
+  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
+    return getOutputStream(path, append, /* internal= */ false);
   }
 
   private static final class ProfiledInputStream extends FilterInputStream {

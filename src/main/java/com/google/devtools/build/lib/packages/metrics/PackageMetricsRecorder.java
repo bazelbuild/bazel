@@ -22,7 +22,7 @@ import java.util.Map;
 public interface PackageMetricsRecorder {
 
   /** What type of packages are metrics being recorded for? */
-  public enum Type {
+  enum Type {
     ONLY_EXTREMES,
     ALL,
   }
@@ -53,6 +53,9 @@ public interface PackageMetricsRecorder {
    * of all packages loaded based on the implementation.
    */
   Map<PackageIdentifier, Long> getNumTransitiveLoads();
+
+  /** Returns map of package overhead. This may contain only a subset of all packages loaded. */
+  Map<PackageIdentifier, Long> getPackageOverhead();
 
   /** Clears the contents of the PackageMetricsRecorder. */
   void clear();

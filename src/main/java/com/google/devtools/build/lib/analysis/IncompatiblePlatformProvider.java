@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
@@ -56,23 +57,29 @@ public abstract class IncompatiblePlatformProvider
   }
 
   public static IncompatiblePlatformProvider incompatibleDueToTargets(
+      @Nullable Label targetPlatform,
       ImmutableList<ConfiguredTarget> targetsResponsibleForIncompatibility) {
     Preconditions.checkNotNull(targetsResponsibleForIncompatibility);
     Preconditions.checkArgument(!targetsResponsibleForIncompatibility.isEmpty());
-    return new AutoValue_IncompatiblePlatformProvider(targetsResponsibleForIncompatibility, null);
+    return new AutoValue_IncompatiblePlatformProvider(
+        targetPlatform, targetsResponsibleForIncompatibility, null);
   }
 
   public static IncompatiblePlatformProvider incompatibleDueToConstraints(
-      ImmutableList<ConstraintValueInfo> constraints) {
+      @Nullable Label targetPlatform, ImmutableList<ConstraintValueInfo> constraints) {
     Preconditions.checkNotNull(constraints);
     Preconditions.checkArgument(!constraints.isEmpty());
-    return new AutoValue_IncompatiblePlatformProvider(null, constraints);
+    return new AutoValue_IncompatiblePlatformProvider(targetPlatform, null, constraints);
   }
 
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
   }
+
+  /** Returns the target platform of the target that was incompatible. */
+  @Nullable
+  public abstract Label targetPlatform();
 
   /**
    * Returns the incompatible dependencies that caused this provider to be present.

@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -44,7 +43,8 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -65,8 +65,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Rule class definitions for C++ rules.
  */
 public class BazelCppRuleClasses {
-  static final SafeImplicitOutputsFunction CC_LIBRARY_DYNAMIC_LIB =
-      fromTemplates("%{dirname}lib%{basename}.so");
 
   static final SafeImplicitOutputsFunction CC_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(CppRuleClasses.CC_BINARY_STRIPPED, CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
@@ -95,7 +93,6 @@ public class BazelCppRuleClasses {
   /** Common attributes for all rules that need a C++ toolchain. */
   public static final class CcToolchainRequiringRule implements RuleDefinition {
     @Override
-    @SuppressWarnings("unchecked")
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(
@@ -107,8 +104,7 @@ public class BazelCppRuleClasses {
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .requiresConfigurationFragments(PlatformConfiguration.class)
-          .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-          .useToolchainTransition(true)
+          .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
           .build();
     }
 
@@ -371,7 +367,7 @@ public class BazelCppRuleClasses {
           .add(attr("linkstatic", BOOLEAN).value(true))
           .add(
               attr("$def_parser", LABEL)
-                  .cfg(HostTransition.createFactory())
+                  .cfg(ExecutionTransitionFactory.create())
                   .singleArtifact()
                   .value(
                       new Attribute.ComputedDefault() {
@@ -382,7 +378,7 @@ public class BazelCppRuleClasses {
                           // To avoid cycles in the dependency graph, return null for rules under
                           // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
                           String label = rule.getLabel().toString();
-                          String toolsRepository = env.getToolsRepository();
+                          RepositoryName toolsRepository = env.getToolsRepository();
                           return label.startsWith(toolsRepository + "//third_party/def_parser")
                                   // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
                                   // are implicit dependencies of all cc rules,
@@ -527,7 +523,10 @@ public class BazelCppRuleClasses {
                                   BazelCppSemantics.CC_SHARED_INFO_PROVIDER)),
                           ImmutableList.of(
                               StarlarkProviderIdentifier.forKey(
-                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)))))
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)),
+                          ImmutableList.of(
+                              StarlarkProviderIdentifier.forKey(
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_BUILT_INS)))))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
           Override the default dependency on malloc.
           <p>
@@ -546,18 +545,24 @@ public class BazelCppRuleClasses {
                   .aspect(graphNodeAspect, GraphNodeAspect.ASPECT_PARAMETERS))
           .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
-          Enable link stamping.
           Whether to encode build information into the binary. Possible values:
           <ul>
-            <li><code>stamp = 1</code>: Stamp the build information into the
-              binary. Stamped binaries are only rebuilt when their dependencies
-              change. Use this if there are tests that depend on the build
-              information.</li>
-            <li><code>stamp = 0</code>: Always replace build information by constant
-              values. This gives good build result caching.</li>
-            <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+            <li>
+              <code>stamp = 1</code>: Always stamp the build information into the binary, even in
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
+              setting should be avoided</b>, since it potentially kills remote caching for the
+              binary and any downstream actions that depend on it.
+            </li>
+            <li>
+              <code>stamp = 0</code>: Always replace build information by constant values. This
+              gives good build result caching.
+            </li>
+            <li>
+              <code>stamp = -1</code>: Embedding of build information is controlled by the
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
+            </li>
           </ul>
+          <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
           .build();

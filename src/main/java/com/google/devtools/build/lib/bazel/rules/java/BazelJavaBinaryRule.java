@@ -101,8 +101,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                         return rule.get("create_executable", BOOLEAN);
                       }
                     }))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(true)
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -57,7 +58,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
       return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
           .putAll(super.getSkyFunctions(directories))
           .put(GET_CONSTRAINT_VALUE_INFO_FUNCTION, new GetConstraintValueInfoFunction())
-          .build();
+          .buildOrThrow();
     }
   }
 
@@ -70,12 +71,12 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
   public void testConstraintValueLookup() throws Exception {
     ConfiguredTargetKey linuxKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//constraints:linux"))
+            .setLabel(Label.parseAbsoluteUnchecked("//constraints:linux"))
             .setConfigurationKey(targetConfigKey)
             .build();
     ConfiguredTargetKey macKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//constraints:mac"))
+            .setLabel(Label.parseAbsoluteUnchecked("//constraints:mac"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetConstraintValueInfoKey key =
@@ -98,7 +99,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
 
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//invalid:not_a_constraint"))
+            .setLabel(Label.parseAbsoluteUnchecked("//invalid:not_a_constraint"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));
@@ -121,7 +122,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
   public void testConstraintValueLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//fake:missing"))
+            .setLabel(Label.parseAbsoluteUnchecked("//fake:missing"))
             .setConfigurationKey(targetConfigKey)
             .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));
@@ -199,12 +200,6 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
       } catch (InvalidConstraintValueException e) {
         throw new GetConstraintValueInfoFunctionException(e);
       }
-    }
-
-    @Nullable
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

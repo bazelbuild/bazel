@@ -56,6 +56,19 @@ public abstract class CharEscaper {
     return s;
   }
 
+  final char[] escape(char c) {
+    if (c < replacementsLength) {
+      char[] chars = replacements[c];
+      if (chars != null) {
+        return chars;
+      }
+    }
+    if (c >= safeMin && c <= safeMax) {
+      return null;
+    }
+    return escapeUnsafe(c);
+  }
+
   /**
    * A thread-local destination buffer to keep us from creating new buffers. The starting size is
    * 1024 characters.
@@ -137,19 +150,6 @@ public abstract class CharEscaper {
       destIndex = sizeNeeded;
     }
     return new String(dest, 0, destIndex);
-  }
-
-  final char[] escape(char c) {
-    if (c < replacementsLength) {
-      char[] chars = replacements[c];
-      if (chars != null) {
-        return chars;
-      }
-    }
-    if (c >= safeMin && c <= safeMax) {
-      return null;
-    }
-    return escapeUnsafe(c);
   }
 
   abstract char[] escapeUnsafe(char c);

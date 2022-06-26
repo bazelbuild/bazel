@@ -27,25 +27,24 @@ import com.google.common.collect.SetMultimap;
  * For example, 'a' -> 'b' -> 'c' -> 'a' is the considered the same as 'b' -> 'c' -> 'a' -> 'b'.
  */
 class CycleDeduper<T> {
-
-  private SetMultimap<ImmutableSet<T>, ImmutableList<T>> knownCyclesByMembers =
+  private final SetMultimap<ImmutableSet<T>, ImmutableList<T>> knownCyclesByMembers =
       HashMultimap.create();
 
   /**
-   * Marks a non-empty list representing a cycle of unique values as being seen and returns true
-   * iff the cycle hasn't been seen before, accounting for logical equivalence of cycles.
+   * Marks a non-empty list representing a cycle of unique values as being seen and returns true iff
+   * the cycle has been seen before, accounting for logical equivalence of cycles.
    *
-   * For example, the cycle 'a' -> 'b' -> 'c' -> 'a' is represented by the list ['a', 'b', 'c']
+   * <p>For example, the cycle 'a' -> 'b' -> 'c' -> 'a' is represented by the list ['a', 'b', 'c']
    * and is logically equivalent to the cycle represented by the list ['b', 'c', 'a'].
    */
-  public boolean seen(ImmutableList<T> cycle) {
+  public boolean alreadySeen(ImmutableList<T> cycle) {
     ImmutableSet<T> cycleMembers = ImmutableSet.copyOf(cycle);
     Preconditions.checkState(!cycle.isEmpty());
     Preconditions.checkState(cycle.size() == cycleMembers.size(),
         "cycle doesn't have unique members: " + cycle);
 
     if (knownCyclesByMembers.containsEntry(cycleMembers, cycle)) {
-      return false;
+      return true;
     }
 
     // Of the C cycles, suppose there are D cycles that have the same members (but are in an
@@ -66,7 +65,7 @@ class CycleDeduper<T> {
     // processed in O(L) time. We are already using O(CL) memory, and this optimization doesn't
     // change that.
     knownCyclesByMembers.put(cycleMembers, cycle);
-    return !found;
+    return found;
   }
 
   /**

@@ -15,10 +15,9 @@ package com.google.devtools.common.options;
 
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
-import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -89,7 +88,7 @@ public final class Converters {
       try {
         return Integer.decode(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
+        throw new OptionsParsingException("'" + input + "' is not an int", e);
       }
     }
 
@@ -106,7 +105,7 @@ public final class Converters {
       try {
         return Long.decode(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not a long");
+        throw new OptionsParsingException("'" + input + "' is not a long", e);
       }
     }
 
@@ -123,7 +122,7 @@ public final class Converters {
       try {
         return Double.parseDouble(input);
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not a double");
+        throw new OptionsParsingException("'" + input + "' is not a double", e);
       }
     }
 
@@ -251,8 +250,8 @@ public final class Converters {
     return buf.length() == 0 ? "nothing" : buf.toString();
   }
 
-  public static class SeparatedOptionListConverter implements Converter<List<String>> {
-
+  /** Converter for a list of options, separated by some separator character. */
+  public static class SeparatedOptionListConverter implements Converter<ImmutableList<String>> {
     private final String separatorDescription;
     private final Splitter splitter;
     private final boolean allowEmptyValues;
@@ -265,8 +264,8 @@ public final class Converters {
     }
 
     @Override
-    public List<String> convert(String input) throws OptionsParsingException {
-      List<String> result =
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result =
           input.isEmpty() ? ImmutableList.of() : ImmutableList.copyOf(splitter.split(input));
       if (!allowEmptyValues && result.contains("")) {
         // If the list contains exactly the empty string, it means an empty value was passed and we
@@ -308,24 +307,29 @@ public final class Converters {
 
   public static class LogLevelConverter implements Converter<Level> {
 
-    public static final Level[] LEVELS =
-        new Level[] {
-          Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE, Level.FINER, Level.FINEST
-        };
+    static final ImmutableList<Level> LEVELS =
+        ImmutableList.of(
+            Level.OFF,
+            Level.SEVERE,
+            Level.WARNING,
+            Level.INFO,
+            Level.FINE,
+            Level.FINER,
+            Level.FINEST);
 
     @Override
     public Level convert(String input) throws OptionsParsingException {
       try {
         int level = Integer.parseInt(input);
-        return LEVELS[level];
+        return LEVELS.get(level);
       } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-        throw new OptionsParsingException("Not a log level: " + input);
+        throw new OptionsParsingException("Not a log level: " + input, e);
       }
     }
 
     @Override
     public String getTypeDescription() {
-      return "0 <= an integer <= " + (LEVELS.length - 1);
+      return "0 <= an integer <= " + (LEVELS.size() - 1);
     }
   }
 
@@ -416,7 +420,7 @@ public final class Converters {
         }
         return value;
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' is not an int");
+        throw new OptionsParsingException("'" + input + "' is not an int", e);
       }
     }
 
@@ -621,7 +625,7 @@ public final class Converters {
         try {
           return Maps.immutableEntry("", Integer.parseInt(input));
         } catch (NumberFormatException e) {
-          throw new OptionsParsingException("'" + input + "' is not an int");
+          throw new OptionsParsingException("'" + input + "' is not an int", e);
         }
       }
       String name = input.substring(0, pos);
@@ -629,7 +633,7 @@ public final class Converters {
       try {
         return Maps.immutableEntry(name, Integer.parseInt(value));
       } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + value + "' is not an int");
+        throw new OptionsParsingException("'" + value + "' is not an int", e);
       }
     }
 
@@ -655,22 +659,22 @@ public final class Converters {
   }
 
   /**
-   * A {@link Converter} for {@link CacheBuilderSpec}. The spec may be empty, in which case this
-   * converter returns null.
+   * A {@link Converter} for {@link com.github.benmanes.caffeine.cache.CaffeineSpec}. The spec may
+   * be empty, in which case this converter returns null.
    */
-  public static class CacheBuilderSpecConverter implements Converter<CacheBuilderSpec> {
+  public static final class CaffeineSpecConverter implements Converter<CaffeineSpec> {
     @Override
-    public CacheBuilderSpec convert(String spec) throws OptionsParsingException {
+    public CaffeineSpec convert(String spec) throws OptionsParsingException {
       try {
-        return Strings.isNullOrEmpty(spec) ? null : CacheBuilderSpec.parse(spec);
+        return CaffeineSpec.parse(spec);
       } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException("Failed to parse CacheBuilderSpec: " + e.getMessage(), e);
+        throw new OptionsParsingException("Failed to parse CaffeineSpec: " + e.getMessage(), e);
       }
     }
 
     @Override
     public String getTypeDescription() {
-      return "Converts to a CacheBuilderSpec, or null if the input is empty";
+      return "Converts to a CaffeineSpec, or null if the input is empty";
     }
   }
 }

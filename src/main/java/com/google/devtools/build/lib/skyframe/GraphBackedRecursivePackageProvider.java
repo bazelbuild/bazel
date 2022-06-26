@@ -22,13 +22,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -55,16 +53,57 @@ import java.util.Set;
 @ThreadSafe
 public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {
 
+  /**
+   * Helper interface for clients of GraphBackedRecursivePackageProvider to indicate what universe
+   * packages should be resolved in.
+   *
+   * <p>Client can either specify a fixed set of target patterns (using {@link #of}), or specify
+   * that all targets are valid (using {@link #all}).
+   */
+  public interface UniverseTargetPattern {
+    ImmutableList<TargetPattern> patterns();
+
+    boolean allowAll();
+
+    static UniverseTargetPattern of(ImmutableList<TargetPattern> patterns) {
+      return new UniverseTargetPattern() {
+        @Override
+        public ImmutableList<TargetPattern> patterns() {
+          return patterns;
+        }
+
+        @Override
+        public boolean allowAll() {
+          return false;
+        }
+      };
+    }
+
+    static UniverseTargetPattern all() {
+      return new UniverseTargetPattern() {
+        @Override
+        public ImmutableList<TargetPattern> patterns() {
+          return ImmutableList.of();
+        }
+
+        @Override
+        public boolean allowAll() {
+          return true;
+        }
+      };
+    }
+  }
+
   private final WalkableGraph graph;
   private final ImmutableList<Root> pkgRoots;
   private final RootPackageExtractor rootPackageExtractor;
-  private final ImmutableList<TargetPattern> universeTargetPatterns;
+  private final UniverseTargetPattern universeTargetPatterns;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public GraphBackedRecursivePackageProvider(
       WalkableGraph graph,
-      ImmutableList<TargetPattern> universeTargetPatterns,
+      UniverseTargetPattern universeTargetPatterns,
       PathPackageLocator pkgPath,
       RootPackageExtractor rootPackageExtractor) {
     this.graph = Preconditions.checkNotNull(graph);
@@ -127,7 +166,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       Throwables.propagateIfInstanceOf(exception, NoSuchPackageException.class);
       Throwables.propagate(exception);
     }
-    return pkgResults.build();
+    return pkgResults.buildOrThrow();
   }
 
   @Override
@@ -144,11 +183,16 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
         // package, because the SkyQuery environment has already loaded the universe.
         return false;
       } else {
-        if (exception instanceof NoSuchPackageException
-            || exception instanceof InconsistentFilesystemException) {
+        if (exception instanceof NoSuchPackageException) {
           eventHandler.handle(Event.error(exception.getMessage()));
           return false;
         } else {
+          // InconsistentFilesystemException can theoretically be thrown by PackageLookupFunction.
+          // However, such exceptions are catastrophic. If we evaluated this PackageLookupFunction
+          // immediately prior to doing the current graph traversal, we should have already failed
+          // catastrophically. On the other hand, if PackageLookupFunction was evaluated on a
+          // previous evaluation, it would not have been committed to the graph, since a
+          // catastrophe triggers error bubbling, which does not commit nodes to the graph.
           throw new IllegalStateException(
               "During package lookup for '" + packageName + "', got unexpected exception type",
               exception);
@@ -163,15 +207,19 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
-    for (TargetPattern pattern : universeTargetPatterns) {
-      if (!pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
-        continue;
-      }
-      PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
-      if (((TargetsBelowDirectory) pattern)
-          .containsAllTransitiveSubdirectories(packageIdentifier)) {
-        inUniverse = true;
-        break;
+    if (universeTargetPatterns.allowAll()) {
+      inUniverse = true;
+    } else {
+      for (TargetPattern pattern : universeTargetPatterns.patterns()) {
+        if (!pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
+          continue;
+        }
+        PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
+        if (((TargetsBelowDirectory) pattern)
+            .containsAllTransitiveSubdirectories(packageIdentifier)) {
+          inUniverse = true;
+          break;
+        }
       }
     }
 
@@ -195,19 +243,17 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
   @Override
   public void streamPackagesUnderDirectory(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException, QueryException {
-    ImmutableList<Root> roots = checkValidDirectoryAndGetRoots(repository, directory);
-
     rootPackageExtractor.streamPackagesFromRoots(
         results,
         graph,
-        roots,
+        checkValidDirectoryAndGetRoots(repository, directory),
         eventHandler,
         repository,
         directory,

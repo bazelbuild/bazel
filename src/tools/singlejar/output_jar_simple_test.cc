@@ -307,6 +307,80 @@ TEST_F(OutputJarSimpleTest, CDSArchive) {
   EXPECT_PRED2(HasSubstr, build_properties, prop);
 }
 
+// --jdk_lib_modules option
+TEST_F(OutputJarSimpleTest, JDKLibModules) {
+  string out_path = OutputFilePath("out.jar");
+  string launcher_path = CreateTextFile("launcher", "Dummy");
+  string jdk_lib_modules_path = CreateTextFile("modules", "Dummy");
+  CreateOutput(out_path, {"--java_launcher", launcher_path,
+                          "--jdk_lib_modules", jdk_lib_modules_path});
+
+  // Test META-INF/MANIFEST.MF attribute.
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  size_t pagesize;
+#ifndef _WIN32
+  pagesize = sysconf(_SC_PAGESIZE);
+#else
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#endif
+  char attr[128];
+  snprintf(attr, sizeof(attr), "JDK-Lib-Modules-Offset: %ld", pagesize);
+  EXPECT_PRED2(HasSubstr, manifest, attr);
+}
+
+// --cds_archive & --jdk_lib_modules options
+TEST_F(OutputJarSimpleTest, CDSAndJDKLibModules) {
+  string cds_data = "cafebabe";
+  string modules_data = "deadbeef";
+  string out_path = OutputFilePath("out.jar");
+  string launcher_path = CreateTextFile("launcher", "Dummy");
+  string cds_archive_path = CreateTextFile("classes.jsa", cds_data.c_str());
+  string jdk_lib_modules_path = CreateTextFile("modules", modules_data.c_str());
+  CreateOutput(out_path, {"--java_launcher", launcher_path,
+                          "--cds_archive", cds_archive_path,
+                          "--jdk_lib_modules", jdk_lib_modules_path});
+
+  FILE *fp = fopen(out_path.c_str(), "r");
+  ASSERT_NE(nullptr, fp);
+
+  // Test META-INF/MANIFEST.MF attributes.
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  size_t pagesize;
+#ifndef _WIN32
+  pagesize = sysconf(_SC_PAGESIZE);
+#else
+  SYSTEM_INFO si;
+  GetSystemInfo(&si);
+  pagesize = si.dwPageSize;
+#endif
+  size_t page_aligned_cds_offset = pagesize;
+  char buf[8];
+  size_t buf_len = sizeof(buf);
+
+  char cds_attr[128];
+  snprintf(cds_attr, sizeof(cds_attr), "Jsa-Offset: %ld",
+           page_aligned_cds_offset);
+  EXPECT_PRED2(HasSubstr, manifest, cds_attr);
+
+  fseek(fp, page_aligned_cds_offset, 0);
+  fread(buf, 1, buf_len, fp);
+  ASSERT_EQ(cds_data, string(buf, buf_len));
+
+  size_t page_aligned_modules_offset = pagesize * 2;
+  char modules_attr[128];
+  snprintf(modules_attr, sizeof(modules_attr), "JDK-Lib-Modules-Offset: %ld",
+           page_aligned_modules_offset);
+  EXPECT_PRED2(HasSubstr, manifest, modules_attr);
+
+  fseek(fp, page_aligned_modules_offset, 0);
+  fread(buf, 1, buf_len, fp);
+  ASSERT_EQ(modules_data, string(buf, buf_len));
+
+  fclose(fp);
+}
+
 // --main_class option.
 TEST_F(OutputJarSimpleTest, MainClass) {
   string out_path = OutputFilePath("out.jar");
@@ -316,6 +390,19 @@ TEST_F(OutputJarSimpleTest, MainClass) {
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
       "Main-Class: com.google.my.Main\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --output_jar_creator option
+TEST_F(OutputJarSimpleTest, CreatedByFieldTest) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--output_jar_creator", "SingleJarTestValue 123.456"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: SingleJarTestValue 123.456\r\n"
       "\r\n",
       manifest);
 }
@@ -887,6 +974,90 @@ TEST_F(OutputJarSimpleTest, Nocompress) {
     }
   }
   input_jar.Close();
+}
+
+// --multi_release option.
+TEST_F(OutputJarSimpleTest, MultiRelease) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--multi_release"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Multi-Release: true\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --multi_release option doesn't override --deploy_manifest_lines.
+TEST_F(OutputJarSimpleTest, MultiReleaseManifestLines) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--multi_release", "--deploy_manifest_lines",
+                          "Multi-Release: false"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --hermetic_java_home
+TEST_F(OutputJarSimpleTest, HermeticJavaHome) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--hermetic_java_home", "foo/bar/java_home"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Hermetic-Java-Home: foo/bar/java_home\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --add_exports and --add_opens options combines with --deploy_manifest_lines.
+TEST_F(OutputJarSimpleTest, AddExportsManifestLines) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--add_exports", "foo/com.export", "--add_opens",
+                "foo/com.open", "--deploy_manifest_lines",
+                "Add-Exports: bar/com.export", "Add-Opens: bar/com.open"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: bar/com.export foo/com.export\r\n"
+      "Add-Opens: bar/com.open foo/com.open\r\n"
+      "\r\n",
+      manifest);
+}
+
+// Deduplicate --add_exports
+TEST_F(OutputJarSimpleTest, AddExportsDuplicate) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--add_exports", "foo/export", "--add_exports", "foo/export"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: foo/export\r\n"
+      "\r\n",
+      manifest);
+}
+
+// Tokenize, sort, and deduplicate existing Add-Exports lines
+TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--deploy_manifest_lines",
+                          "Add-Exports: foo/export bar/export foo/export"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: bar/export foo/export\r\n"
+      "\r\n",
+      manifest);
 }
 
 }  // namespace

@@ -236,8 +236,9 @@ public final class AspectCollection {
     // Calculate all needed aspects. Already discovered aspects are in key set of deps.
     // 1) Start from the end of the path. The aspect only sees other aspects that are
     //    before it
-    // 2) Otherwise, check whether 'aspect' is visible to any already seen aspects. If it is visible
-    //    to 'depAspect', add the 'aspect' to a list of aspects visible to 'depAspect'.
+    // 2) Otherwise, check whether 'aspect' is visible to or required by any already seen aspects.
+    // If it is visible to 'depAspect' or explicitly required by it, add the 'aspect' to a list of
+    // aspects visible to 'depAspect'.
     // At the end of this algorithm, key set of 'deps' contains the original aspect list in reverse
     // (since we iterate the original list in reverse).
     //
@@ -246,8 +247,11 @@ public final class AspectCollection {
         ImmutableList.copyOf(aspectMap.entrySet()).reverse()) {
       for (AspectDescriptor depAspectDescriptor : deps.keySet()) {
         Aspect depAspect = aspectMap.get(depAspectDescriptor);
-        if (depAspect.getDefinition().getRequiredProvidersForAspects()
-            .isSatisfiedBy(aspect.getValue().getDefinition().getAdvertisedProviders())) {
+        if (depAspect
+                .getDefinition()
+                .getRequiredProvidersForAspects()
+                .isSatisfiedBy(aspect.getValue().getDefinition().getAdvertisedProviders())
+            || depAspect.getDefinition().requires(aspect.getValue())) {
           deps.get(depAspectDescriptor).add(aspect.getKey());
         }
       }
@@ -287,12 +291,12 @@ public final class AspectCollection {
   }
 
   /**
-   * Detect inconsistent duplicate occurrence of an aspect on the path.
-   * There is a previous occurrence of {@code aspect} in {@code seenAspects}.
+   * Detect inconsistent duplicate occurrence of an aspect on the path. There is a previous
+   * occurrence of {@code aspect} in {@code seenAspects}.
    *
-   * If in between that previous occurrence and the newly discovered occurrence
-   * there is an aspect that is visible to {@code aspect}, then the second occurrence
-   * is inconsistent - the set of aspects it sees is different from the first one.
+   * <p>If in between that previous occurrence and the newly discovered occurrence there is an
+   * aspect that is visible to or required by {@code aspect}, then the second occurrence is
+   * inconsistent - the set of aspects it sees is different from the first one.
    */
   private static void validateDuplicateAspect(Aspect aspect, ArrayList<Aspect> seenAspects)
       throws AspectCycleOnPathException {
@@ -303,8 +307,11 @@ public final class AspectCollection {
         return;
       }
 
-      if (aspect.getDefinition().getRequiredProvidersForAspects()
-          .isSatisfiedBy(seenAspect.getDefinition().getAdvertisedProviders())) {
+      if (aspect
+              .getDefinition()
+              .getRequiredProvidersForAspects()
+              .isSatisfiedBy(seenAspect.getDefinition().getAdvertisedProviders())
+          || aspect.getDefinition().requires(seenAspect)) {
         throw new AspectCycleOnPathException(aspect.getDescriptor(), seenAspect.getDescriptor());
       }
     }

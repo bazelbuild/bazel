@@ -14,23 +14,30 @@
 
 package com.google.devtools.build.lib.worker;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -52,7 +59,7 @@ public class WorkerMultiplexer {
    * send them to the worker. This prevents dynamic execution interrupts from corrupting the {@code
    * stdin} of the worker process.
    */
-  private final BlockingQueue<WorkRequest> pendingRequests = new LinkedBlockingQueue<>();
+  @VisibleForTesting final BlockingQueue<WorkRequest> pendingRequests = new LinkedBlockingQueue<>();
   /**
    * A map of {@code WorkResponse}s received from the worker process. They are stored in this map
    * keyed by the request id until the corresponding {@code WorkerProxy} picks them up.
@@ -71,7 +78,7 @@ public class WorkerMultiplexer {
    * once, when creating a new process. If the process dies or its stdio streams get corrupted, the
    * {@code WorkerMultiplexer} gets discarded as well and a new one gets created as needed.
    */
-  private Subprocess process;
+  @VisibleForTesting Subprocess process;
   /** The implementation of the worker protocol (JSON or Proto). */
   private WorkerProtocolImpl workerProtocol;
   /** InputStream from the worker process. */
@@ -102,6 +109,13 @@ public class WorkerMultiplexer {
    */
   private EventHandler reporter;
 
+  /**
+   * Shutdown hook to make sure we wait for the process to finish on JVM shutdown, to avoid creating
+   * zombie processes. Unfortunately, shutdown hooks are not guaranteed to be called, but this is
+   * the best we can do. This must be set when a process is created.
+   */
+  private Thread shutdownHook;
+
   WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
     this.logFile = logFile;
     this.workerKey = workerKey;
@@ -121,6 +135,35 @@ public class WorkerMultiplexer {
 
   /**
    * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
+   * exist. Also starts up the subthreads handling reading and writing requests and responses, and
+   * sets up the sandbox root dir with the required worker files.
+   */
+  public synchronized void createSandboxedProcess(
+      Path workDir, Set<PathFragment> workerFiles, SandboxInputs inputFiles) throws IOException {
+    // TODO: Make blaze clean remove the workdir.
+    if (this.process == null) {
+      // This should be a once-only operation.
+      workDir.createDirectoryAndParents();
+      workDir.deleteTreesBelow();
+      LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+      Set<PathFragment> inputsToCreate = new HashSet<>();
+      SandboxHelpers.populateInputsAndDirsToCreate(
+          ImmutableSet.of(),
+          inputsToCreate,
+          dirsToCreate,
+          workerFiles,
+          SandboxOutputs.getEmptyInstance().files(),
+          SandboxOutputs.getEmptyInstance().dirs());
+      SandboxHelpers.cleanExisting(
+          workDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, workDir);
+      SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
+      WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
+      createProcess(workDir);
+    }
+  }
+
+  /**
+   * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
    * exist. Also starts up the subthreads handling reading and writing requests and responses.
    */
   public synchronized void createProcess(Path workDir) throws IOException {
@@ -128,6 +171,13 @@ public class WorkerMultiplexer {
       if (this.wasDestroyed) {
         throw new IOException("Multiplexer destroyed before created process");
       }
+      this.shutdownHook =
+          new Thread(
+              () -> {
+                this.shutdownHook = null;
+                this.destroyMultiplexer();
+              });
+      Runtime.getRuntime().addShutdownHook(shutdownHook);
       ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
       if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -214,6 +264,10 @@ public class WorkerMultiplexer {
         }
       }
     } finally {
+      if (shutdownHook != null) {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+        shutdownHook = null;
+      }
       // Stop the subthreads only when the process is dead, or their loops will go on.
       if (this.requestSender != null) {
         this.requestSender.interrupt();
@@ -314,6 +368,8 @@ public class WorkerMultiplexer {
    *
    * <p>This is only called on the readResponses subthread and so cannot be interrupted by dynamic
    * execution cancellation, but only by a call to {@link #destroyProcess()}.
+   *
+   * @return True if the worker is still in a consistent state.
    */
   private boolean readResponse() {
     WorkResponse parsedResponse;
@@ -385,5 +441,18 @@ public class WorkerMultiplexer {
   @VisibleForTesting
   void setProcessFactory(SubprocessFactory factory) {
     subprocessFactory = factory;
+  }
+
+  public long getProcessId() {
+    if (process == null) {
+      return -1;
+    }
+    return process.getProcessId();
+  }
+
+  // TODO: Check if this can be removed
+  @VisibleForTesting
+  Subprocess getProcess() {
+    return process;
   }
 }

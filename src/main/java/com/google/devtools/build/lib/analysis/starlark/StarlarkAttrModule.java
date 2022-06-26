@@ -19,20 +19,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
@@ -41,7 +42,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -56,6 +57,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -135,15 +137,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             new StarlarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
       } else if (defaultValue instanceof StarlarkLateBoundDefault) {
         builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
+      } else if (defaultValue instanceof NativeComputedDefaultApi) {
+        // TODO(b/200065655#comment3): This hack exists until default_copts and default_hdrs_check
+        //  in package() is replaced by proper package defaults. We don't check the particular
+        //  instance to avoid adding a dependency to the C++ package.
+        builder.value((NativeComputedDefaultApi) defaultValue);
       } else {
-        BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
         builder.defaultValue(
-            defaultValue,
-            new BuildType.LabelConversionContext(
-                BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
-                bazelStarlarkContext.getRepoMapping(),
-                bazelStarlarkContext.getConvertedLabelsInPackage()),
-            DEFAULT_ARG);
+            defaultValue, LabelConverter.forBzlEvaluatingThread(thread), DEFAULT_ARG);
       }
     }
 
@@ -168,7 +169,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
         throw Starlark.errorf(
             "cfg parameter is mandatory when executable=True is provided. Please see "
-                + "https://www.bazel.build/versions/master/docs/skylark/rules.html#configurations "
+                + "https://bazel.build/rules/rules#configurations "
                 + "for more details.");
       }
     }
@@ -225,8 +226,18 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
+      // TODO(b/203203933): Officially deprecate HOST transition and remove this.
       if (trans.equals("host")) {
-        builder.cfg(HostTransition.createFactory());
+        boolean disableStarlarkHostTransitions =
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
+        if (disableStarlarkHostTransitions) {
+          throw new EvalException(
+              "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
+                  + "'cfg = \"exec\"' instead.");
+        }
+        builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans instanceof ExecutionTransitionFactory) {
@@ -234,21 +245,16 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       } else if (trans instanceof SplitTransition) {
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
-        builder.cfg((TransitionFactory<AttributeTransitionData>) trans); // unchecked cast
+        @SuppressWarnings("unchecked")
+        TransitionFactory<AttributeTransitionData> transitionFactory =
+            (TransitionFactory<AttributeTransitionData>) trans;
+        builder.cfg(transitionFactory);
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;
         if (starlarkDefinedTransition.isForAnalysisTesting()) {
           builder.hasAnalysisTestTransition();
         } else {
-          if (!thread
-              .getSemantics()
-              .getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS)) {
-            throw Starlark.errorf(
-                "Starlark-defined transitions on rule attributes is experimental and disabled by "
-                    + "default. This API is in development and subject to change at any time. Use "
-                    + "--experimental_starlark_config_transitions to use this experimental API.");
-          }
           builder.hasStarlarkDefinedTransition();
         }
         builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));
@@ -257,15 +263,17 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         // android_split_transition because users of those transitions should already know about
         // them.
         throw Starlark.errorf(
-            "cfg must be either 'host', 'target', 'exec' or a starlark defined transition defined"
-                + " by the exec() or transition() functions.");
+            "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
+                + "exec() or transition() functions.");
       }
     }
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
       for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
-        aspect.attachToAttribute(builder);
+        aspect.attachToAspectsList(
+            /** baseAspectName= */
+            null, builder.getAspectsListBuilder());
       }
     }
 
@@ -339,7 +347,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     for (Object o : starlarkList) {
       if (!(o instanceof Sequence)) {
-        throw Starlark.errorf(errorMsg, PROVIDERS_ARG, "an element of type " + Starlark.type(o));
+        throw Starlark.errorf(errorMsg, argumentName, "an element of type " + Starlark.type(o));
       }
       for (Object value : (Sequence) o) {
         if (!isProvider(value)) {
@@ -364,10 +372,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   private static final Map<Type<?>, String> whyNotConfigurable =
       ImmutableMap.<Type<?>, String>builder()
-          .put(BuildType.LICENSE,
+          .put(
+              BuildType.LICENSE,
               "loading phase license checking logic assumes non-configurable values")
           .put(BuildType.OUTPUT, "output paths are part of the static graph structure")
-          .build();
+          .buildOrThrow();
 
   /**
    * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
@@ -420,11 +429,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringAttribute(
-      String defaultValue,
-      String doc,
-      Boolean mandatory,
-      Sequence<?> values,
-      StarlarkThread thread)
+      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string");
     return createAttrDescriptor(
@@ -446,9 +451,25 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
+      Object flagsObject, // Sequence<String> expected
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.label");
+
+    if (flagsObject != Starlark.UNBOUND) {
+      Label label =
+          ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+              .label();
+      if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+        throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+      }
+    }
+    @SuppressWarnings("unchecked")
+    Sequence<String> flags =
+        flagsObject == Starlark.UNBOUND
+            ? StarlarkList.immutableOf()
+            : ((Sequence<String>) flagsObject);
+
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
             BuildType.LABEL,
@@ -471,7 +492,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 CONFIGURATION_ARG,
                 cfg,
                 ASPECTS_ARG,
-                aspects),
+                aspects,
+                FLAGS_ARG,
+                flags),
             thread,
             "label");
     return new Descriptor("label", attribute);
@@ -479,11 +502,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory,
-      Boolean allowEmpty,
-      Sequence<?> defaultValue,
-      String doc,
-      StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list");
     return createAttrDescriptor(
@@ -703,13 +722,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   /** A descriptor of an attribute defined in Starlark. */
-  @AutoCodec
   public static final class Descriptor implements StarlarkAttrModuleApi.Descriptor {
     private final ImmutableAttributeFactory attributeFactory;
     private final String name;
 
-    @AutoCodec.VisibleForSerialization
-    Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
+    private Descriptor(String name, ImmutableAttributeFactory attributeFactory) {
       this.attributeFactory = Preconditions.checkNotNull(attributeFactory);
       this.name = name;
     }
@@ -744,6 +761,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         b.put(key, value);
       }
     }
-    return b.build();
+    return b.buildOrThrow();
   }
 }

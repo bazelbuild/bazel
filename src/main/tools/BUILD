@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-
 package(default_visibility = ["//src:__subpackages__"])
 
 cc_binary(
@@ -61,12 +59,6 @@ cc_binary(
     srcs = select({
         "//src/conditions:windows": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
-    }),
-    linkopts = select({
-        "//src/conditions:windows": [
-            "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
-        ],
-        "//conditions:default": [],
     }),
     deps = ["//src/main/cpp/util:filesystem"] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],

@@ -86,22 +86,12 @@ public interface OsPathPolicy {
 
   boolean isCaseSensitive();
 
+  // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle this.
+  OsPathPolicy HOST_POLICY =
+      OS.getCurrent() == OS.WINDOWS ? WindowsOsPathPolicy.INSTANCE : UnixOsPathPolicy.INSTANCE;
+
   static OsPathPolicy getFilePathOs() {
-    switch (OS.getCurrent()) {
-      case LINUX:
-      case FREEBSD:
-      case OPENBSD:
-      case UNKNOWN:
-        return UnixOsPathPolicy.INSTANCE;
-      case DARWIN:
-        // NOTE: We *should* return a path policy that is case insensitive,
-        // but we currently don't handle this
-        return UnixOsPathPolicy.INSTANCE;
-      case WINDOWS:
-        return WindowsOsPathPolicy.INSTANCE;
-      default:
-        throw new AssertionError("Not covering all OSs");
-    }
+    return HOST_POLICY;
   }
 
   /** Utilities for implementations of {@link OsPathPolicy}. */

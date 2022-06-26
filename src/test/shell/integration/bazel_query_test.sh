@@ -291,7 +291,7 @@ function test_starlark_regular_file_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -305,7 +305,7 @@ function test_starlark_symlink_source_not_included_in_rbuildfiles() {
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -319,7 +319,7 @@ function test_starlark_symlink_target_not_included_in_rbuildfiles() {
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = ["Moo.java"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -332,7 +332,7 @@ function test_starlark_glob_regular_file_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -346,7 +346,7 @@ function test_starlark_glob_symlink_source_not_included_in_rbuildfiles() {
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -360,7 +360,7 @@ function test_starlark_glob_symlink_target_not_included_in_rbuildfiles() {
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.java"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -373,7 +373,7 @@ function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles()
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -387,7 +387,7 @@ function test_starlark_recursive_glob_symlink_source_not_included_in_rbuildfiles
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/bar/baz.bzl" && [[ -f foo/bar/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -401,7 +401,7 @@ function test_starlark_recursive_glob_symlink_target_not_included_in_rbuildfiles
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/bar/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.java"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -694,8 +694,7 @@ EOF
 //foo:b
 //foo:a
 EOF
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:somepath >& $TEST_log || fail "Expected success"
+  bazel build //foo:somepath >& $TEST_log || fail "Expected success"
   assert_equals "$(cat foo/expected_sp_output)" "$(cat bazel-bin/foo/somepath)"
 
   # Allpaths in genquery outputs in lexicographical order (just like all other
@@ -706,8 +705,7 @@ EOF
 //foo:b
 //foo:c
 EOF
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:allpaths >& $TEST_log || fail "Expected success"
+  bazel build //foo:allpaths >& $TEST_log || fail "Expected success"
   assert_equals "$(cat foo/expected_ap_output)" "$(cat bazel-bin/foo/allpaths)"
 }
 
@@ -747,6 +745,30 @@ EOF
       "$(cat foo/expected_lexicographical_result)" "$(cat foo/query_output)"
   assert_equals \
       "$(cat foo/expected_lexicographical_result)" "$(cat bazel-bin/foo/q)"
+}
+
+function test_graphless_query_resilient_to_cycles() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "a", deps = [":b"])
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "d")
+EOF
+
+  for command in \
+      "somepath(//foo:a, //foo:c)" \
+      "somepath(//foo:a, //foo:d)" \
+      "somepath(//foo:c, //foo:d)" \
+      "allpaths(//foo:a, //foo:d)" \
+      "deps(//foo:a)" \
+      "rdeps(//foo:a, //foo:d)" \
+      "same_pkg_direct_rdeps(//foo:b)"
+  do
+    bazel query --experimental_graphless_query=true \
+        "$command" || fail "Expected success"
+  done
 }
 
 function test_lexicographical_output_does_not_affect_order_output_no() {
@@ -956,39 +978,36 @@ function test_query_failure_exit_code_behavior() {
   bazel query --keep_going '$x' >& "$TEST_log" && fail "Expected failure"
   exit_code="$?"
   assert_equals 7 "$exit_code"
+}
 
-  bazel query \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 1 "$exit_code"
-  bazel query --keep_going \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 1 "$exit_code"
+function test_query_environment_keep_going_does_not_fail() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "a", deps = [":b", "//other:doesnotexist"])
+sh_library(name = "b")
+EOF
 
-  bazel query \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      '$x' >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
-  bazel query --keep_going \
-      --experimental_query_failure_exit_code_behavior=underlying \
-      '$x' >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
-
-  bazel query \
-      --experimental_query_failure_exit_code_behavior=seven \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
-  bazel query --keep_going \
-      --experimental_query_failure_exit_code_behavior=seven \
-      //targetdoesnotexist >& "$TEST_log" && fail "Expected failure"
-  exit_code="$?"
-  assert_equals 7 "$exit_code"
+  # Ensure that --keep_going works for both graphless and non-graphless blaze
+  # query environments for each function.
+  for incompatible in "--incompatible" "--noincompatible"
+  do
+    for command in \
+        "somepath(//foo:a, //foo:b)" \
+        "deps(//foo:a)" \
+        "rdeps(//foo:a, //foo:b)" \
+        "allpaths(//foo:a, //foo:b)"
+    do
+      bazel query "$incompatible"_lexicographical_output --keep_going \
+        --output=label_kind "$command" \
+        >& "$TEST_log" && fail "Expected failure"
+      exit_code="$?"
+      assert_equals 3 $exit_code
+      expect_log "sh_library rule //foo:a"
+      expect_log "sh_library rule //foo:b"
+      expect_log "errors were encountered while computing transitive closure"
+    done
+  done
 }
 
 function test_unnecessary_external_workspaces_not_loaded() {
@@ -1005,6 +1024,44 @@ filegroup(
 )
 EOF
   bazel query '//:*' || fail "Expected success"
+}
+
+function test_query_sees_aspect_hints_deps_on_starlark_rule() {
+  local package="aspect_hints"
+  mkdir -p "${package}"
+
+  cat > "${package}/custom_rule.bzl" <<EOF
+
+def _rule_impl(ctx):
+    return []
+
+custom_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:custom_rule.bzl", "custom_rule")
+
+custom_rule(name = "hint")
+
+custom_rule(
+    name = "foo",
+    deps = [":bar"],
+)
+custom_rule(
+    name = "bar",
+    aspect_hints = [":hint"],
+)
+EOF
+
+  bazel query "somepath(//${package}:foo, //${package}:hint)"  >& $TEST_log \
+    || fail "Expected success"
+
+  expect_log "//${package}:hint"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

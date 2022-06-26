@@ -40,8 +40,7 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
       Sequence<?> exclude,
       StarlarkInt excludeDirectories,
       Object allowEmpty,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      StarlarkThread thread) {
     return StarlarkList.of(thread.mutability());
   }
 
@@ -51,7 +50,8 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   }
 
   @Override
-  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread) {
+  public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
+      throws EvalException {
     return Dict.of(thread.mutability());
   }
 
@@ -75,6 +75,13 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   @Override
   public String repositoryName(StarlarkThread thread) {
     return "";
+  }
+
+  @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    return StarlarkList.of(thread.mutability());
   }
 
   @Nullable

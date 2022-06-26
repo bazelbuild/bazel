@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import javax.annotation.Nullable;
 
 /**
@@ -47,7 +46,7 @@ public abstract class Dependency {
     public abstract Builder setLabel(Label label);
 
     /** Sets the configuration intended for this dependency. */
-    public abstract Builder setConfiguration(BuildConfiguration configuration);
+    public abstract Builder setConfiguration(BuildConfigurationValue configuration);
 
     /** Explicitly set the configuration for this dependency to null. */
     public Builder withNullConfiguration() {
@@ -70,11 +69,10 @@ public abstract class Dependency {
     public abstract Builder setTransitionKeys(ImmutableList<String> keys);
 
     /**
-     * Sets the {@link ToolchainContextKey} that this dependency should use for toolchain
-     * resolution.
+     * Sets the execution platform {@link Label} that this dependency should use as an override for
+     * toolchain resolution.
      */
-    @Nullable
-    public abstract Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
+    public abstract Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel);
 
     // Not public.
     abstract Dependency autoBuild();
@@ -94,7 +92,7 @@ public abstract class Dependency {
     protected abstract Label getLabel();
 
     @Nullable
-    protected abstract BuildConfiguration getConfiguration();
+    protected abstract BuildConfigurationValue getConfiguration();
 
     protected abstract AspectCollection getAspects();
 
@@ -122,7 +120,7 @@ public abstract class Dependency {
 
   /** Returns the explicit configuration intended for this dependency. */
   @Nullable
-  public abstract BuildConfiguration getConfiguration();
+  public abstract BuildConfigurationValue getConfiguration();
 
   /**
    * Returns the set of aspects which should be evaluated and combined with the configured target
@@ -131,12 +129,6 @@ public abstract class Dependency {
    * @see #getAspectConfiguration(AspectDescriptor)
    */
   public abstract AspectCollection getAspects();
-
-  /** Returns the configuration an aspect should be evaluated with. */
-  @Nullable
-  public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
-    return getConfiguration();
-  }
 
   /**
    * Returns the keys of a configuration transition, if any exist, associated with this dependency.
@@ -150,18 +142,18 @@ public abstract class Dependency {
   public abstract ImmutableList<String> getTransitionKeys();
 
   /**
-   * Returns the {@link ToolchainContextKey} that this dependency should use for toolchain
-   * resolution.
+   * Returns the execution platform {@link Label} that this dependency should use as an override for
+   * toolchain resolution.
    */
   @Nullable
-  public abstract ToolchainContextKey getToolchainContextKey();
+  public abstract Label getExecutionPlatformLabel();
 
   /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
   public ConfiguredTargetKey getConfiguredTargetKey() {
     ConfiguredTargetKey.Builder configuredTargetKeyBuilder =
         ConfiguredTargetKey.builder().setLabel(getLabel()).setConfiguration(getConfiguration());
-    if (getToolchainContextKey() != null) {
-      configuredTargetKeyBuilder.setToolchainContextKey(getToolchainContextKey());
+    if (getExecutionPlatformLabel() != null) {
+      configuredTargetKeyBuilder.setExecutionPlatformLabel(getExecutionPlatformLabel());
     }
     return configuredTargetKeyBuilder.build();
   }

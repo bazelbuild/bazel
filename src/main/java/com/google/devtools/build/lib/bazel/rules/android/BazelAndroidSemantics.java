@@ -92,11 +92,17 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   /** Bazel does not currently support any dex postprocessing. */
   @Override
+  public boolean postprocessClassesRewritesMap(RuleContext ruleContext) {
+    return false;
+  }
+
+  @Override
   public AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
-      ProguardOutput proguardOutput)
+      ProguardOutput proguardOutput,
+      Artifact proguardMapOutput)
       throws InterruptedException {
     return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
   }
@@ -110,5 +116,15 @@ public class BazelAndroidSemantics implements AndroidSemantics {
             + "load(\"@build_bazel_rules_android//android:rules.bzl\", \""
             + ruleContext.getRule().getRuleClass()
             + "\"). See http://github.com/bazelbuild/rules_android.");
+  }
+
+  /* Bazel does not currently support baseline profiles in the final apk.  */
+  @Override
+  public Artifact getArtProfileForApk(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      boolean hasProguardSpecs) {
+    return null;
   }
 }

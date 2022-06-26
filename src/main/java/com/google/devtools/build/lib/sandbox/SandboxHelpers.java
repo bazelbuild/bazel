@@ -14,28 +14,37 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -146,7 +155,201 @@ public final class SandboxHelpers {
           target.createDirectory();
           FileSystemUtils.moveTreesBelow(source, target);
         }
+      } else if (!source.exists()) {
+        // This will show up as an error later
+      } else {
+        logger.atWarning().log(
+            "Sandbox file %s for output %s is neither file nor symlink nor directory.",
+            source, target);
       }
+    }
+  }
+
+  /**
+   * Cleans the existing sandbox at {@code root} to match the {@code inputs}, updating {@code
+   * inputsToCreate} and {@code dirsToCreate} to not contain existing inputs and dir. Existing
+   * directories or files that are either not needed {@code inputs} or doesn't have the right
+   * content or symlink destination are removed.
+   */
+  public static void cleanExisting(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir)
+      throws IOException {
+    // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
+    // prefixes.
+    Set<PathFragment> prefixDirs = new HashSet<>();
+    for (PathFragment dir : dirsToCreate) {
+      PathFragment parent = dir.getParentDirectory();
+      while (parent != null && !prefixDirs.contains(parent)) {
+        prefixDirs.add(parent);
+        parent = parent.getParentDirectory();
+      }
+    }
+
+    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+  }
+
+  /**
+   * Deletes unnecessary files/directories and updates the sets if something on disk is already
+   * correct and doesn't need any changes.
+   */
+  private static void cleanRecursively(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      Set<PathFragment> prefixDirs)
+      throws IOException {
+    Path execroot = workDir.getParentDirectory();
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      Path absPath = root.getChild(dirent.getName());
+      PathFragment pathRelativeToWorkDir;
+      if (absPath.startsWith(workDir)) {
+        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+        pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      } else {
+        // path is not under workDir, which means it belongs to one of external repositories
+        // symlinked directly under execroot. Get the relative path based on there and prepend it
+        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+        pathRelativeToWorkDir =
+            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                absPath.relativeTo(execroot));
+      }
+      Optional<PathFragment> destination =
+          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
+      if (destination.isPresent()) {
+        if (SYMLINK.equals(dirent.getType())
+            && absPath.readSymbolicLink().equals(destination.get())) {
+          inputsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          absPath.delete();
+        }
+      } else if (DIRECTORY.equals(dirent.getType())) {
+        if (dirsToCreate.contains(pathRelativeToWorkDir)
+            || prefixDirs.contains(pathRelativeToWorkDir)) {
+          cleanRecursively(absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+          dirsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          absPath.deleteTree();
+        }
+      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
+        absPath.delete();
+      }
+    }
+  }
+
+  /**
+   * Returns what the destination of the symlink {@code file} should be, according to {@code
+   * inputs}.
+   */
+  static Optional<PathFragment> getExpectedSymlinkDestination(
+      PathFragment fragment, SandboxInputs inputs) {
+    Path file = inputs.getFiles().get(fragment);
+    if (file != null) {
+      return Optional.of(file.asFragment());
+    }
+    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
+  }
+
+  /** Populates the provided sets with the inputs and directories that need to be created. */
+  public static void populateInputsAndDirsToCreate(
+      Set<PathFragment> writableDirs,
+      Set<PathFragment> inputsToCreate,
+      LinkedHashSet<PathFragment> dirsToCreate,
+      Iterable<PathFragment> inputFiles,
+      ImmutableSet<PathFragment> outputFiles,
+      ImmutableSet<PathFragment> outputDirs) {
+    // Add all worker files, input files, and the parent directories.
+    for (PathFragment input : inputFiles) {
+      inputsToCreate.add(input);
+      dirsToCreate.add(input.getParentDirectory());
+    }
+
+    // And all parent directories of output files. Note that we don't add the files themselves --
+    // any pre-existing files that have the same path as an output should get deleted.
+    for (PathFragment file : outputFiles) {
+      dirsToCreate.add(file.getParentDirectory());
+    }
+
+    // Add all output directories.
+    dirsToCreate.addAll(outputDirs);
+
+    // Add some directories that should be writable, and thus exist.
+    dirsToCreate.addAll(writableDirs);
+  }
+
+  /**
+   * Creates directory and all ancestors for it at a given path.
+   *
+   * <p>This method uses (and updates) the set of already known directories in order to minimize the
+   * I/O involved with creating directories. For example a path of {@code 1/2/3/4} created after
+   * {@code 1/2/3/5} only calls for creating {@code 1/2/3/5}. We can use the set of known
+   * directories to discover that {@code 1/2/3} already exists instead of deferring to the
+   * filesystem for it.
+   */
+  public static void createDirectoryAndParentsInSandboxRoot(
+      Path path, Set<Path> knownDirectories, Path sandboxExecRoot) throws IOException {
+    if (knownDirectories.contains(path)) {
+      return;
+    }
+    createDirectoryAndParentsInSandboxRoot(
+        checkNotNull(
+            path.getParentDirectory(),
+            "Path %s is not under/siblings of sandboxExecRoot: %s",
+            path,
+            sandboxExecRoot),
+        knownDirectories,
+        sandboxExecRoot);
+    path.createDirectory();
+    knownDirectories.add(path);
+  }
+
+  /**
+   * Creates all directories needed for the sandbox.
+   *
+   * <p>No input can be a child of another input, because otherwise we might try to create a symlink
+   * below another symlink we created earlier - which means we'd actually end up writing somewhere
+   * in the workspace.
+   *
+   * <p>If all inputs were regular files, this situation could naturally not happen - but
+   * unfortunately, we might get the occasional action that has directories in its inputs.
+   *
+   * <p>Creating all parent directories first ensures that we can safely create symlinks to
+   * directories, too, because we'll get an IOException with EEXIST if inputs happen to be nested
+   * once we start creating the symlinks for all inputs.
+   *
+   * @param strict If true, absolute directories or directories with multiple up-level references
+   *     are disallowed, for stricter sandboxing.
+   */
+  public static void createDirectories(
+      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict) throws IOException {
+    Set<Path> knownDirectories = new HashSet<>();
+    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
+    // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
+    // createDirectoryAndParentsInSandboxRoot.
+    knownDirectories.add(dir);
+    knownDirectories.add(dir.getParentDirectory());
+
+    for (PathFragment path : dirsToCreate) {
+      if (strict) {
+        Preconditions.checkArgument(!path.isAbsolute(), path);
+        if (path.containsUplevelReferences() && path.isMultiSegment()) {
+          // Allow a single up-level reference to allow inputs from the siblings of the main
+          // repository in the sandbox execution root, but forbid multiple up-level references.
+          // PathFragment is normalized, so up-level references are guaranteed to be at the
+          // beginning.
+          Preconditions.checkArgument(
+              !PathFragment.containsUplevelReferences(path.getSegment(1)),
+              "%s escapes the sandbox exec root.",
+              path);
+        }
+      }
+
+      createDirectoryAndParentsInSandboxRoot(dir.getRelative(path), knownDirectories, dir);
     }
   }
 
@@ -160,6 +363,9 @@ public final class SandboxHelpers {
     private final Set<VirtualActionInput> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
 
+    private static final SandboxInputs EMPTY_INPUTS =
+        new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of());
+
     public SandboxInputs(
         Map<PathFragment, Path> files,
         Set<VirtualActionInput> virtualInputs,
@@ -167,6 +373,10 @@ public final class SandboxHelpers {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
+    }
+
+    public static SandboxInputs getEmptyInputs() {
+      return EMPTY_INPUTS;
     }
 
     public Map<PathFragment, Path> getFiles() {
@@ -230,6 +440,22 @@ public final class SandboxHelpers {
         materializeVirtualInput(input, sandboxExecRoot, /*isExecRootSandboxed=*/ false);
       }
     }
+
+    /**
+     * Returns a new SandboxInputs instance with only the inputs/symlinks listed in {@code allowed}
+     * included.
+     */
+    public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
+      return new SandboxInputs(
+          Maps.filterKeys(files, allowed::contains),
+          ImmutableSet.of(),
+          Maps.filterKeys(symlinks, allowed::contains));
+    }
+
+    @Override
+    public String toString() {
+      return "Files: " + files + "\nVirtualInputs: " + virtualInputs + "\nSymlinks: " + symlinks;
+    }
   }
 
   private static void writeVirtualInputTo(VirtualActionInput input, Path target)
@@ -258,27 +484,8 @@ public final class SandboxHelpers {
    */
   public SandboxInputs processInputFiles(
       Map<PathFragment, ActionInput> inputMap,
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
       Path execRoot)
       throws IOException {
-    // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
-    // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
-    // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
-    // created. So we add those explicitly here.
-    // TODO(ulfjack): Move this code to SpawnInputExpander.
-    for (ActionInput input : spawn.getInputFiles().toList()) {
-      if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
-        List<Artifact> containedArtifacts = new ArrayList<>();
-        artifactExpander.expand((Artifact) input, containedArtifacts);
-        // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we
-        // only mount empty TreeArtifacts as directories.
-        if (containedArtifacts.isEmpty()) {
-          inputMap.put(input.getExecPath(), input);
-        }
-      }
-    }
-
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Set<VirtualActionInput> virtualInputs = new HashSet<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
@@ -331,9 +538,16 @@ public final class SandboxHelpers {
 
     public abstract ImmutableSet<PathFragment> dirs();
 
+    private static final SandboxOutputs EMPTY_OUTPUTS =
+        SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
+
     public static SandboxOutputs create(
         ImmutableSet<PathFragment> files, ImmutableSet<PathFragment> dirs) {
       return new AutoValue_SandboxHelpers_SandboxOutputs(files, dirs);
+    }
+
+    public static SandboxOutputs getEmptyInstance() {
+      return EMPTY_OUTPUTS;
     }
   }
 

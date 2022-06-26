@@ -1,8 +1,6 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
     "DEFAULT_TOOLCHAIN_CONFIGURATION",
-    "JVM8_TOOLCHAIN_CONFIGURATION",
     "PREBUILT_TOOLCHAIN_CONFIGURATION",
     "VANILLA_TOOLCHAIN_CONFIGURATION",
     "bootclasspath",
@@ -15,10 +13,7 @@ load(
     "java_runtime_alias",
     "java_runtime_version_alias",
     "java_toolchain_alias",
-    "legacy_java_runtime_alias",
-    "legacy_java_toolchain_alias",
 )
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -38,13 +33,10 @@ java_host_runtime_alias(name = "current_host_java_runtime")
 # Points to toolchain[":toolchain_type"] (was :legacy_current_java_toolchain)
 java_toolchain_alias(name = "current_java_toolchain")
 
-# This exists to support the migration to toolchain resolution.
-# TODO(cushon): delete once the migration is complete.
-# Points to --javabase/--host_javabase, defaults ":jdk"/":remote_jdk11"
-legacy_java_runtime_alias(name = "legacy_current_java_runtime")
-
-# Points to --java_toolchain/--host_java_toolchain, defaults ":toolchain"/":remote_toolchain"
-legacy_java_toolchain_alias(name = "legacy_current_java_toolchain")
+# Aliases value of --plugins flag as a JavaPluginInfo
+java_plugins_flag_alias(
+    name = "java_plugins_flag_alias",
+)
 
 # This is necessary to get the *host* Java runtime. Depending on
 # //tools/jdk:current_java_runtime from an attribute with the host transition
@@ -100,6 +92,8 @@ cc_library(
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
         "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
         "//src/conditions:linux_s390x": [":jni_md_header-linux"],
+        "//src/conditions:linux_mips64": [":jni_md_header-linux"],
+        "//src/conditions:linux_riscv64": [":jni_md_header-linux"],
         "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
@@ -111,6 +105,8 @@ cc_library(
         "//src/conditions:linux_aarch64": ["include/linux"],
         "//src/conditions:linux_ppc64le": ["include/linux"],
         "//src/conditions:linux_s390x": ["include/linux"],
+        "//src/conditions:linux_mips64": ["include/linux"],
+        "//src/conditions:linux_riscv64": ["include/linux"],
         "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],
@@ -128,11 +124,6 @@ alias(
 alias(
     name = "jar",
     actual = "@local_jdk//:jar",
-)
-
-alias(
-    name = "javac",
-    actual = "@local_jdk//:javac",
 )
 
 alias(
@@ -217,7 +208,10 @@ alias(
     }),
 )
 
-exports_files(["BUILD.java_tools"])
+exports_files([
+    "BUILD.java_tools",
+    "jdk.BUILD",
+])
 
 alias(
     name = "genclass",
@@ -227,16 +221,6 @@ alias(
 alias(
     name = "GenClass_deploy.jar",
     actual = "@remote_java_tools//:GenClass",
-)
-
-alias(
-    name = "turbine",
-    actual = "@remote_java_tools//:Turbine",
-)
-
-alias(
-    name = "turbine_deploy.jar",
-    actual = "@remote_java_tools//:Turbine",
 )
 
 alias(
@@ -264,20 +248,6 @@ alias(
     actual = "@remote_java_tools//:VanillaJavaBuilder",
 )
 
-alias(
-    name = "javac_jar",
-    actual = "@remote_java_tools//:javac_jar",
-)
-
-alias(
-    name = "jdk_compiler_jar",
-    actual = "@remote_java_tools//:jdk_compiler_jar",
-)
-
-alias(
-    name = "java_compiler_jar",
-    actual = "@remote_java_tools//:java_compiler_jar",
-)
 
 alias(
     name = "JacocoCoverageRunner",
@@ -381,15 +351,31 @@ default_java_toolchain(
     target_version = "15",
 )
 
-# Deprecated, do not use.
-# It will be removed after migration to Java toolchain resolution.
+# A toolchain that targets java 16.
 default_java_toolchain(
-    name = "toolchain_hostjdk8",
-    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-    java_runtime = ":current_host_java_runtime",
-    source_version = "8",
-    target_version = "8",
-    toolchain_definition = False,
+    name = "toolchain_jdk_16",
+    configuration = dict(),
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_16",
+    source_version = "16",
+    target_version = "16",
+)
+
+# A toolchain that targets java 17.
+default_java_toolchain(
+    name = "toolchain_jdk_17",
+    configuration = dict(),
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+    source_version = "17",
+    target_version = "17",
+)
+
+# A toolchain that targets java 18.
+default_java_toolchain(
+    name = "toolchain_jdk_18",
+    configuration = dict(),
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_18",
+    source_version = "18",
+    target_version = "18",
 )
 
 default_java_toolchain(
@@ -428,14 +414,15 @@ _JDKS = [
     "remotejdk11_macos",
     "remotejdk11_macos_aarch64",
     "remotejdk11_win",
+    "remotejdk11_win_arm64",
     "remotejdk11_linux_aarch64",
     "remotejdk11_linux",
     "remotejdk11_linux_ppc64le",
     "remotejdk11_linux_s390x",
-    "remotejdk15_macos",
-    "remotejdk15_macos_aarch64",
-    "remotejdk15_win",
-    "remotejdk15_linux",
+] + [
+    "remotejdk%s_%s" % (version, os)
+    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+    for version in ("17", "18")
 ]
 
 [
@@ -451,41 +438,35 @@ _JDKS = [
 java_runtime_version_alias(
     name = "remote_jdk11",
     runtime_version = "remotejdk_11",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin_x86_64": ":remotejdk11_macos",
-            "//src/conditions:darwin_arm64": ":remotejdk11_macos_aarch64",
-            "//src/conditions:windows": ":remotejdk11_win",
-            "//src/conditions:linux_aarch64": ":remotejdk11_linux_aarch64",
-            "//src/conditions:linux_x86_64": ":remotejdk11_linux",
-            "//src/conditions:linux_ppc64le": ":remotejdk11_linux_ppc64le",
-            "//src/conditions:linux_s390x": ":remotejdk11_linux_s390x",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
     name = "remotejdk_15",
     runtime_version = "remotejdk_15",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin_x86_64": ":remotejdk15_macos",
-            "//src/conditions:darwin_arm64": ":remotejdk15_macos_aarch64",
-            "//src/conditions:windows": ":remotejdk15_win",
-            "//src/conditions:linux_x86_64": ":remotejdk15_linux",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
+    visibility = ["//visibility:public"],
+)
+
+java_runtime_version_alias(
+    name = "remotejdk_16",
+    runtime_version = "remotejdk_16",
+    visibility = ["//visibility:public"],
+)
+
+java_runtime_version_alias(
+    name = "remotejdk_17",
+    runtime_version = "remotejdk_17",
+    visibility = ["//visibility:public"],
+)
+
+java_runtime_version_alias(
+    name = "remotejdk_18",
+    runtime_version = "remotejdk_18",
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
     name = "jdk_8",
     runtime_version = "8",
-    selected_java_runtime = ":legacy_current_java_runtime",
     visibility = ["//visibility:public"],
 )

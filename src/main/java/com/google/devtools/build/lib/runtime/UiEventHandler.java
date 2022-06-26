@@ -20,8 +20,12 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
+import com.google.devtools.build.lib.actions.CachingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -39,6 +43,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Event.ProcessOutput;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -183,7 +188,7 @@ public final class UiEventHandler implements EventHandler {
         this.cursorControl
             ? new UiStateTracker(clock, this.terminalWidth - 2)
             : new UiStateTracker(clock);
-    this.stateTracker.setProgressMode(options.uiProgressMode, options.uiSamplesShown);
+    this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
       this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
@@ -383,19 +388,19 @@ public final class UiEventHandler implements EventHandler {
 
   @Nullable
   private byte[] getContentIfSmallEnough(
-      String name, long size, Supplier<byte[]> getContent, Supplier<PathFragment> getPath) {
+      String name, long size, Supplier<byte[]> getContent, Supplier<String> getPath) {
     if (size == 0) {
       // Avoid any possible I/O when we know it'll be empty anyway.
       return null;
     }
 
-    if (size < maxStdoutErrBytes) {
+    if (size <= maxStdoutErrBytes) {
       return getContent.get();
     } else {
       return String.format(
-              "%s (%s) exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
+              "%s (%s) %d exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
                   + " skipping\n",
-              name, getPath.get(), maxStdoutErrBytes)
+              name, getPath.get(), size, maxStdoutErrBytes)
           .getBytes(StandardCharsets.ISO_8859_1);
     }
   }
@@ -410,13 +415,20 @@ public final class UiEventHandler implements EventHandler {
       // much memory.
       byte[] stdout = null;
       byte[] stderr = null;
-      if (event.hasStdoutStderr()) {
+      ProcessOutput processOutput = event.getProcessOutput();
+      if (processOutput != null) {
         stdout =
             getContentIfSmallEnough(
-                "stdout", event.getStdOutSize(), event::getStdOut, event::getStdOutPathFragment);
+                "stdout",
+                processOutput.getStdOutSize(),
+                processOutput::getStdOut,
+                processOutput::getStdOutPath);
         stderr =
             getContentIfSmallEnough(
-                "stderr", event.getStdErrSize(), event::getStdErr, event::getStdErrPathFragment);
+                "stderr",
+                processOutput.getStdErrSize(),
+                processOutput::getStdErr,
+                processOutput::getStdErrPath);
       }
 
       if (debugAllEvents) {
@@ -565,9 +577,8 @@ public final class UiEventHandler implements EventHandler {
       ignoreRefreshLimitOnce();
       refresh();
 
-      // After a build has completed, only stop updating the UI if there is no more BEP
-      // upload happening.
-      if (stateTracker.pendingTransports() == 0) {
+      // After a build has completed, only stop updating the UI if there is no more activities.
+      if (!stateTracker.hasActivities()) {
         buildRunning = false;
         done = true;
       }
@@ -673,6 +684,13 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void checkingActionCache(CachingActionEvent event) {
+    stateTracker.cachingAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void schedulingAction(SchedulingActionEvent event) {
     stateTracker.schedulingAction(event);
     refresh();
@@ -687,6 +705,13 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void actionProgress(ActionProgressEvent event) {
+    stateTracker.actionProgress(event);
+    refreshSoon();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void actionCompletion(ActionScanningCompletedEvent event) {
     stateTracker.actionCompletion(event);
     refreshSoon();
@@ -697,6 +722,30 @@ public final class UiEventHandler implements EventHandler {
   public void actionCompletion(ActionCompletionEvent event) {
     stateTracker.actionCompletion(event);
     refreshSoon();
+  }
+
+  private void checkActivities() {
+    if (stateTracker.hasActivities()) {
+      refreshSoon();
+    } else {
+      stopUpdateThread();
+      flushStdOutStdErrBuffers();
+      ignoreRefreshLimitOnce();
+      refresh();
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionUploadStarted(ActionUploadStartedEvent event) {
+    stateTracker.actionUploadStarted(event);
+    refreshSoon();
+  }
+
+  @Subscribe
+  public void actionUploadFinished(ActionUploadFinishedEvent event) {
+    stateTracker.actionUploadFinished(event);
+    checkActivities();
   }
 
   @Subscribe
@@ -773,12 +822,7 @@ public final class UiEventHandler implements EventHandler {
       this.handle(Event.info(null, "Transport " + event.transport().name() + " closed"));
     }
 
-    if (stateTracker.pendingTransports() == 0) {
-      stopUpdateThread();
-      flushStdOutStdErrBuffers();
-      ignoreRefreshLimitOnce();
-    }
-    refresh();
+    checkActivities();
   }
 
   private void refresh() {

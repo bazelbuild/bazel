@@ -31,14 +31,13 @@ py_test(
         "//src/conditions:windows": ["def_parser_test.py"],
         "//conditions:default": ["empty_test.py"],
     }),
-    tags = ["no_windows"],
-    main = select({
-        "//src/conditions:windows": "def_parser_test.py",
-        "//conditions:default": "empty_test.py",
-    }),
     data = select({
         "//src/conditions:windows": [":def_parser"],
         "//conditions:default": [],
+    }),
+    main = select({
+        "//src/conditions:windows": "def_parser_test.py",
+        "//conditions:default": "empty_test.py",
     }),
     deps = ["//src/test/py/bazel:test_base"],
 )
@@ -50,21 +49,4 @@ filegroup(
         "//src:__pkg__",
         "//third_party:__pkg__",
     ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//third_party:__pkg__"],
 )

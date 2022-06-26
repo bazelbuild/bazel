@@ -23,15 +23,15 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkApiProvider;
+import javax.annotation.Nullable;
 
 /** Part of the implementation of cc_proto_library. */
 public class CcProtoLibrary implements RuleConfiguredTargetFactory {
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     if (ruleContext.getPrerequisites("deps").size() != 1) {
       ruleContext.throwWithAttributeError(
           "deps",

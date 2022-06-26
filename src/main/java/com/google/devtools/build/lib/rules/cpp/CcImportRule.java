@@ -98,8 +98,7 @@ public final class CcImportRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(true)
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 

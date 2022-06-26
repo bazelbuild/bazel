@@ -18,8 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import org.junit.Test;
@@ -30,8 +31,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonConfigurationTest extends ConfigurationTestCase {
 
+  // Do not mutate the returned PythonOptions - it will poison skyframe caches.
   private PythonOptions parsePythonOptions(String... cmdline) throws Exception {
-    BuildConfiguration config = create(cmdline);
+    BuildConfigurationValue config = create(cmdline);
     return config.getOptions().get(PythonOptions.class);
   }
 
@@ -82,7 +84,7 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void setPythonVersion() throws Exception {
-    PythonOptions opts = parsePythonOptions("--python_version=PY2");
+    PythonOptions opts = Options.parse(PythonOptions.class, "--python_version=PY2").getOptions();
     opts.setPythonVersion(PythonVersion.PY3);
     assertThat(opts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
@@ -94,13 +96,11 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
             "--incompatible_py3_is_default=true",
             "--incompatible_py2_outputs_are_suffixed=true",
             "--build_python_zip=true",
-            "--incompatible_disallow_legacy_py_provider=true",
             "--incompatible_use_python_toolchains=true");
     PythonOptions hostOpts = (PythonOptions) opts.getHost();
     assertThat(hostOpts.incompatiblePy3IsDefault).isTrue();
     assertThat(hostOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
     assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
-    assertThat(hostOpts.incompatibleDisallowLegacyPyProvider).isTrue();
     assertThat(hostOpts.incompatibleUsePythonToolchains).isTrue();
   }
 
@@ -132,9 +132,8 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void getNormalized() throws Exception {
-    assumesDefaultIsPY2();
     PythonOptions opts = parsePythonOptions();
     PythonOptions normalizedOpts = (PythonOptions) opts.getNormalized();
-    assertThat(normalizedOpts.pythonVersion).isEqualTo(PythonVersion.PY2);
+    assertThat(normalizedOpts.pythonVersion).isEqualTo(PythonVersion.PY3);
   }
 }

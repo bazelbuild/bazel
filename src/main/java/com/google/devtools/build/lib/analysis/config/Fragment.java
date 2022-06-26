@@ -69,8 +69,13 @@ public abstract class Fragment implements StarlarkValue {
   /** Returns the option classes needed to create a fragment. */
   public static ImmutableSet<Class<? extends FragmentOptions>> requiredOptions(
       Class<? extends Fragment> fragmentClass) {
-    return fragmentClass.isAnnotationPresent(RequiresOptions.class)
-        ? ImmutableSet.copyOf(fragmentClass.getAnnotation(RequiresOptions.class).options())
-        : ImmutableSet.of();
+    RequiresOptions annotation = fragmentClass.getAnnotation(RequiresOptions.class);
+    return annotation == null ? ImmutableSet.of() : ImmutableSet.copyOf(annotation.options());
+  }
+
+  /** Returns {@code true} if the given fragment requires access to starlark options. */
+  public static boolean requiresStarlarkOptions(Class<? extends Fragment> fragmentClass) {
+    RequiresOptions annotation = fragmentClass.getAnnotation(RequiresOptions.class);
+    return annotation != null && annotation.starlark();
   }
 }

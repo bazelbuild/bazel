@@ -87,11 +87,17 @@ public final class BuildCommand implements BlazeCommand {
 
     BuildRequest request;
     try (SilentCloseable closeable = Profiler.instance().profile("BuildRequest.create")) {
-      request = BuildRequest.create(
-          getClass().getAnnotation(Command.class).name(), options,
-          runtime.getStartupOptionsProvider(),
-          targets,
-          env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
+
+      request =
+          BuildRequest.builder()
+              .setCommandName(getClass().getAnnotation(Command.class).name())
+              .setId(env.getCommandId())
+              .setOptions(options)
+              .setStartupOptions(runtime.getStartupOptionsProvider())
+              .setOutErr(env.getReporter().getOutErr())
+              .setTargets(targets)
+              .setStartTimeMillis(env.getCommandStartTime())
+              .build();
     }
     DetailedExitCode detailedExitCode =
         new BuildTool(env).processRequest(request, null).getDetailedExitCode();

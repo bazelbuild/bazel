@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -84,7 +85,7 @@ public final class GlobValue implements SkyValue {
       PackageIdentifier packageId,
       Root packageRoot,
       String pattern,
-      boolean excludeDirs,
+      Globber.Operation globOperation,
       PathFragment subdir)
       throws InvalidGlobPatternException {
     if (pattern.indexOf('?') != -1) {
@@ -96,7 +97,7 @@ public final class GlobValue implements SkyValue {
       throw new InvalidGlobPatternException(pattern, error);
     }
 
-    return internalKey(packageId, packageRoot, subdir, pattern, excludeDirs);
+    return internalKey(packageId, packageRoot, subdir, pattern, globOperation);
   }
 
   /**
@@ -110,8 +111,8 @@ public final class GlobValue implements SkyValue {
       Root packageRoot,
       PathFragment subdir,
       String pattern,
-      boolean excludeDirs) {
-    return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, excludeDirs);
+      Globber.Operation globOperation) {
+    return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, globOperation);
   }
 
   /**

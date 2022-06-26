@@ -28,30 +28,26 @@ import java.util.Optional;
 import java.util.Set;
 
 /** A proxy that talks to the multiplexer */
-final class WorkerProxy extends Worker {
+class WorkerProxy extends Worker {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private final WorkerMultiplexer workerMultiplexer;
-  /** The execution root of the worker. */
-  private final Path workDir;
-
-  private Thread shutdownHook;
+  protected final WorkerMultiplexer workerMultiplexer;
+  /** The execution root of the worker. This is the CWD of the worker process. */
+  protected final Path workDir;
 
   WorkerProxy(
       WorkerKey workerKey,
       int workerId,
       Path logFile,
-      WorkerMultiplexer workerMultiplexer) {
+      WorkerMultiplexer workerMultiplexer,
+      Path workDir) {
     super(workerKey, workerId, logFile);
-    this.workDir = workerKey.getExecRoot();
+    this.workDir = workDir;
     this.workerMultiplexer = workerMultiplexer;
-    final WorkerProxy self = this;
-    this.shutdownHook =
-        new Thread(
-            () -> {
-              self.shutdownHook = null;
-              self.destroy();
-            });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
+  }
+
+  @Override
+  public boolean isSandboxed() {
+    return false;
   }
 
   @Override
@@ -60,7 +56,6 @@ final class WorkerProxy extends Worker {
     workerMultiplexer.setReporter(reporter);
   }
 
-  @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
@@ -73,17 +68,12 @@ final class WorkerProxy extends Worker {
       WorkerMultiplexerManager.removeInstance(workerKey);
     } catch (UserExecException e) {
       logger.atWarning().withCause(e).log("Exception");
-    } finally {
-      if (this.shutdownHook != null) {
-        Runtime.getRuntime().removeShutdownHook(this.shutdownHook);
-        this.shutdownHook = null;
-      }
     }
   }
 
   /** Send the WorkRequest to multiplexer. */
   @Override
-  void putRequest(WorkRequest request) throws IOException {
+  protected void putRequest(WorkRequest request) throws IOException {
     workerMultiplexer.putRequest(request);
   }
 
@@ -94,7 +84,7 @@ final class WorkerProxy extends Worker {
   }
 
   @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) {}
+  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {}
 
   @Override
   boolean diedUnexpectedly() {
@@ -114,5 +104,10 @@ final class WorkerProxy extends Worker {
   @Override
   public String toString() {
     return workerKey.getMnemonic() + " proxy worker #" + workerId;
+  }
+
+  @Override
+  public long getProcessId() {
+    return workerMultiplexer.getProcessId();
   }
 }

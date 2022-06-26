@@ -32,6 +32,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.xml.ResourcesAttribute;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
@@ -47,7 +48,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.CheckReturnValue;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -736,15 +736,6 @@ public class FullyQualifiedName implements DataKey {
       return FullyQualifiedName.of(parsedPackage, qs.asList(), type, name);
     }
 
-    private String firstNonNull(String... values) {
-      for (String value : values) {
-        if (value != null) {
-          return value;
-        }
-      }
-      throw new NullPointerException("Expected a nonnull value.");
-    }
-
     /**
      * Generates a FullyQualifiedName for a file-based resource given the source Path.
      *
@@ -753,6 +744,15 @@ public class FullyQualifiedName implements DataKey {
      */
     public FullyQualifiedName parse(Path sourcePath) {
       return parse(deriveRawFullyQualifiedName(sourcePath));
+    }
+
+    private String firstNonNull(String... values) {
+      for (String value : values) {
+        if (value != null) {
+          return value;
+        }
+      }
+      throw new NullPointerException("Expected a nonnull value.");
     }
   }
 }

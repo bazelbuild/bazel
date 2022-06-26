@@ -80,10 +80,7 @@ public class PythonOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op, will be removed soon.")
   public boolean incompatibleRemoveOldPythonVersionApi;
 
@@ -98,10 +95,7 @@ public class PythonOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op, will be removed soon.")
   public boolean incompatibleAllowPythonVersionTransitions;
 
@@ -117,10 +111,7 @@ public class PythonOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, `py_binary` and `py_test` targets that do not set their `python_version` (or "
               + "`default_python_version`) attribute will default to PY3 rather than to PY2. If "
@@ -133,10 +124,7 @@ public class PythonOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, targets built in the Python 2 configuration will appear under an output root "
               + "that includes the suffix '-py2', while targets built for Python 3 will appear "
@@ -163,6 +151,7 @@ public class PythonOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
+      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help =
           "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
               + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "
@@ -210,19 +199,14 @@ public class PythonOptions extends FragmentOptions {
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
       OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
 
+  // TODO(b/230490091): Delete this flag (see also bazelbuild issue #7741)
   @Option(
       name = "incompatible_disallow_legacy_py_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, native Python rules will neither produce nor consume the legacy \"py\" "
-              + "provider. Use PyInfo instead. Under this flag, passing the legacy provider to a "
-              + "Python target will be an error.")
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "No-op, will be removed soon.")
   public boolean incompatibleDisallowLegacyPyProvider;
 
   // TODO(b/153369373): Delete this flag.
@@ -231,10 +215,7 @@ public class PythonOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, executable native Python rules will use the Python runtime specified by "
               + "the Python toolchain, rather than the runtime given by legacy flags like "
@@ -256,10 +237,7 @@ public class PythonOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "This flag changes the default behavior so that __init__.py files are no longer "
               + "automatically created in the runfiles of Python targets. Precisely, when a "
@@ -288,7 +266,7 @@ public class PythonOptions extends FragmentOptions {
         new SelectRestriction(
             /*visibleWithinToolsPackage=*/ false,
             "Use @bazel_tools//python/tools:python_version instead."));
-    return restrictions.build();
+    return restrictions.buildOrThrow();
   }
 
   /**
@@ -346,7 +324,6 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
     hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
     hostPythonOptions.buildPythonZip = buildPythonZip;
-    hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
 
     // Save host options in case of a further exec->host transition.

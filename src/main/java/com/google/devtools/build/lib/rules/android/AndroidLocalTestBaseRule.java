@@ -91,6 +91,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
         .add(AndroidFeatureFlagSetProvider.getAllowlistAttribute(environment))
+        .addAllowlistChecker(AndroidFeatureFlagSetProvider.CHECK_ALLOWLIST_IF_TRIGGERED)
         // TODO(b/38314524): Move $android_resources_busybox and :android_sdk to a separate
         // rule so they're not defined in multiple places
         .add(
@@ -139,7 +140,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         you will likely need to use <code>test_class</code> as well.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("custom_package", STRING))
-        /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(enable_data_binding) -->
+        /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(enable_data_binding) -->
         If true, this rule processes
         <a href="https://developer.android.com/topic/libraries/data-binding/index.html">data
         binding</a> references used in data-binding enabled dependencies used by this test. Without

@@ -195,7 +195,7 @@ enum class DeleteAfterwards { kEnabled, kDisabled };
 void WriteStdout(const std::string& s) {
   DWORD written;
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), s.c_str(), s.size(), &written,
-            NULL);
+            nullptr);
 }
 
 void LogError(const int line) {
@@ -322,9 +322,10 @@ std::wstring AsMixedPath(const std::wstring& path) {
 }
 
 bool IsReadableFile(const Path& p) {
-  HANDLE h = CreateFileW(AddUncPrefixMaybe(p).c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  HANDLE h =
+      CreateFileW(AddUncPrefixMaybe(p).c_str(), GENERIC_READ,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -403,7 +404,7 @@ bool SetPathEnv(const wchar_t* name, const Path& path) {
 }
 
 bool UnsetEnv(const wchar_t* name) {
-  if (SetEnvironmentVariableW(name, NULL) != 0) {
+  if (SetEnvironmentVariableW(name, nullptr) != 0) {
     return true;
   } else {
     DWORD err = GetLastError();
@@ -784,8 +785,8 @@ bool CreateZipBuilder(const Path& zip, const ZipEntryPaths& entry_paths,
 
 bool OpenFileForWriting(const Path& path, bazel::windows::AutoHandle* result) {
   HANDLE h = CreateFileW(AddUncPrefixMaybe(path).c_str(), GENERIC_WRITE,
-                         FILE_SHARE_READ | FILE_SHARE_DELETE, NULL,
-                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                         FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                         CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file", path.Get(), err);
@@ -797,9 +798,10 @@ bool OpenFileForWriting(const Path& path, bazel::windows::AutoHandle* result) {
 
 bool OpenExistingFileForRead(const Path& abs_path,
                              bazel::windows::AutoHandle* result) {
-  HANDLE h = CreateFileW(AddUncPrefixMaybe(abs_path).c_str(), GENERIC_READ,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  HANDLE h =
+      CreateFileW(AddUncPrefixMaybe(abs_path).c_str(), GENERIC_READ,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (h == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithArgAndValue(__LINE__, "Failed to open file", abs_path.Get(),
@@ -824,7 +826,7 @@ bool ReadFromFile(HANDLE handle, uint8_t* dest, DWORD max_read) {
   DWORD read = 0;
   do {
     if (!ReadFile(handle, dest + total_read, max_read - total_read, &read,
-                  NULL)) {
+                  nullptr)) {
       DWORD err = GetLastError();
       LogErrorWithValue(__LINE__, "Failed to read file", err);
       return false;
@@ -840,7 +842,7 @@ bool WriteToFile(HANDLE output, const void* buffer, const size_t size) {
   while (total_written < size) {
     DWORD written;
     if (!WriteFile(output, static_cast<const uint8_t*>(buffer) + total_written,
-                   size - total_written, &written, NULL)) {
+                   size - total_written, &written, nullptr)) {
       DWORD err = GetLastError();
       LogErrorWithValue(__LINE__, "Failed to write file", err);
       return false;
@@ -863,7 +865,7 @@ bool AppendFileTo(const Path& file, const size_t total_size, HANDLE output) {
   while (true) {
     // Read at most `buf_size` many bytes from the input file.
     DWORD read = 0;
-    if (!ReadFile(input, buffer.get(), buf_size, &read, NULL)) {
+    if (!ReadFile(input, buffer.get(), buf_size, &read, nullptr)) {
       DWORD err = GetLastError();
       LogErrorWithArgAndValue(__LINE__, "Failed to read file", file.Get(), err);
       return false;
@@ -893,7 +895,7 @@ std::string GetMimeType(const std::string& filename) {
   char data[1000];
   DWORD data_size = 1000 * sizeof(char);
   if (RegGetValueA(HKEY_CLASSES_ROOT, filename.c_str() + pos, "Content Type",
-                   RRF_RT_REG_SZ, NULL, data, &data_size) == ERROR_SUCCESS) {
+                   RRF_RT_REG_SZ, nullptr, data, &data_size) == ERROR_SUCCESS) {
     return data;
   }
   // The file extension is unknown, or it does not have a "Content Type" value,
@@ -1220,7 +1222,7 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
                      LARGE_INTEGER* start_time,
                      bazel::windows::WaitableProcess* process) {
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
-                                               NULL, TRUE};
+                                               nullptr, TRUE};
 
   // Create a pipe to stream the output of the subprocess to this process.
   // The subprocess inherits two copies of the writing end (one for stdout, one
@@ -1252,7 +1254,7 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
   bazel::windows::AutoHandle devnull_read(CreateFileW(
       L"NUL", GENERIC_READ,
       FILE_SHARE_WRITE | FILE_SHARE_READ | FILE_SHARE_DELETE,
-      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (devnull_read == INVALID_HANDLE_VALUE) {
     DWORD err = GetLastError();
     LogErrorWithValue(__LINE__, "CreateFileW", err);
@@ -1414,7 +1416,7 @@ bool TeeImpl::Create(bazel::windows::AutoHandle* input,
                      std::unique_ptr<Tee>* result) {
   std::unique_ptr<TeeImpl> tee(new TeeImpl(input, output1, output2));
   bazel::windows::AutoHandle thread(
-      CreateThread(NULL, 0, ThreadFunc, tee.get(), 0, NULL));
+      CreateThread(nullptr, 0, ThreadFunc, tee.get(), 0, nullptr));
   if (!thread.IsValid()) {
     return false;
   }
@@ -1430,10 +1432,10 @@ bool TeeImpl::MainFunc() const {
   static constexpr size_t kBufferSize = 0x10000;
   DWORD read;
   uint8_t content[kBufferSize];
-  while (ReadFile(input_, content, kBufferSize, &read, NULL)) {
+  while (ReadFile(input_, content, kBufferSize, &read, nullptr)) {
     DWORD written;
-    if (read > 0 && (!WriteFile(output1_, content, read, &written, NULL) ||
-                     !WriteFile(output2_, content, read, &written, NULL))) {
+    if (read > 0 && (!WriteFile(output1_, content, read, &written, nullptr) ||
+                     !WriteFile(output2_, content, read, &written, nullptr))) {
       return false;
     }
   }
@@ -1773,7 +1775,7 @@ Path Path::Dirname() const {
 IFStream* IFStreamImpl::Create(HANDLE handle, DWORD page_size) {
   std::unique_ptr<uint8_t[]> data(new uint8_t[page_size * 2]);
   DWORD read;
-  if (!ReadFile(handle, data.get(), page_size * 2, &read, NULL)) {
+  if (!ReadFile(handle, data.get(), page_size * 2, &read, nullptr)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       read = 0;
@@ -1799,7 +1801,7 @@ int IFStreamImpl::Get() {
   // Overwrite the *active* page: we are about to move off of it.
   DWORD offs = (pos_ < page_size_) ? 0 : page_size_;
   DWORD read;
-  if (!ReadFile(handle_, pages_.get() + offs, page_size_, &read, NULL)) {
+  if (!ReadFile(handle_, pages_.get() + offs, page_size_, &read, nullptr)) {
     DWORD err = GetLastError();
     if (err == ERROR_BROKEN_PIPE) {
       // The stream is reading from a pipe, and there's no more data.

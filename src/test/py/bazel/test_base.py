@@ -64,10 +64,17 @@ class TestBase(unittest.TestCase):
       'remotejdk11_macos_for_testing',
       'remotejdk11_macos_aarch64_for_testing',
       'remotejdk11_win_for_testing',
-      'remotejdk15_linux_for_testing',
-      'remotejdk15_macos_for_testing',
-      'remotejdk15_macos_aarch64_for_testing',
-      'remotejdk15_win_for_testing',
+      'remotejdk11_win_arm64_for_testing',
+      'remotejdk17_linux_for_testing',
+      'remotejdk17_macos_for_testing',
+      'remotejdk17_macos_aarch64_for_testing',
+      'remotejdk17_win_for_testing',
+      'remotejdk17_win_arm64_for_testing',
+      'remotejdk18_linux_for_testing',
+      'remotejdk18_macos_for_testing',
+      'remotejdk18_macos_aarch64_for_testing',
+      'remotejdk18_win_for_testing',
+      'remotejdk18_win_arm64_for_testing',
       'remote_java_tools_for_testing',
       'remote_java_tools_darwin_for_testing',
       'remote_java_tools_linux_for_testing',
@@ -327,7 +334,12 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self, args, env_remove=None, env_add=None, cwd=None):
+  def RunBazel(self,
+               args,
+               env_remove=None,
+               env_add=None,
+               cwd=None,
+               allow_failure=True):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -336,16 +348,16 @@ class TestBase(unittest.TestCase):
         to Bazel
       env_add: {string: string}; optional; environment variables to pass to
         Bazel, won't be removed by env_remove.
-      cwd: [string]; the working directory of Bazel, will be self._test_cwd if
+      cwd: string; the working directory of Bazel, will be self._test_cwd if
         not specified.
+      allow_failure: bool; if false, the function checks the return code is 0
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
     return self.RunProgram([
         self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc,
-        '--nomaster_bazelrc',
-    ] + args, env_remove, env_add, False, cwd)
+        '--bazelrc=' + self._test_bazelrc
+    ] + args, env_remove, env_add, False, cwd, allow_failure)
 
   def StartRemoteWorker(self):
     """Runs a "local remote worker" to run remote builds and tests on.
@@ -435,7 +447,9 @@ class TestBase(unittest.TestCase):
                  env_remove=None,
                  env_add=None,
                  shell=False,
-                 cwd=None):
+                 cwd=None,
+                 allow_failure=True,
+                 executable=None):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
@@ -446,8 +460,11 @@ class TestBase(unittest.TestCase):
         the program, won't be removed by env_remove.
       shell: {bool: bool}; optional; whether to use the shell as the program
         to execute
-      cwd: [string]; the current working dirctory, will be self._test_cwd if not
+      cwd: string; the current working dirctory, will be self._test_cwd if not
         specified.
+      allow_failure: bool; if false, the function checks the return code is 0
+      executable: string or None; executable program to run; use args[0]
+        if None
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -455,9 +472,10 @@ class TestBase(unittest.TestCase):
       with tempfile.TemporaryFile(dir=self._test_cwd) as stderr:
         proc = subprocess.Popen(
             args,
+            executable=executable,
             stdout=stdout,
             stderr=stderr,
-            cwd=(cwd if cwd else self._test_cwd),
+            cwd=(str(cwd) if cwd else self._test_cwd),
             env=self._EnvMap(env_remove, env_add),
             shell=shell)
         exit_code = proc.wait()
@@ -473,6 +491,9 @@ class TestBase(unittest.TestCase):
             l.decode(locale.getpreferredencoding()).strip()
             for l in stderr.readlines()
         ]
+
+        if not allow_failure:
+          self.AssertExitCode(exit_code, 0, stderr_lines)
 
         return exit_code, stdout_lines, stderr_lines
 

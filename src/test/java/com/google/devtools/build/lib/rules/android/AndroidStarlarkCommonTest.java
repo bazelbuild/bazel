@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommonTest.Wit
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommonTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,7 +88,7 @@ public abstract class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase
     JavaInfo barJavaInfo = getConfiguredTarget("//java/android:bar").get(JavaInfo.PROVIDER);
     assertThat(barJavaInfo.getProvider(JavaCompilationArgsProvider.class))
         .isEqualTo(fooJavaInfo.getProvider(JavaCompilationArgsProvider.class));
-    assertThat(fooJavaInfo.getProvider(JavaPluginInfoProvider.class)).isNotNull();
-    assertThat(barJavaInfo.getProvider(JavaPluginInfoProvider.class)).isNull();
+    assertThat(fooJavaInfo.getJavaPluginInfo()).isNotNull();
+    assertThat(barJavaInfo.getJavaPluginInfo()).isNull();
   }
 }

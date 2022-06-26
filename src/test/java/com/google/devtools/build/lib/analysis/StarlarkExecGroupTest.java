@@ -15,18 +15,16 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollectionSubject.assertThat;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,12 +35,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class StarlarkExecGroupTest extends BuildViewTestCase {
-
-  @Before
-  public final void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_exec_groups");
-  }
-
   /**
    * Sets up two toolchains types, each with a single toolchain implementation and a single
    * exec_compatible_with platform.
@@ -105,6 +97,10 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "platform(",
         "    name = 'platform_2',",
         "    constraint_values = [':constraint_2'],",
+        "    exec_properties = {",
+        "        'watermelon.ripeness': 'unripe',",
+        "        'watermelon.color': 'red',",
+        "    },",
         ")");
 
     useConfiguration(
@@ -147,9 +143,9 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "MyInfo");
-    BuildConfiguration dep =
+    BuildConfigurationValue dep =
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
-    BuildConfiguration execGroupDep =
+    BuildConfigurationValue execGroupDep =
         getConfiguration(
             (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("exec_group_dep"));
 
@@ -384,11 +380,65 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'papaya')");
 
     ConfiguredTarget ct = getConfiguredTarget("//test:papaya");
-    assertThat(getRuleContext(ct).getRule().getRuleClassObject().getExecGroups())
-        .containsExactly(
-            "watermelon",
-            ExecGroup.createCopied(
-                ImmutableSet.of(Label.parseAbsoluteUnchecked("//rule:toolchain_type_1")),
-                ImmutableSet.of(Label.parseAbsoluteUnchecked("//platform:constraint_1"))));
+    ExecGroupCollection execGroups = getRuleContext(ct).getExecGroups();
+    assertThat(execGroups).isNotNull();
+    assertThat(execGroups).hasExecGroup("watermelon");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(execGroups).execGroup("watermelon").hasToolchainType("//rule:toolchain_type_1");
+    assertThat(execGroups)
+        .execGroup("watermelon")
+        .toolchainType("//rule:toolchain_type_1")
+        .isMandatory();
+    assertThat(execGroups).execGroup("watermelon").hasExecCompatibleWith("//platform:constraint_1");
+  }
+
+  @Test
+  public void testInheritsPlatformExecGroupExecProperty() throws Exception {
+    createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_actions')",
+        "with_actions(",
+        "  name = 'papaya',",
+        "  output = 'out.txt',",
+        "  watermelon_output = 'watermelon_out.txt',",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
+
+    assertThat(
+            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
+        .containsExactly("ripeness", "unripe", "color", "red");
+    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
+        .containsExactly();
+  }
+
+  @Test
+  public void testOverridePlatformExecGroupExecProperty() throws Exception {
+    createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_actions')",
+        "with_actions(",
+        "  name = 'papaya',",
+        "  output = 'out.txt',",
+        "  watermelon_output = 'watermelon_out.txt',",
+        "  exec_properties = {",
+        "    'watermelon.ripeness': 'ripe',",
+        "    'ripeness': 'unknown',",
+        "  },",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
+
+    assertThat(
+            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
+        .containsExactly("ripeness", "ripe", "color", "red");
+    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
+        .containsExactly("ripeness", "unknown");
   }
 }

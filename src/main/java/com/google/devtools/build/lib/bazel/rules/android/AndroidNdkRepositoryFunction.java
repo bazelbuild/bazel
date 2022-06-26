@@ -228,12 +228,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
   private static String getPlatformCpuLabel(String targetCpu) {
     // Create a mapping of CcToolchain CPU values to platform arch constraint values
-    // in @bazel_tools//platforms
+    // in @platforms//cpu
     switch (targetCpu) {
       case "x86":
         return "x86_32";
       case "armeabi-v7a":
-        return "arm";
+        return "armv7";
       case "arm64-v8a":
         return "aarch64";
       default:

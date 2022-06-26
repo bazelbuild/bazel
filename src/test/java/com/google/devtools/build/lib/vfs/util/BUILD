@@ -26,7 +26,10 @@ java_library(
 java_library(
     name = "util_internal",
     testonly = 1,
-    srcs = glob(["*.java"]),
+    srcs = [
+        "FileSystems.java",
+        "FsApparatus.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -36,5 +39,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+    ],
+)
+
+java_library(
+    name = "test_glob_path_discriminator",
+    testonly = 1,
+    srcs = ["TestUnixGlobPathDiscriminator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:error_prone_annotations",
     ],
 )

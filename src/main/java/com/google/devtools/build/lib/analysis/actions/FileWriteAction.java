@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -26,9 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,7 +48,6 @@ import javax.annotation.Nullable;
  * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
  * BinaryFileWriteAction}.
  */
-@AutoCodec
 @Immutable // if fileContents is immutable
 public final class FileWriteAction extends AbstractFileWriteAction {
 
@@ -94,9 +91,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
         makeExecutable);
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  FileWriteAction(
+  private FileWriteAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       Artifact primaryOutput,
@@ -171,7 +166,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
         Compression.ALLOW);
   }
 
-  private static final class CompressedString extends LazyString {
+  private static final class CompressedString extends OnDemandString {
     final byte[] bytes;
     final int uncompressedSize;
 
@@ -209,11 +204,6 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       }
       return new String(uncompressedBytes, ISO_8859_1);
     }
-  }
-
-  @VisibleForTesting
-  boolean usesCompression() {
-    return fileContents instanceof CompressedString;
   }
 
   /**

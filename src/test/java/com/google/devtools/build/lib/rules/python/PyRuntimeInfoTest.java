@@ -58,7 +58,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
   public void factoryMethod_InBuildRuntime() throws Exception {
     NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
     PyRuntimeInfo inBuildRuntime =
-        PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2);
+        PyRuntimeInfo.createForInBuildRuntime(dummyInterpreter, files, PythonVersion.PY2, null);
 
     assertThat(inBuildRuntime.getCreationLocation()).isEqualTo(Location.BUILTIN);
     assertThat(inBuildRuntime.getInterpreterPath()).isNull();
@@ -68,12 +68,14 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(inBuildRuntime.getFilesForStarlark().getSet(Artifact.class)).isEqualTo(files);
     assertThat(inBuildRuntime.getPythonVersion()).isEqualTo(PythonVersion.PY2);
     assertThat(inBuildRuntime.getPythonVersionForStarlark()).isEqualTo("PY2");
+    assertThat(inBuildRuntime.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
   }
 
   @Test
   public void factoryMethod_PlatformRuntime() {
     PathFragment path = PathFragment.create("/system/interpreter");
-    PyRuntimeInfo platformRuntime = PyRuntimeInfo.createForPlatformRuntime(path, PythonVersion.PY2);
+    PyRuntimeInfo platformRuntime =
+        PyRuntimeInfo.createForPlatformRuntime(path, PythonVersion.PY2, null);
 
     assertThat(platformRuntime.getCreationLocation()).isEqualTo(Location.BUILTIN);
     assertThat(platformRuntime.getInterpreterPath()).isEqualTo(path);
@@ -83,6 +85,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(platformRuntime.getFilesForStarlark()).isNull();
     assertThat(platformRuntime.getPythonVersion()).isEqualTo(PythonVersion.PY2);
     assertThat(platformRuntime.getPythonVersionForStarlark()).isEqualTo("PY2");
+    assertThat(platformRuntime.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
   }
 
   @Test
@@ -99,6 +102,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
     assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(info.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
   }
 
   @Test
@@ -114,6 +118,19 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
     assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(info.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
+  }
+
+  @Test
+  public void starlarkConstructor_CustomShebang() throws Exception {
+    ev.exec(
+        "info = PyRuntimeInfo(", //
+        "    interpreter_path = '/system/interpreter',",
+        "    python_version = 'PY2',",
+        "    stub_shebang = '#!/usr/bin/custom',",
+        ")");
+    PyRuntimeInfo info = (PyRuntimeInfo) ev.lookup("info");
+    assertThat(info.getStubShebang()).isEqualTo("#!/usr/bin/custom");
   }
 
   @Test

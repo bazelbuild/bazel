@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -68,7 +68,8 @@ public class ExecutableSymlinkActionTest {
     Path execRoot = executor.getExecRoot();
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         /*metadataHandler=*/ null,
@@ -81,7 +82,9 @@ public class ExecutableSymlinkActionTest {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT);
+        DiscoveredModulesPruner.DEFAULT,
+        SyscallCache.NO_CACHE,
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @Test
@@ -101,14 +104,14 @@ public class ExecutableSymlinkActionTest {
   @Test
   public void testFailIfInputIsNotAFile() throws Exception {
     Path dir = inputRoot.getRoot().getRelative("some-dir");
-    FileSystemUtils.createDirectoryAndParents(dir);
+    dir.createDirectoryAndParents();
     Artifact input = ActionsTestUtil.createArtifact(inputRoot, dir);
     Artifact output =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     ActionExecutionException e =
         assertThrows(ActionExecutionException.class, () -> action.execute(createContext()));
-    assertThat(e).hasMessageThat().contains("'some-dir' is not a file");
+    assertThat(e).hasMessageThat().contains("'in/some-dir' is not a file");
   }
 
   @Test
@@ -122,7 +125,7 @@ public class ExecutableSymlinkActionTest {
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     ActionExecutionException e =
         assertThrows(ActionExecutionException.class, () -> action.execute(createContext()));
-    String want = "'some-file' is not executable";
+    String want = "'in/some-file' is not executable";
       String got = e.getMessage();
     assertWithMessage(String.format("got %s, want %s", got, want))
         .that(got.contains(want))

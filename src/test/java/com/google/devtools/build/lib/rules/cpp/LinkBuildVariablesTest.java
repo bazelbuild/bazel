@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -471,6 +473,35 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     assertThat(
             binaryVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()).isTruthy())
         .isFalse();
+  }
+
+  @Test
+  public void testDisableIsCcTestLinkActionBuildVariable() throws Exception {
+    // The use of this feature (implied by the flag) replaces the use of the build variable.
+    // This test ensures the build variable is never *set*.
+    useConfiguration("--incompatible_enable_cc_test_feature");
+
+    scratch.file(
+        "x/BUILD",
+        "cc_test(name = 'foo_test', srcs = ['a.cc'])",
+        "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");
+    CcToolchainVariables testVariables =
+        getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    assertThrows(
+        ExpansionException.class,
+        () -> testVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()));
+
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//x:foo");
+    CcToolchainVariables binaryVariables =
+        getLinkBuildVariables(binaryTarget, LinkTargetType.EXECUTABLE);
+
+    assertThrows(
+        ExpansionException.class,
+        () -> binaryVariables.getVariable(LinkBuildVariables.IS_CC_TEST.getVariableName()));
   }
 
   @Test

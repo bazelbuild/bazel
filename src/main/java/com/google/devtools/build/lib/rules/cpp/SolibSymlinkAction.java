@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -36,8 +38,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -46,20 +46,18 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
- * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
- * potential to contain SONAME field rely on the mangled symlink to the parent directory instead.
+ * Creates mangled symlinks in the solib directory for all shared libraries. For shared libraries
+ * that have potential to contain a SONAME field, create a link to the shared library parent
+ * directory instead - so that the name of the library file is preserved.
  *
  * <p>Such symlinks are used by the linker to ensure that all rpath entries can be specified
  * relative to the $ORIGIN.
  */
-@AutoCodec
 @Immutable
 public final class SolibSymlinkAction extends AbstractAction {
   private final Artifact symlink;
 
-  @VisibleForSerialization
-  SolibSymlinkAction(
-      ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
+  private SolibSymlinkAction(ActionOwner owner, Artifact primaryInput, Artifact primaryOutput) {
     super(
         owner,
         NestedSetBuilder.create(Order.STABLE_ORDER, primaryInput),
@@ -139,6 +137,7 @@ public final class SolibSymlinkAction extends AbstractAction {
         getMangledName(
             actionRegistry.getOwner().getLabel(),
             solibDir,
+            actionConstructionContext.getConfiguration().getMnemonic(),
             library.getRootRelativePath(),
             preserveName,
             prefixConsumer);
@@ -169,7 +168,8 @@ public final class SolibSymlinkAction extends AbstractAction {
       PathFragment path) {
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(path.getBaseName()));
-    Preconditions.checkArgument(!library.getRootRelativePath().getSegment(0).startsWith("_solib_"));
+    Preconditions.checkArgument(
+        !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
     PathFragment solibDirPath = PathFragment.create(solibDir);
     PathFragment linkName = solibDirPath.getRelative(path);
@@ -208,7 +208,8 @@ public final class SolibSymlinkAction extends AbstractAction {
       Artifact library,
       PathFragment symlinkName) {
     Preconditions.checkArgument(Link.SHARED_LIBRARY_FILETYPES.matches(library.getFilename()));
-    Preconditions.checkArgument(!library.getRootRelativePath().getSegment(0).startsWith("_solib_"));
+    Preconditions.checkArgument(
+        !library.getRootRelativePath().getPathString().startsWith("_solib_"));
 
     // Ignore libraries that are already represented by the symlinks.
     ArtifactRoot root = actionConstructionContext.getBinDirectory();
@@ -231,11 +232,12 @@ public final class SolibSymlinkAction extends AbstractAction {
   private static PathFragment getMangledName(
       Label label,
       String solibDir,
+      String mnemonic,
       PathFragment libraryPath,
       boolean preserveName,
       boolean prefixConsumer) {
     String escapedRulePath = Actions.escapedPath("_" + label);
-    String soname = getDynamicLibrarySoname(libraryPath, preserveName);
+    String soname = getDynamicLibrarySoname(libraryPath, preserveName, mnemonic);
     PathFragment solibDirPath = PathFragment.create(solibDir);
     if (preserveName) {
       String escapedLibraryPath =
@@ -250,20 +252,25 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   /**
-   * Compute the SONAME to use for a dynamic library. This name is basically the
-   * name of the shared library in its final symlinked location.
+   * Compute the SONAME to use for a dynamic library. This name is basically the name of the shared
+   * library in its final symlinked location.
    *
    * @param libraryPath name of the shared library that needs to be mangled
    * @param preserveName true if filename should be preserved, false - mangled
+   * @param mnemonic the output directory mnemonic, to be mangled in for nondefault configurations
    * @return soname to embed in the dynamic library
    */
-  public static String getDynamicLibrarySoname(PathFragment libraryPath,
-                                               boolean preserveName) {
+  public static String getDynamicLibrarySoname(
+      PathFragment libraryPath, boolean preserveName, String mnemonic) {
     String mangledName;
     if (preserveName) {
       mangledName = libraryPath.getBaseName();
     } else {
-      mangledName = "lib" + Actions.escapedPath(libraryPath.getPathString());
+      String mnemonicMangling = "";
+      if (mnemonic.contains("ST-")) {
+        mnemonicMangling = mnemonic.substring(mnemonic.indexOf("ST-")) + "_";
+      }
+      mangledName = "lib" + mnemonicMangling + Actions.escapedPath(libraryPath.getPathString());
     }
     return mangledName;
   }
@@ -276,5 +283,18 @@ public final class SolibSymlinkAction extends AbstractAction {
   @Override
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    // SolibSymlinkAction is platform agnostic.
+    return null;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    // SolibSymlinkAction is platform agnostic.
+    return ImmutableMap.of();
   }
 }

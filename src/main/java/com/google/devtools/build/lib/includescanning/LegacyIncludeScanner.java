@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.MissingDepExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -35,6 +33,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Hints;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -180,7 +181,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             continue;
           }
         }
-        if (onlyCheckGenerated && !isRealOutputFile(fileFragment)) {
+        if (onlyCheckGenerated && !isOutputFile(fileFragment)) {
           continue;
         }
         viewedIllegalOutput = viewedIllegalOutput || isIllegalOutputFile(fileFragment, headerData);
@@ -249,12 +250,12 @@ public class LegacyIncludeScanner implements IncludeScanner {
         // Construct the full framework path path/to/foo.framework.
         PathFragment fullFrameworkPath = includePath.getRelative(frameworkName);
 
-        if (onlyCheckGenerated && !isRealOutputFile(fullFrameworkPath)) {
+        if (onlyCheckGenerated && !isOutputFile(fullFrameworkPath)) {
           return LocateOnPathResult.createNotFound(viewedIllegalOutput);
         }
 
         // Look for header in path/to/foo.framework/Headers/
-        PathFragment foundHeaderPath = null;
+        PathFragment foundHeaderPath;
         PathFragment fullHeaderPath =
             fullFrameworkPath.getRelative("Headers").getRelative(relHeaderPath);
 
@@ -425,7 +426,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   /** Search path for searching for all includes from frameworks. */
   private final ImmutableList<PathFragment> frameworkIncludePaths;
 
-  private final PathFragment includeRootFragment;
   private final PathFragment outputPathFragment;
   private final Root absoluteRoot;
 
@@ -485,8 +485,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
     this.inclusionCache = new InclusionCache();
     this.execRoot = execRoot;
     this.outputPathFragment = outputPath.relativeTo(execRoot);
-    this.includeRootFragment =
-        outputPathFragment.getRelative(BlazeDirectories.RELATIVE_INCLUDE_DIR);
     this.absoluteRoot = Root.absoluteRoot(execRoot.getFileSystem());
   }
 
@@ -536,19 +534,13 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
     ArtifactRoot root = includer.getRoot();
     Artifact sourceArtifact =
-        artifactFactory.resolveSourceArtifactWithAncestor(
-            name, parentDirectory, root, RepositoryName.MAIN);
+        artifactFactory.resolveSourceArtifactWithAncestor(name, parent, root, RepositoryName.MAIN);
     if (sourceArtifact == null) {
       // If the name had up-level references, this path may not be under any package. Otherwise,
       // we must have gotten an artifact, since it should be under the same package as the
       // including artifact.
       Preconditions.checkState(
-          name.containsUplevelReferences(),
-          "%s %s %s %s",
-          name,
-          parentDirectory,
-          rootRelativePath,
-          root);
+          name.containsUplevelReferences(), "%s %s %s %s", name, parent, rootRelativePath, root);
     }
     return sourceArtifact;
   }
@@ -559,7 +551,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       PathFragment includeAsWritten,
       boolean isSource,
       IncludeScanningHeaderData headerData) {
-    if (isRealOutputFile(execPath)) {
+    if (isOutputFile(execPath)) {
       return headerData.isDeclaredHeader(execPath);
     }
     // TODO(djasper): This code path cannot be hit with isSource being false. Verify and add
@@ -594,7 +586,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
-      throws IOException, ExecException, InterruptedException {
+      throws IOException, NoSuchPackageException, ExecException, InterruptedException {
     SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
     ImmutableSet<Artifact> pathHints;
     if (parser.getHints() == null) {
@@ -638,17 +630,11 @@ public class LegacyIncludeScanner implements IncludeScanner {
 
   private boolean isIllegalOutputFile(
       PathFragment includeFile, IncludeScanningHeaderData headerData) {
-    return isRealOutputFile(includeFile) && !headerData.isDeclaredHeader(includeFile);
+    return isOutputFile(includeFile) && !headerData.isDeclaredHeader(includeFile);
   }
 
-  private boolean isRealOutputFile(PathFragment path) {
-    return path.startsWith(outputPathFragment) && !isIncPath(path);
-  }
-
-  private boolean isIncPath(PathFragment path) {
-    // See CreateIncSymlinkAction and where it's used: The symlink trees
-    // are always rooted at locations that fit the logic here.
-    return path.startsWith(includeRootFragment) && !path.equals(includeRootFragment);
+  private boolean isOutputFile(PathFragment path) {
+    return path.startsWith(outputPathFragment);
   }
 
   /**
@@ -758,8 +744,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
      *     inclusions
      * @param visited the set to receive the files that are transitively included by {@code source}
      */
-    // TODO(b/175294870): Clean up.
-    @SuppressWarnings("LogAndThrow") // Temporary debugging.
     private void process(
         final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
@@ -779,7 +763,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                     actionExecutionContext,
                     grepIncludes,
                     spawnIncludeScannerSupplier.get(),
-                    isRealOutputFile(source.getExecPath())));
+                    isOutputFile(source.getExecPath())));
           } catch (Throwable t) {
             fileParseCache.remove(source);
             future.setException(t);
@@ -830,7 +814,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       } else {
         super.execute(
             () -> {
-              try {
+              try (SilentCloseable ignored =
+                  actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
                 process(source, contextPathPos, contextKind, visited);
               } catch (IOException e) {
                 throw new IORuntimeException(e);
@@ -925,7 +910,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       }
       super.execute(
           () -> {
-            try {
+            try (SilentCloseable ignored =
+                actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
               processBulkAsync(sources, alsoVisited);
             } catch (IOException e) {
               throw new IORuntimeException(e);
@@ -938,10 +924,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class ExecRuntimeException extends RuntimeException {
+  private static final class ExecRuntimeException extends RuntimeException {
     private final ExecException cause;
 
-    public ExecRuntimeException(ExecException e) {
+    ExecRuntimeException(ExecException e) {
       super(e);
       this.cause = e;
     }
@@ -951,10 +937,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class InterruptedRuntimeException extends RuntimeException {
+  private static final class InterruptedRuntimeException extends RuntimeException {
     private final InterruptedException cause;
 
-    public InterruptedRuntimeException(InterruptedException e) {
+    InterruptedRuntimeException(InterruptedException e) {
       super(e);
       this.cause = e;
     }

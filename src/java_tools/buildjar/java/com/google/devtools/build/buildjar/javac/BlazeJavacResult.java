@@ -25,7 +25,9 @@ public class BlazeJavacResult {
   public enum Status {
     OK,
     ERROR,
+    CRASH,
     REQUIRES_FALLBACK,
+    CANCELLED,
   }
 
   private final Status status;
@@ -41,6 +43,11 @@ public class BlazeJavacResult {
   public static BlazeJavacResult error(String message) {
     return createFullResult(
         Status.ERROR, ImmutableList.of(), message, null, BlazeJavacStatistics.empty());
+  }
+
+  public static BlazeJavacResult cancelled(String message) {
+    return createFullResult(
+        Status.CANCELLED, ImmutableList.of(), message, null, BlazeJavacStatistics.empty());
   }
 
   public static BlazeJavacResult fallback() {

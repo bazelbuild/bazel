@@ -35,7 +35,8 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -43,7 +44,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
@@ -68,20 +69,22 @@ public class CppRuleClasses {
         CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
   }
 
-  @AutoCodec
+  @SerializationConstant
   static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
 
-  public static LabelLateBoundDefault<CppConfiguration> ccHostToolchainAttribute(
-      RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromHostConfiguration(
-        CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
-        (rules, attributes, cppConfig) -> cppConfig.getRuleProvidingCcToolchainProvider());
-  }
-
   public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
     return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
+  }
+
+  public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
+    // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
+    // optional.
+    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(true).build();
+  }
+
+  public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
+    return ccToolchainTypeRequirement(CppRuleClasses.ccToolchainTypeAttribute(env));
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
@@ -107,7 +110,7 @@ public class CppRuleClasses {
               FileTypeSet.of(
                   CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
           .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("deps", "data");
+          .withDependencyAttributes("interface_deps", "deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -140,6 +143,12 @@ public class CppRuleClasses {
 
   /** A string constant for the dependency_file feature. This feature generates the .d file. */
   public static final String DEPENDENCY_FILE = "dependency_file";
+
+  /**
+   * A string constant for the serialized_diagnostics_file feature. This feature generates the .dia
+   * file.
+   */
+  public static final String SERIALIZED_DIAGNOSTICS_FILE = "serialized_diagnostics_file";
 
   /** A string constant for the module_map_home_cwd feature. */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
@@ -245,6 +254,9 @@ public class CppRuleClasses {
   /** A string constant for the include_paths feature. */
   public static final String INCLUDE_PATHS = "include_paths";
 
+  /** A string constant for the external_include_paths feature. */
+  public static final String EXTERNAL_INCLUDE_PATHS = "external_include_paths";
+
   /** A string constant for the feature signalling static linking mode. */
   public static final String STATIC_LINKING_MODE = "static_linking_mode";
 
@@ -282,6 +294,12 @@ public class CppRuleClasses {
 
   /** A string constant for enabling split functions for FDO implicitly. */
   public static final String ENABLE_FDO_SPLIT_FUNCTIONS = "enable_fdo_split_functions";
+
+  /** A string constant for the fsafdo feature. */
+  public static final String FSAFDO = "fsafdo";
+
+  /** A string constant for enabling fsafdo for AutoFDO implicitly. */
+  public static final String ENABLE_FSAFDO = "enable_fsafdo";
 
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
@@ -385,6 +403,15 @@ public class CppRuleClasses {
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
 
+  /**
+   * A string constant for the propeller_optimize_thinlto_compile_actions feature.
+   *
+   * <p>TODO(b/182804945): Remove after making sure that the rollout of the new Propeller profile
+   * passing logic didn't break anything.
+   */
+  public static final String PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS =
+      "propeller_optimize_thinlto_compile_actions";
+
   /** A string constant for the autofdo feature. */
   public static final String AUTOFDO = "autofdo";
 
@@ -443,16 +470,47 @@ public class CppRuleClasses {
    */
   public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
+  /** A feature to indicate whether to generate linkmap. For Apple platform only. */
+  public static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
+
+  /** A feature to indicate whether to do linker deadstrip. For Apple platform only. */
+  public static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
+
+  /**
+   * A feature which indicates that this target is a test (rather than a binary). This can be used
+   * to select test-only options.
+   */
+  public static final String IS_CC_TEST_FEATURE_NAME = "is_cc_test";
+
+  /**
+   * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
+   */
+  public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
+
+  /** Tag used to opt in into interface_deps behavior. */
+  public static final String INTERFACE_DEPS_TAG = "__INTERFACE_DEPS__";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
+    private final boolean addGrepIncludes;
+
+    public CcIncludeScanningRule(boolean addGrepIncludes) {
+      this.addGrepIncludes = addGrepIncludes;
+    }
+
+    public CcIncludeScanningRule() {
+      this(true);
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$grep_includes", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .value(env.getToolsLabel("//tools/cpp:grep-includes")))
-          .build();
+      if (addGrepIncludes) {
+        builder.add(
+            attr("$grep_includes", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(env.getToolsLabel("//tools/cpp:grep-includes")));
+      }
+      return builder.build();
     }
 
     @Override

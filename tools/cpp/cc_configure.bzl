@@ -39,7 +39,6 @@ def cc_autoconf_toolchains_impl(repository_ctx):
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
         "@bazel_tools//tools/osx/crosstool:BUILD.toolchains",
-        "@bazel_tools//tools/osx/crosstool:osx_archs.bzl",
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
     env = repository_ctx.os.environ
@@ -70,7 +69,6 @@ def cc_autoconf_toolchains_impl(repository_ctx):
 
         if should_use_xcode or xcode_toolchains:
             repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:BUILD.toolchains"], "BUILD")
-            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:osx_archs.bzl"], "osx_archs.bzl")
         else:
             _generate_cpp_only_build_file(repository_ctx, cpu_value, paths)
     else:
@@ -116,13 +114,13 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         # container so skipping until we have proper tests for these platforms.
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:bsd_cc_toolchain_config.bzl"], "cc_toolchain_config.bzl")
         repository_ctx.symlink(paths["@bazel_tools//tools/cpp:BUILD.static.bsd"], "BUILD")
-    elif cpu_value == "x64_windows":
+    elif cpu_value in ["x64_windows", "arm64_windows"]:
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
         # We might want to add that to Windows too(at least for msys toolchain).
         configure_windows_toolchain(repository_ctx)
     elif (cpu_value.startswith("darwin") and
           ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-        configure_osx_toolchain(repository_ctx, overriden_tools)
+        configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools)
     else:
         configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
@@ -152,6 +150,7 @@ cc_autoconf = repository_rule(
         "BAZEL_LINKOPTS",
         "BAZEL_LINKLIBS",
         "BAZEL_LLVM_COV",
+        "BAZEL_LLVM_PROFDATA",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",
@@ -187,3 +186,9 @@ def cc_configure():
         # Use register_toolchain's target pattern expansion to register all toolchains in the package.
         "@local_config_cc_toolchains//:all",
     )
+
+def _cc_configure_extension_impl(ctx):
+    cc_autoconf_toolchains(name = "local_config_cc_toolchains")
+    cc_autoconf(name = "local_config_cc")
+
+cc_configure_extension = module_extension(implementation = _cc_configure_extension_impl)

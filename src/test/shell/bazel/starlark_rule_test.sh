@@ -89,4 +89,53 @@ EOF
   expect_log "error executing command.*not_a_command"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/13189
+function test_execute_tool_from_root_package() {
+  cat >BUILD <<'EOF'
+load("foo.bzl", "foo")
+
+foo(
+    name = "x",
+    out = "x.out",
+    tool = "bin.sh",
+)
+
+genrule(
+    name = "y",
+    outs = ["y.out"],
+    cmd = "$(location bin.sh) $@",
+    tools = ["bin.sh"],
+)
+EOF
+
+  cat >foo.bzl << 'EOF'
+def _impl(ctx):
+    ctx.actions.run(
+        outputs = [ctx.outputs.out],
+        executable = ctx.executable.tool,
+        arguments = [ctx.outputs.out.path],
+    )
+    return [DefaultInfo(files = depset([ctx.outputs.out]))]
+
+foo = rule(
+    implementation = _impl,
+    attrs = {
+        "tool": attr.label(allow_single_file = True, executable = True, cfg = "host"),
+        "out": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  cat >bin.sh <<'EOF'
+#!/bin/bash
+echo hello $0 > $1
+EOF
+  chmod +x bin.sh
+
+  # //:x would fail without the bugfix of https://github.com/bazelbuild/bazel/issues/13189
+  bazel build //:x &> $TEST_log || fail "Expected sucesss"
+  bazel build //:y &> $TEST_log || fail "Expected success"
+  rm BUILD bin.sh foo.bzl
+}
+
 run_suite "Starlark rule definition tests"

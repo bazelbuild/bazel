@@ -145,7 +145,7 @@ TEST(PathPosixTest, IsDevNullTest) {
   ASSERT_FALSE(IsDevNull("dev/null"));
   ASSERT_FALSE(IsDevNull("/dev/nul"));
   ASSERT_FALSE(IsDevNull("/dev/nulll"));
-  ASSERT_FALSE(IsDevNull(NULL));
+  ASSERT_FALSE(IsDevNull(nullptr));
   ASSERT_FALSE(IsDevNull(""));
 }
 

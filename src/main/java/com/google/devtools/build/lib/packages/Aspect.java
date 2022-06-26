@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -29,9 +28,9 @@ import java.io.IOException;
 /**
  * An instance of a given {@code AspectClass} with loaded definition and parameters.
  *
- * This is an aspect equivalent of {@link Rule} class for build rules.
+ * <p>This is an aspect equivalent of {@link Rule} class for build rules.
  *
- * Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
+ * <p>Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
  * not be used in SkyKeys.
  */
 @Immutable
@@ -42,39 +41,28 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
    *
    * <p>The native aspects are loaded with blaze and are not stateful. Reference equality works fine
    * in this case.
-   *
-   * <p>Caching of Starlark aspects is not yet implemented.
    */
   private static final LoadingCache<
           NativeAspectClass, LoadingCache<AspectParameters, AspectDefinition>>
       definitionCache =
-          CacheBuilder.newBuilder()
+          Caffeine.newBuilder()
               .build(
-                  CacheLoader.from(
-                      nativeAspectClass ->
-                          CacheBuilder.newBuilder()
-                              .build(
-                                  CacheLoader.from(
-                                      aspectParameters ->
-                                          nativeAspectClass.getDefinition(aspectParameters)))));
+                  nativeAspectClass ->
+                      Caffeine.newBuilder().build(nativeAspectClass::getDefinition));
 
   private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
 
   private Aspect(
-      AspectClass aspectClass,
-      AspectDefinition aspectDefinition,
-      AspectParameters parameters) {
-    this.aspectDescriptor = new AspectDescriptor(
-        Preconditions.checkNotNull(aspectClass),
-        Preconditions.checkNotNull(parameters));
+      AspectClass aspectClass, AspectDefinition aspectDefinition, AspectParameters parameters) {
+    this.aspectDescriptor =
+        new AspectDescriptor(
+            Preconditions.checkNotNull(aspectClass), Preconditions.checkNotNull(parameters));
     this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
   }
 
-  public static Aspect forNative(
-      NativeAspectClass nativeAspectClass, AspectParameters parameters) {
-    AspectDefinition definition =
-        definitionCache.getUnchecked(nativeAspectClass).getUnchecked(parameters);
+  public static Aspect forNative(NativeAspectClass nativeAspectClass, AspectParameters parameters) {
+    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
     return new Aspect(nativeAspectClass, definition, parameters);
   }
 
@@ -89,16 +77,12 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
   }
 
-  /**
-   * Returns the aspectClass required for building the aspect.
-   */
+  /** Returns the aspectClass required for building the aspect. */
   public AspectClass getAspectClass() {
     return aspectDescriptor.getAspectClass();
   }
 
-  /**
-   * Returns parameters for evaluation of the aspect.
-   */
+  /** Returns parameters for evaluation of the aspect. */
   public AspectParameters getParameters() {
     return aspectDescriptor.getParameters();
   }
@@ -123,7 +107,8 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   }
 
   /** {@link ObjectCodec} for {@link Aspect}. */
-  static class AspectCodec implements ObjectCodec<Aspect> {
+  @SuppressWarnings("unused") // Used reflectively.
+  private static final class AspectCodec implements ObjectCodec<Aspect> {
     @Override
     public Class<Aspect> getEncodedClass() {
       return Aspect.class;

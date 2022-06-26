@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -52,7 +52,7 @@ public class AndroidInstrumentationTestBaseRule implements RuleDefinition {
             attr("target_device", LABEL)
                 .mandatory()
                 .exec()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(
                     StarlarkProviderIdentifier.forKey(AndroidDeviceBrokerInfo.PROVIDER.getKey())))
@@ -72,7 +72,7 @@ public class AndroidInstrumentationTestBaseRule implements RuleDefinition {
         .add(
             attr("$test_entry_point", LABEL)
                 .exec()
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(
                     environment.getToolsLabel("//tools/android:instrumentation_test_entry_point")))
         .build();

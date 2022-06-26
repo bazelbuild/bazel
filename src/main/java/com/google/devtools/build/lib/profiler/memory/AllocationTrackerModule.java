@@ -36,7 +36,7 @@ import net.starlark.java.eval.Debug;
  *   <li>--host_jvm_args=-javaagent:(path to Google's java agent jar)
  *       <ul>
  *         <li>For Bazel use <a
- *             href="https://github.com/bazelbuild/bazel/tree/master/third_party/allocation_instrumenter">java-allocation-instrumenter-3.0.1.jar</a>
+ *             href="https://github.com/bazelbuild/bazel/tree/master/third_party/allocation_instrumenter">java-allocation-instrumenter-3.3.0.jar</a>
  *       </ul>
  *   <li>--host_jvm_args=-DRULE_MEMORY_TRACKER=1
  * </ol>

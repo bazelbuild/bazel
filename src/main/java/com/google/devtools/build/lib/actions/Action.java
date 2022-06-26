@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -62,10 +64,10 @@ import javax.annotation.Nullable;
  *   <li>As much as possible, make the cache key computation obvious - fully hash every field
  *       (except input contents, but including input and output names if they appear in the command
  *       line) in the class, and avoid referencing anything that isn't needed for action execution,
- *       such as {@link com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects or
- *       even fragments thereof; if the action has a command line, err on the side of hashing the
- *       entire command line, even if that seems expensive. It's always safe to hash too much - the
- *       negative effect on incremental build times is usually negligible.
+ *       such as {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}
+ *       objects or even fragments thereof; if the action has a command line, err on the side of
+ *       hashing the entire command line, even if that seems expensive. It's always safe to hash too
+ *       much - the negative effect on incremental build times is usually negligible.
  *   <li>Add test coverage for the cache key computation; use {@link
  *       com.google.devtools.build.lib.analysis.util.ActionTester} to generate as many combinations
  *       of field values as possible; add test coverage every time you add another field.
@@ -85,7 +87,11 @@ public interface Action extends ActionExecutionMetadata {
    * @throws IOException if there is an error deleting the outputs.
    * @throws InterruptedException if the execution is interrupted
    */
-  void prepare(Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+  void prepare(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException;
 
   /**
@@ -197,6 +203,18 @@ public interface Action extends ActionExecutionMetadata {
   NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
 
+  /** Prepare for input discovery, called before the first call to {@link #discoverInputs}. */
+  default void prepareInputDiscovery() {}
+
+  /**
+   * Resets this action's inputs to a pre {@linkplain #discoverInputs input discovery} state.
+   *
+   * <p>This may be called on input-discovering actions during non-incremental builds, when it is
+   * not worthwhile to retain the discovered inputs after the action completes execution. It may
+   * still be necessary to rewind the action, so it must retain state necessary for re-execution.
+   */
+  void resetDiscoveredInputs();
+
   /**
    * Returns the set of artifacts that can possibly be inputs. It will be called iff {@link
    * #inputsDiscovered()} is false for the given action instance and there is a related cache entry
@@ -231,4 +249,17 @@ public interface Action extends ActionExecutionMetadata {
    */
   ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException;
+
+  /**
+   * Called by {@link com.google.devtools.build.lib.analysis.actions.StarlarkAction} in {@link
+   * #beginExecution} to use its shadowed action, if any, complete list of environment variables in
+   * the Starlark action Spawn.
+   *
+   * <p>As this method is called from the StarlarkAction, make sure it is ok to call it from a
+   * different thread than the one this action is executed on. By definition, the method should not
+   * mutate any of the called action data but if necessary, its implementation must synchronize any
+   * accesses to mutable data.
+   */
+  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException;
 }

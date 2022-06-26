@@ -71,6 +71,7 @@ import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesug
 import com.google.devtools.build.android.desugar.typeannotation.LocalTypeAnnotationUse;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
 import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchyScavenger;
+import com.google.devtools.build.android.r8.DependencyCollector;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOError;
@@ -416,7 +417,7 @@ public class Desugar {
                 .getConstructor(Boolean.TYPE)
                 .newInstance(options.tolerateMissingDependencies);
       } catch (ReflectiveOperationException | SecurityException e) {
-        throw new IllegalStateException("Can't emit desugaring metadata as requested");
+        throw new IllegalStateException("Can't emit desugaring metadata as requested", e);
       }
     } else if (options.tolerateMissingDependencies) {
       return DependencyCollector.NoWriteCollectors.NOOP;
@@ -455,7 +456,8 @@ public class Desugar {
         type -> resourceBasedClassFiles.getContent(type).sink(outputFileProvider));
 
     // 3. See if we need to copy StringConcats methods for Indify string desugaring.
-    if (classMemberUseCounter.getMemberUseCount(INVOKE_JDK11_STRING_CONCAT) > 0) {
+    if (!options.coreLibrary
+        && classMemberUseCounter.getMemberUseCount(INVOKE_JDK11_STRING_CONCAT) > 0) {
       String resourceName = "com/google/devtools/build/android/desugar/runtime/StringConcats.class";
       try (InputStream stream = Resources.getResource(resourceName).openStream()) {
         outputFileProvider.write(resourceName, ByteStreams.toByteArray(stream));
@@ -789,7 +791,13 @@ public class Desugar {
     // instructions in generated lambda classes (checkState below will fail)
     visitor =
         new LambdaDesugaring(
-            visitor, loader, lambdas, null, ImmutableSet.of(), allowDefaultMethods);
+            visitor,
+            loader,
+            lambdas,
+            null,
+            ImmutableSet.of(),
+            classAttributeRecord,
+            allowDefaultMethods);
     return visitor;
   }
 
@@ -871,6 +879,7 @@ public class Desugar {
                 lambdas,
                 interfaceLambdaMethodCollector,
                 methodsUsedInInvokeDynamics,
+                classAttributeRecord,
                 allowDefaultMethods);
       }
     }
@@ -880,7 +889,7 @@ public class Desugar {
     }
 
     if (options.desugarIndifyStringConcat) {
-      visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor);
+      visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor, options.coreLibrary);
     }
 
     visitor = new LocalTypeAnnotationUse(visitor);

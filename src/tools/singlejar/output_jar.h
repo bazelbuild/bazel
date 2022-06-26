@@ -96,15 +96,17 @@ class OutputJar {
   // Set classpath resource with given resource name and path.
   void ClasspathResource(const std::string& resource_name,
                          const std::string& resource_path);
-  // Append CDS archive file.
-  void AppendCDSArchive(const std::string &cds_archive);
+  // Append file starting at page boundary.
+  off64_t PageAlignedAppendFile(const std::string &file_path);
+  void AppendPageAlignedFile(const std::string &file,
+                             const std::string &manifest_attr_name,
+                             const std::string &property_name);
   // Append data from the file specified by file_path.
   void AppendFile(Options *options, const char *const file_path);
   // Copy 'count' bytes starting at 'offset' from the given file.
   ssize_t CopyAppendData(int in_fd, off64_t offset, size_t count);
   // Write bytes to the output file, return true on success.
   bool WriteBytes(const void *buffer, size_t count);
-
 
   Options *options_;
   struct EntryInfo {
@@ -126,7 +128,7 @@ class OutputJar {
   Concatenator spring_handlers_;
   Concatenator spring_schemas_;
   Concatenator protobuf_meta_handler_;
-  Concatenator manifest_;
+  ManifestCombiner manifest_;
   PropertyCombiner build_properties_;
   NullCombiner null_combiner_;
   std::vector<std::unique_ptr<Concatenator> > service_handlers_;

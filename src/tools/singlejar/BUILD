@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 load("//src:release_archive.bzl", "release_archive")
 
 # Description:
@@ -118,11 +117,15 @@ cc_test(
         ":zip_headers",
         ":zlib_interface",
     ],
+    data = [
+        "data/multi_release.jar",
+    ],
     # Requires at least 5 GiB of memory
     exec_compatible_with = ["//:highcpu_machine"],
     deps = [
         ":combiners",
         ":input_jar",
+        ":test_util",
         "//third_party/zlib",
         "@com_google_googletest//:gtest_main",
     ],
@@ -534,21 +537,4 @@ genrule(
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = ["@bazel_tools//tools/jdk:current_java_runtime"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
 )

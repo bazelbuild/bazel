@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
@@ -47,13 +47,14 @@ public class WorkerMultiplexerManager {
    */
   public static synchronized WorkerMultiplexer getInstance(WorkerKey key, Path logFile) {
     InstanceInfo instanceInfo =
-        multiplexerInstance.computeIfAbsent(key, k -> new InstanceInfo(logFile, k));
+        multiplexerInstance.computeIfAbsent(
+            key, k -> new InstanceInfo(new WorkerMultiplexer(logFile, k)));
     instanceInfo.increaseRefCount();
     return instanceInfo.getWorkerMultiplexer();
   }
 
-  static void beforeCommand(CommandEnvironment env) {
-    setReporter(env.getReporter());
+  static void beforeCommand(Reporter reporter) {
+    setReporter(reporter);
   }
 
   static void afterCommand() {
@@ -75,7 +76,8 @@ public class WorkerMultiplexerManager {
     InstanceInfo instanceInfo = multiplexerInstance.get(key);
     if (instanceInfo == null) {
       throw createUserExecException(
-          "Attempting to remove non-existent multiplexer instance.",
+          String.format(
+              "Attempting to remove non-existent %s multiplexer instance.", key.getMnemonic()),
           Code.MULTIPLEXER_INSTANCE_REMOVAL_FAILURE);
     }
     instanceInfo.decreaseRefCount();
@@ -123,8 +125,8 @@ public class WorkerMultiplexerManager {
     private final WorkerMultiplexer workerMultiplexer;
     private Integer refCount;
 
-    public InstanceInfo(Path logFile, WorkerKey workerKey) {
-      this.workerMultiplexer = new WorkerMultiplexer(logFile, workerKey);
+    public InstanceInfo(WorkerMultiplexer workerMultiplexer) {
+      this.workerMultiplexer = workerMultiplexer;
       this.refCount = 0;
     }
 
@@ -147,7 +149,16 @@ public class WorkerMultiplexerManager {
 
   /** Resets the instances. For testing only. */
   @VisibleForTesting
-  static void reset() {
+  static void resetForTesting() {
+    for (InstanceInfo i : multiplexerInstance.values()) {
+      i.workerMultiplexer.destroyMultiplexer();
+    }
     multiplexerInstance.clear();
+  }
+
+  /** Injects a given WorkerMultiplexer into the instance map with refcount 0. For testing only. */
+  @VisibleForTesting
+  static synchronized void injectForTesting(WorkerKey key, WorkerMultiplexer multiplexer) {
+    multiplexerInstance.put(key, new InstanceInfo(multiplexer));
   }
 }

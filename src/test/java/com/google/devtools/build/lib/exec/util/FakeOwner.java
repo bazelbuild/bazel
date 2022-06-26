@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -140,7 +141,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public Collection<String> getClientEnvironmentVariables() {
     throw new UnsupportedOperationException();
   }
 
@@ -173,7 +174,7 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public String prettyPrint() {
-    throw new UnsupportedOperationException();
+    return "action '" + describe() + "'";
   }
 
   @Override

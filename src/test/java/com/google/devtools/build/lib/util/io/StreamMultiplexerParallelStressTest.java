@@ -96,7 +96,8 @@ public class StreamMultiplexerParallelStressTest {
           case 4:
             out = streams[random.nextInt(3)];
             break;
-          }
+          default: // fall out
+        }
       }
       return null;
     }

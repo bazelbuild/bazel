@@ -548,7 +548,7 @@ Hello, World!
 EOF
 
   bazel build //a:a >& $TEST_log && fail "build succeeded"
-  expect_log "failed to create symbolic link 'a/a.link': file 'a/foo.txt' is not executable"
+  expect_log "failed to create symbolic link 'bazel-out/[^/]*/bin/a/a.link': file 'a/foo.txt' is not executable"
 }
 
 function test_symlink_cycle() {
@@ -582,6 +582,23 @@ EOF
 
   bazel build //a:a >& $TEST_log && fail "build succeeded"
   expect_log "cycle in dependency graph"
+}
+
+function test_unresolved_symlink_in_exec_cfg() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="non/existent")
+genrule(
+    name = "exec",
+    srcs = [],
+    outs = ["out"],
+    cmd = "touch $@",
+    exec_tools = [":a"],
+)
+EOF
+
+  bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:exec || fail "build failed"
 }
 
 run_suite "Tests for symlink artifacts"

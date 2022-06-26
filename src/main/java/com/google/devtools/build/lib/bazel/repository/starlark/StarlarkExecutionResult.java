@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkExecutionResultApi;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -34,7 +34,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A structure callable from Starlark that stores the result of repository_ctx.execute() method. It
@@ -42,7 +45,14 @@ import net.starlark.java.eval.EvalException;
  * return code.
  */
 @Immutable
-final class StarlarkExecutionResult implements StarlarkExecutionResultApi {
+@StarlarkBuiltin(
+    name = "exec_result",
+    category = DocCategory.BUILTIN,
+    doc =
+        "A structure storing result of repository_ctx.execute() method. It contains the standard"
+            + " output stream content, the standard error stream content and the execution return"
+            + " code.")
+final class StarlarkExecutionResult implements StarlarkValue {
   private final int returnCode;
   private final String stdout;
   private final String stderr;
@@ -58,17 +68,29 @@ final class StarlarkExecutionResult implements StarlarkExecutionResultApi {
     return true; // immutable and Starlark-hashable
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "return_code",
+      structField = true,
+      doc =
+          "The return code returned after the execution of the program. 256 if the process was"
+              + " terminated by a time out; values larger than 128 indicate termination by a"
+              + " signal.")
   public int getReturnCode() {
     return returnCode;
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "stdout",
+      structField = true,
+      doc = "The content of the standard output returned by the execution.")
   public String getStdout() {
     return stdout;
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "stderr",
+      structField = true,
+      doc = "The content of the standard error output returned by the execution.")
   public String getStderr() {
     return stderr;
   }

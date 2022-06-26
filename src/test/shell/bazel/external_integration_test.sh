@@ -205,6 +205,22 @@ function test_http_archive_tar_xz() {
   http_archive_helper tar_xz_up
 }
 
+function test_http_archive_tar_zstd() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'test_zstd_repo',
+    url = 'file://$(rlocation io_bazel/src/test/shell/bazel/testdata/zstd_test_archive.tar.zst)',
+    sha256 = '12b0116f2a3c804859438e102a8a1d5f494c108d1b026da9f6ca55fb5107c7e9',
+    build_file_content = 'filegroup(name="x", srcs=glob(["*"]))',
+)
+EOF
+  bazel build @test_zstd_repo//...
+
+  base_external_path=bazel-out/../external/test_zstd_repo
+  assert_contains "test content" "${base_external_path}/test_dir/test_file"
+}
+
 function test_http_archive_no_server() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -311,7 +327,7 @@ function test_jar_download() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
-         sha256='$sha256')
+         sha256='$sha256', downloaded_file_name="foo.jar")
 EOF
 
   mkdir -p zoo
@@ -337,6 +353,9 @@ EOF
   bazel run //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
+  output_base=$(bazel info output_base)
+  jar_dir=$output_base/external/endangered/jar
+  [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
 function test_http_to_https_redirect() {
@@ -937,7 +956,76 @@ EOF
   shutdown_server
 }
 
+function test_integrity_correct() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  create_workspace_with_default_repos WORKSPACE
+  touch BUILD
+  zip -r repo.zip *
+  integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+  startup_server $PWD
+  cd -
 
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "$integrity",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... || fail "Expected integrity check to succeed"
+  shutdown_server
+}
+
+function test_integrity_weird() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  create_workspace_with_default_repos WORKSPACE
+  touch BUILD
+  zip -r repo.zip *
+  startup_server $PWD
+  cd -
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "a random string",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Unsupported checksum algorithm: 'a random string'"
+  shutdown_server
+}
+
+function test_integrity_incorrect() {
+  REPO_PATH=$TEST_TMPDIR/repo
+  mkdir -p "$REPO_PATH"
+  cd "$REPO_PATH"
+  create_workspace_with_default_repos WORKSPACE
+  touch BUILD
+  zip -r repo.zip *
+  startup_server $PWD
+  cd -
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538LA=",
+    url = "http://127.0.0.1:$fileserver_port/repo.zip",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
+  # Bazel translates the integrity value back to the sha256 checksum.
+  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+  shutdown_server
+}
 
 function test_same_name() {
   mkdir ext
@@ -2057,7 +2145,6 @@ EOF
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
   expect_log '@ext.*badargument'
-  expect_log 'SHA256 (.*/ext.tar) = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 }
 
 function test_prefix_suggestions() {

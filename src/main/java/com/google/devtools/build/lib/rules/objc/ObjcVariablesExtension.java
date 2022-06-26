@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -36,7 +36,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   static final String PCH_FILE_VARIABLE_NAME = "pch_file";
   static final String FRAMEWORKS_PATH_NAME = "framework_paths";
-  static final String MODULES_MAPS_DIR_NAME = "module_maps_dir";
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
   static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
   static final String OBJ_LIST_PATH_VARIABLE_NAME = "obj_list_path";
@@ -67,10 +66,9 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private final RuleContext ruleContext;
   private final ObjcProvider objcProvider;
-  private final CompilationArtifacts compilationArtifacts;
   private final Artifact fullyLinkArchive;
   private final IntermediateArtifacts intermediateArtifacts;
-  private final BuildConfiguration buildConfiguration;
+  private final BuildConfigurationValue buildConfiguration;
   private final ImmutableList<String> frameworkSearchPaths;
   private final Set<String> frameworkNames;
   private final ImmutableList<String> libraryNames;
@@ -85,10 +83,9 @@ class ObjcVariablesExtension implements VariablesExtension {
   private ObjcVariablesExtension(
       RuleContext ruleContext,
       ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts,
       Artifact fullyLinkArchive,
       IntermediateArtifacts intermediateArtifacts,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
       ImmutableList<String> frameworkSearchPaths,
       Set<String> frameworkNames,
       ImmutableList<String> libraryNames,
@@ -101,7 +98,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       boolean arcEnabled) {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
-    this.compilationArtifacts = compilationArtifacts;
     this.fullyLinkArchive = fullyLinkArchive;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
@@ -124,13 +120,16 @@ class ObjcVariablesExtension implements VariablesExtension {
     EXECUTABLE_LINKING_VARIABLES,
     DSYM_VARIABLES,
     LINKMAP_VARIABLES,
-    BITCODE_VARIABLES
+    BITCODE_VARIABLES,
+    MODULE_MAP_VARIABLES
   }
 
   @Override
   public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
-    addModuleMapVariables(builder);
+    if (activeVariableCategories.contains(VariableCategory.MODULE_MAP_VARIABLES)) {
+      addModuleMapVariables(builder);
+    }
     if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
       addArchiveVariables(builder);
     }
@@ -166,14 +165,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
     builder.addStringVariable(
-        MODULES_MAPS_DIR_NAME,
-        intermediateArtifacts
-            .moduleMap()
-            .getArtifact()
-            .getExecPath()
-            .getParentDirectory()
-            .toString());
-    builder.addStringVariable(
         OBJC_MODULE_CACHE_KEY,
         buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
             + "/"
@@ -184,8 +175,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringVariable(
         OBJ_LIST_PATH_VARIABLE_NAME,
         intermediateArtifacts.archiveObjList().getExecPathString());
-    builder.addStringVariable(
-        ARCHIVE_PATH_VARIABLE_NAME, compilationArtifacts.getArchive().get().getExecPathString());
   }
 
   private void addFullyLinkArchiveVariables(CcToolchainVariables.Builder builder) {
@@ -217,7 +206,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
     builder.addStringSequenceVariable(
         WEAK_FRAMEWORK_NAMES_VARIABLE_NAME,
-            SdkFramework.names(objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK)));
+        objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK).toList());
     builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
     builder.addStringVariable(
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
@@ -255,10 +244,9 @@ class ObjcVariablesExtension implements VariablesExtension {
   static class Builder {
     private RuleContext ruleContext;
     private ObjcProvider objcProvider;
-    private CompilationArtifacts compilationArtifacts;
     private Artifact fullyLinkArchive;
     private IntermediateArtifacts intermediateArtifacts;
-    private BuildConfiguration buildConfiguration;
+    private BuildConfigurationValue buildConfiguration;
     private ImmutableList<String> frameworkSearchPaths;
     private Set<String> frameworkNames;
     private ImmutableSet<Artifact> forceLoadArtifacts;
@@ -284,12 +272,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       return this;
     }
 
-    /** Sets the {@link CompilationArtifacts} for this extension. */
-    public Builder setCompilationArtifacts(CompilationArtifacts compilationArtifacts) {
-      this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
-      return this;
-    }
-
     /** Sets the output of the fully link action. */
     public Builder setFullyLinkArchive(Artifact fullyLinkArchive) {
       this.fullyLinkArchive = Preconditions.checkNotNull(fullyLinkArchive);
@@ -303,7 +285,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
 
     /** Sets the configuration for this extension. */
-    public Builder setConfiguration(BuildConfiguration buildConfiguration) {
+    public Builder setConfiguration(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
       return this;
     }
@@ -374,11 +356,8 @@ class ObjcVariablesExtension implements VariablesExtension {
           activeVariableCategoriesBuilder.build();
 
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
-      Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
+      Preconditions.checkNotNull(buildConfiguration, "missing BuildConfigurationValue");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
-      if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
-        Preconditions.checkNotNull(compilationArtifacts, "missing CompilationArtifacts");
-      }
       if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
         Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
         Preconditions.checkNotNull(fullyLinkArchive, "missing fully-link archive");
@@ -404,7 +383,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       return new ObjcVariablesExtension(
           ruleContext,
           objcProvider,
-          compilationArtifacts,
           fullyLinkArchive,
           intermediateArtifacts,
           buildConfiguration,

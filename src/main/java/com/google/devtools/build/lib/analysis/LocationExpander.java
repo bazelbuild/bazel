@@ -28,7 +28,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -68,13 +68,13 @@ public final class LocationExpander {
 
   private final RuleErrorConsumer ruleErrorConsumer;
   private final ImmutableMap<String, LocationFunction> functions;
-  private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private final RepositoryMapping repositoryMapping;
 
   @VisibleForTesting
   LocationExpander(
       RuleErrorConsumer ruleErrorConsumer,
       Map<String, LocationFunction> functions,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.functions = ImmutableMap.copyOf(functions);
     this.repositoryMapping = repositoryMapping;
@@ -86,7 +86,7 @@ public final class LocationExpander {
       Supplier<Map<Label, Collection<Artifact>>> locationMap,
       boolean execPaths,
       boolean legacyExternalRunfiles,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     this(
         ruleErrorConsumer,
         allLocationFunctions(root, locationMap, execPaths, legacyExternalRunfiles),
@@ -113,7 +113,7 @@ public final class LocationExpander {
         ruleContext.getLabel(),
         // Use a memoizing supplier to avoid eagerly building the location map.
         Suppliers.memoize(
-            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData)),
+            () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, true)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
         ruleContext.getRule().getPackage().getRepositoryMapping());
@@ -163,19 +163,6 @@ public final class LocationExpander {
     return expand(input, new RuleErrorReporter(ruleErrorConsumer));
   }
 
-  /**
-   * Expands attribute's location and locations tags based on the target and
-   * location map.
-   *
-   * @param attrName  name of the attribute; only used for error reporting
-   * @param attrValue initial value of the attribute
-   * @return attribute value with expanded location tags or original value in
-   *         case of errors
-   */
-  public String expandAttribute(String attrName, String attrValue) {
-    return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
-  }
-
   private String expand(String value, ErrorReporter reporter) {
     int restart = 0;
 
@@ -207,8 +194,7 @@ public final class LocationExpander {
       if (end == -1) {
         reporter.report(
             String.format(
-                "unterminated $(%s) expression",
-                value.substring(start + 2, nextWhitespace)));
+                "unterminated $(%s) expression", value.substring(start + 2, nextWhitespace)));
         return value;
       }
 
@@ -226,6 +212,19 @@ public final class LocationExpander {
     }
 
     return result.toString();
+  }
+
+  /**
+   * Expands attribute's location and locations tags based on the target and
+   * location map.
+   *
+   * @param attrName  name of the attribute; only used for error reporting
+   * @param attrValue initial value of the attribute
+   * @return attribute value with expanded location tags or original value in
+   *         case of errors
+   */
+  public String expandAttribute(String attrName, String attrValue) {
+    return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
   @VisibleForTesting
@@ -260,8 +259,7 @@ public final class LocationExpander {
      * @param repositoryMapping map of {@code RepositoryName}s defined in the main workspace
      * @return The expanded value
      */
-    public String apply(
-        String arg, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+    public String apply(String arg, RepositoryMapping repositoryMapping) {
       Label label;
       try {
         label = root.getRelativeWithRemapping(arg, repositoryMapping);
@@ -368,7 +366,7 @@ public final class LocationExpander {
             "execpaths",
             new LocationFunction(
                 root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
-        .build();
+        .buildOrThrow();
   }
 
   /**
@@ -381,7 +379,8 @@ public final class LocationExpander {
   static Map<Label, Collection<Artifact>> buildLocationMap(
       RuleContext ruleContext,
       Map<Label, ? extends Collection<Artifact>> labelMap,
-      boolean allowDataAttributeEntriesInLabel) {
+      boolean allowDataAttributeEntriesInLabel,
+      boolean collectSrcs) {
     Map<Label, Collection<Artifact>> locationMap = Maps.newHashMap();
     if (labelMap != null) {
       for (Map.Entry<Label, ? extends Collection<Artifact>> entry : labelMap.entrySet()) {
@@ -400,7 +399,7 @@ public final class LocationExpander {
       }
     }
 
-    if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
+    if (collectSrcs && ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection src :
           ruleContext.getPrerequisitesIf("srcs", FileProvider.class)) {
         for (Label label : AliasProvider.getDependencyLabels(src)) {

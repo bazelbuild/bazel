@@ -13,7 +13,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
     ],
@@ -44,6 +44,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:statically_linked_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/common",
@@ -54,6 +55,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -75,6 +77,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:test_rules",
         "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
@@ -87,6 +92,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto",
@@ -120,13 +126,15 @@ genrule(
 # 1. bazel build tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_zip
 # 2. Copy and rename the zip file with a new version locally.
 # 3. Upload the file under https://mirror.bazel.build/bazel_coverage_output_generator/releases.
-# 4. Update //distdir_deps.bzl to point to the new release.
+# 4. Update //distdir_deps.bzl and //tools/test/extensions.bzl to point to the new release.
 gen_workspace_stanza(
     name = "workspace_with_coverage_output_generator",
     out = "coverage.WORKSPACE",
     preamble = """
         load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+        load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
     """,
     repos = ["remote_coverage_tools"],
+    use_maybe = 1,
     visibility = ["//:__pkg__"],
 )

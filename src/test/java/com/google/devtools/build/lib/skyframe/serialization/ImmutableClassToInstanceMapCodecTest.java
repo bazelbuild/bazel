@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
@@ -80,13 +79,14 @@ public class ImmutableClassToInstanceMapCodecTest {
             .build();
     ByteString data =
         TestUtils.toBytes(
-            new SerializationContext(registry, ImmutableMap.of()),
+            new SerializationContext(registry, ImmutableClassToInstanceMap.of()),
             ImmutableClassToInstanceMap.of(Dummy.class, new Dummy()));
     SerializationException expected =
         assertThrows(
             SerializationException.class,
             () ->
-                TestUtils.fromBytes(new DeserializationContext(registry, ImmutableMap.of()), data));
+                TestUtils.fromBytes(
+                    new DeserializationContext(registry, ImmutableClassToInstanceMap.of()), data));
     assertThat(expected)
         .hasMessageThat()
         .containsMatch("Exception while deserializing value for key 'class .*\\$Dummy'");

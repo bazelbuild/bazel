@@ -14,30 +14,27 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
-/**
- * Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}.
- */
-public final class AnalysisResult {
+/** Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}. */
+public class AnalysisResult {
   private final BuildConfigurationCollection configurations;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
-  @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
+  @Nullable private final ImmutableSet<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final FailureDetail failureDetail;
   private final ActionGraph actionGraph;
-  private final ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels;
+  private final ImmutableSet<Artifact> artifactsToBuild;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
@@ -45,24 +42,22 @@ public final class AnalysisResult {
   private final PackageRoots packageRoots;
   private final String workspaceName;
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
-  private final ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot;
 
   AnalysisResult(
       BuildConfigurationCollection configurations,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
+      @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable FailureDetail failureDetail,
       ActionGraph actionGraph,
-      ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
+      ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configurations = configurations;
     this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
@@ -70,14 +65,13 @@ public final class AnalysisResult {
     this.targetsToSkip = targetsToSkip;
     this.failureDetail = failureDetail;
     this.actionGraph = actionGraph;
-    this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
+    this.artifactsToBuild = artifactsToBuild;
     this.parallelTests = parallelTests;
     this.exclusiveTests = exclusiveTests;
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
-    this.nonSymlinkedDirectoriesUnderExecRoot = nonSymlinkedDirectoriesUnderExecRoot;
   }
 
   public BuildConfigurationCollection getConfigurationCollection() {
@@ -106,7 +100,7 @@ public final class AnalysisResult {
    * (e.g. "build" command rather than "test" command).
    */
   @Nullable
-  public ImmutableList<ConfiguredTarget> getTargetsToTest() {
+  public ImmutableSet<ConfiguredTarget> getTargetsToTest() {
     return targetsToTest;
   }
 
@@ -120,8 +114,8 @@ public final class AnalysisResult {
     return targetsToSkip;
   }
 
-  public ArtifactsToOwnerLabels getTopLevelArtifactsToOwnerLabels() {
-    return topLevelArtifactsToOwnerLabels;
+  public ImmutableSet<Artifact> getArtifactsToBuild() {
+    return artifactsToBuild;
   }
 
   public ImmutableSet<ConfiguredTarget> getExclusiveTests() {
@@ -161,10 +155,6 @@ public final class AnalysisResult {
     return topLevelTargetsWithConfigs;
   }
 
-  public ImmutableSortedSet<String> getNonSymlinkedDirectoriesUnderExecRoot() {
-    return nonSymlinkedDirectoriesUnderExecRoot;
-  }
-
   /**
    * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
    * tests.
@@ -178,13 +168,12 @@ public final class AnalysisResult {
         targetsToSkip,
         failureDetail,
         actionGraph,
-        topLevelArtifactsToOwnerLabels,
+        artifactsToBuild,
         Sets.union(parallelTests, exclusiveTests).immutableCopy(),
         /*exclusiveTests=*/ ImmutableSet.of(),
         topLevelContext,
         packageRoots,
         workspaceName,
-        topLevelTargetsWithConfigs,
-        nonSymlinkedDirectoriesUnderExecRoot);
+        topLevelTargetsWithConfigs);
   }
 }

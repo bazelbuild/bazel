@@ -17,9 +17,12 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -32,10 +35,34 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
     extends StarlarkValue {
 
   @StarlarkMethod(
+      name = "experimental_link_static_libraries_once",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_enable_target_export_check",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_cc_shared_library_debug",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_platform_cc_test",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "copts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--copt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--copt}\">"
               + "<code>--copt</code></a> option.")
   ImmutableList<String> getCopts() throws EvalException;
 
@@ -43,7 +70,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "cxxopts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--cxxopt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--cxxopt}\">"
               + "<code>--cxxopt</code></a> option.")
   ImmutableList<String> getCxxopts() throws EvalException;
 
@@ -51,23 +78,32 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       name = "conlyopts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--conlyopt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--conlyopt}\">"
               + "<code>--conlyopt</code></a> option.")
   ImmutableList<String> getConlyopts() throws EvalException;
+
+  @StarlarkMethod(
+      name = "objccopts",
+      structField = true,
+      doc =
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--objccopt}\">"
+              + "<code>--objccopt</code></a> option.")
+  ImmutableList<String> getObjcopts() throws EvalException;
 
   @StarlarkMethod(
       name = "linkopts",
       structField = true,
       doc =
-          "The flags passed to Bazel by <a href=\"../../user-manual.html#flag--linkopt\">"
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--linkopt}\">"
               + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
 
   @StarlarkMethod(
       name = "custom_malloc",
+      allowReturnNones = true,
       structField = true,
       doc =
-          "Returns label pointed to by <a href=\"../../user-manual.html#flag--custom_malloc\">"
+          "Returns label pointed to by <a href=\"${link user-manual#flag--custom_malloc}\">"
               + "<code>--custom_malloc</code></a> option. Can be accessed with"
               + " <a href=\"globals.html#configuration_field\"><code>configuration_field"
               + "</code></a>:<br/>"
@@ -77,6 +113,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "        name = \"custom_malloc\"<br/>"
               + "    )<br/>"
               + ")</pre>")
+  @Nullable
   Label customMalloc();
 
   @StarlarkMethod(
@@ -111,4 +148,54 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       useStarlarkThread = true)
   boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "apple_bitcode_mode",
+      doc =
+          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
+              + " Apple, and only for device builds; for simulator builds, it always returns "
+              + "<code>'none'</code>.",
+      structField = true)
+  AppleBitcodeModeApi getAppleBitcodeMode();
+
+  @StarlarkMethod(
+      name = "apple_generate_dsym",
+      doc = "Whether to generate Apple debug symbol(.dSYM) artifacts.",
+      structField = true)
+  boolean appleGenerateDsym();
+
+  @StarlarkMethod(
+      name = "objc_generate_linkmap",
+      doc = "(Apple-only) Whether to generate linkmap artifacts.",
+      structField = true)
+  boolean objcGenerateLinkmap();
+
+  @StarlarkMethod(
+      name = "objc_should_strip_binary",
+      structField = true,
+      doc = "(Apple-only) whether to perform symbol and dead-code strippings on linked binaries.")
+  boolean objcShouldStripBinary();
+
+  @StarlarkMethod(name = "strip_opts", documented = false, useStarlarkThread = true)
+  Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "incompatible_enable_cc_test_feature",
+      documented = false,
+      useStarlarkThread = true)
+  boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "build_test_dwp", documented = false, useStarlarkThread = true)
+  boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "grte_top",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "share_native_deps", documented = false, useStarlarkThread = true)
+  boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException;
 }

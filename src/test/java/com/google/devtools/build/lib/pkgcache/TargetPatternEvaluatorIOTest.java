@@ -13,40 +13,48 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryContentInfo;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** TargetPatternEvaluator tests that require a custom filesystem. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluatorTest {
   private static class Transformer {
     @SuppressWarnings("unused")
     @Nullable
-    public FileStatus stat(FileStatus stat, Path path, boolean followSymlinks) throws IOException {
+    public FileStatus stat(FileStatus stat, PathFragment path, boolean followSymlinks)
+        throws IOException {
       return stat;
     }
 
     @SuppressWarnings("unused")
     @Nullable
-    public Collection<Dirent> readdir(Collection<Dirent> readdir, Path path, boolean followSymlinks)
-        throws IOException {
+    public Collection<Dirent> readdir(
+        Collection<Dirent> readdir, PathFragment path, boolean followSymlinks) throws IOException {
       return readdir;
     }
   }
@@ -57,20 +65,20 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
-      public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
         FileStatus defaultResult = super.stat(path, followSymlinks);
         return transformer.stat(defaultResult, path, followSymlinks);
       }
 
       @Nullable
       @Override
-      public FileStatus statIfFound(Path path, boolean followSymlinks) {
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
         return statNullable(path, followSymlinks);
       }
 
       @Nullable
       @Override
-      public FileStatus statNullable(Path path, boolean followSymlinks) {
+      public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
         FileStatus defaultResult = super.statNullable(path, followSymlinks);
         try {
           return transformer.stat(defaultResult, path, followSymlinks);
@@ -80,7 +88,8 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
       }
 
       @Override
-      protected Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+      protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+          throws IOException {
         Collection<Dirent> defaultResult = super.readdir(path, followSymlinks);
         return transformer.readdir(defaultResult, path, followSymlinks);
       }
@@ -88,46 +97,62 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
   }
 
   /**
-   * Test that a child with an inconsistent stat (first a directory, then not) does not prevent
-   * evaluation of the remaining packages beneath a directory and the return of a partial result.
+   * Tests that a child with an inconsistent stat (first a directory, then not) is handled properly.
+   * Even keep-going mode aborts eagerly in the face of inconsistent stats.
    */
   @Test
-  public void testBadStatKeepGoing() throws Exception {
+  public void testBadStat(@TestParameter boolean keepGoing) throws Exception {
     reporter.removeHandler(failFastHandler);
-    getSkyframeExecutor().turnOffSyscallCacheForTesting();
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",
-    FileSystemUtils.createDirectoryAndParents(parent.getRelative("badstat"));
+    parent.getRelative("badstat").createDirectoryAndParents();
 
     // Such that badstat first reports that it is a directory, and then reports that it isn't,
     this.transformer = createInconsistentFileStateTransformer("parent/badstat");
 
-    // When we find all the targets beneath parent in keep_going mode, we get the valid target
-    // parent:parent, even though processing badstat threw an InconsistentFilesystemException,
-    Truth.assertThat(parseListKeepGoing("//parent/...").getFirst())
-        .containsExactlyElementsIn(labels("//parent:parent"));
-
-    // And the TargetPatternEvaluator reported the expected ERROR event to the handler.
-    assertContainsEvent(
-        "Failed to get information about path, for parent/badstat, skipping: Inconsistent "
-            + "filesystem operations",
-        ImmutableSet.of(EventKind.ERROR));
+    TargetParsingException e =
+        assertThrows(
+            TargetParsingException.class,
+            () ->
+                parseTargetPatternList(
+                    parser, reporter, ImmutableList.of("//parent/..."), keepGoing));
+    assertThat(e).hasMessageThat().contains("Inconsistent filesystem operations");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   /**
-   * Test that a package subdirectory that throws an IOException when it is listed via readdir
-   * does not prevent evaluation of the remaining packages beneath a directory and the return of
-   * a partial result.
+   * Tests that a child with an inconsistent stat (first a directory, then not) is handled properly
+   * when given a path-as-target. Even keep-going mode aborts eagerly in the face of inconsistent
+   * stats.
+   */
+  @Test
+  public void testBadStatPathAsTarget(@TestParameter boolean keepGoing) throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
+    delegatingSyscallCache.setDelegate(TestUtils.makeDisappearingFileCache("parent/BUILD"));
+    TargetParsingException e =
+        assertThrows(
+            TargetParsingException.class,
+            () -> parseTargetPatternList(parser, reporter, ImmutableList.of("parent"), keepGoing));
+    assertThat(e).hasMessageThat().contains("Inconsistent filesystem operations");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+  }
+
+  /**
+   * Tests that a package subdirectory that throws an IOException when it is listed via readdir does
+   * not prevent evaluation of the remaining packages beneath a directory and the return of a
+   * partial result.
    */
   @Test
   public void testBadReaddirKeepGoing() throws Exception {
     reporter.removeHandler(failFastHandler);
-    skyframeExecutor.turnOffSyscallCacheForTesting();
     // Given a package, "parent",
     Path parent = scratch.file("parent/BUILD", "sh_library(name = 'parent')").getParentDirectory();
     // And a child, "badstat",
-    FileSystemUtils.createDirectoryAndParents(parent.getRelative("badstat"));
+    parent.getRelative("badstat").createDirectoryAndParents();
 
     // Such that badstat reports that it is a directory, but throws an error when its Dirents are
     // collected,
@@ -135,7 +160,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
 
     // When we find all the targets beneath parent in keep_going mode, we get the valid target
     // parent:parent, even though processing badstat threw an IOException,
-    Truth.assertThat(parseListKeepGoing("//parent/...").getFirst())
+    assertThat(parseListKeepGoing("//parent/...").getFirst())
         .containsExactlyElementsIn(labels("//parent:parent"));
 
     // And the TargetPatternEvaluator reported the expected ERROR event to the handler.
@@ -150,8 +175,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     return new Transformer() {
       @Nullable
       @Override
-      public FileStatus stat(final FileStatus stat, Path path, boolean followSymlinks)
-          throws IOException {
+      public FileStatus stat(final FileStatus stat, PathFragment path, boolean followSymlinks) {
         if (path.getPathString().endsWith(badPathSuffix)) {
           return new InMemoryContentInfo(BlazeClock.instance()) {
             @Override
@@ -176,7 +200,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
             }
 
             @Override
-            public long getSize()  {
+            public long getSize() {
               try {
                 return stat.getSize();
               } catch (IOException e) {
@@ -221,8 +245,9 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
     return new Transformer() {
       @Nullable
       @Override
-      public Collection<Dirent> readdir(Collection<Dirent> readdir, Path path,
-          boolean followSymlinks) throws IOException {
+      public Collection<Dirent> readdir(
+          Collection<Dirent> readdir, PathFragment path, boolean followSymlinks)
+          throws IOException {
         if (path.getPathString().endsWith(badPathSuffix)) {
           throw new IOException("Path ended in " + badPathSuffix + ", so readdir failed.");
         }

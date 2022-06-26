@@ -1027,7 +1027,7 @@ local_repository(
 EOF
 
   bazel build @r/a//:bin &> $TEST_log && fail "expected build failure, but succeeded"
-  expect_log "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'"
+  expect_log "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '#'"
 }
 
 function test_remote_includes() {
@@ -1153,7 +1153,7 @@ local_repository(
 )
 EOF
   bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
-  expect_log "(absolute: \"$TEST_TMPDIR/r\") but this directory does not exist"
+  expect_log "(absolute: \"$TEST_TMPDIR/r\") but it does not exist"
 }
 
 # Regression test for #2841.

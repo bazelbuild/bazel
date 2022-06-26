@@ -37,7 +37,7 @@ genrule(
   srcs = [],
   outs = ["unwritable/somefile.out"],
   local = 1,
-  cmd = "echo 'Some output' > $@; chmod -w $$(dirname $@)"
+  cmd = "echo 'Some output' > $@; chmod a-w $$(dirname $@)"
 )
 EOF
 
@@ -51,7 +51,7 @@ genrule(
   srcs = [],
   outs = ["unwritable/somefile.out"],
   local = 1,
-  cmd = "echo 'Some other output' > $@; chmod -w $$(dirname $@)"
+  cmd = "echo 'Some other output' > $@; chmod a-w $$(dirname $@)"
 )
 EOF
 
@@ -66,7 +66,7 @@ genrule(
   srcs = [],
   outs = ["unwritable/somedir"],
   local = 1,
-  cmd = "mkdir -p $@; echo 'some output' > $@/somefile.out; chmod -w $$(dirname $@)"
+  cmd = "mkdir -p $@; echo 'some output' > $@/somefile.out; chmod a-w $$(dirname $@)"
 )
 EOF
 
@@ -80,7 +80,7 @@ genrule(
   srcs = [],
   outs = ["unwritable/somedir"],
   local = 1,
-  cmd = "mkdir -p $@; echo 'some other output' > $@/somefile.out; chmod -w $$(dirname $@)"
+  cmd = "mkdir -p $@; echo 'some other output' > $@/somefile.out; chmod a-w $$(dirname $@)"
 )
 EOF
 

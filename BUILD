@@ -2,9 +2,20 @@
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
+
+license(
+    name = "license",
+    package_name = "bazelbuild/bazel",
+    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
 
 exports_files(["LICENSE"])
 
@@ -24,10 +35,13 @@ filegroup(
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
+        "//site/en:srcs",
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
+        "//src/main/starlark/tests/builtins_bzl:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
+    applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -81,11 +95,10 @@ pkg_tar(
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
+        "@zstd-jni//:zstd-jni",
     ],
-    remap_paths = {
-        "..": "derived/jars",
-    },
-    strip_prefix = ".",
+    package_dir = "derived/jars",
+    strip_prefix = "external",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -127,11 +140,12 @@ pkg_tar(
         ":generated_resources",
         ":srcs",
     ],
+    # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
         "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.
-        "../googleapis": "third_party/googleapis",
-        "../remoteapis": "third_party/remoteapis",
+        "external/googleapis": "third_party/googleapis",
+        "external/remoteapis": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
@@ -141,8 +155,7 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    package_dir = "platforms",
-    strip_prefix = ".",
+    strip_prefix = "external",
     visibility = ["//:__subpackages__"],
 )
 
@@ -204,23 +217,17 @@ platform(
     parents = ["@local_config_platform//:host"],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
+REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
 
 [
     platform(
         name = platform_name + "_platform",
+        exec_properties = {
+            "dockerNetwork": "standard",
+            "dockerPrivileged": "true",
+            "Pool": "default",
+        },
         parents = ["@" + platform_name + "//config:platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "dockerNetwork"
-                value: "standard"
-            }
-            properties: {
-                name: "dockerPrivileged"
-                value: "true"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]
@@ -233,14 +240,10 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
         constraint_values = [
             "//:highcpu_machine",
         ],
+        exec_properties = {
+            "Pool": "highcpu",
+        },
         parents = ["//:" + platform_name + "_platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "gceMachineType"
-                value: "n1-highcpu-32"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]

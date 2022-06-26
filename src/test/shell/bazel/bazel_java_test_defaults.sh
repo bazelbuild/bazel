@@ -125,12 +125,12 @@ EOF
   javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
   expect_log "major version: 55"
 
-  bazel run java/main:JavaBinary --java_language_version=15 --java_runtime_version=15 \
+  bazel run java/main:JavaBinary --java_language_version=17 --java_runtime_version=17 \
       --verbose_failures -s &>"${TEST_log}" \
-      || fail "Building with --java_language_version=15 failed"
+      || fail "Building with --java_language_version=17 failed"
   expect_log "strip_trailing_java11"
   javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
-  expect_log "major version: 59"
+  expect_log "major version: 61"
 }
 
 # When coverage is requested with no Jacoco configured, an error shall be reported.
@@ -186,55 +186,6 @@ EOF
   expect_log 'javabuilder = \["//:VanillaJavaBuilder"\]'
 }
 
-# Specific toolchain attributes - jvm_opts containing location function - can be overridden.
-function test_default_java_toolchain_manualConfigurationWithLocation() {
-  cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JDK9_JVM_OPTS")
-default_java_toolchain(
-  name = "toolchain",
-  jvm_opts = [
-      # In JDK9 we have seen a ~30% slow down in JavaBuilder performance when using
-      # G1 collector and having compact strings enabled.
-      "-XX:+UseParallelOldGC",
-      "-XX:-CompactStrings",
-      # override the javac in the JDK.
-      "--patch-module=java.compiler=\$(location @remote_java_tools//:java_compiler_jar)",
-      "--patch-module=jdk.compiler=\$(location @remote_java_tools//:jdk_compiler_jar)",
-  ] + JDK9_JVM_OPTS,
-  tools = [
-      "@remote_java_tools//:java_compiler_jar",
-      "@remote_java_tools//:jdk_compiler_jar",
-    ],
-)
-EOF
-
-  bazel build //:toolchain || fail "default_java_toolchain target failed to build"
-  bazel cquery --output=build //:toolchain >& $TEST_log || fail "failed to query //:toolchain"
-
-  expect_log 'jvm_opts = \["-XX:+UseParallelOldGC", "-XX:-CompactStrings", "--patch-module=java.compiler=$(location @remote_java_tools//:java_compiler_jar)", "--patch-module=jdk.compiler=$(location @remote_java_tools//:jdk_compiler_jar)",'
-  expect_log 'tools = \["@remote_java_tools//:java_compiler_jar", "@remote_java_tools//:jdk_compiler_jar"\]'
-}
-
-# JVM8_TOOLCHAIN_CONFIGURATION shall override Java 8 internal compiler classes.
-function test_default_java_toolchain_jvm8Toolchain() {
-  cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JVM8_TOOLCHAIN_CONFIGURATION")
-default_java_toolchain(
-  name = "jvm8_toolchain",
-  configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-)
-EOF
-
-  bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
-  bazel query 'deps(//:jvm8_toolchain)' >& $TEST_log || fail "failed to query //:jvm8_toolchain"
-
-  expect_log ":JavaBuilder"
-  expect_log ":javac_jar"
-  expect_not_log ":java_compiler_jar"
-  expect_not_log ":jdk_compiler_jar"
-  expect_not_log ":VanillaJavaBuilder"
-}
-
 # DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.
 function test_default_java_toolchain_javabuilderToolchain() {
   cat > BUILD <<EOF
@@ -249,10 +200,7 @@ EOF
   bazel cquery 'deps(//:javabuilder_toolchain)' >& $TEST_log || fail "failed to query //:javabuilder_toolchain"
 
   expect_log ":JavaBuilder"
-  expect_log ":java_compiler_jar"
-  expect_log ":jdk_compiler_jar"
   expect_not_log ":VanillaJavaBuilder"
-  expect_not_log ":javac_jar"
 }
 
 # VANILLA_TOOLCHAIN_CONFIGURATION shall use VanillaJavaBuilder and not override any JDK internal compiler classes.
@@ -271,9 +219,6 @@ EOF
 
   expect_log ":VanillaJavaBuilder"
   expect_not_log ":JavaBuilder"
-  expect_not_log ":java_compiler_jar"
-  expect_not_log ":jdk_compiler_jar"
-  expect_not_log ":javac_jar"
 }
 
 # PREBUILT_TOOLCHAIN_CONFIGURATION shall use prebuilt ijar and singlejar binaries.

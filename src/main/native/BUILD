@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
@@ -26,8 +24,17 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src/conditions:darwin": [
-            "unix_jni_darwin.cc",
-            "fsevents.cc",
+            "darwin/fsevents.cc",
+            "darwin/file_jni.cc",
+            "darwin/sleep_prevention_jni.cc",
+            "darwin/system_cpu_speed_monitor_jni.cc",
+            "darwin/system_disk_space_monitor_jni.cc",
+            "darwin/system_load_advisory_monitor_jni.cc",
+            "darwin/system_memory_pressure_jni.cc",
+            "darwin/system_suspension_monitor_jni.cc",
+            "darwin/system_thermal_monitor_jni.cc",
+            "darwin/util.cc",
+            "darwin/util.h",
         ],
         "//src/conditions:freebsd": ["unix_jni_bsd.cc"],
         "//src/conditions:openbsd": ["unix_jni_bsd.cc"],
@@ -70,8 +77,9 @@ cc_binary(
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
         ":latin1_jni_path",
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:port",
     ],
 )
 

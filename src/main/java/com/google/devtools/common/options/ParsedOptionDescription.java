@@ -51,10 +51,7 @@ public final class ParsedOptionDescription {
     // An actual ParsedOptionDescription should always have a form in which it was parsed, but some
     // options, such as expansion options, legitimately have no value.
     return new ParsedOptionDescription(
-        optionDefinition,
-        Preconditions.checkNotNull(commandLineForm),
-        unconvertedValue,
-        origin);
+        optionDefinition, Preconditions.checkNotNull(commandLineForm), unconvertedValue, origin);
   }
 
   /**
@@ -136,6 +133,7 @@ public final class ParsedOptionDescription {
     return tags.contains(OptionMetadataTag.HIDDEN) || tags.contains(OptionMetadataTag.INTERNAL);
   }
 
+  @Nullable
   public String getUnconvertedValue() {
     return unconvertedValue;
   }
@@ -148,14 +146,17 @@ public final class ParsedOptionDescription {
     return origin.getPriority();
   }
 
+  @Nullable
   public String getSource() {
     return origin.getSource();
   }
 
+  @Nullable
   ParsedOptionDescription getImplicitDependent() {
     return origin.getImplicitDependent();
   }
 
+  @Nullable
   ParsedOptionDescription getExpandedFrom() {
     return origin.getExpandedFrom();
   }
@@ -186,5 +187,4 @@ public final class ParsedOptionDescription {
         "option '%s'%s",
         commandLineForm, source == null ? "" : String.format(" (source %s)", source));
   }
-
 }

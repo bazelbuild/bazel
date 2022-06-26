@@ -12,11 +12,11 @@ int main() {
 
   hellolib = LoadLibrary(TEXT("hellolib.dll"));
 
-  if (hellolib != NULL) {
+  if (hellolib != nullptr) {
     get_time = (GET_TIME_PTR)GetProcAddress(hellolib, "get_time");
     say_hello = (SAY_HELLO_PTR)GetProcAddress(hellolib, "say_hello");
 
-    if (NULL != get_time && NULL != say_hello) {
+    if (nullptr != get_time && nullptr != say_hello) {
       success = TRUE;
       char *now = get_time();
       say_hello(now);

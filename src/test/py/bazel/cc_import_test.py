@@ -202,7 +202,7 @@ class CcImportTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'HelloWorld')
 
   def testSystemProvidedSharedLibraryOnUnix(self):
-    if not self.IsUnix():
+    if not self.IsLinux():
       return
     self.createProjectFiles(system_provided=1, linkstatic=0)
     bazel_bin = self.getBazelInfo('bazel-bin')

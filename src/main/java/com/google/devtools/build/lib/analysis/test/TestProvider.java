@@ -52,6 +52,7 @@ public final class TestProvider implements TransitiveInfoProvider {
   }
 
   /** A value class describing the properties of a test. */
+  // Non-final only for mocking.
   public static class TestParams {
     private final int runs;
     private final int shards;

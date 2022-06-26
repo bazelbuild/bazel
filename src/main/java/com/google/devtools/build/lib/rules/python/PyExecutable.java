@@ -46,7 +46,8 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     ruleContext.initConfigurationMakeVariableContext(new CcFlagsSupplier(ruleContext));
 
     PythonSemantics semantics = createSemantics();
-    PyCommon common = new PyCommon(ruleContext, semantics, /*validateSources=*/ true);
+    PyCommon common =
+        new PyCommon(ruleContext, semantics, /*validateSources=*/ true, /*requiresMainFile=*/ true);
 
     List<Artifact> srcs = common.getPythonSources();
     List<Artifact> allOutputs =
@@ -61,7 +62,8 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    CcInfo ccInfo = semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps"));
+    CcInfo ccInfo =
+        semantics.buildCcInfoProvider(ruleContext, ruleContext.getPrerequisites("deps"));
 
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics, ccInfo);
 
@@ -148,13 +150,8 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
             ruleContext.getWorkspaceName(),
             ruleContext.getConfiguration().legacyExternalRunfiles());
     builder.addArtifact(common.getExecutable());
-    if (common.getConvertedFiles() != null) {
-      builder.addSymlinks(common.getConvertedFiles());
-    } else {
-      builder.addTransitiveArtifacts(common.getFilesToBuild());
-    }
+    builder.addTransitiveArtifacts(common.getFilesToBuild());
     semantics.collectDefaultRunfiles(ruleContext, builder);
-    builder.add(ruleContext, PythonRunfilesProvider.TO_RUNFILES);
 
     maybeCreateInitFiles(ruleContext, builder, semantics);
 

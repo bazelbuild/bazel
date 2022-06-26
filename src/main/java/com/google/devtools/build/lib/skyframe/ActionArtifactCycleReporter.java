@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -48,10 +47,6 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     return prettyPrint(key.functionName(), key.argument());
   }
 
-  private static String prettyPrintArtifact(Artifact artifact) {
-    return "file: " + artifact.getRootRelativePathString();
-  }
-
   private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
     if (arg instanceof Artifact) {
       return prettyPrintArtifact(((Artifact) arg));
@@ -70,6 +65,10 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     }
     throw new IllegalStateException(
         "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: " + arg);
+  }
+
+  private static String prettyPrintArtifact(Artifact artifact) {
+    return "file: " + artifact.getRootRelativePathString();
   }
 
   @Override

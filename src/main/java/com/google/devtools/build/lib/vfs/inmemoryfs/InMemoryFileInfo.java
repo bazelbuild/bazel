@@ -14,7 +14,6 @@
 //
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -26,6 +25,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.util.function.Consumer;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * InMemoryFileInfo manages file contents by storing them entirely in memory.
@@ -34,12 +34,13 @@ import java.util.function.Consumer;
 public class InMemoryFileInfo extends FileInfo {
 
   /**
-   * Updates to the content must atomically update the lastModifiedTime. So all
-   * accesses to this field must be synchronized.
+   * Updates to the content must atomically update the lastModifiedTime. So all accesses to this
+   * field must be synchronized.
    */
-  protected byte[] content;
+  @GuardedBy("this")
+  private byte[] content;
 
-  public InMemoryFileInfo(Clock clock) {
+  InMemoryFileInfo(Clock clock) {
     super(clock);
     content = new byte[0]; // New files start out empty.
   }
@@ -76,11 +77,14 @@ public class InMemoryFileInfo extends FileInfo {
 
       @Override
       public int read(ByteBuffer dst) {
-        if (offset >= content.length) {
-          return -1;
+        int length;
+        synchronized (InMemoryFileInfo.this) {
+          if (offset >= content.length) {
+            return -1;
+          }
+          length = Math.min(dst.remaining(), content.length - offset);
+          dst.put(content, offset, length);
         }
-        int length = Math.min(dst.remaining(), content.length - offset);
-        dst.put(content, offset, length);
         offset += length;
         return length;
       }
@@ -108,44 +112,22 @@ public class InMemoryFileInfo extends FileInfo {
     return out;
   }
 
-  /**
-   * A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data.
-   */
+  /** A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data. */
   public static class InMemoryOutputStream extends ByteArrayOutputStream {
     private final Consumer<byte[]> receiver;
-    private boolean closed = false;
 
     public InMemoryOutputStream(Consumer<byte[]> receiver) {
       this.receiver = receiver;
     }
 
     @Override
-    public void write(byte[] data) throws IOException {
-      Preconditions.checkState(!closed);
-      super.write(data);
-    }
-
-    @Override
-    public synchronized void write(int dataByte) {
-      Preconditions.checkState(!closed);
-      super.write(dataByte);
-    }
-
-    @Override
-    public synchronized void write(byte[] data, int offset, int length) {
-      Preconditions.checkState(!closed);
-      super.write(data, offset, length);
-    }
-
-    @Override
-    public synchronized void close() {
+    public void close() {
       flush();
-      closed = true;
     }
 
     @Override
     public synchronized void flush() {
-      receiver.accept(toByteArray().clone());
+      receiver.accept(toByteArray());
     }
   }
 }

@@ -23,15 +23,13 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -74,7 +72,6 @@ import javax.annotation.Nullable;
  * which will run an executable should depend on this Middleman Artifact.
  */
 @Immutable
-@AutoCodec
 public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
   private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
@@ -152,9 +149,7 @@ public final class RunfilesSupport {
         actionEnvironment);
   }
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  RunfilesSupport(
+  private RunfilesSupport(
       Runfiles runfiles,
       Artifact runfilesInputManifest,
       Artifact runfilesManifest,
@@ -213,6 +208,24 @@ public final class RunfilesSupport {
 
   public Runfiles getRunfiles() {
     return runfiles;
+  }
+
+  /**
+   * Helper method that returns a collection of artifacts that are necessary for the runfiles of the
+   * given target. Note that the runfile symlink tree is never built, so this may include artifacts
+   * that end up not being used (see {@link Runfiles}).
+   *
+   * @return the Runfiles object
+   */
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
+    RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+    if (runfilesProvider != null) {
+      return runfilesProvider.getDefaultRunfiles();
+    } else {
+      return new Runfiles.Builder(workspaceName)
+          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
+          .build();
+    }
   }
 
   /**
@@ -367,7 +380,7 @@ public final class RunfilesSupport {
             RUNFILES_DIR_EXT);
     PathFragment outputManifestPath = runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
 
-    BuildConfiguration config = context.getConfiguration();
+    BuildConfigurationValue config = context.getConfiguration();
     Artifact outputManifest =
         context.getDerivedArtifact(outputManifestPath, context.getBinDirectory());
     context
@@ -381,24 +394,6 @@ public final class RunfilesSupport {
                 outputManifest,
                 /*filesetRoot=*/ null));
     return outputManifest;
-  }
-
-  /**
-   * Helper method that returns a collection of artifacts that are necessary for the runfiles of the
-   * given target. Note that the runfile symlink tree is never built, so this may include artifacts
-   * that end up not being used (see {@link Runfiles}).
-   *
-   * @return the Runfiles object
-   */
-  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
-    RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
-    if (runfilesProvider != null) {
-      return runfilesProvider.getDefaultRunfiles();
-    } else {
-      return new Runfiles.Builder(workspaceName)
-          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
-          .build();
-    }
   }
 
   /** Returns the unmodifiable list of expanded and tokenized 'args' attribute values. */
@@ -453,6 +448,22 @@ public final class RunfilesSupport {
         computeActionEnvironment(ruleContext));
   }
 
+  /**
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. This
+   * version discards all arguments. Only use this for <a
+   * href="https://bazel.build/docs/platforms#skipping-incompatible-targets">Incompatible Target
+   * Skipping</a>.
+   */
+  public static RunfilesSupport withExecutableButNoArgs(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
+    return RunfilesSupport.create(
+        ruleContext,
+        executable,
+        runfiles,
+        CommandLine.EMPTY,
+        computeActionEnvironment(ruleContext));
+  }
+
   private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs) {
     if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args
@@ -464,9 +475,7 @@ public final class RunfilesSupport {
   }
 
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
-    // Currently, "env" and "env_inherit" are not added to Starlark-defined rules (unlike "args"),
-    // in order to avoid breaking existing Starlark rules that use those attribute names.
-    // TODO(brandjon): Support "env" and "env_inherit" for Starlark-defined rules.
+    // Executable Starlark rules can use RunEnvironmentInfo to specify environment variables.
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
     if (!isNativeRule

@@ -234,21 +234,6 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         .containsExactly(getDefaultMallocLabel(rule), label("//conditions:a"));
   }
 
-  @Test
-  public void testDuplicateCheckOnNullValues() throws Exception {
-    if (getAnalysisMock().isThisBazel()) {
-      return;
-    }
-    Rule rule = scratchRule("x", "main",
-        "java_binary(",
-        "    name = 'main',",
-        "    srcs = ['main.java'])");
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    Attribute launcherAttribute = mapper.getAttributeDefinition("launcher");
-    assertThat(mapper.get(launcherAttribute.getName(), launcherAttribute.getType())).isNull();
-    assertThat(mapper.checkForDuplicateLabels(launcherAttribute)).isEmpty();
-  }
-
   /**
    * Custom rule to support testing over computed defaults.
    */

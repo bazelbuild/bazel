@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,79 +22,8 @@ import os.path
 import tarfile
 import unittest
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
-import six
-
 from tools.build_defs.pkg import archive
 from tools.build_defs.pkg import testenv
-
-
-class SimpleArFileTest(unittest.TestCase):
-  """Testing for SimpleArFile class."""
-
-  def assertArFileContent(self, arfile, content):
-    """Assert that arfile contains exactly the entry described by `content`.
-
-    Args:
-        arfile: the path to the AR file to test.
-        content: an array describing the expected content of the AR file.
-            Each entry in that list should be a dictionary where each field
-            is a field to test in the corresponding SimpleArFileEntry. For
-            testing the presence of a file "x", then the entry could simply
-            be `{"filename": "x"}`, the missing field will be ignored.
-    """
-    with archive.SimpleArFile(arfile) as f:
-      current = f.next()
-      i = 0
-      while current:
-        error_msg = "Extraneous file at end of archive %s: %s" % (
-            arfile,
-            current.filename
-            )
-        self.assertTrue(i < len(content), error_msg)
-        for k, v in content[i].items():
-          value = getattr(current, k)
-          error_msg = " ".join([
-              "Value `%s` for key `%s` of file" % (value, k),
-              "%s in archive %s does" % (current.filename, arfile),
-              "not match expected value `%s`" % v
-              ])
-          self.assertEqual(value, v, error_msg)
-        current = f.next()
-        i += 1
-      if i < len(content):
-        self.fail("Missing file %s in archive %s" % (content[i], arfile))
-
-  def testEmptyArFile(self):
-    self.assertArFileContent(os.path.join(testenv.TESTDATA_PATH, "empty.ar"),
-                             [])
-
-  def assertSimpleFileContent(self, names):
-    datafile = os.path.join(testenv.TESTDATA_PATH, "_".join(names) + ".ar")
-    content = [{
-        "filename": n,
-        "size": len(six.ensure_binary(n, "utf-8")),
-        "data": six.ensure_binary(n, "utf-8")
-    } for n in names]
-    self.assertArFileContent(datafile, content)
-
-  def testAFile(self):
-    self.assertSimpleFileContent(["a"])
-
-  def testBFile(self):
-    self.assertSimpleFileContent(["b"])
-
-  def testABFile(self):
-    self.assertSimpleFileContent(["ab"])
-
-  def testA_BFile(self):
-    self.assertSimpleFileContent(["a", "b"])
-
-  def testA_ABFile(self):
-    self.assertSimpleFileContent(["a", "ab"])
-
-  def testA_B_ABFile(self):
-    self.assertSimpleFileContent(["a", "b", "ab"])
 
 
 class TarFileWriterTest(unittest.TestCase):
@@ -148,19 +76,6 @@ class TarFileWriterTest(unittest.TestCase):
       pass
     self.assertTarFileContent(self.tempfile, [])
 
-  def assertSimpleFileContent(self, names):
-    with archive.TarFileWriter(self.tempfile) as f:
-      for n in names:
-        f.add_file(n, content=n)
-    content = ([{
-        "name": "."
-    }] + [{
-        "name": n,
-        "size": len(six.ensure_binary(n, "utf-8")),
-        "data": six.ensure_binary(n, "utf-8")
-    } for n in names])
-    self.assertTarFileContent(self.tempfile, content)
-
   def testDefaultMtimeNotProvided(self):
     with archive.TarFileWriter(self.tempfile) as f:
       self.assertEqual(f.default_mtime, 0)
@@ -188,14 +103,6 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"))
       for output_file in f.tar:
         self.assertEqual(output_file.mtime, 0)
-
-  def testAddFile(self):
-    self.assertSimpleFileContent(["./a"])
-    self.assertSimpleFileContent(["./b"])
-    self.assertSimpleFileContent(["./ab"])
-    self.assertSimpleFileContent(["./a", "./b"])
-    self.assertSimpleFileContent(["./a", "./ab"])
-    self.assertSimpleFileContent(["./a", "./b", "./ab"])
 
   def testDottedFiles(self):
     with archive.TarFileWriter(self.tempfile) as f:
@@ -235,25 +142,50 @@ class TarFileWriterTest(unittest.TestCase):
 
   def testMergeTar(self):
     content = [
-        {"name": "./a", "data": b"a"},
-        {"name": "./ab", "data": b"ab"},
-        ]
-    for ext in ["", ".gz", ".bz2", ".xz"]:
+        {
+            "name": "./a",
+            "data": b"a"
+        },
+        {
+            "name": "./b",
+            "data": b"b"
+        },
+        {
+            "name": "./ab",
+            "data": b"ab"
+        },
+    ]
+    for ext in ["", ".gz", ".bz2"]:
       with archive.TarFileWriter(self.tempfile) as f:
-        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
-                  name_filter=lambda n: n != "./b")
+        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext))
       self.assertTarFileContent(self.tempfile, content)
 
   def testMergeTarRelocated(self):
     content = [
-        {"name": ".", "mode": 0o755},
-        {"name": "./foo", "mode": 0o755},
-        {"name": "./foo/a", "data": b"a"},
-        {"name": "./foo/ab", "data": b"ab"},
-        ]
+        {
+            "name": ".",
+            "mode": 0o755
+        },
+        {
+            "name": "./foo",
+            "mode": 0o755
+        },
+        {
+            "name": "./foo/a",
+            "data": b"a"
+        },
+        {
+            "name": "./foo/b",
+            "data": b"b"
+        },
+        {
+            "name": "./foo/ab",
+            "data": b"ab"
+        },
+    ]
     with archive.TarFileWriter(self.tempfile) as f:
-      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),
-                name_filter=lambda n: n != "./b", root="/foo")
+      f.add_tar(
+          os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"), root="/foo")
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddingDirectoriesForFile(self):

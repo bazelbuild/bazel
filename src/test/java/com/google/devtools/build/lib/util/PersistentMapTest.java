@@ -16,28 +16,28 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for the {@link PersistentMap}.
- */
+/** Unit tests for {@link PersistentMap}. */
 @RunWith(JUnit4.class)
 public class PersistentMapTest {
-  public static class PersistentStringMap extends PersistentMap<String, String> {
+  private static class PersistentStringMap extends PersistentMap<String, String> {
     boolean updateJournal = true;
     boolean keepJournal = false;
 
-    public PersistentStringMap(Map<String, String> map, Path mapFile,
-        Path journalFile) throws IOException {
+    PersistentStringMap(ConcurrentMap<String, String> map, Path mapFile, Path journalFile)
+        throws IOException {
       super(0x0, map, mapFile, journalFile);
       load();
     }
@@ -70,7 +70,7 @@ public class PersistentMapTest {
     }
   }
 
-  private Scratch scratch = new Scratch();
+  private final Scratch scratch = new Scratch();
 
   private PersistentStringMap map;
   private Path mapFile;
@@ -84,7 +84,7 @@ public class PersistentMapTest {
   }
 
   private void createMap() throws Exception {
-    Map<String, String> map = new HashMap<>();
+    ConcurrentMap<String, String> map = new ConcurrentHashMap<>();
     this.map = new PersistentStringMap(map, mapFile, journalFile);
   }
 
@@ -237,5 +237,40 @@ public class PersistentMapTest {
     createMap(); // create a new map
     // all three entries are still in the map on disk
     assertThat(map).hasSize(3);
+  }
+
+  @Test
+  public void concurrentOperations() throws Exception {
+    createMap();
+    map.keepJournal = true;
+    int numIters = 1000;
+    TestThread fooPutter =
+        new TestThread(
+            () -> {
+              for (int i = 0; i < numIters; i++) {
+                map.put("foo", "bar" + i);
+                map.remove("baz");
+              }
+            });
+    TestThread bazPutter =
+        new TestThread(
+            () -> {
+              for (int i = 0; i < numIters; i++) {
+                map.put("baz", "bar" + i);
+                map.remove("noexist");
+              }
+            });
+    fooPutter.start();
+    bazPutter.start();
+    fooPutter.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    bazPutter.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    map.save();
+    assertThat(journalFile.exists()).isTrue();
+    createMap();
+    assertThat(map).containsEntry("foo", "bar" + (numIters - 1));
+    String bazValue = map.get("baz");
+    if (bazValue != null) {
+      assertThat(bazValue).isEqualTo("bar" + (numIters - 1));
+    }
   }
 }

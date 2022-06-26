@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -66,6 +67,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
     try {
       outputDirectory.createDirectoryAndParents();
       RepositoryFunction.writeFile(outputDirectory, "WORKSPACE", workspaceFileContent(name));
+      RepositoryFunction.writeFile(outputDirectory, "MODULE.bazel", moduleFileContent(name));
       RepositoryFunction.writeFile(outputDirectory, "BUILD.bazel", buildFileContent(name));
       RepositoryFunction.writeFile(
           outputDirectory, "constraints.bzl", constraintFileContent(hostCpu, hostOs));
@@ -85,15 +87,15 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
               }
 
               @Override
-              public Object getResolvedInformation() {
+              public Object getResolvedInformation(XattrProvider xattrProvider) {
                 String repr = String.format("local_config_platform(name = '%s')", name);
                 return ImmutableMap.<String, Object>builder()
                     .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, LocalConfigPlatformRule.NAME)
                     .put(
                         ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
-                        ImmutableMap.<String, Object>builder().put("name", name).build())
+                        ImmutableMap.<String, Object>builder().put("name", name).buildOrThrow())
                     .put(ResolvedHashesFunction.NATIVE, repr)
-                    .build();
+                    .buildOrThrow();
               }
             });
 
@@ -116,6 +118,10 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
         return "@platforms//cpu:aarch64";
       case S390X:
         return "@platforms//cpu:s390x";
+      case MIPS64:
+        return "@platforms//cpu:mips64";
+      case RISCV64:
+        return "@platforms//cpu:riscv64";
       default:
         // Unknown, so skip it.
         return null;
@@ -146,6 +152,17 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
         ImmutableList.of(
             "# DO NOT EDIT: automatically generated WORKSPACE file for local_config_platform",
             "workspace(name = \"%s\")"),
+        repositoryName);
+  }
+
+  private static String moduleFileContent(String repositoryName) {
+    return format(
+        ImmutableList.of(
+            "# DO NOT EDIT: automatically generated MODULE file for local_config_platform",
+            "module(name = \"%s\")",
+            // Try to keep this updated with the src/MODULE.tools file. (Due to MVS, even if this is
+            // not kept up to date, we'll use the latest version anyhow)
+            "bazel_dep(name = \"platforms\", version = \"0.0.4\")"),
         repositoryName);
   }
 

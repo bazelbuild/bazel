@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** Dynamic transition to the host configuration. */
 public final class HostTransition implements PatchTransition {
 
-  @AutoCodec public static final HostTransition INSTANCE = new HostTransition();
+  @SerializationConstant public static final HostTransition INSTANCE = new HostTransition();
 
   private HostTransition() {}
 
@@ -62,7 +62,7 @@ public final class HostTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the host transition. */
-  public static <T> TransitionFactory<T> createFactory() {
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> createFactory() {
     return new AutoValue_HostTransition_Factory<>();
   }
 
@@ -70,13 +70,14 @@ public final class HostTransition implements PatchTransition {
    * Returns {@code true} if the given {@link TransitionFactory} is an instance of the host
    * transition.
    */
-  public static <T> boolean isInstance(TransitionFactory<T> instance) {
+  public static <T extends TransitionFactory.Data> boolean isInstance(
+      TransitionFactory<T> instance) {
     return instance instanceof Factory;
   }
 
   /** A {@link TransitionFactory} implementation that generates the host transition. */
   @AutoValue
-  abstract static class Factory<T> implements TransitionFactory<T> {
+  abstract static class Factory<T extends TransitionFactory.Data> implements TransitionFactory<T> {
     @Override
     public PatchTransition create(T unused) {
       return INSTANCE;

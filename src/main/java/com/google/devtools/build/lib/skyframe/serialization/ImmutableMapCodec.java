@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -45,6 +46,16 @@ import java.util.Map;
  * ImmutableSortedMap}, arbitrary otherwise, we avoid specifying the key type as a parameter.
  */
 class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
+
+  @SuppressWarnings("unused")
+  @SerializationConstant
+  static final Comparator<?> ORDERING_NATURAL = Ordering.natural();
+
+  // In practice, the natural comparator seems to always be Ordering.natural(), but be flexible.
+  @SuppressWarnings("unused")
+  @SerializationConstant
+  static final Comparator<?> COMPARATOR_NATURAL_ORDER = Comparator.naturalOrder();
+
   @SuppressWarnings("unchecked")
   @Override
   public Class<ImmutableMap<?, V>> getEncodedClass() {
@@ -58,14 +69,9 @@ class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
       SerializationContext context, ImmutableMap<?, V> map, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(map.size());
-    boolean serializeAsSortedMap = false;
-    if (map instanceof ImmutableSortedMap) {
-      Comparator<?> comparator = ((ImmutableSortedMap<?, ?>) map).comparator();
-      // In practice the comparator seems to always be Ordering.natural(), but be flexible.
-      serializeAsSortedMap =
-          comparator.equals(Ordering.natural()) || comparator.equals(Comparator.naturalOrder());
-    }
-    codedOut.writeBoolNoTag(serializeAsSortedMap);
+    Comparator<?> comparator =
+        map instanceof ImmutableSortedMap ? ((ImmutableSortedMap<?, ?>) map).comparator() : null;
+    context.serialize(comparator, codedOut);
     serializeEntries(context, map.entrySet(), codedOut);
   }
 
@@ -96,15 +102,17 @@ class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
       throw new SerializationException("Expected non-negative length: " + length);
     }
     ImmutableMap.Builder<?, V> builder;
-    if (codedIn.readBool()) {
-      builder = deserializeEntries(ImmutableSortedMap.naturalOrder(), length, context, codedIn);
+    Comparator<?> comparator = context.deserialize(codedIn);
+    if (comparator != null) {
+      builder =
+          deserializeEntries(ImmutableSortedMap.orderedBy(comparator), length, context, codedIn);
     } else {
       builder =
           deserializeEntries(
               ImmutableMap.builderWithExpectedSize(length), length, context, codedIn);
     }
     try {
-      return builder.build();
+      return builder.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw new SerializationException(
           "Duplicate keys during ImmutableMapCodec deserialization", e);

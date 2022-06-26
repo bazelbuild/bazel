@@ -16,17 +16,15 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -55,8 +53,6 @@ public class WorkspaceFactory {
   private final Path workspaceDir;
   private final Path defaultSystemJavabaseDir;
   private final Mutability mutability;
-
-  private final RuleFactory ruleFactory;
 
   private final WorkspaceGlobals workspaceGlobals;
   private final StarlarkSemantics starlarkSemantics;
@@ -93,7 +89,7 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
     this.environmentExtensions = environmentExtensions;
-    this.ruleFactory = new RuleFactory(ruleClassProvider);
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
     this.starlarkSemantics = starlarkSemantics;
     this.workspaceFunctions =
@@ -139,17 +135,17 @@ public class WorkspaceFactory {
               BazelStarlarkContext.Phase.WORKSPACE,
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*repoMapping=*/ ImmutableMap.of(),
-              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       List<String> globs = new ArrayList<>(); // unused
       if (PackageFactory.checkBuildSyntax(
           file,
-          globs,
-          globs,
+          /*globs=*/ globs,
+          /*globsWithDirs=*/ globs,
+          /*subpackages=*/ globs,
           new HashMap<>(),
           error ->
               localReporter.handle(
@@ -173,6 +169,13 @@ public class WorkspaceFactory {
     } catch (SyntaxError.Exception ex) {
       // compilation failed
       Event.replayEventsOn(localReporter, ex.errors());
+      builder.setFailureDetailOverride(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(ex.getMessage())
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(PackageLoading.Code.SYNTAX_ERROR))
+              .build());
     }
 
     // cleanup (success or failure)
@@ -322,7 +325,7 @@ public class WorkspaceFactory {
       }
     }
 
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
@@ -339,7 +342,7 @@ public class WorkspaceFactory {
     for (EnvironmentExtension ext : environmentExtensions) {
       ext.updateWorkspace(env);
     }
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private String getDefaultSystemJavabase() {
@@ -383,7 +386,7 @@ public class WorkspaceFactory {
     }
     bindings.put("bazel_version", version);
 
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   public Map<String, Module> getLoadedModules() {
@@ -392,13 +395,5 @@ public class WorkspaceFactory {
 
   public Map<String, Object> getVariableBindings() {
     return ImmutableMap.copyOf(bindings);
-  }
-
-  public Map<PathFragment, RepositoryName> getManagedDirectories() {
-    return workspaceGlobals.getManagedDirectories();
-  }
-
-  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
-    return workspaceGlobals.getDoNotSymlinkInExecrootPaths();
   }
 }

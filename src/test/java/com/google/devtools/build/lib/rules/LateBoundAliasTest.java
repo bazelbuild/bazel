@@ -45,7 +45,7 @@ public class LateBoundAliasTest extends BuildViewTestCase {
   private static final class TestLateBoundDefault extends LabelLateBoundDefault<TestFragment> {
 
     private TestLateBoundDefault() {
-      super(false, TestFragment.class, null, null);
+      super(TestFragment.class, null, null);
     }
 
     @Override

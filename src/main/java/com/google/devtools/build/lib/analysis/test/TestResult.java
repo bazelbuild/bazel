@@ -99,7 +99,7 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
     // If we have an exec root we'll use its fileSystem
     if (execRoot != null) {
       FileSystem fileSystem = execRoot.getFileSystem();
-      return fileSystem.getPath(testLogPath.getPathString());
+      return fileSystem.getPath(testLogPath.asFragment());
     }
     return testLogPath;
   }

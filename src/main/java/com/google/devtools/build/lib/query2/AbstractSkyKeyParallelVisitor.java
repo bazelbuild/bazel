@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import com.google.devtools.build.lib.concurrent.ParallelVisitor;
+import com.google.devtools.build.lib.cmdline.ParallelVisitor;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;

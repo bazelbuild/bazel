@@ -9,13 +9,14 @@ filegroup(
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
-        "//third_party/aws-sdk-auth-lite:srcs",
+        "//third_party/bazel-toolchains:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
+        "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/java/android_databinding:srcs",
@@ -25,7 +26,6 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/jaxb:srcs",
@@ -142,12 +142,6 @@ distrib_java_import(
 )
 
 distrib_java_import(
-    name = "apache_commons_logging",
-    enable_distributions = ["debian"],
-    jars = ["apache_commons_logging/commons-logging-1.1.1.jar"],
-)
-
-distrib_java_import(
     name = "apache_commons_pool2",
     enable_distributions = ["debian"],
     jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
@@ -168,47 +162,47 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "api_client/google-api-client-1.22.0.jar",
-        "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-api-client-gson-1.22.0.jar",
         "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
-        "api_client/google-http-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-gson-1.22.0.jar",
     ],
     runtime_deps = [
-        ":jackson2",
+        ":gson",
     ],
 )
 
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-8.0.jar"],
-    srcjar = "asm/asm-8.0-sources.jar",
+    jars = ["asm/asm-9.2.jar"],
+    srcjar = "asm/asm-9.2-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-8.0.jar"],
-    srcjar = "asm/asm-analysis-8.0-sources.jar",
+    jars = ["asm/asm-analysis-9.2.jar"],
+    srcjar = "asm/asm-analysis-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-8.0.jar"],
-    srcjar = "asm/asm-commons-8.0-sources.jar",
+    jars = ["asm/asm-commons-9.2.jar"],
+    srcjar = "asm/asm-commons-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-8.0.jar"],
-    srcjar = "asm/asm-tree-8.0-sources.jar",
+    jars = ["asm/asm-tree-9.2.jar"],
+    srcjar = "asm/asm-tree-9.2-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-8.0.jar"],
-    srcjar = "asm/asm-util-8.0-sources.jar",
+    jars = ["asm/asm-util-9.2.jar"],
+    srcjar = "asm/asm-util-9.2-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -216,13 +210,12 @@ distrib_java_import(
     name = "auth",
     enable_distributions = ["debian"],
     jars = [
-        "auth/google-auth-library-oauth2-http-0.17.1.jar",
-        "auth/google-auth-library-credentials-0.17.1.jar",
+        "auth/google-auth-library-oauth2-http-1.6.0.jar",
+        "auth/google-auth-library-credentials-1.6.0.jar",
     ],
     runtime_deps = [
         ":api_client",
         ":guava",
-        "//third_party/aws-sdk-auth-lite",
     ],
 )
 
@@ -245,7 +238,7 @@ java_plugin(
 distrib_java_import(
     name = "auto_common",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-common-0.10.jar"],
+    jars = ["auto/auto-common-1.1.2.jar"],
 )
 
 java_library(
@@ -271,7 +264,10 @@ java_plugin(
 distrib_java_import(
     name = "auto_service_lib",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-service-1.0-rc4.jar"],
+    jars = [
+        "auto/auto-service-1.0-rc7.jar",
+        "auto/auto-service-annotations-1.0-rc7.jar",
+    ],
 )
 
 java_plugin(
@@ -305,8 +301,8 @@ distrib_java_import(
     name = "auto_value_value",
     enable_distributions = ["debian"],
     jars = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
 )
 
@@ -314,8 +310,8 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
     enable_distributions = ["debian"],
 )
@@ -343,12 +339,12 @@ java_import(
 distrib_java_import(
     name = "gson",
     enable_distributions = ["debian"],
-    jars = ["gson/gson-2.8.0.jar"],
+    jars = ["gson/gson-2.8.6.jar"],
 )
 
 java_import(
     name = "caffeine",
-    jars = ["caffeine/caffeine-2.8.0.jar"],
+    jars = ["caffeine/caffeine-2.9.2.jar"],
 )
 
 java_import(
@@ -368,15 +364,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
-        "error_prone/error_prone_type_annotations-2.4.0.jar",
+        "error_prone/error_prone_annotations-2.11.0.jar",
+        "error_prone/error_prone_type_annotations-2.11.0.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
+        "error_prone/error_prone_annotations-2.11.0.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -385,9 +381,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.4.0.jar",
-        "error_prone/error_prone_check_api-2.4.0.jar",
-        "error_prone/error_prone_core-2.4.0.jar",
+        "error_prone/error_prone_annotation-2.11.0.jar",
+        "error_prone/error_prone_check_api-2.11.0.jar",
+        "error_prone/error_prone_core-2.11.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -403,14 +399,6 @@ java_import(
         ":threeten",
         "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
-    ],
-)
-
-distrib_java_import(
-    name = "jackson2",
-    enable_distributions = ["debian"],
-    jars = [
-        "jackson2/jackson-core-2.8.6.jar",
     ],
 )
 
@@ -454,7 +442,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "guava/failureaccess-1.0.1.jar",
-        "guava/guava-29.0-jre.jar",
+        "guava/guava-31.1-jre.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -503,7 +491,16 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-29.0-jre.jar"],
+    srcs = ["guava/guava-31.1-jre.jar"],
+    enable_distributions = ["debian"],
+)
+
+# For desugaring the Guava jar.
+distrib_jar_filegroup(
+    name = "guava-failureaccess-jar",
+    srcs = [
+        "guava/failureaccess-1.0.1.jar",
+    ],
     enable_distributions = ["debian"],
 )
 
@@ -523,14 +520,16 @@ distrib_java_import(
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
 )
 
-java_import(
+distrib_java_import(
     name = "reactive_streams",
+    enable_distributions = ["debian"],
     jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "rxjava3",
-    jars = ["rxjava3/rxjava-3.0.9.jar"],
+    enable_distributions = ["debian"],
+    jars = ["rxjava3/rxjava-3.1.2.jar"],
     exports = [":reactive_streams"],
     deps = [":reactive_streams"],
 )
@@ -580,26 +579,62 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
 # building Bazel for.
 genrule(
     name = "filter_netty_dynamic_libs",
-    srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
+    srcs = select({
+        "//src/conditions:darwin_arm64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-aarch_64.jar"],
+        "//src/conditions:darwin_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-x86_64.jar"],
+        "//src/conditions:linux_aarch64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-aarch_64.jar"],
+        "//src/conditions:linux_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-x86_64.jar"],
+        "//src/conditions:windows": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-windows-x86_64.jar"],
+        "//conditions:default": [],
+    }),
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
     cmd = "cp $< $@ && " +
           # Make sure we can write the output file, even if the input isn't writable.
           "chmod +w $@ && " +
-          # End successfully if there is nothing to be deleted from the archive
-          "if [ -n '" + UNNECESSARY_DYNAMIC_LIBRARIES + "' ]; then " +
-          "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
+          "zip -qd $@ */license/* " + UNNECESSARY_DYNAMIC_LIBRARIES,
 )
 
 distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
-    jars = ["netty/netty-all-4.1.48.Final.jar"],
+    jars = [
+        "netty/netty-buffer-4.1.75.Final.jar",
+        "netty/netty-codec-4.1.75.Final.jar",
+        "netty/netty-codec-http2-4.1.75.Final.jar",
+        "netty/netty-codec-http-4.1.75.Final.jar",
+        "netty/netty-common-4.1.75.Final.jar",
+        "netty/netty-handler-4.1.75.Final.jar",
+        "netty/netty-handler-proxy-4.1.75.Final.jar",
+        "netty/netty-resolver-4.1.75.Final.jar",
+        "netty/netty-resolver-dns-4.1.75.Final.jar",
+        "netty/netty-transport-4.1.75.Final.jar",
+        "netty/netty-transport-classes-epoll-4.1.75.Final.jar",
+        "netty/netty-transport-classes-kqueue-4.1.75.Final.jar",
+        "netty/netty-transport-sctp-4.1.75.Final.jar",
+    ] + select({
+        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-aarch_64.jar"],
+        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-x86_64.jar"],
+        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-aarch_64.jar"],
+        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-x86_64.jar"],
+        "//conditions:default": ["netty/netty-transport-native-unix-common-4.1.75.Final.jar"],
+    }) + select({
+        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-aarch_64.jar"],
+        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-x86_64.jar"],
+        "//conditions:default": [],
+    }) + select({
+        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-aarch_64.jar"],
+        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-x86_64.jar"],
+        "//conditions:default": [],
+    }),
 )
 
 distrib_java_import(
     name = "netty_tcnative",
     enable_distributions = ["debian"],
-    jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
+    jars = [
+        "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
+        ":netty_tcnative/netty-tcnative-filtered.jar",
+    ],
 )
 
 distrib_java_import(
@@ -631,7 +666,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-29.0-jre.jar"],
+    jars = ["guava/guava-testlib-31.1-jre.jar"],
 )
 
 distrib_java_import(
@@ -645,7 +680,7 @@ distrib_java_import(
 
 java_import(
     name = "mockito",
-    jars = ["mockito/mockito-core-2.25.1.jar"],
+    jars = ["mockito/mockito-core-3.12.4.jar"],
     deps = [
         ":byte_buddy",
         ":objenesis",
@@ -695,7 +730,7 @@ java_import(
 distrib_java_import(
     name = "xz",
     enable_distributions = ["debian"],
-    jars = ["xz/xz-1.5.jar"],
+    jars = ["xz/xz-1.9.jar"],
 )
 
 # To be used by the skylark example.

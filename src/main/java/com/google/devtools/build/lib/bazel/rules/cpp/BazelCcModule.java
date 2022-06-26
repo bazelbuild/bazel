@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcDebugInfoContext;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -46,8 +48,6 @@ import net.starlark.java.eval.Tuple;
 /**
  * A module that contains Starlark utilities for C++ support.
  *
- * <p>This is a work in progress. The API is guarded behind
- * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
@@ -72,7 +72,12 @@ public class BazelCcModule extends CcModule
 
   @Override
   public CppSemantics getSemantics() {
-    return BazelCppSemantics.INSTANCE;
+    return BazelCppSemantics.CPP;
+  }
+
+  @Override
+  public CppSemantics getSemantics(Language language) {
+    return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
   }
 
   @Override
@@ -86,6 +91,7 @@ public class BazelCcModule extends CcModule
       Object textualHeaders,
       Object additionalExportedHeaders,
       Sequence<?> includes, // <String> expected
+      Object looseIncludes,
       Sequence<?> quoteIncludes, // <String> expected
       Sequence<?> systemIncludes, // <String> expected
       Sequence<?> frameworkIncludes, // <String> expected
@@ -95,6 +101,7 @@ public class BazelCcModule extends CcModule
       String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
+      Object implementationCcCompilationContexts,
       String name,
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
@@ -107,6 +114,10 @@ public class BazelCcModule extends CcModule
       Object hdrsCheckingMode,
       Object variablesExtension,
       Object language,
+      Object purpose,
+      Object grepIncludes,
+      Object coptsFilter,
+      Object separateModuleHeaders,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -119,6 +130,7 @@ public class BazelCcModule extends CcModule
         textualHeaders,
         additionalExportedHeaders,
         includes,
+        looseIncludes,
         quoteIncludes,
         systemIncludes,
         frameworkIncludes,
@@ -128,6 +140,7 @@ public class BazelCcModule extends CcModule
         stripIncludePrefix,
         userCompileFlags,
         ccCompilationContexts,
+        implementationCcCompilationContexts,
         name,
         disallowPicOutputs,
         disallowNopicOutputs,
@@ -143,6 +156,9 @@ public class BazelCcModule extends CcModule
         hdrsCheckingMode,
         variablesExtension,
         language,
+        purpose,
+        coptsFilter,
+        separateModuleHeaders,
         thread);
   }
 
@@ -170,7 +186,11 @@ public class BazelCcModule extends CcModule
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object mainOutput,
       Object linkerOutputs,
+      Object useTestOnlyFlags,
+      Object pdbFile,
+      Object winDefFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -196,14 +216,24 @@ public class BazelCcModule extends CcModule
         wholeArchive,
         additionalLinkstampDefines,
         onlyForDynamicLibs,
+        mainOutput,
         linkerOutputs,
+        useTestOnlyFlags,
+        pdbFile,
+        winDefFile,
+        Starlark.UNBOUND,
         thread);
   }
 
   @Override
   public CcCompilationOutputs createCompilationOutputsFromStarlark(
-      Object objectsObject, Object picObjectsObject) throws EvalException {
-    return super.createCompilationOutputsFromStarlark(objectsObject, picObjectsObject);
+      Object objectsObject,
+      Object picObjectsObject,
+      Object ltoCopmilationContextObject,
+      StarlarkThread thread)
+      throws EvalException {
+    return super.createCompilationOutputsFromStarlark(
+        objectsObject, picObjectsObject, ltoCopmilationContextObject, thread);
   }
 
   @Override

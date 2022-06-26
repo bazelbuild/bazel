@@ -18,14 +18,13 @@ import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -33,12 +32,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -53,22 +48,15 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;
-  // Mapping of the relative paths of the incrementally updated managed directories
-  // to the managing external repositories
-  private final TreeMap<PathFragment, RepositoryName> managedDirectoriesMap;
-  // Directories to be excluded from symlinking to the execroot.
-  private ImmutableSortedSet<String> doNotSymlinkInExecrootPaths;
 
   public WorkspaceGlobals(boolean allowOverride, RuleFactory ruleFactory) {
     this.allowOverride = allowOverride;
     this.ruleFactory = ruleFactory;
-    this.managedDirectoriesMap = Maps.newTreeMap();
   }
 
   @Override
   public void workspace(
       String name,
-      Dict<?, ?> managedDirectories, // <String, Object>
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (!allowOverride) {
@@ -86,7 +74,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
     RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-    Map<String, Object> kwargs = ImmutableMap.<String, Object>of("name", name, "path", ".");
+    Map<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
     try {
       // This effectively adds a "local_repository(name = "<ws>", path = ".")"
       // definition to the WORKSPACE file.
@@ -102,124 +90,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
-    builder.addRepositoryMappingEntry(
-        RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
-    parseManagedDirectories(
-        Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
-  }
-
-  @Override
-  public void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    List<String> pathsList = Sequence.cast(paths, String.class, "paths");
-    Set<String> set = Sets.newHashSet();
-    for (String path : pathsList) {
-      PathFragment pathFragment = PathFragment.create(path);
-      if (pathFragment.isEmpty()) {
-        throw Starlark.errorf("Empty path can not be passed to toplevel_output_directories.");
-      }
-      if (pathFragment.containsUplevelReferences() || pathFragment.segmentCount() > 1) {
-        throw Starlark.errorf(
-            "toplevel_output_directories can only accept top level directories under"
-                + " workspace, \"%s\" can not be specified as an attribute.",
-            path);
-      }
-      if (pathFragment.isAbsolute()) {
-        throw Starlark.errorf(
-            "toplevel_output_directories can only accept top level directories under"
-                + " workspace, absolute path \"%s\" can not be specified as an attribute.",
-            path);
-      }
-      if (!set.add(pathFragment.getBaseName())) {
-        throw Starlark.errorf(
-            "toplevel_output_directories should not contain duplicate values: \"%s\" is"
-                + " specified more then once.",
-            path);
-      }
-    }
-    doNotSymlinkInExecrootPaths = ImmutableSortedSet.copyOf(set);
-  }
-
-  private void parseManagedDirectories(
-      Map<String, ?> managedDirectories) // <String, Sequence<String>>
-      throws EvalException {
-    Map<PathFragment, String> nonNormalizedPathsMap = Maps.newHashMap();
-    for (Map.Entry<String, ?> entry : managedDirectories.entrySet()) {
-      RepositoryName repositoryName = createRepositoryName(entry.getKey());
-      List<PathFragment> paths =
-          getManagedDirectoriesPaths(entry.getValue(), nonNormalizedPathsMap);
-      for (PathFragment dir : paths) {
-        PathFragment floorKey = managedDirectoriesMap.floorKey(dir);
-        if (dir.equals(floorKey)) {
-          throw Starlark.errorf(
-              "managed_directories attribute should not contain multiple"
-                  + " (or duplicate) repository mappings for the same directory ('%s').",
-              nonNormalizedPathsMap.get(dir));
-        }
-        PathFragment ceilingKey = managedDirectoriesMap.ceilingKey(dir);
-        boolean isDescendant = floorKey != null && dir.startsWith(floorKey);
-        if (isDescendant || (ceilingKey != null && ceilingKey.startsWith(dir))) {
-          throw Starlark.errorf(
-              "managed_directories attribute value can not contain nested mappings."
-                  + " '%s' is a descendant of '%s'.",
-              nonNormalizedPathsMap.get(isDescendant ? dir : ceilingKey),
-              nonNormalizedPathsMap.get(isDescendant ? floorKey : dir));
-        }
-        managedDirectoriesMap.put(dir, repositoryName);
-      }
-    }
-  }
-
-  private static RepositoryName createRepositoryName(String key) throws EvalException {
-    if (!key.startsWith("@")) {
-      throw Starlark.errorf(
-          "Cannot parse repository name '%s'. Repository name should start with '@'.", key);
-    }
-    try {
-      return RepositoryName.create(key);
-    } catch (LabelSyntaxException e) {
-      throw Starlark.errorf("%s", e);
-    }
-  }
-
-  private static List<PathFragment> getManagedDirectoriesPaths(
-      Object directoriesList, Map<PathFragment, String> nonNormalizedPathsMap)
-      throws EvalException {
-    if (!(directoriesList instanceof Sequence)) {
-      throw Starlark.errorf(
-          "managed_directories attribute value should be of the type attr.string_list_dict(),"
-              + " mapping repository name to the list of managed directories.");
-    }
-    List<PathFragment> result = Lists.newArrayList();
-    for (Object obj : (Sequence) directoriesList) {
-      if (!(obj instanceof String)) {
-        throw Starlark.errorf("Expected managed directory path (as string), but got '%s'.", obj);
-      }
-      String path = ((String) obj).trim();
-      if (path.isEmpty()) {
-        throw Starlark.errorf("Expected managed directory path to be non-empty string.");
-      }
-      PathFragment pathFragment = PathFragment.create(path);
-      if (pathFragment.isAbsolute()) {
-        throw Starlark.errorf(
-            "Expected managed directory path ('%s') to be relative to the workspace root.", path);
-      }
-      if (pathFragment.containsUplevelReferences()) {
-        throw Starlark.errorf(
-            "Expected managed directory path ('%s') to be under the workspace root.", path);
-      }
-      nonNormalizedPathsMap.put(pathFragment, path);
-      result.add(pathFragment);
-    }
-    return result;
-  }
-
-  public Map<PathFragment, RepositoryName> getManagedDirectories() {
-    return managedDirectoriesMap;
-  }
-
-  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
-    return doNotSymlinkInExecrootPaths;
+    builder.addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
 
   private static RepositoryName getRepositoryName(@Nullable Label label) {
@@ -232,33 +103,41 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     return label.getRepository();
   }
 
-  private static ImmutableList<String> renamePatterns(
-      List<String> patterns, Package.Builder builder, StarlarkThread thread) {
+  private static ImmutableList<TargetPattern> parsePatterns(
+      List<String> patterns, Package.Builder builder, StarlarkThread thread) throws EvalException {
     BazelModuleContext bzlModule =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
-    Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
-    return patterns.stream()
-        .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
-        .collect(ImmutableList.toImmutableList());
+    RepositoryMapping renaming = builder.getRepositoryMappingFor(myName);
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT, myName, renaming);
+    ImmutableList.Builder<TargetPattern> parsedPatterns = ImmutableList.builder();
+    for (String pattern : patterns) {
+      try {
+        parsedPatterns.add(parser.parse(pattern));
+      } catch (TargetParsingException e) {
+        throw Starlark.errorf("error parsing target pattern \"%s\": %s", pattern, e.getMessage());
+      }
+    }
+    return parsedPatterns.build();
   }
 
   @Override
   public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
-    builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, thread));
+    builder.addRegisteredExecutionPlatforms(parsePatterns(patterns, builder, thread));
   }
 
   @Override
   public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
-    builder.addRegisteredToolchains(renamePatterns(patterns, builder, thread));
+    builder.addRegisteredToolchains(parsePatterns(patterns, builder, thread));
   }
 
   @Override
@@ -289,7 +168,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
    * Returns true if the given name is a valid workspace name.
    */
   public static boolean isLegalWorkspaceName(String name) {
-    Matcher matcher = LEGAL_WORKSPACE_NAME.matcher(name);
-    return matcher.matches();
+    return LEGAL_WORKSPACE_NAME.matcher(name).matches();
   }
 }

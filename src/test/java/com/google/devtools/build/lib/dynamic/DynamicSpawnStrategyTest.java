@@ -125,14 +125,22 @@ public class DynamicSpawnStrategyTest {
 
     private final DoExec doExecAfterStop;
 
+    private final boolean canExec;
+
     MockSpawnStrategy(String name) {
       this(name, DoExec.NOTHING, DoExec.NOTHING);
     }
 
     MockSpawnStrategy(String name, DoExec doExecBeforeStop, DoExec doExecAfterStop) {
+      this(name, doExecBeforeStop, doExecAfterStop, true);
+    }
+
+    MockSpawnStrategy(
+        String name, DoExec doExecBeforeStop, DoExec doExecAfterStop, boolean canExec) {
       this.name = name;
       this.doExecBeforeStop = doExecBeforeStop;
       this.doExecAfterStop = doExecAfterStop;
+      this.canExec = canExec;
     }
 
     /** Helper to record an execution failure from within {@link #doExecBeforeStop}. */
@@ -156,7 +164,7 @@ public class DynamicSpawnStrategyTest {
 
       doExecBeforeStop.run(this, spawn, actionExecutionContext);
       if (stopConcurrentSpawns != null) {
-        stopConcurrentSpawns.stop();
+        stopConcurrentSpawns.stop(0, "", outErr);
         doExecAfterStop.run(this, spawn, actionExecutionContext);
       }
 
@@ -189,7 +197,7 @@ public class DynamicSpawnStrategyTest {
 
     @Override
     public boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
-      return true;
+      return canExec;
     }
 
     @Nullable
@@ -301,7 +309,6 @@ public class DynamicSpawnStrategyTest {
     DynamicExecutionOptions options = new DynamicExecutionOptions();
     options.dynamicLocalStrategy = dynamicLocalStrategies.build();
     options.dynamicRemoteStrategy = dynamicRemoteStrategies.build();
-    options.dynamicWorkerStrategy = "mock-local";
     options.internalSpawnScheduler = true;
     options.localExecutionDelay = 0;
 
@@ -320,7 +327,7 @@ public class DynamicSpawnStrategyTest {
     }
 
     DynamicExecutionModule dynamicExecutionModule = new DynamicExecutionModule(executorService);
-    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options);
+    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options, 10, 10);
 
     SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
 
@@ -350,8 +357,7 @@ public class DynamicSpawnStrategyTest {
             actionKeyContext,
             outErr,
             testRoot,
-            /*metadataHandler=*/ null,
-            /*actionGraph=*/ null);
+            /*metadataHandler=*/ null);
 
     List<? extends SpawnStrategy> dynamicStrategies =
         spawnStrategyRegistry.getStrategies(
@@ -553,6 +559,48 @@ public class DynamicSpawnStrategyTest {
   }
 
   @Test
+  public void actionSucceedsIfLocalExecutionSucceedsEvenIfRemoteRunsNothing() throws Exception {
+    MockSpawnStrategy localStrategy = new MockSpawnStrategy("MockLocalSpawnStrategy");
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy("MockRemoteSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.getExecutedSpawn()).isEqualTo(spawn);
+    assertThat(localStrategy.succeeded()).isTrue();
+    assertThat(remoteStrategy.getExecutedSpawn()).isNull();
+    assertThat(remoteStrategy.succeeded()).isFalse();
+
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockLocalSpawnStrategy");
+    assertThat(outErr.outAsLatin1()).doesNotContain("MockRemoteSpawnStrategy");
+  }
+
+  @Test
+  public void actionSucceedsIfRemoteExecutionSucceedsEvenIfLocalRunsNothing() throws Exception {
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy("MockLocalSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
+
+    MockSpawnStrategy remoteStrategy = new MockSpawnStrategy("MockRemoteSpawnStrategy");
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    strategyAndContext.exec(spawn);
+
+    assertThat(localStrategy.getExecutedSpawn()).isNull();
+    assertThat(localStrategy.succeeded()).isFalse();
+    assertThat(remoteStrategy.getExecutedSpawn()).isEqualTo(spawn);
+    assertThat(remoteStrategy.succeeded()).isTrue();
+
+    assertThat(outErr.outAsLatin1()).contains("output files written with MockRemoteSpawnStrategy");
+    assertThat(outErr.outAsLatin1()).doesNotContain("MockLocalSpawnStrategy");
+  }
+
+  @Test
   public void actionFailsIfLocalFailsImmediatelyEvenIfRemoteSucceedsLater() throws Exception {
     CountDownLatch countDownLatch = new CountDownLatch(2);
 
@@ -659,6 +707,34 @@ public class DynamicSpawnStrategyTest {
     assertThat(localStrategy.getExecutedSpawn()).isEqualTo(spawn);
     assertThat(localStrategy.succeeded()).isFalse();
     assertThat(remoteStrategy.getExecutedSpawn()).isEqualTo(spawn);
+    assertThat(remoteStrategy.succeeded()).isFalse();
+  }
+
+  @Test
+  public void actionFailsIfLocalAndRemoteRunNothing() throws Exception {
+    MockSpawnStrategy localStrategy =
+        new MockSpawnStrategy("MockLocalSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
+
+    MockSpawnStrategy remoteStrategy =
+        new MockSpawnStrategy("MockRemoteSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
+
+    StrategyAndContext strategyAndContext = createSpawnStrategy(localStrategy, remoteStrategy);
+
+    Spawn spawn = newDynamicSpawn();
+    ExecException e = assertThrows(UserExecException.class, () -> strategyAndContext.exec(spawn));
+
+    // Has "No usable", followed by both dynamic_local_strategy and dynamic_remote_strategy in,
+    // followed by the action's mnemonic.
+    String regexMatch =
+        "[nN]o usable\\b.*\\bdynamic_local_strategy\\b.*\\bdynamic_remote_strategy\\b.*\\b"
+            + spawn.getMnemonic()
+            + "\\b";
+
+    assertThat(e).hasMessageThat().containsMatch(regexMatch);
+
+    assertThat(localStrategy.getExecutedSpawn()).isNull();
+    assertThat(localStrategy.succeeded()).isFalse();
+    assertThat(remoteStrategy.getExecutedSpawn()).isNull();
     assertThat(remoteStrategy.succeeded()).isFalse();
   }
 

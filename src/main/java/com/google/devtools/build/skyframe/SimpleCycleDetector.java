@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.GroupedList;
-import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
@@ -160,7 +159,7 @@ public class SimpleCycleDetector implements CycleDetector {
         SkyFunctionEnvironment env;
         try {
           env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.create(
                   key,
                   directDeps,
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
@@ -173,7 +172,8 @@ public class SimpleCycleDetector implements CycleDetector {
               "Previously requested dep not done: " + undoneDeps.getDepKeys(), undoneDeps);
         }
         env.setError(entry, ErrorInfo.fromChildErrors(key, errorDeps));
-        env.commit(entry, EnqueueParentBehavior.SIGNAL);
+        Set<SkyKey> reverseDeps = env.commitAndGetParents(entry);
+        evaluatorContext.signalParentsOnAbort(key, reverseDeps, entry.getVersion());
       } else {
         entry = evaluatorContext.getGraph().get(null, Reason.CYCLE_CHECKING, key);
       }
@@ -235,7 +235,7 @@ public class SimpleCycleDetector implements CycleDetector {
           ValueWithMetadata dummyValue = ValueWithMetadata.wrapWithMetadata(new SkyValue() {});
 
           SkyFunctionEnvironment env =
-              new SkyFunctionEnvironment(
+              SkyFunctionEnvironment.createForError(
                   key,
                   entry.getTemporaryDirectDeps(),
                   ImmutableMap.of(cycleChild, dummyValue),
@@ -253,7 +253,8 @@ public class SimpleCycleDetector implements CycleDetector {
           // Add in this cycle.
           allErrors.add(ErrorInfo.fromCycle(cycleInfo));
           env.setError(entry, ErrorInfo.fromChildErrors(key, allErrors));
-          env.commit(entry, EnqueueParentBehavior.SIGNAL);
+          Set<SkyKey> reverseDeps = env.commitAndGetParents(entry);
+          evaluatorContext.signalParentsOnAbort(key, reverseDeps, entry.getVersion());
           continue;
         } else {
           // We need to return right away in the noKeepGoing case, so construct the cycle (with the
@@ -333,8 +334,7 @@ public class SimpleCycleDetector implements CycleDetector {
       return false;
     }
     Set<SkyKey> rdeps = entry.markClean().getRdepsToSignal();
-    evaluatorContext.signalValuesAndEnqueueIfReady(
-        key, rdeps, entry.getVersion(), EnqueueParentBehavior.SIGNAL);
+    evaluatorContext.signalParentsOnAbort(key, rdeps, entry.getVersion());
     ErrorInfo error = entry.getErrorInfo();
     if (error.getCycleInfo().isEmpty()) {
       BugReport.sendBugReport(

@@ -17,12 +17,12 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** No-op configuration transition. */
 public final class NoTransition implements PatchTransition {
 
-  @AutoCodec public static final NoTransition INSTANCE = new NoTransition();
+  @SerializationConstant public static final NoTransition INSTANCE = new NoTransition();
 
   private NoTransition() {}
 
@@ -32,7 +32,7 @@ public final class NoTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the no transition. */
-  public static <T> TransitionFactory<T> createFactory() {
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> createFactory() {
     return new AutoValue_NoTransition_Factory<>();
   }
 
@@ -40,13 +40,14 @@ public final class NoTransition implements PatchTransition {
    * Returns {@code true} if the given {@link TransitionFactory} is an instance of the no
    * transition.
    */
-  public static <T> boolean isInstance(TransitionFactory<T> instance) {
+  public static <T extends TransitionFactory.Data> boolean isInstance(
+      TransitionFactory<T> instance) {
     return instance instanceof Factory;
   }
 
   /** A {@link TransitionFactory} implementation that generates the no transition. */
   @AutoValue
-  abstract static class Factory<T> implements TransitionFactory<T> {
+  abstract static class Factory<T extends TransitionFactory.Data> implements TransitionFactory<T> {
     @Override
     public ConfigurationTransition create(T unused) {
       return INSTANCE;

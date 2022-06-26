@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -28,7 +30,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,10 +49,10 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   private final SandboxfsProcess process;
 
   /** Arguments to pass to the spawn, including the binary name. */
-  private final List<String> arguments;
+  private final ImmutableList<String> arguments;
 
   /** Environment variables to pass to the spawn. */
-  private final Map<String, String> environment;
+  private final ImmutableMap<String, String> environment;
 
   /** Collection of input files to be made available to the spawn in read-only mode. */
   private final SandboxInputs inputs;
@@ -115,8 +116,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       SandboxfsProcess process,
       Path sandboxPath,
       String workspaceName,
-      List<String> arguments,
-      Map<String, String> environment,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
       SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<PathFragment> writableDirs,
@@ -163,12 +164,12 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   }
 
   @Override
-  public List<String> getArguments() {
+  public ImmutableList<String> getArguments() {
     return arguments;
   }
 
   @Override
-  public Map<String, String> getEnvironment() {
+  public ImmutableMap<String, String> getEnvironment() {
     return environment;
   }
 
@@ -299,7 +300,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    *     a map of mapped path to target path. The target path may be null, in which case an empty
    *     read-only file is mapped.
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
-   * @return the collection of mappings to use for reconfiguration
    * @throws IOException if we fail to resolve symbolic links
    */
   private static void createSandbox(

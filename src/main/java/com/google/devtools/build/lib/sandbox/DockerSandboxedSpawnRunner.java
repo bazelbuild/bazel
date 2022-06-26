@@ -23,6 +23,7 @@ import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -203,7 +204,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException {
+      throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
     // Each invocation of "exec" gets its own sandbox base, execroot and temporary directory.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
@@ -222,8 +223,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            spawn,
-            context.getArtifactExpander(),
             execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -343,8 +342,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               if (uid > 0) {
                 dockerfile.append(
                     String.format(
-                        "RUN [\"useradd\", \"-m\", \"-g\", \"%d\", \"-d\", \"%s\", \"-N\", \"-u\", "
-                            + "\"%d\", \"bazelbuild\"]\n",
+                        "RUN [\"useradd\", \"-l\", \"-m\", \"-g\", \"%d\", \"-d\", \"%s\", \"-N\","
+                            + " \"-u\", \"%d\", \"bazelbuild\"]\n",
                         gid, workDir, uid));
               }
               dockerfile.append(

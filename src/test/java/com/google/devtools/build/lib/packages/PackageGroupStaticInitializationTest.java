@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import java.util.concurrent.SynchronousQueue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,45 +37,37 @@ public class PackageGroupStaticInitializationTest extends PackageLoadingTestCase
     scratch.file("fruits/BUILD", "package_group(name = 'mango', packages = ['//...'])");
 
     final SynchronousQueue<PackageSpecification> groupQueue = new SynchronousQueue<>();
-    Thread producingThread =
-        new Thread(
-            new Runnable() {
-              @Override
-              public void run() {
-                try {
-                  RepositoryName defaultRepoName =
-                      Label.parseAbsoluteUnchecked("//context")
-                          .getRepository();
-                  groupQueue.put(PackageSpecification.fromString(defaultRepoName, "//fruits/..."));
-                } catch (Exception e) {
-                  // Can't throw from Runnable, but this will cause the test to timeout
-                  // when the consumer can't take the object.
-                  e.printStackTrace();
-                }
+    TestThread producingThread =
+        new TestThread(
+            () -> {
+              try {
+                RepositoryName defaultRepoName =
+                    Label.parseAbsoluteUnchecked("//context").getRepository();
+                groupQueue.put(PackageSpecification.fromString(defaultRepoName, "//fruits/..."));
+              } catch (Exception e) {
+                // Can't throw from Runnable, but this will cause the test to timeout
+                // when the consumer can't take the object.
+                e.printStackTrace();
               }
             });
 
-    Thread consumingThread =
-        new Thread(
-            new Runnable() {
-              @Override
-              public void run() {
-                try {
-                  getTarget("//fruits:mango");
-                  groupQueue.take();
-                } catch (Exception e) {
-                  // Can't throw from Runnable, but this will cause the test to timeout
-                  // when the producer can't put the object.
-                  e.printStackTrace();
-                }
+    TestThread consumingThread =
+        new TestThread(
+            () -> {
+              try {
+                getTarget("//fruits:mango");
+                groupQueue.take();
+              } catch (Exception e) {
+                // Can't throw from Runnable, but this will cause the test to timeout
+                // when the producer can't put the object.
+                e.printStackTrace();
               }
             });
 
     consumingThread.start();
     producingThread.start();
-    producingThread.join(3000);
-    consumingThread.join(3000);
-    assertThat(producingThread.isAlive()).isFalse();
-    assertThat(consumingThread.isAlive()).isFalse();
+
+    producingThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    consumingThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
   }
 }

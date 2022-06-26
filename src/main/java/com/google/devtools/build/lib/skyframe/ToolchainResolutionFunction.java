@@ -24,11 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -37,14 +36,14 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
 import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
-import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,36 +65,39 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ToolchainContextKey key = (ToolchainContextKey) skyKey.argument();
 
     try {
-      UnloadedToolchainContextImpl.Builder builder =
-          UnloadedToolchainContextImpl.builder().setKey(key);
+      UnloadedToolchainContextImpl.Builder builder = UnloadedToolchainContextImpl.builder(key);
 
       // Determine the configuration being used.
-      BuildConfigurationValue value =
+      BuildConfigurationValue configuration =
           (BuildConfigurationValue) env.getValue(key.configurationKey());
-      if (value == null) {
+      if (configuration == null) {
         throw new ValueMissingException();
       }
-      BuildConfiguration configuration = value.getConfiguration();
       PlatformConfiguration platformConfiguration =
           Preconditions.checkNotNull(configuration.getFragment(PlatformConfiguration.class));
 
       // Check if debug output should be generated.
       boolean debug =
-          configuration.getOptions().get(PlatformOptions.class).toolchainResolutionDebug;
+          key.debugTarget()
+              || configuration
+                  .getFragment(PlatformConfiguration.class)
+                  .debugToolchainResolution(
+                      key.toolchainTypes().stream()
+                          .map(ToolchainTypeRequirement::toolchainType)
+                          .collect(toImmutableSet()));
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
-      ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
-          loadToolchainTypes(
+      ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos =
+          loadToolchainTypeInfos(
               env,
               configuration,
-              key.requiredToolchainTypeLabels(),
-              key.shouldSanityCheckConfiguration());
-      builder.setRequestedLabelToToolchainType(resolvedToolchainTypes);
-      ImmutableSet<Label> resolvedToolchainTypeLabels =
-          resolvedToolchainTypes.values().stream()
-              .map(ToolchainTypeInfo::typeLabel)
-              .collect(toImmutableSet());
+              key.toolchainTypes().stream()
+                  .map(ToolchainTypeRequirement::toolchainType)
+                  .collect(toImmutableSet()));
+      builder.setRequestedLabelToToolchainType(resolvedToolchainTypeInfos);
+      ImmutableSet<ToolchainType> resolvedToolchainTypes =
+          loadToolchainTypes(resolvedToolchainTypeInfos, key.toolchainTypes());
 
       // Create keys for all platforms that will be used, and validate them early.
       PlatformKeys platformKeys =
@@ -105,8 +107,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
               key.configurationKey(),
               configuration,
               platformConfiguration,
-              key.execConstraintLabels(),
-              key.shouldSanityCheckConfiguration());
+              key.execConstraintLabels());
       if (env.valuesMissing()) {
         return null;
       }
@@ -115,10 +116,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
       determineToolchainImplementations(
           env,
           key.configurationKey(),
-          resolvedToolchainTypeLabels,
+          resolvedToolchainTypes,
+          key.forceExecutionPlatform().map(platformKeys::find),
           builder,
           platformKeys,
-          key.shouldSanityCheckConfiguration());
+          key.debugTarget());
 
       UnloadedToolchainContext unloadedToolchainContext = builder.build();
       if (debug) {
@@ -147,15 +149,34 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  /** Returns a map from the requested toolchain type to the {@link ToolchainTypeInfo} provider. */
-  private ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypes(
+  @AutoValue
+  abstract static class ToolchainType {
+    abstract ToolchainTypeRequirement toolchainTypeRequirement();
+
+    abstract ToolchainTypeInfo toolchainTypeInfo();
+
+    static ToolchainType create(
+        ToolchainTypeRequirement toolchainTypeRequirement, ToolchainTypeInfo toolchainTypeInfo) {
+      return new AutoValue_ToolchainResolutionFunction_ToolchainType(
+          toolchainTypeRequirement, toolchainTypeInfo);
+    }
+
+    public boolean mandatory() {
+      return toolchainTypeRequirement().mandatory();
+    }
+  }
+
+  /**
+   * Returns a map from the requested toolchain type Label (after any alias chains) to the {@link
+   * ToolchainTypeInfo} provider.
+   */
+  private static ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypeInfos(
       Environment environment,
-      BuildConfiguration configuration,
-      ImmutableSet<Label> requestedToolchainTypeLabels,
-      boolean shouldSanityCheckConfiguration)
+      BuildConfigurationValue configuration,
+      ImmutableSet<Label> toolchainTypeLabels)
       throws InvalidToolchainTypeException, InterruptedException, ValueMissingException {
     ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
-        requestedToolchainTypeLabels.stream()
+        toolchainTypeLabels.stream()
             .map(
                 label ->
                     ConfiguredTargetKey.builder()
@@ -165,12 +186,38 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .collect(toImmutableSet());
 
     ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
-        ToolchainTypeLookupUtil.resolveToolchainTypes(
-            environment, toolchainTypeKeys, shouldSanityCheckConfiguration);
+        ToolchainTypeLookupUtil.resolveToolchainTypes(environment, toolchainTypeKeys);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }
     return resolvedToolchainTypes;
+  }
+
+  /**
+   * Returns a map from the actual post-alias Label to the ToolchainTypeRequirement for that type.
+   */
+  private ImmutableSet<ToolchainType> loadToolchainTypes(
+      ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes) {
+    ImmutableSet.Builder<ToolchainType> resolved = new ImmutableSet.Builder<>();
+
+    for (ToolchainTypeRequirement toolchainTypeRequirement : toolchainTypes) {
+      // Find the actual Label.
+      Label toolchainTypeLabel = toolchainTypeRequirement.toolchainType();
+      ToolchainTypeInfo toolchainTypeInfo = resolvedToolchainTypeInfos.get(toolchainTypeLabel);
+      if (toolchainTypeInfo != null) {
+        toolchainTypeLabel = toolchainTypeInfo.typeLabel();
+      }
+
+      // If the labels don't match, re-build the TTR.
+      if (!toolchainTypeLabel.equals(toolchainTypeRequirement.toolchainType())) {
+        toolchainTypeRequirement =
+            toolchainTypeRequirement.toBuilder().toolchainType(toolchainTypeLabel).build();
+      }
+
+      resolved.add(ToolchainType.create(toolchainTypeRequirement, toolchainTypeInfo));
+    }
+    return resolved.build();
   }
 
   @AutoValue
@@ -181,6 +228,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     abstract ImmutableList<ConfiguredTargetKey> executionPlatformKeys();
 
+    @Nullable
+    public ConfiguredTargetKey find(Label platformLabel) {
+      if (platformLabel.equals(hostPlatformKey().getLabel())) {
+        return hostPlatformKey();
+      }
+      if (platformLabel.equals(targetPlatformKey().getLabel())) {
+        return targetPlatformKey();
+      }
+
+      for (ConfiguredTargetKey configuredTargetKey : executionPlatformKeys()) {
+        if (platformLabel.equals(configuredTargetKey.getLabel())) {
+          return configuredTargetKey;
+        }
+      }
+
+      return null;
+    }
+
     static PlatformKeys create(
         ConfiguredTargetKey hostPlatformKey,
         ConfiguredTargetKey targetPlatformKey,
@@ -190,16 +255,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  private PlatformKeys loadPlatformKeys(
+  private static PlatformKeys loadPlatformKeys(
       SkyFunction.Environment environment,
       boolean debug,
-      BuildConfigurationValue.Key configurationKey,
-      BuildConfiguration configuration,
+      BuildConfigurationKey configurationKey,
+      BuildConfigurationValue configuration,
       PlatformConfiguration platformConfiguration,
-      ImmutableSet<Label> execConstraintLabels,
-      boolean shouldSanityCheckConfiguration)
+      ImmutableSet<Label> execConstraintLabels)
       throws InterruptedException, ValueMissingException, InvalidConstraintValueException,
-          InvalidPlatformException {
+          InvalidPlatformException, InvalidExecutionPlatformLabelException {
     // Determine the target and host platform keys.
     Label hostPlatformLabel = platformConfiguration.getHostPlatform();
     Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
@@ -217,9 +281,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     // Load the host and target platforms early, to check for errors.
     PlatformLookupUtil.getPlatformInfo(
-        ImmutableList.of(hostPlatformKey, targetPlatformKey),
-        environment,
-        shouldSanityCheckConfiguration);
+        ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }
@@ -231,27 +293,26 @@ public class ToolchainResolutionFunction implements SkyFunction {
             configurationKey,
             configuration,
             hostPlatformKey,
-            execConstraintLabels,
-            shouldSanityCheckConfiguration);
+            execConstraintLabels);
 
     return PlatformKeys.create(hostPlatformKey, targetPlatformKey, executionPlatformKeys);
   }
 
-  private ImmutableList<ConfiguredTargetKey> loadExecutionPlatformKeys(
+  private static ImmutableList<ConfiguredTargetKey> loadExecutionPlatformKeys(
       SkyFunction.Environment environment,
       boolean debug,
-      BuildConfigurationValue.Key configurationKey,
-      BuildConfiguration configuration,
+      BuildConfigurationKey configurationKey,
+      BuildConfigurationValue configuration,
       ConfiguredTargetKey defaultPlatformKey,
-      ImmutableSet<Label> execConstraintLabels,
-      boolean shouldSanityCheckConfiguration)
+      ImmutableSet<Label> execConstraintLabels)
       throws InterruptedException, ValueMissingException, InvalidConstraintValueException,
-          InvalidPlatformException {
+          InvalidPlatformException, InvalidExecutionPlatformLabelException {
     RegisteredExecutionPlatformsValue registeredExecutionPlatforms =
         (RegisteredExecutionPlatformsValue)
             environment.getValueOrThrow(
                 RegisteredExecutionPlatformsValue.key(configurationKey),
-                InvalidPlatformException.class);
+                InvalidPlatformException.class,
+                InvalidExecutionPlatformLabelException.class);
     if (registeredExecutionPlatforms == null) {
       throw new ValueMissingException();
     }
@@ -274,20 +335,15 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .collect(toImmutableList());
 
     return filterAvailablePlatforms(
-        environment,
-        debug,
-        availableExecutionPlatformKeys,
-        execConstraintKeys,
-        shouldSanityCheckConfiguration);
+        environment, debug, availableExecutionPlatformKeys, execConstraintKeys);
   }
 
   /** Returns only the platform keys that match the given constraints. */
-  private ImmutableList<ConfiguredTargetKey> filterAvailablePlatforms(
+  private static ImmutableList<ConfiguredTargetKey> filterAvailablePlatforms(
       SkyFunction.Environment environment,
       boolean debug,
       ImmutableList<ConfiguredTargetKey> platformKeys,
-      ImmutableList<ConfiguredTargetKey> constraintKeys,
-      boolean shouldSanityCheckConfiguration)
+      ImmutableList<ConfiguredTargetKey> constraintKeys)
       throws InterruptedException, ValueMissingException, InvalidConstraintValueException,
           InvalidPlatformException {
 
@@ -303,8 +359,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // platform is the host platform), Skyframe will return the correct results immediately without
     // need of a restart.
     Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
-        PlatformLookupUtil.getPlatformInfo(
-            platformKeys, environment, shouldSanityCheckConfiguration);
+        PlatformLookupUtil.getPlatformInfo(platformKeys, environment);
     if (platformInfoMap == null) {
       throw new ValueMissingException();
     }
@@ -320,7 +375,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
   }
 
   /** Returns {@code true} if the given platform has all of the constraints. */
-  private boolean filterPlatform(
+  private static boolean filterPlatform(
       SkyFunction.Environment environment,
       boolean debug,
       PlatformInfo platformInfo,
@@ -345,92 +400,82 @@ public class ToolchainResolutionFunction implements SkyFunction {
     return missingConstraints.isEmpty();
   }
 
-  private void determineToolchainImplementations(
+  private static void determineToolchainImplementations(
       Environment environment,
-      BuildConfigurationValue.Key configurationKey,
-      ImmutableSet<Label> requiredToolchainTypeLabels,
+      BuildConfigurationKey configurationKey,
+      ImmutableSet<ToolchainType> toolchainTypes,
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
-      boolean shouldSanityCheckConfiguration)
+      boolean debugTarget)
       throws InterruptedException, ValueMissingException, InvalidPlatformException,
           NoMatchingPlatformException, UnresolvedToolchainsException,
           InvalidToolchainLabelException {
 
-    // Find the toolchains for the required toolchain types.
+    // Find the toolchains for the requested toolchain types.
     List<SingleToolchainResolutionKey> registeredToolchainKeys = new ArrayList<>();
-    for (Label toolchainTypeLabel : requiredToolchainTypeLabels) {
+    for (ToolchainType toolchainType : toolchainTypes) {
       registeredToolchainKeys.add(
           SingleToolchainResolutionValue.key(
               configurationKey,
-              toolchainTypeLabel,
+              toolchainType.toolchainTypeRequirement(),
+              toolchainType.toolchainTypeInfo(),
               platformKeys.targetPlatformKey(),
-              platformKeys.executionPlatformKeys()));
+              platformKeys.executionPlatformKeys(),
+              debugTarget));
     }
 
-    Map<SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>
-        results =
-            environment.getValuesOrThrow(
-                registeredToolchainKeys,
-                NoToolchainFoundException.class,
-                InvalidToolchainLabelException.class);
+    SkyframeLookupResult results = environment.getValuesAndExceptions(registeredToolchainKeys);
     boolean valuesMissing = false;
 
     // Determine the potential set of toolchains.
     Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains =
         HashBasedTable.create();
-    ImmutableSet.Builder<ToolchainTypeInfo> requiredToolchainTypesBuilder = ImmutableSet.builder();
-    List<Label> missingToolchains = new ArrayList<>();
-    for (Map.Entry<
-            SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>
-        entry : results.entrySet()) {
-      try {
-        ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>
-            valueOrException = entry.getValue();
-        SingleToolchainResolutionValue singleToolchainResolutionValue =
-            (SingleToolchainResolutionValue) valueOrException.get();
-        if (singleToolchainResolutionValue == null) {
-          valuesMissing = true;
-          continue;
-        }
+    List<Label> missingMandatoryToolchains = new ArrayList<>();
+    for (SingleToolchainResolutionKey key : registeredToolchainKeys) {
+      SingleToolchainResolutionValue singleToolchainResolutionValue =
+          (SingleToolchainResolutionValue)
+              results.getOrThrow(key, InvalidToolchainLabelException.class);
+      if (singleToolchainResolutionValue == null) {
+        valuesMissing = true;
+        continue;
+      }
 
+      if (!singleToolchainResolutionValue.availableToolchainLabels().isEmpty()) {
         ToolchainTypeInfo requiredToolchainType = singleToolchainResolutionValue.toolchainType();
-        requiredToolchainTypesBuilder.add(requiredToolchainType);
         resolvedToolchains.putAll(
             findPlatformsAndLabels(requiredToolchainType, singleToolchainResolutionValue));
-      } catch (NoToolchainFoundException e) {
+      } else if (key.toolchainType().mandatory()) {
         // Save the missing type and continue looping to check for more.
-        missingToolchains.add(e.missingToolchainTypeLabel());
+        missingMandatoryToolchains.add(key.toolchainType().toolchainType());
       }
+      // TODO(katre): track missing optional toolchains?
     }
 
-    if (!missingToolchains.isEmpty()) {
-      throw new UnresolvedToolchainsException(missingToolchains);
+    // Verify that all mandatory toolchain types have a toolchain.
+    if (!missingMandatoryToolchains.isEmpty()) {
+      throw new UnresolvedToolchainsException(missingMandatoryToolchains);
     }
 
     if (valuesMissing) {
       throw new ValueMissingException();
     }
 
-    ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes = requiredToolchainTypesBuilder.build();
+    // Find and return the first execution platform which has all mandatory toolchains.
+    Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
+        findExecutionPlatformForToolchains(
+            toolchainTypes,
+            forcedExecutionPlatform,
+            platformKeys.executionPlatformKeys(),
+            resolvedToolchains);
 
-    // Find and return the first execution platform which has all required toolchains.
-    Optional<ConfiguredTargetKey> selectedExecutionPlatformKey;
-    if (!requiredToolchainTypeLabels.isEmpty()) {
-      selectedExecutionPlatformKey =
-          findExecutionPlatformForToolchains(
-              requiredToolchainTypes,
-              platformKeys.executionPlatformKeys(),
-              resolvedToolchains);
-    } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
-      // Just use the first execution platform.
-      selectedExecutionPlatformKey = Optional.of(platformKeys.executionPlatformKeys().get(0));
-    } else {
-      selectedExecutionPlatformKey = Optional.empty();
-    }
-
-    if (!selectedExecutionPlatformKey.isPresent()) {
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements =
+        toolchainTypes.stream()
+            .map(ToolchainType::toolchainTypeRequirement)
+            .collect(toImmutableSet());
+    if (selectedExecutionPlatformKey.isEmpty()) {
       throw new NoMatchingPlatformException(
-          requiredToolchainTypeLabels,
+          toolchainTypeRequirements,
           platformKeys.executionPlatformKeys(),
           platformKeys.targetPlatformKey());
     }
@@ -438,13 +483,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     Map<ConfiguredTargetKey, PlatformInfo> platforms =
         PlatformLookupUtil.getPlatformInfo(
             ImmutableList.of(selectedExecutionPlatformKey.get(), platformKeys.targetPlatformKey()),
-            environment,
-            shouldSanityCheckConfiguration);
+            environment);
     if (platforms == null) {
       throw new ValueMissingException();
     }
 
-    builder.setRequiredToolchainTypes(requiredToolchainTypes);
+    builder.setToolchainTypes(toolchainTypeRequirements);
     builder.setExecutionPlatform(platforms.get(selectedExecutionPlatformKey.get()));
     builder.setTargetPlatform(platforms.get(platformKeys.targetPlatformKey()));
 
@@ -475,30 +519,43 @@ public class ToolchainResolutionFunction implements SkyFunction {
    * resolvedToolchains} and has all required toolchain types.
    */
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
-      ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      ImmutableSet<ToolchainType> toolchainTypes,
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
-    for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
-      if (!resolvedToolchains.containsRow(executionPlatformKey)) {
-        continue;
-      }
 
-      Map<ToolchainTypeInfo, Label> toolchains = resolvedToolchains.row(executionPlatformKey);
-      if (!toolchains.keySet().containsAll(requiredToolchainTypes)) {
-        // Not all toolchains are present, ignore this execution platform.
-        continue;
+    if (forcedExecutionPlatform.isPresent()) {
+      // Is the forced platform suitable?
+      if (isPlatformSuitable(forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains)) {
+        return forcedExecutionPlatform;
       }
-
-      return Optional.of(executionPlatformKey);
     }
 
-    return Optional.empty();
+    // Choose the first execution platform that has all mandatory toolchains.
+    return availableExecutionPlatformKeys.stream()
+        .filter(epk -> isPlatformSuitable(epk, toolchainTypes, resolvedToolchains))
+        .findFirst();
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+  private static boolean isPlatformSuitable(
+      ConfiguredTargetKey executionPlatformKey,
+      ImmutableSet<ToolchainType> toolchainTypes,
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+    if (toolchainTypes.isEmpty()) {
+      // Since there aren't any toolchains, we should be able to use any execution platform that
+      // has made it this far.
+      return true;
+    }
+
+    // Determine whether all mandatory toolchains are present.
+    return resolvedToolchains
+        .row(executionPlatformKey)
+        .keySet()
+        .containsAll(
+            toolchainTypes.stream()
+                .filter(ToolchainType::mandatory)
+                .map(ToolchainType::toolchainTypeInfo)
+                .collect(toImmutableSet()));
   }
 
   private static final class ValueMissingException extends Exception {
@@ -510,19 +567,17 @@ public class ToolchainResolutionFunction implements SkyFunction {
   /** Exception used when no execution platform can be found. */
   static final class NoMatchingPlatformException extends ToolchainException {
     NoMatchingPlatformException(
-        Set<Label> requiredToolchainTypeLabels,
+        Set<ToolchainTypeRequirement> toolchainTypes,
         ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
         ConfiguredTargetKey targetPlatformKey) {
-      super(
-          formatError(
-              requiredToolchainTypeLabels, availableExecutionPlatformKeys, targetPlatformKey));
+      super(formatError(toolchainTypes, availableExecutionPlatformKeys, targetPlatformKey));
     }
 
     private static String formatError(
-        Set<Label> requiredToolchainTypeLabels,
+        Set<ToolchainTypeRequirement> toolchainTypes,
         ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
         ConfiguredTargetKey targetPlatformKey) {
-      if (requiredToolchainTypeLabels.isEmpty()) {
+      if (toolchainTypes.isEmpty()) {
         return String.format(
             "Unable to find an execution platform for target platform %s"
                 + " from available execution platforms [%s]",
@@ -534,7 +589,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
       return String.format(
           "Unable to find an execution platform for toolchains [%s] and target platform %s"
               + " from available execution platforms [%s]",
-          requiredToolchainTypeLabels.stream().map(Label::toString).collect(joining(", ")),
+          toolchainTypes.stream()
+              .map(ToolchainTypeRequirement::toolchainType)
+              .map(Label::toString)
+              .collect(joining(", ")),
           targetPlatformKey.getLabel(),
           availableExecutionPlatformKeys.stream()
               .map(key -> key.getLabel().toString())
@@ -559,26 +617,20 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
 
     private static String getMessage(List<Label> missingToolchainTypes) {
-      if (missingToolchainTypes.size() == 1
-          && Iterables.getOnlyElement(missingToolchainTypes)
-              .toString()
-              .equals("@bazel_tools//tools/cpp:toolchain_type")) {
-        return "No matching toolchains found for types @bazel_tools//tools/cpp:toolchain_type. "
-            + "Maybe --incompatible_use_cc_configure_from_rules_cc has been flipped and there "
-            + "is no default C++ toolchain added in the WORKSPACE file? See "
-            + "https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
-            + "instructions.";
-      }
-
+      ImmutableList<String> labelStrings =
+          missingToolchainTypes.stream().map(Label::toString).collect(toImmutableList());
       return String.format(
-          "no matching toolchains found for types %s",
-          missingToolchainTypes.stream().map(Label::toString).collect(joining(", ")));
+          "No matching toolchains found for types %s."
+              + "\nTo debug, rerun with --toolchain_resolution_debug='%s'"
+              + "\nIf platforms or toolchains are a new concept for you, we'd encourage reading "
+              + "https://bazel.build/concepts/platforms-intro.",
+          String.join(", ", labelStrings), String.join("|", labelStrings));
     }
   }
 
   /** Used to indicate errors during the computation of an {@link UnloadedToolchainContextImpl}. */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
-    public ToolchainResolutionFunctionException(ToolchainException e) {
+    ToolchainResolutionFunctionException(ToolchainException e) {
       super(e, Transience.PERSISTENT);
     }
   }

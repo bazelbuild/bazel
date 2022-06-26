@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -104,7 +104,8 @@ public final class LtoBackendAction extends SpawnAction {
         mnemonic,
         false,
         null,
-        null);
+        null,
+        /*stripOutputPaths=*/ false);
     mandatoryInputs = inputs;
     Preconditions.checkState(
         (allBitcodeFiles == null) == (importsFile == null),
@@ -186,10 +187,13 @@ public final class LtoBackendAction extends SpawnAction {
       throw new ActionExecutionException(message, this, false, code);
     }
     updateInputs(
-        NestedSetBuilder.fromNestedSet(bitcodeInputSet)
-            .addTransitive(getMandatoryInputs())
-            .build());
+        NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
     return bitcodeInputSet;
+  }
+
+  @Override
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return mandatoryInputs;
   }
 
   private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
@@ -228,7 +232,7 @@ public final class LtoBackendAction extends SpawnAction {
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());
     }
-    for (Artifact input : getMandatoryInputs().toList()) {
+    for (Artifact input : mandatoryInputs.toList()) {
       fp.addPath(input.getExecPath());
     }
     if (imports != null) {
@@ -257,12 +261,12 @@ public final class LtoBackendAction extends SpawnAction {
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
         Artifact primaryOutput,
-        ResourceSet resourceSet,
+        ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
         ActionEnvironment env,
-        @Nullable BuildConfiguration configuration,
+        @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,

@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -35,49 +35,50 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public class SingleBuildFileCache implements MetadataProvider {
-  private final Path execRoot;
 
-  public SingleBuildFileCache(String cwd, FileSystem fs) {
-    this.execRoot = fs.getPath(cwd);
-  }
+  private final Path execRoot;
 
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
   // that are allowed to be missing, as we first check a likely non-existent content file
   // first.  Further we won't need to unwrap the exception in getDigest().
   private final Cache<String, ActionInputMetadata> pathToMetadata =
-      CacheBuilder.newBuilder()
-          // We default to 10 disk read threads, but we don't expect them all to edit the map
-          // simultaneously.
-          .concurrencyLevel(8)
+      Caffeine.newBuilder()
           // Even small-ish builds, as of 11/21/2011 typically have over 10k artifacts, so it's
           // unlikely that this default will adversely affect memory in most cases.
           .initialCapacity(10000)
           .build();
+  private final XattrProvider xattrProvider;
+
+  public SingleBuildFileCache(String cwd, FileSystem fs, XattrProvider xattrProvider) {
+    this.xattrProvider = xattrProvider;
+    this.execRoot = fs.getPath(cwd);
+  }
 
   @Override
   public FileArtifactValue getMetadata(ActionInput input) throws IOException {
-    try {
-      return pathToMetadata
-          .get(
-              input.getExecPathString(),
-              () -> {
-                Path path = ActionInputHelper.toInputPath(input, execRoot);
-                try {
-                  FileArtifactValue metadata =
-                      FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), true);
-                  if (metadata.getType().isDirectory()) {
-                    throw new DigestOfDirectoryException(
-                        "Input is a directory: " + input.getExecPathString());
-                  }
-                  return new ActionInputMetadata(input, metadata);
-                } catch (IOException e) {
-                  return new ActionInputMetadata(input, e);
-                }
-              })
-          .getMetadata();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Unexpected cache loading error", e); // Should never happen.
-    }
+    return pathToMetadata
+        .get(
+            input.getExecPathString(),
+            execPath -> {
+              Path path = ActionInputHelper.toInputPath(input, execRoot);
+              FileArtifactValue metadata;
+              try {
+                metadata =
+                    FileArtifactValue.createFromStat(
+                        path,
+                        // TODO(b/199940216): should we use syscallCache here since caching anyway?
+                        path.stat(Symlinks.FOLLOW),
+                        xattrProvider);
+              } catch (IOException e) {
+                return new ActionInputMetadata(input, e);
+              }
+              if (metadata.getType().isDirectory()) {
+                return new ActionInputMetadata(
+                    input, new DigestOfDirectoryException("Input is a directory: " + execPath));
+              }
+              return new ActionInputMetadata(input, metadata);
+            })
+        .getMetadata();
   }
 
   @Override

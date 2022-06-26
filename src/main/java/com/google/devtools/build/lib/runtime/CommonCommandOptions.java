@@ -47,14 +47,13 @@ public class CommonCommandOptions extends OptionsBase {
       name = "all_incompatible_changes",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      expansionFunction = AllIncompatibleChangesExpansion.class,
-      help =
-          "Enables all options of the form --incompatible_*. Use this option to find places where "
-              + "your build may break in the future due to deprecations or other changes.")
+      help = "No-op, being removed. See https://github.com/bazelbuild/bazel/issues/13892")
   public Void allIncompatibleChanges;
 
+  // It's by design that this field is unused: this command line option takes effect by reading its
+  // value during options parsing based on its (string) name.
   @Option(
       name = "enable_platform_specific_config",
       defaultValue = "false",
@@ -228,26 +227,6 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracer;
 
   @Option(
-      name = "json_trace_compression",
-      oldName = "experimental_json_trace_compression",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help =
-          "If enabled, Bazel compresses the JSON-format profile with gzip. "
-              + "By default, this is decided based on the extension of the file specified in "
-              + "--profile.")
-  public TriState enableTracerCompression;
-
-  @Option(
-      name = "experimental_profile_cpu_usage",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will measure cpu usage and add it to the JSON profile.")
-  public boolean enableCpuUsageProfiling;
-
-  @Option(
       name = "experimental_profile_additional_tasks",
       converter = ProfilerTaskConverter.class,
       defaultValue = "null",
@@ -329,7 +308,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "memory_profile",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
@@ -358,6 +337,33 @@ public class CommonCommandOptions extends OptionsBase {
           "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
               + "more than this percentage of the (old gen) heap is still occupied.")
   public int oomMoreEagerlyThreshold;
+
+  @Option(
+      name = "skyframe_high_water_mark_threshold",
+      defaultValue = "85",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Flag for advanced configuration of Bazel's internal Skyframe engine. If Bazel detects"
+              + " its retained heap percentage usage is at least this threshold, it will drop"
+              + " unnecessary temporary Skyframe state. Tweaking this may let you mitigate wall"
+              + " time impact of GC thrashing, when the GC thrashing is (i) caused by the memory"
+              + " usage of this temporary state and (ii) more costly than reconstituting the state"
+              + " when it is needed.")
+  public int skyframeHighWaterMarkMemoryThreshold;
+
+  @Option(
+      name = "heap_dump_on_oom",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Whether to manually output a heap dump if an OOM is thrown (including OOMs due to"
+              + " --experimental_oom_more_eagerly_threshold). The dump will be written to"
+              + " <output_base>/<invocation_id>.heapdump.hprof. This option effectively replaces"
+              + " -XX:+HeapDumpOnOutOfMemoryError, which has no effect because OOMs are caught and"
+              + " redirected to Runtime#halt.")
+  public boolean heapDumpOnOom;
 
   @Option(
       name = "startup_time",
@@ -490,6 +496,20 @@ public class CommonCommandOptions extends OptionsBase {
               + "finishes. Subsequent builds will not have any incrementality with respect to this "
               + "one.")
   public boolean keepStateAfterBuild;
+
+  @Option(
+      name = "repo_env",
+      converter = Converters.OptionalAssignmentConverter.class,
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Specifies additional environment variables to be available only for repository rules."
+              + " Note that repository rules see the full environment anyway, but in this way"
+              + " configuration information can be passed to repositories through options without"
+              + " invalidating the action graph.")
+  public List<Map.Entry<String, String>> repositoryEnvironment;
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
   public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {

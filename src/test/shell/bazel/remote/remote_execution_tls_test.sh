@@ -102,7 +102,7 @@ function test_mtls_fails_if_client_has_no_cert() {
       --tls_certificate="${cert_path}/ca.crt" \
       //a:foo 2> $TEST_log \
       && fail "Expected bazel to fail without a client cert" || true
-  expect_log "ALERT_HANDSHAKE_FAILURE"
+  expect_log "Failed to query remote execution capabilities:"
 }
 
 function test_remote_grpc_cache() {
@@ -115,18 +115,6 @@ function test_remote_grpc_cache() {
       ${client_mtls_flags} \
       //a:foo \
       || fail "Failed to build //a:foo with grpc remote cache"
-}
-
-function test_remote_https_cache() {
-  # Test that if 'https' is provided as a scheme for --remote_cache flag, remote cache works.
-  _prepareBasicRule
-
-  bazel build \
-      --remote_cache=https://localhost:${worker_port} \
-      --tls_certificate="${cert_path}/ca.crt" \
-      ${client_mtls_flags} \
-      //a:foo \
-      || fail "Failed to build //a:foo with https remote cache"
 }
 
 function test_remote_cache_with_incompatible_tls_enabled_removed_grpc_scheme() {

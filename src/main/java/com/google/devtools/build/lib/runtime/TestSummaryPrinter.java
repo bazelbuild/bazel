@@ -257,8 +257,11 @@ public class TestSummaryPrinter {
   }
 
   static String getCacheMessage(TestSummary summary) {
-    if (summary.getNumCached() == 0 || summary.getStatus() == BlazeTestStatus.INCOMPLETE) {
-      return "";
+    if (summary.getNumCached() == 0
+        || summary.getStatus() == BlazeTestStatus.INCOMPLETE
+        || summary.getStatus() == BlazeTestStatus.NO_STATUS
+        || summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
+      return ""; // either no caching, or information isn't useful
     } else if (summary.getNumCached() == summary.totalRuns()) {
       return "(cached) ";
     } else {
@@ -268,8 +271,10 @@ public class TestSummaryPrinter {
   }
 
   static String getTimeSummary(TestSummary summary) {
-    if (summary.getTestTimes().isEmpty()) {
-      return "";
+    if (summary.getTestTimes().isEmpty()
+        || summary.getStatus() == BlazeTestStatus.NO_STATUS
+        || summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
+      return ""; // either no tests ran, or information isn't useful
     } else if (summary.getTestTimes().size() == 1) {
       return " in " + timeInSec(summary.getTestTimes().get(0), TimeUnit.MILLISECONDS);
     } else {

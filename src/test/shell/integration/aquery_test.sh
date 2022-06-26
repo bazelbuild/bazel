@@ -44,6 +44,16 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+function has_iso_8859_1_locale() {
+  charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "ISO-8859-1" ]]
+}
+
+function has_utf8_locale() {
+  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "UTF-8" ]]
+}
+
 function assert_only_action_foo() {
   expect_log_n "^action '" 1 "Expected exactly one action."
   assert_contains "action.*foo" $1
@@ -116,6 +126,7 @@ EOF
   assert_contains "Mnemonic: Genrule" output
   assert_contains "Target: //$pkg:bar" output
   assert_contains "Configuration: .*-fastbuild" output
+  assert_contains "Execution platform: ${default_host_platform}" output
   # Only check that the inputs/outputs/command line/environment exist, but not
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
@@ -161,6 +172,7 @@ EOF
   assert_contains "label: \"dummy.txt\"" output
   assert_contains "mnemonic: \"Genrule\"" output
   assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "execution_platform: \"${default_host_platform}\"" output
   assert_contains "echo unused" output
 }
 
@@ -190,6 +202,7 @@ EOF
   assert_contains "\"label\": \"dummy.txt\"" output
   assert_contains "\"mnemonic\": \"Genrule\"" output
   assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "\"executionPlatform\": \"${default_host_platform}\"" output
   assert_contains "echo unused" output
 }
 
@@ -812,6 +825,47 @@ EOF
     2> "$TEST_log" || fail "Expected success"
 }
 
+# Regression test for b/191070494.
+function test_aquery_include_param_files_tree_artifact_writes_unexpanded_dir() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "${pkg}"/def.bzl <<'EOF'
+def _r(ctx):
+  dir = ctx.actions.declare_directory(ctx.label.name + "_dir")
+  ctx.actions.run_shell(outputs=[dir], command="touch %s/file" % dir.path)
+
+  param_file = ctx.actions.declare_file(ctx.label.name + "_param_file")
+  args = ctx.actions.args()
+  args.add_all([dir])
+  ctx.actions.write(param_file, args)
+
+  file = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.run_shell(
+      mnemonic = "Action",
+      outputs = [file],
+      inputs = [param_file],
+      command = "cp %s %s" % (param_file.path, file.path)
+  )
+  return DefaultInfo(files=depset([file]))
+
+r = rule(implementation=_r)
+EOF
+  cat > "${pkg}"/BUILD <<'EOF'
+load(":def.bzl", "r")
+r(name="a")
+EOF
+
+  bazel aquery --include_param_files \
+      "mnemonic(Action, //${pkg}:a)" > output 2> "${TEST_log}" \
+      || fail "Expected aquery to succeed"
+
+  cat output >> "${TEST_log}"
+  assert_matches \
+      "${PRODUCT_NAME}-out/[^/]+-fastbuild/bin/${pkg}/a_dir" \
+      "$(grep --after-context=1000 'Params File Content' output | tail -n +2 |
+          sed 's/^[[:space:]]\+//')"
+}
+
 function test_aquery_include_param_file_not_enabled_by_default() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -1337,8 +1391,314 @@ EOF
   bazel clean
 
   bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
-    &> "$TEST_log" && fail "Expected success"
+    &> "$TEST_log" && fail "Expected failure"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
+}
+
+function test_summary_output() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["in"],
+    outs = ["out"],
+    cmd = "touch $(OUTS)",
+)
+EOF
+  touch "$pkg/in"
+
+  bazel aquery --output=summary "//$pkg:all" \
+    &> "$TEST_log" || fail "Expected success"
+  expect_log "1 total action"
+  expect_log "Genrule: 1"
+  # Not matching the full string here since it's OS dependent.
+  expect_log "-fastbuild: 1"
+}
+
+function test_aquery_include_template_substitution_for_template_expand_of_py_binary() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+py_binary(
+    name='foo',
+    srcs=['foo.py']
+)
+EOF
+
+  # aquery returns template content and substitutions in TemplateExpand actions
+  # of py_binary targets.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "{%python_binary%:" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\":" output
+  assert_contains "\"key\": \"%python_binary%\"" output
+}
+
+function test_aquery_include_template_substitution_for_template_expand_action() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  cat > "$pkg/template.txt" <<'EOF'
+The token should be substituted: {TOKEN1}
+EOF
+
+  cat > "$pkg/test.bzl" <<'EOF'
+def test_template(**kwargs):
+    _test_template(
+        **kwargs
+    )
+def _test_template_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.template,
+        output = ctx.outputs.output,
+        substitutions = {
+            "{TOKEN1}": "123456",
+        },
+    )
+_test_template = rule(
+    implementation = _test_template_impl,
+    attrs = {
+        "template": attr.label(
+            allow_single_file = True,
+        ),
+        "output": attr.output(mandatory = True),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load('test.bzl', 'test_template')
+test_template(name='foo', template='template.txt', output='output.txt')
+EOF
+
+  # aquery returns template content and substitutions of TemplateExpand actions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Template: ARTIFACT: $pkg/template.txt" output
+  assert_contains "{{TOKEN1}: 123456}" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\": \"ARTIFACT: $pkg/template.txt\"" output
+  assert_contains "\"key\": \"{TOKEN1}\"" output
+  assert_contains "\"value\": \"123456\"" output
+}
+
+# Regression test for b/205753626.
+# This test case isn't testing aquery for correctness, just using aquery as a
+# vehicle for testing lower-level logic.
+# TODO(b/205978333): Find a better home for this test case.
+function test_starlark_action_with_reqs_has_deterministic_action_key() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  cat >$pkg/BUILD <<'EOF'
+load(":defs.bzl", "lots_of_reqs")
+lots_of_reqs(name = "reqs")
+EOF
+  cat >$pkg/defs.bzl <<'EOF'
+def _lots_of_reqs_impl(ctx):
+    f = ctx.actions.declare_file(ctx.attr.name + ".txt")
+    ctx.actions.run_shell(
+      outputs = [f],
+      command = "touch " + f.path,
+      execution_requirements = {"requires-" + str(i): "1" for i in range(100)},
+    )
+    return DefaultInfo(files = depset([f]))
+
+lots_of_reqs = rule(implementation = _lots_of_reqs_impl)
+EOF
+
+  bazel aquery $pkg:reqs > output1 2> "$TEST_log" || fail "Expected success"
+  bazel shutdown || fail "Couldn't shutdown"
+  bazel aquery $pkg:reqs > output2 2> "$TEST_log" || fail "Expected success"
+
+  diff <(grep ActionKey output1) <(grep ActionKey output2) \
+    || fail "Nondeterministic action key"
+}
+
+function test_execution_info() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+platform(
+    name = "exec",
+    exec_properties = {
+        "prop1": "foo",
+        "prop2": "bar",
+    },
+)
+
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/dummy.txt"
+
+  bazel aquery \
+    --extra_execution_platforms="//${pkg}:exec" \
+    --output=text \
+    "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Execution platform: //${pkg}:exec" output
+
+  # Verify the execution platform's exec_properties end up as execution requirements.
+  assert_contains "ExecutionInfo: {prop1: foo, prop2: bar}" output
+}
+
+function test_unicode_text() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! "$is_windows"; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "mkdir -p ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = glob(["input-*.txt"]),
+    outs = ["output-ünïcödë.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  # ${pkg}/input-ünïcödë.txt
+  touch "${pkg}/"$'input-\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab.txt'
+
+  bazel aquery --output=text "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains 'Inputs: \[.*/input-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
+  assert_contains 'Outputs: \[.*/output-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
+}
+
+function test_file_write() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+    ctx.actions.write(content = "hello world", output = ctx.outputs.out)
+
+hello = rule(
+    implementation = _impl,
+    attrs = {
+    },
+    outputs = {"out": "%{name}.count"},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "hello")
+
+hello(
+    name = 'bar',
+)
+EOF
+
+  bazel aquery --output=text --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Mnemonic: FileWrite" output
+  # FileWrite contents is  base64-encoded 'hello world'
+  assert_contains "FileWriteContents: \[aGVsbG8gd29ybGQ=\]" output
+
+  bazel aquery --output=textproto --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains 'file_contents: "hello world"' output
+}
+
+function test_source_symlink_manifest() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  touch "$pkg/foo.sh"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(name = "foo",
+          srcs = ["foo.sh"],
+)
+EOF
+  bazel aquery --output=textproto --include_file_write_contents \
+     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^file_contents:.*$pkg/foo.sh" output
+
+  bazel aquery --output=text --include_file_write_contents "//$pkg:foo" | \
+    sed -nr '/Mnemonic: SourceSymlinkManifest/,/^ *$/p' >output \
+      2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^ *FileWriteContents: \[.*\]" output
+  # Verify file contents if we can decode base64-encoded data.
+  if which base64 >/dev/null; then
+    sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
+       sh | tee -a "$TEST_log"  | assert_contains "$pkg/foo\.sh" -
+  fi
+}
+
+# TODO(bazel-team): The non-text aquery output formats don't correctly handle
+# non-ASCII fields (input/output paths, environment variables, etc).
+function DISABLED_test_unicode_textproto() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! "$is_windows"; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "mkdir -p ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = glob(["input-*.txt"]),
+    outs = ["output-ünïcödë.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  # ${pkg}/input-ünïcödë.txt
+  unicode=$'\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab'
+  touch "${pkg}/input-${unicode}.txt"
+
+  bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains 'label: "input-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
+  assert_contains 'label: "output-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
+}
+
+# Usage: assert_matches expected_pattern actual
+function assert_matches() {
+  [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

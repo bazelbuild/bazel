@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 
 /** A fake implementation of the {@link MetadataProvider} interface. */
@@ -38,7 +39,8 @@ final class FakeActionInputFileCache implements MetadataProvider {
 
   FakeActionInputFileCache(Path execRoot) {
     this.execRoot = execRoot;
-    this.digestUtil = new DigestUtil(execRoot.getFileSystem().getDigestFunction());
+    this.digestUtil =
+        new DigestUtil(SyscallCache.NO_CACHE, execRoot.getFileSystem().getDigestFunction());
   }
 
   @Override
@@ -47,10 +49,7 @@ final class FakeActionInputFileCache implements MetadataProvider {
     Path path = execRoot.getRelative(input.getExecPath());
     FileStatus stat = path.stat(Symlinks.FOLLOW);
     return FileArtifactValue.createForNormalFile(
-        HashCode.fromString(hexDigest).asBytes(),
-        FileContentsProxy.create(stat),
-        stat.getSize(),
-        /*isShareable=*/ true);
+        HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
   }
 
   @Override
@@ -58,13 +57,13 @@ final class FakeActionInputFileCache implements MetadataProvider {
     throw new UnsupportedOperationException();
   }
 
-  void setDigest(ActionInput input, String digest) {
+  private void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
   }
 
   public Digest createScratchInput(ActionInput input, String content) throws IOException {
     Path inputFile = execRoot.getRelative(input.getExecPath());
-    FileSystemUtils.createDirectoryAndParents(inputFile.getParentDirectory());
+    inputFile.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(inputFile, content);
     Digest digest = digestUtil.compute(inputFile);
     setDigest(input, digest.getHash());
@@ -73,7 +72,7 @@ final class FakeActionInputFileCache implements MetadataProvider {
 
   public Digest createScratchInputDirectory(ActionInput input, Tree content) throws IOException {
     Path inputFile = execRoot.getRelative(input.getExecPath());
-    FileSystemUtils.createDirectoryAndParents(inputFile);
+    inputFile.createDirectoryAndParents();
     Digest digest = digestUtil.compute(content);
     setDigest(input, digest.getHash());
     return digest;

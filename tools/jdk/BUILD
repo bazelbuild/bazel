@@ -9,7 +9,6 @@ filegroup(
     name = "srcs",
     srcs = [
         "BUILD",
-        "BUILD.java_langtools",
         "BUILD.java_tools",
         "BUILD.java_tools_prebuilt",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
@@ -37,19 +36,4 @@ filegroup(
 filegroup(
     name = "package-srcs",
     srcs = glob(["**"]),
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [":windows_tests"],
-    visibility = ["//tools:__pkg__"],
 )

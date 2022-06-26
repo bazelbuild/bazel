@@ -106,8 +106,6 @@ function test_java_test_with_junitrunner() {
 
 function test_genrule_and_genquery() {
   # With toolchain resolution java runtime only appears in cquery results.
-  # //tools/jdk:jdk label appears in the dependency list while --javabase
-  # is still available, because of migration rules.
   assert_build_output ./bazel-bin/examples/gen/genquery examples/gen:genquery
   local want=./bazel-genfiles/examples/gen/genrule.txt
   assert_build_output $want examples/gen:genrule
@@ -115,9 +113,9 @@ function test_genrule_and_genquery() {
   diff $want ./bazel-bin/examples/gen/genquery \
     || fail "genrule and genquery output differs"
 
-  grep -qE "^@bazel_tools//tools/jdk:jdk$" $want || {
+  grep -vqE "^@local_jdk//:jdk$" $want || {
     cat $want
-    fail "@bazel_tools//tools/jdk:jdk not found in genquery output"
+    fail "@local_jdk//:jdk found in genquery output"
   }
 }
 

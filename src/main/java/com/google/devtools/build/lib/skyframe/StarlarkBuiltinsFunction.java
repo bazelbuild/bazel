@@ -52,7 +52,8 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A Skyframe function that evaluates the {@code @_builtins} pseudo-repository and reports the
- * values exported by {@link #EXPORTS_ENTRYPOINT}.
+ * values exported by {@link #EXPORTS_ENTRYPOINT}. The {@code @_builtins} pseudo-repository shares a
+ * repo mapping with the {@code @bazel_tools} repository.
  *
  * <p>The process of "builtins injection" refers to evaluating this Skyfunction and applying its
  * result to {@link BzlLoadFunction}'s computation. See also the <a
@@ -169,9 +170,14 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");
       ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
       ImmutableMap<String, Object> predeclaredForBuildBzl =
-          starlarkEnv.createBuildBzlEnvUsingInjection(exportedToplevels, exportedRules);
+          starlarkEnv.createBuildBzlEnvUsingInjection(
+              exportedToplevels,
+              exportedRules,
+              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
       ImmutableMap<String, Object> predeclaredForBuild =
-          starlarkEnv.createBuildEnvUsingInjection(exportedRules);
+          starlarkEnv.createBuildEnvUsingInjection(
+              exportedRules,
+              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
           predeclaredForBuild,
@@ -198,11 +204,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       throw Starlark.errorf("expected a '%s' dictionary to be defined", dictName);
     }
     return ImmutableMap.copyOf(Dict.cast(value, String.class, Object.class, dictName + " dict"));
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

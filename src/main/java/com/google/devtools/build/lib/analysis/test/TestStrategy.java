@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -225,13 +225,13 @@ public abstract class TestStrategy implements TestActionContext {
         : getTestAttempts(action, /*defaultTestAttempts=*/ 1);
   }
 
-  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
-    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
-  }
-
   private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
     Label testLabel = action.getOwner().getLabel();
     return getTestAttemptsPerLabel(executionOptions, testLabel, defaultTestAttempts);
+  }
+
+  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
+    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
   }
 
   private static int getTestAttemptsPerLabel(
@@ -255,7 +255,7 @@ public abstract class TestStrategy implements TestActionContext {
    * but ends up with the same effective value as all other rules in that bucket.
    */
   protected static final Duration getTimeout(TestRunnerAction testAction) {
-    BuildConfiguration configuration = testAction.getConfiguration();
+    BuildConfigurationValue configuration = testAction.getConfiguration();
     return configuration
         .getFragment(TestConfiguration.class)
         .getTestTimeout()

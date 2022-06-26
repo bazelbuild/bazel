@@ -26,7 +26,13 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ByteString;
 import java.time.Duration;
@@ -40,8 +46,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -73,55 +77,61 @@ import javax.annotation.Nullable;
 @SuppressWarnings("unchecked")
 @AutoCodec
 public final class NestedSet<E> {
-  // The set's order and approximate depth, packed to save space.
-  //
-  // The low 2 bits contain the Order.ordinal value.
-  //
-  // The high 30 bits, of which only about 12 are really necessary, contain the
-  // depth of the set; see getApproxDepth. Because the union constructor discards
-  // the depths of all but the deepest nonleaf child, the sets returned by
-  // getNonLeaves have inaccurate depths that may overapproximate the true depth.
-  private final int depthAndOrder;
 
-  // children contains the "direct" elements and "transitive" nested sets.
-  // Direct elements are never arrays.
-  // Transitive elements may be arrays, but singletons are replaced by their sole element
-  // (thus transitive arrays always contain at least two logical elements).
-  // The relative order of direct and transitive is determined by the Order.
-  // All empty sets have children==EMPTY_CHILDREN, not null.
-  //
-  // Please be careful to use the terms of the conceptual model in the API documentation,
-  // and the terms of the physical representation in internal comments. They are not the same.
-  // In graphical terms, the "direct" elements are the graph successors that are leaves,
-  // and the "transitive" elements are the graph successors that are non-leaves, and
-  // non-leaf nodes have an out-degree of at least 2.
-  //
-  // TODO(adonovan): rename this field and all accessors that use the same format to
-  // something less suggestive such as 'repr' or 'impl', and rename all uses of children
-  // meaning "logical graph successors" to 'successors'.
-  final Object children;
-
-  // memo is a compact encoding of facts computed by a complete traversal.
-  // It is lazily populated by lockedExpand.
-  //
-  // Its initial bytes are a bitfield that indicates whether the ith node
-  // encountered in a preorder traversal should be visited, or skipped because
-  // that subgraph would contribute nothing to the flattening as it contains only
-  // elements previously seen in the traversal.
-  //
-  // Its final bytes are a reverse varint (base 128) encoding of the size of the set.
-  //
-  // There may be unused bytes between the two encodings.
-  //
-  // All NestedSets of depth < 3, that is, those whose successors are all leaves,
-  // share the empty NO_MEMO array.
-  @Nullable private byte[] memo;
-
-  // NO_MEMO is the distinguished memo for all nodes of depth < 2, that is,
-  // leaf nodes and nodes whose successors are all leaf nodes.
+  /**
+   * Sentinel {@link #memo} value for all leaf nodes and nodes whose successors are all leaf nodes.
+   */
   private static final byte[] NO_MEMO = {};
 
-  @AutoCodec static final Object[] EMPTY_CHILDREN = {};
+  @VisibleForSerialization @SerializationConstant static final Object[] EMPTY_CHILDREN = {};
+
+  /**
+   * The set's order and approximate depth, packed to save space.
+   *
+   * <p>The low 2 bits contain the Order.ordinal value.
+   *
+   * <p>The high 30 bits, of which only about 12 are really necessary, contain the depth of the set;
+   * see getApproxDepth. Because the union constructor discards the depths of all but the deepest
+   * nonleaf child, the sets returned by getNonLeaves have inaccurate depths that may
+   * overapproximate the true depth.
+   */
+  private final int depthAndOrder;
+
+  /**
+   * Contains the "direct" elements and "transitive" nested sets.
+   *
+   * <p>Direct elements are never arrays. Transitive elements may be arrays, but singletons are
+   * replaced by their sole element (thus transitive arrays always contain at least two logical
+   * elements).
+   *
+   * <p>The relative order of direct and transitive is determined by the Order.
+   *
+   * <p>All empty sets have the value {@link #EMPTY_CHILDREN}, not null.
+   *
+   * <p>Please be careful to use the terms of the conceptual model in the API documentation, and the
+   * terms of the physical representation in internal comments. They are not the same. In graphical
+   * terms, the "direct" elements are the graph successors that are leaves, and the "transitive"
+   * elements are the graph successors that are non-leaves, and non-leaf nodes have an out-degree of
+   * at least 2.
+   */
+  final Object children;
+
+  /**
+   * Optimized encoding of instance traversal metadata and set size, or the sentinel {@link
+   * #NO_MEMO} for all leaf nodes and nodes whose successors are all leaf nodes.
+   *
+   * <p>The initial bytes are a bitset encoding whether the node at the corresponding offset in a
+   * preorder traversal should be taken (true) or skipped since it wouldn't yield any elements not
+   * already encountered (false).
+   *
+   * <p>The following bytes encode set size in a reverse varint encoding scheme.
+   *
+   * <p>Unused bytes may follow either of the encoded values.
+   *
+   * <p>All instances of depth < 3, that is, those whose successors are all leaves, share the empty
+   * {@link #NO_MEMO} array.
+   */
+  @Nullable private byte[] memo;
 
   /** Construct an empty NestedSet. Should only be called by Order's class initializer. */
   NestedSet(Order order) {
@@ -251,7 +261,7 @@ public final class NestedSet<E> {
     Preconditions.checkState(!(children instanceof ListenableFuture));
     boolean hasChildren =
         children instanceof Object[]
-            && (Arrays.stream((Object[]) children).anyMatch(child -> child instanceof Object[]));
+            && Arrays.stream((Object[]) children).anyMatch(child -> child instanceof Object[]);
     byte[] memo = hasChildren ? null : NO_MEMO;
     return new NestedSet<>(order, approxDepth, children, memo);
   }
@@ -286,20 +296,24 @@ public final class NestedSet<E> {
     PROPAGATE
   }
 
-  /** Implementation of {@link #getChildren} that will catch an InterruptedException and crash. */
+  /**
+   * Implementation of {@link #getChildren} that crashes with the appropriate failure detail if it
+   * encounters {@link InterruptedException}.
+   */
   private Object getChildrenUninterruptibly() {
-    if (children instanceof ListenableFuture) {
-      try {
-        return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
-      } catch (InterruptedException e) {
-        System.err.println(
-            "An interrupted exception occurred during nested set deserialization, "
-                + "exiting abruptly.");
-        BugReport.handleCrash(Crash.from(e, ExitCode.INTERRUPTED), CrashContext.halt());
-        throw new IllegalStateException("Should have halted", e);
-      }
-    } else {
+    if (!(children instanceof ListenableFuture)) {
       return children;
+    }
+    try {
+      return MoreFutures.waitForFutureAndGet((ListenableFuture<Object[]>) children);
+    } catch (InterruptedException e) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage("Interrupted during NestedSet deserialization")
+              .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED))
+              .build();
+      BugReport.handleCrash(Crash.from(e, DetailedExitCode.of(failureDetail)), CrashContext.halt());
+      throw new IllegalStateException("Should have halted", e);
     }
   }
 
@@ -318,37 +332,6 @@ public final class NestedSet<E> {
     throw new IllegalStateException("Unknown interrupt strategy " + interruptStrategy);
   }
 
-  /**
-   * forEachElement applies function {@code f} to each element of the NestedSet.
-   *
-   * <p>The {@code descend} function is called for each node in the DAG, and if it returns false,
-   * the traversal is pruned and does not descend into that node; if the node was a leaf, {@code f}
-   * is not called.
-   *
-   * <p>Clients must treat the {@code descend} function's argument as an opaque reference: only
-   * {@link System#identityHashCode} and {@code ==} should be applied to it.
-   */
-  // TODO(b/157992832): this function is an encapsulation-breaking hack for the function named in
-  // the bug report. Eliminate it, and make it use NestedSetVisitor instead.
-  public void forEachElement(Predicate<Object> descend, Consumer<E> f) {
-    forEachElementImpl(descend, f, getChildren());
-  }
-
-  private static <E> void forEachElementImpl(
-      Predicate<Object> descend, Consumer<E> f, Object node) {
-    if (descend.test(node)) {
-      if (node instanceof Object[]) {
-        for (Object child : (Object[]) node) {
-          forEachElementImpl(descend, f, child);
-        }
-      } else {
-        @SuppressWarnings("unchecked")
-        E elem = (E) node;
-        f.accept(elem);
-      }
-    }
-  }
-
   /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */
   public boolean isEmpty() {
     // We don't check for future members here, since empty sets are special-cased in serialization
@@ -361,6 +344,12 @@ public final class NestedSet<E> {
     return isSingleton(children);
   }
 
+  private static boolean isSingleton(Object children) {
+    // Singleton sets are special cased in serialization, and make no calls to storage.  Therefore,
+    // we know that any NestedSet with a ListenableFuture member is not a singleton.
+    return !(children instanceof Object[] || children instanceof ListenableFuture);
+  }
+
   /**
    * Returns the approximate depth of the nested set graph. The empty set has depth zero. A leaf
    * node with a single element has depth 1. A non-leaf node has a depth one greater than its
@@ -369,14 +358,8 @@ public final class NestedSet<E> {
    * <p>This function may return an overapproximation of the true depth if the NestedSet was derived
    * from the result of calling {@link #getNonLeaves} or {@link #splitIfExceedsMaximumSize}.
    */
-  int getApproxDepth() {
+  public int getApproxDepth() {
     return this.depthAndOrder >>> 2;
-  }
-
-  private static boolean isSingleton(Object children) {
-    // Singleton sets are special cased in serialization, and make no calls to storage.  Therefore,
-    // we know that any NestedSet with a ListenableFuture member is not a singleton.
-    return !(children instanceof Object[] || children instanceof ListenableFuture);
   }
 
   /** Returns true if this set depends on data from storage. */
@@ -517,12 +500,19 @@ public final class NestedSet<E> {
               : ((Object[]) children).length;
     }
 
-    // Read size from end of memo.
-    int size = 0;
-    for (int i = memo.length - 1; ; i--) {
-      size = (size << 7) | (memo[i] & 0x7f);
-      if ((memo[i] & 0x80) != 0) {
-        return size;
+    // Make sure we have a full view of memo from a possible concurrent lockedExpand call.
+    synchronized (this) {
+      // Read size from end of memo.
+      int size = 0;
+      for (int i = memo.length - 1; ; i--) {
+        size = (size << 7) | (memo[i] & 0x7f);
+        if (size < 0) {
+          throw new IllegalStateException(
+              "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
+        }
+        if ((memo[i] & 0x80) != 0) {
+          return size;
+        }
       }
     }
   }
@@ -649,24 +639,22 @@ public final class NestedSet<E> {
     sets.add(children);
     memo = new byte[3 + Math.min(ceildiv(children.length, 8), 8)]; // (+3 for size: a guess)
     int pos = walk(sets, members, children, /*pos=*/ 0);
-    int bytes = ceildiv(pos, 8);
 
-    // Append (nonzero) size to memo, in reverse varint encoding:
-    // 7 bits at a time, least significant first.
-    // Only the first encoded byte's top bit is set.
-    //
-    // We resize memo if it is too small or much too large.
-    // There may be unused bytes between the replay memo (at the start)
-    // and the size (at the end).
+    // Append (nonzero) size to memo, in reverse varint encoding (7 bits at a time, least
+    // significant first). Only the first encoded byte's top bit is set.
     int size = members.size();
-    Preconditions.checkState(0 < size);
-    int nsize = varintlen(size);
-    int ideal = bytes + nsize;
-    if (!(memo.length - 16 < ideal && ideal <= memo.length)) {
-      memo = Arrays.copyOf(memo, ideal);
+    Preconditions.checkState(0 < size, "Size must be positive, was %s", size);
+    int sizeVarIntLen = varintlen(size);
+    int memoOffset = ceildiv(pos, 8);
+    int idealMemoSize = memoOffset + sizeVarIntLen;
+
+    // Resize memo if it's too small or far too big.
+    if (memo.length < idealMemoSize || memo.length - 16 >= idealMemoSize) {
+      memo = Arrays.copyOf(memo, idealMemoSize);
     }
+
     for (byte top = (byte) 0x80; size > 0; top = 0) {
-      memo[bytes++] = (byte) ((byte) (size & 0x7f) | top);
+      memo[memoOffset++] = (byte) ((byte) (size & 0x7f) | top);
       size >>>= 7;
     }
 
@@ -697,6 +685,16 @@ public final class NestedSet<E> {
   private int walk(
       CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children, int pos) {
     for (Object child : children) {
+      if (pos < 0) {
+        // TODO(b/176077765): remove when diagnosed.
+        throw new IllegalStateException(
+            "Negative position "
+                + pos
+                + " with memo length "
+                + memo.length
+                + " and child length "
+                + children.length);
+      }
       if ((pos >> 3) >= memo.length) {
         memo = Arrays.copyOf(memo, memo.length * 2);
       }
@@ -714,13 +712,13 @@ public final class NestedSet<E> {
             pos = prepos + 1;
           }
         } else {
-          ++pos;
+          pos++;
         }
       } else {
         if (members.add((E) child)) {
           memo[pos >> 3] |= (byte) (1 << (pos & 7));
         }
-        ++pos;
+        pos++;
       }
     }
     return pos;

@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Maps;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.Maps;
 import java.util.Collection;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -48,47 +48,28 @@ public interface Differencer {
     Map<SkyKey, SkyValue> changedKeysWithNewValues();
   }
 
-  /** A {@Diff} that also potentially contains the new and old values for each changed key. */
+  /** A {@link Diff} that also potentially contains the new and old values for each changed key. */
   interface DiffWithDelta extends Diff {
-    /** Returns the value keys whose values have changed, along with their old and new values. */
-    Map<SkyKey, Delta> changedKeysWithNewAndOldValues();
-
     /** Represents the delta between two values of the same key. */
-    final class Delta {
-      private static final Function<Delta, SkyValue> NEW_VALUE_EXTRACTOR =
-          new Function<Delta, SkyValue>() {
-            @Override
-            public SkyValue apply(Delta delta) {
-              return delta.getNewValue();
-            }
-          };
-
-      @Nullable
-      private final SkyValue oldValue;
-      private final SkyValue newValue;
-
-      public Delta(SkyValue newValue) {
-        this(null, newValue);
-      }
-
-      public Delta(SkyValue oldValue, SkyValue newValue) {
-        this.oldValue = oldValue;
-        this.newValue = newValue;
-      }
-
+    @AutoValue
+    abstract class Delta {
       /** Returns the old value, if any. */
       @Nullable
-      public SkyValue getOldValue() {
-        return oldValue;
-      }
+      public abstract SkyValue oldValue();
 
       /** Returns the new value. */
-      public SkyValue getNewValue() {
-        return newValue;
+      public abstract SkyValue newValue();
+
+      public static Delta create(SkyValue newValue) {
+        return create(/*oldValue=*/ null, newValue);
+      }
+
+      public static Delta create(SkyValue oldValue, SkyValue newValue) {
+        return new AutoValue_Differencer_DiffWithDelta_Delta(oldValue, checkNotNull(newValue));
       }
 
       public static Map<SkyKey, SkyValue> newValues(Map<SkyKey, Delta> delta) {
-        return Maps.transformValues(delta, NEW_VALUE_EXTRACTOR);
+        return Maps.transformValues(delta, Delta::newValue);
       }
     }
   }

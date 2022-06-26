@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -23,11 +22,11 @@ import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import org.junit.Before;
@@ -39,9 +38,9 @@ import org.junit.runners.JUnit4;
  * These tests belong to {@link TimestampBuilderTest}, but they're in a separate class for now
  * because they are a little slower.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
+  private final StoredEventHandler storedEventHandler = new StoredEventHandler();
   private Path cacheRoot;
   private CompactPersistentActionCache cache;
 
@@ -54,7 +53,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   }
 
   private CompactPersistentActionCache createCache() throws IOException {
-    return new CompactPersistentActionCache(cacheRoot, clock);
+    return CompactPersistentActionCache.create(cacheRoot, clock, storedEventHandler);
   }
 
   private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
@@ -75,7 +74,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
@@ -159,7 +158,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testModifyingInputCausesActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
@@ -198,7 +197,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
 
     Artifact hello = createSourceArtifact("hello");
     Artifact there = createSourceArtifact("there");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
     FileSystemUtils.writeContentAsLatin1(there.getPath(), "there");
     Artifact goodbye = createDerivedArtifact("goodbye");
@@ -226,7 +225,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testOldCacheKeysAreCleanedUp() throws Exception {
     // [action1] -> (/goodbye), cache key will be /goodbye
     Artifact goodbye = createDerivedArtifact("goodbye");
-    FileSystemUtils.createDirectoryAndParents(goodbye.getPath().getParentDirectory());
+    goodbye.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(goodbye.getPath(), "test");
     Button button = createActionButton(emptyNestedSet, ImmutableSet.of(goodbye));
 
@@ -259,7 +258,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // /hello -> [action] -> /goodbye
 
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "hello");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
@@ -275,7 +274,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Now create duplicate graph, replacing "hello" with "hi".
     clearActions();
     Artifact hi = createSourceArtifact("hi");
-    FileSystemUtils.createDirectoryAndParents(hi.getPath().getParentDirectory());
+    hi.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hi.getPath(), "hello");
     Artifact goodbye2 = createDerivedArtifact("goodbye");
     Button button2 = createActionButton(asNestedSet(hi), ImmutableSet.of(goodbye2));
@@ -294,7 +293,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   public void testModifyingTimestampOnlyDoesNotCauseActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact goodbye = createDerivedArtifact("goodbye");
     Button button = createActionButton(asNestedSet(hello), ImmutableSet.of(goodbye));
@@ -377,18 +376,20 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Remove filename index file.
     assertThat(
             Iterables.getOnlyElement(
-                    UnixGlob.forPath(cacheRoot).addPattern("filename_index*").globInterruptible())
+                    new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+                        .addPattern("filename_index*")
+                        .globInterruptible())
                 .delete())
         .isTrue();
 
     // Now first cache creation attempt should cause IOException while renaming corrupted files.
     // Second attempt will initialize empty cache, causing rebuild.
-    IOException e = assertThrows(IOException.class, () -> createCache());
-    assertThat(e)
-        .hasMessageThat()
-        .isEqualTo("Failed action cache referential integrity check: empty index");
-
+    assertThat(storedEventHandler.getEvents()).isEmpty();
     buildArtifacts(persistentBuilder(createCache()), hello);
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(storedEventHandler.getEvents().get(0).getMessage())
+        .contains("Failed action cache referential integrity check");
+
     assertThat(button.pressed).isTrue(); // rebuilt due to the missing filename index
   }
 
@@ -422,7 +423,9 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     // Get filename index path and store a copy of it.
     Path indexPath =
         Iterables.getOnlyElement(
-            UnixGlob.forPath(cacheRoot).addPattern("filename_index*").globInterruptible());
+            new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+                .addPattern("filename_index*")
+                .globInterruptible());
     Path indexCopy = scratch.resolve("index_copy");
     FileSystemUtils.copyFile(indexPath, indexCopy);
 
@@ -444,11 +447,12 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
 
     // Now first cache creation attempt should cause IOException while renaming corrupted files.
     // Second attempt will initialize empty cache, causing rebuild.
-    IOException e = assertThrows(IOException.class, () -> createCache());
-    assertThat(e).hasMessageThat().contains("Failed action cache referential integrity check");
-
-    // Validate cache with incorrect (out-of-date) filename index.
+    assertThat(storedEventHandler.getEvents()).isEmpty();
     buildArtifacts(persistentBuilder(createCache()), hello);
+    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(storedEventHandler.getEvents().get(0).getMessage())
+        .contains("Failed action cache referential integrity check");
+
     assertThat(button.pressed).isTrue(); // rebuilt due to the out-of-date index
   }
 }

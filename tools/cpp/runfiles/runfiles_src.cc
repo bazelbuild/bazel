@@ -25,6 +25,7 @@
 #include <unistd.h>
 #endif  // _WIN32
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <map>
@@ -93,34 +94,12 @@ bool IsDirectory(const string& path) {
 #endif
 }
 
-// Computes the path of the runfiles manifest and the runfiles directory.
-// By searching first next to the binary location `argv0` and then falling
-// back on the values passed in `runfiles_manifest_file` and `runfiles_dir`
-//
-// If the method finds both a valid manifest and valid directory according to
-// `is_runfiles_manifest` and `is_runfiles_directory`, then the method sets
-// the corresponding values to `out_manifest` and `out_directory` and returns
-// true.
-//
-// If the method only finds a valid manifest or a valid directory, but not
-// both, then it sets the corresponding output variable (`out_manifest` or
-// `out_directory`) to the value while clearing the other output variable. The
-// method still returns true in this case.
-//
-// If the method cannot find either a valid manifest or valid directory, it
-// clears both output variables and returns false.
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir, std::string* out_manifest,
                std::string* out_directory);
 
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir,
-               std::function<bool(const std::string&)> is_runfiles_manifest,
-               std::function<bool(const std::string&)> is_runfiles_directory,
-               std::string* out_manifest, std::string* out_directory);
-
-bool PathsFrom(const std::string& runfiles_manifest_file,
-               const std::string& runfiles_dir,
                std::function<bool(const std::string&)> is_runfiles_manifest,
                std::function<bool(const std::string&)> is_runfiles_directory,
                std::string* out_manifest, std::string* out_directory);
@@ -176,7 +155,7 @@ bool IsAbsolute(const string& path) {
 
 string GetEnv(const string& key) {
 #ifdef _WIN32
-  DWORD size = ::GetEnvironmentVariableA(key.c_str(), NULL, 0);
+  DWORD size = ::GetEnvironmentVariableA(key.c_str(), nullptr, 0);
   if (size == 0) {
     return string();  // unset or empty envvar
   }
@@ -185,7 +164,7 @@ string GetEnv(const string& key) {
   return value.get();
 #else
   char* result = getenv(key.c_str());
-  return (result == NULL) ? string() : string(result);
+  return (result == nullptr) ? string() : string(result);
 #endif
 }
 
@@ -198,9 +177,24 @@ string Runfiles::Rlocation(const string& path) const {
   if (IsAbsolute(path)) {
     return path;
   }
-  const auto value = runfiles_map_.find(path);
-  if (value != runfiles_map_.end()) {
-    return value->second;
+  const auto exact_match = runfiles_map_.find(path);
+  if (exact_match != runfiles_map_.end()) {
+    return exact_match->second;
+  }
+  if (!runfiles_map_.empty()) {
+    // If path references a runfile that lies under a directory that itself is a
+    // runfile, then only the directory is listed in the manifest. Look up all
+    // prefixes of path in the manifest and append the relative path from the
+    // prefix to the looked up path.
+    std::size_t prefix_end = path.size();
+    while ((prefix_end = path.find_last_of('/', prefix_end - 1)) !=
+           string::npos) {
+      const string prefix = path.substr(0, prefix_end);
+      const auto prefix_match = runfiles_map_.find(prefix);
+      if (prefix_match != runfiles_map_.end()) {
+        return prefix_match->second + "/" + path.substr(prefix_end + 1);
+      }
+    }
   }
   if (!directory_.empty()) {
     return directory_ + "/" + path;
@@ -287,71 +281,45 @@ bool PathsFrom(const string& argv0, string mf, string dir,
   out_manifest->clear();
   out_directory->clear();
 
-  string existing_mf = mf;
-  string existing_dir = dir;
+  bool mfValid = is_runfiles_manifest(mf);
+  bool dirValid = is_runfiles_directory(dir);
 
-  // if argv0 is not empty, try to use it to find the runfiles manifest
-  // file/directory paths
-  if (!argv0.empty()) {
+  if (!argv0.empty() && !mfValid && !dirValid) {
     mf = argv0 + ".runfiles/MANIFEST";
     dir = argv0 + ".runfiles";
-    if (!is_runfiles_manifest(mf)) {
+    mfValid = is_runfiles_manifest(mf);
+    dirValid = is_runfiles_directory(dir);
+    if (!mfValid) {
       mf = argv0 + ".runfiles_manifest";
+      mfValid = is_runfiles_manifest(mf);
     }
-    PathsFrom(mf, dir, is_runfiles_manifest, is_runfiles_directory,
-              out_manifest, out_directory);
   }
 
-  // if the runfiles manifest file/directory paths are not found, use existing
-  // mf and dir to find the paths
-  if (out_manifest->empty() && out_directory->empty()) {
-    return PathsFrom(existing_mf, existing_dir, is_runfiles_manifest,
-                     is_runfiles_directory, out_manifest, out_directory);
-  }
-
-  return true;
-}
-
-bool PathsFrom(const std::string& runfiles_manifest,
-               const std::string& runfiles_directory,
-               function<bool(const std::string&)> is_runfiles_manifest,
-               function<bool(const std::string&)> is_runfiles_directory,
-               std::string* out_manifest, std::string* out_directory) {
-  out_manifest->clear();
-  out_directory->clear();
-
-
-  std::string mf = runfiles_manifest;
-  std::string dir = runfiles_directory;
-
-  bool mf_valid = is_runfiles_manifest(mf);
-  bool dir_valid = is_runfiles_directory(dir);
-
-  if (!mf_valid && !dir_valid) {
+  if (!mfValid && !dirValid) {
     return false;
   }
 
-  if (!mf_valid) {
+  if (!mfValid) {
     mf = dir + "/MANIFEST";
-    mf_valid = is_runfiles_manifest(mf);
-    if (!mf_valid) {
+    mfValid = is_runfiles_manifest(mf);
+    if (!mfValid) {
       mf = dir + "_manifest";
-      mf_valid = is_runfiles_manifest(mf);
+      mfValid = is_runfiles_manifest(mf);
     }
   }
 
-  if (!dir_valid &&
+  if (!dirValid &&
       (ends_with(mf, ".runfiles_manifest") || ends_with(mf, "/MANIFEST"))) {
     static const size_t kSubstrLen = 9;  // "_manifest" or "/MANIFEST"
     dir = mf.substr(0, mf.size() - kSubstrLen);
-    dir_valid = is_runfiles_directory(dir);
+    dirValid = is_runfiles_directory(dir);
   }
 
-  if (mf_valid) {
+  if (mfValid) {
     *out_manifest = mf;
   }
 
-  if (dir_valid) {
+  if (dirValid) {
     *out_directory = dir;
   }
 

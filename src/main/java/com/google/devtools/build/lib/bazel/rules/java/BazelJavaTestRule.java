@@ -60,6 +60,13 @@ public final class BazelJavaTestRule implements RuleDefinition {
             attr(":lcov_merger", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        // Add the script as an attribute in order for java_test to output code coverage results for
+        // code covered by CC binaries invocations.
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>
@@ -95,8 +102,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("test_class", STRING))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(true)
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 

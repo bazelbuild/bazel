@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-package(default_visibility = ["//visibility:public"])
-
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
-load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_toolchain")
+
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "malloc",

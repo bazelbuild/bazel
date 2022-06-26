@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -37,13 +40,22 @@ import javax.annotation.Nullable;
  * target cannot be completed because of an error in one of its dependencies.
  */
 public class AnalysisFailureEvent implements BuildEvent {
+  @Nullable private final AspectKey failedAspect;
   private final ConfiguredTargetKey failedTarget;
   private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
 
   public AnalysisFailureEvent(
-      ConfiguredTargetKey failedTarget, BuildEventId configuration, NestedSet<Cause> rootCauses) {
-    this.failedTarget = failedTarget;
+      ActionLookupKey failedTarget, BuildEventId configuration, NestedSet<Cause> rootCauses) {
+    Preconditions.checkArgument(
+        failedTarget instanceof ConfiguredTargetKey || failedTarget instanceof AspectKey);
+    if (failedTarget instanceof ConfiguredTargetKey) {
+      this.failedAspect = null;
+      this.failedTarget = (ConfiguredTargetKey) failedTarget;
+    } else {
+      this.failedAspect = (AspectKey) failedTarget;
+      this.failedTarget = failedAspect.getBaseConfiguredTargetKey();
+    }
     if (configuration != null) {
       this.configuration = configuration;
     } else {
@@ -55,6 +67,7 @@ public class AnalysisFailureEvent implements BuildEvent {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
+        .add("failedAspect", failedAspect)
         .add("failedTarget", failedTarget)
         .add("configuration", configuration)
         .add("legacyFailureReason", getLegacyFailureReason())
@@ -86,7 +99,12 @@ public class AnalysisFailureEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventIdUtil.targetCompleted(failedTarget.getLabel(), configuration);
+    if (failedAspect == null) {
+      return BuildEventIdUtil.targetCompleted(failedTarget.getLabel(), configuration);
+    } else {
+      return BuildEventIdUtil.aspectCompleted(
+          failedTarget.getLabel(), configuration, failedAspect.getAspectName());
+    }
   }
 
   @Override

@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 
 /** A SkyValue to store the coverage report Action and Artifacts. */
 public final class CoverageReportValue extends BasicActionLookupValue {
-
   // There should only ever be one CoverageReportValue value in the graph.
   @SerializationConstant
   public static final ActionLookupKey COVERAGE_REPORT_KEY = new CoverageReportKey();
@@ -43,8 +42,19 @@ public final class CoverageReportValue extends BasicActionLookupValue {
 
     @Nullable
     @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
+
+    @Nullable
+    @Override
     public Label getLabel() {
       return null;
+    }
+
+    @Override
+    public String toString() {
+      return "CoverageReportKeySingleton";
     }
   }
 }

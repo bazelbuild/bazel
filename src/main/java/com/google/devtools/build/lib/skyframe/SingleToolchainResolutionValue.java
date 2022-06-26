@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -29,23 +30,42 @@ import java.util.List;
  * A value which represents the map of potential execution platforms and resolved toolchains for a
  * single toolchain type. This allows for a Skyframe cache per toolchain type.
  */
-@AutoCodec
 @AutoValue
 public abstract class SingleToolchainResolutionValue implements SkyValue {
 
   // A key representing the input data.
   public static SingleToolchainResolutionKey key(
-      BuildConfigurationValue.Key configurationKey,
-      Label toolchainTypeLabel,
+      BuildConfigurationKey configurationKey,
+      ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
+    return key(
+        configurationKey,
+        toolchainType,
+        toolchainTypeInfo,
+        targetPlatformKey,
+        availableExecutionPlatformKeys,
+        false);
+  }
+
+  public static SingleToolchainResolutionKey key(
+      BuildConfigurationKey configurationKey,
+      ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
+      ConfiguredTargetKey targetPlatformKey,
+      List<ConfiguredTargetKey> availableExecutionPlatformKeys,
+      boolean debugTarget) {
     return SingleToolchainResolutionKey.create(
-        configurationKey, toolchainTypeLabel, targetPlatformKey, availableExecutionPlatformKeys);
+        configurationKey,
+        toolchainType,
+        toolchainTypeInfo,
+        targetPlatformKey,
+        availableExecutionPlatformKeys,
+        debugTarget);
   }
 
   /** {@link SkyKey} implementation used for {@link SingleToolchainResolutionFunction}. */
-  @AutoCodec
-  @AutoCodec.VisibleForSerialization
   @AutoValue
   public abstract static class SingleToolchainResolutionKey implements SkyKey {
 
@@ -54,29 +74,36 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
       return SkyFunctions.SINGLE_TOOLCHAIN_RESOLUTION;
     }
 
-    abstract BuildConfigurationValue.Key configurationKey();
+    abstract BuildConfigurationKey configurationKey();
 
-    public abstract Label toolchainTypeLabel();
+    public abstract ToolchainTypeRequirement toolchainType();
+
+    public abstract ToolchainTypeInfo toolchainTypeInfo();
 
     abstract ConfiguredTargetKey targetPlatformKey();
 
     abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
 
-    @AutoCodec.Instantiator
+    abstract boolean debugTarget();
+
     static SingleToolchainResolutionKey create(
-        BuildConfigurationValue.Key configurationKey,
-        Label toolchainTypeLabel,
+        BuildConfigurationKey configurationKey,
+        ToolchainTypeRequirement toolchainType,
+        ToolchainTypeInfo toolchainTypeInfo,
         ConfiguredTargetKey targetPlatformKey,
-        List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
+        List<ConfiguredTargetKey> availableExecutionPlatformKeys,
+        boolean debugTarget) {
       return new AutoValue_SingleToolchainResolutionValue_SingleToolchainResolutionKey(
           configurationKey,
-          toolchainTypeLabel,
+          toolchainType,
+          toolchainTypeInfo,
           targetPlatformKey,
-          ImmutableList.copyOf(availableExecutionPlatformKeys));
+          ImmutableList.copyOf(availableExecutionPlatformKeys),
+          debugTarget);
     }
   }
 
-  @AutoCodec.Instantiator
+  @VisibleForTesting
   public static SingleToolchainResolutionValue create(
       ToolchainTypeInfo toolchainType,
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {

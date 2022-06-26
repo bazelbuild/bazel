@@ -31,7 +31,7 @@ public abstract class ActionResult {
   public static final ActionResult EMPTY = ActionResult.create(ImmutableList.of());
 
   /** Returns the SpawnResults for the action. */
-  public abstract List<SpawnResult> spawnResults();
+  public abstract ImmutableList<SpawnResult> spawnResults();
 
   /** Returns a builder that can be used to construct a {@link ActionResult} object. */
   public static Builder builder() {
@@ -99,7 +99,7 @@ public abstract class ActionResult {
    *     measurement is not implemented for the current platform
    */
   public Optional<Duration> cumulativeCommandExecutionWallTime() {
-    return getCumulativeTime(spawnResult -> spawnResult.getWallTime());
+    return getCumulativeTime(SpawnResult::getWallTime);
   }
 
   /**
@@ -109,7 +109,7 @@ public abstract class ActionResult {
    *     measurement is not implemented for the current platform
    */
   public Optional<Duration> cumulativeCommandExecutionUserTime() {
-    return getCumulativeTime(spawnResult -> spawnResult.getUserTime());
+    return getCumulativeTime(SpawnResult::getUserTime);
   }
 
   /**
@@ -119,7 +119,7 @@ public abstract class ActionResult {
    *     measurement is not implemented for the current platform
    */
   public Optional<Duration> cumulativeCommandExecutionSystemTime() {
-    return getCumulativeTime(spawnResult -> spawnResult.getSystemTime());
+    return getCumulativeTime(SpawnResult::getSystemTime);
   }
 
   /**
@@ -129,7 +129,7 @@ public abstract class ActionResult {
    *     measurement is not implemented for the current platform
    */
   public Optional<Long> cumulativeCommandExecutionBlockInputOperations() {
-    return getCumulativeLong(spawnResult -> spawnResult.getNumBlockInputOperations());
+    return getCumulativeLong(SpawnResult::getNumBlockInputOperations);
   }
 
   /**
@@ -139,7 +139,7 @@ public abstract class ActionResult {
    *     measurement is not implemented for the current platform
    */
   public Optional<Long> cumulativeCommandExecutionBlockOutputOperations() {
-    return getCumulativeLong(spawnResult -> spawnResult.getNumBlockOutputOperations());
+    return getCumulativeLong(SpawnResult::getNumBlockOutputOperations);
   }
 
   /**
@@ -149,7 +149,132 @@ public abstract class ActionResult {
    *     measurement is not implemented for the current platform
    */
   public Optional<Long> cumulativeCommandExecutionInvoluntaryContextSwitches() {
-    return getCumulativeLong(spawnResult -> spawnResult.getNumInvoluntaryContextSwitches());
+    return getCumulativeLong(SpawnResult::getNumInvoluntaryContextSwitches);
+  }
+
+  /**
+   * Returns the cumulative number of involuntary context switches for the {@link Action}. The
+   * spawns on one action could execute simultaneously, so the sum of spawn's memory usage is better
+   * estimation.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Long> cumulativeCommandExecutionMemoryInKb() {
+    return getCumulativeLong(SpawnResult::getMemoryInKb);
+  }
+
+  /**
+   * Returns the cumulative spawns total time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsTotalTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().totalTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns parse time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsParseTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().parseTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns network time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsNetworkTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().networkTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns fetch time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsFetchTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().fetchTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns queue time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsQueueTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().queueTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns setup time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsSetupTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().setupTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns upload time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeSpawnsUploadTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().uploadTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns execution wall time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeExecutionWallTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().executionWallTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns process output time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeProcessOutputTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().processOutputsTime()));
+  }
+
+  /**
+   * Returns the cumulative spawns retry time for the {@link Action}.
+   *
+   * @return the cumulative measurement, or empty in case of execution errors or when the
+   *     measurement is not implemented for the current platform
+   */
+  public Optional<Duration> cumulativeRetryTime() {
+    return getCumulativeTime(s -> Optional.of(s.getMetrics().retryTime()));
+  }
+
+  /**
+   * Indicates whether all {@link Spawn}s executed locally or not.
+   *
+   * @return true if all spawns of action executed locally
+   */
+  public boolean locallyExecuted() {
+    boolean locallyExecuted = true;
+    for (SpawnResult spawnResult : spawnResults()) {
+      locallyExecuted &= !spawnResult.wasRemote();
+    }
+    return locallyExecuted;
   }
 
   /**
@@ -179,7 +304,7 @@ public abstract class ActionResult {
     if (spawnResults == null) {
       return EMPTY;
     } else {
-      return builder().setSpawnResults(spawnResults).build();
+      return builder().setSpawnResults(ImmutableList.copyOf(spawnResults)).build();
     }
   }
 
@@ -188,7 +313,7 @@ public abstract class ActionResult {
   public abstract static class Builder {
 
     /** Sets the SpawnResults for the action. */
-    public abstract Builder setSpawnResults(List<SpawnResult> spawnResults);
+    public abstract Builder setSpawnResults(ImmutableList<SpawnResult> spawnResults);
 
     /** Builds and returns an ActionResult object. */
     public abstract ActionResult build();

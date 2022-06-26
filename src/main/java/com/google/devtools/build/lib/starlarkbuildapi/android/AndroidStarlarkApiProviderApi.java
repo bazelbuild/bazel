@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -132,7 +132,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
       doc = "Returns a jar file for classes generated from resources.",
       documented = false)
   @Nullable
-  OutputJarApi<FileT> getResourceJar();
+  JavaOutputApi<FileT> getResourceJar();
 
   @StarlarkMethod(
       name = "aar",
@@ -183,6 +183,6 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
         doc = "Returns a jar file for classes generated from IDL sources.",
         documented = false)
     @Nullable
-    OutputJarApi<FileT> getIdlOutput();
+    JavaOutputApi<FileT> getIdlOutput();
   }
 }

@@ -133,7 +133,7 @@ public class ProxyHelper {
 
     // Here there be dragons.
     Pattern urlPattern =
-        Pattern.compile("^(https?)://(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
+        Pattern.compile("^(https?://)?(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
     Matcher matcher = urlPattern.matcher(proxyAddress);
     if (!matcher.matches()) {
       throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
@@ -153,15 +153,19 @@ public class ProxyHelper {
     }
 
     boolean https;
-    switch (protocol) {
-      case "https":
-        https = true;
-        break;
-      case "http":
-        https = false;
-        break;
-      default:
-        throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
+    if (protocol == null) {
+      https = false;
+    } else {
+      switch (protocol) {
+        case "https://":
+          https = true;
+          break;
+        case "http://":
+          https = false;
+          break;
+        default:
+          throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
+      }
     }
 
     int port = https ? 443 : 80; // Default port numbers

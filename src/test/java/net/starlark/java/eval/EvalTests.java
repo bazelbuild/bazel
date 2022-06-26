@@ -22,6 +22,7 @@ import org.junit.runners.Suite;
   EvaluationTest.class,
   EvalUtilsTest.class,
   FunctionTest.class,
+  ImmutableKeyTrackingDictTest.class,
   MethodLibraryTest.class,
   MutabilityTest.class,
   PrinterTest.class,

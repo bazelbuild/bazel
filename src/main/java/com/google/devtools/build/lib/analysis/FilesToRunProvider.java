@@ -21,13 +21,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
-@AutoCodec
 public final class FilesToRunProvider
     implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -100,24 +100,14 @@ public abstract class Util {
     if (toolchainContext != null) {
       // This logic should stay up to date with the dep creation logic in
       // DependencyResolver#partiallyResolveDependencies.
-      BuildConfiguration targetConfiguration = ruleContext.getConfiguration();
-      BuildConfiguration hostConfiguration = ruleContext.getHostConfiguration();
+      BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
       for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
-        if (DependencyResolver.shouldUseToolchainTransition(
-            targetConfiguration, ruleContext.getRule())) {
-          maybeImplicitDeps.add(
-              ConfiguredTargetKey.builder()
-                  .setLabel(toolchain)
-                  .setConfiguration(targetConfiguration)
-                  .setToolchainContextKey(toolchainContext.key())
-                  .build());
-        } else {
-          maybeImplicitDeps.add(
-              ConfiguredTargetKey.builder()
-                  .setLabel(toolchain)
-                  .setConfiguration(hostConfiguration)
-                  .build());
-        }
+        maybeImplicitDeps.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(toolchain)
+                .setConfiguration(targetConfiguration)
+                .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                .build());
       }
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));

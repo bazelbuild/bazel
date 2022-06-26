@@ -6,7 +6,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http:#www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,25 +28,22 @@ from src.create_embedded_tools_lib import copy_zip_to_zip
 from src.create_embedded_tools_lib import is_executable
 
 output_paths = [
+    ('*MODULE.tools', lambda x: 'MODULE.bazel'),
     ('*tools/jdk/BUILD.tools', lambda x: 'tools/jdk/BUILD'),
     ('*tools/build_defs/repo/BUILD.repo',
      lambda x: 'tools/build_defs/repo/BUILD'),
+    ('*tools/j2objc/BUILD.tools', lambda x: 'tools/j2objc/BUILD'),
     ('*tools/platforms/BUILD.tools', lambda x: 'platforms/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
     ('*tools/cpp/runfiles/generated_*',
      lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
-    ('*BUILD.java_langtools', lambda x: 'third_party/java/jdk/langtools/BUILD'),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
-    ('*src/objc_tools/*',
-     lambda x: 'tools/objc/precomp_' + os.path.basename(x)),
-    ('*xcode*StdRedirect.dylib', lambda x: 'tools/objc/StdRedirect.dylib'),
     ('*xcode*make_hashed_objlist.py',
      lambda x: 'tools/objc/make_hashed_objlist.py'),
-    ('*xcode*realpath', lambda x: 'tools/objc/realpath'),
     ('*xcode*xcode-locator', lambda x: 'tools/objc/xcode-locator'),
     ('*src/tools/xcode/*', lambda x: 'tools/objc/' + os.path.basename(x)),
     # --experimental_sibling_repository_layout=false

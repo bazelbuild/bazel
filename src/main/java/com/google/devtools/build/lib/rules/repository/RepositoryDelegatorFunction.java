@@ -15,16 +15,13 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker.managedDirectoriesExist;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -34,14 +31,15 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -49,15 +47,12 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -86,6 +81,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");
 
+  // This indicates whether we should load external repositories from the Bzlmod system.
+  public static final Precomputed<Boolean> ENABLE_BZLMOD = new Precomputed<>("enable_bzlmod");
+
   public static final String DONT_FETCH_UNCONDITIONALLY = "";
 
   // The marker file version is inject in the rule key digest so the rule key is always different
@@ -103,9 +101,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final AtomicBoolean isFetch;
 
   private final BlazeDirectories directories;
-  // Managed directories mappings, pre-calculated and injected by SequencedSkyframeExecutor
-  // before each command.
-  private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   private final ExternalPackageHelper externalPackageHelper;
 
@@ -117,19 +112,21 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       AtomicBoolean isFetch,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
       ExternalPackageHelper externalPackageHelper) {
     this.handlers = handlers;
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
-    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
     this.externalPackageHelper = externalPackageHelper;
   }
 
-  public static RepositoryDirectoryValue.Builder symlink(
-      Path source, PathFragment destination, String userDefinedPath, Environment env)
+  public static RepositoryDirectoryValue.Builder symlinkRepoRoot(
+      BlazeDirectories directories,
+      Path source,
+      Path destination,
+      String userDefinedPath,
+      Environment env)
       throws RepositoryFunctionException, InterruptedException {
     try {
       source.createSymbolicLink(destination);
@@ -142,28 +139,50 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               e),
           Transience.TRANSIENT);
     }
-    FileValue repositoryValue = RepositoryFunction.getRepositoryDirectory(source, env);
-    if (repositoryValue == null) {
+
+    // Check that the target directory exists and is a directory.
+    // Note that we have to check `destination` and not `source` here, otherwise we'd have a
+    // circular dependency between SkyValues.
+    RootedPath targetDirRootedPath;
+    if (destination.startsWith(directories.getInstallBase())) {
+      // The install base only changes with the Bazel binary so it's acceptable not to add its
+      // ancestors as Skyframe dependencies.
+      targetDirRootedPath =
+          RootedPath.toRootedPath(Root.fromPath(destination), PathFragment.EMPTY_FRAGMENT);
+    } else {
+      targetDirRootedPath =
+          RootedPath.toRootedPath(Root.absoluteRoot(destination.getFileSystem()), destination);
+    }
+
+    FileValue targetDirValue;
+    try {
+      targetDirValue =
+          (FileValue) env.getValueOrThrow(FileValue.key(targetDirRootedPath), IOException.class);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Could not access " + destination + ": " + e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    if (targetDirValue == null) {
       // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
       // second execution.
       return null;
     }
 
-    if (!repositoryValue.isDirectory()) {
+    if (!targetDirValue.isDirectory()) {
       throw new RepositoryFunctionException(
           new IOException(
               String.format(
                   "The repository's path is \"%s\" (absolute: \"%s\") "
-                      + "but this directory does not exist.",
+                      + "but it does not exist or is not a directory.",
                   userDefinedPath, destination)),
           Transience.PERSISTENT);
     }
 
     // Check that the repository contains a WORKSPACE file.
-    // It's important to check the real path, otherwise this looks under the "external/[repo]" path
-    // and cause a Skyframe cycle in the lookup.
-    FileValue workspaceFileValue =
-        LocalRepositoryFunction.getWorkspaceFile(repositoryValue.realRootedPath(), env);
+    // Note that we need to do this here since we're not creating a WORKSPACE file ourselves, but
+    // entrusting the entire contents of the repo root to this target directory.
+    FileValue workspaceFileValue = getWorkspaceFile(targetDirRootedPath, env);
     if (workspaceFileValue == null) {
       return null;
     }
@@ -172,8 +191,35 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       throw new RepositoryFunctionException(
           new IOException("No WORKSPACE file found in " + source), Transience.PERSISTENT);
     }
-
     return RepositoryDirectoryValue.builder().setPath(source);
+  }
+
+  @Nullable
+  private static FileValue getWorkspaceFile(RootedPath directory, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
+    RootedPath workspaceRootedFile;
+    try {
+      workspaceRootedFile = WorkspaceFileHelper.getWorkspaceRootedFile(directory, env);
+      if (workspaceRootedFile == null) {
+        return null;
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
+                  + e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    SkyKey workspaceFileKey = FileValue.key(workspaceRootedFile);
+    FileValue value;
+    try {
+      value = (FileValue) env.getValueOrThrow(workspaceFileKey, IOException.class);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException("Could not access " + workspaceRootedFile + ": " + e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    return value;
   }
 
   private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
@@ -190,34 +236,62 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       throws InterruptedException, RepositoryFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
+    if (!repositoryName.isVisible()) {
+      return new NoRepositoryDirectoryValue(
+          String.format(
+              "Repository '%s' is not visible from repository '%s'",
+              repositoryName.getNameWithAt(),
+              repositoryName.getOwnerRepoIfNotVisible().getNameWithAt()));
+    }
+
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
     boolean doNotFetchUnconditionally =
         DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));
     boolean needsConfiguring = false;
 
-    Path repoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories)
-        .getRelative(repositoryName.strippedName());
+    Path repoRoot =
+        RepositoryFunction.getExternalRepositoryDirectory(directories)
+            .getRelative(repositoryName.getName());
 
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
       DigestWriter.clearMarkerFile(directories, repositoryName);
-      return setupOverride(
-          overrides.get(repositoryName), env, repoRoot, repositoryName.strippedName());
+      return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName.getName());
     }
 
-    Rule rule;
-    try {
-      rule = getRepository(repositoryName, env);
-      if (rule == null) {
+    Rule rule = null;
+
+    if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
+      // Tries to get a repository rule instance from Bzlmod generated repos.
+      SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
+      BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
+
+      if (env.valuesMissing()) {
         return null;
       }
-    } catch (NoSuchRepositoryException e) {
-      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
+
+      if (value != BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+        rule = value.getRule();
+      }
+    }
+
+    if (rule == null) {
+      // fallback to look up the repository in the WORKSPACE file.
+      try {
+        rule = getRepoRuleFromWorkspace(repositoryName, env);
+        if (env.valuesMissing()) {
+          return null;
+        }
+      } catch (NoSuchRepositoryException e) {
+        return new NoRepositoryDirectoryValue(
+            String.format("Repository '%s' is not defined", repositoryName.getCanonicalForm()));
+      }
     }
 
     RepositoryFunction handler = getHandler(rule);
     if (handler == null) {
       // If we refer to a non repository rule then the repository does not exist.
-      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
+      return new NoRepositoryDirectoryValue(
+          String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
     }
 
     if (handler.isConfigure(rule)) {
@@ -228,49 +302,38 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> managedDirectories =
-        managedDirectoriesKnowledge.getManagedDirectories(repositoryName);
-    DigestWriter digestWriter =
-        new DigestWriter(
-            directories,
-            repositoryName,
-            rule,
-            managedDirectories);
+    DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
 
     // Local repositories are fetched regardless of the marker file because the operation is
     // generally fast and they do not depend on non-local data, so it does not make much sense to
     // try to cache them from across server instances.
     boolean fetchLocalRepositoryAlways = isFetch.get() && handler.isLocal(rule);
-    if (!fetchLocalRepositoryAlways
-        && managedDirectoriesExist(directories.getWorkspace(), managedDirectories)) {
+    if (!fetchLocalRepositoryAlways) {
       // For the non-local repositories, check if they are already up-to-date:
       // 1) unconditional fetching is not enabled, AND
       // 2) unconditional syncing is not enabled or the rule is not a configure rule, AND
       // 3) repository directory exists, AND
-      // 4) marker file correctly describes the current repository state, AND
-      // 5) managed directories, mapped to the repository, exist
+      // 4) marker file correctly describes the current repository state
       if (!needsConfiguring && doNotFetchUnconditionally && repoRoot.exists()) {
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (env.valuesMissing()) {
           return null;
         }
         if (markerHash != null) {
-          // Now that we know that it exists and that we should not fetch unconditionally, we can
-          // declare a Skyframe dependency on the repository root.
-          RepositoryFunction.getRepositoryDirectory(repoRoot, env);
-          if (env.valuesMissing()) {
-            return null;
-          }
           return RepositoryDirectoryValue.builder()
               .setPath(repoRoot)
               .setDigest(markerHash)
-              .setManagedDirectories(managedDirectories)
               .build();
         }
       }
     }
 
     if (isFetch.get()) {
+      // Fetching a repository is a long-running operation that can easily be interrupted. If it is
+      // and the marker file exists on disk, a new call of this method may treat this repository as
+      // valid even though it is in an inconsistent state. Clear the marker file and only recreate
+      // it after fetching is done to prevent this scenario.
+      DigestWriter.clearMarkerFile(directories, repositoryName);
       // Fetching enabled, go ahead.
       RepositoryDirectoryValue.Builder builder =
           fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);
@@ -283,22 +346,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
       byte[] digest = digestWriter.writeMarkerFile();
-      return builder.setDigest(digest).setManagedDirectories(managedDirectories).build();
+      return builder.setDigest(digest).build();
     }
 
     if (!repoRoot.exists()) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
-          new IOException("to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
-              + " not found and fetching repositories is disabled."),
+          new IOException(
+              "to fix, run\n\tbazel fetch //...\nExternal repository "
+                  + repositoryName.getNameWithAt()
+                  + " not found and fetching repositories is disabled."),
           Transience.TRANSIENT);
-    }
-
-    // Declare a Skyframe dependency so that this is re-evaluated when something happens to the
-    // directory.
-    RepositoryFunction.getRepositoryDirectory(repoRoot, env);
-    if (env.valuesMissing()) {
-      return null;
     }
 
     // Try to build with whatever is on the file system and emit a warning.
@@ -312,7 +370,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return RepositoryDirectoryValue.builder()
         .setPath(repoRoot)
         .setFetchingDelayed()
-        .setManagedDirectories(managedDirectories)
+        .setDigest(new Fingerprint().digestAndReset())
         .build();
   }
 
@@ -341,7 +399,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     setupRepositoryRoot(repoRoot);
 
-    String repositoryName = ((RepositoryName) skyKey.argument()).getName();
+    String repositoryName = ((RepositoryName) skyKey.argument()).getNameWithAt();
     env.getListener().post(new RepositoryFetching(repositoryName, false));
 
     RepositoryDirectoryValue.Builder repoBuilder;
@@ -350,7 +408,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(new RepositoryFetching(repositoryName, true));
-      env.getListener().post(new RepositoryFailedEvent(repositoryName, e.getMessage()));
+      env.getListener()
+          .post(new RepositoryFailedEvent((RepositoryName) skyKey.argument(), e.getMessage()));
       env.getListener()
           .handle(
               Event.error(
@@ -376,10 +435,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
    * returns null.
    */
   @Nullable
-  private Rule getRepository(RepositoryName repositoryName, Environment env)
+  private Rule getRepoRuleFromWorkspace(RepositoryName repositoryName, Environment env)
       throws InterruptedException, RepositoryFunctionException, NoSuchRepositoryException {
     try {
-      return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);
+      return externalPackageHelper.getRuleByName(repositoryName.getName(), env);
     } catch (ExternalRuleNotFoundException e) {
       // This is caught and handled immediately in compute().
       throw new NoSuchRepositoryException();
@@ -400,11 +459,17 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
     setupRepositoryRoot(repoRoot);
-    RepositoryDirectoryValue.Builder directoryValue = symlink(repoRoot, sourcePath, pathAttr, env);
+    RepositoryDirectoryValue.Builder directoryValue =
+        symlinkRepoRoot(
+            directories,
+            repoRoot,
+            directories.getWorkspace().getRelative(sourcePath),
+            pathAttr,
+            env);
     if (directoryValue == null) {
       return null;
     }
-    byte[] digest = new byte[] {};
+    byte[] digest = new Fingerprint().addPath(sourcePath).digestAndReset();
     return directoryValue.setDigest(digest).build();
   }
 
@@ -443,28 +508,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
-    private static final String MANAGED_DIRECTORIES_MARKER = "$MANAGED";
     private final Path markerPath;
     private final Rule rule;
     private final Map<String, String> markerData;
     private final String ruleKey;
 
-    DigestWriter(
-        BlazeDirectories directories,
-        RepositoryName repositoryName,
-        Rule rule,
-        ImmutableSet<PathFragment> managedDirectories) {
+    DigestWriter(BlazeDirectories directories, RepositoryName repositoryName, Rule rule) {
       ruleKey = computeRuleKey(rule);
-      markerPath = getMarkerPath(directories, repositoryName.strippedName());
+      markerPath = getMarkerPath(directories, repositoryName.getName());
       this.rule = rule;
       markerData = Maps.newHashMap();
-
-      List<PathFragment> directoriesList = Ordering.natural().sortedCopy(managedDirectories);
-      String directoriesString =
-          directoriesList.stream()
-              .map(PathFragment::getPathString)
-              .collect(Collectors.joining(" "));
-      markerData.put(MANAGED_DIRECTORIES_MARKER, directoriesString);
     }
 
     byte[] writeMarkerFile() throws RepositoryFunctionException {
@@ -510,10 +563,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         content = FileSystemUtils.readContent(markerPath, StandardCharsets.UTF_8);
         String markerRuleKey = readMarkerFile(content, markerData);
         boolean verified = false;
-        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)
-            && Objects.equals(
-                markerData.get(MANAGED_DIRECTORIES_MARKER),
-                this.markerData.get(MANAGED_DIRECTORIES_MARKER))) {
+        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
           verified = handler.verifyMarkerData(rule, markerData, env);
           if (env.valuesMissing()) {
             return null;
@@ -575,7 +625,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
         throws RepositoryFunctionException {
       try {
-        getMarkerPath(directories, repoName.strippedName()).delete();
+        getMarkerPath(directories, repoName.getName()).delete();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
@@ -588,9 +638,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     final String message;
 
     RepositoryFetching(String name, boolean finished) {
-      this.id = name;
-      this.finished = finished;
-      this.message = finished ? "finished." : "fetching";
+      this(name, finished, finished ? "finished." : "fetching");
     }
 
     RepositoryFetching(String name, boolean finished, String message) {

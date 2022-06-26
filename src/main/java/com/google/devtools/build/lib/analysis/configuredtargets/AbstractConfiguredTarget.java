@@ -20,10 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,8 +32,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import java.util.concurrent.atomic.AtomicReference;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -50,12 +47,9 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
   private final Label label;
-  private final BuildConfigurationValue.Key configurationKey;
+  private final BuildConfigurationKey configurationKey;
 
   private final NestedSet<PackageGroupContents> visibility;
-
-  // Cached on-demand default provider
-  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
 
   // Accessors for Starlark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
@@ -81,13 +75,13 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
-  public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
+  public AbstractConfiguredTarget(Label label, BuildConfigurationKey configurationKey) {
     this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   protected AbstractConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility) {
     this.label = label;
     this.configurationKey = configurationKey;
@@ -105,7 +99,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public BuildConfigurationValue.Key getConfigurationKey() {
+  public BuildConfigurationKey getConfigurationKey() {
     return configurationKey;
   }
 
@@ -211,15 +205,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   protected void addExtraStarlarkKeys(Consumer<String> result) {}
 
   private DefaultInfo getDefaultProvider() {
-    if (defaultProvider.get() == null) {
-      defaultProvider.compareAndSet(
-          null,
-          DefaultInfo.build(
-              getProvider(RunfilesProvider.class),
-              getProvider(FileProvider.class),
-              getProvider(FilesToRunProvider.class)));
-    }
-    return defaultProvider.get();
+    return DefaultInfo.build(this);
   }
 
   /** Returns a declared provider provided by this target. Only meant to use from Starlark. */

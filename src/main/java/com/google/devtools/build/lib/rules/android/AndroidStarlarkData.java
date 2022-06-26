@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
@@ -108,20 +109,12 @@ public abstract class AndroidStarlarkData
   @Override
   public AndroidManifestInfo stampAndroidManifest(
       AndroidDataContext ctx, Object manifest, Object customPackage, boolean exported)
-      throws InterruptedException, EvalException {
+      throws InterruptedException {
     String pkg = fromNoneable(customPackage, String.class);
-    try (StarlarkErrorReporter errorReporter =
-        StarlarkErrorReporter.from(ctx.getRuleErrorConsumer())) {
-      return AndroidManifest.from(
-              ctx,
-              errorReporter,
-              fromNoneable(manifest, Artifact.class),
-              getAndroidSemantics(),
-              pkg,
-              exported)
-          .stamp(ctx)
-          .toProvider();
-    }
+    return AndroidManifest.from(
+            ctx, fromNoneable(manifest, Artifact.class), getAndroidSemantics(), pkg, exported)
+        .stamp(ctx)
+        .toProvider();
   }
 
   @Override
@@ -303,7 +296,6 @@ public abstract class AndroidStarlarkData
       AndroidManifest rawManifest =
           AndroidManifest.from(
               ctx,
-              errorReporter,
               fromNoneable(manifest, Artifact.class),
               fromNoneable(customPackage, String.class),
               /* exportsManifest = */ false);
@@ -440,7 +432,6 @@ public abstract class AndroidStarlarkData
       AndroidManifest rawManifest =
           AndroidManifest.from(
               ctx,
-              errorReporter,
               fromNoneable(manifest, Artifact.class),
               getAndroidSemantics(),
               fromNoneable(customPackage, String.class),
@@ -585,7 +576,8 @@ public abstract class AndroidStarlarkData
         .addProvider(
             JavaRuleOutputJarsProvider.class,
             JavaRuleOutputJarsProvider.builder()
-                .addOutputJar(rClassJar, null, null, ImmutableList.of(rClassSrcJar))
+                .addJavaOutput(
+                    JavaOutput.builder().setClassJar(rClassJar).addSourceJar(rClassSrcJar).build())
                 .build())
         .addProvider(
             JavaCompilationArgsProvider.class,

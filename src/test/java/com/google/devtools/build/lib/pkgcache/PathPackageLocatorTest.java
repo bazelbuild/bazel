@@ -14,22 +14,18 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -178,86 +174,106 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     return scratch.file(workspace + "/" + packageName + "/" + buildFileName);
   }
 
-  private void checkFails(String packageName, String expectedError) {
-    checkFails(getLocator(), packageName, expectedError);
+  private void checkNoPackage(String packageName) {
+    checkNoPackage(getLocator(), packageName);
   }
 
-  private static void checkFails(
-      PathPackageLocator locator, String packageName, String expectedError) {
-    NoSuchPackageException e =
-        assertThrows(
-            NoSuchPackageException.class,
-            () -> locator.getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName)));
-    assertThat(e).hasMessageThat().ignoringCase().contains(expectedError);
-    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
-        .isEqualTo(PackageLoading.Code.BUILD_FILE_MISSING);
+  private static void checkNoPackage(PathPackageLocator locator, String packageName) {
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo(packageName), SyscallCache.NO_CACHE))
+        .isNull();
   }
 
   @Test
   public void testGetPackageBuildFile() throws Exception {
-    AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
-    assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("A")))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("A"), SyscallCache.NO_CACHE))
         .isEqualTo(buildBazelFile1A);
-    assertThat(locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("A"), cache))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("A"), SyscallCache.NO_CACHE))
         .isEqualTo(buildBazelFile1A);
-    assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("B")))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("B"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile1B);
-    assertThat(locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("B"), cache))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("B"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile1B);
-    assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("C")))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2C);
-    assertThat(locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("C"), cache))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2C);
-    assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("C/D")))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C/D"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2CD);
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("C/D"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C/D"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2CD);
-    checkFails("C/E",
-               "no such package 'C/E': BUILD file not found on package path");
+    checkNoPackage("C/E");
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("C/E"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C/E"), SyscallCache.NO_CACHE))
         .isNull();
-    assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("F")))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("F"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2F);
-    checkFails("F/G",
-               "no such package 'F/G': BUILD file not found on package path");
+    checkNoPackage("F/G");
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("F/G"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("F/G"), SyscallCache.NO_CACHE))
         .isNull();
-    assertThat(locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("F/G/H")))
+    assertThat(
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("F/G/H"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2FGH);
     assertThat(
-            locator.getPackageBuildFileNullable(PackageIdentifier.createInMainRepo("F/G/H"), cache))
+            locator.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("F/G/H"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile2FGH);
-    checkFails("I", "no such package 'I': BUILD file not found on package path");
+    checkNoPackage("I");
   }
 
   @Test
   public void testGetPackageBuildFileWithSymlinks() throws Exception {
-    assertThat(locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInMainRepo("A")))
+    assertThat(
+            locatorWithSymlinks.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("A"), SyscallCache.NO_CACHE))
         .isEqualTo(buildBazelFile3A);
-    assertThat(locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInMainRepo("B")))
+    assertThat(
+            locatorWithSymlinks.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("B"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile3B);
-    assertThat(locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInMainRepo("C/I")))
+    assertThat(
+            locatorWithSymlinks.getPackageBuildFileNullable(
+                PackageIdentifier.createInMainRepo("C/I"), SyscallCache.NO_CACHE))
         .isEqualTo(buildFile3CI);
-    checkFails(
-        locatorWithSymlinks, "C/D", "no such package 'C/D': BUILD file not found on package path");
+    checkNoPackage(locatorWithSymlinks, "C/D");
   }
 
   @Test
   public void testGetWorkspaceFile() throws Exception {
-    assertThat(locator.getWorkspaceFile()).isEqualTo(rootDir1WorkspaceFile);
+    assertThat(locator.getWorkspaceFile(SyscallCache.NO_CACHE)).isEqualTo(rootDir1WorkspaceFile);
   }
 
   private Path setLocator(String root) {
     Path nonExistentRoot = scratch.resolve(root);
     this.locator =
         PathPackageLocator.create(
-            null,
+            /*outputBase=*/ null,
             Arrays.asList(root),
             reporter,
-            /*workspace=*/ FileSystemUtils.getWorkingDirectory(scratch.getFileSystem()),
+            /*workspace=*/ FileSystemUtils.getWorkingDirectory(),
             /* clientWorkingDirectory= */ FileSystemUtils.getWorkingDirectory(
                 scratch.getFileSystem()),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
@@ -265,22 +281,12 @@ public class PathPackageLocatorTest extends FoundationTestCase {
   }
 
   @Test
-  public void testExists() throws Exception {
+  public void nonexistentRoot() throws Exception {
     Path nonExistentRoot1 = setLocator("/non/existent/1/workspace");
-    // Now let's create the root:
     createBuildFile(nonExistentRoot1, "X");
-    // The package isn't found
-    // The package is found, because we didn't drop the root:
-    assertThrows(
-        NoSuchPackageException.class,
-        () -> locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("X")));
-
-    Path nonExistentRoot2 = setLocator("/non/existent/2/workspace");
     // Now let's create the root:
-    createBuildFile(nonExistentRoot2, "X");
-    // ...but the package is still not found, because we dropped the root:
-    checkFails("X",
-               "no such package 'X': BUILD file not found on package path");
+    // The package isn't found
+    checkNoPackage("X");
   }
 
   @Test
@@ -299,10 +305,10 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         clientPath.getRelative("below").getPathString());
     assertThat(
             PathPackageLocator.create(
-                    null,
+                    /*outputBase=*/ null,
                     pathElements,
                     reporter,
-                    workspace,
+                    workspace.asFragment(),
                     clientPath,
                     BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
                 .getPathEntries())
@@ -320,19 +326,19 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
     // No warning if workspace == cwd.
     PathPackageLocator.create(
-        null,
+        /*outputBase=*/ null,
         ImmutableList.of("./foo"),
         reporter,
-        workspace,
+        workspace.asFragment(),
         workspace,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     assertThat(eventCollector.count()).isSameInstanceAs(0);
 
     PathPackageLocator.create(
-        null,
+        /*outputBase=*/ null,
         ImmutableList.of("./foo"),
         reporter,
-        workspace,
+        workspace.asFragment(),
         workspace.getRelative("foo"),
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     assertThat(eventCollector.count()).isSameInstanceAs(1);
@@ -345,10 +351,10 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     Path workspace = scratch.dir("/some/path/to/workspace$1");
 
     PathPackageLocator.create(
-        null,
+        /*outputBase=*/ null,
         ImmutableList.of("%workspace%/blabla"),
         reporter,
-        workspace,
+        workspace.asFragment(),
         workspace.getRelative("foo"),
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
   }

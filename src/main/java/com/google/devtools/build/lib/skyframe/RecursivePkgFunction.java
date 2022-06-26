@@ -19,17 +19,16 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
- * RecursivePkgFunction builds up the set of packages underneath a given directory
- * transitively.
+ * RecursivePkgFunction builds up the set of packages underneath a given directory transitively.
  *
  * <p>Example: foo/BUILD, foo/sub/x, foo/subpkg/BUILD would yield transitive packages "foo" and
  * "foo/subpkg".
@@ -46,7 +45,8 @@ public class RecursivePkgFunction implements SkyFunction {
    * in nokeep_going mode!
    */
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     return new MyTraversalFunction().visitDirectory((RecursivePkgKey) skyKey.argument(), env);
   }
 
@@ -63,7 +63,9 @@ public class RecursivePkgFunction implements SkyFunction {
     }
 
     @Override
-    protected SkyKey getSkyKeyForSubdirectory(RepositoryName repository, RootedPath subdirectory,
+    protected SkyKey getSkyKeyForSubdirectory(
+        RepositoryName repository,
+        RootedPath subdirectory,
         ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
       return RecursivePkgValue.key(
           repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory);
@@ -110,11 +112,5 @@ public class RecursivePkgFunction implements SkyFunction {
     RecursivePkgValue createRecursivePkgValue() {
       return RecursivePkgValue.create(packages, hasErrors);
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

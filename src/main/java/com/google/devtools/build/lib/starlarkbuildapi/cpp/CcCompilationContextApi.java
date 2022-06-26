@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -38,7 +40,8 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       name = "defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
-              + " These values are propagated to the target's transitive dependencies.",
+              + " These values are propagated to the target's transitive dependents, that is, "
+              + "any rules that depend on this target.",
       structField = true)
   Depset getStarlarkDefines();
 
@@ -46,7 +49,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       name = "local_defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
-              + " These values are not propagated to the target's transitive dependencies.",
+              + " These values are not propagated to the target's transitive dependents.",
       structField = true)
   Depset getStarlarkNonTransitiveDefines();
 
@@ -126,4 +129,26 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       documented = false,
       useStarlarkThread = true)
   Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "validation_artifacts",
+      doc = "Returns the set of validation artifacts.",
+      structField = true)
+  Depset getStarlarkValidationArtifacts();
+
+  @StarlarkMethod(name = "additional_inputs", documented = false, useStarlarkThread = true)
+  Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "transitive_modules",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "use_pic",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Boolean.class)})
+      })
+  Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread) throws EvalException;
 }

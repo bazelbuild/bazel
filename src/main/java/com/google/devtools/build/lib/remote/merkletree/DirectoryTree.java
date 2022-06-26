@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -74,7 +73,23 @@ final class DirectoryTree {
     private final Digest digest;
     private final boolean isExecutable;
 
-    FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
+    /**
+     * Create a FileNode with its executable bit set.
+     *
+     * <p>We always treat files as executable since Bazel will `chmod 555` on the output files of an
+     * action within ActionMetadataHandler#getMetadata after action execution if no metadata was
+     * injected. We can't use real executable bit of the file until this behaviour is changed. See
+     * https://github.com/bazelbuild/bazel/issues/13262 for more details.
+     */
+    static FileNode createExecutable(String pathSegment, Path path, Digest digest) {
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true);
+    }
+
+    static FileNode createExecutable(String pathSegment, ByteString data, Digest digest) {
+      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true);
+    }
+
+    private FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
       super(pathSegment);
       this.path = Preconditions.checkNotNull(path, "path");
       this.data = null;
@@ -82,12 +97,12 @@ final class DirectoryTree {
       this.isExecutable = isExecutable;
     }
 
-    FileNode(String pathSegment, ByteString data, Digest digest) {
+    private FileNode(String pathSegment, ByteString data, Digest digest, boolean isExecutable) {
       super(pathSegment);
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
       this.digest = Preconditions.checkNotNull(digest, "digest");
-      this.isExecutable = false;
+      this.isExecutable = isExecutable;
     }
 
     Digest getDigest() {
@@ -132,8 +147,8 @@ final class DirectoryTree {
       super(pathSegment);
     }
 
-    void addChild(Node child) {
-      children.add(Preconditions.checkNotNull(child, "child"));
+    boolean addChild(Node child) {
+      return children.add(Preconditions.checkNotNull(child, "child"));
     }
 
     @Override
@@ -212,13 +227,13 @@ final class DirectoryTree {
           StringBuilder sb = new StringBuilder();
 
           if (!dirname.equals(PathFragment.EMPTY_FRAGMENT)) {
-            sb.append(Strings.repeat("  ", depth));
+            sb.append(" ".repeat(2 * depth));
             sb.append(dirname.getBaseName());
             sb.append("\n");
           }
           if (!files.isEmpty()) {
             for (FileNode file : files) {
-              sb.append(Strings.repeat("  ", depth + 1));
+              sb.append(" ".repeat(2 * (depth + 1)));
               sb.append(formatFile(file));
               sb.append("\n");
             }

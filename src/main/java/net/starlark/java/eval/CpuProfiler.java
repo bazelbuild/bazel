@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -93,6 +94,8 @@ final class CpuProfiler {
     JNI.load();
   }
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final PprofWriter pprof;
 
   private CpuProfiler(OutputStream out, Duration period) {
@@ -126,9 +129,10 @@ final class CpuProfiler {
   }
 
   /** Start the profiler. */
-  static void start(OutputStream out, Duration period) {
+  static boolean start(OutputStream out, Duration period) {
     if (!supported()) {
-      throw new UnsupportedOperationException("this platform does not support Starlark profiling");
+      logger.atWarning().log("--starlark_cpu_profile is unsupported on this platform");
+      return false;
     }
     if (instance != null) {
       throw new IllegalStateException("profiler started twice without intervening stop");
@@ -140,6 +144,7 @@ final class CpuProfiler {
     }
 
     instance = new CpuProfiler(out, period);
+    return true;
   }
 
   /** Stop the profiler and wait for the log to be written. */

@@ -43,6 +43,11 @@ public class ZipUtils {
     zip.closeEntry();
   }
 
+  public static int getNumberOfEntries(Path path) throws IOException {
+    ZipFile zipFile = new ZipFile(path.toFile());
+    return zipFile.size();
+  }
+
   private static ZipEntry copyEntryMetadata(ZipEntry entry, String name) {
     ZipEntry copy = new ZipEntry(name);
     copy.setMethod(entry.getMethod());

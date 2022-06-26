@@ -23,15 +23,34 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraver
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.LinkSupplier;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Factory of {@link FilesetTraversalParams}. */
 public final class FilesetTraversalParamsFactory {
+  /** SymlinkBehavior decides what to do when a source file of a FilesetEntry is a symlink. */
+  @Immutable
+  @ThreadSafe
+  public enum SymlinkBehavior {
+    /** Just copies the symlink as-is. May result in dangling links. */
+    COPY,
+    /** Follow the link and make the destination point to the absolute path of the final target. */
+    DEREFERENCE;
+
+    public static SymlinkBehavior parse(String value) throws IllegalArgumentException {
+      return valueOf(value.toUpperCase(Locale.ENGLISH));
+    }
+
+    @Override
+    public String toString() {
+      return super.toString().toLowerCase();
+    }
+  }
 
   /**
    * Creates parameters for a recursive traversal request in a package.
@@ -155,7 +174,6 @@ public final class FilesetTraversalParamsFactory {
         : ImmutableSortedSet.copyOf(Ordering.natural(), excludes);
   }
 
-  @AutoCodec
   @AutoValue
   abstract static class DirectoryTraversalParams implements FilesetTraversalParams {
     @Override
@@ -188,7 +206,8 @@ public final class FilesetTraversalParamsFactory {
       fp.addBytes(getFingerprint());
     }
 
-    static DirectoryTraversalParams getDirectoryTraversalParams(Label ownerLabel,
+    static DirectoryTraversalParams getDirectoryTraversalParams(
+        Label ownerLabelForErrorMessages,
         DirectTraversalRoot root,
         boolean isPackage,
         PathFragment destPath,
@@ -201,22 +220,14 @@ public final class FilesetTraversalParamsFactory {
       DirectTraversal traversal = DirectTraversal.getDirectTraversal(root, isPackage,
           symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, strictFilesetOutput,
           isRecursive, isGenerated);
-      return create(ownerLabel, destPath, getOrderedExcludes(excludes), Optional.of(traversal));
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static DirectoryTraversalParams create(
-        Label ownerLabelForErrorMessages,
-        PathFragment destPath,
-        ImmutableSortedSet<String> excludedFiles,
-        Optional<DirectTraversal> directTraversal) {
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
-          ownerLabelForErrorMessages, destPath, excludedFiles, directTraversal);
+          ownerLabelForErrorMessages,
+          destPath,
+          getOrderedExcludes(excludes),
+          Optional.of(traversal));
     }
   }
 
-  @AutoCodec
   @AutoValue
   abstract static class NestedTraversalParams implements FilesetTraversalParams {
     @Override
@@ -250,26 +261,15 @@ public final class FilesetTraversalParamsFactory {
     }
 
     static NestedTraversalParams getNestedTraversal(
-        Label ownerLabel,
+        Label ownerLabelForErrorMessages,
         Artifact nestedArtifact,
         PathFragment destPath,
         @Nullable Set<String> excludes) {
-      return create(ownerLabel, destPath, getOrderedExcludes(excludes), nestedArtifact);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static NestedTraversalParams create(
-        Label ownerLabelForErrorMessages,
-        PathFragment destPath,
-        ImmutableSortedSet<String> excludedFiles,
-        Artifact nestedArtifact) {
       return new AutoValue_FilesetTraversalParamsFactory_NestedTraversalParams(
-          ownerLabelForErrorMessages, destPath, excludedFiles, nestedArtifact);
+          ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), nestedArtifact);
     }
   }
 
-  @AutoCodec
   @AutoValue
   abstract static class KnownLinksTraversalParams implements FilesetTraversalParams {
     @Override
@@ -303,22 +303,12 @@ public final class FilesetTraversalParamsFactory {
     }
 
     static KnownLinksTraversalParams getKnownLinksTraversal(
-        Label ownerLabel,
+        Label ownerLabelForErrorMessages,
         LinkSupplier additionalLinks,
         PathFragment destPath,
         @Nullable Set<String> excludes) {
-      return create(ownerLabel, destPath, getOrderedExcludes(excludes), additionalLinks);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static KnownLinksTraversalParams create(
-        Label ownerLabelForErrorMessages,
-        PathFragment destPath,
-        ImmutableSortedSet<String> excludedFiles,
-        LinkSupplier additionalLinks) {
       return new AutoValue_FilesetTraversalParamsFactory_KnownLinksTraversalParams(
-          ownerLabelForErrorMessages, destPath, excludedFiles, additionalLinks);
+          ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), additionalLinks);
     }
   }
 }

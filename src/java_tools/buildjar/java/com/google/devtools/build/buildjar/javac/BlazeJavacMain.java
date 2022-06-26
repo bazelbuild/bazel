@@ -25,15 +25,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
+import com.google.devtools.build.buildjar.javac.CancelCompilerPlugin.CancelRequestException;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
+import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.CacheFSInfo;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.main.JavaCompiler;
+import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
@@ -46,10 +49,15 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
+import javax.tools.JavaFileObject;
+import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
@@ -81,6 +89,8 @@ public class BlazeJavacMain {
     try {
       processPluginArgs(
           arguments.plugins(), arguments.javacOptions(), arguments.blazeJavacOptions());
+    } catch (CancelRequestException e) {
+      return BlazeJavacResult.cancelled(e.getMessage());
     } catch (InvalidCommandLineException e) {
       return BlazeJavacResult.error(e.getMessage());
     }
@@ -102,10 +112,13 @@ public class BlazeJavacMain {
     // Initialize parts of context that the filemanager depends on
     context.put(DiagnosticListener.class, diagnosticsBuilder);
     Log.instance(context).setWriters(errWriter);
-    Options.instance(context).put("-Xlint:path", "path");
+    Options options = Options.instance(context);
+    options.put("-Xlint:path", "path");
+    options.put("expandJarClassPaths", "false");
 
-    try (JavacFileManager fileManager =
-        new ClassloaderMaskingFileManager(context, arguments.builtinProcessors())) {
+    try (ClassloaderMaskingFileManager fileManager =
+        new ClassloaderMaskingFileManager(
+            context, arguments.builtinProcessors(), getMatchingBootFileManager(arguments))) {
 
       setLocations(fileManager, arguments);
 
@@ -119,14 +132,18 @@ public class BlazeJavacMain {
                   /* classes= */ ImmutableList.of(),
                   fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
                   context);
+
       try {
-        status = task.call() ? Status.OK : Status.ERROR;
+        status = fromResult(((JavacTaskImpl) task).doCall());
       } catch (PropagatedException e) {
         throw e.getCause();
       }
-    } catch (Throwable t) {
+    } catch (Exception t) {
+      if (t.getCause() instanceof CancelRequestException) {
+        return BlazeJavacResult.cancelled(t.getCause().getMessage());
+      }
       t.printStackTrace(errWriter);
-      status = Status.ERROR;
+      status = Status.CRASH;
     } finally {
       compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
       if (status == Status.OK) {
@@ -168,6 +185,20 @@ public class BlazeJavacMain {
         errOutput.toString(),
         compiler,
         builder.build());
+  }
+
+  private static Status fromResult(Result result) {
+    switch (result) {
+      case OK:
+        return Status.OK;
+      case ERROR:
+      case CMDERR:
+      case SYSERR:
+        return Status.ERROR;
+      case ABNORMAL:
+        return Status.CRASH;
+    }
+    throw new AssertionError(result);
   }
 
   private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {
@@ -290,6 +321,33 @@ public class BlazeJavacMain {
   }
 
   /**
+   * Multiple javac file manager instances each specific for a combination of bootClassPaths with
+   * their digest.
+   */
+  private static final Map<BootClassPathCachingFileManager.Key, BootClassPathCachingFileManager>
+      bootFileManagers = new HashMap<>();
+
+  /**
+   * Returns a BootClassPathCachingFileManager instance that matches the combination of
+   * bootClassPaths and their digest in the case of a worker with valid arguments.
+   */
+  private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
+      BlazeJavacArguments arguments) {
+    if (!arguments.requestId().isPresent()) {
+      // worker mode is not enabled
+      return null;
+    }
+    if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
+      // arguments not valid
+      return null;
+    }
+
+    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
+    return bootFileManagers.computeIfAbsent(
+        key, x -> new BootClassPathCachingFileManager(new Context(), key));
+  }
+
+  /**
    * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
    * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
    * annotation processor path, but we want to mask out any other classes to minimize class version
@@ -299,17 +357,33 @@ public class BlazeJavacMain {
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
     private final ImmutableSet<String> builtinProcessors;
+    /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
+    private final BootClassPathCachingFileManager bootFileManger;
 
-    public ClassloaderMaskingFileManager(Context context, ImmutableSet<String> builtinProcessors) {
+    public ClassloaderMaskingFileManager(
+        Context context,
+        ImmutableSet<String> builtinProcessors,
+        BootClassPathCachingFileManager bootFileManager) {
       super(context, true, UTF_8);
       this.builtinProcessors = builtinProcessors;
+      this.bootFileManger = bootFileManager;
+    }
+
+    @Override
+    public Iterable<JavaFileObject> list(
+        Location location, String packageName, Set<Kind> kinds, boolean recurse)
+        throws IOException {
+      if (this.bootFileManger != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
+        return this.bootFileManger.list(location, packageName, kinds, recurse);
+      }
+      return super.list(location, packageName, kinds, recurse);
     }
 
     @Override
     protected ClassLoader getClassLoader(URL[] urls) {
       return new URLClassLoader(
           urls,
-          new ClassLoader(getPlatformClassLoader()) {
+          new ClassLoader(ClassLoader.getPlatformClassLoader()) {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.google.errorprone.")
@@ -317,28 +391,19 @@ public class BlazeJavacMain {
                   || name.startsWith("com.google.common.base.")
                   || name.startsWith("com.google.common.graph.")
                   || name.startsWith("org.checkerframework.shaded.dataflow.")
+                  || name.startsWith("org.checkerframework.errorprone.dataflow.")
                   || name.startsWith("com.sun.source.")
                   || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
                   || name.startsWith("dagger.model.")
-                  || name.startsWith("dagger.spi.")
+                  // TODO(b/191812726): Include dagger.spi.model before releasing it to SPI users.
+                  || (name.startsWith("dagger.spi.") && !name.startsWith("dagger.spi.model."))
                   || builtinProcessors.contains(name)) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);
             }
           });
-    }
-  }
-
-  public static ClassLoader getPlatformClassLoader() {
-    try {
-      // In JDK 9+, all platform classes are visible to the platform class loader:
-      // https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html#getPlatformClassLoader--
-      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
-      return null;
     }
   }
 

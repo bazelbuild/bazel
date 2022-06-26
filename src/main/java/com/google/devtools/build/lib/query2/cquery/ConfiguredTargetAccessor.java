@@ -22,11 +22,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,9 +43,8 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -116,12 +117,16 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
 
     Multimap<Label, KeyedConfiguredTarget> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), kct -> kct.getLabel());
+            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), KeyedConfiguredTarget::getLabel);
 
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
-        ConfiguredAttributeMapper.of(rule, configConditions);
+        ConfiguredAttributeMapper.of(
+            rule,
+            configConditions,
+            keyedConfiguredTarget.getConfigurationChecksum(),
+            /*alwaysSucceed=*/ false);
     if (!attributeMapper.has(attrName)) {
       throw new QueryException(
           caller,
@@ -131,8 +136,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
     ImmutableList.Builder<KeyedConfiguredTarget> toReturn = ImmutableList.builder();
-    attributeMapper.visitLabels(attributeMapper.getAttributeDefinition(attrName)).stream()
-        .forEach(depEdge -> toReturn.addAll(depsByLabel.get(depEdge.getLabel())));
+    attributeMapper.visitLabels(
+        attributeMapper.getAttributeDefinition(attrName),
+        label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 
@@ -194,31 +200,35 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
 
   @Nullable
   ToolchainCollection<ToolchainContext> getToolchainContexts(
-      Target target, BuildConfiguration config) {
+      Target target, BuildConfigurationValue config) {
     return getToolchainContexts(target, config, walkableGraph);
   }
 
   @Nullable
   private static ToolchainCollection<ToolchainContext> getToolchainContexts(
-      Target target, BuildConfiguration config, WalkableGraph walkableGraph) {
+      Target target, BuildConfigurationValue config, WalkableGraph walkableGraph) {
     if (!(target instanceof Rule)) {
       return null;
     }
 
     Rule rule = ((Rule) target);
-    if (!rule.getRuleClassObject().useToolchainResolution()) {
+    if (!rule.useToolchainResolution()) {
       return null;
     }
 
-    ImmutableSet<Label> requiredToolchains = rule.getRuleClassObject().getRequiredToolchains();
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
+        rule.getRuleClassObject().getToolchainTypes();
     // Collect local (target, rule) constraints for filtering out execution platforms.
     ImmutableSet<Label> execConstraintLabels =
         getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
     ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
+    // Check if this specific target should be debugged for toolchain resolution.
+    boolean debugTarget =
+        config.getFragment(PlatformConfiguration.class).debugToolchainResolution(target.getLabel());
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         ToolchainCollection.builder();
-    BuildConfigurationValue.Key configurationKey = BuildConfigurationValue.key(config);
+    BuildConfigurationKey configurationKey = config.getKey();
     try {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         ExecGroup execGroup = group.getValue();
@@ -227,8 +237,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                 walkableGraph.getValue(
                     ToolchainContextKey.key()
                         .configurationKey(configurationKey)
-                        .requiredToolchainTypeLabels(execGroup.requiredToolchains())
+                        .toolchainTypes(execGroup.toolchainTypes())
                         .execConstraintLabels(execGroup.execCompatibleWith())
+                        .debugTarget(debugTarget)
                         .build());
         if (context == null) {
           return null;
@@ -240,8 +251,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
               walkableGraph.getValue(
                   ToolchainContextKey.key()
                       .configurationKey(configurationKey)
-                      .requiredToolchainTypeLabels(requiredToolchains)
+                      .toolchainTypes(toolchainTypes)
                       .execConstraintLabels(execConstraintLabels)
+                      .debugTarget(debugTarget)
                       .build());
       if (defaultContext == null) {
         return null;

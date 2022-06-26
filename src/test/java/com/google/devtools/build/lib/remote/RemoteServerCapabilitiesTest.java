@@ -34,11 +34,13 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
 import io.grpc.CallCredentials;
+import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -50,6 +52,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
@@ -148,10 +151,22 @@ public class RemoteServerCapabilitiesTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName)
-                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
-                .directExecutor()
-                .build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName)
+                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .directExecutor()
+                        .build();
+                return Single.just(new ChannelConnection(ch));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     RemoteServerCapabilities client =
         new RemoteServerCapabilities("instance", channel.retain(), null, 3, retrier);
 
@@ -195,7 +210,19 @@ public class RemoteServerCapabilitiesTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
+                return Single.just(new ChannelConnection(ch));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     CallCredentials creds =
         GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     RemoteServerCapabilities client =
@@ -224,7 +251,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(new ApiVersion(100, 0, 0, "").toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -247,7 +274,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(new ApiVersion(100, 0, 0, "").toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -270,7 +297,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.MD5)
+                    .addDigestFunctions(DigestFunction.Value.MD5)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -293,7 +320,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -321,7 +348,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -352,7 +379,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -383,7 +410,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .build())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
@@ -434,7 +461,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setCachePriorityCapabilities(
                         PriorityCapabilities.newBuilder()
                             .addPriorities(
@@ -476,7 +503,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .build())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
@@ -564,7 +591,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())

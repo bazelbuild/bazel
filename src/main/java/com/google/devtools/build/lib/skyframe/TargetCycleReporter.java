@@ -18,12 +18,13 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.List;
@@ -38,7 +39,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
       Predicates.or(
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
-          SkyFunctions.isSkyFunction(SkyFunctions.LOAD_STARLARK_ASPECT),
+          SkyFunctions.isSkyFunction(SkyFunctions.TOP_LEVEL_ASPECTS),
           SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME),
           SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE));
 
@@ -64,8 +65,6 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
       return ((ConfiguredTargetKey) key.argument()).prettyPrint();
     } else if (key instanceof AspectKey) {
       return ((AspectKey) key.argument()).prettyPrint();
-    } else if (key instanceof AspectValueKey) {
-      return ((AspectValueKey) key).getDescription();
     } else {
       return getLabel(key).toString();
     }
@@ -103,6 +102,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
     for (SkyKey nextKey : keys) {
       Label nextLabel = getLabel(nextKey);
       Target nextTarget = getTargetForLabel(eventHandler, nextLabel);
+      // TODO(aranguyen): remove this code as a result of b/128716030
       // This is inefficient but it's no big deal since we only do this when there's a cycle.
       if (currentTarget.getVisibility().getDependencyLabels().contains(nextLabel)
           && !nextTarget.getTargetKind().equals(PackageGroup.targetKind())) {

@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 
 /** The list of expected hashes of the directories */
 public class ResolvedHashesValue implements SkyValue {
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   static final SkyKey KEY = () -> SkyFunctions.RESOLVED_HASH_VALUES;
 
   private final Map<String, String> hashes;

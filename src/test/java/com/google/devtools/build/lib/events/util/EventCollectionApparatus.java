@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * An apparatus for reporting / collecting events.
@@ -175,8 +176,16 @@ public final class EventCollectionApparatus {
   }
 
   /**
-   * Utility method: Assert that the {@link #collector()} has received a
-   * warning with the {@code expectedMessage}.
+   * Utility method: Assert that the {@link #collector()} has received an error that matches {@code
+   * expectedPattern}.
+   */
+  public Event assertContainsError(Pattern expectedPattern) {
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedPattern, EventKind.ERROR);
+  }
+
+  /**
+   * Utility method: Assert that the {@link #collector()} has received a warning with the {@code
+   * expectedMessage}.
    */
   public Event assertContainsWarning(String expectedMessage) {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.WARNING);

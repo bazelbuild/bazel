@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -41,7 +40,7 @@ final class ActionInputMapHelper {
 
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -67,7 +66,7 @@ final class ActionInputMapHelper {
    */
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -76,9 +75,13 @@ final class ActionInputMapHelper {
       Environment env,
       MetadataConsumerForMetrics consumer)
       throws InterruptedException {
-    if (value instanceof AggregatingArtifactValue) {
-      AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-      for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getFileArtifacts()) {
+    if (value instanceof RunfilesArtifactValue) {
+      // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
+      // being that the MANIFEST file contains absolute paths that don't work with remote execution.
+      // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
+      // which contains all artifacts in the runfiles tree minus the MANIFEST file.
+      RunfilesArtifactValue runfilesArtifactValue = (RunfilesArtifactValue) value;
+      for (Pair<Artifact, FileArtifactValue> entry : runfilesArtifactValue.getFileArtifacts()) {
         Artifact artifact = entry.first;
         inputMap.put(artifact, entry.getSecond(), /*depOwner=*/ key);
         if (artifact.isFileset()) {
@@ -92,7 +95,7 @@ final class ActionInputMapHelper {
           consumer.accumulate(entry.getSecond());
         }
       }
-      for (Pair<Artifact, TreeArtifactValue> entry : aggregatingValue.getTreeArtifacts()) {
+      for (Pair<Artifact, TreeArtifactValue> entry : runfilesArtifactValue.getTreeArtifacts()) {
         expandTreeArtifactAndPopulateArtifactData(
             entry.getFirst(),
             Preconditions.checkNotNull(entry.getSecond()),
@@ -104,20 +107,7 @@ final class ActionInputMapHelper {
       }
       // We have to cache the "digest" of the aggregating value itself, because the action cache
       // checker may want it.
-      inputMap.put(key, aggregatingValue.getMetadata(), /*depOwner=*/ key);
-      // While not obvious at all this code exists to ensure that we don't expand the
-      // .runfiles/MANIFEST file into the inputs. The reason for that being that the MANIFEST
-      // file contains absolute paths that don't work with remote execution.
-      // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
-      // which contains all artifacts in the runfiles tree minus the MANIFEST file.
-      // TODO(buchgr): Clean this up and get rid of the RunfilesArtifactValue type.
-      if (!(value instanceof RunfilesArtifactValue)) {
-        ImmutableList.Builder<Artifact> expansionBuilder = ImmutableList.builder();
-        for (Pair<Artifact, FileArtifactValue> pair : aggregatingValue.getFileArtifacts()) {
-          expansionBuilder.add(Preconditions.checkNotNull(pair.getFirst()));
-        }
-        expandedArtifacts.put(key, expansionBuilder.build());
-      }
+      inputMap.put(key, runfilesArtifactValue.getMetadata(), /*depOwner=*/ key);
     } else if (value instanceof TreeArtifactValue) {
       TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
       expandTreeArtifactAndPopulateArtifactData(
@@ -189,6 +179,8 @@ final class ActionInputMapHelper {
       filesetActionKey = generatingActionKey;
     }
 
+    // TODO(janakr: properly handle exceptions coming from here, or prove they can never happen in
+    //  practice.
     ActionExecutionValue filesetValue = (ActionExecutionValue) env.getValue(filesetActionKey);
     if (filesetValue == null) {
       // At this point skyframe does not guarantee that the filesetValue will be ready, since
@@ -202,23 +194,17 @@ final class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
     if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
-      inputMap.put(treeArtifact, FileArtifactValue.OMITTED_FILE_MARKER, depOwner);
+      inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
       return;
     }
-    ImmutableSet.Builder<Artifact> children = ImmutableSet.builder();
-    for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
-        value.getChildValues().entrySet()) {
-      children.add(child.getKey());
-      inputMap.put(child.getKey(), child.getValue(), depOwner);
-    }
-    expandedArtifacts.put(treeArtifact, children.build());
-    // Again, we cache the "digest" of the value for cache checking.
-    inputMap.put(treeArtifact, value.getMetadata(), depOwner);
+
+    inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
+    expandedArtifacts.put(treeArtifact, value.getChildren());
 
     value
         .getArchivedRepresentation()

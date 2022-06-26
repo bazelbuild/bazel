@@ -182,7 +182,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           .put(UiModeType.UI_MODE_TYPE_TELEVISION, UiMode.TELEVISION)
           .put(UiModeType.UI_MODE_TYPE_VRHEADSET, UiMode.NORMAL)
           .put(UiModeType.UI_MODE_TYPE_WATCH, UiMode.WATCH)
-          .build();
+          .buildOrThrow();
 
   private static final ImmutableMap<Configuration.UiModeNight, NightMode> NIGHT_MODE_MAP =
       ImmutableMap.of(
@@ -245,7 +245,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           .put(320, Density.XHIGH)
           .put(480, Density.XXHIGH)
           .put(640, Density.XXXHIGH)
-          .build();
+          .buildOrThrow();
 
   private final boolean includeFileContentsForValidation;
 

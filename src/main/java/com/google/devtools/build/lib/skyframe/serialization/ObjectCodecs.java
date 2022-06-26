@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -26,6 +25,7 @@ import java.io.IOException;
  * serving as a layer between the streaming-oriented {@link ObjectCodec} interface and users.
  */
 public class ObjectCodecs {
+  private final ObjectCodecRegistry codecRegistry;
   private final SerializationContext serializationContext;
   private final DeserializationContext deserializationContext;
 
@@ -34,27 +34,36 @@ public class ObjectCodecs {
    * ObjectCodec}s.
    */
   public ObjectCodecs(
-      ObjectCodecRegistry codecRegistry, ImmutableMap<Class<?>, Object> dependencies) {
+      ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
+    this.codecRegistry = codecRegistry;
     serializationContext = new SerializationContext(codecRegistry, dependencies);
     deserializationContext = new DeserializationContext(codecRegistry, dependencies);
   }
 
   public ObjectCodecs(ObjectCodecRegistry codecRegistry) {
-    this(codecRegistry, ImmutableMap.of());
+    this(codecRegistry, ImmutableClassToInstanceMap.of());
   }
 
-  @VisibleForTesting
+  public ObjectCodecRegistry getCodecRegistry() {
+    return codecRegistry;
+  }
+
   public SerializationContext getSerializationContext() {
     return serializationContext;
   }
 
-  @VisibleForTesting
   public DeserializationContext getDeserializationContext() {
     return deserializationContext;
   }
 
+  public static SerializationResult<ByteString> serialize(
+      Object subject, SerializationContext context) throws SerializationException {
+    ByteString bytes = serializeToByteString(subject, context);
+    return SerializationResult.create(bytes, context.createFutureToBlockWritingOn());
+  }
+
   public ByteString serialize(Object subject) throws SerializationException {
-    return serializeToByteString(subject, this::serialize);
+    return serializeToByteString(subject, serializationContext);
   }
 
   public void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException {
@@ -62,7 +71,7 @@ public class ObjectCodecs {
   }
 
   public ByteString serializeMemoized(Object subject) throws SerializationException {
-    return serializeToByteString(subject, this::serializeMemoized);
+    return serializeToByteString(subject, serializationContext.getMemoizingContext());
   }
 
   public void serializeMemoized(Object subject, CodedOutputStream codedOut)
@@ -72,50 +81,39 @@ public class ObjectCodecs {
 
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(Object subject)
       throws SerializationException {
-    SerializationContext memoizingContext =
-        serializationContext.getMemoizingAndBlockingOnWriteContext();
-    ByteString byteString =
-        serializeToByteString(
-            subject, (subj, codedOut) -> serializeImpl(subj, codedOut, memoizingContext));
-    return SerializationResult.create(byteString, memoizingContext.createFutureToBlockWritingOn());
+    return serialize(subject, serializationContext.getMemoizingAndBlockingOnWriteContext());
   }
 
-  public Object deserialize(ByteString data) throws SerializationException {
-    return deserialize(data.newCodedInput());
-  }
-
-  public Object deserialize(CodedInputStream codedIn) throws SerializationException {
-    return deserializeImpl(codedIn, /*memoize=*/ false);
-  }
-
-  public Object deserializeMemoized(ByteString data) throws SerializationException {
-    return deserializeMemoized(data.newCodedInput());
-  }
-
-  public Object deserializeMemoized(CodedInputStream codedIn) throws SerializationException {
-    return deserializeImpl(codedIn, /*memoize=*/ true);
-  }
-
-  private static void serializeImpl(
-      Object subject, CodedOutputStream codedOut, SerializationContext serializationContext)
+  private static ByteString serializeToByteString(Object subject, SerializationContext context)
       throws SerializationException {
+    ByteString.Output resultOut = ByteString.newOutput();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
+    serializeImpl(subject, codedOut, context);
     try {
-      serializationContext.serialize(subject, codedOut);
+      codedOut.flush();
+      return resultOut.toByteString();
     } catch (IOException e) {
       throw new SerializationException("Failed to serialize " + subject, e);
     }
   }
 
-  private Object deserializeImpl(CodedInputStream codedIn, boolean memoize)
+  private static void serializeImpl(
+      Object subject, CodedOutputStream codedOut, SerializationContext context)
+      throws SerializationException {
+    try {
+      context.serialize(subject, codedOut);
+    } catch (IOException e) {
+      throw new SerializationException("Failed to serialize " + subject, e);
+    }
+  }
+
+  public static Object deserialize(CodedInputStream codedIn, DeserializationContext context)
       throws SerializationException {
     // Allows access to buffer without copying (although this means buffer may be pinned in memory).
     codedIn.enableAliasing(true);
     Object result;
     try {
-      result =
-          memoize
-              ? deserializationContext.getMemoizingContext().deserialize(codedIn)
-              : deserializationContext.deserialize(codedIn);
+      result = context.deserialize(codedIn);
     } catch (IOException e) {
       throw new SerializationException("Failed to deserialize data", e);
     }
@@ -130,21 +128,19 @@ public class ObjectCodecs {
     return result;
   }
 
-  @FunctionalInterface
-  private static interface SerializeCall {
-    void serialize(Object subject, CodedOutputStream codedOut) throws SerializationException;
+  public Object deserialize(ByteString data) throws SerializationException {
+    return deserialize(data.newCodedInput());
   }
 
-  private static ByteString serializeToByteString(Object subject, SerializeCall wrapped)
-      throws SerializationException {
-    ByteString.Output resultOut = ByteString.newOutput();
-    CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-    wrapped.serialize(subject, codedOut);
-    try {
-      codedOut.flush();
-      return resultOut.toByteString();
-    } catch (IOException e) {
-      throw new SerializationException("Failed to serialize " + subject, e);
-    }
+  public Object deserialize(CodedInputStream codedIn) throws SerializationException {
+    return deserialize(codedIn, deserializationContext);
+  }
+
+  public Object deserializeMemoized(ByteString data) throws SerializationException {
+    return deserializeMemoized(data.newCodedInput());
+  }
+
+  public Object deserializeMemoized(CodedInputStream codedIn) throws SerializationException {
+    return deserialize(codedIn, deserializationContext.getMemoizingContext());
   }
 }

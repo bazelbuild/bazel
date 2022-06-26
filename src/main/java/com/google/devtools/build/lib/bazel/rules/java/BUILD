@@ -13,6 +13,8 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+exports_files(["java_stub_template.txt"])
+
 java_library(
     name = "java",
     srcs = glob(
@@ -38,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//third_party:guava",
     ],
@@ -61,9 +64,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
@@ -77,6 +79,12 @@ java_library(
 gen_workspace_stanza(
     name = "workspace_with_rules_java",
     out = "jdk.WORKSPACE",
+    repo_clause = """
+    name = "{repo}",
+    sha256 = "{sha256}",
+    strip_prefix = {strip_prefix},
+    urls = {urls},
+    """,
     repos = [
         "remote_java_tools",
         "remote_java_tools_linux",
@@ -85,8 +93,19 @@ gen_workspace_stanza(
         "rules_cc",
         "rules_java",
         "rules_proto",
+        "remotejdk11_linux",
+        "remotejdk11_linux_aarch64",
+        "remotejdk11_linux_ppc64le",
+        "remotejdk11_linux_s390x",
+        "remotejdk11_macos",
+        "remotejdk11_macos_aarch64",
+        "remotejdk11_win",
+        "remotejdk11_win_arm64",
+    ] + [
+        "remotejdk%s_%s" % (version, os)
+        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
+        for version in ("17", "18")
     ],
     template = "jdk.WORKSPACE.tmpl",
-    use_maybe = True,
     visibility = ["//:__pkg__"],
 )

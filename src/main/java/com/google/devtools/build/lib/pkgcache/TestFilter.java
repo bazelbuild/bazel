@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
@@ -109,6 +110,16 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
         && f.testTimeoutFilterSet.equals(testTimeoutFilterSet)
         && f.testTagFilterList.equals(testTagFilterList)
         && f.testLangFilterList.equals(testLangFilterList);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("testSizeFilterSet", testSizeFilterSet)
+        .add("testTimeoutFilterSet", testTimeoutFilterSet)
+        .add("testTagFilterList", testTagFilterList)
+        .add("testLangFilterList", testLangFilterList)
+        .toString();
   }
 
   /**

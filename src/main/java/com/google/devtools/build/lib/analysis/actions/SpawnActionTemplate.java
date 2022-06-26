@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -218,7 +219,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public Collection<String> getClientEnvironmentVariables() {
     return spawnActionBuilder.buildForActionTemplate(getOwner()).getClientEnvironmentVariables();
   }
 
@@ -361,10 +362,14 @@ public final class SpawnActionTemplate extends ActionKeyCacher
 
     /**
      * Sets the executable path used by expanded actions. The path is interpreted relative to the
-     * execution root.
+     * execution root, unless it's a bare file name.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(Artifact)} and {@link #setExecutable(FilesToRunProvider)}.
+     * <p><b>Caution</b>: if the executable is a bare file name ("foo"), it will be interpreted
+     * relative to PATH. See https://github.com/bazelbuild/bazel/issues/13189 for details. To avoid
+     * that, use {@link #setExecutable(Artifact)} instead.
+     *
+     * <p>Calling this method overrides any previous values set via calls to {@link
+     * #setExecutable(Artifact)} and {@link #setExecutable(FilesToRunProvider)}.
      */
     public Builder setExecutable(PathFragment executable) {
       spawnActionBuilder.setExecutable(executable);

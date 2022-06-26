@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
 /**
- * Helper class which contains data used by a {@link
- * com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory} to create a
- * transition for attributes.
+ * Helper class which contains data used by a {@link TransitionFactory} to create a transition for
+ * attributes.
  */
 @AutoValue
-public abstract class AttributeTransitionData {
+public abstract class AttributeTransitionData implements TransitionFactory.Data {
   /** Returns the {@link AttributeMap} which can be used to create a transition. */
   public abstract AttributeMap attributes();
 

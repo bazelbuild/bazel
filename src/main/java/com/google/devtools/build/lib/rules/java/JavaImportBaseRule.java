@@ -63,7 +63,6 @@ public class JavaImportBaseRule implements RuleDefinition {
                 .orderIndependent()
                 .nonconfigurable(
                     "used in Attribute.validityPredicate implementations (loading time)"))
-        .advertiseProvider(JavaSourceInfoProvider.class)
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }

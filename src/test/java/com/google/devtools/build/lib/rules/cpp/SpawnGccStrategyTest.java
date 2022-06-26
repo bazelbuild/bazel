@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -68,14 +67,14 @@ public final class SpawnGccStrategyTest {
     when(action.getAdditionalInputs()).thenReturn(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     when(action.getExecutionInfo()).thenReturn(ImmutableMap.of());
     when(action.getArguments()).thenReturn(ImmutableList.of());
-    when(action.getEnvironment(ArgumentMatchers.any())).thenReturn(ImmutableMap.of());
+    when(action.getEffectiveEnvironment(ArgumentMatchers.any())).thenReturn(ImmutableMap.of());
     when(action.getDotdFile()).thenReturn(dotdFile);
     when(action.useInMemoryDotdFiles()).thenReturn(true);
-    when(action.estimateResourceConsumptionLocal()).thenReturn(AbstractAction.DEFAULT_RESOURCE_SET);
-    when(action.createSpawn(any())).thenCallRealMethod();
-
+    when(action.shouldParseShowIncludes()).thenReturn(false);
+    when(action.enabledCppCompileResourcesEstimation()).thenReturn(false);
+    when(action.createSpawn(any(), any())).thenCallRealMethod();
     // act
-    Spawn spawn = action.createSpawn(ImmutableMap.of());
+    Spawn spawn = action.createSpawn(execRoot, ImmutableMap.of());
 
     ImmutableMap<String, String> execInfo = spawn.getExecutionInfo();
     assertThat(execInfo.get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS))

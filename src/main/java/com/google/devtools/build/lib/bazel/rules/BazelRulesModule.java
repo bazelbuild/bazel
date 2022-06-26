@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -41,57 +40,25 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 
 /** Module implementing the rule set of Bazel. */
-public class BazelRulesModule extends BlazeModule {
-  /** This is where deprecated options go to die. */
-  public static class GraveyardOptions extends OptionsBase {
-    @Option(
-        name = "incompatible_load_python_rules_from_bzl",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
-        help = "Deprecated no-op.")
-    public boolean loadPythonRulesFromBzl;
+public final class BazelRulesModule extends BlazeModule {
 
-    @Option(
-        name = "incompatible_load_proto_rules_from_bzl",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help = "Deprecated no-op.")
-    public boolean loadProtoRulesFromBzl;
-
-    @Option(
-        name = "incompatible_load_java_rules_from_bzl",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help = "Deprecated no-op.")
-    public boolean loadJavaRulesFromBzl;
+  /**
+   * This is where deprecated options used by both Bazel and Blaze but only needed for the build
+   * command go to die.
+   */
+  @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
+  public static class BuildGraveyardOptions extends OptionsBase {
 
     @Option(
         name = "incompatible_disable_legacy_proto_provider",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableLegacyProtoProvider;
 
@@ -100,10 +67,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableProtoSourceRoot;
 
@@ -112,11 +76,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean doNotUseBuggyImportPath;
 
@@ -125,11 +85,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableCrosstool;
 
@@ -139,10 +95,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableLegacyCrosstoolFields;
 
@@ -151,11 +104,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean requireFeatureConfigurationForPic;
 
@@ -164,11 +113,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableDepsetInUserFlags;
 
@@ -176,39 +121,27 @@ public class BazelRulesModule extends BlazeModule {
         name = "incompatible_dont_emit_static_libgcc",
         oldName = "experimental_dont_emit_static_libgcc",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableEmittingStaticLibgcc;
 
     @Option(
         name = "incompatible_linkopts_in_user_link_flags",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean enableLinkoptsInUserLinkFlags;
 
     @Option(
         name = "incompatible_disable_runtimes_filegroups",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableRuntimesFilegroups;
 
@@ -217,11 +150,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
@@ -248,11 +177,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableSysrootFromConfiguration;
 
@@ -261,11 +186,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean provideCcToolchainInfoFromCcToolchainSuite;
 
@@ -274,11 +195,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableCcToolchainFromCrosstool;
 
@@ -289,30 +206,17 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         metadataTags = {
           OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
           OptionMetadataTag.DEPRECATED,
         },
         help = "Deprecated no-op.")
     public boolean disableMakeVariables;
 
     @Option(
-        name = "make_variables_source",
-        defaultValue = "configuration",
-        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN})
-    public String makeVariableSource;
-
-    @Option(
         name = "incompatible_disable_legacy_flags_cc_toolchain_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help =
             "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
@@ -323,11 +227,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean enableLegacyToolchainStarlarkApi;
 
@@ -336,13 +236,112 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean disableLegacyToolchainStarlarkApi;
+
+    @Option(
+        name = "incompatible_disable_late_bound_option_defaults",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "This option is deprecated and has no effect.")
+    public boolean incompatibleDisableLateBoundOptionDefaults;
+
+    @Deprecated
+    @Option(
+        name = "ui",
+        oldName = "experimental_ui",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean experimentalUi;
+
+    @Option(
+        name = "incompatible_enable_profile_by_default",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean enableProfileByDefault;
+
+    @Option(
+        name = "experimental_skyframe_eval_with_ordered_list",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean skyframeEvalWithOrderedList;
+
+    @Option(
+        name = "legacy_spawn_scheduler",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        deprecationWarning =
+            "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
+        help = "Was used to enable the old spawn scheduler. Now a no-op.")
+    public boolean legacySpawnScheduler;
+
+    @Option(
+        name = "experimental_multi_threaded_digest",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op")
+    public boolean experimentalMultiThreadedDigest;
+
+    @Option(
+        name = "incompatible_override_toolchain_transition",
+        defaultValue = "true",
+        deprecationWarning = "This is now always set, please remove this flag.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.UNKNOWN,
+        help = "Deprecated, this is no longer in use and should be removed.")
+    public boolean overrideToolchainTransition;
+  }
+
+  /** This is where deprecated Bazel-specific options only used by the build command go to die. */
+  @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
+  public static final class BazelBuildGraveyardOptions extends BuildGraveyardOptions {
+    @Option(
+        name = "incompatible_load_python_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated no-op.")
+    public boolean loadPythonRulesFromBzl;
+
+    @Option(
+        name = "incompatible_load_proto_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated no-op.")
+    public boolean loadProtoRulesFromBzl;
+
+    @Option(
+        name = "incompatible_load_java_rules_from_bzl",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated no-op.")
+    public boolean loadJavaRulesFromBzl;
+
+    @Option(
+        name = "make_variables_source",
+        defaultValue = "configuration",
+        metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN})
+    public String makeVariableSource;
 
     @Option(
         name = "incompatible_cc_coverage",
@@ -352,11 +351,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionEffectTag.UNKNOWN,
         },
         oldName = "experimental_cc_coverage",
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean useGcovCoverage;
 
@@ -398,40 +393,13 @@ public class BazelRulesModule extends BlazeModule {
     public boolean forceIgnoreDashStatic;
 
     @Option(
-        name = "incompatible_disable_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help = "This option is deprecated and has no effect.")
-    public boolean incompatibleDisableLateBoundOptionDefaults;
-
-    @Option(
         name = "incompatible_use_native_patch",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "This option is deprecated and has no effect.")
     public boolean useNativePatch;
-
-    @Deprecated
-    @Option(
-        name = "ui",
-        oldName = "experimental_ui",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "No-op.")
-    public boolean experimentalUi;
 
     @Option(
         name = "experimental_profile_action_counts",
@@ -446,10 +414,7 @@ public class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean removeBinaryProfile;
 
@@ -462,35 +427,102 @@ public class BazelRulesModule extends BlazeModule {
     public boolean postProfileStartedEvent;
 
     @Option(
-        name = "incompatible_enable_profile_by_default",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        name = "incompatible_dont_use_javasourceinfoprovider",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help = "No-op.")
-    public boolean enableProfileByDefault;
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean dontUseJavaSourceInfoProvider;
+  }
 
+  /**
+   * This is where deprecated options which need to be available for all commands go to die. If you
+   * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
+   */
+  public static final class AllCommandGraveyardOptions extends OptionsBase {
+    // Historically passed to all Bazel commands by certain tools.
     @Option(
-        name = "experimental_skyframe_eval_with_ordered_list",
+        name = "experimental_allow_top_level_aspects_parameters",
         defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
-    public boolean skyframeEvalWithOrderedList;
+    public boolean experimentalAllowTopLevelAspectsParameters;
 
     @Option(
-        name = "legacy_spawn_scheduler",
+        name = "experimental_required_aspects",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        help = "No-op")
+    public boolean experimentalRequiredAspects;
+
+    @Option(
+        name = "experimental_shadowed_action",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        help = "No-op")
+    public boolean shadowedAction;
+
+    @Option(
+        name = "json_trace_compression",
+        oldName = "experimental_json_trace_compression",
+        defaultValue = "auto",
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        help = "No-op")
+    public TriState enableTracerCompression;
+
+    @Option(
+        name = "experimental_profile_cpu_usage",
+        defaultValue = "true",
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        help = "No-op")
+    public boolean enableCpuUsageProfiling;
+
+    @Option(
+        name = "bes_best_effort",
         defaultValue = "false",
         deprecationWarning =
-            "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
-        help = "Was used to enable the old spawn scheduler. Now a no-op.")
-    public boolean legacySpawnScheduler;
+            "BES best effort upload has been removed. The flag has no more "
+                + "functionality attached to it and will be removed in a future release.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op")
+    public boolean besBestEffort;
+
+    @Option(
+        name = "distinct_host_configuration",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean useDistinctHostConfiguration;
+
+    @Option(
+        name = "experimental_keep_config_nodes_on_analysis_discard",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean keepConfigNodes;
+
+    @Option(
+        name = "incompatible_disable_managed_directories",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDisableManagedDirectories;
   }
 
   @Override
@@ -524,16 +556,10 @@ public class BazelRulesModule extends BlazeModule {
   }
 
   @Override
-  public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
-    return BuildOptions.getDefaultBuildOptionsForFragments(
-        blazeRuntime.getRuleClassProvider().getConfigurationOptions());
-  }
-
-  @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(GraveyardOptions.class)
-        : ImmutableList.of();
+        ? ImmutableList.of(BazelBuildGraveyardOptions.class, AllCommandGraveyardOptions.class)
+        : ImmutableList.of(AllCommandGraveyardOptions.class);
   }
 
   private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {

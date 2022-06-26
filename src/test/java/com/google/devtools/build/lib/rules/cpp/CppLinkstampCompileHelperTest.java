@@ -23,10 +23,10 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import java.util.List;
 import org.junit.Test;
@@ -67,10 +67,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
 
     CcToolchainProvider ccToolchainProvider =
-        (CcToolchainProvider)
-            getConfiguredTarget(
-                    ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-                .get(ToolchainInfo.PROVIDER);
+        getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
+            .get(CcToolchainProvider.PROVIDER);
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -128,10 +127,9 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     CppCompileAction linkstampCompileAction =
         (CppCompileAction) getGeneratingAction(compiledLinkstamp);
     CcToolchainProvider ccToolchainProvider =
-        (CcToolchainProvider)
-            getConfiguredTarget(
-                    ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
-                .get(ToolchainInfo.PROVIDER);
+        getConfiguredTarget(
+                ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain")
+            .get(CcToolchainProvider.PROVIDER);
 
     List<String> arguments = linkstampCompileAction.getArguments();
     assertThatArgumentsAreValid(
@@ -233,6 +231,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         CcCommon.configureFeaturesOrThrowEvalException(
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
             toolchain,
             cppConfiguration);
     boolean usePic = CppHelper.usePicForBinaries(toolchain, cppConfiguration, featureConfiguration);

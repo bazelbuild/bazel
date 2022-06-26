@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,7 +36,8 @@ import org.junit.runners.JUnit4;
  * <p>Although this is just a data class, we need a way to create a configuration.
  */
 @RunWith(JUnit4.class)
-public class DependencyTest extends AnalysisTestCase {
+public final class DependencyTest extends AnalysisTestCase {
+
   @Test
   public void withNullConfiguration_BasicAccessors() throws Exception {
     Dependency nullDep =
@@ -81,15 +82,10 @@ public class DependencyTest extends AnalysisTestCase {
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
-    assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspectConfiguration(attributeAspect))
-        .isEqualTo(getTargetConfiguration());
   }
 
   @Test
-  public void withConfigurationAndAspects_RejectsNullConfig() throws Exception {
-    // Although the NullPointerTester should check this, this test invokes a different code path,
-    // because it includes aspects (which the NPT test will not).
+  public void withConfigurationAndAspects_rejectsNullConfig() {
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     AspectCollection twoAspects = AspectCollection.createForTests(simpleAspect, attributeAspect);
@@ -157,8 +153,8 @@ public class DependencyTest extends AnalysisTestCase {
     Label aExplicit = Label.parseAbsolute("//a:a", ImmutableMap.of());
     Label b = Label.parseAbsolute("//b", ImmutableMap.of());
 
-    BuildConfiguration host = getHostConfiguration();
-    BuildConfiguration target = getTargetConfiguration();
+    BuildConfigurationValue host = getHostConfiguration();
+    BuildConfigurationValue target = getTargetConfiguration();
 
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.TreeDeleter;
@@ -178,9 +179,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // {@link #actuallyExec} and add it as a writable directory in
     // {@link AbstractSandboxSpawnRunner#getWritableDirs}.
 
-    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
+    // ~/Library/Caches and ~/Library/Logs need to be writable (cf. issue #2231).
     Path homeDir = fs.getPath(System.getProperty("user.home"));
-    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Cache"));
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Caches"));
     addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Logs"));
 
     // Certain Xcode tools expect to be able to write to this path.
@@ -206,7 +207,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -232,8 +233,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            spawn,
-            context.getArtifactExpander(),
             execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -306,7 +305,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
-          statisticsPath) {
+          statisticsPath,
+          getSandboxOptions().reuseSandboxDirectories,
+          sandboxBase,
+          spawn.getMnemonic()) {
         @Override
         public void createFileSystem() throws IOException {
           super.createFileSystem();
@@ -336,6 +338,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       out.println("(version 1)");
       out.println("(debug deny)");
       out.println("(allow default)");
+      out.println("(allow process-exec (with no-sandbox) (literal \"/bin/ps\"))");
 
       if (!allowNetwork) {
         out.println("(deny network*)");

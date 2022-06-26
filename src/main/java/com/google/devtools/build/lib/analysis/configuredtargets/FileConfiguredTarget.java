@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -52,7 +52,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
 
   FileConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       @Nullable InstrumentedFilesInfo instrumentedFilesInfo,

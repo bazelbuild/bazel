@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -48,14 +50,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
+
+  @Before
+  public void setupStarlarkJavaLibrary() throws Exception {
+    setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
 
   /** Override this to trigger platform-based Android toolchain resolution. */
   protected boolean platformBasedToolchains() {
@@ -63,7 +72,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String defaultPlatformFlag() {
-    return String.format("--platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
+    return String.format("--platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
   }
 
   @Override
@@ -79,7 +88,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
     fullArgs.add("--incompatible_enable_android_toolchain_resolution");
     // Uncomment the below to get more info when tests fail because of toolchain resolution.
-    //  fullArgs.add("--toolchain_resolution_debug");
+    //  fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
     boolean hasPlatform = false;
     for (String arg : args) {
       if (arg.startsWith("--android_sdk=")) {
@@ -122,20 +131,34 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void assertNativeLibrariesCopiedNotLinked(
-      ConfiguredTarget target, String... expectedLibNames) {
+      ConfiguredTarget target,
+      BuildConfigurationValue targetConfiguration,
+      String... expectedLibNames) {
     Iterable<Artifact> copiedLibs = getNativeLibrariesInApk(target);
     for (Artifact copiedLib : copiedLibs) {
       assertWithMessage("Native libraries were linked to produce " + copiedLib)
           .that(getGeneratingLabelForArtifact(copiedLib))
           .isNotEqualTo(target.getLabel());
     }
-    assertThat(artifactsToStrings(copiedLibs))
+    assertThat(
+            AnalysisTestUtil.artifactsToStrings(
+                targetConfiguration, getHostConfiguration(), copiedLibs))
         .containsAtLeastElementsIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
   }
 
   protected String flagValue(String flag, List<String> args) {
     assertThat(args).contains(flag);
     return args.get(args.indexOf(flag) + 1);
+  }
+
+  protected Set<String> flagValues(String flag, List<String> args) {
+    Set<String> result = new HashSet<>();
+    for (int i = 0; i < args.size(); i++) {
+      if (args.get(i).equals(flag)) {
+        result.add(args.get(++i));
+      }
+    }
+    return result;
   }
 
   /**
@@ -199,11 +222,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
     return Iterables.find(
-            jarProvider.getOutputJars(),
-            outputJar -> {
-              assertThat(outputJar).isNotNull();
-              assertThat(outputJar.getClassJar()).isNotNull();
-              return outputJar
+            jarProvider.getJavaOutputs(),
+            javaOutput -> {
+              assertThat(javaOutput).isNotNull();
+              assertThat(javaOutput.getClassJar()).isNotNull();
+              return javaOutput
                   .getClassJar()
                   .getFilename()
                   .equals(target.getTarget().getName() + "_resources.jar");
@@ -380,21 +403,22 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void checkProguardUse(
-      String target,
+      ConfiguredTarget binary,
       String artifact,
       boolean expectMapping,
       @Nullable Integer passes,
       boolean splitOptimizationPass,
       String... expectedlibraryJars)
       throws Exception {
-    ConfiguredTarget binary = getConfiguredTarget(target);
     assertProguardUsed(binary);
     assertProguardGenerated(binary);
 
     Action dexAction =
         actionsTestUtil()
             .getActionForArtifactEndingWith(
-                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex");
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex.zip");
+    dexAction =
+        actionsTestUtil().getActionForArtifactEndingWith(dexAction.getInputs(), "classes.dex.zip");
     Artifact trimmedJar = getFirstArtifactEndingWith(dexAction.getInputs(), artifact);
     assertWithMessage("Dex should be built from jar trimmed with Proguard.")
         .that(trimmedJar)

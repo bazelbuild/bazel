@@ -25,21 +25,21 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Level;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -63,8 +63,14 @@ public final class BlazeWorkspace {
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
-  /** The action cache is loaded lazily on the first build command. */
-  private ActionCache actionCache;
+  private final SyscallCache perCommandSyscallCache;
+
+  /**
+   * Loaded lazily on the first build command that enables the action cache. Cleared on a build
+   * command with {@code --nouse_action_cache} to save memory.
+   */
+  @Nullable private ActionCache actionCache;
+
   /** The execution time range of the previous build command in this server, if any. */
   @Nullable private Range<Long> lastExecutionRange = null;
 
@@ -77,7 +83,8 @@ public final class BlazeWorkspace {
       SubscriberExceptionHandler eventBusExceptionHandler,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
-      @Nullable AllocationTracker allocationTracker) {
+      @Nullable AllocationTracker allocationTracker,
+      SyscallCache perCommandSyscallCache) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -86,6 +93,7 @@ public final class BlazeWorkspace {
 
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
+    this.perCommandSyscallCache = perCommandSyscallCache;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -127,7 +135,7 @@ public final class BlazeWorkspace {
    * Callers should certainly not make this assumption. The Path returned may be null.
    */
   public Path getWorkspace() {
-    return directories.getWorkspace();
+    return directories.getWorkingDirectory();
   }
 
   /**
@@ -153,12 +161,11 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns path to the cache directory. Path must be inside output base to
-   * ensure that users can run concurrent instances of blaze in different
-   * clients without attempting to concurrently write to the same action cache
-   * on disk, which might not be safe.
+   * Returns path to the cache directory. Path must be inside output base to ensure that users can
+   * run concurrent instances of blaze in different clients without attempting to concurrently write
+   * to the same action cache on disk, which might not be safe.
    */
-  Path getCacheDirectory() {
+  private Path getCacheDirectory() {
     return getOutputBase().getChild("action_cache");
   }
 
@@ -194,7 +201,8 @@ public final class BlazeWorkspace {
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
-      List<Any> commandExtensions) {
+      List<Any> commandExtensions,
+      Consumer<String> shutdownReasonConsumer) {
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -203,11 +211,19 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
+            perCommandSyscallCache,
             warnings,
             waitTimeInMs,
             commandStartTime,
-            commandExtensions);
+            commandExtensions,
+            shutdownReasonConsumer);
     skyframeExecutor.setClientEnv(env.getClientEnv());
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {
+      // Drop the action cache reference to save memory since we don't need it for this build. If a
+      // subsequent build needs it, getOrLoadPersistentActionCache will reload it from disk.
+      actionCache = null;
+    }
     return env;
   }
 
@@ -238,25 +254,11 @@ public final class BlazeWorkspace {
    * method may recreate instance between different build requests, so return value should not be
    * cached.
    */
-  ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
+  public ActionCache getOrLoadPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
-        try {
-          actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Failed to load action cache");
-          LoggingUtil.logToRemote(
-              Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
-          reporter.handle(
-              Event.error(
-                  "Error during action cache initialization: "
-                      + e.getMessage()
-                      + ". Corrupted files were renamed to '"
-                      + getCacheDirectory()
-                      + "/*.bad'. "
-                      + "Bazel will now reset action cache data, causing a full rebuild"));
-          actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
-        }
+        actionCache =
+            CompactPersistentActionCache.create(getCacheDirectory(), runtime.getClock(), reporter);
       }
     }
     return actionCache;
@@ -295,7 +297,7 @@ public final class BlazeWorkspace {
 
   private void writeDoNotBuildHereFile(Path filePath) {
     try {
-      FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
+      filePath.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.writeContent(filePath, ISO_8859_1, getWorkspace().toString());
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Couldn't write to '%s'", filePath);

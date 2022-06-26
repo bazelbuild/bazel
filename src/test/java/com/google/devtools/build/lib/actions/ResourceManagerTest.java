@@ -15,63 +15,125 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.Worker;
+import com.google.devtools.build.lib.worker.WorkerFactory;
+import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerPool;
+import java.io.IOException;
+import java.util.Collection;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- *
- * Tests for @{link ResourceManager}.
- */
+/** Tests for {@link ResourceManager}. */
 @RunWith(JUnit4.class)
-public class ResourceManagerTest {
+public final class ResourceManagerTest {
 
+  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
   private final ResourceManager rm = ResourceManager.instanceForTestingOnly();
+  private Worker worker;
   private AtomicInteger counter;
   CyclicBarrier sync;
   CyclicBarrier sync2;
 
   @Before
-  public final void configureResourceManager() throws Exception  {
+  public void configureResourceManager() throws Exception {
     rm.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
+    rm.setPrioritizeLocalActions(true);
+    worker = mock(Worker.class);
+    rm.setWorkerPool(createWorkerPool());
+  }
+
+  private WorkerPool createWorkerPool() {
+    return new WorkerPool(
+        new WorkerPool.WorkerPoolConfig(
+            new WorkerFactory(fs.getPath("/workerBase")) {
+              @Override
+              public Worker create(WorkerKey key) {
+                return worker;
+              }
+
+              @Override
+              public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
+                return true;
+              }
+            },
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of()));
+  }
+
+  private ResourceHandle acquire(double ram, double cpu, int tests, ResourcePriority priority)
+      throws InterruptedException, IOException {
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests), priority);
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests)
-      throws InterruptedException {
-    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+      throws InterruptedException, IOException {
+    return acquire(ram, cpu, tests, ResourcePriority.LOCAL);
   }
 
-  private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
-    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, tests));
+  private ResourceHandle acquire(double ram, double cpu, int tests, String mnemonic)
+      throws InterruptedException, IOException {
+
+    return rm.acquireResources(
+        resourceOwner,
+        ResourceSet.createWithWorkerKey(ram, cpu, tests, createWorkerKey(mnemonic)),
+        ResourcePriority.LOCAL);
   }
 
-  private void release(double ram, double cpu, int tests) {
+  private void release(double ram, double cpu, int tests) throws IOException, InterruptedException {
     rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
 
   private void validate(int count) {
     assertThat(counter.incrementAndGet()).isEqualTo(count);
+  }
+
+  private WorkerKey createWorkerKey(String mnemonic) {
+    return new WorkerKey(
+        /* args= */ ImmutableList.of(),
+        /* env= */ ImmutableMap.of(),
+        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* mnemonic= */ mnemonic,
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFilesWithDigests= */ ImmutableSortedMap.of(),
+        /* sandboxed= */ false,
+        /* multiplex= */ false,
+        /* cancellable= */ false,
+        WorkerProtocolFormat.PROTO);
   }
 
   @Test
@@ -114,8 +176,7 @@ public class ResourceManagerTest {
 
     // When a request for CPU is made that would slightly overallocate CPU,
     // Then the request succeeds:
-    TestThread thread1 =
-        new TestThread(() -> assertThat(acquireNonblocking(0, 0.6, 0)).isNotNull());
+    TestThread thread1 = new TestThread(() -> assertThat(acquire(0, 0.6, 0)).isNotNull());
     thread1.start();
     thread1.joinAndAssertState(10000);
   }
@@ -132,7 +193,7 @@ public class ResourceManagerTest {
     TestThread thread1 =
         new TestThread(
             () -> {
-              assertThat(acquireNonblocking(0, 0.99, 0)).isNotNull();
+              acquire(0, 0.99, 0);
               // Cleanup
               release(0, 0.99, 0);
             });
@@ -148,9 +209,10 @@ public class ResourceManagerTest {
 
     // When a request for a small CPU allocation is made,
     // Then the request fails:
-    TestThread thread2 = new TestThread(() -> assertThat(acquireNonblocking(0, 0.099, 0)).isNull());
+    TestThread thread2 = new TestThread(() -> acquire(0, 0.099, 0));
     thread2.start();
-    thread2.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread2.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
     // Note that this behavior is surprising and probably not intended.
   }
 
@@ -162,10 +224,11 @@ public class ResourceManagerTest {
     acquire(500, 0, 0);
 
     // When a request for RAM is made that would slightly overallocate RAM,
-    // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(600, 0, 0)).isNull());
+    // Then the request fails (got timeout):
+    TestThread thread1 = new TestThread(() -> acquire(600, 0, 0));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
@@ -177,9 +240,10 @@ public class ResourceManagerTest {
 
     // When a request for tests is made that would slightly overallocate tests,
     // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(0, 0, 2)).isNull());
+    TestThread thread1 = new TestThread(() -> acquire(0, 0, 2));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
@@ -217,6 +281,7 @@ public class ResourceManagerTest {
   }
 
   @Test
+  @SuppressWarnings("ThreadPriorityCheck")
   public void testConcurrentLargeRequests() throws Exception {
     assertThat(rm.inUse()).isFalse();
     TestThread thread1 =
@@ -295,6 +360,7 @@ public class ResourceManagerTest {
   }
 
   @Test
+  @SuppressWarnings("ThreadPriorityCheck")
   public void testOutOfOrderAllocation() throws Exception {
     final CyclicBarrier sync3 = new CyclicBarrier(2);
     final CyclicBarrier sync4 = new CyclicBarrier(2);
@@ -389,6 +455,233 @@ public class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
   }
 
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testRelease_noPriority() throws Exception {
+    rm.setPrioritizeLocalActions(false);
+    assertThat(rm.inUse()).isFalse();
+
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0);
+              sync.await();
+              sync2.await();
+              release(700, 0, 0);
+            });
+    thread1.start();
+    // Wait for thread1 to have acquired its RAM
+    sync.await(1, TimeUnit.SECONDS);
+
+    // Set up threads that compete for resources
+    CyclicBarrier syncDynamicStandalone =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 1) {
+      Thread.yield();
+    }
+    CyclicBarrier syncDynamicWorker = startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 2) {
+      Thread.yield();
+    }
+    CyclicBarrier syncLocal = startAcquireReleaseThread(ResourcePriority.LOCAL);
+    while (rm.getWaitCount() < 3) {
+      Thread.yield();
+    }
+
+    sync2.await();
+
+    while (syncLocal.getNumberWaiting()
+            + syncDynamicWorker.getNumberWaiting()
+            + syncDynamicStandalone.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(2);
+    assertThat(syncDynamicStandalone.getNumberWaiting()).isEqualTo(1);
+    syncDynamicStandalone.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicWorker.getNumberWaiting() + syncLocal.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncDynamicWorker.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(1);
+
+    syncDynamicWorker.await(1, TimeUnit.SECONDS);
+    while (syncLocal.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncLocal.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(0);
+    syncLocal.await(1, TimeUnit.SECONDS);
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testRelease_highPriorityFirst() throws Exception {
+    assertThat(rm.inUse()).isFalse();
+
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0);
+              sync.await();
+              sync2.await();
+              release(700, 0, 0);
+            });
+    thread1.start();
+    // Wait for thread1 to have acquired its RAM
+    sync.await(1, TimeUnit.SECONDS);
+
+    // Set up threads that compete for resources
+    CyclicBarrier syncDynamicStandalone =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 1) {
+      Thread.yield();
+    }
+    CyclicBarrier syncDynamicWorker = startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 2) {
+      Thread.yield();
+    }
+    CyclicBarrier syncLocal = startAcquireReleaseThread(ResourcePriority.LOCAL);
+    while (rm.getWaitCount() < 3) {
+      Thread.yield();
+    }
+
+    sync2.await();
+
+    while (syncLocal.getNumberWaiting()
+            + syncDynamicWorker.getNumberWaiting()
+            + syncDynamicStandalone.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(2);
+    assertThat(syncLocal.getNumberWaiting()).isEqualTo(1);
+    syncLocal.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicWorker.getNumberWaiting() + syncDynamicStandalone.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncDynamicWorker.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(1);
+
+    syncDynamicWorker.await(1, TimeUnit.SECONDS);
+    while (syncDynamicStandalone.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(syncDynamicStandalone.getNumberWaiting()).isEqualTo(1);
+    assertThat(rm.getWaitCount()).isEqualTo(0);
+    syncDynamicStandalone.await(1, TimeUnit.SECONDS);
+  }
+
+  @Test
+  @SuppressWarnings("ThreadPriorityCheck")
+  public void testRelease_dynamicLifo() throws Exception {
+    assertThat(rm.inUse()).isFalse();
+
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0);
+              sync.await();
+              sync2.await();
+              release(700, 0, 0);
+            });
+    thread1.start();
+    // Wait for thread1 to have acquired enough RAM to block the other threads.
+    sync.await(1, TimeUnit.SECONDS);
+
+    // Set up threads that compete for resources
+    final CyclicBarrier syncDynamicStandalone1 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 1) {
+      Thread.yield();
+    }
+    final CyclicBarrier syncDynamicWorker1 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 2) {
+      Thread.yield();
+    }
+    final CyclicBarrier syncDynamicStandalone2 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
+    while (rm.getWaitCount() < 3) {
+      Thread.yield();
+    }
+    final CyclicBarrier syncDynamicWorker2 =
+        startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
+    while (rm.getWaitCount() < 4) {
+      Thread.yield();
+    }
+
+    // Wewease the kwaken!
+    sync2.await();
+
+    while (syncDynamicStandalone1.getNumberWaiting()
+            + syncDynamicStandalone2.getNumberWaiting()
+            + syncDynamicWorker1.getNumberWaiting()
+            + syncDynamicWorker2.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(3);
+    assertThat(syncDynamicWorker2.getNumberWaiting()).isEqualTo(1);
+    syncDynamicWorker2.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicStandalone1.getNumberWaiting()
+            + syncDynamicStandalone2.getNumberWaiting()
+            + syncDynamicWorker1.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(2);
+    assertThat(syncDynamicWorker1.getNumberWaiting()).isEqualTo(1);
+    syncDynamicWorker1.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicStandalone1.getNumberWaiting() + syncDynamicStandalone2.getNumberWaiting()
+        == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(1);
+    assertThat(syncDynamicStandalone2.getNumberWaiting()).isEqualTo(1);
+    syncDynamicStandalone2.await(1, TimeUnit.SECONDS);
+
+    while (syncDynamicStandalone1.getNumberWaiting() == 0) {
+      Thread.yield();
+    }
+    assertThat(rm.getWaitCount()).isEqualTo(0);
+    assertThat(syncDynamicStandalone1.getNumberWaiting()).isEqualTo(1);
+    syncDynamicStandalone1.await(1, TimeUnit.SECONDS);
+  }
+
+  private CyclicBarrier startAcquireReleaseThread(ResourcePriority priority) {
+    final CyclicBarrier sync = new CyclicBarrier(2);
+    TestThread thread =
+        new TestThread(
+            () -> {
+              acquire(700, 0, 0, priority);
+              sync.await();
+              release(700, 0, 0);
+            });
+    thread.start();
+    return sync;
+  }
+
+  @Test
+  public void testAcquireWithWorker_acquireAndRelease() throws Exception {
+    int memory = 100;
+    when(worker.getWorkerKey()).thenReturn(createWorkerKey("dummy"));
+
+    assertThat(rm.inUse()).isFalse();
+    ResourceHandle handle = acquire(memory, 1, 0, "dummy");
+    assertThat(rm.inUse()).isTrue();
+
+    assertThat(handle.getWorker().getWorkerKey().getMnemonic()).isEqualTo("dummy");
+    release(memory, 1, 0);
+    // When that RAM is released,
+    // Then Resource Manager will not be "in use":
+    assertThat(rm.inUse()).isFalse();
+  }
+
   private static class ResourceOwnerStub implements ActionExecutionMetadata {
 
     @Override
@@ -438,7 +731,7 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public Collection<String> getClientEnvironmentVariables() {
       throw new IllegalStateException();
     }
 

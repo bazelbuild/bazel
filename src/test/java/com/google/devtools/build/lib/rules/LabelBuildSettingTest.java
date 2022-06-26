@@ -139,7 +139,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         ImmutableMap.of(
             "//test:my_label_flag", Label.parseAbsoluteUnchecked("//test:command_line")));
     getConfiguredTarget("//test:selector");
-    assertContainsEvent("Configurable attribute \"value\" doesn't match this configuration");
+    assertContainsEvent(
+        "configurable attribute \"value\" in //test:selector doesn't match this configuration");
   }
 
   @Test
@@ -166,7 +167,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         ImmutableMap.of(
             "//test:my_label_flag", Label.parseAbsoluteUnchecked("//test:command_line")));
     getConfiguredTarget("//test:selector");
-    assertContainsEvent("Configurable attribute \"value\" doesn't match this configuration");
+    assertContainsEvent(
+        "configurable attribute \"value\" in //test:selector doesn't match this configuration");
   }
 
   @Test
@@ -193,7 +195,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void transitionTypeParsing() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -239,7 +241,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void transitionsDontAllowRelativeLabels() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -279,6 +281,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "rule_with_transition(name = 'buildme')");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:buildme")).isNull();
-    assertContainsEvent("invalid label: :other_rule");
+    assertContainsEvent("invalid label ':other_rule': absolute label must begin with '@' or '//'");
   }
 }

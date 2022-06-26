@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "objc_library")
-
 package(default_visibility = ["//visibility:public"])
 
 # Files which shouldn't be publicly visible and dependencies of all objc_* or ios_* rules shouldn't be in this package.
@@ -29,9 +27,9 @@ xcode_config(
     name = "host_xcodes",
 )
 
-filegroup(
-    name = "j2objc_dead_code_pruner",
-    srcs = ["j2objc_dead_code_pruner.py"],
+py_binary(
+    name = "j2objc_dead_code_pruner_binary",
+    srcs = ["j2objc_dead_code_pruner_binary.py"],
 )
 
 objc_library(
@@ -39,19 +37,4 @@ objc_library(
     srcs = [
         "objc_dummy.mm",
     ],
-)
-
-filegroup(
-    name = "protobuf_compiler_wrapper",
-    srcs = ["protobuf_compiler_wrapper.sh"],
-)
-
-filegroup(
-    name = "protobuf_compiler_support",
-    srcs = ["protobuf_support"],
-)
-
-filegroup(
-    name = "protobuf_well_known_types",
-    srcs = ["dummy.proto"],
 )

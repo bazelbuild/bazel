@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -21,9 +21,14 @@
 #   LCOV_MERGER - mandatory, location of the LcovMerger
 #   COVERAGE_DIR - optional, location of the coverage temp directory
 #   COVERAGE_OUTPUT_FILE - optional, location of the final lcov file
+#   VERBOSE_COVERAGE - optional, print debug info from the coverage scripts
 #
 # Script expects that it will be started in the execution root directory and
 # not in the test's runfiles directory.
+
+if [[ -n "$VERBOSE_COVERAGE" ]]; then
+  set -x
+fi
 
 function resolve_links() {
   local name="$1"
@@ -81,15 +86,6 @@ export JAVA_COVERAGE_FILE=$COVERAGE_DIR/jvcov.dat
 export COVERAGE=1
 export BULK_COVERAGE_RUN=1
 
-
-for name in "$LCOV_MERGER"; do
-  if [[ ! -e $name ]]; then
-    echo --
-    echo Coverage runner: cannot locate file $name
-    exit 1
-  fi
-done
-
 # Setting up the environment for executing the C++ tests.
 if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
   # TODO: GCOV_PREFIX_STRIP=3 is incorrect on MacOS in the default setup
@@ -97,6 +93,11 @@ if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
 fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
 export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
+if [[ -n "$LLVM_PROFILE_CONTINUOUS_MODE" ]]; then
+  # %c enables continuous mode but expands out to nothing, so the position
+  # within LLVM_PROFILE_FILE does not matter.
+  export LLVM_PROFILE_FILE="${LLVM_PROFILE_FILE}%c"
+fi
 
 # In coverage mode for Java, we need to merge the runtime classpath before
 # running the tests. JacocoCoverageRunner uses this merged jar in order
@@ -135,7 +136,7 @@ if [[ ! -z "${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}" ]]; then
   # Append the runfiles prefix to all the relative paths found in
   # JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE, to invoke SingleJar with the
   # absolute paths.
-  RUNFILES_PREFIX="$TEST_SRCDIR/$TEST_WORKSPACE/"
+  RUNFILES_PREFIX="$TEST_SRCDIR/"
   cat "$JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE" | sed "s@^@$RUNFILES_PREFIX@" >> "$single_jar_params_file"
 
   # Invoke SingleJar. This will create JACOCO_METADATA_JAR.
@@ -146,14 +147,14 @@ if [[ "$IS_COVERAGE_SPAWN" == "0" ]]; then
   # TODO(bazel-team): cd should be avoided.
   cd "$TEST_SRCDIR/$TEST_WORKSPACE"
 
-  # Execute the test.
-  "$@"
-  TEST_STATUS=$?
-
   # Always create the coverage report.
   if [[ "$SPLIT_COVERAGE_POST_PROCESSING" == "0" ]]; then
     touch $COVERAGE_OUTPUT_FILE
   fi
+
+  # Execute the test.
+  "$@"
+  TEST_STATUS=$?
 
   if [[ $TEST_STATUS -ne 0 ]]; then
     echo --
@@ -181,6 +182,24 @@ cd $ROOT
 if [[ "$CC_CODE_COVERAGE_SCRIPT" ]]; then
     eval "${CC_CODE_COVERAGE_SCRIPT}"
 fi
+
+if [[ -z "$LCOV_MERGER" ]]; then
+  # this can happen if a rule returns an InstrumentedFilesInfo (which all do
+  # following 5b216b2) but does not define an _lcov_merger attribute.
+  # Unfortunately, we cannot simply stop this script being called in this case
+  # due to conflicts with how things work within Google.
+  # The file creation is required because TestActionBuilder has already declared
+  # it.
+  exit 0
+fi
+
+for name in "$LCOV_MERGER"; do
+  if [[ ! -e $name ]]; then
+    echo --
+    echo Coverage runner: cannot locate file $name
+    exit 1
+  fi
+done
 
 # Export the command line that invokes LcovMerger with the flags:
 # --coverage_dir          The absolute path of the directory where the
@@ -215,6 +234,7 @@ LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
   --filter_sources=/usr/bin/.+ \
   --filter_sources=/usr/lib/.+ \
   --filter_sources=/usr/include.+ \
+  --filter_sources=/Applications/.+ \
   --filter_sources=.*external/.+ \
   --source_file_manifest=${COVERAGE_MANIFEST}"
 

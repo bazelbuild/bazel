@@ -105,22 +105,38 @@ public enum TestTimeout {
       previousTimeout = timeout.timeout;
     }
     SUGGESTED_TIMEOUT = suggestedTimeoutBuilder.build();
-    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.build();
+    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.buildOrThrow();
   }
 
   private final int timeout;
 
-  private TestTimeout(int timeout) {
+  TestTimeout(int timeout) {
     this.timeout = timeout;
   }
 
   /**
-   * Returns the enum associated with a test's timeout or null if the tag is
-   * not lower case or an unknown size.
+   * Returns the enum associated with a test's timeout or null if the tag is not lower case or an
+   * unknown size.
    */
   public static TestTimeout getTestTimeout(String attr) {
     if (!attr.equals(attr.toLowerCase())) {
       return null;
+    }
+    try {
+      return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  /**
+   * Returns test timeout of the given test target using explicitly specified timeout or default
+   * through to the size label's associated default.
+   */
+  public static TestTimeout getTestTimeout(Rule testTarget) {
+    String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
+    if (!attr.equals(attr.toLowerCase())) {
+      return null; // attribute values must be lowercase
     }
     try {
       return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
@@ -172,22 +188,6 @@ public enum TestTimeout {
   }
 
   /**
-   * Returns test timeout of the given test target using explicitly specified timeout
-   * or default through to the size label's associated default.
-   */
-  public static TestTimeout getTestTimeout(Rule testTarget) {
-    String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
-    if (!attr.equals(attr.toLowerCase())) {
-      return null;  // attribute values must be lowercase
-    }
-    try {
-      return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
-  }
-
-  /**
    * Converter for the --test_timeout option.
    */
   public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Duration>> {
@@ -202,9 +202,9 @@ public enum TestTimeout {
         // so we can't fully emulate String.split(String, 0).
         if (!token.isEmpty() || values.size() > 1) {
           try {
-            values.add(Duration.ofSeconds(Integer.valueOf(token)));
+            values.add(Duration.ofSeconds(Integer.parseInt(token)));
           } catch (NumberFormatException e) {
-            throw new OptionsParsingException("'" + input + "' is not an int");
+            throw new OptionsParsingException("'" + input + "' is not an int", e);
           }
         }
       }

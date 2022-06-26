@@ -38,7 +38,7 @@ import org.junit.runners.JUnit4;
 
 /** Test. */
 @RunWith(JUnit4.class)
-public class HeaderDiscoveryTest {
+public final class HeaderDiscoveryTest {
   private static final String DERIVED_SEGMENT = "derived";
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
@@ -63,25 +63,25 @@ public class HeaderDiscoveryTest {
                     Order.STABLE_ORDER, treeArtifact(derivedRoot.getRelative("tree_artifact2")))));
   }
 
-  private NestedSet<Artifact> checkHeaderInclusion(
+  private void checkHeaderInclusion(
       ArtifactResolver artifactResolver,
       ImmutableList<Path> dependencies,
       NestedSet<Artifact> includedHeaders)
       throws ActionExecutionException {
-    return new HeaderDiscovery.Builder()
-        .shouldValidateInclusions()
-        .setAction(new ActionsTestUtil.NullAction())
-        .setPermittedSystemIncludePrefixes(ImmutableList.of())
-        .setSourceFile(
-            ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")))
-        .setDependencies(dependencies)
-        .setAllowedDerivedInputs(includedHeaders)
-        .build()
-        .discoverInputsFromDependencies(execRoot, artifactResolver, false);
+    HeaderDiscovery.discoverInputsFromDependencies(
+        new ActionsTestUtil.NullAction(),
+        ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")),
+        /*shouldValidateInclusions=*/ true,
+        dependencies,
+        /*permittedSystemIncludePrefixes=*/ ImmutableList.of(),
+        includedHeaders,
+        execRoot,
+        artifactResolver,
+        /*siblingRepositoryLayout=*/ false);
   }
 
   private SpecialArtifact treeArtifact(Path path) {
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         artifactRoot,
         artifactRoot.getExecPath().getRelative(artifactRoot.getRoot().relativize(path)),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,

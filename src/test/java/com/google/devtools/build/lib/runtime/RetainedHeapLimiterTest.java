@@ -16,101 +16,37 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.sun.management.GarbageCollectionNotificationInfo;
-import com.sun.management.GcInfo;
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.MemoryUsage;
-import java.lang.ref.WeakReference;
-import javax.management.ListenerNotFoundException;
-import javax.management.Notification;
-import javax.management.NotificationEmitter;
-import org.junit.Before;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 
 /** Tests for {@link RetainedHeapLimiter}. */
 @RunWith(JUnit4.class)
 public final class RetainedHeapLimiterTest {
-
-  private interface NotificationBean extends GarbageCollectorMXBean, NotificationEmitter {}
-
-  private final NotificationBean mockBean = mock(NotificationBean.class);
-  private final GarbageCollectorMXBean mockUselessBean = mock(GarbageCollectorMXBean.class);
-
-  private final EventCollector events = new EventCollector(EventKind.ALL_EVENTS);
-
-  @Before
-  public void initMocks() {
-    when(mockBean.getMemoryPoolNames()).thenReturn(new String[] {"not tenured", "CMS Old Gen"});
-    when(mockUselessBean.getMemoryPoolNames()).thenReturn(new String[] {"assistant", "adjunct"});
-  }
-
-  @Test
-  public void findBeans() {
-    assertThat(
-            RetainedHeapLimiter.findTenuredCollectorBeans(
-                ImmutableList.of(mockUselessBean, mockBean)))
-        .containsExactly(mockBean);
-  }
-
-  @Test
-  public void smoke() throws AbruptExitException, ListenerNotFoundException {
-    RetainedHeapLimiter underTest =
-        RetainedHeapLimiter.createFromBeans(
-            ImmutableList.of(mockUselessBean, mockBean), BugReporter.defaultInstance());
-
-    underTest.update(100, "", events);
-    verify(mockBean, never()).addNotificationListener(underTest, null, null);
-    verify(mockBean, never()).removeNotificationListener(underTest, null, null);
-
-    underTest.update(90, "", events);
-    verify(mockBean).addNotificationListener(underTest, null, null);
-    verify(mockBean, never()).removeNotificationListener(underTest, null, null);
-
-    underTest.update(80, "", events);
-    // No additional calls.
-    verify(mockBean).addNotificationListener(underTest, null, null);
-    verify(mockBean, never()).removeNotificationListener(underTest, null, null);
-
-    underTest.update(100, "", events);
-    verify(mockBean).addNotificationListener(underTest, null, null);
-    verify(mockBean).removeNotificationListener(underTest, null, null);
-
-    assertThat(events).isEmpty();
+  @After
+  public void cleanUp() {
+    BugReport.maybePropagateUnprocessedThrowableIfInTest();
   }
 
   @Test
   public void noTenuredSpaceFound() throws AbruptExitException {
-    RetainedHeapLimiter underTest =
-        RetainedHeapLimiter.createFromBeans(
-            ImmutableList.of(mockUselessBean), BugReporter.defaultInstance());
-    verify(mockUselessBean, times(2)).getMemoryPoolNames();
-
-    underTest.update(100, "", events);
-    verifyNoMoreInteractions(mockUselessBean);
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
 
     AbruptExitException e =
-        assertThrows(AbruptExitException.class, () -> underTest.update(80, "", events));
+        assertThrows(
+            AbruptExitException.class, () -> underTest.setThreshold(/*listening=*/ false, 80));
     FailureDetails.FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
     assertThat(failureDetail.getMessage())
         .contains("unable to watch for GC events to exit JVM when 80% of heap is used");
@@ -118,74 +54,96 @@ public final class RetainedHeapLimiterTest {
         .isEqualTo(
             FailureDetails.MemoryOptions.Code
                 .EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND);
-    assertThat(events).isEmpty();
   }
 
   @Test
   public void underThreshold_noOom() throws Exception {
-    RetainedHeapLimiter underTest =
-        RetainedHeapLimiter.createFromBeans(
-            ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(90, "", events);
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
 
-    underTest.handleNotification(percentUsedAfterForcedGc(89), null);
+    underTest.setThreshold(/*listening=*/ true, 99);
 
-    assertThat(events).isEmpty();
+    underTest.handle(percentUsedAfterOtherGc(100));
+    underTest.handle(percentUsedAfterForcedGc(89));
   }
 
   @Test
   public void overThreshold_oom() throws Exception {
-    RetainedHeapLimiter underTest =
-        RetainedHeapLimiter.createFromBeans(
-            ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(90, "Build fewer targets!", events);
+    BugReporter bugReporter = mock(BugReporter.class);
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(bugReporter);
 
-    assertThrows(
-        SecurityException.class, // From attempt to halt jvm in test.
-        () -> underTest.handleNotification(percentUsedAfterForcedGc(91), null));
-    OutOfMemoryError oom =
-        assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
+    underTest.setThreshold(/*listening=*/ true, 90);
+
+    // Triggers GC, and tells RetainedHeapLimiter to OOM if too much memory used next time.
+    underTest.handle(percentUsedAfterOtherGc(91));
+
+    underTest.handle(percentUsedAfterForcedGc(91));
+
+    ArgumentCaptor<Crash> crashArgument = ArgumentCaptor.forClass(Crash.class);
+    verify(bugReporter).handleCrash(crashArgument.capture(), ArgumentMatchers.any());
+    OutOfMemoryError oom = (OutOfMemoryError) crashArgument.getValue().getThrowable();
 
     assertThat(oom).hasMessageThat().contains("forcing exit due to GC thrashing");
     assertThat(oom).hasMessageThat().contains("tenured space is more than 90% occupied");
-    assertContainsEvent(
-        events, BugReport.constructOomExitMessage("Build fewer targets!"), EventKind.FATAL);
   }
 
   @Test
-  public void resetsEventHandler() throws Exception {
-    EventHandler dummyEventHandler =
-        event -> {
-          throw new UnsupportedOperationException(events.toString());
-        };
-    WeakReference<?> ref = new WeakReference<>(dummyEventHandler);
-    RetainedHeapLimiter underTest =
-        RetainedHeapLimiter.createFromBeans(
-            ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(90, "", dummyEventHandler);
+  public void externalGcNoTrigger() throws Exception {
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
 
-    underTest.resetEventHandler();
+    underTest.setThreshold(/*listening=*/ true, 90);
 
-    dummyEventHandler = null;
-    GcFinalization.awaitClear(ref);
+    // No trigger because cause was "System.gc()".
+    underTest.handle(percentUsedAfterForcedGc(91));
+
+    // Proof: no OOM.
+    underTest.handle(percentUsedAfterForcedGc(91));
   }
 
-  private static Notification percentUsedAfterForcedGc(int percentUsed) {
+  @Test
+  public void triggerReset() throws Exception {
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(BugReporter.defaultInstance());
+
+    underTest.setThreshold(/*listening=*/ true, 90);
+
+    underTest.handle(percentUsedAfterOtherGc(91));
+
+    // Got under the threshold, so no OOM.
+    underTest.handle(percentUsedAfterForcedGc(89));
+
+    // No OOM this time since wasn't triggered.
+    underTest.handle(percentUsedAfterForcedGc(91));
+  }
+
+  @Test
+  public void triggerRaceWithOtherGc() throws Exception {
+    BugReporter bugReporter = mock(BugReporter.class);
+    RetainedHeapLimiter underTest = RetainedHeapLimiter.create(bugReporter);
+
+    underTest.setThreshold(/*listening=*/ true, 90);
+
+    underTest.handle(percentUsedAfterOtherGc(91));
+    underTest.handle(percentUsedAfterOtherGc(91));
+    underTest.handle(percentUsedAfterForcedGc(91));
+
+    ArgumentCaptor<Crash> crashArgument = ArgumentCaptor.forClass(Crash.class);
+    verify(bugReporter).handleCrash(crashArgument.capture(), ArgumentMatchers.any());
+    assertThat(crashArgument.getValue().getThrowable()).isInstanceOf(OutOfMemoryError.class);
+  }
+
+  private static MemoryPressureEvent percentUsedAfterForcedGc(int percentUsed) {
+    return percentUsedAfterGc(/*wasManualGc=*/ true, percentUsed);
+  }
+
+  private static MemoryPressureEvent percentUsedAfterOtherGc(int percentUsed) {
+    return percentUsedAfterGc(/*wasManualGc=*/ false, percentUsed);
+  }
+
+  private static MemoryPressureEvent percentUsedAfterGc(boolean wasManualGc, int percentUsed) {
     checkArgument(percentUsed >= 0 && percentUsed <= 100, percentUsed);
-    MemoryUsage memoryUsage = mock(MemoryUsage.class);
-    when(memoryUsage.getUsed()).thenReturn((long) percentUsed);
-    when(memoryUsage.getMax()).thenReturn(100L);
-
-    GcInfo gcInfo = mock(GcInfo.class);
-    when(gcInfo.getMemoryUsageAfterGc()).thenReturn(ImmutableMap.of("CMS Old Gen", memoryUsage));
-
-    GarbageCollectionNotificationInfo notificationInfo =
-        new GarbageCollectionNotificationInfo("name", "action", "System.gc()", gcInfo);
-
-    Notification notification =
-        new Notification(
-            GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION, "test", 123);
-    notification.setUserData(notificationInfo.toCompositeData(null));
-    return notification;
+    return MemoryPressureEvent.newBuilder()
+        .setWasManualGc(wasManualGc)
+        .setTenuredSpaceUsedBytes(percentUsed)
+        .setTenuredSpaceMaxBytes(100L)
+        .build();
   }
 }

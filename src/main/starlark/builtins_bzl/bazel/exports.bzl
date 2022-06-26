@@ -14,6 +14,14 @@
 
 """Exported builtins symbols that are specific to OSS Bazel."""
 
+load("@_builtins//:common/java/java_library.bzl", "java_library")
+load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
+load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
+
 exported_toplevels = {}
-exported_rules = {}
+exported_rules = {
+    "java_library": java_library,
+    "java_plugin": java_plugin,
+    "+java_proto_library": java_proto_library,
+}
 exported_to_java = {}

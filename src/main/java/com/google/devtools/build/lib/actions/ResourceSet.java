@@ -15,12 +15,15 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
+import com.google.common.primitives.Doubles;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import javax.annotation.Nullable;
 
 /**
  * Instances of this class represent an estimate of the resource consumption for a particular
@@ -29,8 +32,7 @@ import java.util.NoSuchElementException;
  * much memory as to cause the machine to thrash.
  */
 @Immutable
-@AutoCodec
-public class ResourceSet {
+public class ResourceSet implements ResourceSetOrBuilder {
 
   /** For actions that consume negligible resources. */
   public static final ResourceSet ZERO = new ResourceSet(0.0, 0.0, 0);
@@ -44,10 +46,19 @@ public class ResourceSet {
   /** The number of local tests. */
   private final int localTestCount;
 
-  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
+  /** The workerKey of used worker. Null if no worker is used. */
+  @Nullable private final WorkerKey workerKey;
+
+  private ResourceSet(
+      double memoryMb, double cpuUsage, int localTestCount, @Nullable WorkerKey workerKey) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
     this.localTestCount = localTestCount;
+    this.workerKey = workerKey;
+  }
+
+  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
+    this(memoryMb, cpuUsage, localTestCount, /* workerKey= */ null);
   }
 
   /**
@@ -73,17 +84,20 @@ public class ResourceSet {
 
   /**
    * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, ioUsage, and
-   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or
-   * {@link #createWithLocalTestCount(int)}. Use this method primarily when constructing
-   * ResourceSets that represent available resources.
+   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or {@link
+   * #createWithLocalTestCount(int)}. Use this method primarily when constructing ResourceSets that
+   * represent available resources.
    */
-  @AutoCodec.Instantiator
-  public static ResourceSet create(
-      double memoryMb, double cpuUsage, int localTestCount) {
-    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0) {
+  public static ResourceSet create(double memoryMb, double cpuUsage, int localTestCount) {
+    return createWithWorkerKey(memoryMb, cpuUsage, localTestCount, /* workerKey= */ null);
+  }
+
+  public static ResourceSet createWithWorkerKey(
+      double memoryMb, double cpuUsage, int localTestCount, WorkerKey workerKey) {
+    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0 && workerKey == null) {
       return ZERO;
     }
-    return new ResourceSet(memoryMb, cpuUsage, localTestCount);
+    return new ResourceSet(memoryMb, cpuUsage, localTestCount, workerKey);
   }
 
   /** Returns the amount of real memory (resident set size) used in MB. */
@@ -92,12 +106,19 @@ public class ResourceSet {
   }
 
   /**
-   * Returns the number of CPUs (or fractions thereof) used.
-   * For a CPU-bound single-threaded process, this will be 1.0.
-   * For a single-threaded process which spends part of its
-   * time waiting for I/O, this will be somewhere between 0.0 and 1.0.
-   * For a multi-threaded or multi-process application,
-   * this may be more than 1.0.
+   * Returns the workerKey of worker.
+   *
+   * <p>If there is no worker requested, then returns null
+   */
+  public WorkerKey getWorkerKey() {
+    return workerKey;
+  }
+
+  /**
+   * Returns the number of CPUs (or fractions thereof) used. For a CPU-bound single-threaded
+   * process, this will be 1.0. For a single-threaded process which spends part of its time waiting
+   * for I/O, this will be somewhere between 0.0 and 1.0. For a multi-threaded or multi-process
+   * application, this may be more than 1.0.
    */
   public double getCpuUsage() {
     return cpuUsage;
@@ -111,9 +132,39 @@ public class ResourceSet {
   @Override
   public String toString() {
     return "Resources: \n"
-        + "Memory: " + memoryMb + "M\n"
-        + "CPU: " + cpuUsage + "\n"
-        + "Local tests: " + localTestCount + "\n";
+        + "Memory: "
+        + memoryMb
+        + "M\n"
+        + "CPU: "
+        + cpuUsage
+        + "\n"
+        + "Local tests: "
+        + localTestCount
+        + "\n";
+  }
+
+  @Override
+  public boolean equals(Object that) {
+    if (that == null) {
+      return false;
+    }
+
+    if (!(that instanceof ResourceSet)) {
+      return false;
+    }
+
+    ResourceSet thatResourceSet = (ResourceSet) that;
+    return thatResourceSet.getMemoryMb() == getMemoryMb()
+        && thatResourceSet.getCpuUsage() == getCpuUsage()
+        && thatResourceSet.localTestCount == getLocalTestCount();
+  }
+
+  @Override
+  public int hashCode() {
+    int p = 239;
+    return Doubles.hashCode(getMemoryMb())
+        + Doubles.hashCode(getCpuUsage()) * p
+        + getLocalTestCount() * p * p;
   }
 
   public static class ResourceSetConverter implements Converter<ResourceSet> {
@@ -146,6 +197,10 @@ public class ResourceSet {
       return "comma-separated available amount of RAM (in MB), CPU (in cores) and "
           + "available I/O (1.0 being average workstation)";
     }
+  }
 
+  @Override
+  public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
+    return this;
   }
 }

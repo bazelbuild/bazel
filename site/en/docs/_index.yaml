@@ -1,0 +1,215 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+
+title: Using Bazel
+landing_page:
+  nav: left
+  rows:
+  - background: BAZEL_THEME
+    options:
+    - hero
+    - description-50
+    - no-image-background
+    - padding-large
+    items:
+    - image_path: "/images/placeholder_960.png"
+      heading: Using Bazel
+      description: >
+        Explore the Bazel documentation to find tutorials and guides for users of all levels.
+
+  - background: grey
+    options:
+    - description-67
+    heading: Building with Bazel
+    description: >
+      Work with the foundational elements of Bazel to create a powerful build system.
+  - background: grey
+    options:
+    - cards
+    items:
+    - heading: Run Bazel
+      classname: fully-clickable
+      path: /docs/build
+      description: >
+        Learn common commands in Bazel, including how to get contextual help.
+      icon:
+        name: info
+        position: top
+    - heading: BUILD files
+      path: /concepts/build-files
+      classname: fully-clickable
+      description: >
+        Define your build products and dependencies with `BUILD` files.
+      icon:
+        name: build
+        position: top
+    - heading: BUILD style guide
+      path: /rules/build-style
+      classname: fully-clickable
+      description: >
+        Help automated tools to understand, edit, and generate `BUILD` files.
+      icon:
+        name: toggle_on
+        position: top
+
+  - background: grey
+    options:
+    - cards
+    items:
+    - heading: Bazel commands
+      classname: fully-clickable
+      path: /docs/user-manual
+      description: >
+        Discover options for configuring various Bazel commands.
+      icon:
+        name: keyboard_command_key
+        position: top
+    - heading: Query builds
+      classname: fully-clickable
+      path: /docs/query-how-to
+      description: >
+        Use Bazel's query, aquery, and cquery languages to trace dependencies in your code.
+      icon:
+        name: query_builder
+        position: top
+    - heading: Optimizing Bazel
+      path: /docs/best-practices
+      classname: fully-clickable
+      description: >
+        Increase the health and efficiency of your builds by following Bazel's best practices.
+      icon:
+        name: spa
+        position: top
+
+  - background: BAZEL_THEME
+    heading: Extending Bazel
+    description: >
+      Increase Bazel's capablities by extending the BUILD language with rules and macros.
+    options:
+    - description-67
+    - padding-large
+    - cards
+    items:
+    - background: white
+      classname: fully-clickable
+      path: /rules/concepts
+      heading: Rules overview
+      description: >
+        Learn the basics of using macros and rules.
+      icon:
+        name: looks_one
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/
+      heading: Recommended rules
+      description: >
+        Survey the recommended, native, and non-native Bazel rules.
+      icon:
+        name: recommend
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/language
+      heading: Build language
+      description: >
+        Learn how to use Starlark, the language used in Bazel.
+      icon:
+        name: language
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/rules
+      heading: Rules basics
+      description: >
+        Use rules to implement a series of actions for Blaze to perform.
+      icon:
+        name: rule
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/rules-tutorial
+      heading: Writing rules
+      description: >
+        Learn how to write custom rules for your builds.
+      icon:
+        name: rule_folder
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/tutorial-creating-a-macro
+      heading: Writing macros
+      description: >
+        Make tools to complete simple tasks in your build.
+      icon:
+        name: square_foot
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/testing
+      heading: Testing rules
+      description: >
+        Test your Starlark code in Bazel.
+      icon:
+        name: quiz
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /rules/deploying
+      heading: Rules authors
+      description: >
+        Share your rules with the Bazel community.
+      icon:
+        name: folder_shared
+        position: top
+
+  - background: grey
+    position: left
+    icon:
+      name: settings_remote
+      position: top
+      size: large
+    heading: Distributed Builds
+    description: >
+      Work with distributed builds to avoid unnecessary downloads while increasing the power of your build.
+    options:
+    - description-67
+    - padding-large
+    - cards
+    items:
+    - background: white
+      classname: fully-clickable
+      path: /docs/remote-execution
+      heading: Remote execution
+      description: >
+        Distribute build and test actions across multiple machines.
+      icon:
+        name: play_arrow
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /docs/remote-caching
+      heading: Remote caching
+      description: >
+        Share build outputs with a team of developers or continuous integration system.
+      icon:
+        name: share
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /docs/persistent-workers
+      heading: Persistent workers
+      description: >
+        Increase execution efficiency by sending multiple requests to a long-running process.
+      icon:
+        name: track_changes
+        position: top
+    - background: white
+      classname: fully-clickable
+      path: /docs/build-event-protocol
+      heading: Build Event Protocol
+      description: >
+        Allow third-party programs to gain insight into a Bazel invocation with BEP.
+      icon:
+        name: preview
+        position: top

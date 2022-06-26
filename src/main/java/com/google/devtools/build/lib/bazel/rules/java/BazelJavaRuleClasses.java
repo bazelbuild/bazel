@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -125,8 +126,8 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the target.
           See general comments about <code>deps</code> at
-          <a href="common-definitions.html#common-attributes">Attributes common to all build rules
-          </a>.
+          <a href="common-definitions.html#typical-attributes">Typical attributes defined by
+          most build rules</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(
               builder
@@ -196,7 +197,9 @@ public class BazelJavaRuleClasses {
             (a "src" directory followed by a "resources" directory grandchild). If that is not
             found, Bazel then looks for the topmost directory named "java" or "javatests" (so, for
             example, if a resource is at <code>&lt;workspace root&gt;/x/java/y/java/z</code>, the
-            path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden.
+            path of the resource will be <code>y/java/z</code>. This heuristic cannot be overridden,
+            however, the <code>resource_strip_prefix</code> attribute can be used to specify a
+            specific alternative directory for resource files.
           </p>
 
           <p>
@@ -220,10 +223,7 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resource_strip_prefix", STRING))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_jars) -->
-          Set of archives containing Java resources.
-          <p>
-            If specified, the contents of these jars are merged into the output jar.
-          </p>
+          Deprecated: Use java_import and deps or runtime_deps instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("resource_jars", LABEL_LIST)
@@ -239,12 +239,12 @@ public class BazelJavaRuleClasses {
           .add(
               attr("plugins", LABEL_LIST)
                   .cfg(ExecutionTransitionFactory.create())
-                  .allowedRuleClasses("java_plugin")
+                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
                   .cfg(ExecutionTransitionFactory.create())
-                  .allowedRuleClasses("java_plugin")
+                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(javacopts) -->
@@ -365,17 +365,24 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("deploy_manifest_lines", STRING_LIST))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(stamp) -->
-          Enable link stamping.
           Whether to encode build information into the binary. Possible values:
           <ul>
-            <li><code>stamp = 1</code>: Stamp the build information into the binary. Stamped
-              binaries are only rebuilt when their dependencies change. Use this if there are tests
-              that depend on the build information.</li>
-            <li><code>stamp = 0</code>: Always replace build information by constant values. This
-              gives good build result caching.</li>
-            <li><code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+            <li>
+              <code>stamp = 1</code>: Always stamp the build information into the binary, even in
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
+              setting should be avoided</b>, since it potentially kills remote caching for the
+              binary and any downstream actions that depend on it.
+            </li>
+            <li>
+              <code>stamp = 0</code>: Always replace build information by constant values. This
+              gives good build result caching.
+            </li>
+            <li>
+              <code>stamp = -1</code>: Embedding of build information is controlled by the
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
+            </li>
           </ul>
+          <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           // TODO(bazel-team): describe how to access this data at runtime
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
@@ -389,7 +396,7 @@ public class BazelJavaRuleClasses {
 
           <p>By default, Bazel will use the normal JDK launcher (bin/java or java.exe).</p>
 
-          <p>The related <a href="../user-manual.html#flag--java_launcher"><code>
+          <p>The related <a href="${link user-manual#flag--java_launcher}"><code>
           --java_launcher</code></a> Bazel flag affects only those
           <code>java_binary</code> and <code>java_test</code> targets that have
           <i>not</i> specified a <code>launcher</code> attribute.</p>
@@ -425,7 +432,7 @@ public class BazelJavaRuleClasses {
 
           <p>If this attribute is set to false, the
           <a href="${link java_binary.launcher}">launcher</a> attribute  and the related
-          <a href="../user-manual.html#flag--java_launcher"><code>--java_launcher</code></a> flag
+          <a href="${link user-manual#flag--java_launcher}"><code>--java_launcher</code></a> flag
           will be ignored for this target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("use_launcher", BOOLEAN).value(true))

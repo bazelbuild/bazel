@@ -66,8 +66,8 @@
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
-int global_outer_uid;
-int global_outer_gid;
+uid_t global_outer_uid;
+gid_t global_outer_gid;
 
 // The PID of our child process, for use in signal handlers.
 static std::atomic<pid_t> global_child_pid{0};
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
   // Ensure we don't pass on any FDs from our parent to our child.
   CloseFds();
 
-  // Spawn the child that will fork the sandboxed progam with fresh namespaces
+  // Spawn the child that will fork the sandboxed program with fresh namespaces
   // etc.
   const pid_t child_pid = SpawnPid1();
 

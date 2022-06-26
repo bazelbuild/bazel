@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
@@ -110,9 +109,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /** Test fragment. */
-  @AutoCodec
   @RequiresOptions(options = {DummyTestOptions.class})
-  public static class DummyTestOptionsFragment extends Fragment {
+  public static final class DummyTestOptionsFragment extends Fragment {
     private final BuildOptions buildOptions;
 
     public DummyTestOptionsFragment(BuildOptions buildOptions) {
@@ -129,7 +127,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
-    builder.addConfigurationOptions(DummyTestOptions.class);
     builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }
@@ -151,7 +148,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   /** Checks the behavior of {@link ConfigSetting#isUnderToolsPackage}. */
   @Test
   public void isUnderToolsPackage() throws Exception {
-    RepositoryName toolsRepo = RepositoryName.create("@tools");
+    RepositoryName toolsRepo = RepositoryName.create("tools");
     // Subpackage of the tools package.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
@@ -292,7 +289,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         String.format(
             "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
                 + "allowlisted to %s//tools/... only)",
-            RepositoryName.create(TestConstants.TOOLS_REPOSITORY).getDefaultCanonicalForm()),
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
         "config_setting(",
         "    name = 'badoption',",
         "    values = {",
@@ -844,13 +841,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void doesNotRefineSettingWithSameValuesAndSameFlagValues() throws Exception {
+  public void doesNotRefineSettingWithSameValuesAndSameFlagValuesAndSameConstraintValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -861,6 +861,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_setting(",
@@ -873,6 +876,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_feature_flag(",
@@ -892,13 +898,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void doesNotRefineSettingWithDifferentValuesAndSameFlagValues() throws Exception {
+  public void doesNotRefineSettingWithDifferentValuesAndSameFlagValuesAndSameConstraintValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -908,6 +917,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_setting(",
@@ -919,6 +931,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'copt': '-Dright',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_feature_flag(",
@@ -938,13 +953,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void doesNotRefineSettingWithSameValuesAndDifferentFlagValues() throws Exception {
+  public void doesNotRefineSettingWithSameValuesAndSameConstraintValuesAndDifferentFlagValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -954,6 +972,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag'],",
         ")",
         "config_setting(",
@@ -965,6 +986,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag2'],",
         ")",
         "config_feature_flag(",
@@ -984,13 +1008,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void doesNotRefineSettingWithDifferentValuesAndDifferentFlagValues() throws Exception {
+  public void
+      doesNotRefineSettingWithDifferentValuesAndDifferentFlagValuesAndDifferentConstraintValues()
+          throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -999,6 +1029,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'copt': '-Dright',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag'],",
         ")",
         "config_setting(",
@@ -1009,6 +1042,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag2'],",
         ")",
         "config_feature_flag(",
@@ -1028,13 +1064,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void doesNotRefineSettingWithDifferentValuesAndSubsetFlagValues() throws Exception {
+  public void doesNotRefineSettingWithDifferentValuesAndSubsetFlagValuesAndSubsetConstraintValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -1044,6 +1085,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'copt': '-Dright',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_setting(",
@@ -1054,6 +1099,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
@@ -1073,13 +1121,76 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void doesNotRefineSettingWithSubsetValuesAndDifferentFlagValues() throws Exception {
+  public void doesNotRefineSettingWithSubsetValuesAndSubsetFlagValuesAndDifferentConstraintValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
+        "    transitive_configs = [':flag', ':flag2'],",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        "    constraint_values = [",
+        "        ':value_b',",
+        "    ],",
+        "    transitive_configs = [':flag', ':flag2'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithSubsetValuesAndSubsetConstraintValuesAndDifferentFlagValues()
+      throws Exception {
+    useConfiguration(
+        "--copt=-Dright",
+        "--javacopt=-Dgood",
+        "--enforce_transitive_configs_for_config_feature_flag");
+    scratch.file(
+        "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -1089,6 +1200,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag'],",
         ")",
         "config_setting(",
@@ -1099,6 +1214,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'copt': '-Dright',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag2'],",
         ")",
         "config_feature_flag(",
@@ -1118,13 +1236,56 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void refinesSettingWithSubsetValuesAndSameFlagValues() throws Exception {
+  public void doesNotRefineSettingIfThereIsNoOverlap() throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "config_setting(",
+        "    name = 'configA',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "config_setting(",
+        "    name = 'configB',",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:configA")
+                .refines(getConfigMatchingProvider("//test:configB")))
+        .isFalse();
+    assertThat(
+            getConfigMatchingProvider("//test:configB")
+                .refines(getConfigMatchingProvider("//test:configA")))
+        .isFalse();
+  }
+
+  @Test
+  public void refinesSettingWithSubsetValuesAndSubsetConstraintValuesAndSameFlagValues()
+      throws Exception {
+    useConfiguration(
+        "--copt=-Dright",
+        "--javacopt=-Dgood",
+        "--enforce_transitive_configs_for_config_feature_flag");
+    scratch.file(
+        "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -1135,6 +1296,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_setting(",
@@ -1146,6 +1311,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'copt': '-Dright',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_feature_flag(",
@@ -1165,13 +1333,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void refinesSettingWithSameValuesAndSubsetFlagValues() throws Exception {
+  public void refinesSettingWithSameValuesAndSubsetFlagValuesAndSubsetConstraintValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -1182,6 +1355,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_setting(",
@@ -1193,6 +1370,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
@@ -1212,13 +1392,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void refinesSettingWithSubsetValuesAndSubsetFlagValues() throws Exception {
+  public void refinesSettingWithSubsetValuesAndSubsetFlagValuesAndConstraintValues()
+      throws Exception {
     useConfiguration(
         "--copt=-Dright",
         "--javacopt=-Dgood",
         "--enforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
         "config_setting(",
         "    name = 'refined',",
         "    flag_values = {",
@@ -1229,6 +1414,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "        'javacopt': '-Dgood',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
         "    transitive_configs = [':flag', ':flag2'],",
         ")",
         "config_setting(",
@@ -1239,6 +1428,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'copt': '-Dright',",
         "    },",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
         "    transitive_configs = [':flag'],",
         ")",
         "config_feature_flag(",
@@ -1251,6 +1443,53 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['good', 'bad'],",
         "    default_value = 'good',",
         ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isTrue();
+  }
+
+  @Test
+  public void refinesSettingWithSubsetConstraintValues() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "constraint_setting(name = 'setting_b')",
+        "constraint_value(name = 'value_b', constraint_setting = 'setting_b')",
+        "constraint_setting(name = 'setting_c')",
+        "constraint_value(name = 'value_c', constraint_setting = 'setting_c')",
+        "platform(",
+        "    name = 'refined_platform',",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "        ':value_c',",
+        "    ],",
+        ")",
+        "platform(",
+        "    name = 'other_platform',",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
+        ")",
+        "config_setting(",
+        "    name = 'refined',",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "        ':value_c',",
+        "    ],",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "        ':value_b',",
+        "    ],",
+        ");");
+    useConfiguration("--platforms=//test:refined_platform");
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))

@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -32,10 +31,13 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
-import com.google.devtools.build.lib.util.BinaryPredicate;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -201,15 +203,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns true iff the outputs of this rule should be created beneath the
-   * bin directory, false if beneath genfiles.  For most rule
-   * classes, this is a constant, but for genrule, it is a property of the
-   * individual rule instance, derived from the 'output_to_bindir' attribute.
+   * Returns true iff the outputs of this rule should be created beneath the bin directory, false if
+   * beneath genfiles. For most rule classes, this is constant, but for genrule, it is a property of
+   * the individual target, derived from the 'output_to_bindir' attribute.
    */
-  public boolean hasBinaryOutput() {
+  public boolean outputsToBindir() {
     return ruleClass.getName().equals("genrule") // this is unfortunate...
         ? NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN)
-        : ruleClass.hasBinaryOutput();
+        : ruleClass.outputsToBindir();
   }
 
   /** Returns true if this rule is an analysis test (set by analysis_test = true). */
@@ -258,10 +259,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     Attribute attribute = ruleClass.getAttributeByNameMaybe(attributeName);
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
-    // to this instance!.
+    // to this instance!
     return attribute != null
-        ? AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType())
-        : false;
+        && AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType());
   }
 
   /**
@@ -367,7 +367,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         result.put(key, (OutputFile) o);
       }
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   @Override
@@ -397,7 +397,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return attributes;
   }
 
-  /********************************************************************
+  /*
+   *******************************************************************
    * Attribute accessor functions.
    *
    * The below provide access to attribute definitions and other generic
@@ -407,11 +408,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * X for Rule Y?"), go through {@link RuleContext#attributes}. If no
    * RuleContext is available, create a localized {@link AbstractAttributeMapper}
    * instance instead.
-   ********************************************************************/
+   *******************************************************************
+   */
 
   /**
-   * Returns the default value for the attribute {@code attrName}, which may be
-   * of any type, but must exist (an exception is thrown otherwise).
+   * Returns the default value for the attribute {@code attrName}, which may be of any type, but
+   * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
     Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
@@ -471,7 +473,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // TODO(b/151165647): this logic has always been wrong:
     // it spuriously matches occurrences of the package name earlier in the path.
     String absolutePath = location.toString();
-    int pos = absolutePath.indexOf(getLabel().getPackageName());
+    int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);
   }
 
@@ -497,7 +499,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     Integer index = ruleClass.getAttributeIndex(attrName);
     if (index == null) {
       throw new IllegalArgumentException(
-          "No such attribute " + attrName + " in " + ruleClass + " rule " + getLabel());
+          "No such attribute " + attrName + " in " + ruleClass + " rule " + label);
     }
     Attribute attr = ruleClass.getAttribute(index);
     if (attr.getType() != type) {
@@ -511,7 +513,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
               + " in "
               + ruleClass
               + " rule "
-              + getLabel());
+              + label);
     }
     return getAttrWithIndex(index);
   }
@@ -540,7 +542,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
               + " in "
               + ruleClass
               + " rule "
-              + getLabel());
+              + label);
     }
     return (BuildType.SelectorList<T>) attrValue;
   }
@@ -590,50 +592,44 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new List instance containing all direct dependencies (all types). */
-  public Collection<Label> getLabels() {
-    final List<Label> labels = Lists.newArrayList();
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .stream()
-        .map(AttributeMap.DepEdge::getLabel)
-        .forEach(labels::add);
+  /** Returns a new list containing all direct dependencies (all types). */
+  public List<Label> getLabels() {
+    List<Label> labels = new ArrayList<>();
+    AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));
     return labels;
   }
 
   /**
-   * Returns a new Collection containing all Labels that match a given Predicate, not including
-   * outputs.
+   * Returns a sorted set containing all labels that match a given {@link DependencyFilter}, not
+   * including outputs.
    *
-   * @param predicate A binary predicate that determines if a label should be included in the
-   *     result. The predicate is evaluated with this rule and the attribute that contains the
-   *     label. The label will be contained in the result iff (the predicate returned {@code true}
-   *     and the labels are not outputs)
+   * @param filter A dependency filter that determines whether a label should be included in the
+   *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
+   *     contains the label. The label will be contained in the result iff the predicate returns
+   *     {@code true} <em>and</em> the label is not an output.
    */
-  public Collection<Label> getLabels(BinaryPredicate<? super Rule, Attribute> predicate) {
-    return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
+  public ImmutableSortedSet<Label> getSortedLabels(DependencyFilter filter) {
+    ImmutableSortedSet.Builder<Label> labels = ImmutableSortedSet.naturalOrder();
+    AggregatingAttributeMapper.of(this)
+        .visitLabels(filter, (attribute, label) -> labels.add(label));
+    return labels.build();
   }
 
   /**
-   * Returns a new Multimap containing all attributes that match a given Predicate and corresponding
-   * labels, not including outputs.
+   * Returns a {@link Multimap} containing all non-output labels matching a given {@link
+   * DependencyFilter}, keyed by the corresponding attribute.
    *
-   * @param predicate A binary predicate that determines if a label should be included in the
-   *     result. The predicate is evaluated with this rule and the attribute that contains the
-   *     label. The label will be contained in the result iff (the predicate returned {@code true}
-   *     and the labels are not outputs)
+   * <p>Labels that appear in multiple attributes will be mapped from each of their corresponding
+   * attributes, provided they pass the {@link DependencyFilter}.
+   *
+   * @param filter A dependency filter that determines whether a label should be included in the
+   *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
+   *     contains the label. The label will be contained in the result iff the predicate returns
+   *     {@code true} <em>and</em> the label is not an output.
    */
-  public Multimap<Attribute, Label> getTransitions(
-      final BinaryPredicate<? super Rule, Attribute> predicate) {
-    final Multimap<Attribute, Label> transitions = HashMultimap.create();
-    // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
-    // be visited may depend on the calling context. We shouldn't implicitly decide this for
-    // the caller.
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .stream()
-        .filter(depEdge -> predicate.apply(Rule.this, depEdge.getAttribute()))
-        .forEach(depEdge -> transitions.put(depEdge.getAttribute(), depEdge.getLabel()));
+  public Multimap<Attribute, Label> getTransitions(DependencyFilter filter) {
+    Multimap<Attribute, Label> transitions = HashMultimap.create();
+    AggregatingAttributeMapper.of(this).visitLabels(filter, transitions::put);
     return transitions;
   }
 
@@ -645,7 +641,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Check if this rule is valid according to the validityPredicate of its RuleClass.
    */
   void checkValidityPredicate(EventHandler eventHandler) {
-    PredicateWithMessage<Rule> predicate = getRuleClassObject().getValidityPredicate();
+    PredicateWithMessage<Rule> predicate = ruleClass.getValidityPredicate();
     if (!predicate.apply(this)) {
       reportError(predicate.getErrorReason(this), eventHandler);
     }
@@ -661,11 +657,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         eventHandler, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ true);
   }
 
-  void populateOutputFilesUnchecked(EventHandler eventHandler, Package.Builder pkgBuilder)
-      throws InterruptedException {
+  void populateOutputFilesUnchecked(Package.Builder pkgBuilder) throws InterruptedException {
     try {
       populateOutputFilesInternal(
-          eventHandler, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ false);
+          NullEventHandler.INSTANCE, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ false);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -673,12 +668,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   @FunctionalInterface
   private interface ExplicitOutputHandler {
-    public void accept(Attribute attribute, Label outputLabel) throws LabelSyntaxException;
+    void accept(Attribute attribute, Label outputLabel) throws LabelSyntaxException;
   }
 
   @FunctionalInterface
   private interface ImplicitOutputHandler {
-    public void accept(String outputKey, String outputName);
+    void accept(String outputKey, String outputName);
   }
 
   private void populateOutputFilesInternal(
@@ -712,7 +707,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
               reportError(
                   String.format(
                       "illegal output file name '%s' in rule %s due to: %s",
-                      outputName, getLabel(), e.getMessage()),
+                      outputName, this.label, e.getMessage()),
                   eventHandler);
               return;
             }
@@ -746,8 +741,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         }
       }
     } catch (EvalException e) {
-      reportError(
-          String.format("In rule %s: %s", getLabel(), e.getMessageWithStack()), eventHandler);
+      reportError(String.format("In rule %s: %s", label, e.getMessageWithStack()), eventHandler);
     }
 
     ExplicitOutputHandler explicitOutputHandler =
@@ -820,7 +814,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void reportError(String message, EventHandler eventHandler) {
-    eventHandler.handle(Event.error(location, message));
+    eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
     this.containsErrors = true;
   }
 
@@ -831,7 +825,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Returns a string of the form "cc_binary rule //foo:foo" */
   @Override
   public String toString() {
-    return getRuleClass() + " rule " + getLabel();
+    return getRuleClass() + " rule " + label;
   }
 
  /**
@@ -848,7 +842,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
     // conditional should be removed.
     if (ruleClass.getName().equals("config_setting")) {
-      ConfigSettingVisibilityPolicy policy = getPackage().getConfigSettingVisibilityPolicy();
+      ConfigSettingVisibilityPolicy policy = pkg.getConfigSettingVisibilityPolicy();
       if (visibility != null) {
         return visibility; // Use explicitly set visibility
       } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
@@ -880,19 +874,25 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return getPackage().getDefaultDistribs();
+      return pkg.getDefaultDistribs();
     }
   }
 
   @Override
   public License getLicense() {
-    if (isAttrDefined("licenses", BuildType.LICENSE)
+    // New style licenses defined by Starlark rules don't
+    // have old-style licenses. This is hardcoding the representation
+    // of new-style rules, but it's in the old-style licensing code path
+    // and will ultimately be removed.
+    if (ruleClass.isBazelLicense()) {
+      return License.NO_LICENSE;
+    } else if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
       return NonconfigurableAttributeMapper.of(this).get("licenses", BuildType.LICENSE);
-    } else if (getRuleClassObject().ignoreLicenses()) {
+    } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return getPackage().getDefaultLicense();
+      return pkg.getDefaultLicense();
     }
   }
 
@@ -909,30 +909,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
-  private void checkForNullLabel(Label labelToCheck, Object context) {
-    if (labelToCheck == null) {
-      throw new IllegalStateException(String.format(
-          "null label in rule %s, %s", getLabel().toString(), context));
-    }
-  }
-
-  // Consistency check: check if this label contains any weird labels (i.e.
-  // null-valued, with a packageFragment that is null...). The bug that prompted
-  // the introduction of this code is #2210848 (NullPointerException in
-  // Package.checkForConflicts() ).
-  void checkForNullLabels() {
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .forEach(depEdge -> checkForNullLabel(depEdge.getLabel(), depEdge.getAttribute()));
-    getOutputFiles().forEach(outputFile -> checkForNullLabel(outputFile.getLabel(), "output file"));
-  }
-
   /**
    * Returns the Set of all tags exhibited by this target.  May be empty.
    */
   public Set<String> getRuleTags() {
     Set<String> ruleTags = new LinkedHashSet<>();
-    for (Attribute attribute : getRuleClassObject().getAttributes()) {
+    for (Attribute attribute : ruleClass.getAttributes()) {
       if (attribute.isTaggable()) {
         Type<?> attrType = attribute.getType();
         String name = attribute.getName();
@@ -946,10 +928,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Computes labels of additional dependencies that can be provided by aspects that this rule
-   * can require from its direct dependencies.
+   * Computes labels of additional dependencies that can be provided by aspects that this rule can
+   * require from its direct dependencies.
    */
-  public Collection<? extends Label> getAspectLabelsSuperset(DependencyFilter predicate) {
+  public Collection<Label> getAspectLabelsSuperset(DependencyFilter predicate) {
     if (!hasAspects()) {
       return ImmutableList.of();
     }
@@ -963,10 +945,35 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
+   * Should this rule instance resolve toolchains?
+   *
+   * <p>This may happen for two reasons:
+   *
+   * <ol>
+   *   <li>The rule uses toolchains by definition ({@link
+   *       RuleClass.Builder#useToolchainResolution(ToolchainResolutionMode)}
+   *   <li>The rule instance has a select(), which means it may depend on target platform properties
+   *       that are only provided when toolchain resolution is enabled.
+   * </ol>
+   */
+  public boolean useToolchainResolution() {
+    ToolchainResolutionMode mode = ruleClass.useToolchainResolution();
+    if (mode.isActive()) {
+      return true;
+    } else if (mode == ToolchainResolutionMode.HAS_SELECT) {
+      RawAttributeMapper attr = RawAttributeMapper.of(this);
+      return (attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
+          && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty());
+    } else {
+      return false;
+    }
+  }
+
+  /**
    * @return The repository name.
    */
   public RepositoryName getRepository() {
-    return getLabel().getPackageIdentifier().getRepository();
+    return label.getPackageIdentifier().getRepository();
   }
 
   /** Returns the suffix of target kind for all rules. */

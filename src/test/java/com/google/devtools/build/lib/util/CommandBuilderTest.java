@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,10 +36,7 @@ public class CommandBuilderTest {
   }
 
   private void assertArgv(CommandBuilder builder, String... expected) {
-    assertThat(builder.build().getCommandLineElements())
-        .asList()
-        .containsExactlyElementsIn(Arrays.asList(expected))
-        .inOrder();
+    assertThat(builder.build().getArguments()).containsExactlyElementsIn(expected).inOrder();
   }
 
   private void assertWinCmdArgv(CommandBuilder builder, String expected) {

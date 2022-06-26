@@ -19,6 +19,7 @@ import static com.google.devtools.build.android.desugar.io.BitFlags.isStatic;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import org.objectweb.asm.Opcodes;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ final class BytecodeTypeInference extends MethodVisitor {
   private final String methodSignature;
 
   BytecodeTypeInference(int access, String owner, String name, String methodDescriptor) {
-    super(Opcodes.ASM8);
+    super(Opcodes.ASM9);
     localVariableSlots = createInitialLocalVariableTypes(access, owner, name, methodDescriptor);
     previousFrame = FrameInfo.create(ImmutableList.copyOf(localVariableSlots), ImmutableList.of());
     this.methodSignature = owner + "." + name + methodDescriptor;
@@ -703,6 +704,25 @@ final class BytecodeTypeInference extends MethodVisitor {
     return pop(1);
   }
 
+  /** Pop elements from the end of the operand stack, and return the last popped element. */
+  @CanIgnoreReturnValue
+  private InferredType pop(int count) {
+    checkArgument(
+        count >= 1, "The count should be at least one: %s (In %s)", count, methodSignature);
+    checkState(
+        operandStack.size() >= count,
+        "There are no enough elements in the stack. count=%s, stack=%s (In %s)",
+        count,
+        operandStack,
+        methodSignature);
+    int expectedLastIndex = operandStack.size() - count - 1;
+    InferredType lastPopped = null;
+    for (int i = operandStack.size() - 1; i > expectedLastIndex; --i) {
+      lastPopped = operandStack.remove(i);
+    }
+    return lastPopped;
+  }
+
   private void popDescriptor(String desc) {
     char c = desc.charAt(0);
     switch (c) {
@@ -740,25 +760,6 @@ final class BytecodeTypeInference extends MethodVisitor {
 
   private InferredType top() {
     return operandStack.get(operandStack.size() - 1);
-  }
-
-  /** Pop elements from the end of the operand stack, and return the last popped element. */
-  @CanIgnoreReturnValue
-  private InferredType pop(int count) {
-    checkArgument(
-        count >= 1, "The count should be at least one: %s (In %s)", count, methodSignature);
-    checkState(
-        operandStack.size() >= count,
-        "There are no enough elements in the stack. count=%s, stack=%s (In %s)",
-        count,
-        operandStack,
-        methodSignature);
-    int expectedLastIndex = operandStack.size() - count - 1;
-    InferredType lastPopped = null;
-    for (int i = operandStack.size() - 1; i > expectedLastIndex; --i) {
-      lastPopped = operandStack.remove(i);
-    }
-    return lastPopped;
   }
 
   /**

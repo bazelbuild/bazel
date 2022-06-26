@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A "configuration target" that asserts whether or not it matches the configuration it's bound to.
@@ -31,13 +32,8 @@ import java.util.Set;
  * build behavior.
  */
 @Immutable
-@AutoCodec
-public final class ConfigMatchingProvider implements TransitiveInfoProvider {
-  private final Label label;
-  private final ImmutableMultimap<String, String> settingsMap;
-  private final Map<Label, String> flagSettingsMap;
-  private final ImmutableSet<String> requiredFragmentOptions;
-  private final boolean matches;
+@AutoValue
+public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
 
   /**
    * @param label the build label corresponding to this matcher
@@ -49,71 +45,67 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
    * @param matches whether or not this matcher matches the configuration associated with its
    *     configured target
    */
-  @AutoCodec.Instantiator
-  public ConfigMatchingProvider(
+  public static ConfigMatchingProvider create(
       Label label,
       ImmutableMultimap<String, String> settingsMap,
-      Map<Label, String> flagSettingsMap,
-      ImmutableSet<String> requiredFragmentOptions,
+      ImmutableMap<Label, String> flagSettingsMap,
+      RequiredConfigFragmentsProvider requiredFragmentOptions,
+      ImmutableSet<Label> constraintValueSettings,
       boolean matches) {
-    this.label = label;
-    this.settingsMap = settingsMap;
-    this.flagSettingsMap = flagSettingsMap;
-    this.requiredFragmentOptions = requiredFragmentOptions;
-    this.matches = matches;
+    return new AutoValue_ConfigMatchingProvider(
+        label,
+        settingsMap,
+        flagSettingsMap,
+        requiredFragmentOptions,
+        constraintValueSettings,
+        matches);
   }
+
+  /** The target's label. */
+  public abstract Label label();
+
+  abstract ImmutableMultimap<String, String> settingsMap();
+
+  abstract ImmutableMap<Label, String> flagSettingsMap();
+
+  public abstract RequiredConfigFragmentsProvider requiredFragmentOptions();
+
+  abstract ImmutableSet<Label> constraintValuesSetting();
 
   /**
-   * The target's label.
+   * Whether or not the configuration criteria defined by this target match its actual
+   * configuration.
    */
-  public Label label() {
-    return label;
-  }
-
-  /**
-   * Whether or not the configuration criteria defined by this target match
-   * its actual configuration.
-   */
-  public boolean matches() {
-    return matches;
-  }
-
-  public ImmutableSet<String> getRequiredFragmentOptions() {
-    return requiredFragmentOptions;
-  }
+  public abstract boolean matches();
 
   /**
    * Returns true if this matcher's conditions are a proper superset of another matcher's
    * conditions, i.e. if this matcher is a specialization of the other one.
    */
   public boolean refines(ConfigMatchingProvider other) {
-    Set<Map.Entry<String, String>> settings = ImmutableSet.copyOf(settingsMap.entries());
-    Set<Map.Entry<String, String>> otherSettings = ImmutableSet.copyOf(other.settingsMap.entries());
-    Set<Map.Entry<Label, String>> flagSettings = flagSettingsMap.entrySet();
-    Set<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap.entrySet();
+    ImmutableSet<Map.Entry<String, String>> settings = ImmutableSet.copyOf(settingsMap().entries());
+    ImmutableSet<Map.Entry<String, String>> otherSettings =
+        ImmutableSet.copyOf(other.settingsMap().entries());
+    ImmutableSet<Map.Entry<Label, String>> flagSettings = flagSettingsMap().entrySet();
+    ImmutableSet<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap().entrySet();
 
-    if (!settings.containsAll(otherSettings)) {
-      // not a superset
-      return false;
+    ImmutableSet<Label> constraintValueSettings = constraintValuesSetting();
+    ImmutableSet<Label> otherConstraintValueSettings = other.constraintValuesSetting();
+
+    if (!settings.containsAll(otherSettings)
+        || !flagSettings.containsAll(otherFlagSettings)
+        || !constraintValueSettings.containsAll(otherConstraintValueSettings)) {
+      return false; // Not a superset.
     }
 
-    if (!flagSettings.containsAll(otherFlagSettings)) {
-      // not a superset
-      return false;
-    }
-
-    if (!(settings.size() > otherSettings.size()
-        || flagSettings.size() > otherFlagSettings.size())) {
-      // not a proper superset
-      return false;
-    }
-
-    return true;
+    return settings.size() > otherSettings.size()
+        || flagSettings.size() > otherFlagSettings.size()
+        || constraintValueSettings.size() > otherConstraintValueSettings.size();
   }
 
   /** Format this provider as its label. */
   @Override
-  public String toString() {
-    return label.toString();
+  public final String toString() {
+    return label().toString();
   }
 }

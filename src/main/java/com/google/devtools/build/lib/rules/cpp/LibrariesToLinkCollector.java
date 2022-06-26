@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -107,7 +106,7 @@ public class LibrariesToLinkCollector {
       rpathRoot = ccToolchainProvider.getSolibDirectory() + "/";
     } else {
       rpathRoot =
-          Strings.repeat("../", outputArtifact.getRootRelativePath().segmentCount() - 1)
+          "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
               + ccToolchainProvider.getSolibDirectory()
               + "/";
     }
@@ -185,7 +184,7 @@ public class LibrariesToLinkCollector {
       // "../../_solib_[arch]".
       if (needToolchainLibrariesRpath) {
         runtimeLibrarySearchDirectories.add(
-            Strings.repeat("../", outputArtifact.getRootRelativePath().segmentCount() - 1)
+            "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
                 + toolchainLibrariesSolibName
                 + "/");
       }
@@ -267,7 +266,10 @@ public class LibrariesToLinkCollector {
         // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
         // under solibDir, so don't check it and don't include solibDir.
         if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
-          if (libDir.equals(solibDir)) {
+          // The first fragment is bazel-out, and the second may contain a configuration mnemonic.
+          // We should always add the default solib dir because that's where libraries will be found
+          // e.g. in remote execution, so we ignore the first two fragments.
+          if (libDir.subFragment(2).equals(solibDir.subFragment(2))) {
             includeSolibDir = true;
           }
           if (libDir.equals(toolchainLibrariesSolibDir)) {
@@ -328,8 +330,21 @@ public class LibrariesToLinkCollector {
         commonParent = commonParent.getParentDirectory();
       }
 
-      rpathRootsForExplicitSoDeps.add(
-          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
+      // When all dynamic deps are built in transitioned configurations, the default solib dir is
+      // not created. While resolving paths, the dynamic linker stops at the first directory that
+      // does not exist, even when followed by "../". We thus have to normalize the relative path.
+      String relativePathToRoot =
+          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString();
+      String normalizedPathToRoot = PathFragment.create(relativePathToRoot).getPathString();
+      rpathRootsForExplicitSoDeps.add(normalizedPathToRoot);
+
+      // Unless running locally, libraries will be available under the root relative path, so we
+      // should add that to the rpath as well.
+      if (inputArtifact.getRootRelativePathString().startsWith("_solib_")) {
+        PathFragment artifactPathUnderSolib = inputArtifact.getRootRelativePath().subFragment(1);
+        rpathRootsForExplicitSoDeps.add(
+            rpathRoot + artifactPathUnderSolib.getParentDirectory().getPathString());
+      }
     }
 
     librarySearchDirectories.add(inputArtifact.getExecPath().getParentDirectory().getPathString());

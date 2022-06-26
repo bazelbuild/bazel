@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.github.luben.zstd.Zstd;
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
@@ -101,7 +102,7 @@ public class ChunkerTest {
 
   @Test
   public void reset() throws Exception {
-    byte[] data = new byte[]{1, 2, 3};
+    byte[] data = new byte[] {1, 2, 3};
     Chunker chunker = Chunker.builder().setInput(data).setChunkSize(1).build();
 
     assertNextEquals(chunker, (byte) 1);
@@ -125,12 +126,13 @@ public class ChunkerTest {
 
     byte[] data = new byte[] {1, 2};
     final AtomicReference<InputStream> in = new AtomicReference<>();
-    Supplier<InputStream> supplier = () -> {
-      in.set(Mockito.spy(new ByteArrayInputStream(data)));
-      return in.get();
-    };
+    Supplier<InputStream> supplier =
+        () -> {
+          in.set(Mockito.spy(new ByteArrayInputStream(data)));
+          return in.get();
+        };
 
-    Chunker chunker = new Chunker(supplier, data.length, 1);
+    Chunker chunker = new Chunker(supplier, data.length, 1, false);
     assertThat(in.get()).isNull();
     assertNextEquals(chunker, (byte) 1);
     Mockito.verify(in.get(), Mockito.never()).close();
@@ -171,6 +173,51 @@ public class ChunkerTest {
     assertThat(next).isNotNull();
     assertThat(next.getOffset()).isEqualTo(2);
     assertThat(next.getData()).hasSize(8);
+  }
+
+  @Test
+  public void testSingleChunkCompressed() throws IOException {
+    byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
+    Chunker chunker =
+        Chunker.builder().setInput(data).setChunkSize(data.length * 2).setCompressed(true).build();
+    Chunk next = chunker.next();
+    assertThat(chunker.hasNext()).isFalse();
+    assertThat(Zstd.decompress(next.getData().toByteArray(), data.length)).isEqualTo(data);
+  }
+
+  @Test
+  public void testMultiChunkCompressed() throws IOException {
+    byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
+    Chunker chunker =
+        Chunker.builder().setInput(data).setChunkSize(data.length / 2).setCompressed(true).build();
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    chunker.next().getData().writeTo(baos);
+    assertThat(chunker.hasNext()).isTrue();
+    while (chunker.hasNext()) {
+      chunker.next().getData().writeTo(baos);
+    }
+    baos.close();
+
+    assertThat(Zstd.decompress(baos.toByteArray(), data.length)).isEqualTo(data);
+  }
+
+  @Test
+  public void testActualSizeIsCorrectAfterSeek() throws IOException {
+    byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
+    int[] expectedSizes = {12, 24};
+    for (int expected : expectedSizes) {
+      Chunker chunker =
+          Chunker.builder()
+              .setInput(data)
+              .setChunkSize(data.length * 2)
+              .setCompressed(expected != data.length)
+              .build();
+      chunker.seek(5);
+      chunker.next();
+      assertThat(chunker.hasNext()).isFalse();
+      assertThat(chunker.getOffset()).isEqualTo(expected);
+    }
   }
 
   private void assertNextEquals(Chunker chunker, byte... data) throws IOException {

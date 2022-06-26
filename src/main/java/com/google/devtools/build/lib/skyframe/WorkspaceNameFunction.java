@@ -45,12 +45,6 @@ public class WorkspaceNameFunction implements SkyFunction {
     return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
   }
 
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static class WorkspaceNameFunctionException extends SkyFunctionException {
     WorkspaceNameFunctionException() {
       super(

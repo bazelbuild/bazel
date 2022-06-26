@@ -114,7 +114,8 @@ public class TestTrimmingTransitionTest {
         BuildOptions.of(
             ImmutableList.of(CoreOptions.class, PlatformOptions.class, TestOptions.class),
             "--platforms=//platform:target",
-            "--trim_test_configuration");
+            "--trim_test_configuration",
+            "--experimental_exec_configuration_distinguisher=off");
 
     EventHandler handler = new StoredEventHandler();
 

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -22,7 +23,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcLibraryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the cc_library rule. */
 public final class BazelCcLibraryRule implements RuleDefinition {
@@ -47,6 +50,20 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .override(attr("linkstatic", BOOLEAN).value(false))
+        /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(interface_deps) -->
+        When <code>--experimental_cc_interface_deps</code> is True, the targets listed in deps will
+        behave as implementation deps. Unlike with regular deps, the headers and include paths of
+        implementation deps (and all their transitive deps) are only used for compilation of this
+        library, and not libraries that depend on it. Libraries depended on as implementation deps
+        are still linked in binary targets that depend on this library. The dependencies listed in
+        interface_deps will continue having the same behavior as the old deps where the headers and
+        include paths are propagated downstream.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr("interface_deps", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(CcInfo.PROVIDER.id()))
+        .advertiseStarlarkProvider(CcInfo.PROVIDER.id())
         .build();
   }
 

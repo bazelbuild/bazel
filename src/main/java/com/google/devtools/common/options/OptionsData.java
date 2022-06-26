@@ -16,8 +16,6 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.concurrent.Immutable;
@@ -43,9 +41,8 @@ final class OptionsData extends IsolatedOptionsData {
   private static final ImmutableList<String> EMPTY_EXPANSION = ImmutableList.<String>of();
 
   /**
-   * Returns the expansion of an options field, regardless of whether it was defined using {@link
-   * Option#expansion} or {@link Option#expansionFunction}. If the field is not an expansion option,
-   * returns an empty array.
+   * Returns the expansion of an options field. If the field is not an expansion option returns an
+   * empty array.
    */
   public ImmutableList<String> getEvaluatedExpansion(OptionDefinition optionDefinition) {
     ImmutableList<String> result = evaluatedExpansions.get(optionDefinition);
@@ -55,9 +52,8 @@ final class OptionsData extends IsolatedOptionsData {
   /**
    * Constructs an {@link OptionsData} object for a parser that knows about the given {@link
    * OptionsBase} classes. In addition to the work done to construct the {@link
-   * IsolatedOptionsData}, this also computes expansion information. If an option has static
-   * expansions or uses an expansion function that takes a Void object, try to precalculate the
-   * expansion here.
+   * IsolatedOptionsData}, this also computes expansion information. If an option has an expansion,
+   * try to precalculate its here.
    */
   static OptionsData from(Collection<Class<? extends OptionsBase>> classes) {
     IsolatedOptionsData isolatedData = IsolatedOptionsData.from(classes);
@@ -67,30 +63,9 @@ final class OptionsData extends IsolatedOptionsData {
         ImmutableMap.builder();
     for (Map.Entry<String, OptionDefinition> entry : isolatedData.getAllOptionDefinitions()) {
       OptionDefinition optionDefinition = entry.getValue();
-      // Determine either the hard-coded expansion, or the ExpansionFunction class. The
-      // OptionProcessor checks at compile time that these aren't used together.
       String[] constExpansion = optionDefinition.getOptionExpansion();
-      Class<? extends ExpansionFunction> expansionFunctionClass =
-          optionDefinition.getExpansionFunction();
       if (constExpansion.length > 0) {
         evaluatedExpansionsBuilder.put(optionDefinition, ImmutableList.copyOf(constExpansion));
-      } else if (optionDefinition.usesExpansionFunction()) {
-        if (Modifier.isAbstract(expansionFunctionClass.getModifiers())) {
-          throw new AssertionError(
-              "The expansionFunction type " + expansionFunctionClass + " must be a concrete type");
-        }
-        // Evaluate the ExpansionFunction.
-        ExpansionFunction instance;
-        try {
-          Constructor<?> constructor = expansionFunctionClass.getConstructor();
-          instance = (ExpansionFunction) constructor.newInstance();
-        } catch (Exception e) {
-          // This indicates an error in the ExpansionFunction, and should be discovered the first
-          // time it is used.
-          throw new AssertionError(e);
-        }
-        ImmutableList<String> expansion = instance.getExpansion(isolatedData);
-        evaluatedExpansionsBuilder.put(optionDefinition, expansion);
       }
     }
     return new OptionsData(isolatedData, evaluatedExpansionsBuilder.build());

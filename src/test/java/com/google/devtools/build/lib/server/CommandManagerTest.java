@@ -34,7 +34,8 @@ public class CommandManagerTest {
 
   @Test
   public void testBasicOperationsOnSingleThread() {
-    CommandManager underTest = new CommandManager(/*doIdleServerTasks=*/ false);
+    CommandManager underTest =
+        new CommandManager(/*doIdleServerTasks=*/ false, "slow interrupt message suffix");
     assertThat(underTest.isEmpty()).isTrue();
     try (RunningCommand firstCommand = underTest.createCommand()) {
       assertThat(underTest.isEmpty()).isFalse();
@@ -52,7 +53,8 @@ public class CommandManagerTest {
   @Test
   public void testNotifiesOnBusyAndIdle() throws Exception {
     AtomicInteger notificationCounter = new AtomicInteger(0);
-    CommandManager underTest = new CommandManager(/*doIdleServerTasks=*/ false);
+    CommandManager underTest =
+        new CommandManager(/*doIdleServerTasks=*/ false, "slow interrupt message suffix");
     AtomicBoolean waiting = new AtomicBoolean(false);
     CyclicBarrier cyclicBarrier = new CyclicBarrier(2);
 

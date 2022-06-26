@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
 # TestRunnerAction#getRuntimeArtifact() will get confused.
 # Deprecated, do not use.
@@ -117,30 +115,20 @@ filegroup(
         "generate-xml.sh",
         "collect_coverage.sh",
         "collect_cc_coverage.sh",
+        "extensions.bzl",
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "tw",
             "xml",
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "dummy.sh",
+        ],
     }),
     visibility = ["//tools:__pkg__"],
 )
 
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//tools/test/CoverageOutputGenerator/javatests/com/google/devtools/coverageoutputgenerator:all_windows_tests",
-    ],
-    visibility = ["//tools:__pkg__"],
+filegroup(
+    name = "bzl_srcs",
+    srcs = ["extensions.bzl"],
 )

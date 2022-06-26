@@ -69,8 +69,8 @@ public class CqueryOptions extends CommonQueryOptions {
           "Shows the configuration fragments required by a rule and its transitive "
               + "dependencies. This can be useful for evaluating how much a configured target "
               + "graph can be trimmed.")
-  // This implicitly sets the BuildConfiguration option --include_config_fragments_provider, which
-  //  makes configured targets compute the data cquery needs to enable this feature.
+  // This implicitly sets the option --include_config_fragments_provider (see CoreOptions), which
+  // makes configured targets compute the data cquery needs to enable this feature.
   public IncludeConfigFragmentsEnum showRequiredConfigFragments;
 
   @Option(

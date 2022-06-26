@@ -53,7 +53,8 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
 
     return include_dirs
 
-def _compile_cc_file(repository_ctx, src_name, out_name):
+# TODO: Remove once Xcode 12 is the minimum supported version
+def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
     env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
@@ -83,7 +84,58 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
              "https://github.com/bazelbuild/bazel/issues with the following:\n" +
              error_msg)
 
-def configure_osx_toolchain(repository_ctx, overriden_tools):
+def _compile_cc_file(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
+    xcrun_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-mmacosx-version-min=10.9",
+        "-std=c++11",
+        "-lc++",
+        "-arch",
+        "arm64",
+        "-arch",
+        "x86_64",
+        "-Wl,-no_adhoc_codesign",
+        "-Wl,-no_uuid",
+        "-O3",
+        "-o",
+        out_name,
+        src_name,
+    ], 30)
+
+    if xcrun_result.return_code == 0:
+        xcrun_result = repository_ctx.execute([
+            "env",
+            "-i",
+            "codesign",
+            "--identifier",  # Required to be reproducible across archs
+            out_name,
+            "--force",
+            "--sign",
+            "-",
+            out_name,
+        ], 30)
+        if xcrun_result.return_code != 0:
+            error_msg = (
+                "codesign return code {code}, stderr: {err}, stdout: {out}"
+            ).format(
+                code = xcrun_result.return_code,
+                err = xcrun_result.stderr,
+                out = xcrun_result.stdout,
+            )
+            fail(out_name + " failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
+    else:
+        _compile_cc_file_single_arch(repository_ctx, src_name, out_name)
+
+def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
 
     Args:
@@ -91,6 +143,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
       overriden_tools: dictionary of overriden tools.
     """
     paths = resolve_labels(repository_ctx, [
+        "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/objc:libtool.sh",
         "@bazel_tools//tools/objc:libtool_check_unique.cc",
@@ -131,6 +184,10 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
                 "%{cc}": escape_string(cc_path),
                 "%{env}": escape_string(get_env(repository_ctx)),
             },
+        )
+        repository_ctx.symlink(
+            paths["@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl"],
+            "armeabi_cc_toolchain_config.bzl",
         )
         repository_ctx.symlink(
             paths["@bazel_tools//tools/objc:xcrunwrapper.sh"],
@@ -182,4 +239,4 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             },
         )
     else:
-        configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)
+        configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools = overriden_tools)

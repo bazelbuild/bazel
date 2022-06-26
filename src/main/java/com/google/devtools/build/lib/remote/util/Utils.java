@@ -13,13 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.util.stream.Collectors.joining;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -31,10 +37,14 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -43,6 +53,7 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.BadRequest;
 import com.google.rpc.Code;
@@ -58,10 +69,14 @@ import com.google.rpc.Status;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
@@ -129,10 +144,13 @@ public final class Utils {
 
   /** Constructs a {@link SpawnResult}. */
   public static SpawnResult createSpawnResult(
+      ActionKey actionKey,
       int exitCode,
       boolean cacheHit,
       String runnerName,
       @Nullable InMemoryOutput inMemoryOutput,
+      Timestamp executionStartTimestamp,
+      Timestamp executionCompletedTimestamp,
       SpawnMetrics spawnMetrics,
       String mnemonic) {
     SpawnResult.Builder builder =
@@ -142,8 +160,17 @@ public final class Utils {
             .setExitCode(exitCode)
             .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
+            .setStartTime(timestampToInstant(executionStartTimestamp))
+            .setWallTime(
+                java.time.Duration.between(
+                    timestampToInstant(executionStartTimestamp),
+                    timestampToInstant(executionCompletedTimestamp)))
             .setSpawnMetrics(spawnMetrics)
-            .setRemote(true);
+            .setRemote(true)
+            .setDigest(
+                Optional.of(
+                    SpawnResult.Digest.of(
+                        actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes())));
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -157,6 +184,10 @@ public final class Utils {
       builder.setInMemoryOutput(inMemoryOutput.getOutput(), inMemoryOutput.getContents());
     }
     return builder.build();
+  }
+
+  private static Instant timestampToInstant(Timestamp timestamp) {
+    return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 
   /** Returns {@code true} if all spawn outputs should be downloaded to disk. */
@@ -176,11 +207,18 @@ public final class Utils {
 
   /** Returns {@code true} if outputs contains one or more top level outputs. */
   public static boolean hasFilesToDownload(
-      Collection<? extends ActionInput> outputs, ImmutableSet<ActionInput> filesToDownload) {
+      Collection<? extends ActionInput> outputs, ImmutableSet<PathFragment> filesToDownload) {
     if (filesToDownload.isEmpty()) {
       return false;
     }
-    return !Collections.disjoint(outputs, filesToDownload);
+
+    for (ActionInput output : outputs) {
+      if (filesToDownload.contains(output.getExecPath())) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private static String statusName(int code) {
@@ -367,6 +405,26 @@ public final class Utils {
     return e.getMessage();
   }
 
+  public static String grpcAwareErrorMessage(Throwable error, boolean verboseFailures) {
+    String errorMessage;
+    if (error instanceof IOException) {
+      errorMessage = grpcAwareErrorMessage((IOException) error);
+    } else {
+      errorMessage = error.getMessage();
+    }
+
+    if (isNullOrEmpty(errorMessage)) {
+      errorMessage = error.getClass().getSimpleName();
+    }
+
+    if (verboseFailures) {
+      // On --verbose_failures print the whole stack trace
+      errorMessage += "\n" + getStackTraceAsString(error);
+    }
+
+    return errorMessage;
+  }
+
   @SuppressWarnings("ProtoParseWithRegistry")
   public static ListenableFuture<ActionResult> downloadAsActionResult(
       ActionKey actionDigest,
@@ -388,13 +446,33 @@ public final class Utils {
 
   public static void verifyBlobContents(Digest expected, Digest actual) throws IOException {
     if (!expected.equals(actual)) {
-      String msg =
-          String.format(
-              "Output download failed: Expected digest '%s/%d' does not match "
-                  + "received digest '%s/%d'.",
-              expected.getHash(), expected.getSizeBytes(), actual.getHash(), actual.getSizeBytes());
-      throw new IOException(msg);
+      throw new OutputDigestMismatchException(expected, actual);
     }
+  }
+
+  public static Action buildAction(
+      Digest command,
+      Digest inputRoot,
+      @Nullable Platform platform,
+      java.time.Duration timeout,
+      boolean cacheable,
+      @Nullable ByteString salt) {
+    Action.Builder action = Action.newBuilder();
+    action.setCommandDigest(command);
+    action.setInputRootDigest(inputRoot);
+    if (!timeout.isZero()) {
+      action.setTimeout(Duration.newBuilder().setSeconds(timeout.getSeconds()));
+    }
+    if (!cacheable) {
+      action.setDoNotCache(true);
+    }
+    if (platform != null) {
+      action.setPlatform(platform);
+    }
+    if (salt != null) {
+      action.setSalt(salt);
+    }
+    return action.build();
   }
 
   /** An in-memory output file. */
@@ -482,6 +560,157 @@ public final class Utils {
       Throwables.throwIfInstanceOf(e, InterruptedException.class);
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
+    }
+  }
+
+  private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
+  // Format as single digit decimal number, but skipping the trailing .0.
+  private static final DecimalFormat BYTE_COUNT_FORMAT =
+      new DecimalFormat("0.#", new DecimalFormatSymbols(Locale.US));
+
+  /**
+   * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.
+   *
+   * <p>Negative numbers are not allowed.
+   */
+  public static String bytesCountToDisplayString(long bytes) {
+    Preconditions.checkArgument(bytes >= 0);
+
+    if (bytes < 1024) {
+      return bytes + " B";
+    }
+
+    int unitIndex = 0;
+    long value = bytes;
+    while ((unitIndex + 1) < UNITS.size() && value >= (1 << 20)) {
+      value >>= 10;
+      unitIndex++;
+    }
+
+    return String.format("%s %s", BYTE_COUNT_FORMAT.format(value / 1024.0), UNITS.get(unitIndex));
+  }
+
+  public static boolean shouldAcceptCachedResultFromRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+  }
+
+  public static boolean shouldAcceptCachedResultFromDiskCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCached(spawn));
+    }
+  }
+
+  public static boolean shouldAcceptCachedResultFromCombinedCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      // --incompatible_remote_results_ignore_disk is set. Disk cache is treated as local cache.
+      // Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      // Disk cache is treated as a remote cache and disabled for `no-remote-cache`.
+      return remoteOptions.remoteAcceptCached
+          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
+    return remoteOptions.remoteUploadLocalResults
+        && Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+  }
+
+  public static boolean shouldUploadLocalResultsToDiskCache(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return Spawns.mayBeCached(executionInfo);
+    } else {
+      return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(executionInfo);
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToDiskCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+  }
+
+  public static boolean shouldUploadLocalResultsToCombinedDisk(
+      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
+      // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
+    } else {
+      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+      return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToCombinedDisk(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    ImmutableMap<String, String> executionInfo = null;
+    if (spawn != null) {
+      executionInfo = spawn.getExecutionInfo();
+    }
+    return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
+  }
+
+  public static void waitForBulkTransfer(
+      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
+      throws BulkTransferException, InterruptedException {
+    BulkTransferException bulkTransferException = null;
+    InterruptedException interruptedException = null;
+    boolean interrupted = Thread.currentThread().isInterrupted();
+    for (ListenableFuture<?> transfer : transfers) {
+      try {
+        if (interruptedException == null) {
+          // Wait for all transfers to finish.
+          getFromFuture(transfer, cancelRemainingOnInterrupt);
+        } else {
+          transfer.cancel(true);
+        }
+      } catch (IOException e) {
+        if (bulkTransferException == null) {
+          bulkTransferException = new BulkTransferException();
+        }
+        bulkTransferException.add(e);
+      } catch (InterruptedException e) {
+        interrupted = Thread.interrupted() || interrupted;
+        interruptedException = e;
+        if (!cancelRemainingOnInterrupt) {
+          // leave the rest of the transfers alone
+          break;
+        }
+      }
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
+    if (interruptedException != null) {
+      if (bulkTransferException != null) {
+        interruptedException.addSuppressed(bulkTransferException);
+      }
+      throw interruptedException;
+    }
+    if (bulkTransferException != null) {
+      throw bulkTransferException;
     }
   }
 }

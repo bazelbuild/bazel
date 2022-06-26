@@ -78,4 +78,6 @@ public class CppActionNames {
   public static final String LTO_INDEX_EXECUTABLE = "lto-index-for-executable";
 
   public static final String LTO_BACKEND = "lto-backend";
+
+  public static final String CPP_HEADER_ANALYSIS = "c++-header-analysis";
 }

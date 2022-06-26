@@ -17,10 +17,11 @@ package com.google.devtools.build.lib.buildeventstream;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.CodecRegisterer;
 import com.google.devtools.build.lib.skyframe.serialization.MessageLiteCodec;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 
-class BuildEventStreamProtoCodecRegisterer implements CodecRegisterer<MessageLiteCodec> {
+final class BuildEventStreamProtoCodecRegisterer implements CodecRegisterer {
   @Override
-  public Iterable<MessageLiteCodec> getCodecsToRegister() {
+  public ImmutableList<ObjectCodec<?>> getCodecsToRegister() {
     return ImmutableList.of(
         new MessageLiteCodec(BuildEventStreamProtos.BuildEventId::newBuilder),
         new MessageLiteCodec(BuildEventStreamProtos.BuildEvent::newBuilder));

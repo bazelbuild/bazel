@@ -193,7 +193,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("all_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(new CcToolchainInputsTransitionFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files) -->
         Collection of all cc_toolchain artifacts required for compile actions.
@@ -205,7 +205,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("compiler_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(new CcToolchainInputsTransitionFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files_without_includes) -->
         Collection of all cc_toolchain artifacts required for compile actions in case when
@@ -214,14 +214,14 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("compiler_files_without_includes", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create()))
+                .cfg(new CcToolchainInputsTransitionFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(strip_files) -->
         Collection of all cc_toolchain artifacts required for strip actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("strip_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(new CcToolchainInputsTransitionFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(objcopy_files) -->
         Collection of all cc_toolchain artifacts required for objcopy actions.
@@ -229,7 +229,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("objcopy_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(new CcToolchainInputsTransitionFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(as_files) -->
         <p>Collection of all cc_toolchain artifacts required for assembly actions.</p>
@@ -237,21 +237,21 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("as_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create()))
+                .cfg(new CcToolchainInputsTransitionFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(ar_files) -->
         <p>Collection of all cc_toolchain artifacts required for archiving actions.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("ar_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create()))
+                .cfg(new CcToolchainInputsTransitionFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(linker_files) -->
         Collection of all cc_toolchain artifacts required for linking actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("linker_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(new CcToolchainInputsTransitionFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(dwp_files) -->
         Collection of all cc_toolchain artifacts required for dwp actions.
@@ -259,7 +259,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("dwp_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(new CcToolchainInputsTransitionFactory())
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(coverage_files) -->
         Collection of all cc_toolchain artifacts required for coverage actions. If not specified,
@@ -268,7 +268,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(
             attr("coverage_files", LABEL)
                 .legacyAllowAnyFileType()
-                .cfg(ExecutionTransitionFactory.create()))
+                .cfg(new CcToolchainInputsTransitionFactory()))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(static_runtime_lib) -->
         Static library artifact for the C++ runtime library (e.g. libstdc++.a).
 
@@ -307,6 +307,11 @@ public final class CcToolchainRule implements RuleDefinition {
         Set to True when cc_toolchain supports header parsing actions.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(exec_transition_for_inputs) -->
+        Set to True to build all file inputs to cc_toolchain for the exec platform,
+        instead of having no transition (i.e. target platform by default).
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(CcToolchainInputsTransitionFactory.ATTR_NAME, BOOLEAN).value(true))
         .add(
             attr("$interface_library_builder", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
@@ -456,7 +461,7 @@ public final class CcToolchainRule implements RuleDefinition {
 <p>
   Use <code>toolchain_config</code> attribute to configure the C++ toolchain.
   See also this
-  <a href="https://docs.bazel.build/versions/master/cc-toolchain-config-reference.html">
+  <a href="https://bazel.build/docs/cc-toolchain-config-reference">
     page
   </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>

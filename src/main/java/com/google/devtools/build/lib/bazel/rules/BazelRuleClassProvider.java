@@ -19,14 +19,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.ActionEnvironmentProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRu
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
+import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
@@ -92,13 +94,20 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
+import com.google.devtools.build.lib.rules.android.BaselineProfileProvider;
+import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
+import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
+import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
@@ -134,8 +143,6 @@ import javax.annotation.Nullable;
 
 /** A rule class provider implementing the rules Bazel knows. */
 public class BazelRuleClassProvider {
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
-
   /** Command-line options. */
   public static class StrictActionEnvOptions extends FragmentOptions {
     @Option(
@@ -144,13 +151,10 @@ public class BazelRuleClassProvider {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If true, Bazel uses an environment with a static value for PATH and does not "
-                + "inherit LD_LIBRARY_PATH or TMPDIR. Use --action_env=ENV_VARIABLE if you want to "
+                + "inherit LD_LIBRARY_PATH. Use --action_env=ENV_VARIABLE if you want to "
                 + "inherit specific environment variables from the client, but note that doing so "
                 + "can prevent cross-user caching if a shared cache is used.")
     public boolean useStrictActionEnv;
@@ -165,10 +169,13 @@ public class BazelRuleClassProvider {
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
 
-  public static final Function<BuildOptions, PathFragment> SHELL_EXECUTABLE =
-      (BuildOptions options) ->
-          ShellConfiguration.determineShellExecutable(
-              OS.getCurrent(), options.get(ShellConfiguration.Options.class), FALLBACK_SHELL);
+  public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLE =
+      ImmutableMap.<OS, PathFragment>builder()
+          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
+          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.UNKNOWN, FALLBACK_SHELL)
+          .buildOrThrow();
 
   /**
    * {@link BuildConfigurationFunction} constructs {@link BuildOptions} out of the options required
@@ -180,11 +187,40 @@ public class BazelRuleClassProvider {
     public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
   }
 
-  public static final ActionEnvironmentProvider SHELL_ACTION_ENV =
+  @Nullable
+  public static PathFragment getDefaultPathFromOptions(ShellConfiguration.Options options) {
+    if (options.shellExecutable != null) {
+      return options.shellExecutable;
+    }
+
+    // Honor BAZEL_SH env variable for backwards compatibility.
+    String path = System.getenv("BAZEL_SH");
+    if (path != null) {
+      return PathFragment.create(path);
+    }
+    return null;
+  }
+
+  @VisibleForTesting
+  static PathFragment getShellExecutableForOs(OS os, ShellConfiguration.Options options) {
+    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+    // which may be different for remote execution. For now, this can be overridden with
+    // --shell_executable, so at least there's a workaround.
+    return getDefaultPathFromOptions(options) != null
+        ? getDefaultPathFromOptions(options)
+        : SHELL_EXECUTABLE.getOrDefault(os, FALLBACK_SHELL);
+  }
+
+  public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
       (BuildOptions options) -> {
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();
-        PathFragment shellExecutable = SHELL_EXECUTABLE.apply(options);
+        // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+        // which may be different for remote execution. For now, this can be overridden with
+        // --shell_executable, so at least there's a workaround.
+        PathFragment shellExecutable =
+            getShellExecutableForOs(os, options.get(ShellConfiguration.Options.class));
+
         TreeMap<String, String> env = new TreeMap<>();
 
         // All entries in the builder that have a value of null inherit the value from the client
@@ -217,7 +253,7 @@ public class BazelRuleClassProvider {
           env.put(entry.getKey(), entry.getValue());
         }
 
-        if (!BuildConfiguration.runfilesEnabled(options.get(CoreOptions.class))) {
+        if (!BuildConfigurationValue.runfilesEnabled(options.get(CoreOptions.class))) {
           // Setting this environment variable is for telling the binary running
           // in a Bazel action when to use runfiles library or runfiles tree.
           // The downside is that it will discard cache for all actions once
@@ -239,7 +275,7 @@ public class BazelRuleClassProvider {
 
   /** Adds this class's definitions to a builder. */
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
-    builder.setToolsRepository(TOOLS_REPOSITORY);
+    builder.setToolsRepository(RepositoryName.BAZEL_TOOLS);
     builder.setBuiltinsBzlZipResource(
         ResourceFileLoader.resolveResource(BazelRuleClassProvider.class, "builtins_bzl.zip"));
     builder.setBuiltinsBzlPackagePathInSource("src/main/starlark/builtins_bzl");
@@ -254,24 +290,23 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          ShellConfiguration.injectShellExecutableFinder(SHELL_EXECUTABLE);
+          ShellConfiguration.injectShellExecutableFinder(
+              BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLE);
           builder
               .setPrelude("//tools/build_rules:prelude_bazel")
               .setRunfilesPrefix(LabelConstants.DEFAULT_REPOSITORY_DIRECTORY)
               .setPrerequisiteValidator(new BazelPrerequisiteValidator())
               .setActionEnvironmentProvider(SHELL_ACTION_ENV)
-              .addConfigurationOptions(ShellConfiguration.Options.class)
-              .addConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(ShellConfiguration.class)
               .addUniversalConfigurationFragment(PlatformConfiguration.class)
-              .addConfigurationFragment(StrictActionEnvConfiguration.class)
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
-        }
 
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of();
+          builder.addStarlarkBuiltinsInternal(
+              ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
+          builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
+          builder.addStarlarkBuiltinsInternal(
+              BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
         }
       };
 
@@ -279,7 +314,6 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfigurationOptions(ProtoConfiguration.Options.class);
           builder.addConfigurationFragment(ProtoConfiguration.class);
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
@@ -303,7 +337,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.INSTANCE, builder);
+          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.CPP, builder);
           builder.addNativeAspectClass(ccProtoAspect);
           builder.addRuleDefinition(new CcProtoLibraryRule(ccProtoAspect));
         }
@@ -336,13 +370,14 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          String toolsRepository = checkNotNull(builder.getToolsRepository());
+          RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(BazelAndroidConfiguration.class);
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
-          DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
+          DexArchiveAspect dexArchiveAspect = new BazelDexArchiveAspect(toolsRepository);
           builder.addNativeAspectClass(androidNeverlinkAspect);
           builder.addNativeAspectClass(dexArchiveAspect);
 
@@ -393,7 +428,8 @@ public class BazelRuleClassProvider {
                   AndroidLibraryResourceClassJarProvider.PROVIDER,
                   AndroidFeatureFlagSetProvider.PROVIDER,
                   ProguardMappingProvider.PROVIDER,
-                  AndroidBinaryDataInfo.PROVIDER);
+                  AndroidBinaryDataInfo.PROVIDER,
+                  BaselineProfileProvider.PROVIDER);
           builder.addStarlarkBootstrap(bootstrap);
 
           try {
@@ -459,6 +495,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
+          builder.addRuleDefinition(new CcSharedLibraryRule());
+          builder.addRuleDefinition(new CcSharedLibraryPermissionsRule());
 
           try {
             builder.addWorkspaceFileSuffix(

@@ -45,7 +45,12 @@ public final class CpuProfilerTest {
     // Start writing profile to temporary file.
     File profile = java.io.File.createTempFile("pprof", ".gz", null);
     OutputStream prof = new FileOutputStream(profile);
-    Starlark.startCpuProfile(prof, Duration.ofMillis(10));
+    boolean success = Starlark.startCpuProfile(prof, Duration.ofMillis(10));
+
+    if (!success) {
+      System.err.println("Failed to start cpu profiler");
+      System.exit(1);
+    }
 
     // This program consumes about 3s of CPU.
     ParserInput input =

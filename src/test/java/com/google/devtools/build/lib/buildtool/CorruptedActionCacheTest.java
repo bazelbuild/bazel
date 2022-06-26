@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,14 +27,11 @@ import org.junit.runners.JUnit4;
 /**
  * Validates corrupted action cache behavior.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
 
   @Test
   public void testCorruptionActionCacheErrorMessage() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-
     write("foo/BUILD",
           "genrule(name = 'foo', ",
           "        outs = ['out'],  ",
@@ -51,8 +46,10 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     outputBase.getChild("action_cache_temp").renameTo(outputBase.getChild("action_cache"));
 
     // now corrupt filename index datafile by truncating it
-    for (Path path : UnixGlob.forPath(outputBase.getChild("action_cache"))
-        .addPattern("filename*.blaze").globInterruptible()) {
+    for (Path path :
+        new UnixGlob.Builder(outputBase.getChild("action_cache"), SyscallCache.NO_CACHE)
+            .addPattern("filename*.blaze")
+            .globInterruptible()) {
       path.getOutputStream().close();
     }
 
@@ -64,6 +61,6 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     assertThat(events.errors()).hasSize(1);
     events.assertContainsError("Error during action cache initialization");
     events.assertContainsError(
-        "Bazel will now reset action cache data, causing a full rebuild");
+        "Bazel will now reset action cache data, potentially causing rebuilds");
   }
 }

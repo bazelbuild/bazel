@@ -58,13 +58,21 @@ public abstract class Worker {
     return logFile;
   }
 
+  /** Returns the worker key of this worker */
+  public WorkerKey getWorkerKey() {
+    return workerKey;
+  }
+
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();
   }
 
-  SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
-    return workerKey.getWorkerFilesWithHashes();
+  SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests() {
+    return workerKey.getWorkerFilesWithDigests();
   }
+
+  /** Returns true if this worker is sandboxed. */
+  public abstract boolean isSandboxed();
 
   /**
    * Sets the reporter this {@code Worker} should report anomalous events to, or clears it. We
@@ -100,7 +108,12 @@ public abstract class Worker {
    */
   abstract WorkResponse getResponse(int requestId) throws IOException, InterruptedException;
 
-  /** Does whatever cleanup may be required after execution is done. */
+  /**
+   * Does whatever cleanup may be required after execution is done.
+   *
+   * @param execRoot The global execRoot, where outputs must go.
+   * @param outputs The expected outputs.
+   */
   public abstract void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException;
 
   /**
@@ -120,4 +133,7 @@ public abstract class Worker {
    * received.
    */
   abstract String getRecordingStreamMessage();
+
+  /** Returns process id pf worker, if process started. Otherwise returns -1. */
+  abstract long getProcessId();
 }

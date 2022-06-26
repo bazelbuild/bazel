@@ -70,9 +70,6 @@ windows_resources = rule(
             allow_files = True,
             doc = "Additional input files that RC files reference, if any.",
         ),
-        "_cc_toolchain": attr.label(
-            default = Label("@local_config_cc//:toolchain"),
-        ),
     },
     fragments = ["cpp"],
     toolchains = [WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE],

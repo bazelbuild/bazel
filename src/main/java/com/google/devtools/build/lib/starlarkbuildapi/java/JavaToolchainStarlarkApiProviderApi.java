@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain'
@@ -34,7 +39,7 @@ import net.starlark.java.eval.Sequence;
     doc =
         "Provides access to information about the Java toolchain rule. "
             + "Accessible as a 'java_toolchain' field on a Target struct.")
-public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
+public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
 
   String LEGACY_NAME = "java_toolchain";
 
@@ -47,6 +52,22 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();
 
+  @Nullable
+  @StarlarkMethod(
+      name = "one_version_tool",
+      doc = "The artifact that enforces One-Version compliance of java binaries.",
+      structField = true,
+      allowReturnNones = true)
+  FileApi getOneVersionBinary();
+
+  @StarlarkMethod(
+      name = "one_version_allowlist",
+      doc = "The allowlist used by the One-Version compliance checker",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getOneVersionAllowlist();
+
   @StarlarkMethod(
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
@@ -57,7 +78,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
-  Sequence<String> getStarlarkJvmOptions();
+  Depset getStarlarkJvmOptions();
 
   @StarlarkMethod(
       name = "jacocorunner",
@@ -69,4 +90,40 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
 
   @StarlarkMethod(name = "tools", doc = "The compilation tools.", structField = true)
   Depset getStarlarkTools();
+
+  @StarlarkMethod(name = "java_runtime", doc = "The java runtime information.", structField = true)
+  JavaRuntimeInfoApi getJavaRuntime();
+
+  @StarlarkMethod(
+      name = "android_linter",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  StarlarkValue stalarkAndroidLinter(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "timezone_data",
+      doc = "The latest timezone data resource jar that can be loaded by java binaries",
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "compatible_javacopts",
+      doc = "Return the map of target environment-specific javacopts",
+      parameters = {
+        @Param(
+            name = "key",
+            allowedTypes = {
+              @ParamType(type = String.class),
+            },
+            defaultValue = "")
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  ImmutableList<String> getCompatibleJavacOptionsForStarlark(String key, StarlarkThread thread)
+      throws EvalException;
 }

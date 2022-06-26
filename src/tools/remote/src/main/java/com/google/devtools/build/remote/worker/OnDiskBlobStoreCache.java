@@ -13,21 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.remote.worker;
 
-import build.bazel.remote.execution.v2.ActionResult;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteCache;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 
 /** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
@@ -49,11 +46,10 @@ class OnDiskBlobStoreCache extends RemoteCache {
       RemoteActionExecutionContext context, Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
-    Directory directory =
-        Directory.parseFrom(Utils.getFromFuture(downloadBlob(context, rootDigest)));
+    Directory directory = Directory.parseFrom(getFromFuture(downloadBlob(context, rootDigest)));
     for (FileNode file : directory.getFilesList()) {
       Path dst = rootLocation.getRelative(file.getName());
-      Utils.getFromFuture(downloadFile(context, dst, file.getDigest()));
+      getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
@@ -61,23 +57,11 @@ class OnDiskBlobStoreCache extends RemoteCache {
     }
   }
 
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return cacheProtocol.uploadFile(context, digest, file);
-  }
-
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return cacheProtocol.uploadBlob(context, digest, data);
-  }
-
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
-    cacheProtocol.uploadActionResult(context, actionKey, actionResult);
-  }
-
   public DigestUtil getDigestUtil() {
     return digestUtil;
+  }
+
+  public RemoteOptions getRemoteOptions() {
+    return options;
   }
 }

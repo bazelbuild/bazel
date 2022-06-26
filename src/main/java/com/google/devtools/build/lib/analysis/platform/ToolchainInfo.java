@@ -38,7 +38,7 @@ import net.starlark.java.syntax.Location;
  * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
-public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
+public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ToolchainInfo";
@@ -88,7 +88,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   @Override

@@ -87,12 +87,6 @@ public class PackageErrorFunction implements SkyFunction {
     }
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static class PackageErrorFunctionException extends SkyFunctionException {
     public PackageErrorFunctionException(
         BuildFileContainsErrorsException cause, Transience transience) {

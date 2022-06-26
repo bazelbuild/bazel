@@ -51,9 +51,10 @@ public class NoSuchTargetException extends NoSuchThingException {
         /*hasTarget=*/ true);
   }
 
-  public NoSuchTargetException(String message, @Nullable Label label, boolean hasTarget) {
+  private NoSuchTargetException(String message, @Nullable Label label, boolean hasTarget) {
     // TODO(bazel-team): Does the exception matter?
-    super(message,
+    super(
+        message,
         hasTarget ? new BuildFileContainsErrorsException(label.getPackageIdentifier()) : null);
     this.label = label;
     this.hasTarget = hasTarget;

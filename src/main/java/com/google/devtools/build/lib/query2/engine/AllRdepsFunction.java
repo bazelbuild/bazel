@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
  * An "allrdeps" query expression, which computes the reverse dependencies of the argument within
@@ -57,62 +58,53 @@ public class AllRdepsFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       Callback<T> callback) {
-    boolean isDepthUnbounded = args.size() == 1;
-    int depth = isDepthUnbounded ? Integer.MAX_VALUE : args.get(1).getInteger();
+    OptionalInt maxDepth =
+        args.size() == 1 ? OptionalInt.empty() : OptionalInt.of(args.get(1).getInteger());
     QueryExpression argumentExpression = args.get(0).getExpression();
     if (env instanceof StreamableQueryEnvironment) {
       StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
-      return isDepthUnbounded
-          ? streamableEnv.getAllRdepsUnboundedParallel(argumentExpression, context, callback)
-          : streamableEnv.getAllRdepsBoundedParallel(argumentExpression, depth, context, callback);
+      return maxDepth.isPresent()
+          ? streamableEnv.getAllRdepsBoundedParallel(
+              argumentExpression, maxDepth.getAsInt(), context, callback)
+          : streamableEnv.getAllRdepsUnboundedParallel(argumentExpression, context, callback);
     } else {
-      return eval(
-          env,
-          argumentExpression,
-          Predicates.<T>alwaysTrue(),
-          context,
-          callback,
-          depth);
+      return eval(env, argumentExpression, Predicates.alwaysTrue(), context, callback, maxDepth);
     }
   }
 
   /** Common non-parallel implementation of depth-bounded allrdeps/deps. */
   static <T> QueryTaskFuture<Void> eval(
-      final QueryEnvironment<T> env,
+      QueryEnvironment<T> env,
       QueryExpression expression,
-      final Predicate<T> universe,
+      Predicate<T> universe,
       QueryExpressionContext<T> context,
-      final Callback<T> callback,
-      final int depth) {
-    final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
+      Callback<T> callback,
+      OptionalInt depth) {
+    MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
     return env.eval(
         expression,
         context,
-        new Callback<T>() {
-          @Override
-          public void process(Iterable<T> partialResult)
-              throws QueryException, InterruptedException {
-            Iterable<T> current = partialResult;
-            // We need to iterate depthBound + 1 times.
-            for (int i = 0; i <= depth; i++) {
-              List<T> next = new ArrayList<>();
-              // Restrict to nodes satisfying the universe predicate.
-              Iterable<T> currentInUniverse = Iterables.filter(current, universe);
-              // Filter already visited nodes: if we see a node in a later round, then we don't
-              // need to visit it again, because the depth at which we see it must be greater
-              // than or equal to the last visit.
-              Iterables.addAll(
-                  next,
-                  env.getReverseDeps(
-                      minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i),
-                      context));
-              callback.process(currentInUniverse);
-              if (next.isEmpty()) {
-                // Exit when there are no more nodes to visit.
-                break;
-              }
-              current = next;
+        partialResult -> {
+          Iterable<T> current = partialResult;
+          int i = 0;
+          while (QueryEnvironment.shouldVisit(depth, i++)) {
+            List<T> next = new ArrayList<>();
+            // Restrict to nodes satisfying the universe predicate.
+            Iterable<T> currentInUniverse = Iterables.filter(current, universe);
+            // Filter already visited nodes: if we see a node in a later round, then we don't
+            // need to visit it again, because the depth at which we see it must be greater
+            // than or equal to the last visit.
+            Iterables.addAll(
+                next,
+                env.getReverseDeps(
+                    minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i),
+                    context));
+            callback.process(currentInUniverse);
+            if (next.isEmpty()) {
+              // Exit when there are no more nodes to visit.
+              break;
             }
+            current = next;
           }
         });
   }

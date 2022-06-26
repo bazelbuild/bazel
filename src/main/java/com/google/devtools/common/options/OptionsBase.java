@@ -96,9 +96,9 @@ public abstract class OptionsBase {
     return result.append("}").toString();
   }
 
-  public static String mapToCacheKey(Map<String, Object> optionsMap) {
+  public static String mapToCacheKey(Map<?, ?> optionsMap) {
     StringBuilder result = new StringBuilder();
-    for (Map.Entry<String, Object> entry : optionsMap.entrySet()) {
+    for (Map.Entry<?, ?> entry : optionsMap.entrySet()) {
       result.append(entry.getKey()).append("=");
 
       Object value = entry.getValue();

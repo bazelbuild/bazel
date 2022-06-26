@@ -140,7 +140,7 @@ public class StarlarkDebugServerTest {
         client.sendRequestAndWaitForResponse(
             DebugRequest.newBuilder()
                 .setSequenceNumber(1)
-                .setStartDebugging(StartDebuggingRequest.newBuilder())
+                .setStartDebugging(StartDebuggingRequest.getDefaultInstance())
                 .build());
     assertThat(response)
         .isEqualTo(
@@ -204,7 +204,7 @@ public class StarlarkDebugServerTest {
     client.sendRequestAndWaitForResponse(
         DebugRequest.newBuilder()
             .setSequenceNumber(45)
-            .setContinueExecution(ContinueExecutionRequest.newBuilder())
+            .setContinueExecution(ContinueExecutionRequest.getDefaultInstance())
             .build());
 
     boolean resumed =
@@ -758,7 +758,7 @@ public class StarlarkDebugServerTest {
     client.sendRequestAndWaitForResponse(
         DebugRequest.newBuilder()
             .setSequenceNumber(1)
-            .setStartDebugging(StartDebuggingRequest.newBuilder())
+            .setStartDebugging(StartDebuggingRequest.getDefaultInstance())
             .build());
   }
 

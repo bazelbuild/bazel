@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -30,8 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +37,6 @@ import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Action to create a symbolic link. */
-@AutoCodec
 public final class SymlinkAction extends AbstractAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
@@ -48,7 +44,6 @@ public final class SymlinkAction extends AbstractAction {
   @Nullable private final PathFragment inputPath;
   @Nullable private final String progressMessage;
 
-  @VisibleForSerialization
   enum TargetType {
     /**
      * The symlink points into a Fileset.
@@ -74,6 +69,11 @@ public final class SymlinkAction extends AbstractAction {
 
   private final TargetType targetType;
 
+  public static SymlinkAction toArtifact(
+      ActionOwner owner, Artifact input, Artifact output, String progressMessage) {
+    return toArtifact(owner, input, output, progressMessage, /*useExecRootForSource=*/ false);
+  }
+
   /**
    * Creates an action that creates a symlink pointing to an artifact.
    *
@@ -81,10 +81,24 @@ public final class SymlinkAction extends AbstractAction {
    * @param input the {@link Artifact} the symlink will point to
    * @param output the {@link Artifact} that will be created by executing this Action.
    * @param progressMessage the progress message.
+   * @param useExecRootForSource whether to link source artifacts to exec root as opposed to the
+   *     artifact itself. This indirection makes sure that the symlink is always in sync with exec
+   *     root, which could go out of sync with it when re-planting the symlink tree and the header
+   *     was unchanged.
    */
-  public static SymlinkAction toArtifact(ActionOwner owner, Artifact input, Artifact output,
-      String progressMessage) {
-    return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.OTHER);
+  public static SymlinkAction toArtifact(
+      ActionOwner owner,
+      Artifact input,
+      Artifact output,
+      String progressMessage,
+      boolean useExecRootForSource) {
+    return new SymlinkAction(
+        owner,
+        useExecRootForSource && input.isSourceArtifact() ? input.getExecPath() : null,
+        input,
+        output,
+        progressMessage,
+        TargetType.OTHER);
   }
 
   public static SymlinkAction toExecutable(
@@ -92,9 +106,7 @@ public final class SymlinkAction extends AbstractAction {
     return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.EXECUTABLE);
   }
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  SymlinkAction(
+  private SymlinkAction(
       ActionOwner owner,
       PathFragment inputPath,
       Artifact primaryInput,
@@ -193,7 +205,7 @@ public final class SymlinkAction extends AbstractAction {
       String message =
           String.format(
               "failed to create symbolic link '%s' to '%s' due to I/O error: %s",
-              Iterables.getOnlyElement(getOutputs()).prettyPrint(), printInputs(), e.getMessage());
+              getPrimaryOutput().getExecPathString(), printInputs(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.LINK_CREATION_IO_EXCEPTION);
       throw new ActionExecutionException(message, e, this, false, code);
     }
@@ -212,8 +224,7 @@ public final class SymlinkAction extends AbstractAction {
     try {
       // Validate that input path is a file with the executable bit set.
       if (!inputPath.isFile()) {
-        String message =
-            String.format("'%s' is not a file", getInputs().getSingleton().prettyPrint());
+        String message = String.format("'%s' is not a file", getPrimaryInput().getExecPathString());
         throw new ActionExecutionException(
             message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_NOT_FILE));
       }
@@ -221,8 +232,7 @@ public final class SymlinkAction extends AbstractAction {
         String message =
             String.format(
                 "failed to create symbolic link '%s': file '%s' is not executable",
-                Iterables.getOnlyElement(getOutputs()).prettyPrint(),
-                getInputs().getSingleton().prettyPrint());
+                getPrimaryOutput().getExecPathString(), getPrimaryInput().getExecPathString());
         throw new ActionExecutionException(
             message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_IS_NOT));
       }
@@ -230,8 +240,8 @@ public final class SymlinkAction extends AbstractAction {
       String message =
           String.format(
               "failed to create symbolic link '%s' to the '%s' due to I/O error: %s",
-              Iterables.getOnlyElement(getOutputs()).prettyPrint(),
-              getInputs().getSingleton().prettyPrint(),
+              getPrimaryOutput().getExecPathString(),
+              getPrimaryInput().getExecPathString(),
               e.getMessage());
       DetailedExitCode detailedExitCode =
           createDetailedExitCode(message, Code.EXECUTABLE_INPUT_CHECK_IO_EXCEPTION);
@@ -252,8 +262,7 @@ public final class SymlinkAction extends AbstractAction {
       // Note that utime() on a symlink actually changes the mtime of its target.
       Path linkPath = getOutputPath(actionExecutionContext);
       if (linkPath.exists()) {
-        // -1L means "use the current time".
-        linkPath.setLastModifiedTime(-1L);
+        linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
@@ -262,8 +271,8 @@ public final class SymlinkAction extends AbstractAction {
       String message =
           String.format(
               "failed to touch symbolic link '%s' to the '%s' due to I/O error: %s",
-              Iterables.getOnlyElement(getOutputs()).prettyPrint(),
-              getInputs().getSingleton().prettyPrint(),
+              getPrimaryOutput().getExecPathString(),
+              getPrimaryInput().getExecPathString(),
               e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.LINK_TOUCH_IO_EXCEPTION);
       throw new ActionExecutionException(message, e, this, false, code);
@@ -274,7 +283,7 @@ public final class SymlinkAction extends AbstractAction {
     if (getInputs().isEmpty()) {
       return inputPath.getPathString();
     } else if (getInputs().isSingleton()) {
-      return getInputs().getSingleton().prettyPrint();
+      return getPrimaryInput().getExecPathString();
     } else {
       throw new IllegalStateException(
           "Inputs unexpectedly contains more than 1 element: " + getInputs());

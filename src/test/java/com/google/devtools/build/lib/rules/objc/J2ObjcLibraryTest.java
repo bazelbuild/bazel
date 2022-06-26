@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -54,11 +53,9 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = ['" + label + "'],",
         ")");
 
-    return view.getPrerequisiteConfiguredTargetForTesting(
-        reporter,
-        getConfiguredTarget("//java/com/google/dummy/aspect:transpile"),
-        Label.parseAbsoluteUnchecked(label),
-        masterConfig);
+    ConfiguredTarget configuredTarget =
+        getConfiguredTarget("//java/com/google/dummy/aspect:transpile");
+    return getDirectPrerequisite(configuredTarget, label);
   }
 
   @Before
@@ -83,9 +80,9 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
-        "proto_lang_toolchain(name = 'java', command_line = 'dont_care')",
-        "proto_lang_toolchain(name='java_stubby1_immutable', command_line = 'dont_care')",
-        "proto_lang_toolchain(name='java_stubby3_immutable', command_line = 'dont_care')",
+        "proto_lang_toolchain(name = 'java', command_line = 'dont_care:$(OUT)')",
+        "proto_lang_toolchain(name='java_stubby1_immutable', command_line = 'dont_care:$(OUT)')",
+        "proto_lang_toolchain(name='java_stubby3_immutable', command_line = 'dont_care:$(OUT)')",
         "proto_lang_toolchain(name='java_stubby_compatible13_immutable', "
             + "command_line = 'dont_care')");
 

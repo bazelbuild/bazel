@@ -52,6 +52,7 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
 
   @Test
   public void testRejectsBadGeneratedFile() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     reporter.removeHandler(failFastHandler);
     scratch.file("dependency/BUILD",
         "genrule(name = 'generated', ",
@@ -62,6 +63,8 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
         "           srcs = ['//dependency:generated'])");
     configure("//foo:foo");
     assertContainsEvent(
-        getErrorMsgNoGoodFiles("srcs", "cc_library", "//foo:foo", "//dependency:generated"));
+        String.format(
+            "attribute srcs: '%s' does not produce any cc_library srcs files",
+            "//dependency:generated"));
   }
 }

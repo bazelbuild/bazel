@@ -47,10 +47,4 @@ public class WorkspaceStatusFunction implements SkyFunction {
 
     return new WorkspaceStatusValue(action.getStableStatus(), action.getVolatileStatus(), action);
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
 }

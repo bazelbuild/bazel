@@ -18,16 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -62,33 +61,33 @@ public abstract class ConfiguredTargetQueryTest
   }
 
   @Override
-  protected final BuildConfiguration getConfiguration(KeyedConfiguredTarget kct) {
+  protected final BuildConfigurationValue getConfiguration(KeyedConfiguredTarget kct) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(getHelper().getReporter(), kct.getConfigurationKey());
   }
 
-  /** SplitTransition on --test_arg */
-  protected static class TestArgSplitTransition implements SplitTransition {
+  /** SplitTransition on --foo */
+  protected static class FooSplitTransition implements SplitTransition {
     String toOption1;
     String toOption2;
 
-    public TestArgSplitTransition(String toOption1, String toOptions2) {
+    public FooSplitTransition(String toOption1, String toOptions2) {
       this.toOption1 = toOption1;
       this.toOption2 = toOptions2;
     }
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(TestOptions.class);
+      return ImmutableSet.of(DummyTestOptions.class);
     }
 
     @Override
     public Map<String, BuildOptions> split(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptionsView result1 = options.clone();
       BuildOptionsView result2 = options.clone();
-      result1.get(TestOptions.class).testArguments = Collections.singletonList(toOption1);
-      result2.get(TestOptions.class).testArguments = Collections.singletonList(toOption2);
+      result1.get(DummyTestOptions.class).foo = toOption1;
+      result2.get(DummyTestOptions.class).foo = toOption2;
       return ImmutableMap.of("result1", result1.underlying(), "result2", result2.underlying());
     }
   }

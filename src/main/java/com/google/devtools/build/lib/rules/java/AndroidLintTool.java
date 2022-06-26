@@ -14,16 +14,27 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The Android Lint part of {@code java_toolchain}. */
 @AutoValue
-@AutoCodec
-abstract class AndroidLintTool {
+abstract class AndroidLintTool implements StarlarkValue {
 
   abstract JavaToolchainTool tool();
 
@@ -39,8 +50,17 @@ abstract class AndroidLintTool {
     if (tool == null) {
       return null;
     }
+    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locations = ImmutableMap.builder();
+    for (TransitiveInfoCollection data : ruleContext.getPrerequisites("android_lint_data")) {
+      locations.put(
+          AliasProvider.getDependencyLabel(data),
+          data.getProvider(FileProvider.class).getFilesToBuild().toList());
+    }
     ImmutableList<String> options =
-        ImmutableList.copyOf(ruleContext.attributes().get("android_lint_opts", Type.STRING_LIST));
+        ruleContext
+            .getExpander()
+            .withExecLocations(locations.buildOrThrow())
+            .tokenized("android_lint_opts");
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
@@ -48,11 +68,35 @@ abstract class AndroidLintTool {
     return create(tool, options, packageConfiguration);
   }
 
-  @AutoCodec.Instantiator
-  static AndroidLintTool create(
+  private static AndroidLintTool create(
       JavaToolchainTool tool,
       ImmutableList<String> options,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
     return new AutoValue_AndroidLintTool(tool, options, packageConfiguration);
+  }
+
+  @StarlarkMethod(name = "tool", documented = false, structField = true)
+  public FilesToRunProvider starlarkTool() {
+    return tool().tool();
+  }
+
+  @StarlarkMethod(name = "jvm_opts", documented = false, structField = true)
+  public Depset starlarkJvmOpts() {
+    return Depset.of(ElementType.STRING, tool().jvmOpts());
+  }
+
+  @StarlarkMethod(name = "data", documented = false, structField = true)
+  public Depset starlarkData() {
+    return Depset.of(Artifact.TYPE, tool().data());
+  }
+
+  @StarlarkMethod(name = "lint_opts", documented = false, structField = true)
+  public Sequence<String> starlarkLintOpts() {
+    return StarlarkList.immutableCopyOf(options());
+  }
+
+  @StarlarkMethod(name = "package_config", documented = false, structField = true)
+  public Sequence<?> starlarkPackageConfig() {
+    return StarlarkList.immutableCopyOf(packageConfiguration());
   }
 }

@@ -16,39 +16,36 @@ package com.google.devtools.build.android.ziputils;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.primitives.UnsignedInts;
 import java.nio.ByteBuffer;
 
 /**
- * A {@code View} represents a range of a larger sequence of bytes (e.g. part of a file).
- * It consist of an internal byte buffer providing access to the data range, and an
- * offset of the first byte in the buffer within the larger sequence.
- * Subclasses will typically assign a specific interpretations of the data in a view 
- * (e.g. records of a specific type).
+ * A {@code View} represents a range of a larger sequence of bytes (e.g. part of a file). It consist
+ * of an internal byte buffer providing access to the data range, and an offset of the first byte in
+ * the buffer within the larger sequence. Subclasses will typically assign a specific
+ * interpretations of the data in a view (e.g. records of a specific type).
  *
- * <p>Instances of subclasses may generally be "allocated", or created "of" or "over" a
- * byte buffer provided at creation time.
+ * <p>Instances of subclasses may generally be "allocated", or created "of" or "over" a byte buffer
+ * provided at creation time.
  *
- * <p>An "allocated" view gets a new heap allocated byte buffer. Allocation methods
- * typically defines parameters for variable sized part of the object they create a
- * view of. Once allocated, the variable size parts (e.g. filename) cannot be changed.
+ * <p>An "allocated" view gets a new heap allocated byte buffer. Allocation methods typically
+ * defines parameters for variable sized part of the object they create a view of. Once allocated,
+ * the variable size parts (e.g. filename) cannot be changed.
  *
- * <p>A view created "of" an existing byte buffer, expects the buffer to contain an
- * appropriate record at its current position. The buffers limit is set at the
- * end of the object being viewed.
+ * <p>A view created "of" an existing byte buffer, expects the buffer to contain an appropriate
+ * record at its current position. The buffers limit is set at the end of the object being viewed.
  *
- * <p>A view created "over" an existing byte buffer, reserves space in the buffer for the
- * object being viewed. The variable sized parts of the object are initialized, but
- * otherwise the existing buffer data are left as-is, and can be manipulated  through the
- * view.
+ * <p>A view created "over" an existing byte buffer, reserves space in the buffer for the object
+ * being viewed. The variable sized parts of the object are initialized, but otherwise the existing
+ * buffer data are left as-is, and can be manipulated through the view.
  *
- * <p> An view can also be copied into an existing byte buffer. This is like creating a
- * view "over" the buffer, but initializing the new view as an exact copy of the one
- * being copied.
+ * <p>An view can also be copied into an existing byte buffer. This is like creating a view "over"
+ * the buffer, but initializing the new view as an exact copy of the one being copied.
  *
  * @param <SUB> to be type-safe, a subclass {@code S} must extend {@code View<S>}. It must not
- * extend {@code View<S2>}, where {@code S2} is another subclass, which is not also a superclass
- * of {@code S}. To maintain this guarantee, this class is declared abstract and package private.
- * Unchecked warnings are suppressed as per this specification constraint.
+ *     extend {@code View<S2>}, where {@code S2} is another subclass, which is not also a superclass
+ *     of {@code S}. To maintain this guarantee, this class is declared abstract and package
+ *     private. Unchecked warnings are suppressed as per this specification constraint.
  */
 abstract class View<SUB extends View<?>> {
 
@@ -148,48 +145,48 @@ abstract class View<SUB extends View<?>> {
   }
 
   /**
-   * Gets the value of an identified integer field.
+   * Gets the value of an identified (unsigned) integer field.
    *
    * @param id field identifier
    * @return the value of the field identified by {@code id}.
    */
-  public int get(IntFieldId<? extends SUB> id) {
-    return buffer.getInt(id.address());
+  public long get(IntFieldId<? extends SUB> id) {
+    return UnsignedInts.toLong(buffer.getInt(id.address()));
   }
 
   /**
-   * Gets the value of an identified short field.
+   * Gets the value of an identified (unsigned) short field.
    *
    * @param id field identifier
    * @return the value of the field identified by {@code id}.
    */
-  public short get(ShortFieldId<? extends SUB> id) {
-    return buffer.getShort(id.address());
+  public int get(ShortFieldId<? extends SUB> id) {
+    return UnsignedShorts.toInt(buffer.getShort(id.address()));
   }
 
   /**
-   * Sets the value of an identified integer field.
+   * Sets the value of an identified (unsigned) integer field.
    *
    * @param id field identifier
    * @param value value to set for the field identified by {@code id}.
    * @return this object.
    */
   @SuppressWarnings("unchecked") // safe by specification
-  public SUB set(IntFieldId<? extends SUB> id, int value) {
-    buffer.putInt(id.address(), value);
+  public SUB set(IntFieldId<? extends SUB> id, long value) {
+    buffer.putInt(id.address(), UnsignedInts.checkedCast(value));
     return (SUB) this;
   }
 
   /**
-   * Sets the value of an identified short field.
+   * Sets the value of an identified (unsigned) short field.
    *
    * @param id field identifier
    * @param value value to set for the field identified by {@code id}.
    * @return this object.
    */
   @SuppressWarnings("unchecked") // safe by specification
-  public SUB set(ShortFieldId<? extends SUB> id, short value) {
-    buffer.putShort(id.address(), value);
+  public SUB set(ShortFieldId<? extends SUB> id, int value) {
+    buffer.putShort(id.address(), UnsignedShorts.checkedCast(value));
     return (SUB) this;
   }
 

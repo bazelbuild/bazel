@@ -21,6 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CcTest;
  */
 public class BazelCcTest extends CcTest {
   public BazelCcTest() {
-    super(BazelCppSemantics.INSTANCE);
+    super(BazelCppSemantics.CPP);
   }
 }

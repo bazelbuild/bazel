@@ -81,7 +81,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "cc_library(name = 'dummyRuleContext')"),
         new StubAnalysisEnvironment() {
           @Override
-          public void registerAction(ActionAnalysisMetadata... action) {
+          public void registerAction(ActionAnalysisMetadata action) {
             // No-op.
           }
 
@@ -585,64 +585,35 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(builder.canSplitCommandLine()).isFalse();
   }
 
-  /**
-   * Links a small target. Checks that resource estimates are above the minimum and scale correctly.
-   */
   @Test
-  public void testSmallLocalLinkResourceEstimate() throws Exception {
-    assertLinkSizeAccuracy(3);
-  }
-
-  /**
-   * Fake links a large target. Checks that resource estimates are above the minimum and scale
-   * correctly. The actual link action is irrelevant; we are just checking the estimate.
-   */
-  @Test
-  public void testLargeLocalLinkResourceEstimate() throws Exception {
-    assertLinkSizeAccuracy(7000);
-  }
-
-  private void assertLinkSizeAccuracy(int inputs) throws Exception {
-    RuleContext ruleContext = createDummyRuleContext();
-
-    ImmutableList.Builder<Artifact> objects = ImmutableList.builder();
-    for (int i = 0; i < inputs; i++) {
-      objects.add(getOutputArtifact("object" + i + ".o"));
-    }
-
+  public void tesLocalLinkResourceEstimate() throws Exception {
     CppLinkAction linkAction =
         createLinkBuilder(
-                ruleContext,
+                createDummyRuleContext(),
                 Link.LinkTargetType.EXECUTABLE,
                 "dummyRuleContext/binary2",
-                objects.build(),
-                ImmutableList.<LibraryToLink>of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
             .build();
 
-    // Ensure that minima are enforced.
-    ResourceSet resources = linkAction.estimateResourceConsumptionLocal();
-    assertThat(resources.getMemoryMb())
-        .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb());
-    assertThat(resources.getCpuUsage())
-        .isAtLeast(CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
+    assertThat(linkAction.estimateResourceConsumptionLocal(OS.DARWIN, 100))
+        .isEqualTo(ResourceSet.createWithRamCpu(20, 1));
 
-    final int linkSize =
-        linkAction.getLinkCommandLine().getLinkerInputArtifacts().memoizedFlattenAndGetSize();
-    ResourceSet scaledSet =
-        ResourceSet.createWithRamCpu(
-            CppLinkAction.LINK_RESOURCES_PER_INPUT.getMemoryMb() * linkSize,
-            CppLinkAction.LINK_RESOURCES_PER_INPUT.getCpuUsage() * linkSize);
+    assertThat(linkAction.estimateResourceConsumptionLocal(OS.DARWIN, 1000))
+        .isEqualTo(ResourceSet.createWithRamCpu(65, 1));
 
-    // Ensure that anything above the minimum is properly scaled.
-    assertThat(
-            resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
-                || resources.getMemoryMb() == scaledSet.getMemoryMb())
-        .isTrue();
-    assertThat(
-            resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
-                || resources.getCpuUsage() == scaledSet.getCpuUsage())
-        .isTrue();
+    assertThat(linkAction.estimateResourceConsumptionLocal(OS.LINUX, 100))
+        .isEqualTo(ResourceSet.createWithRamCpu(50, 1));
+
+    assertThat(linkAction.estimateResourceConsumptionLocal(OS.LINUX, 10000))
+        .isEqualTo(ResourceSet.createWithRamCpu(900, 1));
+
+    assertThat(linkAction.estimateResourceConsumptionLocal(OS.WINDOWS, 0))
+        .isEqualTo(ResourceSet.createWithRamCpu(1500, 1));
+
+    assertThat(linkAction.estimateResourceConsumptionLocal(OS.WINDOWS, 1000))
+        .isEqualTo(ResourceSet.createWithRamCpu(2500, 1));
   }
 
   private CppLinkActionBuilder createLinkBuilder(
@@ -651,7 +622,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
       String outputPath,
       Iterable<Artifact> nonLibraryInputs,
       ImmutableList<LibraryToLink> libraryInputs,
-      FeatureConfiguration featureConfiguration) {
+      FeatureConfiguration featureConfiguration)
+      throws RuleErrorException {
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =

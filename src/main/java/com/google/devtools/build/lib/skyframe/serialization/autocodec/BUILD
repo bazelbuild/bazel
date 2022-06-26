@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -103,7 +103,6 @@ java_library(
     ],
     deps = [
         ":autocodec-annotation",
-        ":serialization-constant-processor",
         ":serialization-processor-util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
@@ -122,14 +121,14 @@ pkg_tar(
     # they will appear there in bazel-distfile, which in turn makes them visible for bootstrapping
     # from the LIBRARY_JARS rule of bazel/scripts/bootstrap/compile.sh.
     srcs = [
-        ":libautocodec-annotation.jar",
-        ":libautocodec-processor.jar",
-        ":libregistered-singleton.jar",
-        ":libserialization-constant-annotation.jar",
-        ":libserialization-constant-processor.jar",
-        ":libserialization-processor-util.jar",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:libserialization.jar",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:libunsafe-provider.jar",
+        ":autocodec-annotation",
+        ":autocodec-processor",
+        ":registered-singleton",
+        ":serialization-constant-annotation",
+        ":serialization-constant-processor",
+        ":serialization-processor-util",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
     package_dir = "third_party/bazel_bootstrap",
     visibility = ["//visibility:public"],

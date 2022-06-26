@@ -18,13 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -32,13 +33,18 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  */
 @Immutable
 public final class MockCppSemantics implements CppSemantics {
-  @AutoCodec public static final MockCppSemantics INSTANCE = new MockCppSemantics();
+  @SerializationConstant public static final MockCppSemantics INSTANCE = new MockCppSemantics();
 
   private MockCppSemantics() {}
 
   @Override
+  public Language language() {
+    return Language.CPP;
+  }
+
+  @Override
   public void finalizeCompileActionBuilder(
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer) {}
@@ -60,7 +66,7 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean needsDotdInputPruning(BuildConfiguration configuration) {
+  public boolean needsDotdInputPruning(BuildConfigurationValue configuration) {
     return true;
   }
 
@@ -83,4 +89,20 @@ public final class MockCppSemantics implements CppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
+
+  @Override
+  public boolean createEmptyArchive() {
+    return false;
+  }
+
+  @Override
+  public boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext) {
+    boolean experimentalCcInterfaceDeps =
+        ruleContext.getFragment(CppConfiguration.class).experimentalCcInterfaceDeps();
+    if (!experimentalCcInterfaceDeps
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("interface_deps")) {
+      ruleContext.attributeError("interface_deps", "requires --experimental_cc_interface_deps");
+    }
+    return experimentalCcInterfaceDeps;
+  }
 }

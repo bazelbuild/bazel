@@ -2,8 +2,6 @@
 #   C++ utility tests for Bazel
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -145,20 +143,3 @@ cc_library(
 )
 
 test_suite(name = "all_tests")
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/cpp:__pkg__"],
-)

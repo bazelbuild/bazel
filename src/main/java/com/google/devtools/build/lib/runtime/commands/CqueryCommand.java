@@ -17,7 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.CqueryBuildTool;
+import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.CqueryProcessor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
@@ -46,16 +47,20 @@ import java.util.Set;
 
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
-  name = "cquery",
-  builds = true,
-  inherits = {BuildCommand.class},
-  options = {CqueryOptions.class},
-  usesConfigurationOptions = true,
-  shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
-  allowResidue = true,
-  completion = "label",
-  help = "resource:cquery.txt"
-)
+    name = "cquery",
+    builds = true,
+    // We inherit from TestCommand so that we pick up changes like `test --test_arg=foo` in .bazelrc
+    // files.
+    // Without doing this, there is no easy way to use the output of cquery to determine whether a
+    // test has changed between two invocations, because the testrunner action is not easily
+    // introspectable.
+    inherits = {TestCommand.class},
+    options = {CqueryOptions.class},
+    usesConfigurationOptions = true,
+    shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
+    allowResidue = true,
+    completion = "label",
+    help = "resource:cquery.txt")
 public final class CqueryCommand implements BlazeCommand {
 
   @Override
@@ -77,7 +82,7 @@ public final class CqueryCommand implements BlazeCommand {
           "cquery should include 'tags = [\"manual\"]' targets by default",
           ImmutableList.of("--build_manual_tests"));
       optionsParser.parse(
-          PriorityCategory.COMPUTED_DEFAULT,
+          PriorityCategory.SOFTWARE_REQUIREMENT,
           // https://github.com/bazelbuild/bazel/issues/11078
           "cquery should not exclude test_suite rules",
           ImmutableList.of("--noexpand_test_suites"));
@@ -89,6 +94,10 @@ public final class CqueryCommand implements BlazeCommand {
                 "--include_config_fragments_provider="
                     + cqueryOptions.showRequiredConfigFragments));
       }
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          "cquery should not exclude tests",
+          ImmutableList.of("--nobuild_tests_only"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Cquery's known options failed to parse", e);
     }
@@ -128,17 +137,23 @@ public final class CqueryCommand implements BlazeCommand {
       topLevelTargets = new ArrayList<>(targetPatternSet);
     }
     BlazeRuntime runtime = env.getRuntime();
+
     BuildRequest request =
-        BuildRequest.create(
-            getClass().getAnnotation(Command.class).name(),
-            options,
-            runtime.getStartupOptionsProvider(),
-            topLevelTargets,
-            env.getReporter().getOutErr(),
-            env.getCommandId(),
-            env.getCommandStartTime());
+        BuildRequest.builder()
+            .setCommandName(getClass().getAnnotation(Command.class).name())
+            .setId(env.getCommandId())
+            .setOptions(options)
+            .setStartupOptions(runtime.getStartupOptionsProvider())
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(topLevelTargets)
+            .setStartTimeMillis(env.getCommandStartTime())
+            .setCheckforActionConflicts(false)
+            .setReportIncompatibleTargets(false)
+            .build();
     DetailedExitCode detailedExitCode =
-        new CqueryBuildTool(env, expr).processRequest(request, null).getDetailedExitCode();
+        new BuildTool(env, new CqueryProcessor(expr))
+            .processRequest(request, null)
+            .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 

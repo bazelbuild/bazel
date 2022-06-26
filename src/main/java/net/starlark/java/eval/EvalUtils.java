@@ -13,7 +13,6 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
-import com.google.common.base.Strings;
 import java.util.IllegalFormatException;
 import net.starlark.java.syntax.TokenKind;
 
@@ -73,9 +72,10 @@ final class EvalUtils {
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
-  static Object binaryOp(
-      TokenKind op, Object x, Object y, StarlarkSemantics semantics, Mutability mu)
+  static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread starlarkThread)
       throws EvalException {
+    StarlarkSemantics semantics = starlarkThread.getSemantics();
+    Mutability mu = starlarkThread.mutability();
     switch (op) {
       case PLUS:
         if (x instanceof StarlarkInt) {
@@ -125,6 +125,11 @@ final class EvalUtils {
           if (y instanceof StarlarkInt) {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
+          }
+        } else if (x instanceof Dict) {
+          if (y instanceof Dict) {
+            // dict | dict
+            return Dict.builder().putAll((Dict<?, ?>) x).putAll((Dict<?, ?>) y).build(mu);
           }
         }
         break;
@@ -339,6 +344,8 @@ final class EvalUtils {
       case IN:
         if (y instanceof StarlarkIndexable) {
           return ((StarlarkIndexable) y).containsKey(semantics, x);
+        } else if (y instanceof StarlarkIndexable.Threaded) {
+          return ((StarlarkIndexable.Threaded) y).containsKey(starlarkThread, semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(
@@ -349,7 +356,7 @@ final class EvalUtils {
         break;
 
       case NOT_IN:
-        Object z = binaryOp(TokenKind.IN, x, y, semantics, mu);
+        Object z = binaryOp(TokenKind.IN, x, y, starlarkThread);
         if (z != null) {
           return !Starlark.truth(z);
         }
@@ -388,8 +395,14 @@ final class EvalUtils {
 
   private static String repeatString(String s, StarlarkInt in) throws EvalException {
     int n = in.toInt("repeat");
-    // TODO(adonovan): reject unreasonably large n.
-    return n <= 0 ? "" : Strings.repeat(s, n);
+    if (n <= 0) {
+      return "";
+    } else if ((long) s.length() * (long) n > Integer.MAX_VALUE) {
+      // Would exceed max length of a java String.
+      throw Starlark.errorf("excessive repeat (%d * %d characters)", s.length(), n);
+    } else {
+      return s.repeat(n);
+    }
   }
 
   /** Evaluates a unary operation. */
@@ -431,9 +444,14 @@ final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
-  static Object index(Mutability mu, StarlarkSemantics semantics, Object object, Object key)
+  static Object index(StarlarkThread starlarkThread, Object object, Object key)
       throws EvalException {
-    if (object instanceof StarlarkIndexable) {
+    Mutability mu = starlarkThread.mutability();
+    StarlarkSemantics semantics = starlarkThread.getSemantics();
+
+    if (object instanceof StarlarkIndexable.Threaded) {
+      return ((StarlarkIndexable.Threaded) object).getIndex(starlarkThread, semantics, key);
+    } else if (object instanceof StarlarkIndexable) {
       Object result = ((StarlarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
       // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark

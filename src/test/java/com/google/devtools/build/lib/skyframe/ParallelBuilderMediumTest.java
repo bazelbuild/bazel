@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,7 +22,6 @@ import org.junit.runners.JUnit4;
 /**
  * Stress tests for the parallel builder.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ParallelBuilderMediumTest extends ParallelBuilderTest {
 

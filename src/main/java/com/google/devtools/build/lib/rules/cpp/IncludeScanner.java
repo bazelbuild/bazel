@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collection;
@@ -64,6 +65,8 @@ public interface IncludeScanner {
    * immediately available, processing will be short-circuited. The caller should check {@link
    * com.google.devtools.build.skyframe.SkyFunction.Environment#valuesMissing} - if it returns
    * {@code true}, then include scanning did not complete and a skyframe restart is necessary.
+   *
+   * @throws NoSuchPackageException if hint collection fails due to package problems
    */
   void processAsync(
       Artifact mainSource,
@@ -74,7 +77,7 @@ public interface IncludeScanner {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes)
-      throws IOException, ExecException, InterruptedException;
+      throws IOException, NoSuchPackageException, ExecException, InterruptedException;
 
   /**
    * Holds pre-aggregated information that the {@link IncludeScanner} needs from the compilation

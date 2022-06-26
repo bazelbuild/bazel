@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Context describing when a {@link Crash} occurred and how it should be handled. */
 public final class CrashContext {
@@ -47,6 +48,7 @@ public final class CrashContext {
   private ImmutableList<String> args = ImmutableList.of();
   private boolean sendBugReport = true;
   private String extraOomInfo = "";
+  @Nullable private String heapDumpPath = null;
   private EventHandler eventHandler =
       event -> System.err.println(event.getKind() + ": " + event.getMessage());
 
@@ -82,6 +84,17 @@ public final class CrashContext {
   }
 
   /**
+   * Sets the path at which to write a heap dump when handling {@link OutOfMemoryError}.
+   *
+   * <p>The path <em>must</em> end in {@code .hprof} for the heap dump to succeed.
+   *
+   * <p>If not called, there will be no heap dump.
+   */
+  public void setHeapDumpPath(String heapDumpPath) {
+    this.heapDumpPath = heapDumpPath;
+  }
+
+  /**
    * Sets the {@link EventHandler} that should be notified about the {@link EventKind#FATAL} crash
    * event.
    *
@@ -106,6 +119,11 @@ public final class CrashContext {
 
   String getExtraOomInfo() {
     return extraOomInfo;
+  }
+
+  @Nullable
+  String getHeapDumpPath() {
+    return heapDumpPath;
   }
 
   EventHandler getEventHandler() {

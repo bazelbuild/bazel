@@ -27,8 +27,10 @@ import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
@@ -37,7 +39,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,9 +49,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class BazelRuleClassProviderTest {
-  private void checkConfigConsistency(ConfiguredRuleClassProvider provider) {
+
+  private static void checkConfigConsistency(ConfiguredRuleClassProvider provider) {
     // Check that every fragment required by a rule is present.
-    Set<Class<? extends Fragment>> configurationFragments = provider.getAllFragments();
+    FragmentClassSet configurationFragments = provider.getFragmentRegistry().getAllFragments();
     for (RuleClass ruleClass : provider.getRuleClassMap().values()) {
       for (Class<?> fragment :
           ruleClass.getConfigurationFragmentPolicy().getRequiredConfigurationFragments()) {
@@ -58,10 +60,9 @@ public class BazelRuleClassProviderTest {
       }
     }
 
-    List<Class<? extends FragmentOptions>> configOptions = provider.getConfigurationOptions();
-    for (Class<? extends Fragment> fragmentClass : provider.getConfigurationFragments()) {
-      // Check that every created fragment is present.
-      assertThat(configurationFragments).contains(fragmentClass);
+    Set<Class<? extends FragmentOptions>> configOptions =
+        provider.getFragmentRegistry().getOptionsClasses();
+    for (Class<? extends Fragment> fragmentClass : configurationFragments) {
       // Check that every options class required for fragment creation is provided.
       for (Class<? extends FragmentOptions> options : Fragment.requiredOptions(fragmentClass)) {
         assertThat(configOptions).contains(options);
@@ -69,9 +70,9 @@ public class BazelRuleClassProviderTest {
     }
   }
 
-  private void checkModule(RuleSet top) {
+  private static void checkModule(RuleSet top) {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    builder.setToolsRepository(BazelRuleClassProvider.TOOLS_REPOSITORY);
+    builder.setToolsRepository(RepositoryName.BAZEL_TOOLS);
     Set<RuleSet> result = new HashSet<>();
     result.add(BazelRuleClassProvider.BAZEL_SETUP);
     collectTransitiveClosure(result, top);
@@ -83,7 +84,7 @@ public class BazelRuleClassProviderTest {
     checkConfigConsistency(provider);
   }
 
-  private void collectTransitiveClosure(Set<RuleSet> result, RuleSet module) {
+  private static void collectTransitiveClosure(Set<RuleSet> result, RuleSet module) {
     if (result.add(module)) {
       for (RuleSet dep : module.requires()) {
         collectTransitiveClosure(result, dep);
@@ -174,9 +175,9 @@ public class BazelRuleClassProviderTest {
             "--experimental_strict_action_env",
             "--action_env=FOO=bar");
 
-    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.getActionEnvironment(options);
-    assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
-    assertThat(env.getFixedEnv().toMap()).containsEntry("FOO", "bar");
+    ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options);
+    assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
+    assertThat(env.getFixedEnv()).containsEntry("FOO", "bar");
   }
 
   @Test
@@ -209,5 +210,36 @@ public class BazelRuleClassProviderTest {
     o.useStrictActionEnv = true;
     StrictActionEnvOptions h = o.getHost();
     assertThat(h.useStrictActionEnv).isTrue();
+  }
+
+  @Test
+  public void getShellExecutableUnset() {
+    assertThat(determineShellExecutable(OS.LINUX, null))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.FREEBSD, null))
+        .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
+    assertThat(determineShellExecutable(OS.OPENBSD, null))
+        .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
+    assertThat(determineShellExecutable(OS.WINDOWS, null))
+        .isEqualTo(PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"));
+  }
+
+  @Test
+  public void getShellExecutableIfSet() {
+    PathFragment binBash = PathFragment.create("/bin/bash");
+    assertThat(determineShellExecutable(OS.LINUX, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.FREEBSD, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.OPENBSD, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.WINDOWS, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+  }
+
+  private static PathFragment determineShellExecutable(OS os, PathFragment executableOption) {
+    ShellConfiguration.Options options = Options.getDefaults(ShellConfiguration.Options.class);
+    options.shellExecutable = executableOption;
+    return BazelRuleClassProvider.getShellExecutableForOs(os, options);
   }
 }

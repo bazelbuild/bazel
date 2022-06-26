@@ -18,7 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -26,9 +28,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationDiffForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentDiffForOutput;
-import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.gson.Gson;
@@ -53,7 +53,6 @@ import org.junit.runners.JUnit4;
  * so the output formatter used doesn't affect those properties. We test with <code>--output=json
  * </code> for easy parsing.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigCommandTest extends BuildIntegrationTestCase {
   private BlazeCommandDispatcher dispatcher;
@@ -63,14 +62,40 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     getRuntime().overrideCommands(ImmutableList.of(new BuildCommand(), new ConfigCommand()));
     dispatcher = new BlazeCommandDispatcher(getRuntime());
     write(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")");
+    write(
         "test/defs.bzl",
         "def _simple_rule_impl(ctx):",
         "  pass",
         "simple_rule = rule(",
         "  implementation = _simple_rule_impl,",
         "  attrs = {},",
+        ")",
+        "def _sometransition_impl(settings, attr):",
+        "  _ignore = (settings, attr)",
+        "  return {'//command_line_option:platform_suffix': 'transitioned'}",
+        "_sometransition = transition(",
+        "  implementation = _sometransition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:platform_suffix'],",
+        ")",
+        "rule_with_transition = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  cfg = _sometransition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist'),",
+        "  },",
         ")");
-    write("test/BUILD", "load('//test:defs.bzl', 'simple_rule')", "simple_rule(name='buildme')");
+    write(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule', 'rule_with_transition')",
+        "simple_rule(name='buildme')",
+        "rule_with_transition(name='buildme_with_transition')");
   }
 
   /**
@@ -84,6 +109,22 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // invocations, which is exactly what we we need here.
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     params.add("//test:buildme");
+    params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
+    Collections.addAll(params, args);
+    dispatcher.exec(params, "my client", outErr);
+  }
+
+  /**
+   * Performs loading and analysis on the fixed rule <code>//test:buildme</code> with the given
+   * build options (as they'd appear on the command line).
+   */
+  private void analyzeTargetWithTransition(String... args) throws Exception {
+    List<String> params = Lists.newArrayList("build");
+    // Basic flags required to make any build work. Ideally we'd go through BlazeRuntimeWrapper,
+    // which does the same setup. But that's explicitly documented as not supported command
+    // invocations, which is exactly what we we need here.
+    params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    params.add("//test:buildme_with_transition");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
@@ -115,7 +156,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
             .filter(fragment -> fragment.name.endsWith(fragmentOptions))
             .flatMap(fragment -> fragment.options.entrySet().stream())
             .filter(setting -> setting.getKey().equals(optionName))
-            .map(entry -> entry.getValue())
+            .map(Map.Entry::getValue)
             .collect(Collectors.toList());
     if (ans.size() > 1) {
       throw new NoSuchElementException(
@@ -139,7 +180,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
   /** Converts a list of {@code a.b.d} strings to {@code d} form. * */
   private static List<String> getBaseNames(List<String> list) {
-    return list.stream().map(entry -> getBaseName(entry)).collect(Collectors.toList());
+    return list.stream().map(ConfigCommandTest::getBaseName).collect(Collectors.toList());
   }
 
   @Test
@@ -147,10 +188,10 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     analyzeTarget();
     JsonObject fullJson =
         JsonParser.parseString(callConfigCommand().outAsLatin1()).getAsJsonObject();
-    // Should be one ID for the target configuration and one for the host.
+    // Should be: target configuration, target configuration without test, host configuration
     assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
-    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
+    assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(3);
   }
 
   @Test
@@ -169,8 +210,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(config).isNotNull();
     // Verify config metadata:
     assertThat(config.configHash).isEqualTo(configHash1);
-    assertThat(config.skyKey)
-        .isEqualTo(String.format("BuildConfigurationValue.Key[%s]", configHash1));
+    assertThat(config.skyKey).isEqualTo(String.format("BuildConfigurationKey[%s]", configHash1));
     // Verify the existence of a couple of expected fragments:
     assertThat(
             config.fragments.stream()
@@ -250,37 +290,16 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
       assertThat(config).isNotNull();
       numConfigs++;
     }
-    assertThat(numConfigs).isEqualTo(2); // Host + target.
+    assertThat(numConfigs).isEqualTo(3); // Host + target + target w/o test.
   }
 
   @Test
   public void compareConfigs() throws Exception {
-    analyzeTarget("--action_env=a=1");
-    analyzeTarget("--action_env=b=2");
-    String targetConfig1Hash = null;
-    String targetConfig2Hash = null;
-
-    // Find the two target configuration hashes.
-    for (JsonElement element :
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()) {
-      String configHash = element.getAsString();
-      ConfigurationForOutput config =
-          new Gson()
-              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
-      if (isTargetConfig(config)) {
-        if (targetConfig1Hash == null) {
-          targetConfig1Hash = config.configHash;
-        } else {
-          assertThat(targetConfig2Hash).isNull();
-          targetConfig2Hash = config.configHash;
-        }
-      }
-    }
-    assertThat(targetConfig1Hash).isNotNull();
-    assertThat(targetConfig2Hash).isNotNull();
+    // Do not trim test configuration for now to make 'finding' the configurations easier.
+    analyzeTargetWithTransition("--platform_suffix=pure", "--notrim_test_configuration");
+    String targetConfig1Hash = getTargetConfig().configHash;
+    String targetConfig2Hash =
+        getTargetConfig(/*excludedHashes=*/ ImmutableSet.of(targetConfig1Hash)).configHash;
 
     // Get their diff.
     String result = callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1();
@@ -291,41 +310,25 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     FragmentDiffForOutput fragmentDiff = Iterables.getOnlyElement(diff.fragmentsDiff);
     assertThat(fragmentDiff.name).endsWith("CoreOptions");
     Map.Entry<String, Pair<String, String>> optionDiff =
-        Iterables.getOnlyElement(fragmentDiff.optionsDiff.entrySet());
-    assertThat(optionDiff.getKey()).isEqualTo("action_env");
+        Iterators.getOnlyElement(
+            fragmentDiff.optionsDiff.entrySet().stream()
+                .filter(x -> !x.getKey().equals("affected by starlark transition"))
+                .iterator());
+    assertThat(optionDiff.getKey()).isEqualTo("platform_suffix");
     // Convert from Pair<firstVal, secondVal> to an ImmutableList because the ordering of the
     // difference depends on which configuration comes first, which depends on the configuration
     // hash name, which we can't predict statically.
     assertThat(ImmutableList.of(optionDiff.getValue().first, optionDiff.getValue().second))
-        .containsExactly("[a=1]", "[b=2]");
+        .containsExactly("pure", "transitioned");
   }
 
   @Test
   public void compareConfigsHashPrefix() throws Exception {
-    analyzeTarget("--action_env=a=1");
-    analyzeTarget("--action_env=b=2");
-    String targetConfig1Hash = null;
-    String targetConfig2Hash = null;
-
-    // Find the two target configuration hashes.
-    for (JsonElement element :
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()) {
-      String configHash = element.getAsString();
-      ConfigurationForOutput config =
-          new Gson()
-              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
-      if (isTargetConfig(config)) {
-        if (targetConfig1Hash == null) {
-          targetConfig1Hash = config.configHash;
-        } else {
-          assertThat(targetConfig2Hash).isNull();
-          targetConfig2Hash = config.configHash;
-        }
-      }
-    }
+    // Do not trim test configuration for now to make 'finding' the configurations easier.
+    analyzeTargetWithTransition("--platform_suffix=pure", "--notrim_test_configuration");
+    String targetConfig1Hash = getTargetConfig().configHash;
+    String targetConfig2Hash =
+        getTargetConfig(/*excludedHashes=*/ ImmutableSet.of(targetConfig1Hash)).configHash;
 
     String hashPrefix1 = targetConfig1Hash.substring(0, targetConfig1Hash.length() / 2);
     String hashPrefix2 = targetConfig2Hash.substring(0, targetConfig2Hash.length() / 2);
@@ -342,27 +345,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
   @Test
   public void compareConfigs_hostConfig() throws Exception {
-    analyzeTarget("--action_env=a=1");
-    analyzeTarget("--action_env=b=2");
-    String targetConfigHash = null;
-
-    // Find a target configuration hash.
-    for (JsonElement element :
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()) {
-      String configHash = element.getAsString();
-      ConfigurationForOutput config =
-          new Gson()
-              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
-      if (isTargetConfig(config)) {
-        if (targetConfigHash == null) {
-          targetConfigHash = config.configHash;
-          break;
-        }
-      }
-    }
+    // Do not trim test configuration for now to make 'finding' the configurations easier.
+    analyzeTarget("--platform_suffix=pure", "--notrim_test_configuration");
+    String targetConfigHash = getTargetConfig().configHash;
 
     ConfigurationDiffForOutput diff =
         new Gson()
@@ -383,6 +368,32 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(isHostDiff).isPresent();
     assertThat(isHostDiff.get().getFirst()).isEqualTo("false");
     assertThat(isHostDiff.get().getSecond()).isEqualTo("true");
+  }
+
+  private ConfigurationForOutput getTargetConfig() throws Exception {
+    return getTargetConfig(ImmutableSet.of());
+  }
+
+  private ConfigurationForOutput getTargetConfig(ImmutableSet<String> excludedHashes)
+      throws Exception {
+    // Find a target configuration hash.
+    for (JsonElement element :
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
+            .getAsJsonObject()
+            .get("configuration-IDs")
+            .getAsJsonArray()) {
+      String configHash = element.getAsString();
+      if (excludedHashes.contains(configHash)) {
+        continue;
+      }
+      ConfigurationForOutput config =
+          new Gson()
+              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
+      if (isTargetConfig(config)) {
+        return config;
+      }
+    }
+    throw new AssertionError("Should have found config hash");
   }
 
   @Test
@@ -440,6 +451,31 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(targetConfig).isNotNull();
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("1");
     assertThat(getOptionValue(targetConfig, "user-defined", "--define:b")).isEqualTo("2");
+    assertThat(
+            targetConfig.fragmentOptions.stream()
+                .filter(fragment -> fragment.name.endsWith("CoreOptions"))
+                .flatMap(fragment -> fragment.options.keySet().stream())
+                .filter(name -> name.equals("define"))
+                .collect(Collectors.toList()))
+        .isEmpty();
+  }
+
+  @Test
+  public void conflictingDefinesLastWins() throws Exception {
+    analyzeTarget("--define", "a=1", "--define", "a=2");
+
+    ConfigurationForOutput targetConfig = null;
+    for (JsonElement configJson :
+        JsonParser.parseString(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+      ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
+      if (isTargetConfig(config)) {
+        targetConfig = config;
+        break;
+      }
+    }
+
+    assertThat(targetConfig).isNotNull();
+    assertThat(getOptionValue(targetConfig, "user-defined", "--define:a")).isEqualTo("2");
     assertThat(
             targetConfig.fragmentOptions.stream()
                 .filter(fragment -> fragment.name.endsWith("CoreOptions"))

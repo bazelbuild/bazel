@@ -22,30 +22,48 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
-/** Info object about outputs of a Java rule. */
+/**
+ * Info object about outputs of a Java rule.
+ *
+ * @deprecated The interface will eventually be removed.
+ */
 @StarlarkBuiltin(
     name = "java_output_jars",
     category = DocCategory.PROVIDER,
-    doc = "Information about outputs of a Java rule.")
-public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>>
+    doc = "Information about outputs of a Java rule. Deprecated: use java_info.java_outputs.")
+@Deprecated
+public interface JavaRuleOutputJarsProviderApi<JavaOutputT extends JavaOutputApi<?>>
     extends StarlarkValue {
 
-  @StarlarkMethod(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
-  ImmutableList<OutputJarT> getOutputJars();
+  @StarlarkMethod(
+      name = "jars",
+      doc =
+          "Returns information about outputs of this Java/Java-like target. Deprecated: Use"
+              + " java_info.java_outputs.",
+      structField = true)
+  ImmutableList<JavaOutputT> getJavaOutputs();
 
   @StarlarkMethod(
       name = "jdeps",
-      doc = "The jdeps file for rule outputs.",
+      doc =
+          "A manifest proto file. The protobuf file containing the manifest generated from "
+              + "JavaBuilder. This function returns a value when exactly one manifest proto file is"
+              + " present in the outputs.  Deprecated: Use java_info.java_outputs[i].jdeps.",
       structField = true,
       allowReturnNones = true)
   @Nullable
+  @Deprecated
   FileApi getJdeps();
 
   @StarlarkMethod(
       name = "native_headers",
-      doc = "An archive of native header files.",
+      doc =
+          "A jar containing CC header files supporting native method implementation.  This"
+              + " function returns a value when exactly one native headers jar file is present in"
+              + " the outputs. Deprecated: Use java_info.java_outputs[i].native_headers_jar.",
       structField = true,
       allowReturnNones = true)
   @Nullable
+  @Deprecated
   FileApi getNativeHeaders();
 }

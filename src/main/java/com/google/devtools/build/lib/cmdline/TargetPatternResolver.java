@@ -14,37 +14,38 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
 /**
- * A callback that is used during the process of converting target patterns (such as
- * <code>//foo:all</code>) into one or more lists of targets (such as <code>//foo:foo,
+ * A callback that is used during the process of converting target patterns (such as <code>//foo:all
+ * </code>) into one or more lists of targets (such as <code>//foo:foo,
  * //foo:bar</code>). During a call to {@link TargetPattern#eval}, the {@link TargetPattern} makes
  * calls to this interface to implement the target pattern semantics. The generic type {@code T} is
  * only for compile-time type safety; there are no requirements to the actual type.
  */
 public abstract class TargetPatternResolver<T> {
 
-  /**
-   * Reports the given warning.
-   */
+  /** Reports the given warning. */
   public abstract void warn(String msg);
 
   /**
    * Returns a single target corresponding to the given label, or null. This method may only throw
    * an exception if the current thread was interrupted.
    */
-  public abstract T getTargetOrNull(Label label) throws InterruptedException;
+  public abstract T getTargetOrNull(Label label)
+      throws InterruptedException, InconsistentFilesystemException;
 
-  /**
-   * Returns a single target corresponding to the given label, or an empty or failed result.
-   */
+  /** Returns a single target corresponding to the given label, or an empty or failed result. */
   public abstract ResolvedTargets<T> getExplicitTarget(Label label)
       throws TargetParsingException, InterruptedException;
 
@@ -65,8 +66,8 @@ public abstract class TargetPatternResolver<T> {
    * Computes the set containing the targets found below the given {@code directory}, passing it in
    * batches to {@code callback}. Conceptually, this method should look for all packages that start
    * with the {@code directory} (as a proper prefix directory, i.e., "foo/ba" is not a proper prefix
-   * of "foo/bar/"), and then collect all targets in each such package (subject to
-   * {@code rulesOnly}) as if calling {@link #getTargetsInPackage}. The specified directory is not
+   * of "foo/bar/"), and then collect all targets in each such package (subject to {@code
+   * rulesOnly}) as if calling {@link #getTargetsInPackage}. The specified directory is not
    * necessarily a valid package name.
    *
    * <p>Note that the {@code directory} can be empty, which corresponds to the "//..." pattern.
@@ -80,61 +81,73 @@ public abstract class TargetPatternResolver<T> {
    * @param originalPattern the original target pattern for error reporting purposes
    * @param directory the directory in which to look for packages
    * @param rulesOnly whether to return rules only
-   * @param blacklistedSubdirectories a set of transitive subdirectories beneath {@code directory}
-   *    to ignore
-   * @param excludedSubdirectories another set of transitive subdirectories beneath
-   *    {@code directory} to ignore
+   * @param forbiddenSubdirectories a set of transitive subdirectories beneath {@code directory} to
+   *     ignore
+   * @param excludedSubdirectories another set of transitive subdirectories beneath {@code
+   *     directory} to ignore
    * @param callback the callback to receive the result, possibly in multiple batches.
    * @param exceptionClass The class type of the parameterized exception.
    * @throws TargetParsingException under implementation-specific failure conditions
+   * @throws ProcessPackageDirectoryException only when called from within Skyframe and an
+   *     inconsistent filesystem state is observed
    */
-  public abstract <E extends Exception> void findTargetsBeneathDirectory(
-      RepositoryName repository,
-      String originalPattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback,
-      Class<E> exceptionClass)
-      throws TargetParsingException, E, InterruptedException;
+  public abstract <E extends Exception & QueryExceptionMarkerInterface>
+      void findTargetsBeneathDirectory(
+          RepositoryName repository,
+          String originalPattern,
+          String directory,
+          boolean rulesOnly,
+          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<T, E> callback,
+          Class<E> exceptionClass)
+          throws TargetParsingException, E, InterruptedException, ProcessPackageDirectoryException;
 
   /**
-   * Async version of {@link #findTargetsBeneathDirectory}
+   * Async version of {@link #findTargetsBeneathDirectory}. Never call this from within Skyframe
+   * evaluation.
    *
    * <p>Default implementation is synchronous.
    */
-  public <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
-      RepositoryName repository,
-      String originalPattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback,
-      Class<E> exceptionClass,
-      ListeningExecutorService executor) {
-      try {
-        findTargetsBeneathDirectory(
-            repository,
-            originalPattern,
-            directory,
-            rulesOnly,
-            blacklistedSubdirectories,
-            excludedSubdirectories,
-            callback,
-            exceptionClass);
-        return Futures.immediateFuture(null);
-      } catch (TargetParsingException e) {
-        return Futures.immediateFailedFuture(e);
-      } catch (InterruptedException e) {
-        return Futures.immediateCancelledFuture();
-      } catch (Exception e) {
-        if (exceptionClass.isInstance(e)) {
-          return Futures.immediateFailedFuture(e);
-        }
-        throw new IllegalStateException(e);
+  public <E extends Exception & QueryExceptionMarkerInterface>
+      ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
+          RepositoryName repository,
+          String originalPattern,
+          String directory,
+          boolean rulesOnly,
+          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          ImmutableSet<PathFragment> excludedSubdirectories,
+          BatchCallback<T, E> callback,
+          Class<E> exceptionClass,
+          ListeningExecutorService executor) {
+    try {
+      findTargetsBeneathDirectory(
+          repository,
+          originalPattern,
+          directory,
+          rulesOnly,
+          forbiddenSubdirectories,
+          excludedSubdirectories,
+          callback,
+          exceptionClass);
+      return immediateVoidFuture();
+    } catch (TargetParsingException e) {
+      return immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return immediateCancelledFuture();
+    } catch (ProcessPackageDirectoryException e) {
+      throw new IllegalStateException(
+          "Async find targets beneath directory isn't called from within Skyframe: traversing "
+              + directory
+              + " for "
+              + originalPattern,
+          e);
+    } catch (Exception e) {
+      if (exceptionClass.isInstance(e)) {
+        return immediateFailedFuture(e);
       }
+      throw new IllegalStateException(e);
+    }
   }
 
   /**
@@ -142,10 +155,8 @@ public abstract class TargetPatternResolver<T> {
    * file with the name {@code packageName/BUILD} exists in the appropriate repository.
    */
   public abstract boolean isPackage(PackageIdentifier packageIdentifier)
-      throws InterruptedException;
+      throws InterruptedException, InconsistentFilesystemException;
 
-  /**
-   * Returns the target kind of the given target, for example {@code cc_library rule}.
-   */
+  /** Returns the target kind of the given target, for example {@code cc_library rule}. */
   public abstract String getTargetKind(T target);
 }

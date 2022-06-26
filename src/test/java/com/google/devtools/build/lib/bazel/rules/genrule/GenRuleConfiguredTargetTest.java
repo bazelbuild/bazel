@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -39,12 +39,12 @@ import org.junit.runners.JUnit4;
 
 /** Tests of {@link BazelGenRule}. */
 @RunWith(JUnit4.class)
-public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
+public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
   private static final Pattern SETUP_COMMAND_PATTERN =
       Pattern.compile(".*/genrule-setup.sh;\\s+(?<command>.*)");
 
-  private void assertCommandEquals(String expected, String command) {
+  private static void assertCommandEquals(String expected, String command) {
     // Ensure the command after the genrule setup is correct.
     Matcher m = SETUP_COMMAND_PATTERN.matcher(command);
     if (m.matches()) {
@@ -152,8 +152,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(shellAction.getOutputs()).containsExactly(messageArtifact);
 
     String expected = "echo \"Hello, world.\" >" + messageArtifact.getExecPathString();
-    assertThat(shellAction.getArguments().get(0)).isEqualTo(
-        targetConfig.getFragment(ShellConfiguration.class).getShellExecutable().getPathString());
+    assertThat(shellAction.getArguments().get(0))
+        .isEqualTo(ShToolchain.getPathForHost(targetConfig).getPathString());
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertCommandEquals(expected, shellAction.getArguments().get(2));
   }
@@ -417,8 +417,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
           foundSrc = true;
           break;
         case "tool":
-          assertThat(getHostConfiguration().equalsOrIsSupersetOf(getConfiguration(prereq)))
-              .isTrue();
+          assertThat(getConfiguration(prereq).isToolConfiguration()).isTrue();
           foundTool = true;
           break;
         case GENRULE_SETUP_PATH:
@@ -535,17 +534,17 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertStamped(getConfiguredTarget(target));
   }
 
-  private void assertNotStamped(String target) throws Exception {
-    assertNotStamped(getConfiguredTarget(target));
-  }
-
-  private void assertStamped(ConfiguredTarget target) throws Exception {
+  private void assertStamped(ConfiguredTarget target) {
     Artifact out = getFilesToBuild(target).toList().get(0);
     List<String> inputs = ActionsTestUtil.baseArtifactNames(getGeneratingAction(out).getInputs());
     assertThat(inputs).containsAtLeast("build-info.txt", "build-changelist.txt");
   }
 
-  private void assertNotStamped(ConfiguredTarget target) throws Exception {
+  private void assertNotStamped(String target) throws Exception {
+    assertNotStamped(getConfiguredTarget(target));
+  }
+
+  private void assertNotStamped(ConfiguredTarget target) {
     Artifact out = getFilesToBuild(target).toList().get(0);
     List<String> inputs = ActionsTestUtil.baseArtifactNames(getGeneratingAction(out).getInputs());
     assertThat(inputs).doesNotContain("build-info.txt");

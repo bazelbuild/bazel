@@ -18,9 +18,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,7 +41,16 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     PackageIdentifier packageId = (PackageIdentifier) skyKey.argument();
-    PackageValue packageValue = (PackageValue) env.getValue(PackageValue.key(packageId));
+    PackageValue packageValue;
+    try {
+      packageValue =
+          (PackageValue)
+              env.getValueOrThrow(PackageValue.key(packageId), NoSuchPackageException.class);
+    } catch (NoSuchPackageException e) {
+      // If the argument is a package that doesn't exist, the aggregator function can return
+      // a success value immediately.
+      return CollectTestSuitesInPackageValue.INSTANCE;
+    }
     if (env.valuesMissing()) {
       return null;
     }
@@ -67,17 +78,9 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
           CollectTestSuitesInPackageValue.key(label.getPackageIdentifier()));
     }
     collectTestSuiteInPkgDeps.remove(skyKey);
-    env.getValues(collectTestSuiteInPkgDeps);
-
-    if (env.valuesMissing()) {
-      return null;
-    }
-    return CollectTestSuitesInPackageValue.INSTANCE;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+    return GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, collectTestSuiteInPkgDeps)
+        ? null
+        : CollectTestSuitesInPackageValue.INSTANCE;
   }
 }

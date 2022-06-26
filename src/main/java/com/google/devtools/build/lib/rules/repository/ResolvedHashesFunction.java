@@ -85,10 +85,4 @@ public class ResolvedHashesFunction implements SkyFunction {
     }
     return new ResolvedHashesValue(ImmutableMap.copyOf(hashes));
   }
-
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
 }

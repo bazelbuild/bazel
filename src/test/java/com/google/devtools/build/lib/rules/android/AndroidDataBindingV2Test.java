@@ -533,13 +533,13 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     assertWithMessage(DataBindingV2Provider.NAME).that(dataBindingV2Provider).isNotNull();
 
     assertThat(
-            dataBindingV2Provider.getSetterStores().stream()
+            dataBindingV2Provider.getSetterStores().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly("java/a/databinding/a/bin-files/a-a-setter_store.bin");
 
     assertThat(
-            dataBindingV2Provider.getClassInfos().stream()
+            dataBindingV2Provider.getClassInfos().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly("java/a/databinding/a/class-info.zip");
@@ -652,14 +652,14 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     DataBindingV2Provider provider = c.get(DataBindingV2Provider.PROVIDER);
 
     assertThat(
-            provider.getClassInfos().stream()
+            provider.getClassInfos().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly(
             "java/a/databinding/a/class-info.zip", "java/b/databinding/b/class-info.zip");
 
     assertThat(
-            provider.getSetterStores().stream()
+            provider.getSetterStores().toList().stream()
                 .map(Artifact::getRootRelativePathString)
                 .collect(Collectors.toList()))
         .containsExactly(

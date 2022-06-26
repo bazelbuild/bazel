@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
 
 /**
  * Builder for the test instance of the {@link BlazeExecutor} class.
@@ -83,6 +84,11 @@ public class TestExecutorBuilder {
   }
 
   public TestExecutorBuilder parseOptions(String... options) throws OptionsParsingException {
+    this.optionsParser.parse(options);
+    return this;
+  }
+
+  public TestExecutorBuilder parseOptions(List<String> options) throws OptionsParsingException {
     this.optionsParser.parse(options);
     return this;
   }

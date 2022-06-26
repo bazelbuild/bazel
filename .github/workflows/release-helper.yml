@@ -1,0 +1,15 @@
+name: release-helper
+on:
+  issue_comment:
+    types: [created, edited]
+jobs:
+  release-helper:
+    if: startsWith(github.event.comment.body, '@bazel-io ')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Run helper
+        uses: bazelbuild/continuous-integration/actions/release-helper@master
+        with:
+          token: ${{ secrets.BAZEL_IO_TOKEN }}

@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
@@ -25,7 +28,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link TargetCycleReporter}. */
 @RunWith(JUnit4.class)
-public class TargetCycleReporterTest extends BuildViewTestCase {
+public final class TargetCycleReporterTest extends BuildViewTestCase {
 
   /**
    * Regression test for b/142966884 : Blaze crashes when building with --aspects and --keep_going
@@ -47,12 +50,12 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
     CycleInfo cycle =
         new CycleInfo(
             ImmutableList.of(
-                TransitiveTargetKey.of(makeLabel("//foo:b")),
-                TransitiveTargetKey.of(makeLabel("//foo:c"))));
+                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:b")),
+                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:c"))));
 
     ConfiguredTargetKey ctKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//foo:a"))
+            .setLabel(Label.parseAbsoluteUnchecked("//foo:a"))
             .setConfiguration(targetConfig)
             .build();
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
@@ -60,21 +63,20 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
 
-    SkyKey aspectKey =
-        AspectValueKey.AspectKey.createAspectKey(
-            ctKey, ImmutableList.of(), null, BuildConfigurationValue.key(targetConfig));
+    SkyKey aspectKey = AspectKeyCreator.createAspectKey(null, ctKey);
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, aspectKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
 
     SkyKey starlarkAspectKey =
-        AspectValueKey.createStarlarkAspectKey(
-            makeLabel("//foo:a"),
+        AspectKeyCreator.createTopLevelAspectsKey(
+            ImmutableList.of(
+                new StarlarkAspectClass(
+                    Label.parseAbsoluteUnchecked("//foo:b"), "my Starlark key")),
+            Label.parseAbsoluteUnchecked("//foo:a"),
             targetConfig,
-            targetConfig,
-            makeLabel("//foo:b"),
-            "my Starlark key");
+            /* topLevelAspectsParameters= */ ImmutableMap.of());
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, starlarkAspectKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "

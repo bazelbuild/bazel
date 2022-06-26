@@ -58,7 +58,7 @@ public final class StarlarkThread {
   // the lifetime of this thread.
   final AtomicInteger cpuTicks = new AtomicInteger();
   @Nullable private CpuProfiler profiler;
-  StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
+  private StarlarkThread savedThread; // saved StarlarkThread, when profiling reentrant evaluation
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
@@ -164,7 +164,7 @@ public final class StarlarkThread {
     void setErrorLocation(Location loc) {
       if (!errorLocationSet) {
         errorLocationSet = true;
-        setLocation(loc);
+        this.loc = loc;
       }
     }
 
@@ -213,6 +213,8 @@ public final class StarlarkThread {
 
   /** Loader for Starlark load statements. Null if loading is disallowed. */
   @Nullable private Loader loader = null;
+
+  private UncheckedExceptionContext uncheckedExceptionContext = () -> "";
 
   /** Stack of active function calls. */
   private final ArrayList<Frame> callstack = new ArrayList<>();
@@ -334,6 +336,22 @@ public final class StarlarkThread {
     this.loader = Preconditions.checkNotNull(loader);
   }
 
+  /**
+   * Supplies additional context to append to the message of {@link Starlark.UncheckedEvalException}
+   * or {@link Starlark.UncheckedEvalError}.
+   */
+  public interface UncheckedExceptionContext {
+    String getContextForUncheckedException();
+  }
+
+  public void setUncheckedExceptionContext(UncheckedExceptionContext uncheckedExceptionContext) {
+    this.uncheckedExceptionContext = Preconditions.checkNotNull(uncheckedExceptionContext);
+  }
+
+  String getContextForUncheckedException() {
+    return uncheckedExceptionContext.getContextForUncheckedException();
+  }
+
   /** Reports whether {@code fn} has been recursively reentered within this thread. */
   boolean isRecursiveCall(StarlarkFunction fn) {
     // Find fn buried within stack. (The top of the stack is assumed to be fn.)
@@ -365,7 +383,7 @@ public final class StarlarkThread {
    * <p>Every use of this function is a hack to work around the lack of proper local vs global
    * identifier resolution at top level.
    */
-  boolean toplevel() {
+  private boolean toplevel() {
     return callstack.size() < 2;
   }
 
@@ -378,7 +396,10 @@ public final class StarlarkThread {
    * Constructs a StarlarkThread.
    *
    * @param mu the (non-frozen) mutability of values created by this thread.
-   * @param semantics the StarlarkSemantics for this thread.
+   * @param semantics the StarlarkSemantics for this thread. Note that it is generally a code smell
+   *     to use {@link StarlarkSemantics#DEFAULT} if the application permits customizing the
+   *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
+   *     the same application would use the same {@code StarlarkSemantics} instance.
    */
   public StarlarkThread(Mutability mu, StarlarkSemantics semantics) {
     Preconditions.checkArgument(!mu.isFrozen());
@@ -416,7 +437,7 @@ public final class StarlarkThread {
   // Implementation of Debug.getCallStack.
   // Intentionally obscured to steer most users to the simpler getCallStack.
   ImmutableList<Debug.Frame> getDebugCallStack() {
-    return ImmutableList.<Debug.Frame>copyOf(callstack);
+    return ImmutableList.copyOf(callstack);
   }
 
   /** Returns the size of the callstack. This is needed for the debugger. */
@@ -451,11 +472,24 @@ public final class StarlarkThread {
    * indefinitely and safely shared with other threads.
    */
   public ImmutableList<CallStackEntry> getCallStack() {
-    ImmutableList.Builder<CallStackEntry> stack = ImmutableList.builder();
+    ImmutableList.Builder<CallStackEntry> stack =
+        ImmutableList.builderWithExpectedSize(callstack.size());
     for (Frame fr : callstack) {
       stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();
+  }
+
+  /** Sets the given throwable's stack trace to a Java-style version of {@link #getCallStack}. */
+  void fillInStackTrace(Throwable throwable) {
+    StackTraceElement[] trace = new StackTraceElement[callstack.size()];
+    for (int i = 0; i < callstack.size(); i++) {
+      Frame frame = callstack.get(i);
+      trace[trace.length - i - 1] =
+          new StackTraceElement(
+              "<starlark>", frame.fn.getName(), frame.loc.file(), frame.loc.line());
+    }
+    throwable.setStackTrace(trace);
   }
 
   @Override

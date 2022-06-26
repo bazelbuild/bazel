@@ -18,6 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.MetricData.HistogramElement;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAccumulator;
 
 /**
  * A stat recorder that can record time histograms, count of calls, average time, Std. Deviation
@@ -28,51 +32,50 @@ public class SingleStatRecorder implements StatRecorder {
 
   private final int buckets;
   private final Object description;
-  private int[] histogram;
-  private int count = 0;
-  private double avg = 0.0;
-  private double m2 = 0.0;
-  private int max = -1;
+  private final AtomicIntegerArray histogram;
+  private final AtomicInteger count = new AtomicInteger(0);
+  private final AtomicLong sum = new AtomicLong(0);
+  private final AtomicLong sumSquared = new AtomicLong(0);
+  private final LongAccumulator max = new LongAccumulator(Math::max, -1);
 
   public SingleStatRecorder(Object description, int buckets) {
     this.description = description;
     Preconditions.checkArgument(buckets > 1, "At least two buckets (one for bellow start and one"
         + "for above start) are required");
     this.buckets = buckets;
-    histogram = new int[buckets];
+    histogram = new AtomicIntegerArray(buckets);
   }
 
   /** Create an snapshot of the stats recorded up to now. */
   public MetricData snapshot() {
-    synchronized (this) {
-      ImmutableList.Builder<HistogramElement> result = ImmutableList.builder();
-      result.add(new HistogramElement(Range.closedOpen(0, 1), histogram[0]));
-      int from = 1;
-      for (int i = 1; i < histogram.length - 1; i++) {
-        int to = from << 1;
-        result.add(new HistogramElement(Range.closedOpen(from, to), histogram[i]));
-        from = to;
-      }
-      result.add(new HistogramElement(Range.atLeast(from), histogram[histogram.length - 1]));
-      return new MetricData(description, result.build(), count, avg,
-          Math.sqrt(m2 / (double) count), max);
+    ImmutableList.Builder<HistogramElement> result = ImmutableList.builder();
+    result.add(new HistogramElement(Range.closedOpen(0, 1), histogram.get(0)));
+    int from = 1;
+    for (int i = 1; i < histogram.length() - 1; i++) {
+      int to = from << 1;
+      result.add(new HistogramElement(Range.closedOpen(from, to), histogram.get(i)));
+      from = to;
     }
+    result.add(new HistogramElement(Range.atLeast(from), histogram.get(histogram.length() - 1)));
+    int n = count.get();
+    double stddev;
+    if (n == 1) {
+      stddev = 0;
+    } else {
+      stddev = Math.sqrt((sumSquared.longValue() - sum.get() * sum.doubleValue() / n) / n);
+    }
+    return new MetricData(
+        description, result.build(), count.get(), sum.doubleValue() / n, stddev, max.intValue());
   }
 
   @Override
   public void addStat(int duration, Object obj) {
     int histogramBucket = Math.min(32 - Integer.numberOfLeadingZeros(duration), buckets - 1);
-    synchronized (this) {
-      count++;
-      double delta = duration - avg;
-      avg += delta / count;
-      double newDelta = duration - avg;
-      m2 += delta * newDelta;
-      if (duration > max) {
-        max = duration;
-      }
-      histogram[histogramBucket]++;
-    }
+    count.incrementAndGet();
+    sum.addAndGet(duration);
+    sumSquared.addAndGet(duration * duration);
+    max.accumulate(duration);
+    histogram.incrementAndGet(histogramBucket);
   }
 
   @Override

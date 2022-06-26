@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
@@ -39,9 +40,10 @@ public class PlatformOptions extends FragmentOptions {
   // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
   // directly.
   public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@bazel_tools//platforms:host_platform");
+      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
   public static final Label DEFAULT_HOST_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+  public static final String DEFAULT_TARGET_PLATFORM_FALLBACK = "@local_config_platform//:host";
 
   /**
    * Main workspace-relative location to use when the user does not explicitly set {@code
@@ -49,6 +51,13 @@ public class PlatformOptions extends FragmentOptions {
    */
   public static final PathFragment DEFAULT_PLATFORM_MAPPINGS =
       PathFragment.create("platform_mappings");
+
+  private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
+      ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
+
+  public static boolean platformIsDefault(Label platform) {
+    return DEFAULT_PLATFORM_NAMES.contains(platform.getName());
+  }
 
   @Option(
       name = "host_platform",
@@ -89,6 +98,8 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.CHANGES_INPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
+      // TODO(blaze-configurability-team): add OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH
+      //   after fixing platform name determination (currently not sufficiently unique).
       help =
           "The labels of the platform rules describing the target platforms for the current "
               + "command.")
@@ -97,7 +108,7 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "target_platform_fallback",
       converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@bazel_tools//platforms:target_platform",
+      defaultValue = DEFAULT_TARGET_PLATFORM_FALLBACK,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -148,23 +159,24 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "toolchain_resolution_debug",
-      defaultValue = "false",
+      defaultValue = "-.*", // By default, exclude everything.
+      converter = RegexFilter.RegexFilterConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Print debug information while finding toolchains for a rule. This might help developers "
-              + "of Bazel or Starlark rules with debugging failures due to missing toolchains.")
-  public boolean toolchainResolutionDebug;
+          "Print debug information during toolchain resolution. The flag takes a regex, which is"
+              + " checked against toolchain types and specific targets to see which to debug. "
+              + "Multiple regexes may be  separated by commas, and then each regex is checked "
+              + "separately. Note: The output of this flag is very complex and will likely only be "
+              + "useful to experts in toolchain resolution.")
+  public RegexFilter toolchainResolutionDebug;
 
   @Option(
       name = "incompatible_auto_configure_host_platform",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, the host platform will be inherited from @local_config_platform//:host, "
               + "instead of being based on the --cpu (and --host_cpu) flags.")
@@ -175,13 +187,8 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
-              + " java_runtime.")
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean useToolchainResolutionForJavaRules;
 
   @Option(
@@ -218,19 +225,6 @@ public class PlatformOptions extends FragmentOptions {
               + " 'test'.")
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
-  @Option(
-      name = "incompatible_override_toolchain_transition",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, all rules will use the toolchain transition for toolchain dependencies.")
-  public boolean overrideToolchainTransition;
-
   @Override
   public PlatformOptions getHost() {
     PlatformOptions host = (PlatformOptions) getDefault();
@@ -245,7 +239,6 @@ public class PlatformOptions extends FragmentOptions {
     host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     host.targetPlatformFallback = this.targetPlatformFallback;
-    host.overrideToolchainTransition = this.overrideToolchainTransition;
     return host;
   }
 

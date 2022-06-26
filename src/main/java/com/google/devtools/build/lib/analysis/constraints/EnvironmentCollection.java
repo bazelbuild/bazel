@@ -22,20 +22,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 /** Contains a set of {@link Environment} labels and their associated groups. */
-@AutoCodec
 @Immutable
 public class EnvironmentCollection {
   private final ImmutableMultimap<EnvironmentLabels, Label> map;
 
-  @VisibleForSerialization
-  EnvironmentCollection(ImmutableMultimap<EnvironmentLabels, Label> map) {
+  private EnvironmentCollection(ImmutableMultimap<EnvironmentLabels, Label> map) {
     this.map = map;
   }
 
@@ -53,11 +50,20 @@ public class EnvironmentCollection {
   }
 
   /**
-   * Returns the build labels of each environment in this collection, ordered by
-   * their insertion order in {@link Builder}.
+   * Returns the build labels of each environment in this collection, ordered by their insertion
+   * order in {@link Builder}.
    */
   public ImmutableCollection<Label> getEnvironments() {
     return map.values();
+  }
+
+  /**
+   * Returns the environments in this collection that belong to the given group, ordered by their
+   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
+   * empty collection.
+   */
+  ImmutableCollection<Label> getEnvironments(EnvironmentLabels group) {
+    return map.get(group);
   }
 
   /**
@@ -80,16 +86,8 @@ public class EnvironmentCollection {
     return builder.build();
   }
 
-  /**
-   * Returns the environments in this collection that belong to the given group, ordered by their
-   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
-   * empty collection.
-   */
-  ImmutableCollection<Label> getEnvironments(EnvironmentLabels group) {
-    return map.get(group);
-  }
-
   /** An empty collection. */
+  @SerializationConstant
   static final EnvironmentCollection EMPTY = new EnvironmentCollection(ImmutableMultimap.of());
 
   @Override

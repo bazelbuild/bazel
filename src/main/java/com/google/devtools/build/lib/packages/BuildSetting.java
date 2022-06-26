@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
 import net.starlark.java.eval.Printer;
 
@@ -37,6 +39,9 @@ public class BuildSetting implements BuildSettingApi {
   }
 
   public static BuildSetting create(boolean isFlag, Type<?> type) {
+    Preconditions.checkState(
+        type.getLabelClass() != LabelClass.DEPENDENCY,
+        "Build settings should not create a dependency with their default attribute");
     return new BuildSetting(isFlag, type, /* allowMultiple= */ false);
   }
 

@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -32,6 +30,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 /**
  * Creates include scanner instances.
@@ -73,10 +72,6 @@ public class IncludeScannerSupplier {
     }
   }
 
-  private final BlazeDirectories directories;
-  private final ExecutorService includePool;
-  private final ArtifactFactory artifactFactory;
-
   private IncludeParser includeParser;
 
   /**
@@ -86,33 +81,8 @@ public class IncludeScannerSupplier {
   private final ConcurrentMap<Artifact, ListenableFuture<Collection<Inclusion>>> includeParseCache =
       new ConcurrentHashMap<>();
 
-  /** Map of grepped include files from input (.cc or .h) to a header-grepped file. */
-  private final PathExistenceCache pathCache;
-
-  private final Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier;
-  private final Path execRoot;
-
   /** Cache of include scanner instances mapped by include-path hashes. */
-  private final LoadingCache<IncludeScannerParams, IncludeScanner> scanners =
-      CacheBuilder.newBuilder()
-          .build(
-              new CacheLoader<IncludeScannerParams, IncludeScanner>() {
-                @Override
-                public IncludeScanner load(IncludeScannerParams key) {
-                  return new LegacyIncludeScanner(
-                      includeParser,
-                      includePool,
-                      includeParseCache,
-                      pathCache,
-                      key.quoteIncludePaths,
-                      key.includePaths,
-                      key.frameworkIncludePaths,
-                      directories.getOutputPath(execRoot.getBaseName()),
-                      execRoot,
-                      artifactFactory,
-                      spawnIncludeScannerSupplier);
-                }
-              });
+  private final LoadingCache<IncludeScannerParams, IncludeScanner> scanners;
 
   public IncludeScannerSupplier(
       BlazeDirectories directories,
@@ -120,12 +90,24 @@ public class IncludeScannerSupplier {
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
       Path execRoot) {
-    this.directories = directories;
-    this.includePool = includePool;
-    this.artifactFactory = artifactFactory;
-    this.spawnIncludeScannerSupplier = spawnIncludeScannerSupplier;
-    this.execRoot = execRoot;
-    this.pathCache = new PathExistenceCache(execRoot, artifactFactory);
+    // Map of grepped include files from input (.cc or .h) to a header-grepped file.
+    PathExistenceCache pathCache = new PathExistenceCache(execRoot, artifactFactory);
+    scanners =
+        Caffeine.newBuilder()
+            .build(
+                key ->
+                    new LegacyIncludeScanner(
+                        includeParser,
+                        includePool,
+                        includeParseCache,
+                        pathCache,
+                        key.quoteIncludePaths,
+                        key.includePaths,
+                        key.frameworkIncludePaths,
+                        directories.getOutputPath(execRoot.getBaseName()),
+                        execRoot,
+                        artifactFactory,
+                        spawnIncludeScannerSupplier));
   }
 
   /**
@@ -137,8 +119,7 @@ public class IncludeScannerSupplier {
       List<PathFragment> includePaths,
       List<PathFragment> frameworkPaths) {
     Preconditions.checkNotNull(includeParser);
-    return scanners.getUnchecked(
-        new IncludeScannerParams(quoteIncludePaths, includePaths, frameworkPaths));
+    return scanners.get(new IncludeScannerParams(quoteIncludePaths, includePaths, frameworkPaths));
   }
 
   public void init(IncludeParser includeParser) {
@@ -150,10 +131,5 @@ public class IncludeScannerSupplier {
     Preconditions.checkState(includeParseCache.isEmpty(), includeParseCache);
     Preconditions.checkState(scanners.asMap().isEmpty(), scanners);
     this.includeParser = Preconditions.checkNotNull(includeParser);
-    if (this.includeParser.getHints() != null) {
-      // The Hints object lives across the lifetime of the Blaze server, but its cached hints may
-      // be stale.
-      this.includeParser.getHints().clearCachedLegacyHints();
-    }
   }
 }

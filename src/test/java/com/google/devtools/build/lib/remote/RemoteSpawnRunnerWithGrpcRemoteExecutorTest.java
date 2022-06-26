@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+/// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.GrpcCacheClient.getResourceName;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -53,6 +54,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -67,9 +69,12 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -78,9 +83,9 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.longrunning.Operation;
@@ -90,6 +95,7 @@ import com.google.rpc.Code;
 import com.google.rpc.PreconditionFailure;
 import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.BindableService;
+import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -101,6 +107,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -118,9 +125,10 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
-  private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
-
+  private final Reporter reporter = new Reporter(new EventBus());
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;
@@ -180,7 +188,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
     logDir = fs.getPath("/server-logs");
-    FileSystemUtils.createDirectoryAndParents(execRoot);
+    execRoot.createDirectoryAndParents();
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn =
         new SimpleSpawn(
@@ -188,9 +196,12 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
+            /*runfilesSupplier=*/ null,
+            /*filesetMappings=*/ ImmutableMap.of(),
             /*inputs=*/ NestedSetBuilder.create(
                 Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
-            /*outputs=*/ ImmutableSet.<ActionInput>of(
+            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /*outputs=*/ ImmutableSet.of(
                 new ActionInput() {
                   @Override
                   public String getExecPathString() {
@@ -223,12 +234,13 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     return PathFragment.create("bar");
                   }
                 }),
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
     Path stderr = fs.getPath("/tmp/stderr");
-    FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
-    FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
+    stdout.getParentDirectory().createDirectoryAndParents();
+    stderr.getParentDirectory().createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
@@ -253,32 +265,48 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName)
-                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
-                .directExecutor()
-                .build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName)
+                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .directExecutor()
+                        .build();
+
+                return Single.just(new ChannelConnection(ch));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(
             GoogleAuthUtils.newCredentials(Options.getDefaults(AuthAndTLSOptions.class)));
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            remoteOptions.remoteInstanceName,
-            channel.retain(),
-            callCredentialsProvider,
-            remoteOptions.remoteTimeout.getSeconds(),
-            retrier);
     GrpcCacheClient cacheProtocol =
         new GrpcCacheClient(
-            channel.retain(),
-            callCredentialsProvider,
-            remoteOptions,
-            retrier,
-            DIGEST_UTIL,
-            uploader);
+            channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
     RemoteExecutionCache remoteCache =
         new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+    RemoteExecutionService remoteExecutionService =
+        new RemoteExecutionService(
+            directExecutor(),
+            reporter,
+            /*verboseFailures=*/ true,
+            execRoot,
+            RemotePathResolver.createDefault(execRoot),
+            "build-req-id",
+            "command-id",
+            DIGEST_UTIL,
+            remoteOptions,
+            remoteCache,
+            executor,
+            ImmutableSet.of(),
+            /* captureCorruptedOutputsDir= */ null);
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -286,14 +314,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
             /*cmdlineReporter=*/ null,
-            "build-req-id",
-            "command-id",
-            remoteCache,
-            executor,
             retryService,
-            DIGEST_UTIL,
             logDir,
-            /* filesToDownload= */ ImmutableSet.of());
+            remoteExecutionService);
 
     inputDigest =
         fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
@@ -305,8 +328,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("main/bar", "main/foo"))
-            .setWorkingDirectory("main")
+            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
     channel.release();
@@ -1045,7 +1067,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             responseObserver.onCompleted();
           }
         });
-    String stdOutResourceName = getResourceName(remoteOptions.remoteInstanceName, stdOutDigest);
+    String stdOutResourceName =
+        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1106,7 +1129,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             responseObserver.onCompleted();
           }
         });
-    String stdOutResourceName = getResourceName(remoteOptions.remoteInstanceName, stdOutDigest);
+    String stdOutResourceName =
+        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1232,7 +1256,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String dummyTreeResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest());
+        getResourceName(
+            remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest(), false);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           private boolean first = true;

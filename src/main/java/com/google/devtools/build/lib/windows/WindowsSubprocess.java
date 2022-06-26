@@ -26,9 +26,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * A Windows subprocess backed by a native object.
- */
+/** A Windows subprocess backed by a native object. */
 public class WindowsSubprocess implements Subprocess {
   // For debugging purposes.
   private String commandLine;
@@ -38,16 +36,13 @@ public class WindowsSubprocess implements Subprocess {
     TIMEOUT
   }
 
-  /**
-   * Output stream for writing to the stdin of a Windows process.
-   */
+  /** Output stream for writing to the stdin of a Windows process. */
   private class ProcessOutputStream extends OutputStream {
-    private ProcessOutputStream() {
-    }
+    private ProcessOutputStream() {}
 
     @Override
     public void write(int b) throws IOException {
-      byte[] buf = new byte[]{ (byte) b };
+      byte[] buf = new byte[] {(byte) b};
       write(buf, 0, 1);
     }
 
@@ -150,8 +145,12 @@ public class WindowsSubprocess implements Subprocess {
   private final long timeoutMillis;
   private boolean timedout = false;
 
-  WindowsSubprocess(long nativeProcess, String commandLine, boolean stdoutRedirected,
-      boolean stderrRedirected, long timeoutMillis) {
+  WindowsSubprocess(
+      long nativeProcess,
+      String commandLine,
+      boolean stdoutRedirected,
+      boolean stderrRedirected,
+      long timeoutMillis) {
     this.commandLine = commandLine;
     this.nativeProcess = nativeProcess;
     // As per the spec of Command, we should only apply timeouts that are > 0.
@@ -298,5 +297,10 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public String toString() {
     return String.format("%s:[%s]", super.toString(), commandLine);
+  }
+
+  @Override
+  public long getProcessId() {
+    return this.nativeProcess;
   }
 }

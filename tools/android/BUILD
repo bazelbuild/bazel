@@ -44,7 +44,6 @@ py_binary(
     srcs = ["incremental_install.py"],
     deps = [
         "//third_party/py/abseil",
-        "//third_party/py/concurrent:futures",
     ],
 )
 
@@ -116,6 +115,21 @@ py_test(
     deps = [
         ":stubify_manifest",
     ],
+)
+
+py_binary(
+    name = "aar_embedded_proguard_extractor",
+    srcs = ["aar_embedded_proguard_extractor.py"],
+    deps = [
+        ":junction_lib",
+        "//third_party/py/abseil",
+    ],
+)
+
+py_test(
+    name = "aar_embedded_proguard_extractor_test",
+    srcs = ["aar_embedded_proguard_extractor_test.py"],
+    deps = [":aar_embedded_proguard_extractor"],
 )
 
 py_binary(
@@ -224,18 +238,3 @@ filegroup(
 
 # Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.
 exports_files(["android_sdk_repository_template.bzl"])
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [":windows_tests"],
-    visibility = ["//tools:__pkg__"],
-)

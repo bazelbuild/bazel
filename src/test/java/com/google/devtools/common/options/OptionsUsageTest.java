@@ -111,7 +111,7 @@ public final class OptionsUsageTest {
                 + "=&lt;a string&gt</code> default: \"test string default\"</dt>\n"
                 + "<dd>\n"
                 + "a string-valued option to test simple option operations\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -162,7 +162,7 @@ public final class OptionsUsageTest {
                 + "=&lt;an integer&gt</code> default: \"12\"</dt>\n"
                 + "<dd>\n"
                 + "an int-value&#39;d flag used to test expansion logic\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -255,7 +255,7 @@ public final class OptionsUsageTest {
                 + "multiple uses are accumulated</dt>\n"
                 + "<dd>\n"
                 + "a repeatable string-valued flag with its own unhelpful help text\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -312,7 +312,7 @@ public final class OptionsUsageTest {
                 + "<dd>\n"
                 + "a repeatable flag that accepts lists, but doesn&#39;t want to have lists of "
                 + "lists as a final type\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -385,7 +385,7 @@ public final class OptionsUsageTest {
                 + "&nbsp;&nbsp;<code><a href=\"#flag42\">42</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a href=\"#flag--expanded_d\">--expanded_d</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a href=\"#flagbar\">bar</a></code><br/>\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
   }
@@ -457,7 +457,7 @@ public final class OptionsUsageTest {
                 + " href=\"#flag--test_recursive_expansion_middle1\">--test_recursive_expansion_middle1</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a"
                 + " href=\"#flag--test_recursive_expansion_middle2\">--test_recursive_expansion_middle2</a></code><br/>\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a></dd>\n");
   }
 
@@ -521,7 +521,7 @@ public final class OptionsUsageTest {
                 + " href=\"#flag--test_multiple_string\">--test_multiple_string=expandedFirstValue</a></code><br/>\n"
                 + "&nbsp;&nbsp;<code><a"
                 + " href=\"#flag--test_multiple_string\">--test_multiple_string=expandedSecondValue</a></code><br/>\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a></dd>\n");
   }
 
@@ -577,136 +577,8 @@ public final class OptionsUsageTest {
                 + "default: \"direct implicit\"</dt>\n"
                 + "<dd>\n"
                 + "this option really needs that other one, isolation of purpose has failed.\n"
-                + "<br>Tags: \n"
+                + "<br>Tags:\n"
                 + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
                 + "</dd>\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_shortTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.SHORT))
-        .isEqualTo("  --prefix_expansion\n");
-    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.SHORT))
-        .isEqualTo(getTerminalUsageWithTags("prefix_expansion", HelpVerbosity.SHORT));
-  }
-
-  @Test
-  public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_mediumTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.MEDIUM))
-        .isEqualTo("  --prefix_expansion\n");
-    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.MEDIUM))
-        .isEqualTo(getTerminalUsageWithTags("prefix_expansion", HelpVerbosity.MEDIUM));
-  }
-
-  @Test
-  public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_longTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("prefix_expansion", HelpVerbosity.LONG))
-        .isEqualTo(
-            "  --prefix_expansion\n"
-                + "    Expands to all options with a specific prefix.\n"
-                + "      Expands to: --specialexp_bar --specialexp_foo \n");
-    assertThat(getTerminalUsageWithTags("prefix_expansion", HelpVerbosity.LONG))
-        .isEqualTo(
-            "  --prefix_expansion\n"
-                + "    Expands to all options with a specific prefix.\n"
-                + "      Expands to: --specialexp_bar --specialexp_foo \n"
-                + "      Tags: no_op\n");
-  }
-
-  @Test
-  public void expansionFunctionOptionThatExpandsBasedOnOtherLoadedOptions_htmlOutput() {
-    assertThat(getHtmlUsageWithoutTags("prefix_expansion"))
-        .isEqualTo(
-            "<dt id=\"flag--prefix_expansion\"><code>"
-                + "<a href=\"#flag--prefix_expansion\">--prefix_expansion</a>"
-                + "</code></dt>\n"
-                + "<dd>\n"
-                + "Expands to all options with a specific prefix.\n"
-                + "<br/>\n"
-                + "Expands to:<br/>\n"
-                + "&nbsp;&nbsp;<code>"
-                + "<a href=\"#flag--specialexp_bar\">--specialexp_bar</a></code><br/>\n"
-                + "&nbsp;&nbsp;<code>"
-                + "<a href=\"#flag--specialexp_foo\">--specialexp_foo</a></code><br/>\n"
-                + "</dd>\n");
-    assertThat(getHtmlUsageWithTags("prefix_expansion"))
-        .isEqualTo(
-            "<dt id=\"flag--prefix_expansion\"><code>"
-                + "<a href=\"#flag--prefix_expansion\">--prefix_expansion</a>"
-                + "</code></dt>\n"
-                + "<dd>\n"
-                + "Expands to all options with a specific prefix.\n"
-                + "<br/>\n"
-                + "Expands to:<br/>\n"
-                + "&nbsp;&nbsp;<code>"
-                + "<a href=\"#flag--specialexp_bar\">--specialexp_bar</a></code><br/>\n"
-                + "&nbsp;&nbsp;<code>"
-                + "<a href=\"#flag--specialexp_foo\">--specialexp_foo</a></code><br/>\n"
-                + "<br>Tags: \n"
-                + "<a href=\"#effect_tag_NO_OP\"><code>no_op</code></a>"
-                + "</dd>\n");
-  }
-
-  @Test
-  public void tagHeavyExpansionOption_shortTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.SHORT))
-        .isEqualTo("  --test_void_expansion_function\n");
-    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.SHORT))
-        .isEqualTo(getTerminalUsageWithTags("test_void_expansion_function", HelpVerbosity.SHORT));
-  }
-
-  @Test
-  public void tagHeavyExpansionOption_mediumTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.MEDIUM))
-        .isEqualTo("  --test_void_expansion_function\n");
-    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.MEDIUM))
-        .isEqualTo(getTerminalUsageWithTags("test_void_expansion_function", HelpVerbosity.MEDIUM));
-  }
-
-  @Test
-  public void tagHeavyExpansionOption_longTerminalOutput() {
-    assertThat(getTerminalUsageWithoutTags("test_void_expansion_function", HelpVerbosity.LONG))
-        .isEqualTo(
-            "  --test_void_expansion_function\n"
-                + "    Listing a ton of random tags to test the usage output.\n"
-                + "      Expands to: --expanded_d void expanded \n");
-    assertThat(getTerminalUsageWithTags("test_void_expansion_function", HelpVerbosity.LONG))
-        .isEqualTo(
-            "  --test_void_expansion_function\n"
-                + "    Listing a ton of random tags to test the usage output.\n"
-                + "      Expands to: --expanded_d void expanded \n"
-                + "      Tags: action_command_lines, test_runner, terminal_output, experimental\n");
-  }
-
-  @Test
-  public void tagHeavyExpansionOption_htmlOutput() {
-    assertThat(getHtmlUsageWithoutTags("test_void_expansion_function"))
-        .isEqualTo(
-            "<dt id=\"flag--test_void_expansion_function\"><code><a"
-                + " href=\"#flag--test_void_expansion_function\">--test_void_expansion_function</a></code></dt>\n"
-                + "<dd>\n"
-                + "Listing a ton of random tags to test the usage output.\n"
-                + "<br/>\n"
-                + "Expands to:<br/>\n"
-                + "&nbsp;&nbsp;<code><a href=\"#flag--expanded_d\">--expanded_d</a></code><br/>\n"
-                + "&nbsp;&nbsp;<code><a href=\"#flagvoid expanded\">void"
-                + " expanded</a></code><br/>\n"
-                + "</dd>\n");
-    assertThat(getHtmlUsageWithTags("test_void_expansion_function"))
-        .isEqualTo(
-            "<dt id=\"flag--test_void_expansion_function\"><code><a"
-                + " href=\"#flag--test_void_expansion_function\">--test_void_expansion_function</a></code></dt>\n"
-                + "<dd>\n"
-                + "Listing a ton of random tags to test the usage output.\n"
-                + "<br/>\n"
-                + "Expands to:<br/>\n"
-                + "&nbsp;&nbsp;<code><a href=\"#flag--expanded_d\">--expanded_d</a></code><br/>\n"
-                + "&nbsp;&nbsp;<code><a href=\"#flagvoid expanded\">void"
-                + " expanded</a></code><br/>\n"
-                + "<br>Tags: \n"
-                + "<a href=\"#effect_tag_ACTION_COMMAND_LINES\"><code>action_command_lines</code></a>,"
-                + " <a href=\"#effect_tag_TEST_RUNNER\"><code>test_runner</code></a>, <a"
-                + " href=\"#effect_tag_TERMINAL_OUTPUT\"><code>terminal_output</code></a>, <a"
-                + " href=\"#metadata_tag_EXPERIMENTAL\"><code>experimental</code></a></dd>\n");
   }
 }

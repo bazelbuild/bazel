@@ -110,7 +110,7 @@ public final class Scratch {
   public Path dir(String pathName) throws IOException {
     Path dir = resolve(pathName);
     if (!dir.exists()) {
-      FileSystemUtils.createDirectoryAndParents(dir);
+      dir.createDirectoryAndParents();
     }
     if (!dir.isDirectory()) {
       throw new IOException("Exists, but is not a directory: " + pathName);
@@ -214,7 +214,7 @@ public final class Scratch {
     Path file = resolve(pathName);
     Path parentDir = file.getParentDirectory();
     if (!parentDir.exists()) {
-      FileSystemUtils.createDirectoryAndParents(parentDir);
+      parentDir.createDirectoryAndParents();
     }
     if (file.exists()) {
       throw new IOException("Could not create scratch file (file exists) "
@@ -234,5 +234,10 @@ public final class Scratch {
       builder.append('\n');
     }
     return builder.toString();
+  }
+
+  public void copyFile(String sourceFile, String destFile) throws IOException {
+    String contents = readFile(sourceFile);
+    overwriteFile(destFile, contents);
   }
 }

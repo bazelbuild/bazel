@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfi
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
@@ -65,7 +65,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           @Param(name = "target"),
         })
     public Object buildOptions(ConfiguredTarget target) {
-      BuildConfiguration config = getConfiguration(target.getConfigurationKey());
+      BuildConfigurationValue config = getConfiguration(target.getConfigurationKey());
 
       if (config == null) {
         // config is null for input file configured targets.
@@ -109,7 +109,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       for (Map.Entry<Label, Object> e : buildOptions.getStarlarkOptions().entrySet()) {
         result.put(e.getKey().toString(), e.getValue());
       }
-      return result.build();
+      return result.buildOrThrow();
     }
 
     @StarlarkMethod(
@@ -186,7 +186,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     try (Mutability mu = Mutability.create("formatter")) {
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
       Starlark.addMethods(env, new CqueryDialectGlobals(), StarlarkSemantics.DEFAULT);
-      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.build());
+      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
 
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);

@@ -34,7 +34,8 @@ public @interface ParamType {
    * runtime, so the Java method signature should use a generic type of Object and cast
    * appropriately.
    */
-  // TODO(adonovan): make this an array---a non-breaking change for most clients---
-  // ideally of the same length as the number of type parameters of type().
+  // TODO(#13365): make this a data structure so we can represent a {@link
+  // net.starlark.java.eval.Sequence} of types {@code A} or {@code B} intermixed, a {@link
+  // net.starlark.java.eval.Dict} mapping from {@code A} to {@code B}, etc.
   Class<?> generic1() default Object.class;
 }

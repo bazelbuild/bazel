@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bugreport;
 
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.util.List;
 
 /**
@@ -28,10 +31,30 @@ public interface BugReporter {
     return BugReport.REPORTER_INSTANCE;
   }
 
-  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable)}. */
-  void sendBugReport(Throwable exception);
+  /** Reports an unexpected state, see {@link BugReport#logUnexpected}. */
+  @FormatMethod
+  default void logUnexpected(@FormatString String message, Object... args) {
+    BugReport.logUnexpected(message, args);
+  }
 
-  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable, List, String[])}. */
+  /** See {@link BugReport#logUnexpected}. */
+  @FormatMethod
+  default void logUnexpected(Exception e, @FormatString String message, Object... args) {
+    BugReport.logUnexpected(e, message, args);
+  }
+
+  /** Reports an exception, see {@link BugReport#sendBugReport(String, Object...)}. */
+  @FormatMethod
+  default void sendBugReport(@FormatString String message, Object... args) {
+    sendBugReport(new IllegalStateException(String.format(message, args)));
+  }
+
+  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable)}. */
+  default void sendBugReport(Throwable exception) {
+    sendBugReport(exception, /*args=*/ ImmutableList.of());
+  }
+
+  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable, List, String...)}. */
   void sendBugReport(Throwable exception, List<String> args, String... values);
 
   /** See {@link BugReport#handleCrash}. */

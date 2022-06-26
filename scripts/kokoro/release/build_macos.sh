@@ -22,7 +22,7 @@ RELEASE_NAME=${RELEASE_NAME:-unknown}
 # Get Bazelisk
 mkdir -p /tmp/tool
 BAZELISK="/tmp/tool/bazelisk"
-wget https://github.com/bazelbuild/bazelisk/releases/download/v1.2.1/bazelisk-darwin-amd64 -O "${BAZELISK}"
+wget https://github.com/bazelbuild/bazelisk/releases/download/v1.7.2/bazelisk-darwin-amd64 -O "${BAZELISK}"
 chmod +x "${BAZELISK}"
 
 # Switch to Xcode 10.3

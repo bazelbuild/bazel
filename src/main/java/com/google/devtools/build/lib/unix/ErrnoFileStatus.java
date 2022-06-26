@@ -31,14 +31,16 @@ public class ErrnoFileStatus extends FileStatus {
   public static final int ELOOP;
   public static final int ENOTDIR;
   public static final int ENAMETOOLONG;
+  public static final int ENODATA;
 
   static {
     ErrnoConstants constants = ErrnoConstants.getErrnoConstants();
-    ENOENT = constants.ENOENT;
-    EACCES = constants.EACCES;
-    ELOOP = constants.ELOOP;
-    ENOTDIR = constants.ENOTDIR;
-    ENAMETOOLONG = constants.ENAMETOOLONG;
+    ENOENT = constants.errnoENOENT;
+    EACCES = constants.errnoEACCES;
+    ELOOP = constants.errnoELOOP;
+    ENOTDIR = constants.errnoENOTDIR;
+    ENAMETOOLONG = constants.errnoENAMETOOLONG;
+    ENODATA = constants.errnoENODATA;
   }
 
   /**
@@ -73,11 +75,12 @@ public class ErrnoFileStatus extends FileStatus {
   private static class ErrnoConstants {
 
     // These are set in JNI.
-    private int ENOENT;
-    private int EACCES;
-    private int ELOOP;
-    private int ENOTDIR;
-    private int ENAMETOOLONG;
+    private int errnoENOENT;
+    private int errnoEACCES;
+    private int errnoELOOP;
+    private int errnoENOTDIR;
+    private int errnoENAMETOOLONG;
+    private int errnoENODATA;
 
     public static ErrnoConstants getErrnoConstants() {
       ErrnoConstants constants = new ErrnoConstants();

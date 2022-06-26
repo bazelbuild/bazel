@@ -60,7 +60,7 @@ public final class ServerBuilder {
   }
 
   ImmutableMap<String, InfoItem> getInfoItems() {
-    return infoItems.build();
+    return infoItems.buildOrThrow();
   }
 
   ImmutableList<QueryFunction> getQueryFunctions() {
@@ -196,6 +196,6 @@ public final class ServerBuilder {
 
   /** Returns a map of all registered {@link AuthHeadersProvider}s. */
   public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
-    return authHeadersProvidersMap.build();
+    return authHeadersProvidersMap.buildOrThrow();
   }
 }

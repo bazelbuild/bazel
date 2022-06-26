@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.io.Serializable;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
 
@@ -47,7 +45,7 @@ import net.starlark.java.eval.Printer;
  */
 @AutoCodec
 @Immutable
-public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializable, FileRootApi {
+public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi {
   private static final Interner<ArtifactRoot> INTERNER = Interners.newWeakInterner();
   /**
    * Do not use except in tests and in {@link
@@ -84,6 +82,9 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    *
    * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
+   *
+   * <p>Call {@link #asDerivedRoot(Path, RootType, PathFragment)} if you already have a {@link
+   * PathFragment} instance for the exec path.
    */
   public static ArtifactRoot asDerivedRoot(Path execRoot, RootType rootType, String... prefixes) {
     PathFragment execPath = PathFragment.EMPTY_FRAGMENT;
@@ -106,8 +107,9 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
       Path execRoot, RootType rootType, PathFragment execPath) {
     // Make sure that we are not creating a derived artifact under the execRoot.
     Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
+    Preconditions.checkArgument(!execPath.isAbsolute(), "execPath must be relative: %s", execPath);
     Preconditions.checkArgument(
-        !execPath.getSegments().contains(".."),
+        !execPath.containsUplevelReferences(),
         "execPath: %s contains parent directory reference (..)",
         execPath);
     Preconditions.checkArgument(
@@ -125,8 +127,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     if (!isOutputRootType(rootType)) {
       return INTERNER.intern(new ArtifactRoot(rootForSerialization, execPath, rootType));
     }
-    return asDerivedRoot(
-        rootForSerialization.asPath(), rootType, execPath.getSegments().toArray(new String[0]));
+    return asDerivedRoot(rootForSerialization.asPath(), rootType, execPath);
   }
 
   /**
@@ -176,11 +177,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @Override
   public String getExecPathString() {
-    return getExecPath().getPathString();
-  }
-
-  public ImmutableList<String> getComponents() {
-    return execPath.getSegments();
+    return execPath.getPathString();
   }
 
   public boolean isSourceRoot() {

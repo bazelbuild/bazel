@@ -17,7 +17,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/protobuf:desugar_deps_java_proto",
-        "//src/tools/android/java/com/google/devtools/build/android/desugar:deps_collector_api",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:deps_collector_api",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

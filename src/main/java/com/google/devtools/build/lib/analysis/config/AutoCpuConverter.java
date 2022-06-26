@@ -50,8 +50,9 @@ public class AutoCpuConverter implements Converter<String> {
           switch (CPU.getCurrent()) {
             case X86_64:
               return "x64_windows";
+            case AARCH64:
+              return "arm64_windows";
             default:
-              // We only support x64 Windows for now.
               return "unknown";
           }
         case LINUX:
@@ -68,6 +69,10 @@ public class AutoCpuConverter implements Converter<String> {
               return "aarch64";
             case S390X:
               return "s390x";
+            case MIPS64:
+              return "mips64";
+            case RISCV64:
+              return "riscv64";
             default:
               return "unknown";
           }
@@ -97,16 +102,23 @@ public class AutoCpuConverter implements Converter<String> {
     }
 
     // Handle the Linux cases.
-    if (input.equals("piii")) {
-      return Pair.of(CPU.X86_32, OS.LINUX);
-    } else if (input.equals("k8")) {
-      return Pair.of(CPU.X86_64, OS.LINUX);
-    } else if (input.equals("ppc")) {
-      return Pair.of(CPU.PPC, OS.LINUX);
-    } else if (input.equals("arm")) {
-      return Pair.of(CPU.ARM, OS.LINUX);
-    } else if (input.equals("s390x")) {
-      return Pair.of(CPU.S390X, OS.LINUX);
+    switch (input) {
+      case "piii":
+        return Pair.of(CPU.X86_32, OS.LINUX);
+      case "k8":
+        return Pair.of(CPU.X86_64, OS.LINUX);
+      case "ppc":
+        return Pair.of(CPU.PPC, OS.LINUX);
+      case "arm":
+        return Pair.of(CPU.ARM, OS.LINUX);
+      case "s390x":
+        return Pair.of(CPU.S390X, OS.LINUX);
+      case "mips64":
+        return Pair.of(CPU.MIPS64, OS.LINUX);
+      case "riscv64":
+        return Pair.of(CPU.RISCV64, OS.LINUX);
+      default:
+        // fall through
     }
 
     // Use the auto-detected values.

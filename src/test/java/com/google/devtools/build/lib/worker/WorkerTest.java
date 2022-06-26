@@ -81,7 +81,8 @@ public final class WorkerTest {
 
     SandboxInputs sandboxInputs = null;
     SandboxOutputs sandboxOutputs = null;
-    worker.prepareExecution(sandboxInputs, sandboxOutputs, key.getWorkerFilesWithHashes().keySet());
+    worker.prepareExecution(
+        sandboxInputs, sandboxOutputs, key.getWorkerFilesWithDigests().keySet());
 
     workerForCleanup = worker;
 
@@ -118,12 +119,12 @@ public final class WorkerTest {
     testWorker.putRequest(WorkRequest.getDefaultInstance());
 
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
-    assertThat(stdout.toString()).isEqualTo("{}");
+    assertThat(stdout.toString()).isEqualTo("{}" + System.lineSeparator());
   }
 
   @Test
   public void testGetResponse_json_success() throws IOException, InterruptedException {
-    TestWorker testWorker = createTestWorker("{}".getBytes(UTF_8), JSON);
+    TestWorker testWorker = createTestWorker(("{}" + System.lineSeparator()).getBytes(UTF_8), JSON);
     WorkResponse readResponse = testWorker.getResponse(0);
     WorkResponse response = WorkResponse.getDefaultInstance();
 
@@ -142,6 +143,7 @@ public final class WorkerTest {
                     .setDigest(ByteString.copyFromUtf8("testDigest"))
                     .build())
             .setRequestId(1)
+            .setVerbosity(11)
             .build();
 
     TestWorker testWorker = createTestWorker(new byte[0], JSON);
@@ -150,7 +152,8 @@ public final class WorkerTest {
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     String requestJsonString =
         "{\"arguments\":[\"testRequest\"],\"inputs\":"
-            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1}";
+            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1,\"verbosity\":11}"
+            + System.lineSeparator();
     assertThat(stdout.toString()).isEqualTo(requestJsonString);
   }
 
@@ -169,14 +172,10 @@ public final class WorkerTest {
 
   private void verifyGetResponseFailure(String responseString, String expectedError)
       throws IOException {
-    TestWorker testWorker = createTestWorker(responseString.getBytes(UTF_8), JSON);
+    TestWorker testWorker =
+        createTestWorker((responseString + System.lineSeparator()).getBytes(UTF_8), JSON);
     IOException ex = assertThrows(IOException.class, () -> testWorker.getResponse(0));
     assertThat(ex).hasMessageThat().contains(expectedError);
-  }
-
-  @Test
-  public void testGetResponse_json_emptyString_throws() throws IOException {
-    verifyGetResponseFailure("", "Could not parse json work request correctly");
   }
 
   @Test
@@ -204,8 +203,16 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_json_incorrectFields_fails() throws IOException {
-    verifyGetResponseFailure(
-        "{\"testField\":0}", "testField is an incorrect field in work response");
+  public void testGetResponse_json_unknownFieldsIgnored() throws IOException, InterruptedException {
+    TestWorker testWorker =
+        createTestWorker(
+            "{\"exitCode\":1,\"output\":\"test output\",\"requestId\":1,\"unknown\":{1:['a']}}"
+                .getBytes(UTF_8),
+            JSON);
+    WorkResponse readResponse = testWorker.getResponse(1);
+    WorkResponse response =
+        WorkResponse.newBuilder().setExitCode(1).setOutput("test output").setRequestId(1).build();
+
+    assertThat(readResponse).isEqualTo(response);
   }
 }

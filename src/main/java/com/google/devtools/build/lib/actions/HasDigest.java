@@ -17,13 +17,14 @@ import com.google.protobuf.ByteString;
 import java.io.Serializable;
 
 /** A marker interface for objects which can return a byte[] digest. */
+@FunctionalInterface
 public interface HasDigest extends Serializable {
   byte[] getDigest();
 
-  public static final HasDigest EMPTY = new ByteStringDigest(new byte[] {});
+  HasDigest EMPTY = new ByteStringDigest(new byte[] {});
 
-  /** An immutable wrapper around a byte[] digest. */
-  public static class ByteStringDigest implements HasDigest {
+  /** An immutable wrapper around a {@code byte[]} digest. */
+  final class ByteStringDigest implements HasDigest {
     private final ByteString bytes;
 
     public ByteStringDigest(byte[] bytes) {

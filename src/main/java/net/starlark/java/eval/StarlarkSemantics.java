@@ -42,7 +42,16 @@ import java.util.TreeMap;
  */
 public final class StarlarkSemantics {
 
-  /** Returns the empty semantics, in which every option has its default value. */
+  /**
+   * Returns the empty semantics, in which every option has its default value.
+   *
+   * <p><i>Usage note:</i> Usually all Starlark evaluation contexts (i.e., {@link StarlarkThread}s
+   * or other interpreter APIs that accept a {@code StarlarkSemantics}) within the same application
+   * should use the same semantics. Otherwise, different pieces of code -- or even the same code
+   * when executed in different capacities -- could produce diverging results. It is therefore
+   * generally a code smell to use the {@code DEFAULT} semantics rather than propagating a {@code
+   * StarlarkSemantics} from another context.
+   */
   public static final StarlarkSemantics DEFAULT = new StarlarkSemantics(ImmutableMap.of());
 
   // A map entry must be accessed by Key iff its name has no [+-] prefix.

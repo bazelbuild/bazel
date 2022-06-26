@@ -17,12 +17,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -34,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.HashMap;
 import java.util.List;
@@ -42,12 +47,17 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * {@link BlazeModule} providing support for dynamic spawn execution and scheduling.
- */
+/** {@link BlazeModule} providing support for dynamic spawn execution and scheduling. */
 public class DynamicExecutionModule extends BlazeModule {
 
   private ExecutorService executorService;
+
+  /**
+   * If true, this is the first build since this server started (excluding failed builds). This
+   * allows turning off dynamic execution for an initial build, avoiding dynamic execution on most
+   * clean builds.
+   */
+  private static boolean firstBuild = true;
 
   public DynamicExecutionModule() {}
 
@@ -75,33 +85,14 @@ public class DynamicExecutionModule extends BlazeModule {
   ImmutableMap<String, List<String>> getLocalStrategies(DynamicExecutionOptions options)
       throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
-    // functionality here. Additionally, since we are still supporting --dynamic_worker_strategy,
-    // but will deprecate it soon, we add its functionality to --dynamic_local_strategy. This allows
-    // users to set --dynamic_local_strategy and not --dynamic_worker_strategy to stop defaulting to
-    // worker strategy. For simplicity, we add the default strategy first, it may be overridden
-    // later.
+    // functionality here.
     // ImmutableMap.Builder fails on duplicates, so we use a regular map first to remove dups.
     Map<String, List<String>> localAndWorkerStrategies = new HashMap<>();
-    // TODO(steinman): Deprecate --dynamic_worker_strategy and clean this up.
-    List<String> defaultValue = Lists.newArrayList();
-    String workerStrategy =
-        options.dynamicWorkerStrategy.isEmpty() ? "worker" : options.dynamicWorkerStrategy;
-    defaultValue.addAll(ImmutableList.of(workerStrategy, "sandboxed"));
-    throwIfContainsDynamic(defaultValue, "--dynamic_local_strategy");
-    localAndWorkerStrategies.put("", defaultValue);
+    localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed"));
 
     if (!options.dynamicLocalStrategy.isEmpty()) {
       for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
-        if ("".equals(entry.getKey())) {
-          List<String> newValue = Lists.newArrayList();
-          if (!options.dynamicWorkerStrategy.isEmpty()) {
-            newValue.add(options.dynamicWorkerStrategy);
-          }
-          newValue.addAll(entry.getValue());
-          localAndWorkerStrategies.put("", newValue);
-        } else {
-          localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
-        }
+        localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
         throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
       }
     }
@@ -124,14 +115,23 @@ public class DynamicExecutionModule extends BlazeModule {
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
       throws AbruptExitException {
+    DynamicExecutionOptions options = env.getOptions().getOptions(DynamicExecutionOptions.class);
+    com.google.devtools.build.lib.exec.ExecutionOptions execOptions =
+        env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);
     registerSpawnStrategies(
-        registryBuilder, env.getOptions().getOptions(DynamicExecutionOptions.class));
+        registryBuilder,
+        options,
+        (int) execOptions.localCpuResources,
+        env.getOptions().getOptions(BuildRequestOptions.class).jobs);
   }
 
   // CommandEnvironment is difficult to access in tests, so use this method for testing.
   @VisibleForTesting
   final void registerSpawnStrategies(
-      SpawnStrategyRegistry.Builder registryBuilder, DynamicExecutionOptions options)
+      SpawnStrategyRegistry.Builder registryBuilder,
+      DynamicExecutionOptions options,
+      int numCpus,
+      int jobs)
       throws AbruptExitException {
     if (!options.internalSpawnScheduler) {
       return;
@@ -142,9 +142,12 @@ public class DynamicExecutionModule extends BlazeModule {
             executorService,
             options,
             this::getExecutionPolicy,
-            this::getPostProcessingSpawnForLocalExecution);
+            this::getPostProcessingSpawnForLocalExecution,
+            firstBuild,
+            numCpus,
+            jobs,
+            this::canIgnoreFailure);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
-
     registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
   }
@@ -194,6 +197,48 @@ public class DynamicExecutionModule extends BlazeModule {
    */
   protected Optional<Spawn> getPostProcessingSpawnForLocalExecution(Spawn spawn) {
     return Optional.empty();
+  }
+
+  /**
+   * If true, the failure passed in can be ignored in one branch to allow the other branch to finish
+   * it instead. This can e.g. allow ignoring remote execution timeouts or local-only permission
+   * failures.
+   *
+   * @param spawn The spawn being executed.
+   * @param exitCode The exit code from executing the spawn
+   * @param errorMessage Error messages returned from executing the spawn
+   * @param outErr The location of the stdout and stderr from the spawn.
+   * @param isLocal True if this is the locally-executed branch.
+   * @return True if this failure is one that we want to allow the other branch to succeed at, even
+   *     though this branch failed already.
+   */
+  protected boolean canIgnoreFailure(
+      Spawn spawn,
+      ActionExecutionContext context,
+      int exitCode,
+      String errorMessage,
+      FileOutErr outErr,
+      boolean isLocal) {
+    return false;
+  }
+
+  @FunctionalInterface
+  interface IgnoreFailureCheck {
+    boolean canIgnoreFailure(
+        Spawn spawn,
+        ActionExecutionContext context,
+        int exitCode,
+        String errorMessage,
+        FileOutErr outErr,
+        boolean isLocal);
+  }
+
+  @Subscribe
+  public void buildCompleteEvent(BuildCompleteEvent event) {
+    BuildResult result = event.getResult();
+    if (result.getSuccess()) {
+      firstBuild = false;
+    }
   }
 
   @Override

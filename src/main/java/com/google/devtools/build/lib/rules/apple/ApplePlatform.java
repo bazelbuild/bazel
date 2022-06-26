@@ -41,16 +41,17 @@ public enum ApplePlatform implements ApplePlatformApi {
   WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false),
   CATALYST("catalyst", "MacOSX", PlatformType.CATALYST, true);
 
+  // TODO(b/180572694): Remove ios_sim_arm64 after platforms based toolchain resolution supported.
   private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("ios_x86_64", "ios_i386");
+      ImmutableSet.of("ios_x86_64", "ios_i386", "ios_sim_arm64");
   private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e");
   private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("watchos_i386", "watchos_x86_64");
+      ImmutableSet.of("watchos_i386", "watchos_x86_64", "watchos_arm64");
   private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("watchos_armv7k", "watchos_arm64_32");
   private static final ImmutableSet<String> TVOS_SIMULATOR_TARGET_CPUS =
-      ImmutableSet.of("tvos_x86_64");
+      ImmutableSet.of("tvos_x86_64", "tvos_sim_arm64");
   private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
   private static final ImmutableSet<String> CATALYST_TARGET_CPUS =
@@ -95,6 +96,33 @@ public enum ApplePlatform implements ApplePlatformApi {
   @Override
   public String getNameInPlist() {
     return nameInPlist;
+  }
+
+  /**
+   * Returns the target platform as it would be represented in a target triple.
+   *
+   * <p>Note that the target platform for Catalyst is "ios", despite it being represented here as
+   * its own value.
+   */
+  public String getTargetPlatform() {
+    if (platformType == PlatformType.CATALYST) {
+      return PlatformType.IOS.starlarkKey;
+    }
+    return platformType.starlarkKey;
+  }
+
+  /**
+   * Returns the platform's target environment as it would be represented in a target triple.
+   *
+   * <p>Note that the target environment corresponds to the target platform (as returned by {@link
+   * #getTargetPlatform()}, so "macabi" is an environment of iOS, not a separate platform as it is
+   * represented in this enumerated type.
+   */
+  public String getTargetEnvironment() {
+    if (platformType == PlatformType.CATALYST) {
+      return "macabi";
+    }
+    return isDevice ? "device" : "simulator";
   }
 
   /**

@@ -25,6 +25,7 @@ java_binary(
     create_executable = 0,
     runtime_deps = [
         ":android_builder_lib",
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:dexerdeps",
@@ -64,6 +65,9 @@ java_library(
         ],
         exclude = ["DependencyInfo.java"],
     ),
+    javacopts = [
+        "--add-exports=java.xml/com.sun.org.apache.xerces.internal.dom=ALL-UNNAMED",
+    ],
     exports = [
         # Separated out to avoid a dependency cycle with resources/, but it logically belongs here.
         ":dependency_info",
@@ -72,6 +76,8 @@ java_library(
         ":dependency_info",
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
+        "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/junctions",

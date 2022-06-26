@@ -51,17 +51,16 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
  * C include scanner. Scans C/C++ source files using spawns to determine the bounding set of
- * transitively referenced include files.
+ * transitively referenced include files. Has lifetime of a single build.
  */
 public class SpawnIncludeScanner {
   /** The grep-includes tool is very lightweight, so don't use the default from AbstractAction. */
@@ -72,11 +71,11 @@ public class SpawnIncludeScanner {
   private OutputService outputService;
   private boolean inMemoryOutput;
   private final int remoteExtractionThreshold;
-  private final AtomicReference<FilesystemCalls> syscallCache;
+  private final SyscallCache syscallCache;
 
   /** Constructs a new SpawnIncludeScanner. */
   public SpawnIncludeScanner(
-      Path execRoot, int remoteExtractionThreshold, AtomicReference<FilesystemCalls> syscallCache) {
+      Path execRoot, int remoteExtractionThreshold, SyscallCache syscallCache) {
     this.execRoot = execRoot;
     this.remoteExtractionThreshold = remoteExtractionThreshold;
     this.syscallCache = syscallCache;
@@ -126,7 +125,13 @@ public class SpawnIncludeScanner {
     if (remoteExtractionThreshold == 0 || (outputService != null && !file.isSourceArtifact())) {
       return true;
     }
-    FileStatus status = syscallCache.get().statIfFound(file.getPath(), Symlinks.FOLLOW);
+    Path path = file.getPath();
+    // Don't use syscallCache for a derived artifact: it might have been statted before it was
+    // regenerated.
+    FileStatus status =
+        file.isSourceArtifact()
+            ? syscallCache.statIfFound(path, Symlinks.FOLLOW)
+            : path.statIfFound(Symlinks.FOLLOW);
     return status == null || status.getSize() > remoteExtractionThreshold;
   }
 
@@ -221,7 +226,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public Collection<String> getClientEnvironmentVariables() {
       return ImmutableSet.of();
     }
 
@@ -362,21 +367,27 @@ public class SpawnIncludeScanner {
             fileType.getFileType());
 
     ImmutableMap.Builder<String, String> execInfoBuilder = ImmutableMap.builder();
+    execInfoBuilder.putAll(resourceOwner.getExecutionInfo());
     if (inMemoryOutput) {
       execInfoBuilder.put(
           ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
           outputExecPath.getPathString());
+      // grep-includes writes output file to disk. If in-memory output is requested, no-local should
+      // also be added, otherwise, grep-includes could be executed locally resulting output be
+      // written to local disk.
+      execInfoBuilder.put(ExecutionRequirements.NO_LOCAL, "");
     }
     execInfoBuilder.put(ExecutionRequirements.DO_NOT_REPORT, "");
 
-    Spawn spawn = new SimpleSpawn(
-        resourceOwner,
-        command,
-        ImmutableMap.of(),
-        execInfoBuilder.build(),
-        inputs,
-        outputs,
-        LOCAL_RESOURCES);
+    Spawn spawn =
+        new SimpleSpawn(
+            resourceOwner,
+            command,
+            ImmutableMap.of(),
+            execInfoBuilder.buildOrThrow(),
+            inputs,
+            outputs,
+            LOCAL_RESOURCES);
 
     actionExecutionContext.maybeReportSubcommand(spawn);
 

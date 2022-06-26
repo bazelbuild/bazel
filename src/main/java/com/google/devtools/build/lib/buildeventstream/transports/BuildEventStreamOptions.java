@@ -46,11 +46,13 @@ public class BuildEventStreamOptions extends OptionsBase {
       name = "build_event_binary_file",
       oldName = "experimental_build_event_binary_file",
       defaultValue = "",
+      implicitRequirements = {"--bes_upload_mode=wait_for_upload_complete"},
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If non-empty, write a varint delimited binary representation of representation of the"
-              + " build event protocol to that file.")
+              + " build event protocol to that file. This option implies"
+              + " --bes_upload_mode=wait_for_upload_complete.")
   public String buildEventBinaryFile;
 
   @Option(

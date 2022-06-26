@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import java.lang.management.GarbageCollectorMXBean;
@@ -28,7 +28,8 @@ public final class GcTimeInfoItem extends InfoItem {
   }
 
   @Override
-  public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
+  public byte[] get(
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     // The documentation is not very clear on what it means to have more than
     // one GC MXBean, so we just sum them up.
     long gcTime = 0;

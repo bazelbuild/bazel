@@ -21,9 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -32,12 +30,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests that concern the transitive closure of data dependencies.
- * Regression testing for bug 1022571.
+ * Tests that concern the transitive closure of data dependencies. Regression testing for bug
+ * 1022571.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public abstract class TransitiveDataDependencyTest extends GoogleBuildIntegrationTestCase {
+public abstract class TransitiveDataDependencyTest extends BuildIntegrationTestCase {
 
   /**
    * Hook for subclasses to define which executor we use.  (The two concrete

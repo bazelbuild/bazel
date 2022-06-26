@@ -77,7 +77,7 @@ function fail() {
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
-JAVA_VERSION=${JAVA_VERSION:-1.8}
+JAVA_VERSION=${JAVA_VERSION:-11}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
@@ -90,12 +90,12 @@ linux)
 
 freebsd)
   # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
+  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk11}"
   ;;
 
 openbsd)
   # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-1.8.0}"
+  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-11}"
   ;;
 
 darwin)
@@ -313,7 +313,7 @@ function get_java_version() {
 
 # Return the target that a bind point to, using Bazel query.
 function get_bind_target() {
-  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc ${BAZEL_DIR_STARTUP_OPTIONS} \
+  $BAZEL --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} \
     query "deps($1, 1) - $1"
 }
 

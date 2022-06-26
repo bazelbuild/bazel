@@ -39,6 +39,6 @@ class RankAndLabel implements Comparable<RankAndLabel> {
 
   @Override
   public String toString() {
-    return rank + " " + label.getDefaultCanonicalForm();
+    return rank + " " + label.getCanonicalForm();
   }
 }

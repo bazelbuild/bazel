@@ -68,9 +68,7 @@ public final class IterablesChain<T> implements Iterable<T> {
      */
     public Builder<T> add(Iterable<? extends T> iterable) {
       CollectionUtils.checkImmutable(iterable);
-      // Avoid unnecessarily expanding a NestedSet.
-      boolean isEmpty = CollectionUtils.isEmpty(iterable);
-      if (!isEmpty) {
+      if (!Iterables.isEmpty(iterable)) {
         iterables.add(iterable);
       }
       return this;

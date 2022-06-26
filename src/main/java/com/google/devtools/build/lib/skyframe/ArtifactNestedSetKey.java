@@ -16,11 +16,16 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
-final class ArtifactNestedSetKey implements SkyKey {
+public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
+
+  // TODO(jhorvitz): Consider sharing the nestedSetToSkyKey map in ArtifactNestedSetFunction.
+  public static ArtifactNestedSetKey create(NestedSet<Artifact> set) {
+    return new ArtifactNestedSetKey(set, set.toNode());
+  }
 
   private final NestedSet<Artifact> set;
   private final NestedSet.Node node;
@@ -41,12 +46,22 @@ final class ArtifactNestedSetKey implements SkyKey {
   }
 
   @Override
+  public boolean valueIsShareable() {
+    // ArtifactNestedSetValue is just a promise that data is available in memory. Not meant for
+    // cross-server sharing.
+    return false;
+  }
+
+  @Override
   public int hashCode() {
     return node.hashCode();
   }
 
   @Override
   public boolean equals(Object that) {
+    if (this == that) {
+      return true;
+    }
     return that instanceof ArtifactNestedSetKey
         && this.node.equals(((ArtifactNestedSetKey) that).node);
   }

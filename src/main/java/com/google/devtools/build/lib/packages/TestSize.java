@@ -42,13 +42,13 @@ public enum TestSize {
     for (TestSize size : TestSize.values()) {
       builder.put(size.name().toLowerCase(), size);
     }
-    CANONICAL_LOWER_CASE_NAME_TABLE = builder.build();
+    CANONICAL_LOWER_CASE_NAME_TABLE = builder.buildOrThrow();
   }
 
   private final TestTimeout timeout;
   private final int defaultShards;
 
-  private TestSize(TestTimeout defaultTimeout, int defaultShards) {
+  TestSize(TestTimeout defaultTimeout, int defaultShards) {
     this.timeout = defaultTimeout;
     this.defaultShards = defaultShards;
   }
@@ -65,17 +65,15 @@ public enum TestSize {
    */
   public int getDefaultShards() { return defaultShards; }
 
-  /**
-   * Returns test size of the given test target, or null if the size attribute is unrecognized.
-   */
+  /** Returns test size of the given test target, or null if the size attribute is unrecognized. */
   public static TestSize getTestSize(Rule testTarget) {
     String attr = NonconfigurableAttributeMapper.of(testTarget).get("size", Type.STRING);
     return getTestSize(attr);
   }
 
   /**
-   * Returns {@link TestSize} matching the given timeout or null if the
-   * given timeout doesn't match any {@link TestSize}.
+   * Returns {@link TestSize} matching the given timeout or null if the given timeout doesn't match
+   * any {@link TestSize}.
    *
    * @param timeout The timeout associated with the desired TestSize.
    */
@@ -89,16 +87,8 @@ public enum TestSize {
   }
 
   /**
-   * Normal practice is to always use size tags as lower case strings.
-   */
-  @Override
-  public String toString() {
-    return super.toString().toLowerCase();
-  }
-
-  /**
-   * Returns the enum associated with a test's size or null if the tag is
-   * not lower case or an unknown size.
+   * Returns the enum associated with a test's size or null if the tag is not lower case or an
+   * unknown size.
    */
   public static TestSize getTestSize(String attr) {
     if (!attr.equals(attr.toLowerCase())) {
@@ -109,6 +99,12 @@ public enum TestSize {
     } catch (IllegalArgumentException e) {
       return null;
     }
+  }
+
+  /** Normal practice is to always use size tags as lower case strings. */
+  @Override
+  public String toString() {
+    return super.toString().toLowerCase();
   }
 
   /**

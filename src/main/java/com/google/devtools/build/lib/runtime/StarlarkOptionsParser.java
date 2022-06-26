@@ -246,8 +246,7 @@ public class StarlarkOptionsParser {
       // Use the canonical form to ensure we don't have
       // duplicate options getting into the starlark options map.
       unparsedOptions.put(
-          buildSettingTarget.getLabel().getDefaultCanonicalForm(),
-          new Pair<>(value, buildSettingTarget));
+          buildSettingTarget.getLabel().getCanonicalForm(), new Pair<>(value, buildSettingTarget));
     } else {
       boolean booleanValue = true;
       // check --noflag form
@@ -260,7 +259,10 @@ public class StarlarkOptionsParser {
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       if (current.getType().equals(BOOLEAN)) {
         // --boolean_flag or --noboolean_flag
-        unparsedOptions.put(name, new Pair<>(String.valueOf(booleanValue), buildSettingTarget));
+        // Ditto w/r/t canonical form.
+        unparsedOptions.put(
+            buildSettingTarget.getLabel().getCanonicalForm(),
+            new Pair<>(String.valueOf(booleanValue), buildSettingTarget));
       } else {
         if (!booleanValue) {
           // --no(non_boolean_flag)
@@ -328,7 +330,7 @@ public class StarlarkOptionsParser {
       String potentialStarlarkFlag = name.substring(2);
       // Check if the string uses the "no" prefix for setting boolean flags to false, trim
       // off "no" if so.
-      if (name.startsWith("no")) {
+      if (potentialStarlarkFlag.startsWith("no")) {
         potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
       }
       // Check if the string contains a value, trim off the value if so.

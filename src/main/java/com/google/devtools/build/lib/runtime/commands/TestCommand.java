@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -42,6 +43,8 @@ import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -124,16 +127,23 @@ public class TestCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
-    BuildRequest request = BuildRequest.create(
-        getClass().getAnnotation(Command.class).name(), options,
-        runtime.getStartupOptionsProvider(), targets,
-        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
-    request.setRunTests();
+
+    BuildRequest.Builder builder =
+        BuildRequest.builder()
+            .setCommandName(getClass().getAnnotation(Command.class).name())
+            .setId(env.getCommandId())
+            .setOptions(options)
+            .setStartupOptions(runtime.getStartupOptionsProvider())
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(targets)
+            .setStartTimeMillis(env.getCommandStartTime())
+            .setRunTests(true);
     if (options.getOptions(CoreOptions.class).collectCodeCoverage
         && !options.containsExplicitOption(
             InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
-      request.setNeedsInstrumentationFilter(true);
+      builder.setNeedsInstrumentationFilter(true);
     }
+    BuildRequest request = builder.build();
 
     BuildResult buildResult = new BuildTool(env).processRequest(request, null);
 
@@ -156,10 +166,7 @@ public class TestCommand implements BlazeCommand {
               : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
-              new TestingCompleteEvent(
-                  detailedExitCode.getExitCode(),
-                  buildResult.getStopTime(),
-                  buildResult.getWasSuspended()));
+              new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
@@ -178,17 +185,12 @@ public class TestCommand implements BlazeCommand {
                       .build())
               : buildResult.getDetailedExitCode();
       env.getEventBus()
-          .post(
-              new NoTestsFound(
-                  detailedExitCode.getExitCode(),
-                  buildResult.getStopTime(),
-                  buildResult.getWasSuspended()));
+          .post(new NoTestsFound(detailedExitCode.getExitCode(), buildResult.getStopTime()));
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
 
     DetailedExitCode testResults =
-        analyzeTestResults(
-            testTargets, buildResult.getSkippedTargets(), testListener, options, env, printer);
+        analyzeTestResults(request, buildResult, testListener, options, env, printer);
 
     if (testResults.isSuccess() && !buildResult.getSuccess()) {
       // If all tests run successfully, test summary should include warning if
@@ -202,11 +204,7 @@ public class TestCommand implements BlazeCommand {
         DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
             buildResult.getDetailedExitCode(), testResults);
     env.getEventBus()
-        .post(
-            new TestingCompleteEvent(
-                detailedExitCode.getExitCode(),
-                buildResult.getStopTime(),
-                buildResult.getWasSuspended()));
+        .post(new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }
 
@@ -215,17 +213,29 @@ public class TestCommand implements BlazeCommand {
    * summarizing those test results.
    */
   private static DetailedExitCode analyzeTestResults(
-      Collection<ConfiguredTarget> testTargets,
-      Collection<ConfiguredTarget> skippedTargets,
+      BuildRequest buildRequest,
+      BuildResult buildResult,
       AggregatingTestListener listener,
       OptionsParsingResult options,
       CommandEnvironment env,
       AnsiTerminalPrinter printer) {
+    ImmutableSet<ConfiguredTargetKey> validatedTargets;
+    if (buildRequest.useValidationAspect()) {
+      validatedTargets =
+          buildResult.getSuccessfulAspects().stream()
+              .filter(key -> BuildRequest.VALIDATION_ASPECT_NAME.equals(key.getAspectName()))
+              .map(AspectKey::getBaseConfiguredTargetKey)
+              .collect(ImmutableSet.toImmutableSet());
+    } else {
+      validatedTargets = null;
+    }
+
     TestResultNotifier notifier = new TerminalTestResultNotifier(
         printer,
         makeTestLogPathFormatter(options, env),
         options);
-    return listener.differentialAnalyzeAndReport(testTargets, skippedTargets, notifier);
+    return listener.differentialAnalyzeAndReport(
+        buildResult.getTestTargets(), buildResult.getSkippedTargets(), validatedTargets, notifier);
   }
 
   private static TestLogPathFormatter makeTestLogPathFormatter(
@@ -246,8 +256,7 @@ public class TestCommand implements BlazeCommand {
             requestOptions.getSymlinkPrefix(productName),
             productName,
             env.getWorkspace(),
-            env.getWorkspace(),
-            requestOptions.experimentalNoProductNameOutSymlink);
-    return path -> pathPrettyPrinter.getPrettyPath(path).getPathString();
+            env.getWorkspace());
+    return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
   }
 }

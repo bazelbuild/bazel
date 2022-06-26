@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -38,7 +39,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -141,7 +141,7 @@ class OptionsParserImpl {
    * this level.
    */
   private final Map<PriorityCategory, OptionPriority> nextPriorityPerPriorityCategory =
-      Stream.of(PriorityCategory.values())
+      Arrays.stream(PriorityCategory.values())
           .collect(Collectors.toMap(p -> p, OptionPriority::lowestOptionPriorityAtCategory));
 
   /**
@@ -473,10 +473,11 @@ class OptionsParserImpl {
   }
 
   /**
-   * Implementation of {@link OptionsParser#addOptionValueAtSpecificPriority(OptionInstanceOrigin,
+   * Implementation of {@link
+   * OptionsParser#setOptionValueAtSpecificPrioritySkipExpansion(OptionInstanceOrigin,
    * OptionDefinition, String)}
    */
-  void addOptionValueAtSpecificPriority(
+  void setOptionValueAtSpecificPriorityWithoutExpansion(
       OptionInstanceOrigin origin, OptionDefinition option, String unconvertedValue)
       throws OptionsParsingException {
     Preconditions.checkNotNull(option);
@@ -486,20 +487,20 @@ class OptionsParserImpl {
         option);
     Preconditions.checkNotNull(
         origin,
-        "Cannot assign value \'%s\' to %s without a clear origin for this value.",
+        "Cannot assign value '%s' to %s without a clear origin for this value.",
         unconvertedValue,
         option);
     PriorityCategory priorityCategory = origin.getPriority().getPriorityCategory();
     boolean isNotDefault = priorityCategory != OptionPriority.PriorityCategory.DEFAULT;
     Preconditions.checkArgument(
         isNotDefault,
-        "Attempt to assign value \'%s\' to %s at priority %s failed. Cannot set options at "
+        "Attempt to assign value '%s' to %s at priority %s failed. Cannot set options at "
             + "default priority - by definition, that means the option is unset.",
         unconvertedValue,
         option,
         priorityCategory);
 
-    handleNewParsedOption(
+    setOptionValue(
         ParsedOptionDescription.newParsedOptionDescription(
             option,
             String.format("--%s=%s", option.getOptionName(), unconvertedValue),
@@ -509,6 +510,33 @@ class OptionsParserImpl {
 
   /** Takes care of tracking the parsed option's value in relation to other options. */
   private void handleNewParsedOption(ParsedOptionDescription parsedOption)
+      throws OptionsParsingException {
+    OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
+    ExpansionBundle expansionBundle = setOptionValue(parsedOption);
+    @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
+
+    if (expansionBundle != null) {
+      OptionsParserImplResult optionsParserImplResult =
+          parse(
+              OptionPriority.getChildPriority(parsedOption.getPriority()),
+              o -> expansionBundle.sourceOfExpansionArgs,
+              optionDefinition.hasImplicitRequirements() ? parsedOption : null,
+              optionDefinition.isExpansionOption() ? parsedOption : null,
+              expansionBundle.expansionArgs);
+      if (!optionsParserImplResult.getResidue().isEmpty()) {
+
+        // Throw an assertion here, because this indicates an error in the definition of this
+        // option's expansion or requirements, not with the input as provided by the user.
+        throw new AssertionError(
+            "Unparsed options remain after processing "
+                + unconvertedValue
+                + ": "
+                + Joiner.on(' ').join(optionsParserImplResult.getResidue()));
+      }
+    }
+  }
+
+  private ExpansionBundle setOptionValue(ParsedOptionDescription parsedOption)
       throws OptionsParsingException {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     // All options can be deprecated; check and warn before doing any option-type specific work.
@@ -522,7 +550,6 @@ class OptionsParserImpl {
             optionDefinition,
             def -> OptionValueDescription.createOptionValueDescription(def, optionsData));
     ExpansionBundle expansionBundle = entry.addOptionInstance(parsedOption, warnings);
-    @Nullable String unconvertedValue = parsedOption.getUnconvertedValue();
 
     // There are 3 types of flags that expand to other flag values. Expansion flags are the
     // accepted way to do this, but implicit requirements also do this. We rely on the
@@ -546,25 +573,7 @@ class OptionsParserImpl {
       }
     }
 
-    if (expansionBundle != null) {
-      OptionsParserImplResult optionsParserImplResult =
-          parse(
-              OptionPriority.getChildPriority(parsedOption.getPriority()),
-              o -> expansionBundle.sourceOfExpansionArgs,
-              optionDefinition.hasImplicitRequirements() ? parsedOption : null,
-              optionDefinition.isExpansionOption() ? parsedOption : null,
-              expansionBundle.expansionArgs);
-      if (!optionsParserImplResult.getResidue().isEmpty()) {
-
-        // Throw an assertion here, because this indicates an error in the definition of this
-        // option's expansion or requirements, not with the input as provided by the user.
-        throw new AssertionError(
-            "Unparsed options remain after processing "
-                + unconvertedValue
-                + ": "
-                + Joiner.on(' ').join(optionsParserImplResult.getResidue()));
-      }
-    }
+    return expansionBundle;
   }
 
   private ParsedOptionDescription identifyOptionAndPossibleArgument(

@@ -17,8 +17,8 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,12 +26,11 @@ import javax.annotation.concurrent.Immutable;
 
 /** A set of FileTypes for grouped matching. */
 @Immutable
-@AutoCodec
 public class FileTypeSet implements Predicate<String> {
   private final ImmutableSet<FileType> fileTypes;
 
   /** A set that matches all files. */
-  @AutoCodec
+  @SerializationConstant
   public static final FileTypeSet ANY_FILE =
       new FileTypeSet() {
         @Override
@@ -51,7 +50,7 @@ public class FileTypeSet implements Predicate<String> {
       };
 
   /** A predicate that matches no files. */
-  @AutoCodec
+  @SerializationConstant
   public static final FileTypeSet NO_FILE =
       new FileTypeSet(ImmutableList.of()) {
         @Override
@@ -73,9 +72,7 @@ public class FileTypeSet implements Predicate<String> {
     this.fileTypes = ImmutableSet.copyOf(fileTypes);
   }
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  FileTypeSet(Iterable<FileType> fileTypes) {
+  private FileTypeSet(Iterable<FileType> fileTypes) {
     this.fileTypes = ImmutableSet.copyOf(fileTypes);
   }
 

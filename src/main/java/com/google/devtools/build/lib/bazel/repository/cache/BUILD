@@ -24,6 +24,7 @@ java_library(
     name = "events",
     srcs = ["RepositoryCacheHitEvent.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/events",
     ],
 )

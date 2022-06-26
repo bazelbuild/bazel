@@ -111,7 +111,9 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
-        BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
+        BuildEventStreamProtos.BuildEvent.newBuilder()
+            .setProgress(Progress.getDefaultInstance())
+            .build();
     when(buildEvent.asStreamProto(ArgumentMatchers.<BuildEventContext>any())).thenReturn(progress);
     transport.sendBuildEvent(buildEvent);
 
@@ -371,9 +373,11 @@ public class BinaryFormatFileTransportTest {
 
     @Override
     public Collection<LocalFile> referencedLocalFiles() {
-      return files
-          .stream()
-          .map(f -> new LocalFile(f, LocalFileType.OUTPUT))
+      return files.stream()
+          .map(
+              f ->
+                  new LocalFile(
+                      f, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null))
           .collect(toImmutableList());
     }
 

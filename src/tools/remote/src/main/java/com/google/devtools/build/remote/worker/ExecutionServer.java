@@ -35,10 +35,13 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
+import com.google.devtools.build.lib.remote.UploadManifest;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -46,7 +49,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
@@ -62,11 +64,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -265,32 +269,38 @@ final class ExecutionServer extends ExecutionImplBase {
       throw StatusUtils.notFoundError(e.getMissingDigest());
     }
 
+    Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
+    workingDirectory.createDirectoryAndParents();
+
     List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
     for (String output : command.getOutputFilesList()) {
-      Path file = execRoot.getRelative(output);
+      Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output file already exists: " + file);
       }
-      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
     }
     for (String output : command.getOutputDirectoriesList()) {
-      Path file = execRoot.getRelative(output);
+      Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
-        throw new FileAlreadyExistsException("Output directory/file already exists: " + file);
+        if (!file.isDirectory()) {
+          throw new FileAlreadyExistsException(
+              "Non-directory exists at output directory path: " + file);
+        } else if (!file.getDirectoryEntries().isEmpty()) {
+          throw new FileAlreadyExistsException(
+              "Non-empty directory exists at output directory path: " + file);
+        }
       }
-      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
     }
-
-    Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
-    FileSystemUtils.createDirectoryAndParents(workingDirectory);
 
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
     // implementation instead of copying it.
     com.google.devtools.build.lib.shell.Command cmd =
         getCommand(command, workingDirectory.getPathString());
-    long startTime = System.currentTimeMillis();
+    Instant startTime = Instant.now();
     CommandResult cmdResult = null;
 
     String uuid = UUID.randomUUID().toString();
@@ -313,13 +323,14 @@ final class ExecutionServer extends ExecutionImplBase {
         }
       }
 
+      Duration wallTime = Duration.between(startTime, Instant.now());
       long timeoutMillis =
           action.hasTimeout()
               ? Durations.toMillis(action.getTimeout())
               : TimeUnit.MINUTES.toMillis(15);
       boolean wasTimeout =
           (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
-              || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
+              || wasTimeout(timeoutMillis, wallTime.toMillis());
       final int exitCode;
       Status errStatus = null;
       ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
@@ -328,7 +339,7 @@ final class ExecutionServer extends ExecutionImplBase {
             String.format(
                 "Command:\n%s\nexceeded deadline of %f seconds.",
                 Arrays.toString(command.getArgumentsList().toArray()), timeoutMillis / 1000.0);
-        logger.atWarning().log(errMessage);
+        logger.atWarning().log("%s", errMessage);
         errStatus =
             Status.newBuilder()
                 .setCode(Code.DEADLINE_EXCEEDED.getNumber())
@@ -343,8 +354,20 @@ final class ExecutionServer extends ExecutionImplBase {
 
       ActionResult result = null;
       try {
-        result =
-            cache.upload(context, actionKey, action, command, execRoot, outputs, outErr, exitCode);
+        UploadManifest manifest =
+            UploadManifest.create(
+                cache.getRemoteOptions(),
+                digestUtil,
+                RemotePathResolver.createDefault(workingDirectory),
+                actionKey,
+                action,
+                command,
+                outputs,
+                outErr,
+                exitCode,
+                Optional.of(startTime),
+                Optional.of(wallTime));
+        result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =

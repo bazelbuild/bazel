@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.Collection;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -74,8 +74,7 @@ public interface AttributeMap {
    */
   default <T> T getOrDefault(String attributeName, Type<T> type, T defaultValue) {
     if (has(attributeName)) {
-      T value = get(attributeName, type);
-      return value;
+      return get(attributeName, type);
     }
     return defaultValue;
   }
@@ -122,36 +121,28 @@ public interface AttributeMap {
   boolean isAttributeValueExplicitlySpecified(String attributeName);
 
   /**
-   * Returns a {@link Collection} with a {@link DepEdge} for every attribute that contains labels in
-   * its value (either by *being* a label or being a collection that includes labels).
-   */
-  Collection<DepEdge> visitLabels() throws InterruptedException;
-
-  /** Same as {@link #visitLabels()} but for a single attribute. */
-  Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException;
-
-  /**
-   * {@code (Label, Attribute)} pair describing a dependency edge.
+   * Invokes a consumer for labels of <em>every</em> attribute that contains labels in its value
+   * (either by being a label or being a collection that includes labels).
    *
-   * <p>The {@link Label} is the target node of the {@code (Rule, Label)} edge. The source node
-   * should already be known. The {@link Attribute} is the attribute giving the edge.
+   * <p>If it is not necessary to visit labels of every attribute, prefer {@link
+   * #visitLabels(Attribute, Consumer)} or {@link #visitLabels(DependencyFilter, BiConsumer)} for
+   * better performance.
    */
-  @AutoValue
-  abstract class DepEdge {
-    public abstract Label getLabel();
+  void visitAllLabels(BiConsumer<Attribute, Label> consumer);
 
-    public abstract Attribute getAttribute();
+  /** Same as {@link #visitAllLabels} but for a single attribute. */
+  void visitLabels(Attribute attribute, Consumer<Label> consumer);
 
-    static DepEdge create(Label label, Attribute attribute) {
-      return new AutoValue_AttributeMap_DepEdge(label, attribute);
-    }
-  }
+  /** Same as {@link #visitAllLabels} but for attributes matching a {@link DependencyFilter}. */
+  void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer);
 
   // TODO(bazel-team): These methods are here to support computed defaults that inherit
   // package-level default values. Instead, we should auto-inherit and remove the computed
   // defaults. If we really need to give access to package-level defaults, we should come up with
   // a more generic interface.
   String getPackageDefaultHdrsCheck();
+
+  boolean isPackageDefaultHdrsCheckSet();
 
   Boolean getPackageDefaultTestOnly();
 

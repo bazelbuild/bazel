@@ -52,11 +52,9 @@ import com.google.devtools.build.lib.rules.android.AndroidLibraryTest.WithoutPla
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
-import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
@@ -398,12 +396,7 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "java/test",
         "lib",
         // error:
-        getErrorMsgMisplacedRules(
-            "plugins",
-            "android_library",
-            "//java/test:lib",
-            "java_library",
-            "//java/test:not_a_plugin"),
+        getErrorMsgMandatoryProviderMissing("//java/test:not_a_plugin", "JavaPluginInfo"),
         // BUILD file:
         "java_library(",
         "    name = 'not_a_plugin',",
@@ -673,41 +666,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(Arrays.asList("data.txt", "liba.jar", "libb.jar"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(bTarget).getArtifacts()));
-    assertNoEvents();
-  }
-
-  @Test
-  public void testTransitiveExports() throws Exception {
-    scratch.file(
-        "java/com/google/exports/BUILD",
-        "android_library(",
-        "    name = 'dummy',",
-        "    srcs = ['dummy.java'],",
-        "    exports = [':dummy2'],",
-        ")",
-        "android_library(",
-        "    name = 'dummy2',",
-        "    srcs = ['dummy2.java'],",
-        "    exports = [':dummy3'],",
-        ")",
-        "android_library(",
-        "    name = 'dummy3',",
-        "    srcs = ['dummy3.java'],",
-        "    exports = [':dummy4'],",
-        ")",
-        "android_library(",
-        "    name = 'dummy4',",
-        "    srcs = ['dummy4.java'],",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//java/com/google/exports:dummy");
-    List<Label> exports =
-        JavaInfo.getProvider(JavaExportsProvider.class, target).getTransitiveExports().toList();
-    assertThat(exports)
-        .containsExactly(
-            Label.parseAbsolute("//java/com/google/exports:dummy2", ImmutableMap.of()),
-            Label.parseAbsolute("//java/com/google/exports:dummy3", ImmutableMap.of()),
-            Label.parseAbsolute("//java/com/google/exports:dummy4", ImmutableMap.of()));
     assertNoEvents();
   }
 
@@ -1210,25 +1168,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(
             ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(foo), "r.srcjar").getRoot())
         .isEqualTo(getTargetConfiguration().getBinDirectory(RepositoryName.MAIN));
-  }
-
-  // regression test for #3294893
-  @Test
-  public void testNoJavaPathFoundDoesNotThrow() throws Exception {
-    checkError(
-        "third_party/java_src/android/app",
-        "r",
-        "The location of your BUILD file determines the Java package used for Android resource "
-            + "processing. A directory named \"java\" or \"javatests\" will be used as your Java "
-            + "source root and the path of your BUILD file relative to the Java source root will "
-            + "be used as the package for Android resource processing. The Java source root could "
-            + "not be determined for \"third_party/java_src/android/app\". Move your BUILD file "
-            + "under a java or javatests directory, or set the 'custom_package' attribute.",
-        "licenses(['notice'])",
-        "android_library(",
-        "    name = 'r',",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
   }
 
   @Test
@@ -2002,19 +1941,17 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
 
     useConfiguration("--android_sdk=//sdk:sdk");
-    ConfiguredTargetAndData a = getConfiguredTargetAndData("//java/a:a");
-    ConfiguredTargetAndData b = getConfiguredTargetAndDataDirectPrerequisite(a, "//java/a:b");
-    ConfiguredTargetAndData sdk = getConfiguredTargetAndDataDirectPrerequisite(a, "//sdk:sdk");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    ConfiguredTarget b = getDirectPrerequisite(a, "//java/a:b");
+    ConfiguredTarget sdk = getDirectPrerequisite(a, "//sdk:sdk");
     SpawnAction compileAction =
         getGeneratingSpawnAction(
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(compileAction).isNotNull();
 
     SpawnAction linkAction =
         getGeneratingSpawnAction(
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_LIBRARY_APK));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
     if (platformBasedToolchains()) {
@@ -2024,16 +1961,13 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(linkAction.getInputs().toList())
         .containsAtLeast(
-            sdk.getConfiguredTarget().get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
-            getImplicitOutputArtifact(
-                b.getConfiguredTarget(), AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
+            sdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS),
+            getImplicitOutputArtifact(b, AndroidRuleClasses.ANDROID_COMPILED_SYMBOLS));
     assertThat(linkAction.getOutputs())
         .containsAtLeast(
-            getImplicitOutputArtifact(a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_R_TXT),
-            getImplicitOutputArtifact(
-                a.getConfiguredTarget(), AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR));
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_R_TXT),
+            getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR));
   }
 
   @Test
@@ -2112,36 +2046,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
     AndroidLibraryAarInfo provider = target.get(AndroidLibraryAarInfo.PROVIDER);
     assertThat(provider).isNotNull();
     assertThat(provider.getAar().getManifest().getPath().toString()).contains("processed_manifest");
-  }
-
-  @Test
-  public void testAndroidLibrary_srcsLessDepsHostConfigurationNoOverride() throws Exception {
-    scratch.file(
-        "java/srclessdeps/BUILD",
-        "android_library(",
-        "    name = 'dep_for_foo',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'foo',",
-        "    deps = [':dep_for_foo'],",
-        ")",
-        "genrule(",
-        "    name = 'some_genrule',",
-        "    tools = [':foo'],",
-        "    outs = ['some_outs'],",
-        "    cmd = '$(location :foo) do_something $@',",
-        ")");
-
-    useConfiguration("--experimental_allow_android_library_deps_without_srcs");
-    // genrule builds its tools using the host configuration.
-    ConfiguredTarget genruleTarget = getConfiguredTarget("//java/srclessdeps:some_genrule");
-    ConfiguredTarget target = getDirectPrerequisite(genruleTarget, "//java/srclessdeps:foo");
-    assertThat(
-            getConfiguration(target)
-                .getFragment(AndroidConfiguration.class)
-                .allowSrcsLessAndroidLibraryDeps(getRuleContext(target)))
-        .isTrue();
   }
 
   @Test
@@ -2530,8 +2434,10 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    deps = [':mya'],",
         "    exports = [':myb'],",
         ")");
+
     // Test that all bottom jars are on the runtime classpath of lib_android.
     ConfiguredTarget target = getConfiguredTarget("//foo:lib_foo");
+
     ImmutableList<Artifact> transitiveSrcJars =
         OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars))
@@ -2539,6 +2445,12 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
             "libjl_bottom_for_exports-src.jar",
             "libal_bottom_for_deps-src.jar",
             "liblib_foo-src.jar");
+    ImmutableList<Artifact> directSrcJars =
+        OutputGroupInfo.get(target)
+            .getOutputGroup(JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP)
+            .toList();
+    assertThat(ActionsTestUtil.baseArtifactNames(directSrcJars))
+        .containsExactly("liblib_foo-src.jar");
   }
 
   @Test

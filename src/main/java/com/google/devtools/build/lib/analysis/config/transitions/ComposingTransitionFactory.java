@@ -29,7 +29,8 @@ import com.google.common.base.Preconditions;
  * </pre>
  */
 @AutoValue
-public abstract class ComposingTransitionFactory<T> implements TransitionFactory<T> {
+public abstract class ComposingTransitionFactory<T extends TransitionFactory.Data>
+    implements TransitionFactory<T> {
 
   /**
    * Creates a {@link ComposingTransitionFactory} that applies the given factories in sequence:
@@ -39,11 +40,14 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
    * one of the transitions is {@link NoTransition} or the host transition, and returns an
    * efficiently composed transition.
    */
-  public static <T> TransitionFactory<T> of(
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> of(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
 
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
+    Preconditions.checkArgument(
+        transitionFactory1.transitionType().isCompatibleWith(transitionFactory2.transitionType()),
+        "transition factory types must be compatible");
     Preconditions.checkArgument(
         !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
         "can't compose two split transition factories");
@@ -71,18 +75,15 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
     return create(transitionFactory1, transitionFactory2);
   }
 
-  private static <T> boolean isFinal(TransitionFactory<T> transitionFactory) {
+  private static <T extends TransitionFactory.Data> boolean isFinal(
+      TransitionFactory<T> transitionFactory) {
     return NullTransition.isInstance(transitionFactory) || transitionFactory.isHost();
   }
 
-  private static <T> TransitionFactory<T> create(
+  private static <T extends TransitionFactory.Data> TransitionFactory<T> create(
       TransitionFactory<T> transitionFactory1, TransitionFactory<T> transitionFactory2) {
     return new AutoValue_ComposingTransitionFactory<T>(transitionFactory1, transitionFactory2);
   }
-
-  abstract TransitionFactory<T> transitionFactory1();
-
-  abstract TransitionFactory<T> transitionFactory2();
 
   @Override
   public ConfigurationTransition create(T data) {
@@ -90,6 +91,10 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
     ConfigurationTransition transition2 = transitionFactory2().create(data);
     return new ComposingTransition(transition1, transition2);
   }
+
+  abstract TransitionFactory<T> transitionFactory1();
+
+  abstract TransitionFactory<T> transitionFactory2();
 
   @Override
   public boolean isHost() {

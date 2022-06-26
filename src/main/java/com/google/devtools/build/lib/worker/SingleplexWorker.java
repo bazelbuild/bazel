@@ -59,24 +59,27 @@ class SingleplexWorker extends Worker {
   /** True if we deliberately destroyed this process. */
   private boolean wasDestroyed;
 
+  /**
+   * Shutdown hook to make sure we wait for the process to finish on JVM shutdown, to avoid creating
+   * zombie processes. Unfortunately, shutdown hooks are not guaranteed to be called, but this is
+   * the best we can do. This must be set when a process is created.
+   */
   private Thread shutdownHook;
 
   SingleplexWorker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
     super(workerKey, workerId, logFile);
     this.workDir = workDir;
-
-    final SingleplexWorker self = this;
-    this.shutdownHook =
-        new Thread(
-            () -> {
-              // Not sure why this is needed. philwo@ added it without explanation.
-              self.shutdownHook = null;
-              self.destroy();
-            });
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
   Subprocess createProcess() throws IOException {
+    this.shutdownHook =
+        new Thread(
+            () -> {
+              this.shutdownHook = null;
+              this.destroy();
+            });
+    Runtime.getRuntime().addShutdownHook(shutdownHook);
+
     ImmutableList<String> args = workerKey.getArgs();
     File executable = new File(args.get(0));
     if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -84,12 +87,19 @@ class SingleplexWorker extends Worker {
       newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
       args = ImmutableList.copyOf(newArgs);
     }
+
     SubprocessBuilder processBuilder = new SubprocessBuilder();
     processBuilder.setArgv(args);
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
+
     return processBuilder.start();
+  }
+
+  @Override
+  public boolean isSandboxed() {
+    return false;
   }
 
   @Override
@@ -118,8 +128,16 @@ class SingleplexWorker extends Worker {
   }
 
   @Override
-  WorkResponse getResponse(int requestId) throws IOException {
+  WorkResponse getResponse(int requestId) throws IOException, InterruptedException {
     recordingInputStream.startRecording(4096);
+    while (recordingInputStream.available() == 0) {
+      Thread.sleep(10);
+      if (!process.isAlive()) {
+        throw new IOException(
+            String.format(
+                "Worker process for %s died while waiting for response", workerKey.getMnemonic()));
+      }
+    }
     return workerProtocol.getResponse();
   }
 
@@ -128,9 +146,6 @@ class SingleplexWorker extends Worker {
 
   @Override
   void destroy() {
-    if (shutdownHook != null) {
-      Runtime.getRuntime().removeShutdownHook(shutdownHook);
-    }
     if (workerProtocol != null) {
       try {
         workerProtocol.close();
@@ -138,6 +153,13 @@ class SingleplexWorker extends Worker {
         logger.atWarning().withCause(e).log("Caught IOException while closing worker protocol.");
       }
       workerProtocol = null;
+    }
+    if (shutdownHook != null) {
+      try {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      } catch (IllegalStateException e) {
+        // Can only happen if we're already in shutdown, in which case we don't care.
+      }
     }
     if (process != null) {
       wasDestroyed = true;
@@ -167,5 +189,14 @@ class SingleplexWorker extends Worker {
   @Override
   public String toString() {
     return workerKey.getMnemonic() + " worker #" + workerId;
+  }
+
+  @Override
+  public long getProcessId() {
+    if (process == null) {
+      return -1;
+    }
+
+    return process.getProcessId();
   }
 }

@@ -294,7 +294,7 @@ public class Main {
     } catch (IOException e) {
       logger.log(Level.SEVERE, "Error reading file " + file + ": " + e.getMessage());
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   static Coverage parseFiles(List<File> files, Parser parser, int parallelism)

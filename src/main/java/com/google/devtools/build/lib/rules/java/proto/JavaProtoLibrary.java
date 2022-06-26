@@ -29,18 +29,19 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaStrictCompilationArgsProvider;
+import javax.annotation.Nullable;
 
 /** Implementation of the java_proto_library rule. */
 public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
@@ -55,11 +56,8 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("deps", JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
-        constructJcapFromAspectDeps(ruleContext, javaProtoLibraryAspectProviders);
-    JavaStrictCompilationArgsProvider strictDependencyArgsProviders =
-        new JavaStrictCompilationArgsProvider(
-            constructJcapFromAspectDeps(
-                ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true));
+        constructJcapFromAspectDeps(
+            ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true);
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path
@@ -80,28 +78,24 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
-    JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
-
-    JavaInfo javaInfo =
+    JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
-            .addProvider(JavaStrictCompilationArgsProvider.class, strictDependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
-            .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
-            .build();
+            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY);
 
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
             .setFilesToBuild(filesToBuild.build())
-            .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+            .addProvider(RunfilesProvider.simple(runfiles))
             .addOutputGroup(
-                OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-            .addNativeDeclaredProvider(javaInfo);
+                OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     if (ruleContext.getFragment(JavaConfiguration.class).jplPropagateCcLinkParamsStore()) {
-      result.addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()));
+      javaInfoBuilder.addProvider(
+          JavaCcInfoProvider.class, createCcLinkingInfo(ruleContext, ImmutableList.of()));
     }
+    result.addNativeDeclaredProvider(javaInfoBuilder.build());
 
     return result.build();
   }

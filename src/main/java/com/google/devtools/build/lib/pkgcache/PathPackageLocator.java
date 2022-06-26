@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -22,34 +21,25 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * A mapping from the name of a package to the location of its BUILD file.
- * The implementation composes an ordered sequence of directories according to
- * the package-path rules.
+ * A mapping from the name of a package to the location of its BUILD file. The implementation
+ * composes an ordered sequence of directories according to the package-path rules.
  *
- * <p>All methods are thread-safe, and (assuming no change to the underlying
- * filesystem) idempotent.
+ * <p>All methods are thread-safe, and (assuming no change to the underlying filesystem) idempotent.
  */
-public class PathPackageLocator implements Serializable {
+public final class PathPackageLocator {
   private static final String WORKSPACE_WILDCARD = "%workspace%";
 
   private final ImmutableList<Root> pathEntries;
@@ -68,48 +58,20 @@ public class PathPackageLocator implements Serializable {
   }
 
   /**
-   * Returns the path to the build file for this package.
+   * Returns the path to the build file for this package, or null if not found.
    *
-   * <p>The package's root directory may be computed by calling getParentFile()
-   * on the result of this function.
+   * <p>The package's root directory may be computed by calling getParentFile() on the result of
+   * this function.
    *
-   * <p>Instances of this interface do not attempt to do any caching, nor
-   * implement checks for package-boundary crossing logic; the PackageCache
-   * does that.
-   *
-   * <p>If the same package exists beneath multiple package path entries, the
-   * first path that matches always wins.
-   */
-  public Path getPackageBuildFile(PackageIdentifier packageName) throws NoSuchPackageException {
-    Path buildFile  = getPackageBuildFileNullable(packageName, UnixGlob.DEFAULT_SYSCALLS_REF);
-    if (buildFile == null) {
-      String message = "BUILD file not found on package path";
-      throw new BuildFileNotFoundException(
-          packageName,
-          message,
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(message)
-                  .setPackageLoading(
-                      PackageLoading.newBuilder()
-                          .setCode(PackageLoading.Code.BUILD_FILE_MISSING)
-                          .build())
-                  .build()));
-    }
-    return buildFile;
-  }
-
-  /**
-   * Like #getPackageBuildFile(), but returns null instead of throwing.
+   * <p>If the same package exists beneath multiple package path entries, the first path that
+   * matches always wins.
    *
    * @param packageIdentifier the name of the package.
-   * @param cache a filesystem-level cache of stat() calls.
+   * @param syscallCache a filesystem-level cache of stat() calls.
    * @return the {@link Path} to the correct build file, or {@code null} if none was found
    */
   public Path getPackageBuildFileNullable(
-      PackageIdentifier packageIdentifier,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
-    Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
+      PackageIdentifier packageIdentifier, SyscallCache syscallCache) {
     if (packageIdentifier.getRepository().isMain()) {
       for (BuildFileName buildFileName : buildFilesByPriority) {
         Path buildFilePath =
@@ -117,7 +79,7 @@ public class PathPackageLocator implements Serializable {
                 packageIdentifier
                     .getPackageFragment()
                     .getRelative(buildFileName.getFilenameFragment()),
-                cache);
+                syscallCache);
         if (buildFilePath != null) {
           return buildFilePath;
         }
@@ -134,11 +96,11 @@ public class PathPackageLocator implements Serializable {
         Path buildFile =
             outputBase
                 .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
-                .getRelative(packageIdentifier.getRepository().strippedName())
+                .getRelative(packageIdentifier.getRepository().getName())
                 .getRelative(packageIdentifier.getSourceRoot())
                 .getRelative(buildFileName.getFilenameFragment());
         try {
-          FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
+          FileStatus stat = syscallCache.statIfFound(buildFile, Symlinks.FOLLOW);
           if (stat != null && stat.isFile()) {
             return buildFile;
           }
@@ -161,7 +123,7 @@ public class PathPackageLocator implements Serializable {
     return "PathPackageLocator" + pathEntries;
   }
 
-  public static String maybeReplaceWorkspaceInString(String pathElement, Path workspace) {
+  public static String maybeReplaceWorkspaceInString(String pathElement, PathFragment workspace) {
     return pathElement.replace(WORKSPACE_WILDCARD, workspace.getPathString());
   }
   /**
@@ -188,7 +150,7 @@ public class PathPackageLocator implements Serializable {
       Path outputBase,
       List<String> pathElements,
       EventHandler eventHandler,
-      Path workspace,
+      PathFragment workspace,
       Path clientWorkingDirectory,
       List<BuildFileName> buildFilesByPriority) {
     return createInternal(
@@ -197,8 +159,7 @@ public class PathPackageLocator implements Serializable {
         eventHandler,
         workspace,
         clientWorkingDirectory,
-        buildFilesByPriority,
-        true);
+        buildFilesByPriority);
   }
 
   /**
@@ -220,10 +181,9 @@ public class PathPackageLocator implements Serializable {
       Path outputBase,
       List<String> pathElements,
       EventHandler eventHandler,
-      Path workspace,
+      PathFragment workspace,
       Path clientWorkingDirectory,
-      List<BuildFileName> buildFilesByPriority,
-      boolean checkExistence) {
+      List<BuildFileName> buildFilesByPriority) {
     List<Root> resolvedPaths = new ArrayList<>();
 
     for (String pathElement : pathElements) {
@@ -232,11 +192,12 @@ public class PathPackageLocator implements Serializable {
 
       PathFragment pathElementFragment = PathFragment.create(pathElement);
 
-      // If the path string started with "%workspace%" or "/", it is already absolute,
-      // so the following line is a no-op.
+      // If the path string started with "%workspace%" or "/", it is already absolute, so the
+      // following line returns a path pointing to pathElementFragment.
       Path rootPath = clientWorkingDirectory.getRelative(pathElementFragment);
 
-      if (!pathElementFragment.isAbsolute() && !clientWorkingDirectory.equals(workspace)) {
+      if (!pathElementFragment.isAbsolute()
+          && !clientWorkingDirectory.asFragment().equals(workspace)) {
         eventHandler.handle(
             Event.warn(
                 "The package path element '"
@@ -248,7 +209,7 @@ public class PathPackageLocator implements Serializable {
                     + "' wildcard."));
       }
 
-      if (!checkExistence || rootPath.exists()) {
+      if (rootPath.exists()) {
         resolvedPaths.add(Root.fromPath(rootPath));
       }
     }
@@ -262,23 +223,27 @@ public class PathPackageLocator implements Serializable {
    * <p>If there are WORKSPACE files beneath multiple package path entries, the first one always
    * wins.
    */
-  public Path getWorkspaceFile() {
-    AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
+  public Path getWorkspaceFile(SyscallCache syscallCache) {
     // TODO(bazel-team): correctness in the presence of changes to the location of the WORKSPACE
-    // file.
-    Path workspaceFile = getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, cache);
+    //  file.
+    Path workspaceFile = getFilePath(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME, syscallCache);
     if (workspaceFile != null) {
       return workspaceFile;
     }
-    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, cache);
+    return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, syscallCache);
   }
 
-  private Path getFilePath(PathFragment suffix,
-      AtomicReference<? extends UnixGlob.FilesystemCalls> cache) {
+  private Path getFilePath(PathFragment suffix, SyscallCache cache) {
     for (Root pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);
       try {
-        Dirent.Type type = cache.get().getType(buildFile, Symlinks.FOLLOW);
+        SyscallCache.DirentTypeWithSkip typeWithSkip = cache.getType(buildFile, Symlinks.FOLLOW);
+        Dirent.Type type = null;
+        if (typeWithSkip == SyscallCache.DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED) {
+          type = SyscallCache.statusToDirentType(cache.statIfFound(buildFile, Symlinks.FOLLOW));
+        } else if (typeWithSkip != null) {
+          type = typeWithSkip.getType();
+        }
         if (type == Dirent.Type.FILE || type == Dirent.Type.UNKNOWN) {
           return buildFile;
         }
@@ -303,7 +268,7 @@ public class PathPackageLocator implements Serializable {
       return false;
     }
     PathPackageLocator pathPackageLocator = (PathPackageLocator) other;
-    return Objects.equals(getPathEntries(), pathPackageLocator.getPathEntries())
+    return Objects.equals(pathEntries, pathPackageLocator.pathEntries)
         && Objects.equals(outputBase, pathPackageLocator.outputBase);
   }
 

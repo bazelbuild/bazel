@@ -192,7 +192,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   private void defineTestMethods() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, this);
-    for (Map.Entry<String, Object> entry : env.build().entrySet()) {
+    for (Map.Entry<String, Object> entry : env.buildOrThrow().entrySet()) {
       ev.update(entry.getKey(), entry.getValue());
     }
   }
@@ -308,6 +308,26 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertArtifactFilenames(action.getInputs().toList(), "a.txt", "b.img", "t.exe");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
     MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
+  }
+
+  @Test
+  public void createSpawnAction_progressMessageWithSubstitutions() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs[1:],",
+        "  executable = ruleContext.files.tools[0],",
+        "  mnemonic = 'DummyMnemonic',",
+        "  progress_message = 'message %{label} %{input} %{output}')");
+
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getProgressMessage()).isEqualTo("message //foo:foo foo/a.txt foo/b.img");
   }
 
   @Test
@@ -2479,7 +2499,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -2507,8 +2527,6 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
-
-    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:foo");
@@ -3068,7 +3086,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
           artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
       for (String file : files) {
         output.add(
-            new DerivedArtifact(
+            DerivedArtifact.create(
                 artifact.getRoot(),
                 artifact.getExecPath().getRelative(file),
                 (ActionLookupKey) artifact.getArtifactOwner()));

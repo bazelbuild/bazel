@@ -34,12 +34,45 @@ load(
     ":utils.bzl",
     "patch",
     "read_netrc",
+    "read_user_netrc",
     "update_attrs",
     "use_netrc",
     "workspace_and_buildfile",
 )
 
 # Shared between http_jar, http_file and http_archive.
+
+_URL_DOC = """A URL to a file that will be made available to Bazel.
+
+This must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+More flexibility can be achieved by the urls parameter that allows
+to specify alternative URLs to fetch from."""
+
+_URLS_DOC = """A list of URLs to a file that will be made available to Bazel.
+
+Each entry must be a file, http or https URL. Redirections are followed.
+Authentication is not supported.
+
+URLs are tried in order until one succeeds, so you should list local mirrors first.
+If all downloads fail, the rule will fail."""
+
+def _get_all_urls(ctx):
+    """Returns all urls provided via the url or urls attributes.
+
+    Also checks that at least one url is provided."""
+    if not ctx.attr.url and not ctx.attr.urls:
+        fail("At least one of url and urls must be provided")
+
+    all_urls = []
+    if ctx.attr.urls:
+        all_urls = ctx.attr.urls
+    if ctx.attr.url:
+        all_urls = [ctx.attr.url] + all_urls
+
+    return all_urls
+
 _AUTH_PATTERN_DOC = """An optional dict mapping host names to custom authorization patterns.
 
 If a URL's host name is present in this dict the value will be used as a pattern when
@@ -77,35 +110,16 @@ def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
-        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
-        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
-        if ctx.path(netrcfile).exists:
-            netrc = read_netrc(ctx, netrcfile)
-            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
-    return {}
+    else:
+        netrc = read_user_netrc(ctx)
+    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
-    if not ctx.attr.url and not ctx.attr.urls:
-        fail("At least one of url and urls must be provided")
     if ctx.attr.build_file and ctx.attr.build_file_content:
         fail("Only one of build_file and build_file_content can be provided.")
 
-    all_urls = []
-    if ctx.attr.urls:
-        all_urls = ctx.attr.urls
-    if ctx.attr.url:
-        all_urls = [ctx.attr.url] + all_urls
-
+    all_urls = _get_all_urls(ctx)
     auth = _get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
@@ -116,13 +130,16 @@ def _http_archive_impl(ctx):
         ctx.attr.strip_prefix,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
-    patch(ctx)
+    patch(ctx, auth = auth)
 
-    return update_attrs(ctx.attr, _http_archive_attrs.keys(), {"sha256": download_info.sha256})
+    # We don't need to override the sha256 attribute if integrity is already specified.
+    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
+    return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
 
-_HTTP_FILE_BUILD = """
+_HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -146,9 +163,10 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    auth = _get_auth(ctx, ctx.attr.urls)
+    all_urls = _get_all_urls(ctx)
+    auth = _get_auth(ctx, all_urls)
     download_info = ctx.download(
-        ctx.attr.urls,
+        all_urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
@@ -160,20 +178,20 @@ def _http_file_impl(ctx):
 
     return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
 
-_HTTP_JAR_BUILD = """
+_HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
 
 java_import(
   name = 'jar',
-  jars = ['downloaded.jar'],
+  jars = ["{file_name}"],
   visibility = ['//visibility:public'],
 )
 
 filegroup(
   name = 'file',
-  srcs = ['downloaded.jar'],
+  srcs = ["{file_name}"],
   visibility = ['//visibility:public'],
 )
 
@@ -181,53 +199,38 @@ filegroup(
 
 def _http_jar_impl(ctx):
     """Implementation of the http_jar rule."""
-    all_urls = []
-    if ctx.attr.urls:
-        all_urls = ctx.attr.urls
-    if ctx.attr.url:
-        all_urls = [ctx.attr.url] + all_urls
+    all_urls = _get_all_urls(ctx)
     auth = _get_auth(ctx, all_urls)
+    downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
-        "jar/downloaded.jar",
+        "jar/" + downloaded_file_name,
         ctx.attr.sha256,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("jar/BUILD", _HTTP_JAR_BUILD)
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_name = downloaded_file_name))
     return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
 
 _http_archive_attrs = {
-    "url": attr.string(
-        doc =
-            """A URL to a file that will be made available to Bazel.
-
-This must be a file, http or https URL. Redirections are followed.
-Authentication is not supported.
-
-This parameter is to simplify the transition from the native http_archive
-rule. More flexibility can be achieved by the urls parameter that allows
-to specify alternative URLs to fetch from.
-""",
-    ),
-    "urls": attr.string_list(
-        doc =
-            """A list of URLs to a file that will be made available to Bazel.
-
-Each entry must be a file, http or https URL. Redirections are followed.
-Authentication is not supported.
-
-URLs are tried in order until one succeeds, so you should list local mirrors first.
-If all downloads fail, the rule will fail.""",
-    ),
+    "url": attr.string(doc = _URL_DOC),
+    "urls": attr.string_list(doc = _URLS_DOC),
     "sha256": attr.string(
         doc = """The expected SHA-256 of the file downloaded.
 
 This must match the SHA-256 of the file downloaded. _It is a security risk
 to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
-easier but should be set before shipping.""",
+easier but either this attribute or `integrity` should be set before shipping.""",
+    ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
@@ -267,8 +270,8 @@ match a directory in the archive, Bazel will return an error.""",
 
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
-following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, or `tar.bz2`.""",
+following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],
@@ -278,6 +281,19 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
+    ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc =
+            "A map of patch file URL to its integrity value, they are applied after extracting " +
+            "the archive and before applying patch files from the `patches` attribute. " +
+            "It uses the Bazel-native patch implementation, you can specify the patch strip " +
+            "number with `remote_patch_strip`",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc =
+            "The number of leading slashes to be stripped from the file name in the remote patches.",
     ),
     "patch_tool": attr.string(
         default = "",
@@ -293,7 +309,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "If arguments other than -p are specified, Bazel will fall back to use patch " +
             "command line tool instead of the Bazel-native patch implementation. When falling " +
             "back to patch command line tool and patch_tool attribute is not specified, " +
-            "`patch` will be used.",
+            "`patch` will be used. This only affects patch files in the `patches` attribute.",
     ),
     "patch_cmds": attr.string_list(
         default = [],
@@ -343,8 +359,9 @@ http_archive = repository_rule(
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
-It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"tar"`,
-`"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`.
+It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
+`"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`,
+or `"deb"`.
 
 Examples:
   Suppose the current repository contains the source code for a chat program,
@@ -378,7 +395,7 @@ Examples:
 
   http_archive(
       name = "my_ssl",
-      urls = ["http://example.com/openssl.zip"],
+      url = "http://example.com/openssl.zip",
       sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       build_file = "@//:openssl.BUILD",
   )
@@ -411,13 +428,8 @@ If specified and non-empty, bazel will not take the archive from cache,
 unless it was added to the cache by a request with the same canonical id.
 """,
     ),
-    "urls": attr.string_list(
-        mandatory = True,
-        doc = """A list of URLs to a file that will be made available to Bazel.
-
-Each entry must be a file, http or https URL. Redirections are followed.
-Authentication is not supported.""",
-    ),
+    "url": attr.string(doc = _URL_DOC),
+    "urls": attr.string_list(doc = _URLS_DOC),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
     ),
@@ -443,7 +455,7 @@ Examples:
 
   http_file(
       name = "my_deb",
-      urls = ["http://example.com/package.deb"],
+      url = "http://example.com/package.deb",
       sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   )
   ```
@@ -463,20 +475,17 @@ If specified and non-empty, bazel will not take the archive from cache,
 unless it was added to the cache by a request with the same canonical id.
 """,
     ),
-    "url": attr.string(
-        doc =
-            "The URL to fetch the jar from. It must end in `.jar`.",
-    ),
-    "urls": attr.string_list(
-        doc =
-            "A list of URLS the jar can be fetched from. They have to end " +
-            "in `.jar`.",
-    ),
+    "url": attr.string(doc = _URL_DOC + "\n\nThe URL must end in `.jar`."),
+    "urls": attr.string_list(doc = _URLS_DOC + "\n\nAll URLs must end in `.jar`."),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
     ),
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
+    ),
+    "downloaded_file_name": attr.string(
+        default = "downloaded.jar",
+        doc = "Filename assigned to the jar downloaded",
     ),
 }
 

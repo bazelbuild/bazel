@@ -19,6 +19,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -26,11 +27,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** An immutable set of package name prefixes that should be ignored. */
-@AutoCodec
 public class IgnoredPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
-  @AutoCodec @AutoCodec.VisibleForSerialization
+  @SerializationConstant @AutoCodec.VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
       new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
@@ -38,7 +38,6 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     this.patterns = Preconditions.checkNotNull(patterns);
   }
 
-  @AutoCodec.Instantiator
   public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
     return patterns.isEmpty() ? EMPTY_LIST : new IgnoredPackagePrefixesValue(patterns);
   }

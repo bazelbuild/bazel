@@ -19,8 +19,8 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -49,19 +50,36 @@ public final class AnalysisUtils {
   }
 
   /**
+   * Returns whether link stamping is enabled for a TriState stamp attribute.
+   *
+   * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
+   * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
+   * AUTO.
+   */
+  public static boolean isStampingEnabled(TriState stamp, BuildConfigurationValue config) {
+    if (config.isToolConfiguration()) {
+      return false;
+    }
+    return stamp.equals(TriState.YES) || (stamp.equals(TriState.AUTO) && config.stampBinaries());
+  }
+
+  /**
    * Returns whether link stamping is enabled for a rule.
    *
    * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
    * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
    * -1.
    */
-  public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfiguration config) {
-    if (config.isToolConfiguration()
-        || !ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
-      return false;
+  public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfigurationValue config) {
+    if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
+      TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+      return isStampingEnabled(stamp, config);
     }
-    TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
-    return stamp == TriState.YES || (stamp == TriState.AUTO && config.stampBinaries());
+    if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      int stamp = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
+      return isStampingEnabled(TriState.fromInt(stamp), config);
+    }
+    return false;
   }
 
   public static boolean isStampingEnabled(RuleContext ruleContext) {
@@ -172,7 +190,7 @@ public final class AnalysisUtils {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
     LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
-    for (BuildConfiguration config : configurations.getTargetConfigurations()) {
+    for (BuildConfigurationValue config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
         nodes.add(new TargetAndConfiguration(target, config));
       }
@@ -180,16 +198,17 @@ public final class AnalysisUtils {
 
     // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
     // configurations for deps including transitions.
-    Multimap<BuildConfiguration, DependencyKey> asDeps = targetsToDeps(nodes, ruleClassProvider);
+    Multimap<BuildConfigurationValue, DependencyKey> asDeps =
+        targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
         nodes, asDeps, eventHandler, configurationsCollector);
   }
 
   @VisibleForTesting
-  public static Multimap<BuildConfiguration, DependencyKey> targetsToDeps(
+  public static Multimap<BuildConfigurationValue, DependencyKey> targetsToDeps(
       Collection<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
-    Multimap<BuildConfiguration, DependencyKey> asDeps = ArrayListMultimap.create();
+    Multimap<BuildConfigurationValue, DependencyKey> asDeps = ArrayListMultimap.create();
     for (TargetAndConfiguration targetAndConfig : nodes) {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(

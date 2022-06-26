@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Mutability;
@@ -204,13 +205,14 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
+    setBuildLanguageOptionsWithBuiltinsStaging();
   }
 
-  public void setBuiltinsDummyFlag() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_builtins_bzl_path=tools/builtins_staging",
-        "--experimental_builtins_dummy=true");
+  private void setBuildLanguageOptionsWithBuiltinsStaging(String... options) throws Exception {
+    ArrayList<String> newOptions = new ArrayList<>();
+    newOptions.add("--experimental_builtins_bzl_path=tools/builtins_staging");
+    Collections.addAll(newOptions, options);
+    setBuildLanguageOptions(newOptions.toArray(new String[] {}));
   }
 
   /**
@@ -601,7 +603,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBuild();
     writePkgBzl();
 
-    setBuiltinsDummyFlag();
+    setBuildLanguageOptionsWithBuiltinsStaging("--experimental_builtins_dummy=true");
     buildAndAssertSuccess();
     assertContainsEvent("experimental_builtins_dummy :: True");
   }
@@ -624,7 +626,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void flagGuarding_canExportEvenWhenDisabled() throws Exception {
+  public void flagGuardedSymbol_canExportEvenWhenDisabled() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
         "exported_rules = {}",
@@ -637,7 +639,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void flagGuarding_cannotUseWhenDisabledEvenIfInjected() throws Exception {
+  public void flagGuardedSymbol_cannotUseWhenDisabledEvenIfInjected() throws Exception {
     // Implementation note: Flag guarding is implemented at name resolution time, before builtins
     // injection is applied.
     writeExportsBzl(
@@ -652,7 +654,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void flagGuarding_injectedValueIsSeenWhenFlagIsEnabled() throws Exception {
+  public void flagGuardedSymbol_injectedValueIsSeenWhenFlagIsEnabled() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {'flag_guarded_symbol': 'overridden value'}",
         "exported_rules = {}",
@@ -660,13 +662,13 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBuild();
     writePkgBzl("print('flag_guarded_symbol :: %s' % flag_guarded_symbol)");
 
-    setBuiltinsDummyFlag();
+    setBuildLanguageOptionsWithBuiltinsStaging("--experimental_builtins_dummy=true");
     buildAndAssertSuccess();
     assertContainsEvent("flag_guarded_symbol :: overridden value");
   }
 
   @Test
-  public void flagGuarding_unconditionallyAccessibleToBuiltins() throws Exception {
+  public void flagGuardedSymbol_unconditionallyAccessibleToBuiltins() throws Exception {
     writeExportsBzl(
         "print('flag_guarded_symbol :: %s' % _builtins.toplevel.flag_guarded_symbol)",
         "exported_toplevels = {}", //
@@ -770,6 +772,62 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Rule implementation uses callStarlarkOrThrowRuleError(), which includes the stack trace.
     assertContainsEvent("line 2, column 4, in func");
     assertContainsEvent("Error: integer division by zero");
+  }
+
+  // The following tests check the integration of the injection override flag with builtins
+  // injection. See BazelStarlarkEnvironmentTest for more detailed unit tests about the semantics of
+  // this flag.
+
+  @Test
+  public void perSymbolInjectionOverride() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {'-overridable_symbol': 'new_value'}",
+        "exported_rules = {'-overridable_rule': 'new_rule'}",
+        "exported_to_java = {}");
+    writePkgBuild("print('In BUILD: overridable_rule :: %s' % overridable_rule)");
+    writePkgBzl(
+        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
+        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
+
+    setBuildLanguageOptionsWithBuiltinsStaging(
+        "--experimental_builtins_injection_override=+overridable_symbol,+overridable_rule");
+    buildAndAssertSuccess();
+    assertContainsEvent("In bzl: overridable_symbol :: new_value");
+    assertContainsEvent("In bzl: overridable_rule :: new_rule");
+    assertContainsEvent("In BUILD: overridable_rule :: new_rule");
+  }
+
+  @Test
+  public void perSymbolInjectionOverride_lastOccurrenceWins() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {'-overridable_symbol': 'new_value'}",
+        "exported_rules = {'-overridable_rule': 'new_rule'}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl(
+        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
+        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
+
+    // Tests that the last use of foo determines whether it's +foo or -foo. Also tests that the flag
+    // is allowMultiple, so that passing the second list doesn't just zero out the first list.
+    setBuildLanguageOptionsWithBuiltinsStaging(
+        "--experimental_builtins_injection_override="
+            + "+overridable_rule,+overridable_symbol,-overridable_symbol",
+        "--experimental_builtins_injection_override=+overridable_symbol");
+    buildAndAssertSuccess();
+    assertContainsEvent("In bzl: overridable_symbol :: new_value");
+    assertContainsEvent("In bzl: overridable_rule :: new_rule");
+  }
+
+  @Test
+  public void perSymbolInjectionOverride_invalidOverrideItem() throws Exception {
+    writeExportsBzl("exported_toplevels = {}", "exported_rules = {}", "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl();
+
+    setBuildLanguageOptionsWithBuiltinsStaging("--experimental_builtins_injection_override=foo");
+    buildAndAssertFailure();
+    assertContainsEvent("Invalid injection override item: 'foo'");
   }
 
   /**

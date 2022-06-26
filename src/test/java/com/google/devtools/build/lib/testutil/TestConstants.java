@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_LABEL;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
  * Various constants required by the tests.
@@ -67,6 +68,9 @@ public class TestConstants {
   /** Location of the bazel repo relative to the workspace root */
   public static final String BAZEL_REPO_PATH = "";
 
+  /** The file path in which to create files so that they end up under Bazel main repository. */
+  public static final String BAZEL_REPO_SCRATCH = "../io_bazel/";
+
   /** Relative path to the {@code process-wrapper} tool. */
   public static final String PROCESS_WRAPPER_PATH =
       "io_bazel/src/main/tools/process-wrapper";
@@ -78,6 +82,12 @@ public class TestConstants {
   /** Relative path to the {@code spend_cpu_time} testing tool. */
   public static final String CPU_TIME_SPENDER_PATH =
       "io_bazel/src/test/shell/integration/spend_cpu_time";
+
+  /**
+   * Directory where we can find Bazel's own bootstrapping rules relative to a test's runfiles
+   * directory, i.e. when //tools/build_rules:srcs is in a test's data.
+   */
+  public static final String BUILD_RULES_DATA_PATH = "io_bazel/tools/build_rules/";
 
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
@@ -95,9 +105,9 @@ public class TestConstants {
   public static final String MOCK_CC_CROSSTOOL_PATH = "tools/cpp";
 
   /** The workspace repository label under which built-in tools reside. */
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
+  public static final RepositoryName TOOLS_REPOSITORY = RepositoryName.BAZEL_TOOLS;
   /** The file path in which to create files so that they end up under {@link #TOOLS_REPOSITORY}. */
-  public static final String TOOLS_REPOSITORY_SCRATCH = "bazel_tools_workspace/";
+  public static final String TOOLS_REPOSITORY_SCRATCH = "embedded_tools/";
 
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
@@ -122,20 +132,19 @@ public class TestConstants {
           "--target_platform_fallback=@bazel_tools//platforms:default_target",
           "--platforms=@bazel_tools//platforms:default_target",
           "--host_platform=@bazel_tools//platforms:default_host",
-          // TODO(#7903): Remove once our own tests are migrated.
-          "--incompatible_py3_is_default=false",
-          "--incompatible_py2_outputs_are_suffixed=false",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
-      " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")";
+      " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")"
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String PLATFORM_PACKAGE_ROOT = "@bazel_tools//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
 
-  public static final String PLATFORMS_PATH = "bazel_tools_workspace/platforms";
+  public static final String PLATFORMS_PATH = "embedded_tools/platforms";
   public static final String CONSTRAINTS_PATH = "platforms_workspace";
   public static final String LOCAL_CONFIG_PLATFORM_PATH = "local_config_platform_workspace";
 
@@ -145,6 +154,13 @@ public class TestConstants {
   /** What toolchain type do Android rules use for platform-based toolchain resolution? */
   public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =
       TOOLS_REPOSITORY + "//tools/android:sdk_toolchain_type";
+
+  /** The launcher used by Bazel. */
+  public static final String LAUNCHER_PATH = "@bazel_tools//tools/launcher:launcher";
+
+  /** The target name for ProGuard's allowlister. */
+  public static final String PROGUARD_ALLOWLISTER_TARGET =
+      "@bazel_tools//tools/jdk:proguard_whitelister";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {

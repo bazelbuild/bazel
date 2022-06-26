@@ -40,16 +40,20 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
 /**
  * The implementation of the config_feature_flag rule for defining custom flags for Android rules.
  */
 public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
-  /** The name of the policy that is used to restrict access to the config_feature_flag rule. */
-  private static final String ALLOWLIST_NAME = "config_feature_flag";
+  /**
+   * The name of the policy that is used to restrict access to the config_feature_flag rule and
+   * attribute-triggered access to the feature flags setter transition.
+   */
+  public static final String ALLOWLIST_NAME = "config_feature_flag";
 
-  /** The label of the policy that is used to restrict access to the config_feature_flag rule. */
+  /** The label of the policy for ALLOWLIST_NAME. */
   private static final String ALLOWLIST_LABEL =
       "//tools/allowlists/config_feature_flag:config_feature_flag";
 
@@ -62,48 +66,59 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   /**
    * Constructs a definition for the attribute used to restrict access to config_feature_flag. The
    * allowlist will only be reached if the given {@code attributeToInspect} has a value explicitly
-   * specified. It must be non-configurable.
+   * specified.
    */
   public static Attribute.Builder<Label> getAllowlistAttribute(
       RuleDefinitionEnvironment env, String attributeToInspect) {
     final Label label = env.getToolsLabel(ALLOWLIST_LABEL);
     return Allowlist.getAttributeFromAllowlistName(ALLOWLIST_NAME)
         .value(
+            /**
+             * Critically, get is never actually called on attributeToInspect and thus it is not
+             * necessary to declare whether it is configurable, for this context.
+             */
             new ComputedDefault() {
               @Override
               public Label getDefault(AttributeMap rule) {
                 return rule.isAttributeValueExplicitlySpecified(attributeToInspect) ? label : null;
               }
+
+              @Override
+              public boolean resolvableWithRawAttributes() {
+                return true;
+              }
             });
   }
 
   /**
-   * Returns whether config_feature_flag and related features are available to the current rule.
+   * The name of the policy that is used to restrict access to rule definitions attaching the
+   * feature flag setting transition.
    *
-   * <p>The current rule must have an attribute defined on it created with {@link
-   * #getAllowlistAttribute}.
+   * <p>Defined here for consistency with ALLOWLIST_NAME policy.
    */
-  public static boolean isAvailable(RuleContext ruleContext) {
-    return Allowlist.isAvailable(ruleContext, ALLOWLIST_NAME);
+  public static final String SETTER_ALLOWLIST_NAME = "config_feature_flag_setter";
+
+  /** The label of the policy for SETTER_ALLOWLIST_NAME. */
+  private static final String SETTER_ALLOWLIST_LABEL =
+      "//tools/allowlists/config_feature_flag:config_feature_flag_setter";
+
+  /** Constructs a definition for the attribute used to restrict access to config_feature_flag. */
+  public static Attribute.Builder<Label> getSetterAllowlistAttribute(
+      RuleDefinitionEnvironment env) {
+    return Allowlist.getAttributeFromAllowlistName(SETTER_ALLOWLIST_NAME)
+        .value(env.getToolsLabel(SETTER_ALLOWLIST_LABEL));
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    if (!ConfigFeatureFlag.isAvailable(ruleContext)) {
-      throw ruleContext.throwWithRuleError(
-          String.format(
-              "the %s rule is not available in package '%s'",
-              ruleContext.getRuleClassNameForLogging(),
-              ruleContext.getLabel().getPackageIdentifier()));
-    }
-
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
     Predicate<String> isValidValue = Predicates.in(values);
     if (values.size() != specifiedValues.size()) {
       ImmutableMultiset<String> groupedValues = ImmutableMultiset.copyOf(specifiedValues);
-      ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<String>();
+      ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<>();
       for (Multiset.Entry<String> value : groupedValues.entrySet()) {
         if (value.getCount() > 1) {
           duplicates.add(value.getElement());

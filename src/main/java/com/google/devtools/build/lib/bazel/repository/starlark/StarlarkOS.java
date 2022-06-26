@@ -15,13 +15,21 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOSApi;
+import java.util.Locale;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A Starlark structure to deliver information about the system we are running on. */
+@StarlarkBuiltin(
+    name = "repository_os",
+    category = DocCategory.BUILTIN,
+    doc = "Various data about the current platform Bazel is running on.")
 @Immutable
-final class StarlarkOS implements StarlarkOSApi {
+final class StarlarkOS implements StarlarkValue {
 
   private final ImmutableMap<String, String> environ;
 
@@ -34,13 +42,28 @@ final class StarlarkOS implements StarlarkOSApi {
     return true; // immutable and Starlark-hashable
   }
 
-  @Override
+  @StarlarkMethod(name = "environ", structField = true, doc = "The list of environment variables.")
   public ImmutableMap<String, String> getEnvironmentVariables() {
     return environ;
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "name",
+      structField = true,
+      doc =
+          "A string identifying the operating system Bazel is running on (the value of the"
+              + " \"os.name\" Java property).")
   public String getName() {
-    return System.getProperty("os.name").toLowerCase();
+    return System.getProperty("os.name").toLowerCase(Locale.ROOT);
+  }
+
+  @StarlarkMethod(
+      name = "arch",
+      structField = true,
+      doc =
+          "A string identifying the architecture Bazel is running on (the value of the \"os.arch\""
+              + " Java property).")
+  public String getArch() {
+    return System.getProperty("os.arch").toLowerCase(Locale.ROOT);
   }
 }

@@ -32,7 +32,13 @@ or
 
 import hashlib
 import os
-from queue import Queue
+# pylint: disable=g-import-not-at-top
+try:
+  # python2 without compatibility package
+  from Queue import Queue
+except ImportError:
+  # python3
+  from queue import Queue
 import shutil
 import sys
 import tempfile

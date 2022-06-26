@@ -16,16 +16,17 @@ package com.google.devtools.build.lib.shell;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.flogger.LazyArgs;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
+import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -122,7 +123,7 @@ import javax.annotation.Nullable;
  * lookup, output redirection, pipelines, etc) are needed, call it directly without using a shell,
  * as in the {@code du(1)} example above.
  */
-public final class Command {
+public final class Command implements DescribableExecutionUnit {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -206,13 +207,15 @@ public final class Command {
   }
 
   /** Returns the raw command line elements to be executed */
-  public String[] getCommandLineElements() {
-    final List<String> elements = subprocessBuilder.getArgv();
-    return elements.toArray(new String[elements.size()]);
+  @Override
+  public ImmutableList<String> getArguments() {
+    return subprocessBuilder.getArgv();
   }
 
   /** Returns an (unmodifiable) {@link Map} view of command's environment variables or null. */
-  @Nullable public Map<String, String> getEnvironmentVariables() {
+  @Override
+  @Nullable
+  public ImmutableMap<String, String> getEnvironment() {
     return subprocessBuilder.getEnv();
   }
 
@@ -407,7 +410,7 @@ public final class Command {
   }
 
   private static void processInput(InputStream stdinInput, Subprocess process) {
-    logger.atFiner().log(stdinInput.toString());
+    logger.atFiner().log("%s", stdinInput);
     try (OutputStream out = process.getOutputStream()) {
       ByteStreams.copy(stdinInput, out);
     } catch (IOException ioe) {

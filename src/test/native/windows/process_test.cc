@@ -67,14 +67,14 @@ void AssertSubprocessReceivesArgsAsIntended(
   // SECURITY_ATTRIBUTES for inheritable HANDLEs.
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof(sa);
-  sa.lpSecurityDescriptor = NULL;
+  sa.lpSecurityDescriptor = nullptr;
   sa.bInheritHandle = TRUE;
 
   // Open /dev/null that will be redirected into the subprocess' stdin.
   bazel::windows::AutoHandle devnull(
       CreateFileW(L"NUL", GENERIC_READ,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &sa,
-                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
   ASSERT_TRUE(devnull.IsValid());
 
   // Create a pipe that the subprocess' stdout will be redirected to.
@@ -128,9 +128,9 @@ void AssertSubprocessReceivesArgsAsIntended(
     // Run the subprocess.
     PROCESS_INFORMATION processInfo;
     BOOL ok = CreateProcessW(
-        NULL, cmdline, NULL, NULL, TRUE,
-        CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT, NULL, NULL,
-        &startupInfo.StartupInfo, &processInfo);
+        nullptr, cmdline, nullptr, nullptr, TRUE,
+        CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT, nullptr,
+        nullptr, &startupInfo.StartupInfo, &processInfo);
     if (!ok) {
       DWORD err = GetLastError();
       ASSERT_EQ(err, 0);
@@ -149,7 +149,7 @@ void AssertSubprocessReceivesArgsAsIntended(
     // null-terminated strings in the pipe, making it easy to read them out
     // later.
     DWORD dummy;
-    ASSERT_TRUE(WriteFile(pipe_write, "\0", 1, &dummy, NULL));
+    ASSERT_TRUE(WriteFile(pipe_write, "\0", 1, &dummy, nullptr));
   }
 
   // Read the output of the subprocesses from the pipe. They are divided by
@@ -159,7 +159,7 @@ void AssertSubprocessReceivesArgsAsIntended(
   DWORD total_output_len;
   char buf[0x10000];
   pipe_write = INVALID_HANDLE_VALUE;
-  if (!ReadFile(pipe_read, buf, 0x10000, &total_output_len, NULL)) {
+  if (!ReadFile(pipe_read, buf, 0x10000, &total_output_len, nullptr)) {
     DWORD err = GetLastError();
     ASSERT_EQ(err, 0);
   }

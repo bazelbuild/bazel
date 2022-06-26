@@ -109,33 +109,25 @@ public class AutoCodecProcessor extends AbstractProcessor {
       throws SerializationProcessingFailedException {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
-      TypeSpec builtClass;
-      if (element instanceof TypeElement) {
-        TypeElement encodedType = (TypeElement) element;
-        TypeSpec.Builder codecClassBuilder;
-        switch (annotation.strategy()) {
-          case INSTANTIATOR:
-            codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType, annotation);
-            break;
-          case AUTO_VALUE_BUILDER:
-            codecClassBuilder = buildClassWithAutoValueBuilderStrategy(encodedType, annotation);
-            break;
-          default:
-            throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
-        }
-        codecClassBuilder.addMethod(
-            AutoCodecUtil.initializeGetEncodedClassMethod(encodedType, env)
-                .addStatement(
-                    "return $T.class",
-                    TypeName.get(env.getTypeUtils().erasure(encodedType.asType())))
-                .build());
-        builtClass = codecClassBuilder.build();
-      } else {
-        builtClass =
-            SerializationConstantProcessor.buildRegisteredSingletonClass(
-                (VariableElement) element, env);
+      TypeElement encodedType = (TypeElement) element;
+      TypeSpec.Builder codecClassBuilder;
+      switch (annotation.strategy()) {
+        case INSTANTIATOR:
+          codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType, annotation);
+          break;
+        case AUTO_VALUE_BUILDER:
+          codecClassBuilder = buildClassWithAutoValueBuilderStrategy(encodedType, annotation);
+          break;
+        default:
+          throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
       }
-      JavaFile file = writeGeneratedClassToFile(element, builtClass, env);
+      codecClassBuilder.addMethod(
+          AutoCodecUtil.initializeGetEncodedClassMethod(encodedType, env)
+              .addStatement(
+                  "return $T.class", TypeName.get(env.getTypeUtils().erasure(encodedType.asType())))
+              .build());
+
+      JavaFile file = writeGeneratedClassToFile(element, codecClassBuilder.build(), env);
       if (env.getOptions().containsKey(PRINT_GENERATED_OPTION)) {
         note("AutoCodec generated codec for " + element + ":\n" + file);
       }
@@ -339,7 +331,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
       if (method.getParameters().isEmpty()
           && isSameReturnType(method, encodedType)
           && method.getModifiers().contains(Modifier.ABSTRACT)) {
-          if (abstractBuildMethod != null) {
+        if (abstractBuildMethod != null) {
           throw new SerializationProcessingFailedException(
               builderType,
               "Type %s had multiple abstract methods to create an element of type %s: %s and %s",
@@ -347,8 +339,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
               encodedType,
               abstractBuildMethod,
               method);
-          }
-          abstractBuildMethod = method;
+        }
+        abstractBuildMethod = method;
       }
     }
     if (abstractBuildMethod == null) {
@@ -516,16 +508,16 @@ public class AutoCodecProcessor extends AbstractProcessor {
         }
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
-            "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
+            "$T unsafe_$L = ($T) $T.unsafe().get$L(input, $L_offset)",
             sanitizeTypeParameter(parameter.asType(), env),
             parameter.getSimpleName(),
             sanitizeTypeParameter(parameter.asType(), env),
             UnsafeProvider.class,
             typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
             parameter.getSimpleName());
-            marshallers.writeSerializationCode(
-                new Marshaller.Context(
-                    serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
+        marshallers.writeSerializationCode(
+            new SerializationCodeGenerator.Context(
+                serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
       } else {
         addSerializeParameterWithGetter(encodedType, parameter, serializeBuilder);
       }
@@ -633,9 +625,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
     TypeName typeName = TypeName.get(env.getTypeUtils().erasure(type.asType()));
     String parameters =
-        instantiator
-            .getParameters()
-            .stream()
+        instantiator.getParameters().stream()
             .map(AutoCodecProcessor::handleFromParameter)
             .collect(Collectors.joining(", "));
     if (instantiator.getKind().equals(ElementKind.CONSTRUCTOR)) {
@@ -658,9 +648,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
   }
 
-  /**
-   * Coverts a constructor parameter to a String representing its handle within deserialize.
-   */
+  /** Converts a constructor parameter to a String representing its handle within deserialize. */
   private static String handleFromParameter(VariableElement parameter) {
     return parameter.getSimpleName() + "_";
   }
@@ -688,7 +676,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
       constructor.beginControlFlow("try");
       constructor.addStatement(
-          "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
+          "this.$L_offset = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           param.getSimpleName(),
           UnsafeProvider.class,
           ClassName.get(field.get().declaringClassType),
@@ -713,8 +701,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   private Optional<FieldValueAndClass> getFieldByNameRecursive(TypeElement type, String name) {
     Optional<VariableElement> field =
-        ElementFilter.fieldsIn(type.getEnclosedElements())
-            .stream()
+        ElementFilter.fieldsIn(type.getEnclosedElements()).stream()
             .filter(f -> f.getSimpleName().contentEquals(name))
             .findAny();
 

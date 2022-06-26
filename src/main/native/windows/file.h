@@ -18,11 +18,11 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#include <windows.h>
+
 #ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
 #define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
 #endif
-
-#include <windows.h>
 
 #include <memory>
 #include <string>
@@ -32,6 +32,15 @@ namespace windows {
 
 using std::unique_ptr;
 using std::wstring;
+
+bool IsDeveloperModeEnabled();
+
+DWORD DetermineSymlinkPrivilegeFlag();
+
+// The flag SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE requires
+// developer mode to be enabled. If it is not enabled, do not use the
+// flag. The process will need to be run with elevated privileges.
+const DWORD symlinkPrivilegeFlag = DetermineSymlinkPrivilegeFlag();
 
 template <typename char_type>
 bool HasUncPrefix(const char_type* path) {

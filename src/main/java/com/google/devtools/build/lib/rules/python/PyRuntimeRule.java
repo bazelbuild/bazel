@@ -66,6 +66,17 @@ public final class PyRuntimeRule implements RuleDefinition {
             attr("python_version", STRING)
                 .value(PythonVersion._INTERNAL_SENTINEL.toString())
                 .allowedValues(PyRuleClasses.TARGET_PYTHON_ATTR_VALUE_SET))
+
+        /* <!-- #BLAZE_RULE(py_runtime).ATTRIBUTE(stub_shebang) -->
+        "Shebang" expression prepended to the bootstrapping Python stub script
+        used when executing <code>py_binary</code> targets.
+
+        <p>See <a href="https://github.com/bazelbuild/bazel/issues/8685">issue 8685</a> for
+        motivation.
+
+        <p>Does not apply to Windows.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("stub_shebang", STRING).value(PyRuntimeInfo.DEFAULT_STUB_SHEBANG))
         .add(attr("output_licenses", LICENSE))
         .build();
   }

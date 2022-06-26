@@ -24,9 +24,9 @@ java_binary(
         ":JacocoCoverageLib",
         ":bitfield",
         "//third_party:guava",
-        "//third_party/java/jacoco:blaze-agent-0.8.3",
-        "//third_party/java/jacoco:core-0.8.3",
-        "//third_party/java/jacoco:report-0.8.3",
+        "//third_party/java/jacoco:blaze-agent",
+        "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:report",
     ],
 )
 
@@ -45,9 +45,9 @@ java_library(
     deps = [
         ":bitfield",
         "//third_party:guava",
-        "//third_party/java/jacoco:blaze-agent-0.8.3",
-        "//third_party/java/jacoco:core-0.8.3",
-        "//third_party/java/jacoco:report-0.8.3",
+        "//third_party/java/jacoco:blaze-agent",
+        "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:report",
     ],
 )
 

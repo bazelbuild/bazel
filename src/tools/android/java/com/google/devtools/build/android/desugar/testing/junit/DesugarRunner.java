@@ -267,7 +267,7 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
 
     @Override
     public void evaluate() throws Throwable {
-      logger.atWarning().log(reason);
+      logger.atWarning().log("%s", reason);
     }
 
     @Override

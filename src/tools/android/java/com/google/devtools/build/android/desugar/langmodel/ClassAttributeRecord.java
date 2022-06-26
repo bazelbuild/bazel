@@ -53,6 +53,10 @@ public abstract class ClassAttributeRecord implements TypeMappable<ClassAttribut
     return requireClassAttributes(className).desugarIgnoredMethods();
   }
 
+  public final Optional<String> getSourceFileName(ClassName className) {
+    return requireClassAttributes(className).sourceFileName();
+  }
+
   /** Gets the non-null class attributes record for the specified className. */
   private ClassAttributes requireClassAttributes(ClassName className) {
     return checkNotNull(

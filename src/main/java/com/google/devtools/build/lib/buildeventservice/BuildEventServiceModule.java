@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
+import com.google.devtools.build.lib.runtime.TargetSummaryPublisher;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -90,7 +92,7 @@ import javax.annotation.Nullable;
  * Module responsible for the Build Event Transport (BEP) and Build Event Service (BES)
  * functionality.
  */
-public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServiceOptions>
+public abstract class BuildEventServiceModule<OptionsT extends BuildEventServiceOptions>
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -139,7 +141,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable private ConnectivityStatusProvider connectivityProvider;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
-  protected BESOptionsT besOptions;
+  protected OptionsT besOptions;
 
   protected void reportCommandLineError(EventHandler commandLineReporter, Exception exception) {
     // Don't hide unchecked exceptions as part of the error reporting.
@@ -162,7 +164,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // Don't hide unchecked exceptions as part of the error reporting.
     Throwables.throwIfUnchecked(exception);
 
-    logger.atSevere().withCause(exception).log(msg);
+    logger.atSevere().withCause(exception).log("%s", msg);
     reportCommandLineError(commandLineReporter, exception);
     moduleEnvironment.exit(createAbruptExitException(exception, msg, besCode));
   }
@@ -253,7 +255,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   + "Cancelling and starting a new invocation...",
               waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(exception).log(msg);
+      logger.atWarning().withCause(exception).log("%s", msg);
       cancelCloseFutures = true;
     } catch (ExecutionException e) {
       String msg;
@@ -273,7 +275,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 e.getMessage());
       }
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(e).log(msg);
+      logger.atWarning().withCause(e).log("%s", msg);
       cancelCloseFutures = true;
     } finally {
       if (cancelCloseFutures) {
@@ -319,17 +321,17 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
     CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
 
-    // We need to wait for the previous invocation before we check the whitelist of commands to
+    // We need to wait for the previous invocation before we check the list of allowed commands to
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
-    //   bazel info <-- Doesn't run with BES unless we wait before checking the whitelist.
+    //   bazel info <-- Doesn't run with BES unless we wait before checking {@code allowedCommands}.
     boolean commandIsShutdown = "shutdown".equals(cmdEnv.getCommandName());
     waitForPreviousInvocation(commandIsShutdown);
     if (commandIsShutdown && uploaderFactoryToCleanup != null) {
       uploaderFactoryToCleanup.shutdown();
     }
 
-    if (!whitelistedCommands(besOptions).contains(cmdEnv.getCommandName())) {
+    if (!allowedCommands(besOptions).contains(cmdEnv.getCommandName())) {
       // Exit early if the running command isn't supported.
       return;
     }
@@ -360,10 +362,15 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
       return;
     }
 
+    if (bepOptions.publishTargetSummary) {
+      cmdEnv.getEventBus().register(new TargetSummaryPublisher(cmdEnv.getEventBus()));
+    }
+
     streamer =
         new BuildEventStreamer.Builder()
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
+            .publishTargetSummaries(bepOptions.publishTargetSummary)
             .artifactGroupNamer(artifactGroupNamer)
             .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)
             .build();
@@ -472,7 +479,9 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   },
                   executor));
 
-      try (AutoProfiler p = GoogleAutoProfilerUtils.logged("waiting for BES close")) {
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged(
+              "waiting for BES close for invocation " + this.invocationId)) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {
@@ -527,19 +536,31 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
             final ListenableFuture<Void> enclosingFuture =
                 Futures.nonCancellationPropagating(closeFuture);
 
-            closeFutureWithTimeout =
+            ListenableFuture<Void> timeoutFuture =
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
                     TimeUnit.MILLISECONDS,
                     timeoutExecutor);
-            closeFutureWithTimeout.addListener(
-                timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+            timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+
+            // Cancellation is not propagated to the `closeFuture` for the reasons above. But in
+            // order to cancel the returned future by our explicit mechanism elsewhere in this
+            // class, we need to delegate the `cancel` to `closeFuture` so that cancellation
+            // from Futures.withTimeout is ignored and cancellation from our mechanism is properly
+            // handled.
+            closeFutureWithTimeout =
+                new SimpleForwardingListenableFuture<>(timeoutFuture) {
+                  @Override
+                  public boolean cancel(boolean mayInterruptIfRunning) {
+                    return closeFuture.cancel(mayInterruptIfRunning);
+                  }
+                };
           }
           builder.put(bepTransport, closeFutureWithTimeout);
         });
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private void closeBepTransports() throws AbruptExitException {
@@ -665,7 +686,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           String.format(
               "Build Event Service uploads disabled due to a connectivity problem: %s", status);
       reporter.handle(Event.warn(message));
-      logger.atWarning().log(message);
+      logger.atWarning().log("%s", message);
       return null;
     }
 
@@ -686,9 +707,10 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         new BuildEventServiceProtoUtil.Builder()
             .buildRequestId(buildRequestId)
             .invocationId(invocationId)
-            .projectId(besOptions.projectId)
+            .projectId(besOptions.instanceName)
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .checkPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
             .build();
 
     return new BuildEventServiceTransport.Builder()
@@ -813,18 +835,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         e);
   }
 
-  protected abstract Class<BESOptionsT> optionsClass();
+  protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();
 
-  protected abstract Set<String> whitelistedCommands(BESOptionsT besOptions);
+  protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
   protected Set<String> getBesKeywords(
-      BESOptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
+      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
     return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());

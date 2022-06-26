@@ -18,8 +18,7 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException;
-import java.util.Map;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 
 /**
  * Interface of an Action that is Skyframe-aware.
@@ -92,9 +91,7 @@ public interface SkyframeAwareAction<E extends Exception> {
    *     {@code keys}
    */
   Object processSkyframeValues(
-      ImmutableList<? extends SkyKey> keys,
-      Map<SkyKey, ValueOrException<E>> values,
-      boolean valuesMissing)
+      ImmutableList<? extends SkyKey> keys, SkyframeIterableResult values, boolean valuesMissing)
       throws ExceptionBase;
 
   /**

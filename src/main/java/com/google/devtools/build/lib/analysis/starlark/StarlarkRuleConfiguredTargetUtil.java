@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -79,7 +78,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
    */
   @Nullable
   public static ConfiguredTarget buildRule(
-      RuleContext ruleContext, AdvertisedProviderSet advertisedProviders, String toolsRepository)
+      RuleContext ruleContext, AdvertisedProviderSet advertisedProviders)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
     if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
@@ -89,13 +88,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
               + " repository, properly specified as @reponame//path/to/package:target,"
               + " should have been specified by the requesting rule.");
       return null;
-    }
-    if (ruleClass.hasFunctionTransitionAllowlist()
-        && !Allowlist.isAvailableBasedOnRuleLocation(
-            ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
-      if (!Allowlist.isAvailable(ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
-        ruleContext.ruleError("Non-allowlisted use of Starlark transition");
-      }
     }
 
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
@@ -357,6 +349,17 @@ public final class StarlarkRuleConfiguredTargetUtil {
       if (getProviderKey(declaredProvider).equals(DefaultInfo.PROVIDER.getKey())) {
         parseDefaultProviderFields((DefaultInfo) declaredProvider, context, builder);
         defaultProviderProvidedExplicitly = true;
+      } else if (getProviderKey(declaredProvider).equals(RunEnvironmentInfo.PROVIDER.getKey())
+          && !(context.isExecutable() || context.getRuleContext().isTestTarget())) {
+        String message =
+            "Returning RunEnvironmentInfo from a non-executable, non-test target has no effect";
+        RunEnvironmentInfo runEnvironmentInfo = (RunEnvironmentInfo) declaredProvider;
+        if (runEnvironmentInfo.shouldErrorOnNonExecutableRule()) {
+          context.getRuleContext().ruleError(message);
+        } else {
+          context.getRuleContext().ruleWarning(message);
+          builder.addStarlarkDeclaredProvider(declaredProvider);
+        }
       } else {
         builder.addStarlarkDeclaredProvider(declaredProvider);
       }

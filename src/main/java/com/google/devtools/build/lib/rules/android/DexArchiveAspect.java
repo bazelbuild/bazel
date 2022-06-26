@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.StarlarkProviderIdentifier.forKey;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
 
 import com.google.common.base.Function;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -43,9 +45,14 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -55,40 +62,44 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Aspect to {@link DexArchiveProvider build .dex Archives} from Jars. */
-public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
+/** Aspect to {@link DexArDchiveProvider build .dex Archives} from Jars. */
+public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "DexArchiveAspect";
 
   /**
    * Function that returns a {@link Rule}'s {@code incremental_dexing} attribute for use by this
    * aspect. Must be provided when attaching this aspect to a target.
    */
-  @AutoCodec
+  @SerializationConstant
   public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
       (Rule rule) -> {
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         AspectParameters.Builder result = new AspectParameters.Builder();
         TriState incrementalAttr = attributes.get("incremental_dexing", TRISTATE);
         result.addAttribute("incremental_dexing", incrementalAttr.name());
+        result.addAttribute(
+            "min_sdk_version", attributes.get("min_sdk_version", INTEGER).toString());
         return result.build();
       };
   /**
@@ -96,7 +107,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
    * for {@code bazel mobile-install}.
    */
-  @AutoCodec
+  @SerializationConstant
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
       (Rule rule) ->
           new AspectParameters.Builder()
@@ -112,9 +123,14 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           "deps",
           "exports",
           "runtime_deps",
+          // Propagate the aspect down legacy toolchain dependencies. This won't work for platform-
+          // based toolchains, which aren't connected to an attribute. See
+          // propagateDownLegacyToolchain for how this distinction is handled.
           ":android_sdk",
           "aidl_lib", // for the aidl runtime in the android_sdk rule
           "$toolchain", // this is _toolchain in Starlark rules (b/78647825)
+          "$build_stamp_deps", // for build stamp runtime class deps
+          "$build_stamp_mergee_manifest_lib", // for empty build stamp Service class implementation
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
           JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR,
           "runtime");
@@ -123,10 +139,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       new FlagMatcher(
           ImmutableList.of("--no-locals", "--no-optimize", "--no-warnings", "--positions"));
 
-  private final String toolsRepository;
+  private final RepositoryName toolsRepository;
+  private final String sdkToolchainLabel;
 
-  public DexArchiveAspect(String toolsRepository) {
+  public DexArchiveAspect(RepositoryName toolsRepository, String sdkToolchainLabel) {
     this.toolsRepository = toolsRepository;
+    this.sdkToolchainLabel = sdkToolchainLabel;
   }
 
   @Override
@@ -139,11 +157,14 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             // For android_sdk rules, where we just want to get at aidl runtime deps.
             .requireStarlarkProviders(forKey(AndroidSdkProvider.PROVIDER.getKey()))
             .requireStarlarkProviders(forKey(ProtoInfo.PROVIDER.getKey()))
-            .requireProviderSets(
+            .requireStarlarkProviderSets(
                 ImmutableList.of(
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
-                    ImmutableSet.of(ProtoLangToolchainProvider.class)))
+                    ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked(toolsRepository + sdkToolchainLabel)))
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
@@ -178,16 +199,57 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return result.build();
   }
 
+  /**
+   * Returns toolchain .jars that need dexing for platform-based toolchains.
+   *
+   * <p>Legacy toolchains handle these .jars recursively by propagating the aspect down the
+   * ":android_sdk" attribute. So they don't need this method.
+   */
+  private static Iterable<Artifact> getPlatformBasedToolchainJars(RuleContext ruleContext) {
+    if (!ruleContext
+        .getConfiguration()
+        .getFragment(AndroidConfiguration.class)
+        .incompatibleUseToolchainResolution()) {
+      // Legacy toolchains: toolchain .jars are dexed by propagating the aspect down the
+      // ":android_sdk" attribute. That makes them transitive deps, so no special logic is needed
+      // in the parent target to process them.
+      return ImmutableList.of();
+
+    } else if (!ruleContext.attributes().has(":android_sdk")) {
+      // If we're dexing a non-Android target (like a java_library), there's no Android toolchain to
+      // include.
+      return ImmutableList.of();
+    }
+
+    AndroidSdkProvider androidSdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+    if (androidSdk == null || androidSdk.getAidlLib() == null) {
+      // If the Android SDK is null, we don't have a valid toolchain. Expect a rule error reported
+      // from AndroidSdkProvider.
+      return ImmutableList.of();
+    }
+    return ImmutableList.copyOf(
+        JavaInfo.getJavaInfo(androidSdk.getAidlLib()).getDirectRuntimeJars());
+  }
+
   @Override
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters params,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
+
+    Iterable<Artifact> extraToolchainJars = getPlatformBasedToolchainJars(ruleContext);
+
+    int minSdkVersion = 0;
+    if (!params.getAttribute("min_sdk_version").isEmpty()) {
+      minSdkVersion = Integer.valueOf(params.getOnlyValueOfAttribute("min_sdk_version"));
+    }
+
     Function<Artifact, Artifact> desugaredJars =
-        desugarJarsIfRequested(ctadBase.getConfiguredTarget(), ruleContext, result);
+        desugarJarsIfRequested(
+            ctadBase.getConfiguredTarget(), ruleContext, minSdkVersion, result, extraToolchainJars);
 
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
@@ -206,19 +268,23 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new DexArchiveProvider.Builder()
             .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
     Iterable<Artifact> runtimeJars =
-        getProducedRuntimeJars(ctadBase.getConfiguredTarget(), ruleContext);
+        getProducedRuntimeJars(ctadBase.getConfiguredTarget(), ruleContext, extraToolchainJars);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
+      String minSdkFilenamePart = minSdkVersion > 0 ? "--min_sdk_version=" + minSdkVersion : "";
       for (Artifact jar : runtimeJars) {
         for (Set<String> incrementalDexopts : aspectDexopts) {
           // Since we're potentially dexing the same jar multiple times with different flags, we
           // need to write unique artifacts for each flag combination. Here, it is convenient to
           // distinguish them by putting the flags that were used for creating the artifacts into
-          // their filenames.
+          // their filenames. Since min_sdk_version is a parameter to the aspect from the
+          // android_binary target that the aspect originates from, it's handled separately so that
+          // the correct min sdk value is used.
           String uniqueFilename =
               (basenameClash ? jar.getRootRelativePathString() : jar.getFilename())
                   + Joiner.on("").join(incrementalDexopts)
+                  + minSdkFilenamePart
                   + ".dex.zip";
           Artifact dexArchive =
               createDexArchiveAction(
@@ -226,6 +292,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                   ASPECT_DEXBUILDER_PREREQ,
                   desugaredJars.apply(jar),
                   incrementalDexopts,
+                  minSdkVersion,
                   AndroidBinary.getDxArtifact(ruleContext, uniqueFilename));
           dexArchives.addDexArchive(incrementalDexopts, dexArchive, jar);
         }
@@ -240,7 +307,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * because aspects don't see providers added by other aspects executed on the same target.
    */
   private Function<Artifact, Artifact> desugarJarsIfRequested(
-      ConfiguredTarget base, RuleContext ruleContext, ConfiguredAspect.Builder result) {
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      int minSdkVersion,
+      ConfiguredAspect.Builder result,
+      Iterable<Artifact> extraToolchainJars) {
     if (!getAndroidConfig(ruleContext).desugarJava8()) {
       return Functions.identity();
     }
@@ -281,12 +352,18 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       NestedSet<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
+      jars.addAll(extraToolchainJars);
       ImmutableSet<Artifact> jarsToProcess = jars.build();
       boolean basenameClash = checkBasenameClash(jarsToProcess);
       for (Artifact jar : jarsToProcess) {
         Artifact desugared =
             createDesugarAction(
-                ruleContext, basenameClash, jar, bootclasspath, compileTimeClasspath);
+                ruleContext,
+                basenameClash,
+                jar,
+                bootclasspath,
+                compileTimeClasspath,
+                minSdkVersion);
         newlyDesugared.put(jar, desugared);
         desugaredJars.addDesugaredJar(jar, desugared);
       }
@@ -296,21 +373,22 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   private static Iterable<Artifact> getProducedRuntimeJars(
-      ConfiguredTarget base, RuleContext ruleContext) {
+      ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars) {
     if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs").isEmpty()) {
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
-          return outputJarsProvider
-              .getOutputJars()
-              .stream()
-              .map(OutputJar::getClassJar)
+          // TODO(b/207058960): remove after enabling Starlark java proto libraries
+          return outputJarsProvider.getJavaOutputs().stream()
+              .map(JavaOutput::getClassJar)
               .collect(toImmutableList());
         } else {
           JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
           if (javaInfo != null) {
-            return javaInfo.getDirectRuntimeJars();
+            return javaInfo.getJavaOutputs().stream()
+                .map(JavaOutput::getClassJar)
+                .collect(toImmutableList());
           }
         }
       }
@@ -323,7 +401,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
       Artifact rJar = getAndroidLibraryRJar(base);
       if (rJar != null) {
-          jars.add(rJar);
+        jars.add(rJar);
       }
 
       Artifact buildStampJar = getAndroidBuildStampJar(base);
@@ -331,6 +409,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         jars.add(buildStampJar);
       }
 
+      jars.addAll(extraToolchainJars);
       return jars.build();
     }
     return null;
@@ -353,8 +432,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Artifact getAndroidLibraryRJar(ConfiguredTarget base) {
     AndroidIdeInfoProvider provider =
         (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
-    if (provider != null && provider.getResourceJar() != null) {
-      return provider.getResourceJar().getClassJar();
+    if (provider != null && provider.getResourceJarJavaOutput() != null) {
+      return provider.getResourceJarJavaOutput().getClassJar();
     }
     return null;
   }
@@ -397,9 +476,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       return NestedSetBuilder.<Artifact>naiveLinkOrder()
           .add(
               ruleContext
-                  .getPrerequisite(
-                      ":dex_archive_android_sdk",
-                      AndroidSdkProvider.PROVIDER)
+                  .getPrerequisite(":dex_archive_android_sdk", AndroidSdkProvider.PROVIDER)
                   .getAndroidJar())
           .build();
     }
@@ -411,17 +488,77 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       boolean disambiguateBasenames,
       Artifact jar,
       NestedSet<Artifact> bootclasspath,
-      NestedSet<Artifact> compileTimeClasspath) {
+      NestedSet<Artifact> compileTimeClasspath,
+      int minSdkVersion) {
+
+    String minSdkFilenamePart = minSdkVersion > 0 ? "_minsdk=" + minSdkVersion : "";
     return createDesugarAction(
         ruleContext,
         ASPECT_DESUGAR_PREREQ,
         jar,
         bootclasspath,
         compileTimeClasspath,
+        minSdkVersion,
         AndroidBinary.getDxArtifact(
             ruleContext,
             (disambiguateBasenames ? jar.getRootRelativePathString() : jar.getFilename())
+                + minSdkFilenamePart
                 + "_desugared.jar"));
+  }
+
+  private static Artifact createDesugarAction(
+      RuleContext ruleContext,
+      String desugarPrereqName,
+      Artifact jar,
+      NestedSet<Artifact> bootclasspath,
+      NestedSet<Artifact> classpath,
+      int minSdkVersion,
+      Artifact result) {
+    SpawnAction.Builder action =
+        new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
+            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
+            .addInput(jar)
+            .addTransitiveInputs(bootclasspath)
+            .addTransitiveInputs(classpath)
+            .addOutput(result)
+            .setMnemonic("Desugar")
+            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+
+    // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
+    // to get the action's inputs for vetting path stripping safety, then call it again later to
+    // fully instantiate the action.
+    boolean stripOutputPaths =
+        stripOutputPaths(action.build(ruleContext).getInputs(), ruleContext.getConfiguration());
+
+    CustomCommandLine.Builder args =
+        new CustomCommandLine.Builder()
+            .addExecPath("--input", jar)
+            .addExecPath("--output", result)
+            .addExecPaths(VectorArg.addBefore("--classpath_entry").each(classpath))
+            .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath));
+    if (getAndroidConfig(ruleContext).checkDesugarDeps()) {
+      args.add("--emit_dependency_metadata_as_needed");
+    }
+    if (getAndroidConfig(ruleContext).desugarJava8Libs()) {
+      args.add("--desugar_supported_core_libs");
+    }
+    if (stripOutputPaths) {
+      args.stripOutputPaths(result.getExecPath().subFragment(0, 1));
+    }
+    if (minSdkVersion > 0) {
+      args.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
+
+    action
+        .addCommandLine(
+            // Always use params file, so we don't need to compute command line length first
+            args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
+        .stripOutputPaths(stripOutputPaths);
+
+    ruleContext.registerAction(action.build(ruleContext));
+    return result;
   }
 
   /**
@@ -439,46 +576,25 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       Artifact jar,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> classpath,
+      int minSdkVersion,
       Artifact result) {
-    return createDesugarAction(ruleContext, "$desugar", jar, bootclasspath, classpath, result);
+    return createDesugarAction(
+        ruleContext, "$desugar", jar, bootclasspath, classpath, minSdkVersion, result);
   }
 
-  private static Artifact createDesugarAction(
-      RuleContext ruleContext,
-      String desugarPrereqName,
-      Artifact jar,
-      NestedSet<Artifact> bootclasspath,
-      NestedSet<Artifact> classpath,
-      Artifact result) {
-    CustomCommandLine.Builder args =
-        new CustomCommandLine.Builder()
-            .addExecPath("--input", jar)
-            .addExecPath("--output", result)
-            .addExecPaths(VectorArg.addBefore("--classpath_entry").each(classpath))
-            .addExecPaths(VectorArg.addBefore("--bootclasspath_entry").each(bootclasspath));
-    if (getAndroidConfig(ruleContext).checkDesugarDeps()) {
-      args.add("--emit_dependency_metadata_as_needed");
-    }
-    if (getAndroidConfig(ruleContext).desugarJava8Libs()) {
-      args.add("--desugar_supported_core_libs");
-    }
-
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite(desugarPrereqName))
-            .addInput(jar)
-            .addTransitiveInputs(bootclasspath)
-            .addTransitiveInputs(classpath)
-            .addOutput(result)
-            .setMnemonic("Desugar")
-            .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
-            .addCommandLine(
-                // Always use params file, so we don't need to compute command line length first
-                args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
-            .build(ruleContext));
-    return result;
+  /**
+   * Canonical place to determine if a dex action should strip config prefixes from its output
+   * paths.
+   *
+   * <p>See {@link PathStripper}.
+   */
+  static boolean stripOutputPaths(
+      NestedSet<Artifact> actionInputs, BuildConfigurationValue configuration) {
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    return coreOptions.outputPathsMode == OutputPathsMode.STRIP
+        && PathStripper.isPathStrippable(
+            actionInputs,
+            PathFragment.create(configuration.getDirectories().getRelativeOutputPath()));
   }
 
   /**
@@ -493,25 +609,43 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       String dexbuilderPrereq,
       Artifact jar,
       Set<String> incrementalDexopts,
+      int minSdkVersion,
       Artifact dexArchive) {
-    CustomCommandLine args =
-        new CustomCommandLine.Builder()
-            .addExecPath("--input_jar", jar)
-            .addExecPath("--output_zip", dexArchive)
-            .addAll(ImmutableList.copyOf(incrementalDexopts))
-            .build();
     SpawnAction.Builder dexbuilder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
+            .setExecutionInfo(
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
             .setProgressMessage(
-                "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts)
-            // Always use params file for compatibility with WorkerSpawnStrategy
-            .addCommandLine(args, ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build());
+                "Dexing %s with applicable dexopts %s", jar.prettyPrint(), incrementalDexopts);
+
+    // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
+    // to get the action's inputs for vetting path stripping safety, then call it again later to
+    // fully instantiate the action.
+    boolean stripOutputPaths =
+        stripOutputPaths(dexbuilder.build(ruleContext).getInputs(), ruleContext.getConfiguration());
+
+    CustomCommandLine.Builder args =
+        new CustomCommandLine.Builder()
+            .addExecPath("--input_jar", jar)
+            .addExecPath("--output_zip", dexArchive)
+            .addAll(ImmutableList.copyOf(incrementalDexopts));
+    if (minSdkVersion > 0) {
+      args.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
+    if (stripOutputPaths) {
+      args.stripOutputPaths(dexArchive.getExecPath().subFragment(0, 1));
+    }
+
+    dexbuilder
+        .addCommandLine(args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
+        .stripOutputPaths(stripOutputPaths);
     if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
       dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
     }
@@ -540,10 +674,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing by
+   * Returns the subset of the given dexopts that are forbidden from using incremental dexing by
    * default.
    */
-  static Iterable<String> blacklistedDexopts(RuleContext ruleContext, List<String> dexopts) {
+  static Iterable<String> forbiddenDexopts(RuleContext ruleContext, List<String> dexopts) {
     return Iterables.filter(
         dexopts,
         new FlagMatcher(

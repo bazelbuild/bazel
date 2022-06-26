@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -34,7 +34,7 @@ public interface CcToolchainProviderApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         BranchFdoProfileT extends BranchFdoProfileApi,
         FdoContextT extends FdoContextApi<BranchFdoProfileT>>
-    extends ToolchainInfoApi {
+    extends StructApi {
 
   @StarlarkMethod(
       name = "needs_pic_for_dynamic_libraries",
@@ -113,6 +113,18 @@ public interface CcToolchainProviderApi<
   public String getSysroot();
 
   @StarlarkMethod(
+      name = "runtime_sysroot",
+      useStarlarkThread = true,
+      allowReturnNones = true,
+      documented = false,
+      doc =
+          "Returns the runtime sysroot, where the dynamic linker and system libraries are found at"
+              + "runtime. This is usually an absolute path. If the toolchain compiler does not"
+              + "support sysroots then this method returns <code>None></code>.")
+  @Nullable
+  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "compiler",
       structField = true,
       doc = "C++ compiler.",
@@ -150,6 +162,9 @@ public interface CcToolchainProviderApi<
   @StarlarkMethod(name = "ar_files", documented = false, useStarlarkThread = true)
   Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException;
 
+  @StarlarkMethod(name = "toolchain_id", documented = false, structField = true)
+  String getToolchainIdentifier();
+
   @StarlarkMethod(name = "strip_files", documented = false, useStarlarkThread = true)
   Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException;
 
@@ -169,8 +184,8 @@ public interface CcToolchainProviderApi<
   @StarlarkMethod(name = "solib_dir", documented = false, useStarlarkThread = true)
   String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "dynamic_runtime_solib_dir", documented = false, useStarlarkThread = true)
-  String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "dynamic_runtime_solib_dir", documented = false, structField = true)
+  String getDynamicRuntimeSolibDirForStarlark() throws EvalException;
 
   @StarlarkMethod(name = "linker_files", documented = false, useStarlarkThread = true)
   Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException;
@@ -180,6 +195,9 @@ public interface CcToolchainProviderApi<
 
   @StarlarkMethod(name = "fdo_context", documented = false, useStarlarkThread = true)
   FdoContextT getFdoContextForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "compiler_files", documented = false, useStarlarkThread = true)
+  Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "objcopy_executable",
@@ -225,4 +243,24 @@ public interface CcToolchainProviderApi<
       structField = true,
       doc = "The path to the gcov binary.")
   String gcovExecutable();
+
+  @StarlarkMethod(name = "dwp_files", documented = false, useStarlarkThread = true)
+  Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_artifact_name_for_category",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(name = "category", positional = false, named = true),
+        @Param(name = "output_name", positional = false, named = true)
+      })
+  String getArtifactNameForCategory(String category, String outputName, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "legacy_cc_flags_make_variable",
+      documented = false,
+      useStarlarkThread = true)
+  String getLegacyCcFlagsMakeVariableForStarlark(StarlarkThread thread) throws EvalException;
 }

@@ -17,10 +17,10 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.remote.common.RemoteActionFileArtifactValue;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -102,8 +102,9 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          currDir.addChild(new FileNode(path.getBaseName(), input, d, input.isExecutable()));
-          return 1;
+          boolean childAdded =
+              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
+          return childAdded ? 1 : 0;
         });
   }
 
@@ -128,8 +129,11 @@ class DirectoryTreeBuilder {
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualActionInput = (VirtualActionInput) input;
             Digest d = digestUtil.compute(virtualActionInput);
-            currDir.addChild(new FileNode(path.getBaseName(), virtualActionInput.getBytes(), d));
-            return 1;
+            boolean childAdded =
+                currDir.addChild(
+                    FileNode.createExecutable(
+                        path.getBaseName(), virtualActionInput.getBytes(), d));
+            return childAdded ? 1 : 0;
           }
 
           FileArtifactValue metadata =
@@ -141,20 +145,13 @@ class DirectoryTreeBuilder {
             case REGULAR_FILE:
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
               Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
-
-              boolean isExecutable;
-              if (metadata instanceof RemoteActionFileArtifactValue) {
-                isExecutable = ((RemoteActionFileArtifactValue) metadata).isExecutable();
-              } else {
-                isExecutable = inputPath.isExecutable();
-              }
-
-              currDir.addChild(new FileNode(path.getBaseName(), inputPath, d, isExecutable));
-              return 1;
+              boolean childAdded =
+                  currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
+              return childAdded ? 1 : 0;
 
             case DIRECTORY:
               SortedMap<PathFragment, ActionInput> directoryInputs =
-                  explodeDirectory(path, execRoot);
+                  explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
                   directoryInputs, metadataProvider, execRoot, digestUtil, tree);
 
@@ -196,6 +193,21 @@ class DirectoryTreeBuilder {
       // Path relative to the exec root
       PathFragment path = e.getKey();
       T input = e.getValue();
+
+      if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
+        // SpawnInputExpander has already expanded non-empty tree artifacts into a collection of
+        // TreeFileArtifacts. Thus, at this point, tree artifacts represent empty directories, which
+        // we create together with their parents.
+        // Note: This also handles output directories of actions, which are explicitly included as
+        // inputs so that they are created by the executor before the action executes. Since such a
+        // directory must remain writeable, MetadataProvider#getMetadata must not be called on the
+        // tree artifact here as it would have the side effect of making it read only.
+        DirectoryNode emptyDir = new DirectoryNode(path.getBaseName());
+        tree.put(path, emptyDir);
+        createParentDirectoriesIfNotExist(path, emptyDir, tree);
+        continue;
+      }
+
       if (dirname == null || !path.getParentDirectory().equals(dirname)) {
         dirname = path.getParentDirectory();
         dir = tree.get(dirname);

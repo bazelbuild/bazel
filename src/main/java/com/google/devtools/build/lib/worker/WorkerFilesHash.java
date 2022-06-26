@@ -32,37 +32,46 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Calculates the hash based on the files, which should be unchanged on disk for a worker to get
  * reused.
  */
-class WorkerFilesHash {
+public class WorkerFilesHash {
 
-  static HashCode getCombinedHash(SortedMap<PathFragment, HashCode> workerFilesMap) {
+  private WorkerFilesHash() {}
+
+  public static HashCode getCombinedHash(SortedMap<PathFragment, byte[]> workerFilesMap) {
     Hasher hasher = Hashing.sha256().newHasher();
-    for (Map.Entry<PathFragment, HashCode> workerFile : workerFilesMap.entrySet()) {
-      hasher.putString(workerFile.getKey().getPathString(), Charset.defaultCharset());
-      hasher.putBytes(workerFile.getValue().asBytes());
-    }
+    workerFilesMap.forEach(
+        (execPath, digest) -> {
+          hasher.putString(execPath.getPathString(), Charset.defaultCharset());
+          hasher.putBytes(digest);
+        });
     return hasher.hash();
   }
 
   /**
    * Return a map that contains the execroot relative path and hash of each tool and runfiles
    * artifact of the given spawn.
+   *
+   * @throws MissingInputException if metadata is missing for any of the worker files.
    */
-  static SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes(
+  public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
       Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
       throws IOException {
-    TreeMap<PathFragment, HashCode> workerFilesMap = new TreeMap<>();
+    TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(spawn.getToolFiles(), artifactExpander);
+        ActionInputHelper.expandArtifacts(
+            spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
     for (ActionInput tool : tools) {
-      workerFilesMap.put(
-          tool.getExecPath(),
-          HashCode.fromBytes(actionInputFileCache.getMetadata(tool).getDigest()));
+      @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(tool);
+      if (metadata == null) {
+        throw new MissingInputException(tool);
+      }
+      workerFilesMap.put(tool.getExecPath(), actionInputFileCache.getMetadata(tool).getDigest());
     }
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
@@ -72,16 +81,24 @@ class WorkerFilesHash {
       for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
+          @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
+          if (metadata == null) {
+            throw new MissingInputException(localArtifact);
+          }
           if (metadata.getType().isFile()) {
-            workerFilesMap.put(
-                root.getRelative(mapping.getKey()),
-                HashCode.fromBytes(metadata.getDigest()));
+            workerFilesMap.put(root.getRelative(mapping.getKey()), metadata.getDigest());
           }
         }
       }
     }
 
     return workerFilesMap;
+  }
+
+  /** Exception thrown when the metadata for a tool/runfile is missing. */
+  public static final class MissingInputException extends RuntimeException {
+    private MissingInputException(ActionInput input) {
+      super(String.format("Missing input metadata for: '%s'", input.getExecPathString()));
+    }
   }
 }

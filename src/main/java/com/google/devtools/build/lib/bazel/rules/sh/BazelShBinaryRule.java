@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 
@@ -32,7 +32,7 @@ public final class BazelShBinaryRule implements RuleDefinition {
     return builder
         .add(
             attr("$launcher", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(environment.getToolsLabel("//tools/launcher:launcher")))
         .build();
   }
@@ -54,7 +54,7 @@ public final class BazelShBinaryRule implements RuleDefinition {
   (<code>sh_binary</code> is a misnomer: its outputs aren't necessarily binaries.) This rule ensures
   that all dependencies are built, and appear in the <code>runfiles</code> area at execution time.
   We recommend that you name your <code>sh_binary()</code> rules after the name of the script minus
-  the extension (e.g. <code>.sh</code>); do not give the rule and the file the same name.
+  the extension (e.g. <code>.sh</code>); the rule name and the file name must be distinct.
 </p>
 
 <h4 id="sh_binary_examples">Example</h4>

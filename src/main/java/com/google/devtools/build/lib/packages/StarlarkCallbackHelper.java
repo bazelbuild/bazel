@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -34,8 +33,7 @@ import net.starlark.java.eval.Structure;
  * <p>TODO(adonovan): eliminate the need for this class by making the Starlark calls in the same
  * Starlark thread that instantiated the rule.
  */
-@AutoCodec
-public class StarlarkCallbackHelper {
+public final class StarlarkCallbackHelper {
 
   private final StarlarkFunction callback;
 
@@ -43,7 +41,7 @@ public class StarlarkCallbackHelper {
   // thread that instantiated a rule, must be propagated to
   // the child threads (implicit outputs, attribute defaults).
   // This includes any other thread-local state, such as
-  // the Label.HasRepoMapping or PackageFactory.PackageContext.
+  // PackageFactory.PackageContext.
   // TODO(adonovan): it would be cleaner and less error prone to
   // perform these callbacks in the actual loading-phase thread,
   // at the end of BUILD file execution.

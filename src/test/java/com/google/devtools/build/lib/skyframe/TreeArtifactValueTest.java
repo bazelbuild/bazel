@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -39,6 +40,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,17 +49,15 @@ import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link TreeArtifactValue}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class TreeArtifactValueTest {
-
-  private static final PathFragment BIN_PATH = PathFragment.create("bin");
 
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("root"), RootType.Output, BIN_PATH);
+      ArtifactRoot.asDerivedRoot(
+          scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
 
   @Test
   public void createsCorrectValue() {
@@ -151,7 +152,7 @@ public final class TreeArtifactValueTest {
   @Test
   public void cannotCreateBuilderForNonTreeArtifact() {
     SpecialArtifact notTreeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             PathFragment.create("bin/not_tree"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -315,6 +316,41 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
+  public void findChildEntryByExecPath_returnsCorrectEntry() {
+    SpecialArtifact tree = createTreeArtifact("bin/tree");
+    TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(tree, "file1");
+    FileArtifactValue file1Metadata = metadataWithIdNoDigest(1);
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(file1, file1Metadata)
+            .putChild(TreeFileArtifact.createTreeOutput(tree, "file2"), metadataWithIdNoDigest(2))
+            .build();
+
+    assertThat(treeArtifactValue.findChildEntryByExecPath(PathFragment.create("bin/tree/file1")))
+        .isEqualTo(Maps.immutableEntry(file1, file1Metadata));
+  }
+
+  @Test
+  public void findChildEntryByExecPath_nonExistentChild_returnsNull(
+      @TestParameter({"bin/nonexistent", "a_before_nonexistent", "z_after_nonexistent"})
+          String nonexistentPath) {
+    SpecialArtifact tree = createTreeArtifact("bin/tree");
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(TreeFileArtifact.createTreeOutput(tree, "file"), metadataWithIdNoDigest(1))
+            .build();
+
+    assertThat(treeArtifactValue.findChildEntryByExecPath(PathFragment.create(nonexistentPath)))
+        .isNull();
+  }
+
+  @Test
+  public void findChildEntryByExecPath_emptyTreeArtifactValue_returnsNull() {
+    TreeArtifactValue treeArtifactValue = TreeArtifactValue.empty();
+    assertThat(treeArtifactValue.findChildEntryByExecPath(PathFragment.create("file"))).isNull();
+  }
+
+  @Test
   public void visitTree_visitsEachChild() throws Exception {
     Path treeDir = scratch.dir("tree");
     scratch.file("tree/file1");
@@ -344,7 +380,7 @@ public final class TreeArtifactValueTest {
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          public ImmutableList<Dirent> readdir(Path path, boolean followSymlinks) {
+          public ImmutableList<Dirent> readdir(PathFragment path, boolean followSymlinks) {
             return ImmutableList.of(new Dirent("?", Dirent.Type.UNKNOWN));
           }
         };
@@ -616,7 +652,7 @@ public final class TreeArtifactValueTest {
   public void multiBuilder_removeNotATreeArtifact_fails() {
     TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
     SpecialArtifact notATreeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative("bin/artifact"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -650,7 +686,7 @@ public final class TreeArtifactValueTest {
   }
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
-    return ArchivedTreeArtifact.create(specialArtifact, BIN_PATH);
+    return ArchivedTreeArtifact.createForTree(specialArtifact);
   }
 
   private SpecialArtifact createTreeArtifact(String execPath) {

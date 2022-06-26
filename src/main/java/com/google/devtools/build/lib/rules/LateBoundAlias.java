@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -31,9 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -54,49 +52,46 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
       return createEmptyConfiguredTarget(ruleContext);
     }
 
-    ImmutableMap.Builder<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
-        providers = ImmutableMap.builder();
-    providers.put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual));
-    providers.put(
-        VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
-
-    // This makes label_setting and label_flag work with select().
-    if (ruleContext.getRule().isBuildSetting()) {
-      BuildSetting buildSetting = ruleContext.getRule().getRuleClassObject().getBuildSetting();
-      Object defaultValue =
-          ruleContext
-              .attributes()
-              .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
-      providers.put(
-          BuildSettingProvider.class,
-          new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
+    if (!ruleContext.getRule().isBuildSetting()) {
+      return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
     }
 
-    return new AliasConfiguredTarget(ruleContext, actual, providers.build());
+    // This makes label_setting and label_flag work with select().
+    BuildSetting buildSetting = ruleContext.getRule().getRuleClassObject().getBuildSetting();
+    Object defaultValue =
+        ruleContext
+            .attributes()
+            .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, buildSetting.getType());
+    return AliasConfiguredTarget.createWithOverrides(
+        ruleContext,
+        actual,
+        ruleContext.getVisibility(),
+        ImmutableClassToInstanceMap.of(
+            BuildSettingProvider.class,
+            new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel())));
   }
 
-  private ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
+  private static ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
         .build();
   }
 
-  /** Rule definition for custom alias rules */
-  public abstract static class CommonAliasRule<FragmentT> implements RuleDefinition {
-
+  /** Rule definition for custom alias rules. */
+  public abstract static class CommonAliasRule<FragmentT extends Fragment>
+      extends AbstractAliasRule {
     private static final String ATTRIBUTE_NAME = ":alias";
 
-    private final String ruleName;
     private final Function<RuleDefinitionEnvironment, LabelLateBoundDefault<FragmentT>>
         labelResolver;
     private final Class<FragmentT> fragmentClass;
 
-    public CommonAliasRule(
+    protected CommonAliasRule(
         String ruleName,
         Function<RuleDefinitionEnvironment, LabelLateBoundDefault<FragmentT>> labelResolver,
         Class<FragmentT> fragmentClass) {
-      this.ruleName = Preconditions.checkNotNull(ruleName);
+      super(ruleName);
       this.labelResolver = Preconditions.checkNotNull(labelResolver);
       this.fragmentClass = Preconditions.checkNotNull(fragmentClass);
     }
@@ -115,12 +110,21 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
           .requiresConfigurationFragments(fragmentClass)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .advertiseProvider(AliasProvider.class)
           .addAttribute(attribute)
           .build();
     }
+  }
+
+  abstract static class AbstractAliasRule implements RuleDefinition {
+    private final String ruleName;
+
+    AbstractAliasRule(String ruleName) {
+      this.ruleName = Preconditions.checkNotNull(ruleName);
+    }
 
     @Override
-    public Metadata getMetadata() {
+    public final Metadata getMetadata() {
       return Metadata.builder()
           .name(ruleName)
           .ancestors(BaseRuleClasses.NativeBuildRule.class)

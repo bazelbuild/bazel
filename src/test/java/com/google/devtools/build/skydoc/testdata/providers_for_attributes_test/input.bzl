@@ -20,7 +20,7 @@ my_rule = rule(
     doc = "This rule does things.",
     attrs = {
         "first": attr.label_keyed_string_dict(
-            providers = [MyProviderInfo, PyInfo, cc_common.CcToolchainInfo],
+            providers = [MyProviderInfo, PyInfo, cc_common.CcToolchainInfo, my_undefined_module.MyInfo],
             doc = "this is the first attribute.",
         ),
         "second": attr.label_list(
@@ -30,7 +30,7 @@ my_rule = rule(
             providers = [OtherProviderInfo],
         ),
         "fourth": attr.label(
-            providers = [ProtoInfo, DefaultInfo, JavaInfo],
+            providers = [ProtoInfo, DefaultInfo, JavaInfo, MyUndefinedInfo],
         ),
         "fifth": attr.label(
             providers = [["LegacyProvider", "ObjectProvider"], [DefaultInfo, JavaInfo]],

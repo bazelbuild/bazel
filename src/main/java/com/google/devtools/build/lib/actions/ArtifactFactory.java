@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -99,7 +101,7 @@ public class ArtifactFactory implements ArtifactResolver {
      * by any action (since no action has properly declared it as an input).
      */
     @ThreadSafe
-    Artifact getArtifactIfValid(PathFragment execPath) {
+    SourceArtifact getArtifactIfValid(PathFragment execPath) {
       Entry cacheEntry = pathToSourceArtifact.get(execPath);
       return (cacheEntry == null || !cacheEntry.isArtifactValid())
           ? null
@@ -214,7 +216,7 @@ public class ArtifactFactory implements ArtifactResolver {
   /**
    * Same as {@link #getDerivedArtifact(PathFragment, ArtifactRoot, ArtifactOwner)} but includes the
    * option to use a content-based path for this artifact (see {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
    */
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath,
@@ -339,7 +341,7 @@ public class ArtifactFactory implements ArtifactResolver {
     return newEntry.getArtifact();
   }
 
-  private Artifact createArtifact(
+  private static Artifact createArtifact(
       ArtifactRoot root,
       PathFragment execPath,
       ArtifactOwner owner,
@@ -349,9 +351,9 @@ public class ArtifactFactory implements ArtifactResolver {
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : new Artifact.DerivedArtifact(root, execPath, (ActionLookupKey) owner, contentBasedPath);
+          : DerivedArtifact.create(root, execPath, (ActionLookupKey) owner, contentBasedPath);
     } else {
-      return new Artifact.SpecialArtifact(root, execPath, (ActionLookupKey) owner, type);
+      return SpecialArtifact.create(root, execPath, (ActionLookupKey) owner, type);
     }
   }
 
@@ -367,7 +369,7 @@ public class ArtifactFactory implements ArtifactResolver {
    * does find it there, but that is a benign race.
    */
   @ThreadSafe
-  public Artifact resolveSourceArtifactWithAncestor(
+  public SourceArtifact resolveSourceArtifactWithAncestor(
       PathFragment relativePath,
       PathFragment baseExecPath,
       ArtifactRoot baseRoot,
@@ -398,7 +400,7 @@ public class ArtifactFactory implements ArtifactResolver {
     if (isDerivedArtifact(execPath)) {
       return null;
     }
-    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
+    SourceArtifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
     if (artifact != null) {
       return artifact;
     }
@@ -443,15 +445,16 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @Override
-  public Artifact resolveSourceArtifact(PathFragment execPath,
-      @SuppressWarnings("unused") RepositoryName repositoryName) {
+  public SourceArtifact resolveSourceArtifact(
+      PathFragment execPath, RepositoryName repositoryName) {
     return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
   @Override
-  public Map<PathFragment, Artifact> resolveSourceArtifacts(
-      Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException {
-    Map<PathFragment, Artifact> result = new HashMap<>();
+  public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
+      throws PackageRootResolver.PackageRootException, InterruptedException {
+    Map<PathFragment, SourceArtifact> result = new HashMap<>();
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 
     for (PathFragment execPath : execPaths) {
@@ -464,7 +467,7 @@ public class ArtifactFactory implements ArtifactResolver {
         result.put(execPath, null);
       } else {
         // First try a quick map lookup to see if the artifact already exists.
-        Artifact a = sourceArtifactCache.getArtifactIfValid(execPath);
+        SourceArtifact a = sourceArtifactCache.getArtifactIfValid(execPath);
         if (a != null) {
           result.put(execPath, a);
         } else {
@@ -497,11 +500,11 @@ public class ArtifactFactory implements ArtifactResolver {
   }
 
   @ThreadSafe
-  private Artifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
+  private SourceArtifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
     if (sourceRoot == null) {
       return null;  // not a path that we can find...
     }
-    Artifact artifact = sourceArtifactCache.getArtifact(execPath);
+    SourceArtifact artifact = sourceArtifactCache.getArtifact(execPath);
     if (artifact != null && sourceRoot.equals(artifact.getRoot().getRoot())) {
       // Source root of existing artifact hasn't changed so we should mark corresponding entry in
       // the cache as valid.

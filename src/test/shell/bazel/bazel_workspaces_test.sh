@@ -60,26 +60,23 @@ function build_and_process_log() {
 }
 
 function ensure_contains_exactly() {
-  num=`grep "${1}" output.log.txt | wc -l`
-  if [ "$num" -ne $2 ]
-  then
+  local -r num=$(grep -c "$1" output.log.txt || true)
+  if (( num != $2 )); then
     fail "Expected exactly $2 occurrences of $1, got $num: " `cat output.log.txt`
   fi
 }
 
 function ensure_contains_atleast() {
-  num=`grep "${1}" output.log.txt | wc -l`
-  if [ "$num" -lt $2 ]
-  then
+  local -r num=$(grep -c "$1" output.log.txt || true)
+  if (( num < $2 )); then
     fail "Expected at least $2 occurrences of $1, got $num: " `cat output.log.txt`
   fi
 }
 
 function ensure_output_contains_exactly_once() {
-  file_path=$(bazel info output_base)/$1
-  num=`grep "$2" $file_path | wc -l`
-  if [ "$num" -ne 1 ]
-  then
+  local -r file_path=$(bazel info output_base)/$1
+  local -r num=$(grep -c "$2" $file_path || true)
+  if (( num != 1 )); then
     fail "Expected to read \"$2\" in $1, but got $num occurrences: " `cat $file_path`
   fi
 }
@@ -509,8 +506,6 @@ function test_os() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  # This assertion matches the location of the rule's implementation function.
-  ensure_contains_exactly 'location: .*repos.bzl:1:5' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'os_event' 1
 }

@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8;
 
+import static com.android.tools.r8.CompilationMode.RELEASE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.EXCLUDE_PATH_ENTRIES;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
 import com.android.tools.r8.ClassFileResourceProvider;
@@ -22,12 +24,10 @@ import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.L8;
 import com.android.tools.r8.L8Command;
-import com.android.tools.r8.StringResource;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.desugar.DependencyCollector;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.common.options.Option;
@@ -100,7 +100,7 @@ public class CoreLibraryDesugar {
 
     @Option(
         name = "min_sdk_version",
-        defaultValue = "1",
+        defaultValue = "13", // Same as Constants.MIN_API_LEVEL.
         category = "misc",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -174,19 +174,21 @@ public class CoreLibraryDesugar {
       Path input,
       Path output,
       Path desugaredLibConfig)
-      throws CompilationFailedException {
+      throws CompilationFailedException, IOException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING;
-    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector, input);
+    OutputConsumer consumer =
+        new OutputConsumer(output, dependencyCollector, input, EXCLUDE_PATH_ENTRIES);
     L8Command.Builder builder =
         L8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addClasspathResourceProvider(classpath)
             .addProgramFiles(input)
             .setMinApiLevel(options.minSdkVersion)
+            .setMode(RELEASE)
             .setProgramConsumer(consumer);
     bootclasspathProviders.forEach(builder::addLibraryResourceProvider);
     if (desugaredLibConfig != null) {
-      builder.addDesugaredLibraryConfiguration(StringResource.fromFile(desugaredLibConfig));
+      builder.addDesugaredLibraryConfiguration(Files.readString(desugaredLibConfig));
     }
     L8.run(builder.build());
   }

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +22,9 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -30,17 +32,26 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Unit tests for {@code proto_lang_toolchain}. */
 @RunWith(JUnit4.class)
 public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setupWorkspace(scratch);
     MockProtoSupport.setup(mockToolsConfig);
+    useConfiguration("--protocopt=--myflag");
     invalidatePackages();
   }
 
+  Provider.Key getStarlarkProtoLangToolchainInfoKey() throws LabelSyntaxException {
+    return new StarlarkProvider.Key(
+        Label.parseAbsolute("@_builtins//:common/proto/proto_common.bzl", ImmutableMap.of()),
+        "ProtoLangToolchainInfo");
+  }
+
   private void validateProtoLangToolchain(ProtoLangToolchainProvider toolchain) throws Exception {
-    assertThat(toolchain.commandLine()).isEqualTo("cmd-line");
+    assertThat(toolchain.outReplacementFormatFlag()).isEqualTo("cmd-line:%s");
+    assertThat(toolchain.pluginFormatFlag()).isEqualTo("--plugin=%s");
     assertThat(toolchain.pluginExecutable().getExecutable().getRootRelativePathString())
         .isEqualTo("third_party/x/plugin");
 
@@ -48,11 +59,15 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(runtimes.getLabel())
         .isEqualTo(Label.parseAbsolute("//third_party/x:runtime", ImmutableMap.of()));
 
-    assertThat(prettyArtifactNames(toolchain.blacklistedProtos()))
-        .containsExactly(
-            "third_party/x/metadata.proto",
-            "third_party/x/descriptor.proto",
-            "third_party/x/any.proto");
+    assertThat(toolchain.protocOpts()).containsExactly("--myflag");
+
+    assertThat(toolchain.progressMessage()).isEqualTo("Progress Message %{label}");
+    assertThat(toolchain.mnemonic()).isEqualTo("MyMnemonic");
+  }
+
+  private void validateProtoCompiler(ProtoLangToolchainProvider toolchain, Label protoCompiler) {
+    assertThat(toolchain.protoc().getExecutable().prettyPrint())
+        .isEqualTo(protoCompiler.toPathFragment().getPathString());
   }
 
   @Test
@@ -64,7 +79,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
         "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'blacklist', srcs = [':descriptors', ':any'])");
+        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
 
     scratch.file(
         "foo/BUILD",
@@ -72,16 +87,56 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "licenses(['unencumbered'])",
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
+        "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:blacklist']",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
+    ProtoLangToolchainProvider toolchain =
+        ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
 
-    validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+    validateProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
+  }
+
+  @Test
+  public void protoToolchain_setProtoCompiler() throws Exception {
+    scratch.file(
+        "third_party/x/BUILD",
+        "licenses(['unencumbered'])",
+        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
+        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
+        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
+        "filegroup(name = 'any', srcs = ['any.proto'])",
+        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])",
+        "cc_binary(name = 'compiler')");
+
+    scratch.file(
+        "foo/BUILD",
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+        "licenses(['unencumbered'])",
+        "proto_lang_toolchain(",
+        "    name = 'toolchain',",
+        "    command_line = 'cmd-line:$(OUT)',",
+        "    plugin_format_flag = '--plugin=%s',",
+        "    plugin = '//third_party/x:plugin',",
+        "    runtime = '//third_party/x:runtime',",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
+        "    proto_compiler = '//third_party/x:compiler',",
+        ")");
+
+    ProtoLangToolchainProvider toolchain =
+        ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
+    Label protoc = Label.parseAbsoluteUnchecked("//third_party/x:compiler");
+
+    validateProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
   }
 
   @Test
@@ -100,16 +155,21 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
+        "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:descriptors', '//third_party/x:any']",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
+    ProtoLangToolchainProvider toolchain =
+        ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
 
-    validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+    validateProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
   }
 
   @Test
@@ -128,16 +188,21 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
+        "    plugin_format_flag = '--plugin=%s',",
         "    plugin = '//third_party/x:plugin',",
         "    runtime = '//third_party/x:runtime',",
-        "    blacklisted_protos = ['//third_party/x:any']",
+        "    progress_message = 'Progress Message %{label}',",
+        "    mnemonic = 'MyMnemonic',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
+    ProtoLangToolchainProvider toolchain =
+        ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
+    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
 
-    validateProtoLangToolchain(
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class));
+    validateProtoLangToolchain(toolchain);
+    validateProtoCompiler(toolchain, protoc);
   }
 
   @Test
@@ -147,16 +212,15 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_lang_toolchain(",
         "    name = 'toolchain',",
-        "    command_line = 'cmd-line',",
+        "    command_line = 'cmd-line:$(OUT)',",
         ")");
 
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
-
     ProtoLangToolchainProvider toolchain =
-        getConfiguredTarget("//foo:toolchain").getProvider(ProtoLangToolchainProvider.class);
+        ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
-    assertThat(toolchain.blacklistedProtos().toList()).isEmpty();
+    assertThat(toolchain.mnemonic()).isEqualTo("GenProto");
   }
 }

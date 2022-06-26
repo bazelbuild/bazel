@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.analysis.config.CompilationMode.OPT;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -27,9 +28,11 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.
@@ -61,6 +64,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final FilesToRunProvider busybox;
   private final AndroidSdkProvider sdk;
   private final boolean persistentBusyboxToolsEnabled;
+  private final boolean persistentMultiplexBusyboxTools;
   private final boolean optOutOfResourcePathShortening;
   private final boolean optOutOfResourceNameObfuscation;
   private final boolean throwOnShrinkResources;
@@ -69,6 +73,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
   private final boolean throwOnResourceConflict;
   private final boolean useDataBindingV2;
   private final boolean useDataBindingAndroidX;
+  private final boolean includeProguardLocationReferences;
+  private final ImmutableMap<String, String> executionInfo;
 
   public static AndroidDataContext forNative(RuleContext ruleContext) {
     return makeContext(ruleContext);
@@ -78,10 +84,14 @@ public class AndroidDataContext implements AndroidDataContextApi {
     AndroidConfiguration androidConfig =
         ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
 
+    ImmutableMap<String, String> executionInfo =
+        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
+
     return new AndroidDataContext(
         ruleContext,
         ruleContext.getExecutablePrerequisite("$android_resources_busybox"),
         androidConfig.persistentBusyboxTools(),
+        androidConfig.persistentMultiplexBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
         hasExemption(ruleContext, "allow_raw_access_to_resource_paths", false),
         hasExemption(ruleContext, "allow_resource_name_obfuscation_opt_out", false),
@@ -90,7 +100,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
         !hasExemption(ruleContext, "allow_proguard_apply_mapping", true),
         !hasExemption(ruleContext, "allow_resource_conflicts", true),
         androidConfig.useDataBindingV2(),
-        androidConfig.useDataBindingAndroidX());
+        androidConfig.useDataBindingAndroidX(),
+        androidConfig.includeProguardLocationReferences(),
+        executionInfo);
   }
 
   private static boolean hasExemption(
@@ -104,6 +116,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
       RuleContext ruleContext,
       FilesToRunProvider busybox,
       boolean persistentBusyboxToolsEnabled,
+      boolean persistentMultiplexBusyboxTools,
       AndroidSdkProvider sdk,
       boolean optOutOfResourcePathShortening,
       boolean optOutOfResourceNameObfuscation,
@@ -112,8 +125,11 @@ public class AndroidDataContext implements AndroidDataContextApi {
       boolean throwOnProguardApplyMapping,
       boolean throwOnResourceConflict,
       boolean useDataBindingV2,
-      boolean useDataBindingAndroidX) {
+      boolean useDataBindingAndroidX,
+      boolean includeProguardLocationReferences,
+      ImmutableMap<String, String> executionInfo) {
     this.persistentBusyboxToolsEnabled = persistentBusyboxToolsEnabled;
+    this.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
     this.ruleContext = ruleContext;
     this.busybox = busybox;
     this.sdk = sdk;
@@ -125,6 +141,8 @@ public class AndroidDataContext implements AndroidDataContextApi {
     this.throwOnResourceConflict = throwOnResourceConflict;
     this.useDataBindingV2 = useDataBindingV2;
     this.useDataBindingAndroidX = useDataBindingAndroidX;
+    this.includeProguardLocationReferences = includeProguardLocationReferences;
+    this.executionInfo = executionInfo;
   }
 
   public Label getLabel() {
@@ -147,6 +165,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return sdk;
   }
 
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return executionInfo;
+  }
+
   /*
    * Convenience methods. These are just slightly cleaner ways of doing common tasks.
    */
@@ -156,9 +178,9 @@ public class AndroidDataContext implements AndroidDataContextApi {
     registerAction(spawnActionBuilder.build(ruleContext));
   }
 
-  /** Registers one or more actions. */
-  public void registerAction(ActionAnalysisMetadata... actions) {
-    ruleContext.registerAction(actions);
+  /** Registers an action. */
+  public void registerAction(ActionAnalysisMetadata action) {
+    ruleContext.registerAction(action);
   }
 
   public Artifact createOutputArtifact(SafeImplicitOutputsFunction function)
@@ -190,6 +212,11 @@ public class AndroidDataContext implements AndroidDataContextApi {
     return ruleContext.getConfiguration().getFragment(AndroidConfiguration.class);
   }
 
+  @Nullable
+  public BazelAndroidConfiguration getBazelAndroidConfig() {
+    return ruleContext.getConfiguration().getFragment(BazelAndroidConfiguration.class);
+  }
+
   /** Indicates whether Busybox actions should be passed the "--debug" flag */
   public boolean useDebug() {
     return getActionConstructionContext().getConfiguration().getCompilationMode() != OPT;
@@ -197,6 +224,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean isPersistentBusyboxToolsEnabled() {
     return persistentBusyboxToolsEnabled;
+  }
+
+  public boolean isPersistentMultiplexBusyboxTools() {
+    return persistentMultiplexBusyboxTools;
   }
 
   public boolean optOutOfResourcePathShortening() {
@@ -229,6 +260,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   public boolean useDataBindingAndroidX() {
     return useDataBindingAndroidX;
+  }
+
+  public boolean includeProguardLocationReferences() {
+    return includeProguardLocationReferences;
   }
 
   public boolean annotateRFieldsFromTransitiveDeps() {

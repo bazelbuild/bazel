@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -60,7 +62,7 @@ public class MerkleTreeTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
-    digestUtil = new DigestUtil(fs.getDigestFunction());
+    digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
   }
 
   @Test
@@ -88,13 +90,13 @@ public class MerkleTreeTest {
 
     Directory fizzDir =
         Directory.newBuilder()
-            .addFiles(newFileNode("buzz.cc", digestUtil.computeAsUtf8("buzz"), false))
-            .addFiles(newFileNode("fizzbuzz.cc", digestUtil.computeAsUtf8("fizzbuzz"), false))
+            .addFiles(newFileNode("buzz.cc", digestUtil.computeAsUtf8("buzz"), true))
+            .addFiles(newFileNode("fizzbuzz.cc", digestUtil.computeAsUtf8("fizzbuzz"), true))
             .build();
     Directory srcsDir =
         Directory.newBuilder()
-            .addFiles(newFileNode("bar.cc", digestUtil.computeAsUtf8("bar"), false))
-            .addFiles(newFileNode("foo.cc", digestUtil.computeAsUtf8("foo"), false))
+            .addFiles(newFileNode("bar.cc", digestUtil.computeAsUtf8("bar"), true))
+            .addFiles(newFileNode("foo.cc", digestUtil.computeAsUtf8("foo"), true))
             .addDirectories(
                 DirectoryNode.newBuilder().setName("fizz").setDigest(digestUtil.compute(fizzDir)))
             .build();
@@ -136,6 +138,49 @@ public class MerkleTreeTest {
     assertThat(allDigests.length).isEqualTo(dirDigests.length + inputDigests.length);
     assertThat(allDigests).asList().containsAtLeastElementsIn(dirDigests);
     assertThat(allDigests).asList().containsAtLeastElementsIn(inputDigests);
+  }
+
+  @Test
+  public void mergeMerkleTrees() throws IOException {
+    // arrange
+    SortedMap<PathFragment, ActionInput> sortedInputs1 = new TreeMap<>();
+    SortedMap<PathFragment, ActionInput> sortedInputs2 = new TreeMap<>();
+    SortedMap<PathFragment, ActionInput> sortedInputsAll = new TreeMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+
+    addFile("srcs/foo.cc", "foo", sortedInputs1, metadata);
+    addFile("srcs/bar.cc", "bar", sortedInputs2, metadata);
+    addFile("srcs/fizz/buzz.cc", "buzz", sortedInputs1, metadata);
+    addFile("srcs/fizz/fizzbuzz.cc", "fizzbuzz", sortedInputs2, metadata);
+    sortedInputsAll.putAll(sortedInputs1);
+    sortedInputsAll.putAll(sortedInputs2);
+
+    MerkleTree treeEmpty =
+        MerkleTree.build(
+            new TreeMap<>(), new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    MerkleTree tree1 =
+        MerkleTree.build(sortedInputs1, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    MerkleTree tree2 =
+        MerkleTree.build(sortedInputs2, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+    MerkleTree treeAll =
+        MerkleTree.build(
+            sortedInputsAll, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+
+    // act
+    MerkleTree mergedTreeEmpty = MerkleTree.merge(Arrays.asList(), digestUtil);
+    MerkleTree mergedTree1 = MerkleTree.merge(Arrays.asList(tree1), digestUtil);
+    MerkleTree mergedTree11 = MerkleTree.merge(Arrays.asList(tree1, tree1), digestUtil);
+    MerkleTree mergedTree12 = MerkleTree.merge(Arrays.asList(tree1, tree2), digestUtil);
+
+    // assert
+    assertThat(mergedTreeEmpty.getRootDigest()).isEqualTo(treeEmpty.getRootDigest());
+    assertThat(mergedTree1.getRootDigest()).isEqualTo(tree1.getRootDigest());
+    assertThat(mergedTree11.getRootDigest()).isEqualTo(tree1.getRootDigest());
+    assertThat(mergedTree12.getRootDigest()).isEqualTo(treeAll.getRootDigest());
+
+    assertThat(mergedTree1).isSameInstanceAs(tree1);
+
+    assertThat(mergedTree12.getAllDigests()).containsExactlyElementsIn(treeAll.getAllDigests());
   }
 
   private Artifact addFile(

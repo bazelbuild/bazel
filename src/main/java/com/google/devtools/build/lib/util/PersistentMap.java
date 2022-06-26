@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ForwardingMap;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
@@ -28,8 +32,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * A map that is backed by persistent storage. It uses two files on disk for
@@ -57,16 +65,12 @@ import java.util.Map;
  * IO failures during reading or writing the map entries to disk may result in
  * {@link AssertionError} getting thrown from the failing method.
  * <p>
- * The implementation of the map is not synchronized. If access from multiple
- * threads is required it must be synchronized using an external object.
- * <p>
  * The constructor allows passing in a version number that gets written to the
  * files on disk and checked before reading from disk. Files with an
  * incompatible version number will be ignored. This allows the client code to
  * change the persistence format without polluting the file system name space.
  */
 public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
-
   private static final int MAGIC = 0x20071105;
   private static final int ENTRY_MAGIC = 0xfe;
   private static final int MIN_MAPFILE_SIZE = 16;
@@ -74,9 +78,14 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final int version;
+
+  @GuardedBy("this")
   private final Path mapFile;
+
+  @GuardedBy("this")
   private final Path journalFile;
-  private final Map<K, V> journal;
+
+  private final LinkedBlockingQueue<K> journal;
   private DataOutputStream journalOut;
 
   /**
@@ -98,22 +107,20 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    */
   private boolean loaded;
 
-  private final Map<K, V> delegate;
+  private final ConcurrentMap<K, V> delegate;
 
   /**
    * Creates a new PersistentMap instance using the specified backing map.
    *
-   * @param version the version tag. Changing the version tag allows updating
-   *        the on disk format. The map will never read from a file that was
-   *        written using a different version tag.
+   * @param version the version tag. Changing the version tag allows updating the on disk format.
+   *     The map will never read from a file that was written using a different version tag.
    * @param map the backing map to use for this PersistentMap.
    * @param mapFile the file to save the map entries to.
-   * @param journalFile the journal file to write entries between invocations of
-   *        {@link #save()}.
+   * @param journalFile the journal file to write entries between invocations of {@link #save()}.
    */
-  public PersistentMap(int version, Map<K, V> map, Path mapFile, Path journalFile) {
+  public PersistentMap(int version, ConcurrentMap<K, V> map, Path mapFile, Path journalFile) {
     this.version = version;
-    journal = new LinkedHashMap<>();
+    journal = new LinkedBlockingQueue<>();
     this.mapFile = mapFile;
     this.journalFile = journalFile;
     delegate = map;
@@ -125,24 +132,17 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     return delegate;
   }
 
+  @ThreadSafety.ThreadSafe
   @Override
   public V put(K key, V value) {
-    if (key == null) {
-      throw new NullPointerException();
-    }
-    if (value == null) {
-      throw new NullPointerException();
-    }
-    V previous = delegate().put(key, value);
-    journal.put(key, value);
+    V previous = delegate().put(checkNotNull(key, value), checkNotNull(value, key));
+    journal.add(key);
     markAsDirty();
     return previous;
   }
 
-  /**
-   * Marks the map as dirty and potentially writes updated entries to the
-   * journal.
-   */
+  /** Marks the map as dirty and potentially writes updated entries to the journal. */
+  @ThreadSafety.ThreadSafe
   protected void markAsDirty() {
     dirty = true;
     if (updateJournal()) {
@@ -172,6 +172,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     return true;
   }
 
+  @ThreadSafety.ThreadSafe
   @Override
   @SuppressWarnings("unchecked")
   public V remove(Object object) {
@@ -179,17 +180,17 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     if (previous != null) {
       // we know that 'object' must be an instance of K, because the
       // remove call succeeded, i.e. 'object' was mapped to 'previous'.
-      journal.put((K) object, null); // unchecked
+      journal.add((K) object); // unchecked
       markAsDirty();
     }
     return previous;
   }
 
   /**
-   * Updates the persistent journal by writing all entries to the
-   * {@link #journalOut} stream and clearing the in memory journal.
+   * Updates the persistent journal by writing all entries to the {@link #journalOut} stream and
+   * clearing the in memory journal.
    */
-  private void writeJournal() {
+  private synchronized void writeJournal() {
     try {
       if (journalOut == null) {
         if (journalFile.exists()) {
@@ -202,9 +203,11 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
           journalOut = createMapFile(journalFile);
         }
       }
-      writeEntries(journalOut, journal);
+      // Journal may have duplicates, we can ignore them.
+      LinkedHashSet<K> items = Sets.newLinkedHashSetWithExpectedSize(journal.size());
+      journal.drainTo(items);
+      writeEntries(journalOut, items, delegate());
       journalOut.flush();
-      journal.clear();
     } catch (IOException e) {
       this.deferredIOFailure = e.getMessage() + " during journal append";
     }
@@ -217,12 +220,12 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   }
 
   /**
-   * Load the previous written map entries from disk.
+   * Loads the previous written map entries from disk.
    *
    * @param failFast if true, throw IOException rather than silently ignoring.
    * @throws IOException
    */
-  public void load(boolean failFast) throws IOException {
+  public synchronized void load(boolean failFast) throws IOException {
     if (!loaded) {
       loadEntries(mapFile, failFast);
       if (journalFile.exists()) {
@@ -245,17 +248,13 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     }
   }
 
-  /**
-   * Load the previous written map entries from disk.
-   *
-   * @throws IOException
-   */
-  public void load() throws IOException {
+  /** Loads the previous written map entries from disk. */
+  public synchronized void load() throws IOException {
     load(/* failFast= */ false);
   }
 
   @Override
-  public void clear() {
+  public synchronized void clear() {
     super.clear();
     markAsDirty();
     try {
@@ -269,21 +268,20 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * Saves all the entries of this map to disk and deletes the journal file.
    *
    * @throws IOException if there was an I/O error during this call, or any previous call since the
-   *                     last save().
+   *     last save().
    */
-  public long save() throws IOException {
+  public synchronized long save() throws IOException {
     return save(false);
   }
 
   /**
    * Saves all the entries of this map to disk and deletes the journal file.
    *
-   * @param fullSave if true, always write the full cache to disk, without the
-   *        journal.
-   * @throws IOException if there was an I/O error during this call, or any
-   *   previous call since the last save().
+   * @param fullSave if true, always write the full cache to disk, without the journal.
+   * @throws IOException if there was an I/O error during this call, or any previous call since the
+   *     last save().
    */
-  private long save(boolean fullSave) throws IOException {
+  private synchronized long save(boolean fullSave) throws IOException {
     /* Report a previously failing I/O operation. */
     if (deferredIOFailure != null) {
       try {
@@ -318,11 +316,11 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     }
   }
 
-  protected final long journalSize() throws IOException {
+  protected final synchronized long journalSize() throws IOException {
     return journalFile.exists() ? journalFile.getFileSize() : 0;
   }
 
-  protected final long cacheSize() throws IOException {
+  protected final synchronized long cacheSize() throws IOException {
     return mapFile.exists() ? mapFile.getFileSize() : 0;
   }
 
@@ -335,7 +333,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     return false;
   }
 
-  private void clearJournal() throws IOException {
+  private synchronized void clearJournal() throws IOException {
     journal.clear();
     if (journalOut != null) {
       journalOut.close();
@@ -343,7 +341,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     }
   }
 
-  private void loadEntries(Path mapFile, boolean failFast) throws IOException {
+  private synchronized void loadEntries(Path mapFile, boolean failFast) throws IOException {
     if (!mapFile.exists()) {
       return;
     }
@@ -398,9 +396,9 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @param mapFile the file the map is written to.
    * @throws IOException
    */
-  private void saveEntries(Map<K, V> map, Path mapFile) throws IOException {
+  private synchronized void saveEntries(Map<K, V> map, Path mapFile) throws IOException {
     try (DataOutputStream out = createMapFile(mapFile)) {
-      writeEntries(out, map);
+      writeEntries(out, map.keySet(), map);
     }
   }
 
@@ -411,8 +409,8 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @return the DataOutputStream that was can be used for saving the map to the file.
    * @throws IOException
    */
-  private DataOutputStream createMapFile(Path mapFile) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(mapFile.getParentDirectory());
+  private synchronized DataOutputStream createMapFile(Path mapFile) throws IOException {
+    mapFile.getParentDirectory().createDirectoryAndParents();
     DataOutputStream out =
         new DataOutputStream(new BufferedOutputStream(mapFile.getOutputStream()));
     out.writeLong(MAGIC);
@@ -420,19 +418,11 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     return out;
   }
 
-  /**
-   * Writes the Map entries to the specified DataOutputStream.
-   *
-   * @param out the DataOutputStream to write the Map entries to.
-   * @param map the Map containing the entries to be written to the
-   *        DataOutputStream.
-   * @throws IOException
-   */
-  private void writeEntries(DataOutputStream out, Map<K, V> map) throws IOException {
-    for (Map.Entry<K, V> entry : map.entrySet()) {
+  private void writeEntries(DataOutputStream out, Set<K> keys, Map<K, V> map) throws IOException {
+    for (K key : keys) {
       out.writeByte(ENTRY_MAGIC);
-      writeKey(entry.getKey(), out);
-      V value = entry.getValue();
+      writeKey(key, out);
+      V value = map.get(key);
       boolean isEntry = (value != null);
       out.writeBoolean(isEntry);
       if (isEntry) {

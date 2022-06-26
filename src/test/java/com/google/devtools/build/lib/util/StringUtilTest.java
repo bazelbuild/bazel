@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.util.StringUtil.capitalize;
-import static com.google.devtools.build.lib.util.StringUtil.emptyToNull;
-import static com.google.devtools.build.lib.util.StringUtil.indent;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
+import static com.google.devtools.build.lib.util.StringUtil.encodeBytestringUtf8;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
-import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
@@ -63,39 +61,40 @@ public class StringUtilTest {
   }
 
   @Test
-  public void testIndent() throws Exception {
-    assertThat(indent("", 0)).isEmpty();
-    assertThat(indent("", 1)).isEmpty();
-    assertThat(indent("a", 1)).isEqualTo("a");
-    assertThat(indent("\na", 2)).isEqualTo("\n  a");
-    assertThat(indent("a\nb", 2)).isEqualTo("a\n  b");
-    assertThat(indent("a\nb\nc\nd", 1)).isEqualTo("a\n b\n c\n d");
-    assertThat(indent("\n", 1)).isEqualTo("\n ");
+  @SuppressWarnings("UnicodeEscape")
+  public void testDecodeBytestringUtf8() throws Exception {
+    // Regular ASCII passes through OK.
+    assertThat(decodeBytestringUtf8("ascii")).isEqualTo("ascii");
+
+    // Valid UTF-8 is decoded.
+    assertThat(decodeBytestringUtf8("\u00E2\u0081\u0089"))
+        .isEqualTo("\u2049"); // U+2049 EXCLAMATION QUESTION MARK
+    assertThat(decodeBytestringUtf8("\u00f0\u009f\u008c\u00b1"))
+        .isEqualTo("\uD83C\uDF31"); // U+1F331 SEEDLING
+
+    // Strings that contain characters that can't be UTF-8 are returned as-is,
+    // to support Windows file paths.
+    assertThat(decodeBytestringUtf8("\u2049"))
+        .isEqualTo("\u2049"); // U+2049 EXCLAMATION QUESTION MARK
+    assertThat(decodeBytestringUtf8("\uD83C\uDF31")).isEqualTo("\uD83C\uDF31"); // U+1F331 SEEDLING
+
+    // Strings that might be either UTF-8 or Unicode are optimistically decoded,
+    // and returned as-is if decoding succeeded with no replacement characters.
+    assertThat(decodeBytestringUtf8("\u00FC\u006E\u00EF\u0063\u00F6\u0064\u00EB"))
+        .isEqualTo("\u00FC\u006E\u00EF\u0063\u00F6\u0064\u00EB"); // "ünïcödë"
+
+    // A string that is both valid ISO-8859-1 and valid UTF-8 will be decoded
+    // as UTF-8.
+    assertThat(decodeBytestringUtf8("\u00C2\u00A3")) // "Â£"
+        .isEqualTo("\u00A3"); // U+00A3 POUND SIGN
   }
 
   @Test
-  public void testStripSuffix() throws Exception {
-    assertThat(stripSuffix("", "")).isEmpty();
-    assertThat(stripSuffix("", "a")).isNull();
-    assertThat(stripSuffix("a", "")).isEqualTo("a");
-    assertThat(stripSuffix("aa", "a")).isEqualTo("a");
-    assertThat(stripSuffix("ab", "c")).isNull();
-  }
-
-  @Test
-  public void testCapitalize() throws Exception {
-    assertThat(capitalize("")).isEmpty();
-    assertThat(capitalize("joe")).isEqualTo("Joe");
-    assertThat(capitalize("Joe")).isEqualTo("Joe");
-    assertThat(capitalize("o")).isEqualTo("O");
-    assertThat(capitalize("O")).isEqualTo("O");
-  }
-
-  @Test
-  public void testEmptyToNull() {
-    assertThat(emptyToNull(null)).isNull();
-    assertThat(emptyToNull("")).isNull();
-    assertThat(emptyToNull("a")).isEqualTo("a");
-    assertThat(emptyToNull(" ")).isEqualTo(" ");
+  public void testEncodeBytestringUtf8() throws Exception {
+    assertThat(encodeBytestringUtf8("ascii")).isEqualTo("ascii");
+    assertThat(encodeBytestringUtf8("\u2049")) // U+2049 EXCLAMATION QUESTION MARK
+        .isEqualTo("\u00E2\u0081\u0089");
+    assertThat(encodeBytestringUtf8("\uD83C\uDF31")) // U+1F331 SEEDLING
+        .isEqualTo("\u00f0\u009f\u008c\u00b1");
   }
 }

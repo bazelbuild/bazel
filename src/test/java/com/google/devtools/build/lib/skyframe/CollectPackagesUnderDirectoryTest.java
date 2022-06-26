@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -43,6 +42,6 @@ public final class CollectPackagesUnderDirectoryTest
 
   @Override
   protected SkyframeExecutorFactory makeSkyframeExecutorFactory() {
-    return new SequencedSkyframeExecutorFactory(BuildOptions.builder().build());
+    return new SequencedSkyframeExecutorFactory();
   }
 }

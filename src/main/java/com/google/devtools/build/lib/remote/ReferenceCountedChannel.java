@@ -13,84 +13,100 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import io.grpc.CallOptions;
-import io.grpc.ClientCall;
-import io.grpc.ManagedChannel;
-import io.grpc.MethodDescriptor;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.ChannelConnection;
+import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
+import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
+import com.google.devtools.build.lib.remote.util.RxFutures;
+import io.grpc.Channel;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
-import java.util.concurrent.TimeUnit;
+import io.reactivex.rxjava3.annotations.CheckReturnValue;
+import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleSource;
+import io.reactivex.rxjava3.functions.Function;
+import java.io.IOException;
 
 /**
- * A wrapper around a {@link io.grpc.ManagedChannel} exposing a reference count. When instantiated
- * the reference count is 1. {@link ManagedChannel#shutdown()} will be called on the wrapped channel
- * when the reference count reaches 0.
+ * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
+ * When instantiated the reference count is 1. {@link DynamicConnectionPool#close()} will be called
+ * on the wrapped channel when the reference count reaches 0.
  *
  * <p>See {@link ReferenceCounted} for more information about reference counting.
  */
-public class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
-
-  private final ManagedChannel channel;
-  private final AbstractReferenceCounted referenceCounted;
-
-  public ReferenceCountedChannel(ManagedChannel channel) {
-    this(
-        channel,
-        new AbstractReferenceCounted() {
-          @Override
-          protected void deallocate() {
-            channel.shutdown();
+public class ReferenceCountedChannel implements ReferenceCounted {
+  private final DynamicConnectionPool dynamicConnectionPool;
+  private final AbstractReferenceCounted referenceCounted =
+      new AbstractReferenceCounted() {
+        @Override
+        protected void deallocate() {
+          try {
+            dynamicConnectionPool.close();
+          } catch (IOException e) {
+            throw new AssertionError(e.getMessage(), e);
           }
+        }
 
-          @Override
-          public ReferenceCounted touch(Object o) {
-            return this;
-          }
-        });
+        @Override
+        public ReferenceCounted touch(Object o) {
+          return this;
+        }
+      };
+
+  public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
+    this(connectionFactory, /*maxConnections=*/ 0);
   }
 
-  protected ReferenceCountedChannel(
-      ManagedChannel channel, AbstractReferenceCounted referenceCounted) {
-    this.channel = channel;
-    this.referenceCounted = referenceCounted;
+  public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory, int maxConnections) {
+    this.dynamicConnectionPool =
+        new DynamicConnectionPool(
+            connectionFactory, connectionFactory.maxConcurrency(), maxConnections);
   }
 
-  @Override
-  public ManagedChannel shutdown() {
-    throw new UnsupportedOperationException("Don't call shutdown() directly, but use release() "
-        + "instead.");
-  }
-
-  @Override
   public boolean isShutdown() {
-    return channel.isShutdown();
+    return dynamicConnectionPool.isClosed();
   }
 
-  @Override
-  public boolean isTerminated() {
-    return channel.isTerminated();
+  @CheckReturnValue
+  public <T> ListenableFuture<T> withChannelFuture(
+      Function<Channel, ? extends ListenableFuture<T>> source) {
+    return RxFutures.toListenableFuture(
+        withChannel(channel -> RxFutures.toSingle(() -> source.apply(channel), directExecutor())));
   }
 
-  @Override
-  public ManagedChannel shutdownNow() {
-    throw new UnsupportedOperationException("Don't call shutdownNow() directly, but use release() "
-        + "instead.");
+  public <T> T withChannelBlocking(Function<Channel, T> source)
+      throws IOException, InterruptedException {
+    try {
+      return withChannel(channel -> Single.just(source.apply(channel))).blockingGet();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+      }
+      throw e;
+    }
   }
 
-  @Override
-  public boolean awaitTermination(long timeout, TimeUnit timeUnit) throws InterruptedException {
-    return channel.awaitTermination(timeout, timeUnit);
-  }
-
-  @Override
-  public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> newCall(
-      MethodDescriptor<RequestT, ResponseT> methodDescriptor, CallOptions callOptions) {
-    return channel.<RequestT, ResponseT>newCall(methodDescriptor, callOptions);
-  }
-
-  @Override
-  public String authority() {
-    return channel.authority();
+  @CheckReturnValue
+  public <T> Single<T> withChannel(Function<Channel, ? extends SingleSource<? extends T>> source) {
+    return dynamicConnectionPool
+        .create()
+        .flatMap(
+            sharedConnection ->
+                Single.using(
+                    () -> sharedConnection,
+                    conn -> {
+                      ChannelConnection connection =
+                          (ChannelConnection) sharedConnection.getUnderlyingConnection();
+                      Channel channel = connection.getChannel();
+                      return source.apply(channel);
+                    },
+                    SharedConnection::close));
   }
 
   @Override

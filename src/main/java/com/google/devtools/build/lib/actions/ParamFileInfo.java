@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.actions;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -33,6 +35,9 @@ public final class ParamFileInfo {
   private final String flagFormatString;
   private final boolean always;
   private final boolean flagsOnly;
+
+  private static final Interner<ParamFileInfo> paramFileInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   private ParamFileInfo(Builder builder) {
     this.fileType = Preconditions.checkNotNull(builder.fileType);
@@ -87,7 +92,8 @@ public final class ParamFileInfo {
     return fileType.equals(other.fileType)
         && charset.equals(other.charset)
         && flagFormatString.equals(other.flagFormatString)
-        && always == other.always;
+        && always == other.always
+        && flagsOnly == other.flagsOnly;
   }
 
   public static Builder builder(ParameterFileType parameterFileType) {
@@ -139,7 +145,7 @@ public final class ParamFileInfo {
     }
 
     public ParamFileInfo build() {
-      return new ParamFileInfo(this);
+      return paramFileInfoInterner.intern(new ParamFileInfo(this));
     }
   }
 }

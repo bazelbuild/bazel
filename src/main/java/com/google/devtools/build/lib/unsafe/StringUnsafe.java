@@ -13,51 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unsafe;
 
-import com.google.common.base.Preconditions;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import javax.annotation.Nullable;
-import sun.misc.Unsafe;
 
 /**
  * Provides direct access to the string implementation used by JDK9.
  *
- * <p>Under JDK9, a string is two fields: <code>byte coder</code>, and <code>byte[] value</code>.
+ * <p>As of JDK9, a string is two fields: <code>byte coder</code>, and <code>byte[] value</code>.
  * The <code>coder</code> field has value 0 if the encoding is LATIN-1, and 2 if the encoding is
  * UTF-16 (the classic JDK8 encoding).
  *
  * <p>The <code>value</code> field contains the actual bytes.
  */
-public class StringUnsafe {
+public final class StringUnsafe {
   // Fields corresponding to the coder
   public static final byte LATIN1 = 0;
   public static final byte UTF16 = 1;
 
-  private static final StringUnsafe INSTANCE = initInstance();
-  private final Unsafe unsafe;
+  private static final StringUnsafe INSTANCE = new StringUnsafe();
+
   private final Constructor<String> constructor;
   private final long valueOffset;
   private final long coderOffset;
 
-  public static boolean canUse() {
-    return RuntimeVersion.isAtLeast9();
-  }
-
-  @Nullable
   public static StringUnsafe getInstance() {
-    return Preconditions.checkNotNull(INSTANCE);
-  }
-
-  private static StringUnsafe initInstance() {
-    if (!canUse()) {
-      return null;
-    }
-    return new StringUnsafe();
+    return INSTANCE;
   }
 
   private StringUnsafe() {
-    unsafe = UnsafeProvider.getInstance();
     Field valueField;
     Field coderField;
     try {
@@ -73,15 +59,13 @@ public class StringUnsafe {
           e);
     }
     this.constructor.setAccessible(true);
-    valueField.setAccessible(true);
-    valueOffset = UnsafeProvider.getInstance().objectFieldOffset(valueField);
-    coderField.setAccessible(true);
-    coderOffset = UnsafeProvider.getInstance().objectFieldOffset(coderField);
+    valueOffset = unsafe().objectFieldOffset(valueField);
+    coderOffset = unsafe().objectFieldOffset(coderField);
   }
 
   /** Returns the coder used for this string. See {@link #LATIN1} and {@link #UTF16}. */
   public byte getCoder(String obj) {
-    return unsafe.getByte(obj, coderOffset);
+    return unsafe().getByte(obj, coderOffset);
   }
 
   /**
@@ -91,7 +75,7 @@ public class StringUnsafe {
    * Ensure you do not mutate this byte array in any way.
    */
   public byte[] getByteArray(String obj) {
-    return (byte[]) unsafe.getObject(obj, valueOffset);
+    return (byte[]) unsafe().getObject(obj, valueOffset);
   }
 
   /** Constructs a new string from a byte array and coder. */

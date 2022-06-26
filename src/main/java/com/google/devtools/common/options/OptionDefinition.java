@@ -14,6 +14,9 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Arrays.stream;
+import static java.util.Comparator.comparing;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
@@ -129,6 +132,11 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return optionAnnotation.metadataTags();
   }
 
+  /** {@link Option#metadataTags()} */
+  public boolean hasOptionMetadataTag(OptionMetadataTag tag) {
+    return stream(getOptionMetadataTags()).anyMatch(tag::equals);
+  }
+
   /** {@link Option#converter()} ()} */
   @SuppressWarnings({"rawtypes"})
   public Class<? extends Converter> getProvidedConverter() {
@@ -143,11 +151,6 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   /** {@link Option#expansion()} */
   public String[] getOptionExpansion() {
     return optionAnnotation.expansion();
-  }
-
-  /** {@link Option#expansionFunction()} ()} */
-  public Class<? extends ExpansionFunction> getExpansionFunction() {
-    return optionAnnotation.expansionFunction();
   }
 
   /** {@link Option#implicitRequirements()} ()} */
@@ -186,20 +189,12 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
 
   /** Returns whether the arg is an expansion option. */
   public boolean isExpansionOption() {
-    return (getOptionExpansion().length > 0 || usesExpansionFunction());
+    return getOptionExpansion().length > 0;
   }
 
   /** Returns whether the arg is an expansion option. */
   public boolean hasImplicitRequirements() {
     return (getImplicitRequirements().length > 0);
-  }
-
-  /**
-   * Returns whether the arg is an expansion option defined by an expansion function (and not a
-   * constant expansion value).
-   */
-  public boolean usesExpansionFunction() {
-    return getExpansionFunction() != ExpansionFunction.class;
   }
 
   /**
@@ -350,8 +345,5 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
    * category, then sorts by name within the category.
    */
   static final Comparator<OptionDefinition> BY_CATEGORY =
-      (left, right) -> {
-        int r = left.getOptionCategory().compareTo(right.getOptionCategory());
-        return r == 0 ? BY_OPTION_NAME.compare(left, right) : r;
-      };
+      comparing(OptionDefinition::getOptionCategory).thenComparing(BY_OPTION_NAME);
 }

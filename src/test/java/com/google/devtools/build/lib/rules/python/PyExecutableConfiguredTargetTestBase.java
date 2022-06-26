@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -127,6 +126,8 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void pyRuntimeInfoIsPresent() throws Exception {
+    // Starlark implementation doesn't yet support toolchain resolution.
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
@@ -163,13 +164,14 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttr_GoodValue() throws Exception {
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
+    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
     getOkPyTarget("//pkg:foo");
     assertNoEvents();
   }
 
   @Test
   public void py3IsDefaultFlag_SetsDefaultPythonVersion() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     scratch.file(
         "pkg/BUILD", //
         ruleName + "(",
@@ -177,9 +179,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "    srcs = ['foo.py'],",
         ")");
     assertPythonVersionIs_UnderNewConfig(
-        "//pkg:foo",
-        PythonVersion.PY2,
-        "--incompatible_py3_is_default=false");
+        "//pkg:foo", PythonVersion.PY2, "--incompatible_py3_is_default=false");
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
         PythonVersion.PY3,
@@ -192,6 +192,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void py3IsDefaultFlag_DoesntOverrideExplicitVersion() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
     assertPythonVersionIs_UnderNewConfig(
         "//pkg:foo",
@@ -205,23 +206,22 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrWorks_WhenNotDefaultValue() throws Exception {
-    assumesDefaultIsPY2();
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
-
-    assertPythonVersionIs("//pkg:foo", PythonVersion.PY3);
-  }
-
-  @Test
-  public void versionAttrWorks_WhenSameAsDefaultValue() throws Exception {
-    assumesDefaultIsPY2();
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
 
     assertPythonVersionIs("//pkg:foo", PythonVersion.PY2);
   }
 
   @Test
+  public void versionAttrWorks_WhenSameAsDefaultValue() throws Exception {
+    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
+
+    assertPythonVersionIs("//pkg:foo", PythonVersion.PY3);
+  }
+
+  @Test
   public void versionAttrTakesPrecedence_NonDefaultValue() throws Exception {
-    assumesDefaultIsPY2();
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
@@ -229,14 +229,15 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void versionAttrTakesPrecedence_DefaultValue() throws Exception {
-    assumesDefaultIsPY2();
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY2"));
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
+    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
 
-    assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY2, "--python_version=PY3");
+    assertPythonVersionIs_UnderNewConfig("//pkg:foo", PythonVersion.PY3, "--python_version=PY2");
   }
 
   @Test
   public void canBuildWithDifferentVersionAttrs() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     scratch.file(
         "pkg/BUILD",
         ruleDeclWithPyVersionAttr("foo_v2", "PY2"),
@@ -248,6 +249,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
 
   @Test
   public void incompatibleSrcsVersion() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-py_test,-py_binary");
     reporter.removeHandler(failFastHandler); // We assert below that we don't fail at analysis.
     scratch.file(
         "pkg/BUILD",
@@ -268,13 +270,34 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   public void targetInPackageWithHyphensOkIfSrcsFromOtherPackage() throws Exception {
     scratch.file(
         "pkg/BUILD", //
-        "exports_files(['foo.py'])");
+        "exports_files(['foo.py', 'bar.py'])");
     scratch.file(
         "pkg-with-hyphens/BUILD",
         ruleName + "(",
         "    name = 'foo',",
         "    main = '//pkg:foo.py',",
-        "    srcs = ['//pkg:foo.py'])");
+        "    srcs = ['//pkg:foo.py', '//pkg:bar.py'])");
+    getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
+  }
+
+  @Test
+  public void targetInPackageWithHyphensOkIfOnlyExplicitMainHasHyphens() throws Exception {
+    scratch.file(
+        "pkg-with-hyphens/BUILD",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    main = 'foo.py',",
+        "    srcs = ['foo.py'])");
+    getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
+  }
+
+  @Test
+  public void targetInPackageWithHyphensOkIfOnlyImplicitMainHasHyphens() throws Exception {
+    scratch.file(
+        "pkg-with-hyphens/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'])");
     getOkPyTarget("//pkg-with-hyphens:foo"); // should not fail
   }
 }

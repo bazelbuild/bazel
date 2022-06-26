@@ -14,15 +14,21 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.io.ByteStreams;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -58,12 +64,28 @@ public class ObjectCodecRegistry {
 
   private final IdentityHashMap<String, Supplier<CodecDescriptor>> dynamicCodecs;
 
+  @Nullable private final byte[] checksum;
+
   private ObjectCodecRegistry(
       ImmutableSet<ObjectCodec<?>> memoizingCodecs,
       ImmutableList<Object> referenceConstants,
       ImmutableSortedSet<String> classNames,
-      ImmutableList<String> blacklistedClassNamePrefixes,
-      boolean allowDefaultCodec) {
+      ImmutableList<String> excludedClassNamePrefixes,
+      boolean allowDefaultCodec,
+      boolean computeChecksum)
+      throws IOException, NoSuchAlgorithmException {
+    // Mimic what com.google.devtools.build.lib.util.Fingerprint does. Using it directly would
+    // require untangling a circular dependency.
+    MessageDigest messageDigest = null;
+    CodedOutputStream checksum = null;
+    if (computeChecksum) {
+      messageDigest = MessageDigest.getInstance("SHA-256");
+      checksum =
+          CodedOutputStream.newInstance(
+              new DigestOutputStream(ByteStreams.nullOutputStream(), messageDigest),
+              /*bufferSize=*/ 1024);
+      checksum.writeBoolNoTag(allowDefaultCodec);
+    }
     this.allowDefaultCodec = allowDefaultCodec;
 
     int nextTag = 1; // 0 is reserved for null.
@@ -73,22 +95,30 @@ public class ObjectCodecRegistry {
     ImmutableList.Builder<CodecDescriptor> tagMappedMemoizingCodecsBuilder =
         ImmutableList.builderWithExpectedSize(memoizingCodecs.size());
     nextTag =
-        processCodecs(memoizingCodecs, nextTag, tagMappedMemoizingCodecsBuilder, classMappedCodecs);
+        processCodecs(
+            memoizingCodecs, nextTag, tagMappedMemoizingCodecsBuilder, classMappedCodecs, checksum);
     this.tagMappedCodecs = tagMappedMemoizingCodecsBuilder.build();
 
     referenceConstantsStartTag = nextTag;
     referenceConstantsMap = new IdentityHashMap<>();
     for (Object constant : referenceConstants) {
-      referenceConstantsMap.put(constant, nextTag++);
+      referenceConstantsMap.put(constant, nextTag);
+      addToChecksum(checksum, nextTag, constant.getClass().getName());
+      nextTag++;
     }
     this.referenceConstants = referenceConstants;
 
     this.classNames =
-        classNames
-            .stream()
-            .filter((str) -> isAllowed(str, blacklistedClassNamePrefixes))
-            .collect(ImmutableList.toImmutableList());
-    this.dynamicCodecs = createDynamicCodecs(this.classNames, nextTag);
+        classNames.stream()
+            .filter((str) -> isAllowed(str, excludedClassNamePrefixes))
+            .collect(toImmutableList());
+    this.dynamicCodecs = createDynamicCodecs(this.classNames, nextTag, checksum);
+    if (computeChecksum) {
+      checksum.flush();
+      this.checksum = messageDigest.digest();
+    } else {
+      this.checksum = null;
+    }
   }
 
   public CodecDescriptor getCodecDescriptorForObject(Object obj)
@@ -114,7 +144,8 @@ public class ObjectCodecRegistry {
    *
    * <p>Also checks if there are codecs for a superclass of the given type.
    */
-  private @Nullable CodecDescriptor getCodecDescriptor(Class<?> type) {
+  @Nullable
+  private CodecDescriptor getCodecDescriptor(Class<?> type) {
     for (Class<?> nextType = type; nextType != null; nextType = nextType.getSuperclass()) {
       CodecDescriptor result = classMappedCodecs.get(nextType);
       if (result != null) {
@@ -142,8 +173,7 @@ public class ObjectCodecRegistry {
   }
 
   /** Returns the {@link CodecDescriptor} associated with the supplied tag. */
-  public CodecDescriptor getCodecDescriptorByTag(int tag)
-      throws SerializationException.NoCodecException {
+  CodecDescriptor getCodecDescriptorByTag(int tag) throws SerializationException.NoCodecException {
     int tagOffset = tag - 1; // 0 reserved for null
     if (tagOffset < 0) {
       throw new SerializationException.NoCodecException("No codec available for tag " + tag);
@@ -158,6 +188,19 @@ public class ObjectCodecRegistry {
       throw new SerializationException.NoCodecException("No codec available for tag " + tag);
     }
     return getDynamicCodecDescriptor(classNames.get(tagOffset), /*type=*/ null);
+  }
+
+  /**
+   * Returns a checksum computed from the tag mappings that make up this registry.
+   *
+   * <p>The checksum can be used to ensure consistent serialization semantics across servers.
+   *
+   * <p>Returns {@code null} if this instance was not configured to compute a checksum via {@link
+   * Builder#computeChecksum(boolean)}.
+   */
+  @Nullable
+  public byte[] getChecksum() {
+    return checksum == null ? null : checksum.clone();
   }
 
   /**
@@ -253,9 +296,9 @@ public class ObjectCodecRegistry {
     private final Map<Class<?>, ObjectCodec<?>> codecs = new HashMap<>();
     private final ImmutableList.Builder<Object> referenceConstantsBuilder = ImmutableList.builder();
     private final ImmutableSortedSet.Builder<String> classNames = ImmutableSortedSet.naturalOrder();
-    private final ImmutableList.Builder<String> blacklistedClassNamePrefixes =
-        ImmutableList.builder();
+    private final ImmutableList.Builder<String> excludedClassNamePrefixes = ImmutableList.builder();
     private boolean allowDefaultCodec = true;
+    private boolean computeChecksum = false;
 
     /**
      * Adds the given codec. If a codec for this codec's encoded class already exists in the
@@ -301,23 +344,38 @@ public class ObjectCodecRegistry {
       return this;
     }
 
+    public Builder addReferenceConstants(Iterable<?> referenceConstants) {
+      referenceConstantsBuilder.addAll(referenceConstants);
+      return this;
+    }
+
     public Builder addClassName(String className) {
       classNames.add(className);
       return this;
     }
 
-    public Builder blacklistClassNamePrefix(String classNamePrefix) {
-      blacklistedClassNamePrefixes.add(classNamePrefix);
+    public Builder excludeClassNamePrefix(String classNamePrefix) {
+      excludedClassNamePrefixes.add(classNamePrefix);
+      return this;
+    }
+
+    public Builder computeChecksum(boolean computeChecksum) {
+      this.computeChecksum = computeChecksum;
       return this;
     }
 
     public ObjectCodecRegistry build() {
-      return new ObjectCodecRegistry(
-          ImmutableSet.copyOf(codecs.values()),
-          referenceConstantsBuilder.build(),
-          classNames.build(),
-          blacklistedClassNamePrefixes.build(),
-          allowDefaultCodec);
+      try {
+        return new ObjectCodecRegistry(
+            ImmutableSet.copyOf(codecs.values()),
+            referenceConstantsBuilder.build(),
+            classNames.build(),
+            excludedClassNamePrefixes.build(),
+            allowDefaultCodec,
+            computeChecksum);
+      } catch (IOException | NoSuchAlgorithmException e) {
+        throw new IllegalStateException("Unexpected exception while building codec registry", e);
+      }
     }
   }
 
@@ -325,13 +383,17 @@ public class ObjectCodecRegistry {
       Iterable<? extends ObjectCodec<?>> memoizingCodecs,
       int nextTag,
       ImmutableList.Builder<CodecDescriptor> tagMappedCodecsBuilder,
-      ConcurrentMap<Class<?>, CodecDescriptor> codecsBuilder) {
+      ConcurrentMap<Class<?>, CodecDescriptor> codecsBuilder,
+      @Nullable CodedOutputStream checksum)
+      throws IOException {
     for (ObjectCodec<?> codec :
         ImmutableList.sortedCopyOf(
             Comparator.comparing(o -> o.getEncodedClass().getName()), memoizingCodecs)) {
-      CodecDescriptor codecDescriptor = new TypedCodecDescriptor<>(nextTag++, codec);
+      CodecDescriptor codecDescriptor = new TypedCodecDescriptor<>(nextTag, codec);
+      addToChecksum(checksum, nextTag, codec.getClass().getName());
       tagMappedCodecsBuilder.add(codecDescriptor);
       codecsBuilder.put(codec.getEncodedClass(), codecDescriptor);
+      nextTag++;
       for (Class<?> otherClass : codec.additionalEncodedClasses()) {
         codecsBuilder.put(otherClass, codecDescriptor);
       }
@@ -340,21 +402,38 @@ public class ObjectCodecRegistry {
   }
 
   private static IdentityHashMap<String, Supplier<CodecDescriptor>> createDynamicCodecs(
-      ImmutableList<String> classNames, int nextTag) {
+      ImmutableList<String> classNames, int nextTag, @Nullable CodedOutputStream checksum)
+      throws IOException {
     IdentityHashMap<String, Supplier<CodecDescriptor>> dynamicCodecs =
         new IdentityHashMap<>(classNames.size());
     for (String className : classNames) {
       int tag = nextTag++;
       dynamicCodecs.put(
           className, Suppliers.memoize(() -> createDynamicCodecDescriptor(tag, className)));
+      addToChecksum(checksum, tag, className);
     }
     return dynamicCodecs;
   }
 
+  private static void addToChecksum(@Nullable CodedOutputStream checksum, int tag, String className)
+      throws IOException {
+    if (checksum != null) {
+      checksum.writeInt32NoTag(tag);
+
+      // Trim class names of lambdas to the enclosing class. The lambda class itself is named
+      // nondeterministically.
+      int lambdaIndex = className.indexOf("$$Lambda");
+      if (lambdaIndex != -1) {
+        className = className.substring(0, lambdaIndex);
+      }
+      checksum.writeStringNoTag(className);
+    }
+  }
+
   private static boolean isAllowed(
-      String className, ImmutableList<String> blacklistedClassNamePefixes) {
-    for (String blacklistedClassNamePrefix : blacklistedClassNamePefixes) {
-      if (className.startsWith(blacklistedClassNamePrefix)) {
+      String className, ImmutableList<String> excludedClassNamePefixes) {
+    for (String excludedClassNamePrefix : excludedClassNamePefixes) {
+      if (className.startsWith(excludedClassNamePrefix)) {
         return false;
       }
     }
@@ -415,6 +494,7 @@ public class ObjectCodecRegistry {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
+        .add("checksum", checksum)
         .add("allowDefaultCodec", allowDefaultCodec)
         .add("classMappedCodecs.size", classMappedCodecs.size())
         .add("tagMappedCodecs.size", tagMappedCodecs.size())

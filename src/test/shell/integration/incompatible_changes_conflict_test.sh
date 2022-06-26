@@ -93,14 +93,5 @@ function test_canonicalize_flags_suppresses_warnings() {
   expect_not_log "$canary_clash_error" "$fail_msg"
 }
 
-function test_no_conflicts_among_incompatible_changes() {
-  bazel canonicalize-flags --show_warnings -- --all_incompatible_changes \
-    &>$TEST_log || fail "bazel canonicalize-flags failed";
-  expected="The option '.*' was expanded to from both option "
-  expected+="'.*' and option '.*'."
-  fail_msg="Options conflict in expansion of --all_incompatible_changes"
-  expect_not_log "$expected" "$fail_msg"
-}
-
 
 run_suite "incompatible_changes_conflict_test"

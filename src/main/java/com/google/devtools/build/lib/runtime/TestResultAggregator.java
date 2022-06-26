@@ -20,7 +20,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -60,13 +60,12 @@ final class TestResultAggregator {
 
   TestResultAggregator(
       ConfiguredTarget target,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       AggregationPolicy policy,
       boolean skippedThisTest) {
     this.policy = policy;
     this.summary =
-        TestSummary.newBuilder()
-            .setTarget(target)
+        TestSummary.newBuilder(target)
             .setConfiguration(configuration)
             .setStatus(BlazeTestStatus.NO_STATUS)
             .setSkipped(skippedThisTest);
@@ -135,7 +134,7 @@ final class TestResultAggregator {
     postSummary();
   }
 
-  private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
+  static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
     return status.getNumber() > other.getNumber() ? status : other;
   }
 
@@ -191,10 +190,12 @@ final class TestResultAggregator {
     Preconditions.checkNotNull(target, "The existing TestSummary must be associated with a target");
     TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
 
+    int shardNumber = result.getShardNum();
+    summary.addShardAttempts(shardNumber, result.getData().getTestTimesCount());
+
     if (!testParams.runsDetectsFlakes()) {
       status = aggregateStatus(status, result.getData().getStatus());
     } else {
-      int shardNumber = result.getShardNum();
       int runsPerTestForLabel = testParams.getRuns();
       List<BlazeTestStatus> singleShardStatuses =
           summary.addShardStatus(shardNumber, result.getData().getStatus());

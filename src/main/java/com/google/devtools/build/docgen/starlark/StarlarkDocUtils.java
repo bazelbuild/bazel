@@ -27,10 +27,11 @@ public final class StarlarkDocUtils {
    *
    * @return a string with substituted variables
    */
-  public static String substituteVariables(String documentation) {
+  public static String substituteVariables(String documentation, String beRoot) {
+    // TODO(b/193923321): Get rid of $STARLARK_DOCS_ROOT and of this entire class, eventually.
     return documentation
-        .replace("$BE_ROOT", DocgenConsts.BeDocsRoot)
-        .replace("$DOC_EXT", DocgenConsts.documentationExtension);
+        .replace("$STARLARK_DOCS_ROOT", DocgenConsts.starlarkDocsRoot)
+        .replace("$BE_ROOT", beRoot);
   }
 
   /**
@@ -41,18 +42,19 @@ public final class StarlarkDocUtils {
       StarlarkMethodDoc methodDoc,
       Param[] userSuppliedParams,
       Param extraPositionals,
-      Param extraKeywords) {
+      Param extraKeywords,
+      StarlarkDocExpander expander) {
     ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
     for (Param param : userSuppliedParams) {
       if (param.documented()) {
-        paramsBuilder.add(new StarlarkParamDoc(methodDoc, param));
+        paramsBuilder.add(new StarlarkParamDoc(methodDoc, param, expander));
       }
     }
     if (!extraPositionals.name().isEmpty()) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraPositionals));
+      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraPositionals, expander));
     }
     if (!extraKeywords.name().isEmpty()) {
-      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraKeywords));
+      paramsBuilder.add(new StarlarkParamDoc(methodDoc, extraKeywords, expander));
     }
     return paramsBuilder.build();
   }

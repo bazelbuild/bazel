@@ -55,30 +55,30 @@ bool ends_with(const std::string &haystack, const std::string &needle);
 bool ends_with(const std::wstring &haystack, const std::wstring &needle);
 
 // Matches a prefix (which must be a char* literal!) against the beginning of
-// str. Returns a pointer past the prefix, or NULL if the prefix wasn't matched.
-// (Like the standard strcasecmp(), but for efficiency doesn't call strlen() on
-// prefix, and returns a pointer rather than an int.)
+// str. Returns a pointer past the prefix, or nullptr if the prefix wasn't
+// matched. (Like the standard strcasecmp(), but for efficiency doesn't call
+// strlen() on prefix, and returns a pointer rather than an int.)
 //
 // The ""'s catch people who don't pass in a literal for "prefix"
 #ifndef strprefix
 #define strprefix(str, prefix)                         \
   (strncmp(str, prefix, sizeof("" prefix "") - 1) == 0 \
        ? str + sizeof(prefix) - 1                      \
-       : NULL)
+       : nullptr)
 #endif
 
-// Matches a prefix; returns a pointer past the prefix, or NULL if not found.
+// Matches a prefix; returns a pointer past the prefix, or nullptr if not found.
 // (Like strprefix() and strcaseprefix() but not restricted to searching for
 // char* literals). Templated so searching a const char* returns a const char*,
 // and searching a non-const char* returns a non-const char*.
-// Matches a prefix; returns a pointer past the prefix, or NULL if not found.
+// Matches a prefix; returns a pointer past the prefix, or nullptr if not found.
 // (Like strprefix() and strcaseprefix() but not restricted to searching for
 // char* literals). Templated so searching a const char* returns a const char*,
 // and searching a non-const char* returns a non-const char*.
 template <class CharStar>
 inline CharStar var_strprefix(CharStar str, const char *prefix) {
   const int len = strlen(prefix);
-  return strncmp(str, prefix, len) == 0 ? str + len : NULL;
+  return strncmp(str, prefix, len) == 0 ? str + len : nullptr;
 }
 
 // Join the elements of pieces separated by delimeter.  Returns the joined

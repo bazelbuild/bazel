@@ -15,6 +15,7 @@
 package com.google.testing.coverage;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** A branch coverage that must be evaluated as a combination of probes. */
@@ -57,9 +58,33 @@ public class BranchExp implements CovExp {
     branches.set(idx, exp);
   }
 
-  /** Make a union of the branches of two BranchExp. */
-  public void merge(BranchExp other) {
-    branches.addAll(other.branches);
+  /** Make a new BranchExp representing the concatenation of branches in inputs. */
+  public static BranchExp concatenate(BranchExp first, BranchExp second) {
+    List<CovExp> branches = new ArrayList<>(first.branches);
+    branches.addAll(second.branches);
+    return new BranchExp(branches);
+  }
+
+  /** Make a new BranchExp representing the pairwise union of branches in inputs */
+  public static BranchExp zip(BranchExp left, BranchExp right) {
+    List<CovExp> zippedBranches = new ArrayList<>();
+    int leftSize = left.branches.size();
+    int rightSize = right.branches.size();
+    int i;
+    for (i = 0; i < leftSize && i < rightSize; i++) {
+      List<CovExp> branches = Arrays.asList(left.branches.get(i), right.branches.get(i));
+      zippedBranches.add(new BranchExp(branches));
+    }
+    List<CovExp> remainder = leftSize < rightSize ? right.branches : left.branches;
+    for (; i < remainder.size(); i++) {
+      zippedBranches.add(new BranchExp(remainder.get(i)));
+    }
+    return new BranchExp(zippedBranches);
+  }
+
+  /** Wraps a CovExp in a BranchExp if it isn't one already. */
+  public static BranchExp ensureIsBranchExp(CovExp exp) {
+    return exp instanceof BranchExp ? (BranchExp) exp : new BranchExp(exp);
   }
 
   @Override

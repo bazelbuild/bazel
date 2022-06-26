@@ -17,13 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.Lists;
-import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
@@ -85,53 +80,6 @@ public abstract class PathAbstractTest {
     } else {
       // Partial ordering among case-insensitive items guaranteed by Collections.sort stability
       assertThat(result).containsExactly("/ABC", "/aBc", "/AbC", "/abc", "/zzz", "/ZZZ").inOrder();
-    }
-  }
-
-  @Test
-  public void testSerialization() throws Exception {
-    FileSystem oldFileSystem = Path.getFileSystemForSerialization();
-    try {
-      Path.setFileSystemForSerialization(fileSystem);
-      Path root = fileSystem.getPath("/");
-      Path p1 = fileSystem.getPath("/foo");
-      Path p2 = fileSystem.getPath("/foo/bar");
-
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
-      ObjectOutputStream oos = new ObjectOutputStream(bos);
-
-      oos.writeObject(root);
-      oos.writeObject(p1);
-      oos.writeObject(p2);
-
-      ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-      ObjectInputStream ois = new ObjectInputStream(bis);
-
-      Path dsRoot = (Path) ois.readObject();
-      Path dsP1 = (Path) ois.readObject();
-      Path dsP2 = (Path) ois.readObject();
-
-      new EqualsTester()
-          .addEqualityGroup(root, dsRoot)
-          .addEqualityGroup(p1, dsP1)
-          .addEqualityGroup(p2, dsP2)
-          .testEquals();
-
-      assertThat(p2.startsWith(p1)).isTrue();
-      assertThat(p2.startsWith(dsP1)).isTrue();
-      assertThat(dsP2.startsWith(p1)).isTrue();
-      assertThat(dsP2.startsWith(dsP1)).isTrue();
-
-      // Regression test for a very specific bug in compareTo involving our incorrect usage of
-      // reference equality rather than logical equality.
-      String relativePathStringA = "child/grandchildA";
-      String relativePathStringB = "child/grandchildB";
-      assertThat(
-              p1.getRelative(relativePathStringA).compareTo(dsP1.getRelative(relativePathStringB)))
-          .isEqualTo(
-              p1.getRelative(relativePathStringA).compareTo(p1.getRelative(relativePathStringB)));
-    } finally {
-      Path.setFileSystemForSerialization(oldFileSystem);
     }
   }
 

@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Visibility provider implementation. */
 @Immutable
-@AutoCodec
 public final class VisibilityProviderImpl implements VisibilityProvider {
   private final NestedSet<PackageGroupContents> visibility;
 

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import javax.annotation.Nullable;
 
 /**
@@ -29,12 +30,18 @@ public interface SandboxedSpawnStrategy extends SpawnStrategy {
   @FunctionalInterface
   interface StopConcurrentSpawns {
     /**
-     * Stops other instances of the same spawn before writing outputs.
+     * Stops other instances of the same spawn before writing outputs. If {@code exitCode} != 0,
+     * this may stop this instance instead by throwing InterruptedException, to allow the other
+     * instance to succeed instead.
      *
      * <p>This should be called once by each of the concurrent spawns to ensure that the others are
      * stopped, thus preventing conflicts when writing to the output tree.
+     *
+     * @param exitCode 0 if the spawn executed successfully.
+     * @param errorMessage An error message from the spawn execution, if {@code exitCode} != 0.
+     * @param outErr Object representing the files containing stdout and stderr.
      */
-    void stop() throws InterruptedException;
+    void stop(int exitCode, String errorMessage, FileOutErr outErr) throws InterruptedException;
   }
 
   /**

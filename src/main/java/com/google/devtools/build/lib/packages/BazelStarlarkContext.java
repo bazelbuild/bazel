@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import java.util.HashMap;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -27,7 +29,12 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
 // TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
-public final class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
+// TODO(brandjon): Use composition rather than inheritance for RuleDefinitionEnvironment; clients
+// should retrieve the RDE (if it exists) from this class in order to access e.g. the network
+// allowlist. The toolsRepository info will be duplicated between this class and RDE but we can
+// enforce consistency with a precondition check.
+public final class BazelStarlarkContext
+    implements RuleDefinitionEnvironment, StarlarkThread.UncheckedExceptionContext {
 
   /** The phase to which this Starlark thread belongs. */
   public enum Phase {
@@ -44,18 +51,18 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   /** Save this BazelStarlarkContext in the specified Starlark thread. */
   public void storeInThread(StarlarkThread thread) {
     thread.setThreadLocal(BazelStarlarkContext.class, this);
-    thread.setThreadLocal(Label.HasRepoMapping.class, this);
+    thread.setUncheckedExceptionContext(this);
   }
 
   private final Phase phase;
   // Only necessary for loading phase threads.
-  @Nullable private final String toolsRepository;
+  @Nullable private final RepositoryName toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
-  private final HashMap<String, Label> convertedLabelsInPackage;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
+  @Nullable private final Label networkAllowlistForTests;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
@@ -64,48 +71,36 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class for loading phase threads, null for
    *     other threads.
-   * @param repoMapping a map from RepositoryName to RepositoryName to be used for external
-   * @param convertedLabelsInPackage a mutable map from String to Label, used during package loading
-   *     of a single package.
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
    *     compared using reference equality.
    * @param analysisRuleLabel is the label of the rule for an analysis phase (rule or aspect
-   *     'implementation') thread, or null for all other threads.
    */
   // TODO(adonovan): clearly demarcate which fields are defined in which kinds of threads (loading,
   // analysis, workspace, implicit outputs, computed defaults, etc), perhaps by splitting these into
   // separate structs, exactly one of which is populated (plus the common fields). And eliminate
   // StarlarkUtils.Phase.
   // TODO(adonovan): move PackageFactory.PackageContext in here, for loading-phase threads.
-  // TODO(adonovan): add a PackageIdentifier here, for use by the Starlark Label function.
   // TODO(adonovan): is there any reason not to put the entire RuleContext in this thread, for
   // analysis threads?
   public BazelStarlarkContext(
       Phase phase,
-      @Nullable String toolsRepository,
+      @Nullable RepositoryName toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
-      HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
-      @Nullable Label analysisRuleLabel) {
-    this.phase = phase;
+      @Nullable Label analysisRuleLabel,
+      @Nullable Label networkAllowlistForTests) {
+    this.phase = Preconditions.checkNotNull(phase);
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
-    this.repoMapping = repoMapping;
-    this.convertedLabelsInPackage = convertedLabelsInPackage;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
-  }
-
-  /** Returns the phase to which this Starlark thread belongs. */
-  public Phase getPhase() {
-    return phase;
+    this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
   @Nullable
   @Override
-  public String getToolsRepository() {
+  public RepositoryName getToolsRepository() {
     return toolsRepository;
   }
 
@@ -113,25 +108,6 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   @Nullable
   public ImmutableMap<String, Class<?>> getFragmentNameToClass() {
     return fragmentNameToClass;
-  }
-
-  /**
-   * Returns a map of {@code RepositoryName}s where the keys are repository names that are written
-   * in the BUILD files and the values are new repository names chosen by the main repository.
-   */
-  @Override
-  public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
-    return repoMapping;
-  }
-
-  /**
-   * Returns a String -> Label map of all the Strings that have already been converted to Labels
-   * during package loading of the current package.
-   *
-   * <p>This is used for a performance optimization during package loading, and unused otherwise.
-   */
-  public HashMap<String, Label> getConvertedLabelsInPackage() {
-    return convertedLabelsInPackage;
   }
 
   public SymbolGenerator<?> getSymbolGenerator() {
@@ -145,6 +121,16 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   @Nullable
   public Label getAnalysisRuleLabel() {
     return analysisRuleLabel;
+  }
+
+  @Override
+  public String getContextForUncheckedException() {
+    return firstNonNull(analysisRuleLabel, phase).toString();
+  }
+
+  @Override
+  public Optional<Label> getNetworkAllowlistForTests() {
+    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   /**

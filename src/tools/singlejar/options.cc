@@ -37,6 +37,7 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--main_class", &main_class) ||
       tokens->MatchAndSet("--java_launcher", &java_launcher) ||
       tokens->MatchAndSet("--cds_archive", &cds_archive) ||
+      tokens->MatchAndSet("--jdk_lib_modules", &jdk_lib_modules) ||
       tokens->MatchAndSet("--deploy_manifest_lines", &manifest_lines) ||
       tokens->MatchAndSet("--sources", &input_jars) ||
       tokens->MatchAndSet("--resources", &resources) ||
@@ -53,7 +54,12 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--warn_duplicate_resources",
                           &warn_duplicate_resources) ||
       tokens->MatchAndSet("--nocompress_suffixes", &nocompress_suffixes) ||
-      tokens->MatchAndSet("--check_desugar_deps", &check_desugar_deps)) {
+      tokens->MatchAndSet("--check_desugar_deps", &check_desugar_deps) ||
+      tokens->MatchAndSet("--multi_release", &multi_release) ||
+      tokens->MatchAndSet("--hermetic_java_home", &hermetic_java_home) ||
+      tokens->MatchAndSet("--add_exports", &add_exports) ||
+      tokens->MatchAndSet("--add_opens", &add_opens) ||
+      tokens->MatchAndSet("--output_jar_creator", &output_jar_creator)) {
     return true;
   } else if (tokens->MatchAndSet("--build_info_file", &optarg)) {
     build_info_files.push_back(optarg);

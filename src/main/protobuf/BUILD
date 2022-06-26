@@ -1,6 +1,4 @@
 load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-load("@rules_cc//cc:defs.bzl", "cc_proto_library")
-load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
@@ -21,7 +19,6 @@ FILES = [
     "extra_actions_base",
     "invocation_policy",
     "java_compilation",
-    "spawn",
     "test_status",
     "worker_protocol",
 ]
@@ -40,30 +37,6 @@ FILES = [
     name = s + "_java_proto_srcs",
     deps = [":" + s + "_java_proto"],
 ) for s in FILES]
-
-proto_library(
-    name = "analysis_proto",
-    srcs = ["analysis.proto"],
-    deps = [":build_proto"],
-)
-
-py_proto_library(
-    name = "analysis_py_proto",
-    srcs = ["analysis.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
-    deps = [":build_pb_py"],
-)
-
-java_proto_library(
-    name = "analysis_java_proto",
-    deps = [":analysis_proto"],
-)
-
-java_library_srcs(
-    name = "analysis_java_proto_srcs",
-    deps = [":analysis_java_proto"],
-)
 
 proto_library(
     name = "analysis_v2_proto",
@@ -263,6 +236,24 @@ java_library_srcs(
 )
 
 proto_library(
+    name = "spawn_proto",
+    srcs = ["spawn.proto"],
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+    ],
+)
+
+java_proto_library(
+    name = "spawn_java_proto",
+    deps = [":spawn_proto"],
+)
+
+java_library_srcs(
+    name = "spawn_java_proto_srcs",
+    deps = [":spawn_java_proto"],
+)
+
+proto_library(
     name = "xcode_proto",
     srcs = ["xcode_config.proto"],
     visibility = ["//visibility:public"],
@@ -291,7 +282,6 @@ filegroup(
 filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
-        ":analysis_java_proto_srcs",
         ":analysis_v2_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
@@ -300,6 +290,7 @@ filegroup(
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":spawn_java_proto_srcs",
         ":xcode_java_proto_srcs",
     ],
 )

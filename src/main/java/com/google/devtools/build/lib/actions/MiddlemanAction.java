@@ -14,14 +14,14 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -31,15 +31,12 @@ import javax.annotation.Nullable;
  * the action graph; for example generated header files.
  */
 @Immutable
-@AutoCodec
 public final class MiddlemanAction extends AbstractAction {
   public static final String MIDDLEMAN_MNEMONIC = "Middleman";
   private final String description;
   private final MiddlemanType middlemanType;
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  MiddlemanAction(
+  private MiddlemanAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,
@@ -94,6 +91,19 @@ public final class MiddlemanAction extends AbstractAction {
   @Override
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    // Middleman actions do not execute actual actions, and therefore have no execution platform.
+    return null;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    // Middleman actions do not execute actual actions, and therefore have no execution properties.
+    return ImmutableMap.of();
   }
 
   /** Creates a new middleman action. */

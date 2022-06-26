@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcImportRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CcHostToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Rules for C++ support in Bazel.
@@ -61,6 +64,7 @@ public class CcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     builder.addConfigurationFragment(CppConfiguration.class);
+    builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addNativeAspectClass(graphNodeAspect);
@@ -80,11 +84,14 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
     builder.addRuleDefinition(new BazelCcLibraryRule());
     builder.addRuleDefinition(new BazelCcImportRule());
-    builder.addRuleDefinition(new CcIncludeScanningRule());
+    builder.addRuleDefinition(new CcIncludeScanningRule(/* addGrepIncludes= */ false));
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
     builder.addRuleDefinition(new CcLinkingRule());
     builder.addRuleDefinition(new PropellerOptimizeRule());
+    builder.addStarlarkBuiltinsInternal(
+        "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
+    builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
     builder.addStarlarkBootstrap(
         new CcBootstrap(
             new BazelCcModule(),

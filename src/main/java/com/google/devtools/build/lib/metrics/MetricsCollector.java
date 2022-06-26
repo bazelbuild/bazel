@@ -13,40 +13,61 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
+import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.ActionData;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.RunnerCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.worker.WorkerMetric;
+import com.google.devtools.build.lib.worker.WorkerMetricsEvent;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAccumulator;
+import java.util.stream.Stream;
 
 class MetricsCollector {
   private final CommandEnvironment env;
-  private final boolean bepPublishUsedHeapSizePostBuild;
+  private final boolean recordMetricsForAllMnemonics;
   // For ActionSummary.
-  private final AtomicLong executedActionCount = new AtomicLong();
+  private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
 
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
@@ -58,13 +79,15 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
+  private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
+  private final SpawnStats spawnStats = new SpawnStats();
 
+  @CanIgnoreReturnValue
   private MetricsCollector(
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
-    this.bepPublishUsedHeapSizePostBuild =
-        options != null && options.bepPublishUsedHeapSizePostBuild;
+    this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
@@ -84,21 +107,31 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onAnalysisPhaseComplete(AnalysisPhaseCompleteEvent event) {
-    actionSummary.setActionsCreated(event.getActionsConstructed());
+    TotalAndConfiguredTargetOnlyMetric actionsConstructed = event.getActionsConstructed();
+    actionSummary
+        .setActionsCreated(actionsConstructed.total())
+        .setActionsCreatedNotIncludingAspects(actionsConstructed.configuredTargetsOnly());
+    TotalAndConfiguredTargetOnlyMetric targetsConfigured = event.getTargetsConfigured();
     targetMetrics
-        .setTargetsLoaded(event.getTargetsLoaded())
-        .setTargetsConfigured(event.getTargetsConfigured());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesLoaded());
+        .setTargetsConfigured(targetsConfigured.total())
+        .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
   }
 
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logAnalysisGraphStats(AnalysisGraphStatsEvent event) {
-    buildGraphMetrics
-        .setActionLookupValueCount(event.getActionLookupValueCount())
-        .setActionCount(event.getActionCount())
-        .setOutputArtifactCount(event.getOutputArtifactCount());
+    // Check only one event per build. No proto3 check for presence, so check for not-default value.
+    if (buildGraphMetrics.getActionLookupValueCount() > 0) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Already initialized build graph metrics builder: "
+                  + buildGraphMetrics
+                  + ", "
+                  + event.getBuildGraphMetrics()));
+    }
+    buildGraphMetrics.mergeFrom(event.getBuildGraphMetrics());
   }
 
   @SuppressWarnings("unused")
@@ -111,7 +144,18 @@ class MetricsCollector {
   @Subscribe
   @AllowConcurrentEvents
   public void onActionComplete(ActionCompletionEvent event) {
-    executedActionCount.incrementAndGet();
+    ActionStats actionStats =
+        actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
+    actionStats.numActions.incrementAndGet();
+    actionStats.firstStarted.accumulate(event.getRelativeActionStartTime());
+    actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
+    spawnStats.incrementActionCount();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionResultReceived(ActionResultReceivedEvent event) {
+    spawnStats.countActionResult(event.getActionResult());
   }
 
   @SuppressWarnings("unused")
@@ -133,7 +177,25 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onBuildComplete(BuildPrecompleteEvent event) {
+    postBuildMetricsEvent();
+  }
+
+  @SuppressWarnings("unused") // Used reflectively
+  @Subscribe
+  public void onNoBuildRequestFinishedEvent(NoBuildRequestFinishedEvent event) {
+    postBuildMetricsEvent();
+  }
+
+  private void postBuildMetricsEvent() {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  private void onWorkerMetricsEvent(WorkerMetricsEvent workerMetricsEvent) {
+    for (WorkerMetric workerMetric : workerMetricsEvent.getWorkerMetrics()) {
+      workerMetricsList.add(workerMetric.toProto());
+    }
   }
 
   private BuildMetrics createBuildMetrics() {
@@ -146,24 +208,76 @@ class MetricsCollector {
         .setCumulativeMetrics(createCumulativeMetrics())
         .setArtifactMetrics(artifactMetrics.build())
         .setBuildGraphMetrics(buildGraphMetrics.build())
+        .addAllWorkerMetrics(workerMetricsList)
         .build();
   }
 
+  private static final int MAX_ACTION_DATA = 20;
+
   private ActionSummary finishActionSummary() {
-    return actionSummary.setActionsExecuted(executedActionCount.get()).build();
+    NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
+        BlazeClock.createNanosToMillisSinceEpochConverter();
+    Stream<ActionStats> actionStatsStream = actionStatsMap.values().stream();
+    if (!recordMetricsForAllMnemonics) {
+      actionStatsStream =
+          actionStatsStream
+              .sorted(Comparator.comparingLong(a -> -a.numActions.get()))
+              .limit(MAX_ACTION_DATA);
+    }
+    actionStatsStream.forEach(
+        action ->
+            actionSummary.addActionData(
+                ActionData.newBuilder()
+                    .setMnemonic(action.mnemonic)
+                    .setFirstStartedMs(
+                        nanosToMillisSinceEpochConverter.toEpochMillis(
+                            action.firstStarted.longValue()))
+                    .setLastEndedMs(
+                        nanosToMillisSinceEpochConverter.toEpochMillis(
+                            action.lastEnded.longValue()))
+                    .setActionsExecuted(action.numActions.get())
+                    .build()));
+
+    ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
+    actionSummary.setActionsExecuted(spawnSummary.getOrDefault("total", 0));
+    spawnSummary
+        .entrySet()
+        .forEach(
+            e ->
+                actionSummary.addRunnerCount(
+                    RunnerCount.newBuilder().setName(e.getKey()).setCount(e.getValue()).build()));
+    return actionSummary.build();
   }
 
   private MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
-    if (bepPublishUsedHeapSizePostBuild) {
-      System.gc();
-      MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-      memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
+    long usedHeapSizePostBuild = 0;
+    if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
+      memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
     PostGCMemoryUseRecorder.get()
         .getPeakPostGcHeap()
         .map(PeakHeap::bytes)
         .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
+
+    if (memoryMetrics.getPeakPostGcHeapSize() < usedHeapSizePostBuild) {
+      // If we just did a GC and computed the heap size, update the one we got from the GC
+      // notification (which may arrive too late for this specific GC).
+      memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
+    }
+
+    PostGCMemoryUseRecorder.get()
+        .getPeakPostGcHeapTenuredSpace()
+        .map(PeakHeap::bytes)
+        .ifPresent(memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
+
+    Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
+    for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
+      GarbageMetrics.Builder garbageMetrics = GarbageMetrics.newBuilder();
+      garbageMetrics.setType(garbageEntry.getKey()).setGarbageCollected(garbageEntry.getValue());
+      memoryMetrics.addGarbageMetrics(garbageMetrics.build());
+    }
+
     return memoryMetrics.build();
   }
 
@@ -184,5 +298,19 @@ class MetricsCollector {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
     }
     return timingMetrics.build();
+  }
+
+  private static class ActionStats {
+    final LongAccumulator firstStarted;
+    final LongAccumulator lastEnded;
+    final AtomicLong numActions;
+    final String mnemonic;
+
+    ActionStats(String mnemonic) {
+      this.mnemonic = mnemonic;
+      firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
+      lastEnded = new LongAccumulator(Math::max, 0);
+      numActions = new AtomicLong();
+    }
   }
 }

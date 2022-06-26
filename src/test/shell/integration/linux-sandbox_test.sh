@@ -28,8 +28,6 @@ source "${CURRENT_DIR}/../sandboxing_test_utils.sh" \
 source "${CURRENT_DIR}/execution_statistics_utils.sh" \
   || { echo "execution_statistics_utils.sh not found!" >&2; exit 1; }
 
-enable_errexit
-
 readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"

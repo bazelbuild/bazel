@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -24,7 +25,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -39,9 +40,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -50,10 +49,15 @@ import net.starlark.java.syntax.Location;
  * parses them for use in a {@link PlatformMappingValue}.
  *
  * <p>Note that this class only parses the mapping-file specific format, parsing (and validation) of
- * flags contained therein is left to the invocation of {@link
- * PlatformMappingValue#map(BuildConfigurationValue.Key, BuildOptions)}.
+ * flags contained therein is left to the invocation of {@link PlatformMappingValue#map}.
  */
-public class PlatformMappingFunction implements SkyFunction {
+final class PlatformMappingFunction implements SkyFunction {
+
+  private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
+
+  PlatformMappingFunction(ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
+    this.optionsClasses = checkNotNull(optionsClasses);
+  }
 
   @Nullable
   @Override
@@ -99,13 +103,13 @@ public class PlatformMappingFunction implements SkyFunction {
         throw new PlatformMappingException(e, SkyFunctionException.Transience.TRANSIENT);
       }
 
-      return parse(lines).toPlatformMappingValue();
+      return parse(lines).toPlatformMappingValue(optionsClasses);
     }
 
     if (!platformMappingKey.wasExplicitlySetByUser()) {
       // If no flag was passed and the default mapping file does not exist treat this as if the
       // mapping file was empty rather than an error.
-      return PlatformMappingValue.EMPTY;
+      return new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
     }
     throw new PlatformMappingException(
         new MissingInputFileException(
@@ -124,12 +128,6 @@ public class PlatformMappingFunction implements SkyFunction {
         .setMessage(message)
         .setBuildConfiguration(BuildConfiguration.newBuilder().setCode(detailedCode))
         .build();
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   @VisibleForTesting
@@ -157,8 +155,8 @@ public class PlatformMappingFunction implements SkyFunction {
       throw parsingException("Expected 'platforms:' or 'flags:' but got " + it.peek());
     }
 
-    Map<Label, Collection<String>> platformsToFlags = ImmutableMap.of();
-    Map<Collection<String>, Label> flagsToPlatforms = ImmutableMap.of();
+    ImmutableMap<Label, ImmutableSet<String>> platformsToFlags = ImmutableMap.of();
+    ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.of();
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
@@ -179,34 +177,34 @@ public class PlatformMappingFunction implements SkyFunction {
     return new Mappings(platformsToFlags, flagsToPlatforms);
   }
 
-  private static ImmutableMap<Label, Collection<String>> readPlatformsToFlags(
+  private static ImmutableMap<Label, ImmutableSet<String>> readPlatformsToFlags(
       PeekingIterator<String> it) throws PlatformMappingException {
-    ImmutableMap.Builder<Label, Collection<String>> platformsToFlags = ImmutableMap.builder();
+    ImmutableMap.Builder<Label, ImmutableSet<String>> platformsToFlags = ImmutableMap.builder();
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
       Label platform = readPlatform(it);
-      Collection<String> flags = readFlags(it);
+      ImmutableSet<String> flags = readFlags(it);
       platformsToFlags.put(platform, flags);
     }
 
     try {
-      return platformsToFlags.build();
+      return platformsToFlags.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw parsingException(
           "Got duplicate platform entries but each platform key must be unique", e);
     }
   }
 
-  private static ImmutableMap<Collection<String>, Label> readFlagsToPlatforms(
+  private static ImmutableMap<ImmutableSet<String>, Label> readFlagsToPlatforms(
       PeekingIterator<String> it) throws PlatformMappingException {
-    ImmutableMap.Builder<Collection<String>, Label> flagsToPlatforms = ImmutableMap.builder();
+    ImmutableMap.Builder<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.builder();
     while (it.hasNext() && it.peek().startsWith("--")) {
-      Collection<String> flags = readFlags(it);
+      ImmutableSet<String> flags = readFlags(it);
       Label platform = readPlatform(it);
       flagsToPlatforms.put(flags, platform);
     }
 
     try {
-      return flagsToPlatforms.build();
+      return flagsToPlatforms.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw parsingException("Got duplicate flags entries but each flags key must be unique", e);
     }
@@ -259,19 +257,20 @@ public class PlatformMappingFunction implements SkyFunction {
    * Simple data holder to make testing easier. Only for use internal to this file/tests thereof.
    */
   @VisibleForTesting
-  static class Mappings {
-    final Map<Label, Collection<String>> platformsToFlags;
-    final Map<Collection<String>, Label> flagsToPlatforms;
+  static final class Mappings {
+    final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
+    final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
 
     Mappings(
-        Map<Label, Collection<String>> platformsToFlags,
-        Map<Collection<String>, Label> flagsToPlatforms) {
+        ImmutableMap<Label, ImmutableSet<String>> platformsToFlags,
+        ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms) {
       this.platformsToFlags = platformsToFlags;
       this.flagsToPlatforms = flagsToPlatforms;
     }
 
-    PlatformMappingValue toPlatformMappingValue() {
-      return new PlatformMappingValue(platformsToFlags, flagsToPlatforms);
+    PlatformMappingValue toPlatformMappingValue(
+        ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
+      return new PlatformMappingValue(platformsToFlags, flagsToPlatforms, optionsClasses);
     }
   }
 

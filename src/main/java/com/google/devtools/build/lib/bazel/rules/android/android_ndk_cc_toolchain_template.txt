@@ -14,7 +14,7 @@ cc_toolchain(
     objcopy_files = ":%toolchainName%-all_files",
     static_runtime_lib = ":%staticRuntimeLibs%",
     strip_files = ":%toolchainName%-all_files",
-    supports_param_files = 0,
+    supports_param_files = 1,
     toolchain_identifier = "%toolchainName%",
     toolchain_config = ":%toolchainName%-config",
 )
@@ -29,8 +29,8 @@ cc_toolchain_config(
 toolchain(
     name = "%toolchainName%_toolchain",
     target_compatible_with = [
-        "@bazel_tools//platforms:android",
-        "@bazel_tools//platforms:%platform_cpu%",
+        "@platforms//os:android",
+        "@platforms//cpu:%platform_cpu%",
     ],
     toolchain = "@androidndk//:%toolchainName%",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",

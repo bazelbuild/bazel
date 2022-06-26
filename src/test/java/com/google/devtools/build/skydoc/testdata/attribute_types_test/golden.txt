@@ -21,7 +21,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>
@@ -57,7 +57,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-d">
       <td><code>d</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+        <a href="https://bazel.build/concepts/labels">Label</a>; required
         <p>
           Some label
         </p>
@@ -66,7 +66,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-e">
       <td><code>e</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a>; required
+        <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a>; required
         <p>
           Some label_keyed_string_dict
         </p>
@@ -75,7 +75,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-f">
       <td><code>f</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a>; required
+        <a href="https://bazel.build/concepts/labels">List of labels</a>; required
         <p>
           Some label_list
         </p>
@@ -84,7 +84,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-g">
       <td><code>g</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; optional
+        <a href="https://bazel.build/concepts/labels">Label</a>; optional
         <p>
           Some output
         </p>
@@ -111,7 +111,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-j">
       <td><code>j</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+        <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a>; required
         <p>
           Some string_dict
         </p>
@@ -129,7 +129,7 @@ This is my rule. It does stuff.
     <tr id="my_rule-l">
       <td><code>l</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> List of strings</a>; optional
+        <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> List of strings</a>; optional
         <p>
           Some string_list_dict
         </p>

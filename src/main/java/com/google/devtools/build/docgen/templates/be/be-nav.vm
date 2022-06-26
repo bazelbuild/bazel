@@ -1,7 +1,7 @@
-#set ($path = "/versions/{{ site.version }}/be")
+#set ($path = "/reference/be")
 #set ($bazelbuildGithub = "https://github.com/bazelbuild")
 
-<h3>Build Encyclopedia</h3>
+**Build Encyclopedia**
 
 <ul class="sidebar-nav">
   <li><a href="${path}/overview.html">Overview</a></li>

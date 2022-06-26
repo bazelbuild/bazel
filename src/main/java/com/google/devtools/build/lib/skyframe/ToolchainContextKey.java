@@ -13,11 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Optional;
 
 /**
  * {@link SkyKey} implementation used for {@link ToolchainResolutionFunction} to produce {@link
@@ -29,9 +33,10 @@ public abstract class ToolchainContextKey implements SkyKey {
   /** Returns a new {@link Builder}. */
   public static Builder key() {
     return new AutoValue_ToolchainContextKey.Builder()
-        .requiredToolchainTypeLabels(ImmutableSet.of())
+        .toolchainTypes(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
-        .shouldSanityCheckConfiguration(false);
+        .forceExecutionPlatform(Optional.empty())
+        .debugTarget(false);
   }
 
   @Override
@@ -39,29 +44,44 @@ public abstract class ToolchainContextKey implements SkyKey {
     return SkyFunctions.TOOLCHAIN_RESOLUTION;
   }
 
-  abstract BuildConfigurationValue.Key configurationKey();
+  abstract BuildConfigurationKey configurationKey();
 
-  abstract ImmutableSet<Label> requiredToolchainTypeLabels();
+  abstract ImmutableSet<ToolchainTypeRequirement> toolchainTypes();
 
   abstract ImmutableSet<Label> execConstraintLabels();
 
-  abstract boolean shouldSanityCheckConfiguration();
+  abstract Optional<Label> forceExecutionPlatform();
+
+  abstract boolean debugTarget();
 
   /** Builder for {@link ToolchainContextKey}. */
   @AutoValue.Builder
   public interface Builder {
-    Builder configurationKey(BuildConfigurationValue.Key key);
+    Builder configurationKey(BuildConfigurationKey key);
 
-    Builder requiredToolchainTypeLabels(ImmutableSet<Label> requiredToolchainTypeLabels);
+    Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
 
-    Builder requiredToolchainTypeLabels(Label... requiredToolchainTypeLabels);
+    default Builder toolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
+      return this.toolchainTypes(ImmutableSet.copyOf(toolchainTypes));
+    }
 
     Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
 
     Builder execConstraintLabels(Label... execConstraintLabels);
 
-    Builder shouldSanityCheckConfiguration(boolean shouldSanityCheckConfiguration);
+    Builder debugTarget(boolean flag);
+
+    default Builder debugTarget() {
+      return this.debugTarget(true);
+    }
 
     ToolchainContextKey build();
+
+    Builder forceExecutionPlatform(Optional<Label> execPlatform);
+
+    default Builder forceExecutionPlatform(Label execPlatform) {
+      Preconditions.checkNotNull(execPlatform);
+      return forceExecutionPlatform(Optional.of(execPlatform));
+    }
   }
 }

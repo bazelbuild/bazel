@@ -14,10 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -29,8 +28,8 @@ import java.util.List;
 public interface RootPackageExtractor {
 
   /**
-   * Recursively search each of the given roots in a repository for packages (while respecting
-   * blacklists and exclusions), calling the {@code results} callback as each package is discovered.
+   * Recursively search each of the given roots in a repository for packages (while respecting deny
+   * lists and exclusions), calling the {@code results} callback as each package is discovered.
    *
    * @param results callback invoked once for groups of packages as they are discovered under a root
    * @param graph skyframe graph used for retrieving the directories under each root
@@ -38,21 +37,21 @@ public interface RootPackageExtractor {
    * @param eventHandler receives package-loading errors for any packages loaded by graph queries
    * @param repository the repository under which the roots can be found
    * @param directory starting directory under which to find packages, relative to the roots
-   * @param blacklistedSubdirectories directories that will not be searched by policy, relative to
-   *     the roots
+   * @param forbiddenSubdirectories directories that will not be searched by policy, relative to the
+   *     roots
    * @param excludedSubdirectories directories the user requests not be searched, relative to the
    *     roots
    * @throws InterruptedException if a graph query is interrupted before all roots have been
    *     searched exhaustively
    */
   void streamPackagesFromRoots(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException, QueryException;
 }

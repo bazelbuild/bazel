@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -108,12 +110,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * <p>This object is required because linkstamp files may include other headers which will have to
    * be provided during compilation.
    */
+  @Immutable
   public static final class Linkstamp implements LinkstampApi<Artifact> {
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
     private final byte[] nestedDigest;
 
-    private static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
+    public static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
 
     // TODO(janakr): if action key context is not available, the digest can be computed lazily,
     // only if we are doing an equality comparison and artifacts are equal. That should never
@@ -161,6 +164,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
+    public final boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
+    }
+
+    @Override
     public boolean equals(Object obj) {
       if (this == obj) {
         return true;
@@ -193,7 +201,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final ImmutableList<Artifact> nonCodeInputs;
     private final ImmutableList<Linkstamp> linkstamps;
 
-    private LinkerInput(
+    public LinkerInput(
         Label owner,
         ImmutableList<LibraryToLink> libraries,
         ImmutableList<LinkOptions> userLinkFlags,
@@ -260,10 +268,19 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkstamps;
     }
 
+    @StarlarkMethod(name = "linkstamps", documented = false, structField = true)
+    public Sequence<Linkstamp> getLinkstampsForStarlark() {
+      return StarlarkList.immutableCopyOf(getLinkstamps());
+    }
+
     @Override
     public void debugPrint(Printer printer) {
       printer.append("<LinkerInput(owner=");
-      owner.debugPrint(printer);
+      if (owner == null) {
+        printer.append("[null owner, uses old create_linking_context API]");
+      } else {
+        owner.debugPrint(printer);
+      }
       printer.append(", libraries=[");
       for (LibraryToLink libraryToLink : libraries) {
         libraryToLink.debugPrint(printer);
@@ -369,7 +386,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   private final NestedSet<LinkerInput> linkerInputs;
-  private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
+  @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   @Override
   public void debugPrint(Printer printer) {
@@ -382,7 +399,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public CcLinkingContext(
-      NestedSet<LinkerInput> linkerInputs, ExtraLinkTimeLibraries extraLinkTimeLibraries) {
+      NestedSet<LinkerInput> linkerInputs,
+      @Nullable ExtraLinkTimeLibraries extraLinkTimeLibraries) {
     this.linkerInputs = linkerInputs;
     this.extraLinkTimeLibraries = extraLinkTimeLibraries;
   }
@@ -528,6 +546,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   public ExtraLinkTimeLibraries getExtraLinkTimeLibraries() {
     return extraLinkTimeLibraries;
+  }
+
+  @Override
+  public ExtraLinkTimeLibraries getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getExtraLinkTimeLibraries();
   }
 
   public static Builder builder() {

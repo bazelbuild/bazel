@@ -87,7 +87,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
-              .append(target.getLabel().getDefaultCanonicalForm())
+              .append(target.getLabel().getCanonicalForm())
               .append(lineTerm);
         }
       }

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -40,7 +40,7 @@ public class FdoHelper {
   public static FdoContext getFdoContext(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       CppConfiguration cppConfiguration,
       ImmutableMap<String, PathFragment> toolPaths)
       throws InterruptedException, RuleErrorException {
@@ -169,11 +169,11 @@ public class FdoHelper {
           branchFdoMode = BranchFdoMode.LLVM_CS_FDO;
         }
       }
-      if (branchFdoMode != BranchFdoMode.XBINARY_FDO
+      if ((branchFdoMode != BranchFdoMode.XBINARY_FDO)
+          && (branchFdoMode != BranchFdoMode.AUTO_FDO)
           && cppConfiguration.getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
               != null) {
-        ruleContext.throwWithRuleError(
-            "--xbinary_fdo cannot accept profile input other than *.xfdo");
+        ruleContext.throwWithRuleError("--xbinary_fdo only accepts *.xfdo and *.afdo");
       }
 
       if (configuration.isCodeCoverageEnabled()) {
@@ -309,7 +309,7 @@ public class FdoHelper {
         new SpawnAction.Builder()
             .addInput(profile1)
             .addInput(profile2)
-            .addTransitiveInputs(attributes.getAllFilesMiddleman())
+            .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(
@@ -446,7 +446,7 @@ public class FdoHelper {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(rawProfileArtifact)
-            .addTransitiveInputs(attributes.getAllFilesMiddleman())
+            .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(
@@ -483,18 +483,14 @@ public class FdoHelper {
     }
 
     Artifact fdoArtifact = fdoArtifacts.get(0);
-    if (!fdoArtifact.isSourceArtifact()) {
-      ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
-      return null;
-    }
-
     Label fdoLabel = attributes.getFdoOptimize().getLabel();
     if (!fdoLabel
         .getPackageIdentifier()
         .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
         .getRelative(fdoLabel.getName())
         .equals(fdoArtifact.getExecPath())) {
-      ruleContext.ruleError("--fdo_optimize points to a target that is not an input file");
+      ruleContext.ruleError(
+          "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");
       return null;
     }
 

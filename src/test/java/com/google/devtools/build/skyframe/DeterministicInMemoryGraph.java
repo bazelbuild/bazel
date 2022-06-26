@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -29,7 +30,7 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
 
   @Override
   public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
       return super.createIfAbsentBatch(requestor, reason, keys);
     } catch (InterruptedException e) {
@@ -63,18 +64,12 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getDoneValues() {
-    return ((InMemoryGraph) delegate).getDoneValues();
-  }
-
-
-  @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValues() {
+  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
     return ((InMemoryGraph) delegate).getAllValues();
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
     return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

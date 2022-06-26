@@ -14,10 +14,10 @@
 package com.google.devtools.build.android.desugar;
 
 import com.google.common.collect.ImmutableSet;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /**
  * Class visitor to collect all the lambda methods that are used in invokedynamic instructions.
@@ -32,7 +32,7 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   private boolean needOuterClassRewrite = false;
 
   public InvokeDynamicLambdaMethodCollector() {
-    super(Opcodes.ASM8);
+    super(Opcodes.ASM9);
   }
 
   /**
@@ -64,7 +64,7 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   private class LambdaMethodCollector extends MethodVisitor {
 
     public LambdaMethodCollector(MethodVisitor dest) {
-      super(Opcodes.ASM8, dest);
+      super(Opcodes.ASM9, dest);
     }
 
     @Override

@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -42,7 +40,6 @@ import javax.annotation.Nullable;
  * Represents the command line of a linker invocation. It supports executables and dynamic libraries
  * as well as static libraries.
  */
-@AutoCodec
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
@@ -60,8 +57,7 @@ public final class LinkCommandLine extends CommandLine {
 
   @Nullable private final Artifact paramFile;
 
-  @VisibleForSerialization
-  LinkCommandLine(
+  private LinkCommandLine(
       String actionName,
       String forcedToolPath,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
@@ -221,9 +217,7 @@ public final class LinkCommandLine extends CommandLine {
    * A {@link CommandLine} implementation that returns the command line args pertaining to the
    * .params file.
    */
-  @AutoCodec
-  @VisibleForSerialization
-  static class ParamFileCommandLine extends CommandLine {
+  private static class ParamFileCommandLine extends CommandLine {
     private final Artifact paramsFile;
     private final LinkTargetType linkTargetType;
     private final String forcedToolPath;
@@ -231,7 +225,7 @@ public final class LinkCommandLine extends CommandLine {
     private final String actionName;
     private final CcToolchainVariables variables;
 
-    public ParamFileCommandLine(
+    ParamFileCommandLine(
         Artifact paramsFile,
         LinkTargetType linkTargetType,
         String forcedToolPath,
@@ -276,13 +270,13 @@ public final class LinkCommandLine extends CommandLine {
         paramFile, linkTargetType, forcedToolPath, featureConfiguration, actionName, variables);
   }
 
-  public static void extractArgumentsForStaticLinkParamFile(
+  private static void extractArgumentsForStaticLinkParamFile(
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     commandlineArgs.add(args.get(0)); // ar command, must not be moved!
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
-      if (arg.startsWith("@")) {
+      if (isLikelyParamFile(arg)) {
         commandlineArgs.add(arg); // params file, keep it in the command line
       } else {
         paramFileArgs.add(arg); // the rest goes to the params file
@@ -290,7 +284,7 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
 
-  public static void extractArgumentsForDynamicLinkParamFile(
+  private static void extractArgumentsForDynamicLinkParamFile(
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
@@ -298,12 +292,19 @@ public final class LinkCommandLine extends CommandLine {
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
-      if (arg.startsWith("@")) {
+      if (isLikelyParamFile(arg)) {
         commandlineArgs.add(arg); // params file, keep it in the command line
       } else {
         paramFileArgs.add(arg); // the rest goes to the params file
       }
     }
+  }
+
+  private static boolean isLikelyParamFile(String arg) {
+    return arg.startsWith("@")
+        && !arg.startsWith("@rpath")
+        && !arg.startsWith("@loader_path")
+        && !arg.startsWith("@executable_path");
   }
 
   /**

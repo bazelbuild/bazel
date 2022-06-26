@@ -21,10 +21,17 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.io.FileSymlinkCycleException;
+import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
+import com.google.devtools.build.lib.io.FileSymlinkException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -44,26 +51,15 @@ import javax.annotation.Nullable;
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
-  @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
+  private final ImmutableList<Root> immutablePaths;
 
-  /** Temporary interface to help track down why files are missing in some cases. */
-  public interface NonexistentFileReceiver {
-    void accept(
-        RootedPath rootedPath,
-        RootedPath realRootedPath,
-        RootedPath parentRootedPath,
-        FileValue parentFileValue);
-  }
-
-  public FileFunction(AtomicReference<PathPackageLocator> pkgLocator) {
-    this(pkgLocator, null);
-  }
-
-  FileFunction(
-      AtomicReference<PathPackageLocator> pkgLocator,
-      @Nullable NonexistentFileReceiver nonexistentFileReceiver) {
+  public FileFunction(
+      AtomicReference<PathPackageLocator> pkgLocator, BlazeDirectories directories) {
     this.pkgLocator = pkgLocator;
-    this.nonexistentFileReceiver = nonexistentFileReceiver;
+    this.immutablePaths =
+        ImmutableList.of(
+            Root.fromPath(directories.getOutputBase()),
+            Root.fromPath(directories.getInstallBase()));
   }
 
   private static class SymlinkResolutionState {
@@ -143,7 +139,6 @@ public class FileFunction implements SkyFunction {
         symlinkResolutionState.pathToUnboundedAncestorSymlinkExpansionChain,
         symlinkResolutionState.unboundedAncestorSymlinkExpansionChain,
         rootedPath,
-        // TODO(b/123922036): This is a bug. Should be 'fileStateValueFromAncestors'.
         fileStateValueFromAncestors,
         realRootedPath,
         realFileStateValue);
@@ -155,7 +150,11 @@ public class FileFunction implements SkyFunction {
   }
 
   private RootedPath toRootedPath(Path path) {
-    return RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries());
+    // We check whether the path to be transformed is under the output base or the install base.
+    // These directories are under the control of Bazel and it therefore does not make much sense
+    // to check for changes in them or in their ancestors in the usual Skyframe way.
+    return RootedPath.toRootedPathMaybeUnderRoot(
+        path, Iterables.concat(pkgLocator.get().getPathEntries(), immutablePaths));
   }
 
   /**
@@ -163,7 +162,7 @@ public class FileFunction implements SkyFunction {
    * {@code null} if there was a missing dep.
    */
   @Nullable
-  private PartialResolutionResult resolveFromAncestors(
+  private static PartialResolutionResult resolveFromAncestors(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws InterruptedException, FileFunctionException {
     RootedPath parentRootedPath = rootedPath.getParentDirectory();
@@ -173,7 +172,7 @@ public class FileFunction implements SkyFunction {
   }
 
   @Nullable
-  private PartialResolutionResult resolveFromAncestorsWithParent(
+  private static PartialResolutionResult resolveFromAncestorsWithParent(
       RootedPath rootedPath,
       RootedPath parentRootedPath,
       SymlinkResolutionState symlinkResolutionState,
@@ -190,10 +189,6 @@ public class FileFunction implements SkyFunction {
     rootedPathFromAncestors = getChild(parentFileValue.realRootedPath(), baseName);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
-      if (nonexistentFileReceiver != null) {
-        nonexistentFileReceiver.accept(
-            rootedPath, rootedPathFromAncestors, parentRootedPath, parentFileValue);
-      }
       return new PartialResolutionResult(
           rootedPathFromAncestors, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
     }
@@ -216,7 +211,7 @@ public class FileFunction implements SkyFunction {
   }
 
   @Nullable
-  private PartialResolutionResult resolveFromAncestorsNoParent(
+  private static PartialResolutionResult resolveFromAncestorsNoParent(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws InterruptedException, FileFunctionException {
     checkAndNotePathSeenDuringPartialResolution(rootedPath, symlinkResolutionState, env);
@@ -273,7 +268,7 @@ public class FileFunction implements SkyFunction {
     return resolveFromAncestors(symlinkTargetRootedPath, symlinkResolutionState, env);
   }
 
-  private void checkAndNotePathSeenDuringPartialResolution(
+  private static void checkAndNotePathSeenDuringPartialResolution(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws FileFunctionException, InterruptedException {
     Path path = rootedPath.asPath();
@@ -282,14 +277,14 @@ public class FileFunction implements SkyFunction {
     symlinkResolutionState.logicalChain.add(rootedPath);
   }
 
-  private void checkPathSeenDuringPartialResolution(
+  private static void checkPathSeenDuringPartialResolution(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws FileFunctionException, InterruptedException {
     checkPathSeenDuringPartialResolutionInternal(
         rootedPath, rootedPath.asPath(), symlinkResolutionState, env);
   }
 
-  private void checkPathSeenDuringPartialResolutionInternal(
+  private static void checkPathSeenDuringPartialResolutionInternal(
       RootedPath rootedPath,
       Path path,
       SymlinkResolutionState symlinkResolutionState,
@@ -340,8 +335,9 @@ public class FileFunction implements SkyFunction {
                   Iterables.concat(
                       symlinkResolutionState.logicalChain, ImmutableList.of(rootedPath))));
       uniquenessKey = FileSymlinkInfiniteExpansionUniquenessFunction.key(pathAndChain.getSecond());
-      fse = new FileSymlinkInfiniteExpansionException(
-          pathAndChain.getFirst(), pathAndChain.getSecond());
+      fse =
+          new FileSymlinkInfiniteExpansionException(
+              pathAndChain.getFirst(), pathAndChain.getSecond());
     } else if (seenCeilingPath != null && seenCeilingPath.startsWith(path)) {
       // 'rootedPath' is [transitively] a symlink to an ancestor of a previous element in the
       // symlink chain (iii).
@@ -369,27 +365,16 @@ public class FileFunction implements SkyFunction {
     }
   }
 
-  private static final Predicate<RootedPath> isPathPredicate(final Path path) {
-    return new Predicate<RootedPath>() {
-      @Override
-      public boolean apply(RootedPath rootedPath) {
-        return rootedPath.asPath().equals(path);
-      }
-    };
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+  private static Predicate<RootedPath> isPathPredicate(Path path) {
+    return rootedPath -> rootedPath.asPath().equals(path);
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link FileFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * FileFunction#compute}.
    */
   private static final class FileFunctionException extends SkyFunctionException {
-    public FileFunctionException(IOException e, Transience transience) {
+    FileFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }
   }

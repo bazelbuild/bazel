@@ -15,11 +15,15 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryPathApi;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A Path object to be used into Starlark remote repository.
@@ -28,7 +32,11 @@ import net.starlark.java.eval.Printer;
  * something other than a StarlarkRepositoryContext.
  */
 @Immutable
-final class StarlarkPath implements RepositoryPathApi<StarlarkPath> {
+@StarlarkBuiltin(
+    name = "path",
+    category = DocCategory.BUILTIN,
+    doc = "A structure representing a file to be used inside a repository.")
+final class StarlarkPath implements StarlarkValue {
   private final Path path;
 
   StarlarkPath(Path path) {
@@ -54,12 +62,18 @@ final class StarlarkPath implements RepositoryPathApi<StarlarkPath> {
     return path.hashCode();
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "basename",
+      structField = true,
+      doc = "A string giving the basename of the file.")
   public String getBasename() {
     return path.getBaseName();
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "readdir",
+      structField = false,
+      doc = "The list of entries in the directory denoted by this path.")
   public ImmutableList<StarlarkPath> readdir() throws IOException {
     ImmutableList.Builder<StarlarkPath> builder = ImmutableList.builder();
     for (Path p : path.getDirectoryEntries()) {
@@ -68,23 +82,39 @@ final class StarlarkPath implements RepositoryPathApi<StarlarkPath> {
     return builder.build();
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "dirname",
+      structField = true,
+      doc = "The parent directory of this file, or None if this file does not have a parent.")
   public StarlarkPath getDirname() {
     Path parentPath = path.getParentDirectory();
     return parentPath == null ? null : new StarlarkPath(parentPath);
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "get_child",
+      doc = "Append the given path to this path and return the resulted path.",
+      parameters = {
+        @Param(name = "child_path", doc = "The path to append to this path."),
+      })
   public StarlarkPath getChild(String childPath) {
     return new StarlarkPath(path.getChild(childPath));
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "exists",
+      structField = true,
+      doc = "Returns true if the file denoted by this path exists.")
   public boolean exists() {
     return path.exists();
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "realpath",
+      structField = true,
+      doc =
+          "Returns the canonical path for this path by repeatedly replacing all symbolic links "
+              + "with their referents.")
   public StarlarkPath realpath() throws IOException {
     return new StarlarkPath(path.resolveSymbolicLinks());
   }

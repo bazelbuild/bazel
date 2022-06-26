@@ -55,6 +55,7 @@ if "$is_windows"; then
 fi
 
 add_to_bazelrc "build --package_path=%workspace%"
+add_to_bazelrc "build --spawn_strategy=local"
 
 #### HELPER FUNCTIONS ##################################################
 

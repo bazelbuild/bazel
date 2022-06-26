@@ -46,7 +46,7 @@ public interface ActionInput {
 
   /**
    * Returns if this input's file system path includes a digest of its content. See {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}.
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}.
    */
   default boolean contentBasedPath() {
     return false;

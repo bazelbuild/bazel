@@ -15,36 +15,37 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /**
- * TargetPatternFunction translates a target pattern (eg, "foo/...") into a set of resolved
- * Targets.
+ * TargetPatternFunction translates a target pattern (eg, "foo/...") into a set of resolved Targets.
  */
 public class TargetPatternFunction implements SkyFunction {
 
-  public TargetPatternFunction() {
-  }
+  public TargetPatternFunction() {}
 
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws TargetPatternFunctionException,
-      InterruptedException {
+  public SkyValue compute(SkyKey key, Environment env)
+      throws TargetPatternFunctionException, InterruptedException {
     TargetPatternValue.TargetPatternKey patternKey =
         ((TargetPatternValue.TargetPatternKey) key.argument());
     TargetPattern parsedPattern = patternKey.getParsedPattern();
@@ -58,61 +59,68 @@ public class TargetPatternFunction implements SkyFunction {
     ImmutableSet<PathFragment> ignoredPatterns = ignoredPackagePrefixes.getPatterns();
 
     ResolvedTargets<Target> resolvedTargets;
+    EnvironmentBackedRecursivePackageProvider provider =
+        new EnvironmentBackedRecursivePackageProvider(env);
     try {
-      EnvironmentBackedRecursivePackageProvider provider =
-          new EnvironmentBackedRecursivePackageProvider(env);
       RecursivePackageProviderBackedTargetPatternResolver resolver =
           new RecursivePackageProviderBackedTargetPatternResolver(
               provider,
               env.getListener(),
               patternKey.getPolicy(),
-              MultisetSemaphore.<PackageIdentifier>unbounded());
+              MultisetSemaphore.unbounded(),
+              SimplePackageIdentifierBatchingCallback::new);
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();
-      BatchCallback<Target, RuntimeException> callback =
-          new BatchCallback<Target, RuntimeException>() {
-            @Override
-            public void process(Iterable<Target> partialResult) {
-              for (Target target : partialResult) {
-                // TODO(b/156899726): This will go away as soon as we remove implicit outputs from
-                // cc_library completely. The only
-                // downside to doing this is that implicit outputs won't be listed when doing
-                // somepackage:* for the handful of cases still on the allowlist. This is only a
-                // google internal problem and the scale of it is acceptable in the short term
-                // while cleaning up the allowlist.
-                if (target instanceof OutputFile
-                    && ((OutputFile) target)
-                        .getGeneratingRule()
-                        .getRuleClass()
-                        .equals("cc_library")) {
-                  continue;
-                }
-                resolvedTargetsBuilder.add(target);
+      SafeBatchCallback<Target> callback =
+          partialResult -> {
+            for (Target target : partialResult) {
+              // TODO(b/156899726): This will go away as soon as we remove implicit outputs from
+              //  cc_library completely. The only downside to doing this is that implicit outputs
+              //  won't be listed when doing somepackage:* for the handful of cases still on the
+              //  allowlist. This is only a Google-internal problem and the scale of it is
+              //  acceptable in the short term while cleaning up the allowlist.
+              if (target instanceof OutputFile
+                  && ((OutputFile) target)
+                      .getGeneratingRule()
+                      .getRuleClass()
+                      .equals("cc_library")) {
+                continue;
               }
+              resolvedTargetsBuilder.add(target);
             }
           };
-      parsedPattern.eval(
-          resolver,
-          () -> ignoredPatterns,
-          excludedSubdirectories,
-          callback,
-          // The exception type here has to match the one on the BatchCallback. Since the callback
-          // defined above never throws, the exact type here is not really relevant.
-          RuntimeException.class);
+      try {
+        parsedPattern.eval(
+            resolver,
+            () -> ignoredPatterns,
+            excludedSubdirectories,
+            callback,
+            QueryExceptionMarkerInterface.MarkerRuntimeException.class);
+      } catch (ProcessPackageDirectoryException e) {
+        throw new TargetPatternFunctionException(e);
+      } catch (InconsistentFilesystemException e) {
+        throw new TargetPatternFunctionException(e);
+      }
       if (provider.encounteredPackageErrors()) {
         resolvedTargetsBuilder.setError();
       }
       resolvedTargets = resolvedTargetsBuilder.build();
     } catch (TargetParsingException e) {
-      env.getListener().post(new ParsingFailedEvent(patternKey.getPattern(),  e.getMessage()));
+      env.getListener().post(new ParsingFailedEvent(patternKey.getPattern(), e.getMessage()));
       throw new TargetPatternFunctionException(e);
     } catch (MissingDepException e) {
+      // If there is at least one missing dependency, we should eagerly throw any exception we might
+      // have encountered: if we are in error bubbling, this could be our last chance.
+      maybeThrowEncounteredException(parsedPattern, provider);
       // The EnvironmentBackedRecursivePackageProvider constructed above might throw
       // MissingDepException to signal when it has a dependency on a missing Environment value.
       // Note that MissingDepException extends RuntimeException because the methods called
       // on EnvironmentBackedRecursivePackageProvider all belong to an interface shared with other
       // implementations that are unconcerned with MissingDepExceptions.
       return null;
+    }
+    if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      maybeThrowEncounteredException(parsedPattern, provider);
     }
     Preconditions.checkNotNull(resolvedTargets, key);
     ResolvedTargets.Builder<Label> resolvedLabelsBuilder = ResolvedTargets.builder();
@@ -128,19 +136,42 @@ public class TargetPatternFunction implements SkyFunction {
     return new TargetPatternValue(resolvedLabelsBuilder.build());
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+  private static void maybeThrowEncounteredException(
+      TargetPattern pattern, EnvironmentBackedRecursivePackageProvider provider)
+      throws TargetPatternFunctionException {
+    NoSuchPackageException e = provider.maybeGetNoSuchPackageException();
+    if (e != null) {
+      throw new TargetPatternFunctionException(
+          new TargetParsingException(
+              "Error evaluating '" + pattern.getOriginalPattern() + "': " + e.getMessage(),
+              e,
+              FailureDetails.TargetPatterns.Code.PACKAGE_NOT_FOUND));
+    }
   }
 
-  /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link TargetPatternFunction#compute}.
-   */
   private static final class TargetPatternFunctionException extends SkyFunctionException {
-    public TargetPatternFunctionException(TargetParsingException e) {
+    private final boolean isCatastrophic;
+
+    TargetPatternFunctionException(TargetParsingException e) {
       super(e, Transience.PERSISTENT);
+      this.isCatastrophic = false;
+    }
+
+    TargetPatternFunctionException(InconsistentFilesystemException e) {
+      super(new TargetParsingException(e), Transience.PERSISTENT);
+      this.isCatastrophic = true;
+    }
+
+    TargetPatternFunctionException(ProcessPackageDirectoryException e) {
+      super(
+          new TargetParsingException(e.getMessage(), e, e.getDetailedExitCode()),
+          Transience.PERSISTENT);
+      this.isCatastrophic = true;
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return isCatastrophic;
     }
   }
 }

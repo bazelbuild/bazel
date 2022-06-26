@@ -35,15 +35,18 @@ public class DocgenConsts {
   public static final String OVERVIEW_TEMPLATE = BE_TEMPLATE_DIR + "/overview.vm";
   public static final String RULES_TEMPLATE = BE_TEMPLATE_DIR + "/rules.vm";
   public static final String BE_NAV_TEMPLATE = BE_TEMPLATE_DIR + "/be-nav.vm";
+  public static final String BE_TOC_TEMPLATE = BE_TEMPLATE_DIR + "/be-toc.vm";
 
   public static final String STARLARK_LIBRARY_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-library.vm";
+      "com/google/devtools/build/docgen/templates/starlark-library.vm";
   public static final String STARLARK_NAV_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-nav.vm";
+      "com/google/devtools/build/docgen/templates/starlark-nav.vm";
   public static final String STARLARK_MODULE_CATEGORY_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-category.vm";
+      "com/google/devtools/build/docgen/templates/starlark-category.vm";
   public static final String STARLARK_OVERVIEW_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/skylark-overview.vm";
+      "com/google/devtools/build/docgen/templates/starlark-overview.vm";
+  public static final String STARLARK_TOC_TEMPLATE =
+      "com/google/devtools/build/docgen/templates/starlark-toc.vm";
 
   public static final String VAR_LEFT_PANEL = "LEFT_PANEL";
 
@@ -105,8 +108,8 @@ public class DocgenConsts {
   public static final Pattern BLAZE_RULE_LINK = Pattern.compile(
       "\\$\\{link (([a-zA-Z_-]+)(\\.([a-zA-Z_\\.-]+))?)\\}");
 
-  public static final Pattern BLAZE_RULE_HEADING_LINK = Pattern.compile(
-      "\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z_\\.-]+))\\}");
+  public static final Pattern BLAZE_RULE_HEADING_LINK =
+      Pattern.compile("\\$\\{link (([a-zA-Z_-]+)\\#([a-zA-Z0-9_\\.-]+))\\}");
 
   /**
    * i.e.
@@ -135,16 +138,6 @@ public class DocgenConsts {
   public static final Pattern BLAZE_RULE_END = Pattern.compile(
       "^[\\s]*\\<!\\-\\-[\\s]*#END_BLAZE_RULE[\\s]*\\-\\-\\>[\\s]*\\*/");
   /**
-   * i.e. <!-- #BLAZE_RULE.EXAMPLE -->
-   */
-  public static final Pattern BLAZE_RULE_EXAMPLE_START = Pattern.compile(
-      "[\\s]*\\<!--[\\s]*#BLAZE_RULE.EXAMPLE[\\s]*--\\>[\\s]*");
-  /**
-   * i.e. <!-- #BLAZE_RULE.END_EXAMPLE -->
-   */
-  public static final Pattern BLAZE_RULE_EXAMPLE_END = Pattern.compile(
-      "[\\s]*\\<!--[\\s]*#BLAZE_RULE.END_EXAMPLE[\\s]*--\\>[\\s]*");
-  /**
    * i.e. <!-- #BLAZE_RULE(RULE_NAME).VARIABLE_NAME -->
    */
   public static final Pattern BLAZE_RULE_VAR_START = Pattern.compile(
@@ -170,28 +163,26 @@ public class DocgenConsts {
   /** e.g. "[DEPRECATED]" in &lt;!-- #BLAZE_RULE(...).ATTRIBUTE(...)[DEPRECATED] --&gt; */
   public static final Pattern BLAZE_RULE_FLAGS = Pattern.compile("^.*\\[(.*)\\].*$");
 
-  public static final ImmutableMap<String, Integer> ATTRIBUTE_ORDERING = ImmutableMap
-      .<String, Integer>builder()
-      .put("name", -99)
-      .put("deps", -98)
-      .put("src", -97)
-      .put("srcs", -96)
-      .put("data", -95)
-      .put("resource", -94)
-      .put("resources", -93)
-      .put("out", -92)
-      .put("outs", -91)
-      .put("hdrs", -90)
-      .build();
+  public static final ImmutableMap<String, Integer> ATTRIBUTE_ORDERING =
+      ImmutableMap.<String, Integer>builder()
+          .put("name", -99)
+          .put("deps", -98)
+          .put("src", -97)
+          .put("srcs", -96)
+          .put("data", -95)
+          .put("resource", -94)
+          .put("resources", -93)
+          .put("out", -92)
+          .put("outs", -91)
+          .put("hdrs", -90)
+          .buildOrThrow();
 
   // The following variables are not constants as they can be overridden from
   // StarlarkDocumentationProcessor#parseOptions
+  // Their purpose is to allow generated Starlark documentation to link into the build encyclopedia.
 
-  // Build Encyclopedia documentation root
-  public static String BeDocsRoot = "/versions/master/be";
-
-  // Documentation files extension
-  public static String documentationExtension = "html";
+  // Root directory of *narrative* Starlark documentation files such as rules.md
+  public static String starlarkDocsRoot = "/rules";
 
   static String toCommandLineFormat(String cmdDoc) {
     // Replace html <br> tags with line breaks

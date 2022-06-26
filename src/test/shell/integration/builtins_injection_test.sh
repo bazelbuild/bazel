@@ -102,13 +102,13 @@ EOF
   # without injection may break. (That may also mean we have to update this test
   # at some point, so that the other builtins roots are based on the one in the
   # install base, instead of being virtually empty.)
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
   # Using the builtins root that's bundled with bazel.
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%bundled% \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
@@ -116,14 +116,14 @@ EOF
 
   # Using the builtins root located within the client workspace, as if we're
   # running Bazel in its own source tree.
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%workspace% \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
   # Using the builtins root at the path given to the flag. (Need not be within
   # workspace, though this one is.)
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
@@ -134,7 +134,7 @@ exported_toplevels = {"_builtins_dummy": "second alternate value"}
 exported_rules = {}
 exported_to_java = {}
 EOF
-  bazel build //pkg:BUILD --experimental_builtins_dummy=true \
+  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"

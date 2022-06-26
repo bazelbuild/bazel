@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -105,7 +103,7 @@ public final class ConfiguredAspect implements ProviderCollection {
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(real.getActions(), real.getProviders());
+    return new ConfiguredAspect(real.actions, real.providers);
   }
 
   public static ConfiguredAspect forNonapplicableTarget() {
@@ -126,8 +124,6 @@ public final class ConfiguredAspect implements ProviderCollection {
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
-    private final LinkedHashSet<String> aspectImplSpecificRequiredConfigFragments =
-        new LinkedHashSet<>();
 
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
@@ -148,7 +144,7 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    private void checkProviderClass(Class<? extends TransitiveInfoProvider> providerClass) {
+    private static void checkProviderClass(Class<? extends TransitiveInfoProvider> providerClass) {
       Preconditions.checkNotNull(providerClass);
     }
 
@@ -175,12 +171,9 @@ public final class ConfiguredAspect implements ProviderCollection {
      * Adds a set of files to an output group.
      */
     public Builder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
-      NestedSetBuilder<Artifact> nestedSetBuilder = outputGroupBuilders.get(name);
-      if (nestedSetBuilder == null) {
-        nestedSetBuilder = NestedSetBuilder.<Artifact>stableOrder();
-        outputGroupBuilders.put(name, nestedSetBuilder);
-      }
-      nestedSetBuilder.addTransitive(artifacts);
+      outputGroupBuilders
+          .computeIfAbsent(name, k -> NestedSetBuilder.stableOrder())
+          .addTransitive(artifacts);
       return this;
     }
 
@@ -212,15 +205,6 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    /**
-     * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with aspect
-     * implementation-specific requirements.
-     */
-    public Builder addRequiredConfigFragments(Collection<String> fragments) {
-      aspectImplSpecificRequiredConfigFragments.addAll(fragments);
-      return this;
-    }
-
     public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
@@ -232,21 +216,25 @@ public final class ConfiguredAspect implements ProviderCollection {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(new OutputGroupInfo(outputGroups.build()));
+        addDeclaredProvider(new OutputGroupInfo(outputGroups.buildOrThrow()));
       }
 
       addProvider(
-          createExtraActionProvider(
-              /* actionsWithoutExtraAction= */ ImmutableSet.<ActionAnalysisMetadata>of(),
-              ruleContext));
+          createExtraActionProvider(/*actionsWithoutExtraAction=*/ ImmutableSet.of(), ruleContext));
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-      GeneratingActions generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions(),
-              ruleContext.getOwner(),
-              /*outputFiles=*/ null);
+      GeneratingActions generatingActions;
+      try {
+        generatingActions =
+            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                analysisEnvironment.getActionKeyContext(),
+                analysisEnvironment.getRegisteredActions(),
+                ruleContext.getOwner(),
+                /*outputFiles=*/ null);
+      } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+        ruleContext.ruleError(e.getMessage());
+        return null;
+      }
 
       maybeAddRequiredConfigFragmentsProvider();
 
@@ -260,17 +248,11 @@ public final class ConfiguredAspect implements ProviderCollection {
      *
      * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for a
      * description of the meaning of this provider's content. That class contains methods that
-     * populate the results of {@link RuleContext#getRequiredConfigFragments} and {@link
-     * #aspectImplSpecificRequiredConfigFragments}.
+     * populate the results of {@link RuleContext#getRequiredConfigFragments}.
      */
     private void maybeAddRequiredConfigFragmentsProvider() {
       if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-        addProvider(
-            new RequiredConfigFragmentsProvider(
-                ImmutableSet.<String>builder()
-                    .addAll(ruleContext.getRequiredConfigFragments())
-                    .addAll(aspectImplSpecificRequiredConfigFragments)
-                    .build()));
+        addProvider(ruleContext.getRequiredConfigFragments());
       }
     }
   }

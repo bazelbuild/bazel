@@ -18,6 +18,8 @@ import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSub
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
@@ -70,7 +72,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -82,6 +84,196 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
     assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  // TODO(katre): Add further tests for optional/mandatory/mixed toolchains.
+
+  @Test
+  public void resolve_optional() throws Exception {
+    // This should select platform mac, toolchain extra_toolchain_mac, because platform
+    // mac is listed first.
+    addToolchain(
+        "extra",
+        "extra_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    addToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_multiple() throws Exception {
+    Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
+    ToolchainTypeRequirement secondToolchainTypeRequirement =
+        ToolchainTypeRequirement.create(secondToolchainTypeLabel);
+    ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
+    scratch.file("second/BUILD", "toolchain_type(name = 'toolchain_type')");
+
+    addToolchain(
+        "main",
+        "main_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    addToolchain(
+        "main",
+        "second_toolchain_linux",
+        secondToolchainTypeLabel,
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//main:all',)", "register_execution_platforms('//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType, secondToolchainTypeRequirement)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//main:main_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasToolchainType(secondToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//main:second_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_mandatory_missing() throws Exception {
+    // There is no toolchain for the requested type.
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("No matching toolchains found for types //toolchain:test_toolchain");
+  }
+
+  @Test
+  public void resolve_multiple_optional() throws Exception {
+    Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
+    ToolchainTypeRequirement secondToolchainTypeRequirement =
+        ToolchainTypeRequirement.builder(secondToolchainTypeLabel).mandatory(false).build();
+    ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
+    scratch.file("second/BUILD", "toolchain_type(name = 'toolchain_type')");
+
+    addToolchain(
+        "main",
+        "main_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    addToolchain(
+        "main",
+        "second_toolchain_linux",
+        secondToolchainTypeLabel,
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//main:all',)", "register_execution_platforms('//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType, secondToolchainTypeRequirement)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//main:main_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasToolchainType(secondToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//main:second_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_multiple_optional_missing() throws Exception {
+    Label secondToolchainTypeLabel = Label.parseAbsoluteUnchecked("//second:toolchain_type");
+    ToolchainTypeRequirement secondToolchainTypeRequirement =
+        ToolchainTypeRequirement.builder(secondToolchainTypeLabel).mandatory(false).build();
+    ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
+    scratch.file("second/BUILD", "toolchain_type(name = 'toolchain_type')");
+
+    addToolchain(
+        "main",
+        "main_toolchain_linux",
+        ImmutableList.of("//constraints:linux"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//main:all',)", "register_execution_platforms('//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType, secondToolchainTypeRequirement)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//main:main_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasToolchainType(secondToolchainTypeLabel);
+    assertThat(unloadedToolchainContext)
+        .resolvedToolchainLabels()
+        .doesNotContain(Label.parseAbsoluteUnchecked("//main:second_toolchain_linux_impl"));
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
@@ -98,7 +290,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:linux')");
 
     // Set up an alias for the toolchain type.
-    Label aliasedToolchainTypeLabel = makeLabel("//alias:toolchain_type");
+    Label aliasedToolchainTypeLabel = Label.parseAbsoluteUnchecked("//alias:toolchain_type");
     scratch.file(
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '//toolchain:test_toolchain')");
 
@@ -106,7 +298,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(aliasedToolchainTypeLabel)
+            .toolchainTypes(ToolchainTypeRequirement.create(aliasedToolchainTypeLabel))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -135,7 +327,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
+    assertThat(unloadedToolchainContext.toolchainTypes()).isEmpty();
     // Even with no toolchains requested, should still select the first execution platform.
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
@@ -172,20 +364,23 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
+    assertThat(unloadedToolchainContext.toolchainTypes()).isEmpty();
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//sample:sample_b");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test
   public void resolve_unavailableToolchainType_single() throws Exception {
+    reporter.removeHandler(failFastHandler);
     scratch.file("fake/toolchain/BUILD", "");
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(
-                testToolchainTypeLabel, Label.parseAbsoluteUnchecked("//fake/toolchain:type_1"))
+            .toolchainTypes(
+                testToolchainType,
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -194,24 +389,46 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .isInstanceOf(InvalidToolchainTypeException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains("//fake/toolchain:type_1");
+    assertContainsEvent("no such target '//fake/toolchain:type_1'");
+  }
+
+  @Test
+  public void resolve_optional_unavailableToolchainType_single() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("fake/toolchain/BUILD", "");
+    useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(optionalToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).resolvedToolchainLabels().isEmpty();
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test
   public void resolve_unavailableToolchainType_multiple() throws Exception {
+    reporter.removeHandler(failFastHandler);
     scratch.file("fake/toolchain/BUILD", "");
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(
-                testToolchainTypeLabel,
-                Label.parseAbsoluteUnchecked("//fake/toolchain:type_1"),
-                Label.parseAbsoluteUnchecked("//fake/toolchain:type_2"))
+            .toolchainTypes(
+                testToolchainType,
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_1")),
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//fake/toolchain:type_2")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -230,7 +447,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -256,7 +473,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -280,7 +497,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -305,7 +522,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -346,7 +563,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//constraints:linux"))
             .build();
 
@@ -367,7 +584,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .toolchainTypes(testToolchainType)
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:linux"))
             .build();
 
@@ -419,9 +636,11 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .requiredToolchainTypeLabels(
-                Label.parseAbsoluteUnchecked("//a:toolchain_type_A"),
-                Label.parseAbsoluteUnchecked("//b:toolchain_type_B"))
+            .toolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//a:toolchain_type_A")),
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//b:toolchain_type_B")))
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -430,5 +649,68 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .isInstanceOf(NoMatchingPlatformException.class);
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform() throws Exception {
+    // This should select execution platform linux, toolchain extra_toolchain_linux, due to the
+    // forced execution platform, even though execution platform mac is registered first.
+    addToolchain(
+        /* packageName= */ "extra",
+        /* toolchainName= */ "extra_toolchain_linux",
+        /* execConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* data= */ "baz");
+    addToolchain(
+        /* packageName= */ "extra",
+        /* toolchainName= */ "extra_toolchain_mac",
+        /* execConstraints= */ ImmutableList.of("//constraints:mac"),
+        /* targetConstraints= */ ImmutableList.of("//constraints:linux"),
+        /* data= */ "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_linux', '//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_forceExecutionPlatform_noRequiredToolchains() throws Exception {
+    // This should select execution platform linux, due to the forced execution platform, even
+    // though execution platform mac is registered first.
+    rewriteWorkspace("register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .forceExecutionPlatform(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 }

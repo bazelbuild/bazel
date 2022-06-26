@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,9 +30,10 @@ public class ConstraintSettingInfoTest extends BuildViewTestCase {
   public void constraintSetting_equalsTester() {
     new EqualsTester()
         .addEqualityGroup(
-            ConstraintSettingInfo.create(makeLabel("//constraint:basic")),
-            ConstraintSettingInfo.create(makeLabel("//constraint:basic")))
-        .addEqualityGroup(ConstraintSettingInfo.create(makeLabel("//constraint:other")))
+            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic")),
+            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic")))
+        .addEqualityGroup(
+            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other")))
         .testEquals();
   }
 }

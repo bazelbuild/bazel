@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import java.util.ArrayList;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -31,8 +31,8 @@ class DisabledDataBindingV1Context implements DataBindingContext {
       Consumer<Iterable<String>> consumer) { }
 
   @Override
-  public void supplyAnnotationProcessor(RuleContext ruleContext,
-      BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) { }
+  public void supplyAnnotationProcessor(
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {}
 
   @Override
   public ImmutableList<Artifact> processDeps(RuleContext ruleContext, boolean isBinary) {

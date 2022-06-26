@@ -138,7 +138,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
           event.getResult().getBuildToolLogCollection()
               .addDirectValue(
                   "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
-          logger.atInfo().log(criticalPath.toString());
+          logger.atInfo().log("%s", criticalPath);
           logger.atInfo().log(
               "Slowest actions:\n  %s",
               Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));

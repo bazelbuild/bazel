@@ -91,9 +91,9 @@ public class StubApplication extends Application {
   private String getExternalResourceFile() {
     String base = INCREMENTAL_DEPLOYMENT_DIR + "/" + packageName + "/";
     String resourceFile = base + "resources.ap_";
-    if (!(new File(resourceFile).isFile())) {
+    if (!new File(resourceFile).isFile()) {
       resourceFile = base + "resources";
-      if (!(new File(resourceFile).isDirectory())) {
+      if (!new File(resourceFile).isDirectory()) {
         Log.v("StubApplication", "Cannot find external resources, not patching them in");
         return null;
       }

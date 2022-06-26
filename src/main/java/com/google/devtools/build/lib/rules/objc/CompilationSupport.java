@@ -14,11 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
@@ -35,8 +31,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPIL
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.Comparator.naturalOrder;
-import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -44,9 +38,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -55,14 +47,13 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -73,52 +64,36 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.FdoContext;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.stream.Stream;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -132,13 +107,9 @@ import java.util.stream.Stream;
  *
  * <p>Methods on this class can be called in any order without impacting the result.
  */
-public class CompilationSupport {
+public class CompilationSupport implements StarlarkValue {
 
   @VisibleForTesting static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-
-  @VisibleForTesting
-  static final String MODULES_CACHE_PATH_WARNING =
-      "setting '-fmodules-cache-path' manually in copts is unsupported";
 
   @VisibleForTesting
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
@@ -164,39 +135,12 @@ public class CompilationSupport {
    * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
    */
   @VisibleForTesting
-  static final NestedSet<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
-      NestedSetBuilder.create(
-          Order.STABLE_ORDER, new SdkFramework("Foundation"), new SdkFramework("UIKit"));
+  static final NestedSet<String> AUTOMATIC_SDK_FRAMEWORKS =
+      NestedSetBuilder.create(Order.STABLE_ORDER, "Foundation", "UIKit");
 
   /** Selects cc libraries that have alwayslink=1. */
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
-
-  private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
-  private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
-
-  private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
-
-  private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
-
-  private static final ImmutableList<String> ACTIVATED_ACTIONS =
-      ImmutableList.of(
-          "objc-compile",
-          "objc++-compile",
-          "objc-archive",
-          "objc-fully-link",
-          "objc-executable",
-          "objc++-executable",
-          "assemble",
-          "preprocess-assemble",
-          "c-compile",
-          "c++-compile");
-
-  /** The kind of include processing to use. */
-  enum IncludeProcessingType {
-    INCLUDE_SCANNING,
-    NO_PROCESSING;
-  }
 
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
@@ -213,368 +157,6 @@ public class CompilationSupport {
               FileTypeSet.of(ObjcRuleClasses.NON_CPP_SOURCES, ObjcRuleClasses.CPP_SOURCES, HEADERS))
           .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
           .withDependencyAttributes("deps", "data", "binary", "xctest_app");
-
-  /** Defines a library that contains the transitive closure of dependencies. */
-  public static final SafeImplicitOutputsFunction FULLY_LINKED_LIB =
-      fromTemplates("%{name}_fully_linked.a");
-
-  private static ImmutableList<String> pathsToIncludeArgs(Iterable<PathFragment> paths) {
-    ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
-    for (PathFragment path : paths) {
-      builder.add("-I" + path);
-    }
-    return builder.build();
-  }
-
-  private CompilationInfo compile(
-      ObjcCompilationContext objcCompilationContext,
-      VariablesExtension extension,
-      ExtraCompileArgs extraCompileArgs,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      List<PathFragment> priorityHeaders,
-      Collection<Artifact> sources,
-      Collection<Artifact> privateHdrs,
-      Collection<Artifact> publicHdrs,
-      Artifact pchHdr,
-      ObjcCppSemantics semantics,
-      String purpose,
-      boolean generateModuleMap,
-      boolean shouldProcessHeaders)
-      throws RuleErrorException, InterruptedException {
-    CcCompilationHelper result =
-        new CcCompilationHelper(
-                ruleContext,
-                ruleContext,
-                ruleContext.getLabel(),
-                CppHelper.getGrepIncludes(ruleContext),
-                semantics,
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics),
-                CcCompilationHelper.SourceCategory.CC_AND_OBJC,
-                ccToolchain,
-                fdoContext,
-                buildConfiguration,
-                TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
-                shouldProcessHeaders)
-            .addSources(sources)
-            .addPublicHeaders(publicHdrs)
-            .addPublicTextualHeaders(objcCompilationContext.getPublicTextualHeaders())
-            .addPrivateHeaders(privateHdrs)
-            .addDefines(
-                NestedSetBuilder.wrap(Order.LINK_ORDER, objcCompilationContext.getDefines()))
-            .addIncludeDirs(priorityHeaders)
-            .addIncludeDirs(objcCompilationContext.getIncludes())
-            .addSystemIncludeDirs(objcCompilationContext.getSystemIncludes())
-            .addQuoteIncludeDirs(objcCompilationContext.getQuoteIncludes())
-            .addCcCompilationContexts(objcCompilationContext.getDepCcCompilationContexts())
-            .setCopts(
-                ImmutableList.<String>builder()
-                    .addAll(getCompileRuleCopts())
-                    .addAll(
-                        ruleContext
-                            .getFragment(ObjcConfiguration.class)
-                            .getCoptsForCompilationMode())
-                    .addAll(extraCompileArgs)
-                    .addAll(
-                        pathsToIncludeArgs(objcCompilationContext.getStrictDependencyIncludes()))
-                    .build())
-            .setCppModuleMap(intermediateArtifacts.moduleMap())
-            .setPropagateModuleMapToCompileAction(false)
-            .addVariableExtension(extension)
-            .setPurpose(purpose)
-            .setCodeCoverageEnabled(CcCompilationHelper.isCodeCoverageEnabled(ruleContext))
-            .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
-
-    if (pchHdr != null) {
-      result.addPublicTextualHeaders(ImmutableList.of(pchHdr));
-    }
-
-    if (getCustomModuleMap(ruleContext).isPresent() || !generateModuleMap) {
-      result.doNotGenerateModuleMap();
-    }
-
-    return result.compile(ruleContext);
-  }
-
-  private static class CompilationResult {
-    private final CcCompilationContext ccCompilationContext;
-    private final CcCompilationOutputs ccCompilationOutputs;
-    private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
-
-    public CompilationResult(
-        CcCompilationContext ccCompilationContext,
-        CcCompilationOutputs ccCompilationOutputs,
-        ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-      this.ccCompilationContext = ccCompilationContext;
-      this.ccCompilationOutputs = ccCompilationOutputs;
-      this.outputGroups = outputGroups;
-    }
-
-    public CcCompilationContext getCcCompilationContext() {
-      return ccCompilationContext;
-    }
-
-    public CcCompilationOutputs getCcCompilationOutputs() {
-      return ccCompilationOutputs;
-    }
-
-    public ImmutableMap<String, NestedSet<Artifact>> getOutputGroups() {
-      return outputGroups;
-    }
-  }
-
-  private CompilationResult ccCompileAndLink(
-      ObjcCompilationContext objcCompilationContext,
-      CompilationArtifacts compilationArtifacts,
-      ObjcVariablesExtension.Builder extensionBuilder,
-      ExtraCompileArgs extraCompileArgs,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      List<PathFragment> priorityHeaders,
-      LinkTargetType linkType,
-      Artifact linkActionInput)
-      throws RuleErrorException, InterruptedException {
-    PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
-    ImmutableSortedSet<Artifact> arcSources =
-        ImmutableSortedSet.copyOf(compilationArtifacts.getSrcs());
-    ImmutableSortedSet<Artifact> nonArcSources =
-        ImmutableSortedSet.copyOf(compilationArtifacts.getNonArcSrcs());
-    ImmutableSortedSet<Artifact> privateHdrs =
-        ImmutableSortedSet.copyOf(compilationArtifacts.getPrivateHdrs());
-    ImmutableSortedSet<Artifact> publicHdrs =
-        Stream.concat(
-                attributes.hdrs().toList().stream(),
-                compilationArtifacts.getAdditionalHdrs().toList().stream())
-            .collect(toImmutableSortedSet(naturalOrder()));
-    Artifact pchHdr = getPchFile().orNull();
-    ObjcCppSemantics semantics = createObjcCppSemantics();
-
-    String purpose = String.format("%s_objc_arc", semantics.getPurpose());
-    extensionBuilder.setArcEnabled(true);
-    CompilationInfo objcArcCompilationInfo =
-        compile(
-            objcCompilationContext,
-            extensionBuilder.build(),
-            extraCompileArgs,
-            ccToolchain,
-            fdoContext,
-            priorityHeaders,
-            arcSources,
-            privateHdrs,
-            publicHdrs,
-            pchHdr,
-            semantics,
-            purpose,
-            /* generateModuleMap= */ true,
-            /* shouldProcessHeaders= */ true);
-
-    purpose = String.format("%s_non_objc_arc", semantics.getPurpose());
-    extensionBuilder.setArcEnabled(false);
-    CompilationInfo nonObjcArcCompilationInfo =
-        compile(
-            objcCompilationContext,
-            extensionBuilder.build(),
-            extraCompileArgs,
-            ccToolchain,
-            fdoContext,
-            priorityHeaders,
-            nonArcSources,
-            privateHdrs,
-            publicHdrs,
-            pchHdr,
-            semantics,
-            purpose,
-            // Only generate the module map once (see above) and re-use it here.
-            /* generateModuleMap= */ false,
-            // We only need to validate headers once, in arc compilation above.
-            /* shouldProcessHeaders= */ false);
-
-    FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration, semantics);
-    CcLinkingHelper resultLink =
-        new CcLinkingHelper(
-                ruleContext,
-                ruleContext.getLabel(),
-                ruleContext,
-                ruleContext,
-                semantics,
-                featureConfiguration,
-                ccToolchain,
-                fdoContext,
-                buildConfiguration,
-                ruleContext.getFragment(CppConfiguration.class),
-                ruleContext.getSymbolGenerator(),
-                TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
-            .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
-            .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
-            .addCcLinkingContexts(
-                CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))))
-            .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())
-            .setNeverLink(true)
-            .addVariableExtension(extensionBuilder.build());
-
-    if (linkType != null) {
-      resultLink.setStaticLinkType(linkType);
-    }
-
-    if (linkActionInput != null) {
-      resultLink.addLinkActionInput(linkActionInput);
-    }
-
-    CcCompilationContext.Builder ccCompilationContextBuilder =
-        CcCompilationContext.builder(
-            ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
-    // Do a re-exporting merge of the ARC and non-ARC contexts so that the direct headers are
-    // preserved in the unified context.
-    ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
-        Arrays.asList(
-            objcArcCompilationInfo.getCcCompilationContext(),
-            nonObjcArcCompilationInfo.getCcCompilationContext()),
-        ImmutableList.of());
-    ccCompilationContextBuilder.setPurpose(
-        String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
-
-    CcCompilationOutputs precompiledFilesObjects =
-        CcCompilationOutputs.builder()
-            .addObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ false))
-            .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
-            .build();
-
-    CcCompilationOutputs compilationOutputs =
-        CcCompilationOutputs.builder()
-            .merge(objcArcCompilationInfo.getCcCompilationOutputs())
-            .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
-            .merge(precompiledFilesObjects)
-            .build();
-
-    if (!compilationOutputs.isEmpty()) {
-      resultLink.link(compilationOutputs);
-    }
-
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    Map<String, NestedSet<Artifact>> arcOutputGroups =
-        CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
-            objcArcCompilationInfo.getCcCompilationOutputs(),
-            objcArcCompilationInfo.getCcCompilationContext(),
-            cppConfiguration,
-            ccToolchain,
-            featureConfiguration,
-            ruleContext,
-            /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ true,
-            /* generateHiddenTopLevelGroup= */ true);
-
-    Map<String, NestedSet<Artifact>> nonArcOutputGroups =
-        CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
-            nonObjcArcCompilationInfo.getCcCompilationOutputs(),
-            nonObjcArcCompilationInfo.getCcCompilationContext(),
-            cppConfiguration,
-            ccToolchain,
-            featureConfiguration,
-            ruleContext,
-            /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ false,
-            /* generateHiddenTopLevelGroup= */ true);
-
-    Map<String, NestedSet<Artifact>> mergedOutputGroups =
-        CcCommon.mergeOutputGroups(ImmutableList.of(arcOutputGroups, nonArcOutputGroups));
-
-    return new CompilationResult(
-        ccCompilationContextBuilder.build(),
-        compilationOutputs,
-        ImmutableMap.copyOf(mergedOutputGroups));
-  }
-
-  ObjcCppSemantics createObjcCppSemantics() {
-    return new ObjcCppSemantics(
-        includeProcessingType,
-        ruleContext.getFragment(ObjcConfiguration.class),
-        intermediateArtifacts,
-        buildConfiguration,
-        attributes.enableModules());
-  }
-
-  private FeatureConfiguration getFeatureConfiguration(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfiguration configuration,
-      ObjcCppSemantics semantics) {
-    boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
-    ImmutableSet.Builder<String> activatedCrosstoolSelectables =
-        ImmutableSet.<String>builder()
-            .addAll(ccToolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
-            .addAll(ACTIVATED_ACTIONS)
-            .addAll(
-                ruleContext
-                    .getFragment(AppleConfiguration.class)
-                    .getBitcodeMode()
-                    .getFeatureNames())
-            .add(CppRuleClasses.LANG_OBJC)
-            // We create a module map by default to allow for Swift interop.
-            .add(CppRuleClasses.MODULE_MAPS)
-            .add(CppRuleClasses.COMPILE_ALL_MODULES)
-            .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
-            .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
-            .add(CppRuleClasses.DEPENDENCY_FILE)
-            .add(CppRuleClasses.INCLUDE_PATHS)
-            .add(isTool ? "host" : "nonhost")
-            .add(configuration.getCompilationMode().toString());
-
-    if (!attributes.enableModules()) {
-      activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
-    }
-    if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
-      activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
-    }
-    if (getPchFile().isPresent()) {
-      activatedCrosstoolSelectables.add("pch");
-    }
-    if (objcConfiguration.generateDsym()) {
-      activatedCrosstoolSelectables.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
-    } else {
-      activatedCrosstoolSelectables.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
-    }
-    if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
-      activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
-    }
-    AppleBitcodeMode bitcodeMode =
-        configuration.getFragment(AppleConfiguration.class).getBitcodeMode();
-    if (bitcodeMode != AppleBitcodeMode.NONE) {
-      activatedCrosstoolSelectables.addAll(bitcodeMode.getFeatureNames());
-    }
-    // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
-    // particular versions of Xcode. To ensure consistency across platforms, use exactly two
-    // components in the version number.
-    activatedCrosstoolSelectables.add(
-        XCODE_VERSION_FEATURE_NAME_PREFIX
-            + XcodeConfig.getXcodeConfigInfo(ruleContext)
-                .getXcodeVersion()
-                .toStringWithComponents(2));
-
-    activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
-
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
-
-    ImmutableSet<String> activatedCrosstoolSelectablesSet;
-    if (!ccToolchain.supportsHeaderParsing()) {
-      // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
-      // cc_toolchain rule.
-      activatedCrosstoolSelectablesSet =
-          activatedCrosstoolSelectables.build().stream()
-              .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
-              .collect(toImmutableSet());
-    } else {
-      activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
-    }
-
-    return CcCommon.configureFeaturesOrReportRuleError(
-        ruleContext, activatedCrosstoolSelectablesSet, ImmutableSet.of(), ccToolchain, semantics);
-  }
 
   /** Iterable wrapper providing strong type safety for arguments to binary linking. */
   static final class ExtraLinkArgs extends IterableWrapper<String> {
@@ -651,26 +233,19 @@ public class CompilationSupport {
   }
 
   private final RuleContext ruleContext;
-  private final BuildConfiguration buildConfiguration;
+  private final BuildConfigurationValue buildConfiguration;
   private final ObjcConfiguration objcConfiguration;
   private final AppleConfiguration appleConfiguration;
+  private final CppSemantics cppSemantics;
   private final CompilationAttributes attributes;
   private final IntermediateArtifacts intermediateArtifacts;
-  private final Map<String, NestedSet<Artifact>> outputGroupCollector;
-  private final ImmutableList.Builder<Artifact> objectFilesCollector;
   private final CcToolchainProvider toolchain;
-  private final boolean usePch;
-  private final IncludeProcessingType includeProcessingType;
-  private Optional<ObjcProvider> objcProvider;
+  private Optional<CcCompilationContext> ccCompilationContext;
 
-  private void setObjcProvider(ObjcProvider objcProvider) {
-    checkState(!this.objcProvider.isPresent());
-    this.objcProvider = Optional.of(objcProvider);
-  }
-
-  public ObjcProvider getObjcProvider() {
-    checkState(objcProvider.isPresent());
-    return objcProvider.get();
+  @StarlarkMethod(name = "compilation_context", documented = false, structField = true)
+  public CcCompilationContext getCcCompilationContext() {
+    checkState(ccCompilationContext.isPresent());
+    return ccCompilationContext.get();
   }
 
   /**
@@ -688,59 +263,51 @@ public class CompilationSupport {
    */
   private CompilationSupport(
       RuleContext ruleContext,
-      BuildConfiguration buildConfiguration,
+      BuildConfigurationValue buildConfiguration,
+      CppSemantics cppSemantics,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
-      Map<String, NestedSet<Artifact>> outputGroupCollector,
-      ImmutableList.Builder<Artifact> objectFilesCollector,
-      CcToolchainProvider toolchain,
-      boolean usePch)
-      throws InterruptedException {
+      CcToolchainProvider toolchain)
+      throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
+    this.cppSemantics = cppSemantics;
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
-    this.outputGroupCollector = outputGroupCollector;
-    this.objectFilesCollector = objectFilesCollector;
-    this.objcProvider = Optional.absent();
-    this.usePch = usePch;
+    this.ccCompilationContext = Optional.absent();
     if (toolchain == null
-        && ruleContext
-            .attributes()
-            .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+        && (ruleContext
+                .attributes()
+                .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)
+            || ruleContext
+                .attributes()
+                .has(
+                    CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK,
+                    BuildType.LABEL))) {
       toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     }
 
     this.toolchain = toolchain;
-
-    if (objcConfiguration.shouldScanIncludes()) {
-      includeProcessingType = IncludeProcessingType.INCLUDE_SCANNING;
-    } else {
-      includeProcessingType = IncludeProcessingType.NO_PROCESSING;
-    }
   }
 
   /** Builder for {@link CompilationSupport} */
   public static class Builder {
-    private RuleContext ruleContext;
-    private BuildConfiguration buildConfiguration;
+    private final RuleContext ruleContext;
+    private final CppSemantics cppSemantics;
+    private BuildConfigurationValue buildConfiguration;
     private IntermediateArtifacts intermediateArtifacts;
     private CompilationAttributes compilationAttributes;
-    private Map<String, NestedSet<Artifact>> outputGroupCollector;
-    private ImmutableList.Builder<Artifact> objectFilesCollector;
     private CcToolchainProvider toolchain;
-    private boolean usePch = true;
 
-    /** Sets the {@link RuleContext} for the calling target. */
-    public Builder setRuleContext(RuleContext ruleContext) {
+    public Builder(RuleContext ruleContext, CppSemantics cppSemantics) {
       this.ruleContext = ruleContext;
-      return this;
+      this.cppSemantics = cppSemantics;
     }
 
-    /** Sets the {@link BuildConfiguration} for the calling target. */
-    public Builder setConfig(BuildConfiguration buildConfiguration) {
+    /** Sets the {@link BuildConfigurationValue} for the calling target. */
+    public Builder setConfig(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = buildConfiguration;
       return this;
     }
@@ -758,39 +325,6 @@ public class CompilationSupport {
     }
 
     /**
-     * Sets that this {@link CompilationSupport} will not use the pch from the rule context in
-     * determining compilation actions.
-     */
-    public Builder doNotUsePch() {
-      this.usePch = false;
-      return this;
-    }
-
-    /**
-     * Causes the provided map to be updated with output groups produced by compile action
-     * registration.
-     *
-     * <p>This map is intended to be mutated by {@link
-     * CompilationSupport#registerCompileAndArchiveActions}. The added output groups should be
-     * exported by the calling rule class implementation.
-     */
-    public Builder setOutputGroupCollector(Map<String, NestedSet<Artifact>> outputGroupCollector) {
-      this.outputGroupCollector = outputGroupCollector;
-      return this;
-    }
-
-    /**
-     * Set a collector for the object files produced by compile action registration.
-     *
-     * <p>The object files are intended to be added by {@link
-     * CompilationSupport#registerCompileAndArchiveActions}.
-     */
-    public Builder setObjectFilesCollector(ImmutableList.Builder<Artifact> objectFilesCollector) {
-      this.objectFilesCollector = objectFilesCollector;
-      return this;
-    }
-
-    /**
      * Sets {@link CcToolchainProvider} for the calling target.
      *
      * <p>This is needed if it can't correctly be inferred directly from the rule context. Setting
@@ -802,9 +336,7 @@ public class CompilationSupport {
     }
 
     /** Returns a {@link CompilationSupport} instance. */
-    public CompilationSupport build() throws InterruptedException {
-      checkNotNull(ruleContext, "CompilationSupport is missing RuleContext");
-
+    public CompilationSupport build() throws InterruptedException, RuleErrorException {
       if (buildConfiguration == null) {
         buildConfiguration = ruleContext.getConfiguration();
       }
@@ -818,23 +350,13 @@ public class CompilationSupport {
         compilationAttributes = CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
       }
 
-      if (outputGroupCollector == null) {
-        outputGroupCollector = new TreeMap<>();
-      }
-
-      if (objectFilesCollector == null) {
-        objectFilesCollector = ImmutableList.builder();
-      }
-
       return new CompilationSupport(
           ruleContext,
           buildConfiguration,
+          cppSemantics,
           intermediateArtifacts,
           compilationAttributes,
-          outputGroupCollector,
-          objectFilesCollector,
-          toolchain,
-          usePch);
+          toolchain);
     }
   }
 
@@ -842,18 +364,26 @@ public class CompilationSupport {
    * Returns a provider that collects this target's instrumented sources as well as those of its
    * dependencies.
    *
-   * @param objectFiles the object files generated by this target
+   * @param ruleContext the rule context of the target
+   * @param toolchain the toolchain used by the target
+   * @param buildConfiguration the build configuration of the target
+   * @param objectFiles the object files generated by the target
    * @return an instrumented files provider
    */
-  public InstrumentedFilesInfo getInstrumentedFilesProvider(ImmutableList<Artifact> objectFiles) {
+  protected static InstrumentedFilesInfo getInstrumentedFilesProvider(
+      RuleContext ruleContext,
+      CcToolchainProvider toolchain,
+      BuildConfigurationValue buildConfiguration,
+      ImmutableList<Artifact> objectFiles)
+      throws RuleErrorException {
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
     return InstrumentedFilesCollector.collect(
         ruleContext,
         INSTRUMENTATION_SPEC,
-        new ObjcCoverageMetadataCollector(),
+        OBJC_METADATA_COLLECTOR,
         objectFiles,
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
-        NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
+        CppHelper.getGcovFilesIfNeeded(ruleContext, toolchain),
+        CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, cppConfiguration, toolchain),
         /* withBaselineCoverage= */ true,
         /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
   }
@@ -902,161 +432,12 @@ public class CompilationSupport {
     return this;
   }
 
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param compilationArtifacts collection of artifacts required for the compilation
-   * @param objcCompilationContext provides the compiling information to register these actions
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(
-      CompilationArtifacts compilationArtifacts, ObjcCompilationContext objcCompilationContext)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(
-        compilationArtifacts,
-        objcCompilationContext,
-        Optional.absent(),
-        ExtraCompileArgs.NONE,
-        ImmutableList.<PathFragment>of());
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(ObjcCommon common)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(
-        common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @param priorityHeaders priority headers to be included before the dependency headers
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, List<PathFragment> priorityHeaders)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE, priorityHeaders);
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param compilationArtifacts collection of artifacts required for the compilation
-   * @param objcCompilationContext provides the compiling information to register these actions
-   * @param extraCompileArgs args to be added to compile actions
-   * @param priorityHeaders priority headers to be included before the dependency headers
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  private CompilationSupport registerCompileAndArchiveActions(
-      CompilationArtifacts compilationArtifacts,
-      ObjcCompilationContext objcCompilationContext,
-      Optional<ObjcCommon> objcCommon,
-      ExtraCompileArgs extraCompileArgs,
-      List<PathFragment> priorityHeaders)
-      throws RuleErrorException, InterruptedException {
-    checkNotNull(toolchain);
-    checkNotNull(toolchain.getFdoContext());
-    ObjcVariablesExtension.Builder extension =
-        new ObjcVariablesExtension.Builder()
-            .setRuleContext(ruleContext)
-            .setCompilationArtifacts(compilationArtifacts)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setConfiguration(buildConfiguration);
-
-    CompilationResult compilationResult;
-
-    if (compilationArtifacts.getArchive().isPresent()) {
-      Artifact objList = intermediateArtifacts.archiveObjList();
-
-      extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
-
-      compilationResult =
-          ccCompileAndLink(
-              objcCompilationContext,
-              compilationArtifacts,
-              extension,
-              extraCompileArgs,
-              toolchain,
-              toolchain.getFdoContext(),
-              priorityHeaders,
-              LinkTargetType.OBJC_ARCHIVE,
-              objList);
-
-      // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
-      registerObjFilelistAction(
-          ImmutableSet.copyOf(
-              compilationResult.getCcCompilationOutputs().getObjectFiles(/* usePic= */ false)),
-          objList);
-    } else {
-      compilationResult =
-          ccCompileAndLink(
-              objcCompilationContext,
-              compilationArtifacts,
-              extension,
-              extraCompileArgs,
-              toolchain,
-              toolchain.getFdoContext(),
-              priorityHeaders,
-              /* linkType */ null,
-              /* linkActionInput */ null);
-    }
-
-    objectFilesCollector.addAll(
-        compilationResult.getCcCompilationOutputs().getObjectFiles(/* usePic= */ false));
-    outputGroupCollector.putAll(compilationResult.getOutputGroups());
-
-    if (objcCommon.isPresent()
-        && objcCommon.get().getPurpose() == ObjcCommon.Purpose.COMPILE_AND_LINK) {
-
-      ObjcProvider.NativeBuilder objcProviderBuilder = objcCommon.get().getObjcProviderBuilder();
-      ObjcProvider objcProvider =
-          objcProviderBuilder
-              .setCcCompilationContext(compilationResult.getCcCompilationContext())
-              .build();
-
-      setObjcProvider(objcProvider);
-    }
-
-    return this;
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @param extraCompileArgs args to be added to compile actions
-   * @param priorityHeaders priority headers to be included before the dependency headers
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, ExtraCompileArgs extraCompileArgs, List<PathFragment> priorityHeaders)
-      throws RuleErrorException, InterruptedException {
-    if (common.getCompilationArtifacts().isPresent()) {
-      registerCompileAndArchiveActions(
-          common.getCompilationArtifacts().get(),
-          common.getObjcCompilationContext(),
-          Optional.of(common),
-          extraCompileArgs,
-          priorityHeaders);
-    }
-    return this;
-  }
-
   private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
     if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
       return StrippingType.DYNAMIC_LIB;
+    }
+    if (Iterables.contains(extraLinkArgs, "-bundle")) {
+      return StrippingType.LOADABLE_BUNDLE;
     }
     if (Iterables.contains(extraLinkArgs, "-kext")) {
       return StrippingType.KERNEL_EXTENSION;
@@ -1139,10 +520,15 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    CppSemantics cppSemantics = createObjcCppSemantics();
     FeatureConfiguration featureConfiguration =
-        getFeatureConfiguration(
-            ruleContext, toolchain, buildConfiguration, createObjcCppSemantics());
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            buildConfiguration,
+            ruleContext.getFeatures(),
+            ruleContext.getDisabledFeatures(),
+            Language.OBJC,
+            toolchain,
+            cppSemantics);
 
     Label binaryLabel = null;
     try {
@@ -1152,6 +538,7 @@ public class CompilationSupport {
       // Formed from existing label, just replacing name with artifact name.
     }
 
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
     CcLinkingHelper executableLinkingHelper =
         new CcLinkingHelper(
                 ruleContext,
@@ -1163,7 +550,7 @@ public class CompilationSupport {
                 toolchain,
                 toolchain.getFdoContext(),
                 buildConfiguration,
-                ruleContext.getFragment(CppConfiguration.class),
+                cppConfiguration,
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
@@ -1172,8 +559,8 @@ public class CompilationSupport {
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addNonCodeLinkerInputs(bazelBuiltLibraries)
             .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-            .addNonCodeLinkerInputs(ImmutableList.copyOf(prunedJ2ObjcArchives))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
+            .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
             .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveAdditionalLinkerInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
@@ -1186,7 +573,7 @@ public class CompilationSupport {
 
     ImmutableList.Builder<Artifact> linkerOutputs = ImmutableList.builder();
 
-    if (objcConfiguration.generateDsym()) {
+    if (cppConfiguration.appleGenerateDsym()) {
       Artifact dsymSymbol =
           objcConfiguration.shouldStripBinary()
               ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
@@ -1203,7 +590,7 @@ public class CompilationSupport {
       linkerOutputs.add(linkmap);
     }
 
-    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+    if (cppConfiguration.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
       Artifact bitcodeSymbolMap = intermediateArtifacts.bitcodeSymbolMap();
       extensionBuilder
           .setBitcodeSymbolMap(bitcodeSymbolMap)
@@ -1247,40 +634,6 @@ public class CompilationSupport {
     return this;
   }
 
-  /**
-   * Returns the copts for the compile action in the current rule context (using a combination of
-   * the rule's "copts" attribute as well as the current configuration copts).
-   */
-  private Iterable<String> getCompileRuleCopts() {
-    List<String> copts =
-        Stream.concat(objcConfiguration.getCopts().stream(), attributes.copts().stream())
-            .collect(toCollection(ArrayList::new));
-
-    for (String copt : copts) {
-      if (copt.contains("-fmodules-cache-path")) {
-        // Bazel decides on the cache path location.
-        ruleContext.ruleWarning(MODULES_CACHE_PATH_WARNING);
-      }
-    }
-
-    if (attributes.enableModules() && !getCustomModuleMap(ruleContext).isPresent()) {
-      copts.add("-fmodules");
-    }
-    if (copts.contains("-fmodules")) {
-      // If modules are enabled, clang caches module information. If unspecified, this is a
-      // system-wide cache directory, which is a problem for remote executors which may run
-      // multiple actions with different source trees that can't share this cache.
-      // We thus set its path to the root of the genfiles directory.
-      // Unfortunately, this cache contains non-hermetic information, thus we avoid declaring it as
-      // an implicit output (as outputs must be hermetic).
-      String cachePath =
-          buildConfiguration.getGenfilesFragment(ruleContext.getRepository())
-              + "/"
-              + OBJC_MODULE_CACHE_DIR_NAME;
-      copts.add("-fmodules-cache-path=" + cachePath);
-    }
-    return copts;
-  }
 
   /**
    * Registers an action that writes given set of object files to the given objList. This objList is
@@ -1314,69 +667,6 @@ public class CompilationSupport {
   }
 
   /**
-   * Registers an action to create an archive artifact by fully (statically) linking all transitive
-   * dependencies of this rule.
-   *
-   * @param objcProvider provides all compiling and linking information to create this artifact
-   * @param outputArchive the output artifact for this action
-   * @return this {@link CompilationSupport} instance
-   */
-  CompilationSupport registerFullyLinkAction(ObjcProvider objcProvider, Artifact outputArchive)
-      throws InterruptedException, RuleErrorException {
-    checkNotNull(toolchain);
-    checkNotNull(toolchain.getFdoContext());
-
-    ObjcVariablesExtension extension =
-        new ObjcVariablesExtension.Builder()
-            .setRuleContext(ruleContext)
-            .setObjcProvider(objcProvider)
-            .setConfiguration(buildConfiguration)
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setFullyLinkArchive(outputArchive)
-            .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
-            .build();
-
-    Label archiveLabel = null;
-    try {
-      archiveLabel =
-          Label.create(
-              ruleContext.getLabel().getPackageIdentifier(),
-              FileSystemUtils.removeExtension(outputArchive.getFilename()));
-    } catch (LabelSyntaxException e) {
-      // Formed from existing label, just replacing name with artifact name.
-    }
-
-    new CcLinkingHelper(
-            ruleContext,
-            archiveLabel,
-            ruleContext,
-            ruleContext,
-            createObjcCppSemantics(),
-            getFeatureConfiguration(
-                ruleContext, toolchain, buildConfiguration, createObjcCppSemantics()),
-            toolchain,
-            toolchain.getFdoContext(),
-            buildConfiguration,
-            ruleContext.getFragment(CppConfiguration.class),
-            ruleContext.getSymbolGenerator(),
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-        .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
-        .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
-        .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
-        .addNonCodeLinkerInputs(objcProvider.getObjcLibraries())
-        .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-        .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
-        .setLinkingMode(LinkingMode.STATIC)
-        .setStaticLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
-        .setShouldCreateDynamicLibrary(false)
-        .addVariableExtension(extension)
-        .link(CcCompilationOutputs.EMPTY);
-
-    return this;
-  }
-
-  /**
    * Returns all framework names to pass to the linker using {@code -framework} flags. For a
    * framework in the directory foo/bar.framework, the name is "bar". Each framework is found
    * without using the full path by means of the framework search paths. Search paths are added by
@@ -1388,7 +678,7 @@ public class CompilationSupport {
    */
   private Set<String> frameworkNames(ObjcProvider provider) {
     Set<String> names = new LinkedHashSet<>();
-    names.addAll(SdkFramework.names(provider.get(SDK_FRAMEWORK)));
+    names.addAll(provider.get(SDK_FRAMEWORK).toList());
     names.addAll(provider.staticFrameworkNames().toList());
     names.addAll(provider.dynamicFrameworkNames().toList());
     return names;
@@ -1445,7 +735,6 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
     NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
-    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner");
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
         j2ObjcMappingFileProvider.getDependencyMappingFiles();
     NestedSet<Artifact> j2ObjcHeaderMappingFiles =
@@ -1484,9 +773,8 @@ public class CompilationSupport {
                   XcodeConfigInfo.fromRuleContext(ruleContext),
                   appleConfiguration.getSingleArchPlatform())
               .setMnemonic("DummyPruner")
-              .setExecutable(pruner)
+              .setExecutable(ruleContext.getExecutablePrerequisite("$j2objc_dead_code_pruner"))
               .addInput(dummyArchive)
-              .addInput(pruner)
               .addInput(j2objcArchive)
               .addInput(xcrunwrapper(ruleContext).getExecutable())
               .addTransitiveInputs(j2ObjcDependencyMappingFiles)
@@ -1564,6 +852,7 @@ public class CompilationSupport {
   private enum StrippingType {
     DEFAULT,
     DYNAMIC_LIB,
+    LOADABLE_BUNDLE,
     KERNEL_EXTENSION
   }
 
@@ -1575,8 +864,9 @@ public class CompilationSupport {
     final ImmutableList<String> stripArgs;
     switch (strippingType) {
       case DYNAMIC_LIB:
+      case LOADABLE_BUNDLE:
       case KERNEL_EXTENSION:
-        // For dylibs and kexts, must strip only local symbols.
+        // For dylibs, loadable bundles, and kexts, must strip only local symbols.
         stripArgs = ImmutableList.of("-x");
         break;
       case DEFAULT:
@@ -1600,104 +890,26 @@ public class CompilationSupport {
             .build(ruleContext));
   }
 
-  private Optional<Artifact> getPchFile() {
-    if (!usePch) {
-      return Optional.absent();
-    }
-    Artifact pchHdr = null;
-    if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
-      pchHdr = ruleContext.getPrerequisiteArtifact("pch");
-    }
-    return Optional.fromNullable(pchHdr);
-  }
-
-  /**
-   * Registers an action that will generate a clang module map for this target, using the hdrs
-   * attribute of this rule.
-   */
-  public CompilationSupport registerGenerateModuleMapAction(
-      CompilationArtifacts compilationArtifacts) throws RuleErrorException, InterruptedException {
-    // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
-    // dropped.
-    // TODO(b/32225593): Include private headers in the module map.
-    ObjcCppSemantics semantics = createObjcCppSemantics();
-    CcCompilationHelper ccCompilationHelper =
-        new CcCompilationHelper(
-            ruleContext,
-            ruleContext,
-            ruleContext.getLabel(),
-            CppHelper.getGrepIncludes(ruleContext),
-            semantics,
-            getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, semantics),
-            CcCompilationHelper.SourceCategory.CC_AND_OBJC,
-            toolchain,
-            toolchain.getFdoContext(),
-            buildConfiguration,
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
-            /* shouldProcessHeaders= */ false);
-
-    ImmutableSortedSet<Artifact> publicHeaders =
-        Stream.concat(
-                attributes.hdrs().toList().stream(),
-                compilationArtifacts.getAdditionalHdrs().toList().stream())
-            .collect(toImmutableSortedSet(naturalOrder()));
-
-    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-
-    ccCompilationHelper.setCppModuleMap(moduleMap).addPublicHeaders(publicHeaders);
-
-    ccCompilationHelper.compile(ruleContext);
-
-    return this;
-  }
-
-  /**
-   * Registers an action that will generate a clang module map.
-   *
-   * @param moduleMap the module map to generate
-   * @param publicHeaders the headers that should be directly accessible by dependers
-   * @return this compilation support
-   */
-  public CompilationSupport registerGenerateModuleMapAction(
-      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders) {
-    publicHeaders = Iterables.filter(publicHeaders, CppFileTypes.MODULE_MAP_HEADER);
-    ruleContext.registerAction(
-        new CppModuleMapAction(
-            ruleContext.getActionOwner(),
-            moduleMap,
-            ImmutableList.of(),
-            publicHeaders,
-            ImmutableList.of(),
-            ImmutableList.of(),
-            ImmutableList.of(),
-            /* compiledModule= */ true,
-            /* moduleMapHomeIsCwd= */ false,
-            /* generateSubmodules= */ false,
-            /* externDependencies= */ true));
-
-    return this;
-  }
-
   /**
    * Collector that, given a list of output artifacts, finds and registers coverage notes metadata
    * for any compilation action.
    */
-  private static class ObjcCoverageMetadataCollector extends LocalMetadataCollector {
-
-    @Override
-    public void collectMetadataArtifacts(
-        Iterable<Artifact> artifacts,
-        AnalysisEnvironment analysisEnvironment,
-        NestedSetBuilder<Artifact> metadataFilesBuilder) {
-      for (Artifact artifact : artifacts) {
-        ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
-        if (action.getMnemonic().equals("ObjcCompile")) {
-          addOutputs(metadataFilesBuilder, action, ObjcRuleClasses.COVERAGE_NOTES);
+  private static final LocalMetadataCollector OBJC_METADATA_COLLECTOR =
+      new LocalMetadataCollector() {
+        @Override
+        public void collectMetadataArtifacts(
+            Iterable<Artifact> artifacts,
+            AnalysisEnvironment analysisEnvironment,
+            NestedSetBuilder<Artifact> metadataFilesBuilder) {
+          for (Artifact artifact : artifacts) {
+            ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
+            if (action.getMnemonic().equals("ObjcCompile")
+                || action.getMnemonic().equals("ObjcCompileHeader")) {
+              addOutputs(metadataFilesBuilder, action, ObjcRuleClasses.COVERAGE_NOTES);
+            }
+          }
         }
-      }
-    }
-  }
+      };
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {
     if (ruleContext.attributes().has("module_map", BuildType.LABEL)) {

@@ -26,12 +26,14 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -54,17 +56,8 @@ public final class ExtraAction extends SpawnAction {
   private final boolean createDummyOutput;
   private final NestedSet<Artifact> extraActionInputs;
 
-  /**
-   * A long way to say (ExtraAction xa) -> xa.getShadowedAction().
-   */
   public static final Function<ExtraAction, Action> GET_SHADOWED_ACTION =
-      new Function<ExtraAction, Action>() {
-        @Nullable
-        @Override
-        public Action apply(@Nullable ExtraAction extraAction) {
-          return extraAction != null ? extraAction.getShadowedAction() : null;
-        }
-      };
+      e -> e != null ? e.getShadowedAction() : null;
 
   ExtraAction(
       NestedSet<Artifact> extraActionInputs,
@@ -97,7 +90,8 @@ public final class ExtraAction extends SpawnAction {
         mnemonic,
         false,
         null,
-        null);
+        null,
+        /*stripOutputPaths=*/ false);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
 
@@ -122,9 +116,6 @@ public final class ExtraAction extends SpawnAction {
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Preconditions.checkState(discoversInputs(), this);
-    // We depend on the outputs of actions doing input discovery and they should know their inputs
-    // after having been executed
-    Preconditions.checkState(shadowedAction.inputsDiscovered());
 
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
@@ -157,6 +148,20 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
+  public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
+      throws CommandLineExpansionException, InterruptedException {
+    if (!createDummyOutput) {
+      return super.getSpawn(actionExecutionContext);
+    }
+    return getSpawn(
+        actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext.getClientEnv(),
+        /*envResolved=*/ false,
+        actionExecutionContext.getTopLevelFilesets(),
+        /*reportOutputs=*/ false);
+  }
+
+  @Override
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
       throws ExecException {
@@ -174,9 +179,7 @@ public final class ExtraAction extends SpawnAction {
     }
   }
 
-  /**
-   * Returns the action this extra action is 'shadowing'.
-   */
+  /** Returns the action this extra action is 'shadowing'. */
   public Action getShadowedAction() {
     return shadowedAction;
   }

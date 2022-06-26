@@ -17,8 +17,9 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.RuleConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -31,7 +32,8 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 @AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-public final class RuleConfiguredTargetValue implements ActionLookupValue, ConfiguredTargetValue {
+public final class RuleConfiguredTargetValue
+    implements RuleConfiguredObjectValue, ConfiguredTargetValue {
 
   // This variable is non-final because it may be clear()ed to save memory. It is null only after
   // clear(true) is called.

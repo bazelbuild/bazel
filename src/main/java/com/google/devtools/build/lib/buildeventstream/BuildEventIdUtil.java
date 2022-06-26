@@ -229,6 +229,16 @@ public final class BuildEventIdUtil {
     return BuildEventId.newBuilder().setTestSummary(summaryId).build();
   }
 
+  public static BuildEventId targetSummary(Label target, BuildEventId configuration) {
+    BuildEventId.ConfigurationId configId = configuration.getConfiguration();
+    BuildEventId.TargetSummaryId summaryId =
+        BuildEventId.TargetSummaryId.newBuilder()
+            .setLabel(target.toString())
+            .setConfiguration(configId)
+            .build();
+    return BuildEventId.newBuilder().setTargetSummary(summaryId).build();
+  }
+
   public static BuildEventId buildFinished() {
     BuildEventId.BuildFinishedId finishedId = BuildEventId.BuildFinishedId.getDefaultInstance();
     return BuildEventId.newBuilder().setBuildFinished(finishedId).build();

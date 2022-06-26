@@ -159,7 +159,7 @@ public class AarGeneratorAction {
     public boolean throwOnResourceConflict;
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.builder()
@@ -187,7 +187,6 @@ public class AarGeneratorAction {
               ImmutableList.<DependencyAndroidData>of(),
               resourcesOut,
               assetsOut,
-              null,
               VariantType.LIBRARY,
               null,
               /* filteredResources= */ ImmutableList.<String>of(),
@@ -205,12 +204,11 @@ public class AarGeneratorAction {
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } catch (MergeConflictException e) {
       logger.log(Level.SEVERE, e.getMessage());
-      System.exit(1);
+      throw e;
     } catch (IOException | MergingException e) {
       logger.log(Level.SEVERE, "Error during merging resources", e);
-      System.exit(1);
+      throw e;
     }
-    System.exit(0);
   }
 
   @VisibleForTesting

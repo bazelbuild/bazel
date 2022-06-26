@@ -113,8 +113,8 @@ public final class StarlarkConfigurationFieldProcessor extends AbstractProcessor
       return false;
     }
     Element classElement = methodElement.getEnclosingElement();
-    // If configurationFragmentType is null, then BuildConfiguration.Fragment isn't even included
-    // in the current build, so the class clearly does not depend on it.
+    // If configurationFragmentType is null, then the fragment isn't even included in the current
+    // build, so the class clearly does not depend on it.
     if (configurationFragmentType == null
         || !typeUtils.isAssignable(classElement.asType(), configurationFragmentType.asType())) {
       return false;

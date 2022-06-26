@@ -14,7 +14,7 @@
 
 """Rules for importing and registering a local JDK."""
 
-load(":default_java_toolchain.bzl", "JVM8_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
+load(":default_java_toolchain.bzl", "default_java_toolchain")
 
 def _detect_java_version(repository_ctx, java_bin):
     properties_out = repository_ctx.execute([java_bin, "-XshowSettings:properties"]).stderr
@@ -29,13 +29,16 @@ def _detect_java_version(repository_ctx, java_bin):
         return None
 
     version_value = version_property[0][len("java.version = "):]
-    (major, minor, rest) = version_value.split(".", 2)
-
-    if major == "1":  # handles versions below 1.8
+    parts = version_value.split(".")
+    major = parts[0]
+    if len(parts) == 1:
+        return major
+    elif major == "1":  # handles versions below 1.8
+        minor = parts[1]
         return minor
     return major
 
-def local_java_runtime(name, java_home, version, runtime_name = None):
+def local_java_runtime(name, java_home, version, runtime_name = None, visibility = ["//visibility:public"]):
     """Defines a java_runtime target together with Java runtime and compile toolchain definitions.
 
     Java runtime toolchain is constrained by flag --java_runtime_version having
@@ -51,12 +54,14 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
       java_home: Path to the JDK.
       version: Version of the JDK.
       runtime_name: name of java_runtime target if it already exists.
+      visibility: Visibility that will be applied to the java runtime target
     """
     if runtime_name == None:
         runtime_name = name
         native.java_runtime(
             name = runtime_name,
             java_home = java_home,
+            visibility = visibility,
         )
 
     native.config_setting(
@@ -90,15 +95,7 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
         toolchain = runtime_name,
     )
 
-    if version == "8":
-        default_java_toolchain(
-            name = name + "_toolchain_java8",
-            configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-            source_version = version,
-            target_version = version,
-            java_runtime = runtime_name,
-        )
-    elif type(version) == type("") and version.isdigit() and int(version) > 8:
+    if type(version) == type("") and version.isdigit() and int(version) > 8:
         for version in range(8, int(version) + 1):
             default_java_toolchain(
                 name = name + "_toolchain_java" + str(version),
@@ -118,8 +115,8 @@ def _local_java_repository_impl(repository_ctx):
     java_home = repository_ctx.attr.java_home
     java_home_path = repository_ctx.path(java_home)
     if not java_home_path.exists:
-        fail('The path indicated by the "java_home" attribute "%s" (absolute: "%s") ' +
-             "does not exist." % (java_home, str(java_home_path)))
+        fail(('The path indicated by the "java_home" attribute "%s" (absolute: "%s") ' +
+              "does not exist.") % (java_home, str(java_home_path)))
 
     repository_ctx.file(
         "WORKSPACE",
@@ -127,7 +124,7 @@ def _local_java_repository_impl(repository_ctx):
         "workspace(name = \"{name}\")\n".format(name = repository_ctx.name),
     )
 
-    extension = ".exe" if repository_ctx.os.name.lower().find("windows") != -1 else ""
+    extension = ".exe" if repository_ctx.os.name.find("windows") != -1 else ""
     java_bin = java_home_path.get_child("bin").get_child("java" + extension)
 
     if not java_bin.exists:

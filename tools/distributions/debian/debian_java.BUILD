@@ -20,124 +20,118 @@ package(default_visibility = ["//visibility:public"])
 java_import(
     name = "netty",
     jars = [
-        "netty-buffer.jar",
-        "netty-codec-dns.jar",
-        "netty-codec-haproxy.jar",
-        "netty-codec-http2.jar",
-        "netty-codec-http.jar",
-        "netty-codec.jar",
-        "netty-codec-memcache.jar",
-        "netty-codec-mqtt.jar",
-        "netty-codec-redis.jar",
-        "netty-codec-smtp.jar",
-        "netty-codec-socks.jar",
-        "netty-codec-stomp.jar",
-        "netty-common.jar",
-        "netty-handler.jar",
-        "netty-handler-proxy.jar",
-        "netty-resolver-dns.jar",
-        "netty-resolver-dns-native-macos.jar",
-        "netty-resolver.jar",
-        "netty-transport.jar",
-        "netty-transport-native-epoll.jar",
-        "netty-transport-native-kqueue.jar",
-        "netty-transport-native-unix-common.jar",
-        "netty-transport-sctp.jar",
+        "java/netty-buffer.jar",
+        "java/netty-codec-dns.jar",
+        "java/netty-codec-haproxy.jar",
+        "java/netty-codec-http2.jar",
+        "java/netty-codec-http.jar",
+        "java/netty-codec.jar",
+        "java/netty-codec-memcache.jar",
+        "java/netty-codec-mqtt.jar",
+        "java/netty-codec-redis.jar",
+        "java/netty-codec-smtp.jar",
+        "java/netty-codec-socks.jar",
+        "java/netty-codec-stomp.jar",
+        "java/netty-common.jar",
+        "java/netty-handler.jar",
+        "java/netty-handler-proxy.jar",
+        "java/netty-resolver-dns.jar",
+        "java/netty-resolver-dns-native-macos.jar",
+        "java/netty-resolver.jar",
+        "java/netty-transport.jar",
+        "java/netty-transport-native-epoll.jar",
+        "java/netty-transport-native-kqueue.jar",
+        "java/netty-transport-native-unix-common.jar",
+        "java/netty-transport-sctp.jar",
     ],
 )
 
 # libgoogle-gson-java
 java_import(
     name = "gson",
-    jars = ["gson.jar"],
+    jars = ["java/gson.jar"],
 )
 
 # libtomcat9-java
 java_import(
     name = "tomcat_annotations_api",
-    jars = ["tomcat9-annotations-api.jar"],
+    jars = ["java/tomcat9-annotations-api.jar"],
 )
 
 # For bootstrapping java toolcahin
 filegroup(
     name = "tomcat_annotations_api-jars",
-    srcs = ["tomcat9-annotations-api.jar"],
+    srcs = ["java/tomcat9-annotations-api.jar"],
 )
 
 # libjava-allocation-instrumenter-java
 java_import(
     name = "allocation_instrumenter",
-    jars = ["java-allocation-instrumenter.jar"],
+    jars = ["java/java-allocation-instrumenter.jar"],
 )
 
 # libprotobuf-java
 java_import(
     name = "protobuf_java",
-    jars = ["protobuf.jar"],
+    jars = ["java/protobuf.jar"],
 )
 
 # libprotobuf-java
 java_import(
     name = "protobuf_java_util",
-    jars = ["protobuf-util.jar"],
+    jars = ["java/protobuf-util.jar"],
 )
 
 # For bootstrapping java toolcahin
 filegroup(
     name = "bootstrap-derived-java-jars",
     srcs = [
-        "protobuf.jar",
-        "protobuf-util.jar",
+        "java/protobuf.jar",
+        "java/protobuf-util.jar",
     ],
 )
 
 # libcommons-collections3-java
 java_import(
     name = "apache_commons_collections",
-    jars = ["commons-collections3.jar"],
+    jars = ["java/commons-collections3.jar"],
 )
 
 # libcommons-lang-java
 java_import(
     name = "apache_commons_lang",
-    jars = ["commons-lang.jar"],
+    jars = ["java/commons-lang.jar"],
 )
 
 # libcommons-compress-java
 java_import(
     name = "apache_commons_compress",
-    jars = ["commons-compress.jar"],
-)
-
-# libcommons-logging-java
-java_import(
-    name = "apache_commons_logging",
-    jars = ["commons-logging.jar"],
+    jars = ["java/commons-compress.jar"],
 )
 
 # libcommons-pool2-java
 java_import(
     name = "apache_commons_pool2",
-    jars = ["commons-pool2.jar"],
+    jars = ["java/commons-pool2.jar"],
 )
 
 # velocity
 java_import(
     name = "apache_velocity",
-    jars = ["velocity.jar"],
+    jars = ["java/velocity.jar"],
 )
 
 # libasm-java
 java_import(
     name = "asm",
-    jars = ["asm.jar"],
+    jars = ["java/asm.jar"],
 )
 
 # libjackson2-core-java
 java_import(
     name = "jackson2",
     jars = [
-        "jackson-core.jar",
+        "java/jackson-core.jar",
     ],
 )
 
@@ -145,7 +139,7 @@ java_import(
 java_import(
     name = "jcip_annotations",
     jars = [
-        "jcip-annotations.jar",
+        "java/jcip-annotations.jar",
     ],
 )
 
@@ -153,50 +147,50 @@ java_import(
 filegroup(
     name = "jcip_annotations-jars",
     srcs = [
-        "jcip-annotations.jar",
+        "java/jcip-annotations.jar",
     ],
 )
 
 # libjsr305-java
 java_import(
     name = "jsr305",
-    jars = ["jsr305.jar"],
+    jars = ["java/jsr305.jar"],
 )
 
 # For bootstrapping java toolcahin
 filegroup(
     name = "jsr305-jars",
-    srcs = ["jsr305.jar"],
+    srcs = ["java/jsr305.jar"],
 )
 
 # libnetty-tcnative-java
 java_import(
     name = "netty_tcnative",
-    jars = ["netty-tcnative.jar"],
+    jars = ["java/netty-tcnative.jar"],
 )
 
 # libjavapoet-java
 java_import(
     name = "javapoet",
-    jars = ["javapoet.jar"],
+    jars = ["java/javapoet.jar"],
 )
 
 # libjaxb-api-java
 java_import(
     name = "jaxb",
-    jars = ["jaxb-api.jar"],
+    jars = ["java/jaxb-api.jar"],
 )
 
 # libxz-java
 java_import(
     name = "xz",
-    jars = ["xz.jar"],
+    jars = ["java/xz.jar"],
 )
 
 # libgeronimo-annotation-1.3-spec-java
 java_import(
     name = "javax_annotations",
-    jars = ["geronimo-annotation-1.3-spec.jar"],
+    jars = ["java/geronimo-annotation-1.3-spec.jar"],
     neverlink = 1,
 )
 
@@ -206,16 +200,16 @@ java_import(
 java_import(
     name = "android_common_25_0_0_lite",
     jars = [
-        "com.android.tools.common.jar",
-        "com.android.tools.repository.jar",
-        "com.android.tools.layoutlib.layoutlib-api.jar",
+        "java/com.android.tools.common.jar",
+        "java/com.android.tools.repository.jar",
+        "java/com.android.tools.layoutlib.layoutlib-api.jar",
     ],
 )
 
 # libguava-java
 java_import(
     name = "guava",
-    jars = ["guava.jar"],
+    jars = ["java/guava.jar"],
     exports = [
         "@//third_party:error_prone_annotations",
         "@//third_party:jcip_annotations",
@@ -226,89 +220,90 @@ java_import(
 # For bootstrapping java toolcahin
 filegroup(
     name = "guava-jars",
-    srcs = ["guava.jar"],
+    srcs = ["java/guava.jar"],
 )
 
 # libjacoco-java - BEGIN
-JACOCOVERSION = "0.8.3"
+JACOCOVERSION = "0.8.6"
+
 java_import(
     name = "agent",
-    jars = ["org.jacoco.agent.jar"],
+    jars = ["java/org.jacoco.agent.jar"],
 )
 
 java_import(
     name = "agent-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.agent.jar"],
+    jars = ["java/org.jacoco.agent.jar"],
 )
 
 java_import(
     name = "core",
-    jars = ["org.jacoco.core.jar"],
+    jars = ["java/org.jacoco.core.jar"],
 )
 
 java_import(
     name = "core-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.core.jar"],
+    jars = ["java/org.jacoco.core.jar"],
 )
 
 filegroup(
     name = "core-jars",
-    srcs = ["org.jacoco.core.jar"],
+    srcs = ["java/org.jacoco.core.jar"],
 )
 
 filegroup(
     name = "core-jars-%s" % JACOCOVERSION,
-    srcs = ["org.jacoco.core.jar"],
+    srcs = ["java/org.jacoco.core.jar"],
 )
 
 java_import(
     name = "report",
-    jars = ["org.jacoco.report.jar"],
+    jars = ["java/org.jacoco.report.jar"],
 )
 
 java_import(
     name = "report-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.report.jar"],
+    jars = ["java/org.jacoco.report.jar"],
 )
 
 java_import(
     name = "blaze-agent",
-    jars = ["org.jacoco.agent.jar"],
+    jars = ["java/org.jacoco.agent.jar"],
 )
 
 java_import(
     name = "blaze-agent-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.agent.jar"],
+    jars = ["java/org.jacoco.agent.jar"],
 )
 # libjacoco-java - END
 
 # libgoogle-auto-common-java
 java_import(
     name = "auto_common",
-    jars = ["auto-common.jar"],
+    jars = ["java/auto-common.jar"],
 )
 
 # libgoogle-auto-service-java
 java_import(
     name = "auto_service_lib",
     jars = [
-        "auto-service.jar",
-        "auto-service-annotations.jar",
+        "java/auto-service.jar",
+        "java/auto-service-annotations.jar",
     ],
 )
 
 # libescapevelocity-java
 java_import(
     name = "escapevelocity",
-    jars = ["escapevelocity.jar"],
+    jars = ["java/escapevelocity.jar"],
 )
 
 # libgoogle-auto-value-java
 java_import(
     name = "auto_value_value",
     jars = [
-        "auto-value.jar",
-        "auto-value-annotations.jar",
+        "java/auto-value.jar",
+        "java/auto-value-annotations.jar",
     ],
     runtime_deps = [
         ":escapevelocity",
@@ -320,11 +315,11 @@ java_import(
 filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto-value.jar",
-        "auto-value-annotations.jar",
-        "auto-common.jar",
-        "escapevelocity.jar",
-        "javapoet.jar",
+        "java/auto-common.jar",
+        "java/auto-value.jar",
+        "java/auto-value-annotations.jar",
+        "java/escapevelocity.jar",
+        "java/javapoet.jar",
     ],
 )
 
@@ -333,10 +328,10 @@ filegroup(
 java_import(
     name = "api_client",
     jars = [
-        "google-api-client.jar",
-        "google-api-client-jackson2.jar",
-        "google-http-client.jar",
-        "google-http-client-jackson2.jar",
+        "java/google-api-client.jar",
+        "java/google-api-client-jackson2.jar",
+        "java/google-http-client.jar",
+        "java/google-http-client-jackson2.jar",
     ],
     runtime_deps = [
         ":jackson2",
@@ -347,13 +342,12 @@ java_import(
 java_import(
     name = "auth",
     jars = [
-        "google-auth-library-oauth2-http.jar",
-        "google-auth-library-credentials.jar",
+        "java/google-auth-library-oauth2-http.jar",
+        "java/google-auth-library-credentials.jar",
     ],
     runtime_deps = [
         ":api_client",
         ":guava",
-        "@//third_party/aws-sdk-auth-lite",
     ],
 )
 
@@ -361,29 +355,29 @@ java_import(
 java_import(
     name = "error_prone_annotations",
     jars = [
-        "error-prone-annotations.jar",
-        "error-prone-type-annotations.jar",
+        "java/error-prone-annotations.jar",
+        "java/error-prone-type-annotations.jar",
     ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "error_prone_annotations-jar",
-    srcs = ["error-prone-annotations.jar"],
+    srcs = ["java/error-prone-annotations.jar"],
 )
 
 # libdiffutils-java
 java_import(
     name = "java-diff-utils",
-    jars = ["java-diff-utils.jar"],
+    jars = ["java/java-diff-utils.jar"],
 )
 
 # libopencensus-java
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus-api.jar",
-        "opencensus-contrib-grpc-metrics.jar",
+        "java/opencensus-api.jar",
+        "java/opencensus-contrib-grpc-metrics.jar",
     ],
 )
 
@@ -391,7 +385,7 @@ java_import(
 java_import(
     name = "perfmark-api",
     jars = [
-        "perfmark-api.jar",
+        "java/perfmark-api.jar",
     ],
 )
 
@@ -399,9 +393,9 @@ java_import(
 java_import(
     name = "flogger",
     jars = [
-        "flogger.jar",
-        "flogger-system-backend.jar",
-        "google-extensions.jar",
+        "java/flogger.jar",
+        "java/flogger-system-backend.jar",
+        "java/google-extensions.jar",
     ],
 )
 
@@ -409,16 +403,16 @@ java_import(
 filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger.jar",
-        "flogger-system-backend.jar",
-        "google-extensions.jar",
+        "java/flogger.jar",
+        "java/flogger-system-backend.jar",
+        "java/google-extensions.jar",
     ],
 )
 
 # libchecker-framework-java
 java_import(
     name = "checker_framework_annotations",
-    jars = ["checker-qual.jar"],
+    jars = ["java/checker-qual.jar"],
 )
 
 # libgrpc-java
@@ -439,14 +433,14 @@ java_import(
 filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
-        "grpc-api.jar",
-        "grpc-auth.jar",
-        "grpc-context.jar",
-        "grpc-core.jar",
-        "grpc-netty.jar",
-        "grpc-protobuf.jar",
-        "grpc-protobuf-lite.jar",
-        "grpc-stub.jar",
+        "java/grpc-api.jar",
+        "java/grpc-auth.jar",
+        "java/grpc-context.jar",
+        "java/grpc-core.jar",
+        "java/grpc-netty.jar",
+        "java/grpc-protobuf.jar",
+        "java/grpc-protobuf-lite.jar",
+        "java/grpc-stub.jar",
     ],
 )
 
@@ -454,7 +448,21 @@ filegroup(
 java_import(
     name = "junit4",
     jars = [
-        "hamcrest-core.jar",
-        "junit4.jar",
+        "java/hamcrest-core.jar",
+        "java/junit4.jar",
     ],
 )
+
+# libreactive-streams-java
+java_import(
+    name = "reactive_streams",
+    jars = ["reactive-streams.jar"],
+)
+
+# librx-java
+java_import(
+    name = "rxjava3",
+    jars = ["rxjava.jar"],
+    deps = [":reactive_streams"],
+)
+

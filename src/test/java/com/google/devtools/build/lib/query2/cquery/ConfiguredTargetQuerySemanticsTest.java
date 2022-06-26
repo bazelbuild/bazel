@@ -23,23 +23,26 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -72,16 +75,16 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_with_transitions",
                 attr("patch_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new TestArgPatchTransition("SET BY PATCH"))),
+                    .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH"))),
                 attr("string_dep", STRING),
                 attr("split_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(
                         TransitionFactories.of(
-                            new TestArgSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2"))),
+                            new FooSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2"))),
                 attr("patch_dep_list", LABEL_LIST)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new TestArgPatchTransition("SET BY PATCH 2"))));
+                    .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH 2"))));
     MockRule noAttributeRule = () -> MockRule.define("no_attribute_rule");
 
     helper.useRuleClassProvider(
@@ -204,7 +207,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_with_host_dep",
                 attr("host_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(HostTransition.createFactory()),
+                    .cfg(ExecutionTransitionFactory.create()),
                 attr("$impl_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .value(Label.parseAbsoluteUnchecked("//test:other")));
@@ -239,7 +242,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         () ->
             MockRule.define(
                 "rule_class_transition",
-                (builder, env) -> builder.cfg(new TestArgPatchTransition("SET BY PATCH")).build());
+                (builder, env) -> builder.cfg(new FooPatchTransition("SET BY PATCH")).build());
 
     helper.useRuleClassProvider(setRuleClassProviders(ruleClassTransition).build());
     helper.setUniverseScope("//test:rule_class");
@@ -247,9 +250,11 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     writeFile("test/BUILD", "rule_class_transition(name='rule_class')");
 
     Set<KeyedConfiguredTarget> ruleClass = eval("//test:rule_class");
-    TestOptions testOptions =
-        getConfiguration(Iterables.getOnlyElement(ruleClass)).getOptions().get(TestOptions.class);
-    assertThat(testOptions.testArguments).containsExactly("SET BY PATCH");
+    DummyTestOptions testOptions =
+        getConfiguration(Iterables.getOnlyElement(ruleClass))
+            .getOptions()
+            .get(DummyTestOptions.class);
+    assertThat(testOptions.foo).isEqualTo("SET BY PATCH");
   }
 
   private void createConfigRulesAndBuild() throws Exception {
@@ -260,7 +265,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 attr("target", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
                 attr("host", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(HostTransition.createFactory()),
+                    .cfg(ExecutionTransitionFactory.create()),
                 attr("exec", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(ExecutionTransitionFactory.create()),
@@ -287,7 +292,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   private void createConfigTransitioningRuleClass() throws Exception {
-    writeFile(
+    overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -345,7 +350,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertConfigurableQueryCode(
         execResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
 
-    BuildConfiguration configuration =
+    BuildConfigurationValue configuration =
         getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, target)")));
 
     assertThat(configuration).isNotNull();
@@ -355,7 +360,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testConfig_hostTransition() throws Exception {
+  public void testConfig_noMoreHostTransition() throws Exception {
     createConfigRulesAndBuild();
 
     getHelper().setWholeTestUniverseScope("test:my_rule");
@@ -365,20 +370,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         .isEqualTo("No target (in) //test:target_dep could be found in the 'host' configuration");
     assertConfigurableQueryCode(
         targetResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-    assertThat(eval("config(//test:host_dep, host)")).isEqualTo(eval("//test:host_dep"));
-    EvalThrowsResult hostResult = evalThrows("config(//test:exec_dep, host)", true);
-    assertThat(hostResult.getMessage())
+    EvalThrowsResult hostDepResult = evalThrows("config(//test:host_dep, host)", true);
+    assertThat(hostDepResult.getMessage())
+        .isEqualTo("No target (in) //test:host_dep could be found in the 'host' configuration");
+    assertConfigurableQueryCode(
+        hostDepResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
+    EvalThrowsResult execDepResult = evalThrows("config(//test:exec_dep, host)", true);
+    assertThat(execDepResult.getMessage())
         .isEqualTo("No target (in) //test:exec_dep could be found in the 'host' configuration");
     assertConfigurableQueryCode(
+        execDepResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
+    EvalThrowsResult hostResult = evalThrows("config(//test:dep, host)", true);
+    assertThat(hostResult.getMessage())
+        .isEqualTo("No target (in) //test:dep could be found in the 'host' configuration");
+    assertConfigurableQueryCode(
         hostResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-
-    BuildConfiguration configuration =
-        getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")));
-
-    assertThat(configuration).isNotNull();
-    assertThat(configuration.isHostConfiguration()).isTrue();
-    assertThat(configuration.isExecConfiguration()).isFalse();
-    assertThat(configuration.isToolConfiguration()).isTrue();
   }
 
   @Test
@@ -414,8 +420,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     ImmutableList<KeyedConfiguredTarget> stableOrderList = ImmutableList.copyOf(result);
     int myDepIndex = stableOrderList.get(0).getLabel().toString().equals("//test:mydep") ? 0 : 1;
-    BuildConfiguration myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
-    BuildConfiguration stringFlagConfig = getConfiguration(stableOrderList.get(1 - myDepIndex));
+    BuildConfigurationValue myDepConfig = getConfiguration(stableOrderList.get(myDepIndex));
+    BuildConfigurationValue stringFlagConfig =
+        getConfiguration(stableOrderList.get(1 - myDepIndex));
 
     // Note: eval() resets the universe scope after each call. We have to xplicitly set it again.
     helper.setUniverseScope("//test:buildme");
@@ -467,6 +474,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
+  public void testConfig_exprArgumentFailure() throws Exception {
+    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+
+    EvalThrowsResult evalThrowsResult =
+        evalThrows(
+            "config(filter(\"??not-a-valid-regex\", //test:foo.java), null)",
+            /*unconditionallyThrows=*/ true);
+    assertThat(evalThrowsResult.getMessage())
+        .startsWith("illegal 'filter' pattern regexp '??not-a-valid-regex'");
+    assertThat(evalThrowsResult.getFailureDetail().hasQuery()).isTrue();
+    assertThat(evalThrowsResult.getFailureDetail().getQuery().getCode())
+        .isEqualTo(Code.SYNTAX_ERROR);
+  }
+
+  @Test
   public void testExecTransitionNotFilteredByNoHostDeps() throws Exception {
     createConfigRulesAndBuild();
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
@@ -491,10 +513,16 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
     helper.setKeepGoing(false);
     getHelper().turnOffFailFast();
-    assertThat(evalThrows("//parent/...", true).getMessage())
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> eval("//parent/..."));
+    assertThat(e)
+        .hasMessageThat()
         .isEqualTo(
-            "no such package 'parent/child': Symlink cycle detected while trying to "
-                + "find BUILD file /workspace/parent/child/BUILD");
+            "error loading package under directory 'parent': no such package 'parent/child':"
+                + " Symlink cycle detected while trying to find BUILD file"
+                + " /workspace/parent/child/BUILD");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
   }
 
   // Regression test for b/175739699

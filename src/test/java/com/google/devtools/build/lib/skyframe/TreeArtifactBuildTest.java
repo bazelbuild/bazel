@@ -966,7 +966,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     Path execRoot =
         fs.getPath(TestUtils.tmpDir()).getRelative("execroot").getRelative("default-exec-root");
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"),
         execPath,
         ACTION_LOOKUP_KEY,
@@ -1049,14 +1049,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
                 actions,
                 (ActionLookupKey) skyKey,
                 /*outputFiles=*/ null));
-      } catch (ActionConflictException e) {
+      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
-    }
-
-    @Override
-    public String extractTag(SkyKey skyKey) {
-      return null;
     }
   }
 

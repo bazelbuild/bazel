@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Supplier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
@@ -60,7 +60,7 @@ public abstract class InfoItem {
 
   /** Returns the value of the info key. The return value is directly printed to stdout. */
   public abstract byte[] get(
-      Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
       throws AbruptExitException, InterruptedException;
 
   protected static byte[] print(Object value) {

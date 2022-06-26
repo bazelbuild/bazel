@@ -17,12 +17,12 @@ import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.io.Flushable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.annotation.CheckReturnValue;
 import javax.xml.namespace.QName;
 
 /** An interface for visiting android data for writing. */

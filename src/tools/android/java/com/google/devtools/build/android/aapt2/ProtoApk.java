@@ -42,6 +42,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.xml.XmlEscapers;
 import com.google.devtools.build.android.AndroidResourceOutputs.UniqueZipBuilder;
@@ -133,33 +134,39 @@ public class ProtoApk implements Closeable {
    */
   public ProtoApk copy(Path destination, BiPredicate<ResourceType, String> resourceFilter)
       throws IOException {
+    final ResourceTable resourceTable = getResourceTable();
+    final ResourceTable.Builder dstTableBuilder =
+        resourceTable.toBuilder()
+            .addToolFingerprint(
+                ToolFingerprint.newBuilder().setTool("ResourceProcessorBusyBox")
+                // NB: "stamp" information should go here, but that's not available:
+                // https://github.com/bazelbuild/bazel/blob/78bb263e46bf301900c1d4b1e04fabf3a6854762/src/main/java/com/google/devtools/build/lib/bazel/rules/java/BazelJavaRuleClasses.java#L380
+                );
 
-    final URI dstZipUri = URI.create("jar:" + destination.toUri());
+    dstTableBuilder.clearPackage(); // we'll add these back, with filtering below
+
+    // keep track of all resource files still referenced in the (potentially stripped) table
+    ImmutableSet.Builder<String> resToKeepBuilder = ImmutableSet.builder();
+    for (Package pkg : resourceTable.getPackageList()) {
+      Package dstPkg = copyPackage(resourceFilter, resToKeepBuilder, pkg);
+      dstTableBuilder.addPackage(dstPkg);
+    }
+    ImmutableSet<String> resToKeep = resToKeepBuilder.build();
+
     try (final ZipFile srcZip = new ZipFile(uri.getPath());
         final UniqueZipBuilder dstZip = UniqueZipBuilder.createFor(destination)) {
-      final ResourceTable resourceTable = getResourceTable();
-      final ResourceTable.Builder dstTableBuilder =
-          resourceTable.toBuilder()
-              .addToolFingerprint(
-                  ToolFingerprint.newBuilder().setTool("ResourceProcessorBusyBox")
-                  // NB: "stamp" information should go here, but that's not available:
-                  // https://github.com/bazelbuild/bazel/blob/78bb263e46bf301900c1d4b1e04fabf3a6854762/src/main/java/com/google/devtools/build/lib/bazel/rules/java/BazelJavaRuleClasses.java#L380
-                  );
-
-      dstTableBuilder.clearPackage(); // we'll add these back, with filtering below
-      for (Package pkg : resourceTable.getPackageList()) {
-        Package dstPkg = copyPackage(resourceFilter, dstZip, pkg);
-        dstTableBuilder.addPackage(dstPkg);
-      }
       dstZip.addEntry(RESOURCE_TABLE, dstTableBuilder.build().toByteArray(), ZipEntry.DEFLATED);
+      // the rest are pure copies, and could potentially be more efficiently done via ZipIn/ZipOut
       srcZip.stream()
           .filter(not(ZipEntry::isDirectory))
-          .filter(entry -> !entry.getName().startsWith(RES_DIRECTORY + "/"))
+          .filter(
+              entry ->
+                  !entry.getName().startsWith(RES_DIRECTORY + "/")
+                      || resToKeep.contains(entry.getName()))
           .filter(entry -> !entry.getName().equals(RESOURCE_TABLE))
           .forEach(
               entry -> {
                 try {
-                  createDirectories(dstZip, apkFileSystem.getPath(entry.getName()).getParent());
                   try (InputStream srcEntryInputStream = srcZip.getInputStream(entry)) {
                     byte[] content = ByteStreams.toByteArray(srcEntryInputStream);
                     dstZip.addEntry(entry, content);
@@ -170,36 +177,25 @@ public class ProtoApk implements Closeable {
               });
     }
 
-    return readFrom(dstZipUri);
-  }
-
-  /**
-   * Recursively creates all parent directories in {@code zip} before creating {@code directory},
-   * similar to {@link Files#createDirectories}.
-   */
-  private static void createDirectories(UniqueZipBuilder zip, @Nullable Path directory)
-      throws IOException {
-    if (directory == null) {
-      return;
-    }
-    createDirectories(zip, directory.getParent());
-    zip.addDirEntry(directory.toString());
+    return readFrom(URI.create("jar:" + destination.toUri()));
   }
 
   private Package copyPackage(
-      BiPredicate<ResourceType, String> resourceFilter, UniqueZipBuilder dstZip, Package pkg)
+      BiPredicate<ResourceType, String> resourceFilter,
+      ImmutableSet.Builder<String> resToKeep,
+      Package pkg)
       throws IOException {
     Package.Builder dstPkgBuilder = Package.newBuilder(pkg);
     dstPkgBuilder.clearType();
     for (Resources.Type type : pkg.getTypeList()) {
-      copyResourceType(resourceFilter, dstZip, dstPkgBuilder, type);
+      copyResourceType(resourceFilter, resToKeep, dstPkgBuilder, type);
     }
     return dstPkgBuilder.build();
   }
 
   private void copyResourceType(
       BiPredicate<ResourceType, String> resourceFilter,
-      UniqueZipBuilder dstZip,
+      ImmutableSet.Builder<String> resToKeep,
       Package.Builder dstPkgBuilder,
       Resources.Type type)
       throws IOException {
@@ -209,7 +205,7 @@ public class ProtoApk implements Closeable {
     ResourceType resourceType = ResourceType.getEnum(type.getName());
     for (Entry entry : type.getEntryList()) {
       if (resourceFilter.test(resourceType, entry.getName())) {
-        copyEntry(dstZip, dstTypeBuilder, entry);
+        copyEntry(resToKeep, dstTypeBuilder, entry);
       }
     }
     final Resources.Type dstType = dstTypeBuilder.build();
@@ -218,18 +214,15 @@ public class ProtoApk implements Closeable {
     }
   }
 
-  private void copyEntry(UniqueZipBuilder dstZip, Type.Builder dstTypeBuilder, Entry entry)
+  private void copyEntry(
+      ImmutableSet.Builder<String> resToKeep, Type.Builder dstTypeBuilder, Entry entry)
       throws IOException {
     dstTypeBuilder.addEntry(Entry.newBuilder(entry));
     for (ConfigValue configValue : entry.getConfigValueList()) {
       if (configValue.hasValue()
           && configValue.getValue().hasItem()
           && configValue.getValue().getItem().hasFile()) {
-        final String path = configValue.getValue().getItem().getFile().getPath();
-        final Path apkFileSystemPath = apkFileSystem.getPath(path);
-        createDirectories(dstZip, apkFileSystemPath.getParent());
-        byte[] content = Files.readAllBytes(apkFileSystemPath);
-        dstZip.addEntry(path, content, ZipEntry.STORED);
+        resToKeep.add(configValue.getValue().getItem().getFile().getPath());
       }
     }
   }

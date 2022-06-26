@@ -21,11 +21,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.ParallelVisitor;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor;
-import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,20 +53,20 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
   @Override
   public void streamPackagesFromRoots(
-      BatchCallback<PackageIdentifier, UnusedException> results,
+      SafeBatchCallback<PackageIdentifier> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
     TreeSet<TraversalInfo> dirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
     for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       dirsToCheckForPackages.add(
-          new TraversalInfo(rootedDir, blacklistedSubdirectories, excludedSubdirectories));
+          new TraversalInfo(rootedDir, forbiddenSubdirectories, excludedSubdirectories));
     }
     PackageCollectingParallelVisitor visitor =
         new PackageCollectingParallelVisitor(
@@ -96,15 +96,15 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           TraversalInfo,
           TraversalInfo,
           PackageIdentifier,
-          UnusedException,
-          BatchCallback<PackageIdentifier, UnusedException>> {
+          QueryExceptionMarkerInterface.MarkerRuntimeException,
+          SafeBatchCallback<PackageIdentifier>> {
 
     private final ExtendedEventHandler eventHandler;
     private final RepositoryName repository;
     private final WalkableGraph graph;
 
     PackageCollectingParallelVisitor(
-        BatchCallback<PackageIdentifier, UnusedException> callback,
+        SafeBatchCallback<PackageIdentifier> callback,
         int visitBatchSize,
         int processResultsBatchSize,
         int minPendingTasks,
@@ -114,7 +114,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
         WalkableGraph graph) {
       super(
           callback,
-          UnusedException.class,
+          QueryExceptionMarkerInterface.MarkerRuntimeException.class,
           visitBatchSize,
           processResultsBatchSize,
           minPendingTasks,
@@ -146,9 +146,10 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
         traversalToKeyMapBuilder.put(
             traversalInfo,
             CollectPackagesUnderDirectoryValue.key(
-                repository, traversalInfo.rootedDir, traversalInfo.blacklistedSubdirectories));
+                repository, traversalInfo.rootedDir, traversalInfo.forbiddenSubdirectories));
       }
-      ImmutableMap<TraversalInfo, SkyKey> traversalToKeyMap = traversalToKeyMapBuilder.build();
+      ImmutableMap<TraversalInfo, SkyKey> traversalToKeyMap =
+          traversalToKeyMapBuilder.buildOrThrow();
       Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
 
       // NOTE: Use a TreeSet to ensure a deterministic (sorted) iteration order when we recurse.
@@ -174,8 +175,8 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
             if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
               PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
-              ImmutableSet<PathFragment> blacklistedSubdirectoriesBeneathThisSubdirectory =
-                  info.blacklistedSubdirectories.stream()
+              ImmutableSet<PathFragment> forbiddenSubdirectoriesBeneathThisSubdirectory =
+                  info.forbiddenSubdirectories.stream()
                       .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
                       .collect(toImmutableSet());
               ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
@@ -187,7 +188,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
                 subdirsToCheckForPackages.add(
                     new TraversalInfo(
                         subdirectory,
-                        blacklistedSubdirectoriesBeneathThisSubdirectory,
+                        forbiddenSubdirectoriesBeneathThisSubdirectory,
                         excludedSubdirectoriesBeneathThisSubdirectory));
               }
             }
@@ -213,11 +214,11 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
   /** Value type used as visitation and output key for {@link PackageCollectingParallelVisitor}. */
   private static final class TraversalInfo {
     final RootedPath rootedDir;
-    // Set of blacklisted directories. The graph is assumed to be prepopulated with
-    // CollectPackagesUnderDirectoryValue nodes whose keys have blacklisted packages embedded in
+    // Set of forbidden directories. The graph is assumed to be prepopulated with
+    // CollectPackagesUnderDirectoryValue nodes whose keys have forbidden packages embedded in
     // them. Therefore, we need to be careful to request and use the same sort of keys here in our
     // traversal.
-    final ImmutableSet<PathFragment> blacklistedSubdirectories;
+    final ImmutableSet<PathFragment> forbiddenSubdirectories;
     // Set of directories, targets under which should be excluded from the traversal results.
     // Excluded directory information isn't part of the graph keys in the prepopulated graph, so we
     // need to perform the filtering ourselves.
@@ -225,16 +226,16 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
     private TraversalInfo(
         RootedPath rootedDir,
-        ImmutableSet<PathFragment> blacklistedSubdirectories,
+        ImmutableSet<PathFragment> forbiddenSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       this.rootedDir = rootedDir;
-      this.blacklistedSubdirectories = blacklistedSubdirectories;
+      this.forbiddenSubdirectories = forbiddenSubdirectories;
       this.excludedSubdirectories = excludedSubdirectories;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(rootedDir, blacklistedSubdirectories, excludedSubdirectories);
+      return Objects.hashCode(rootedDir, forbiddenSubdirectories, excludedSubdirectories);
     }
 
     @Override
@@ -245,7 +246,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       if (obj instanceof TraversalInfo) {
         TraversalInfo otherTraversal = (TraversalInfo) obj;
         return Objects.equal(rootedDir, otherTraversal.rootedDir)
-            && Objects.equal(blacklistedSubdirectories, otherTraversal.blacklistedSubdirectories)
+            && Objects.equal(forbiddenSubdirectories, otherTraversal.forbiddenSubdirectories)
             && Objects.equal(excludedSubdirectories, otherTraversal.excludedSubdirectories);
       }
       return false;

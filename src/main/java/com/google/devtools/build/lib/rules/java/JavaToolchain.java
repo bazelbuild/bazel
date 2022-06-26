@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -25,19 +28,24 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code java_toolchain} rule. */
 public class JavaToolchain implements RuleConfiguredTargetFactory {
@@ -49,6 +57,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
@@ -57,6 +66,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     boolean javacSupportsMultiplexWorkers =
         ruleContext.attributes().get("javac_supports_multiplex_workers", Type.BOOLEAN);
+    boolean javacSupportsWorkerCancellation =
+        ruleContext.attributes().get("javac_supports_worker_cancellation", Type.BOOLEAN);
     ImmutableSet<String> headerCompilerBuiltinProcessors =
         ImmutableSet.copyOf(
             ruleContext.attributes().get("header_compiler_builtin_processors", Type.STRING_LIST));
@@ -71,6 +82,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
+    Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
@@ -81,8 +93,10 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools");
 
-    ImmutableList<String> jvmOpts =
-        ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts");
+    NestedSet<String> jvmOpts =
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts"));
 
     JavaToolchainTool javabuilder =
         JavaToolchainTool.fromRuleContext(
@@ -94,6 +108,47 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         JavaToolchainTool.fromFilesToRunProvider(
             ruleContext.getExecutablePrerequisite("header_compiler_direct"));
 
+    JspecifyInfo jspecifyInfo;
+    String jspecifyProcessorClass =
+        ruleContext.attributes().get("jspecify_processor_class", STRING);
+    if (jspecifyProcessorClass.isEmpty()) {
+      jspecifyInfo = null;
+    } else {
+      ImmutableList<Artifact> jspecifyStubs =
+          ruleContext.getPrerequisiteArtifacts("jspecify_stubs").list();
+      JavaPluginData jspecifyProcessor =
+          JavaPluginData.create(
+              NestedSetBuilder.create(STABLE_ORDER, jspecifyProcessorClass),
+              NestedSetBuilder.create(
+                  STABLE_ORDER, ruleContext.getPrerequisiteArtifact("jspecify_processor")),
+              NestedSetBuilder.wrap(STABLE_ORDER, jspecifyStubs));
+      NestedSet<Artifact> jspecifyImplicitDeps =
+          NestedSetBuilder.create(
+              STABLE_ORDER, ruleContext.getPrerequisiteArtifact("jspecify_implicit_deps"));
+      ImmutableList.Builder<String> jspecifyJavacopts =
+          ImmutableList.<String>builder()
+              .addAll(ruleContext.attributes().get("jspecify_javacopts", Type.STRING_LIST));
+      if (!jspecifyStubs.isEmpty()) {
+        jspecifyJavacopts.add(
+            jspecifyStubs.stream()
+                .map(Artifact::getExecPathString)
+                .collect(joining(":", "-Astubs=", "")));
+      }
+      ImmutableList<PackageSpecificationProvider> jspecifyPackages =
+          ImmutableList.copyOf(
+              ruleContext.getPrerequisites(
+                  "jspecify_packages", PackageGroupConfiguredTarget.class));
+      jspecifyInfo =
+          JspecifyInfo.create(
+              jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);
+    }
+
+    JavaToolchainTool bytecodeOptimizer =
+        JavaToolchainTool.fromFilesToRunProvider(
+            ruleContext.getExecutablePrerequisite(":bytecode_optimizer"));
+    ImmutableList<Artifact> localJavaOptimizationConfiguration =
+        ruleContext.getPrerequisiteArtifacts(":local_java_optimization_configuration").list();
+
     AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
@@ -104,8 +159,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     FilesToRunProvider jacocoRunner = ruleContext.getExecutablePrerequisite("jacocorunner");
 
-    JavaRuntimeInfo javaRuntime =
-        (JavaRuntimeInfo) ruleContext.getPrerequisite("java_runtime").get(ToolchainInfo.PROVIDER);
+    JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext, "java_runtime");
 
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
@@ -114,12 +168,16 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             jvmOpts,
             javacSupportsWorkers,
             javacSupportsMultiplexWorkers,
+            javacSupportsWorkerCancellation,
             bootclasspath,
             tools,
             javabuilder,
             headerCompiler,
             headerCompilerDirect,
             androidLint,
+            jspecifyInfo,
+            bytecodeOptimizer,
+            localJavaOptimizationConfiguration,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,
@@ -127,6 +185,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersion,
             oneVersionAllowlist,
             genClass,
+            depsChecker,
             resourceJarBuilder,
             timezoneData,
             ijar,
@@ -136,10 +195,14 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             proguardAllowlister,
             semantics,
             javaRuntime);
+    ToolchainInfo toolchainInfo =
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder().put("java", provider).buildOrThrow());
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)
             .addNativeDeclaredProvider(provider)
+            .addNativeDeclaredProvider(toolchainInfo)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build());
 

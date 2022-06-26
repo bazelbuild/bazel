@@ -47,7 +47,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringAttribute(
-      String defaultString,
+      Object defaultString,
       String doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -73,6 +73,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
+      Object flags,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
@@ -84,11 +85,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory,
-      Boolean allowEmpty,
-      Sequence<?> defaultList,
-      String doc,
-      StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultList, String doc, StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultList);

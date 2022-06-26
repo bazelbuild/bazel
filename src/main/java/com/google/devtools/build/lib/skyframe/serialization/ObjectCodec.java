@@ -57,13 +57,24 @@ public interface ObjectCodec<T> {
   }
 
   /**
+   * Whether the codec should be considered for automatic registration by {@link CodecScanner}.
+   *
+   * <p>In order to qualify for automatic registration, the class must have a name ending in {@code
+   * Codec} and have a parameterless constructor. If either of these prerequisites are not met,
+   * {@link CodecScanner} will silently skip the codec even if this method returns {@code true}.
+   */
+  default boolean autoRegister() {
+    return true;
+  }
+
+  /**
    * Serializes {@code obj}, inverse of {@link #deserialize}.
    *
    * @param context {@link SerializationContext} providing additional information to the
    *     serialization process
    * @param obj the object to serialize
    * @param codedOut the {@link CodedOutputStream} to write this object into. Implementations need
-   *     not call {@link CodedOutputStream#flush()}, this should be handled by the caller.
+   *     not call {@link CodedOutputStream#flush}, this should be handled by the caller.
    * @throws SerializationException on failure to serialize
    * @throws IOException on {@link IOException} during serialization
    */

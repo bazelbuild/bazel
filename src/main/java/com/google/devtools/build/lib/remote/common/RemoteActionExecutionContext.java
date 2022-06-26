@@ -13,22 +13,99 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.Spawn;
+import javax.annotation.Nullable;
 
 /** A context that provide remote execution related information for executing an action remotely. */
-public interface RemoteActionExecutionContext {
+public class RemoteActionExecutionContext {
+  /** The current step of the context. */
+  public enum Step {
+    INIT,
+    CHECK_ACTION_CACHE,
+    UPLOAD_INPUTS,
+    EXECUTE_REMOTELY,
+    UPLOAD_OUTPUTS,
+    DOWNLOAD_OUTPUTS,
+    UPLOAD_BES_FILES,
+  }
 
-  /** Get the {@link RequestMetadata} for the action being executed. */
-  RequestMetadata getRequestMetadata();
+  @Nullable private final Spawn spawn;
+  private final RequestMetadata requestMetadata;
+  private final NetworkTime networkTime;
+
+  @Nullable private ExecuteResponse executeResponse;
+  private Step step;
+
+  private RemoteActionExecutionContext(
+      @Nullable Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
+    this.spawn = spawn;
+    this.requestMetadata = requestMetadata;
+    this.networkTime = networkTime;
+    this.step = Step.INIT;
+  }
+
+  /** Returns current {@link Step} of the context. */
+  public Step getStep() {
+    return step;
+  }
+
+  /** Sets current {@link Step} of the context. */
+  public void setStep(Step step) {
+    this.step = step;
+  }
+
+  /** Returns the {@link Spawn} of the action being executed or {@code null}. */
+  @Nullable
+  public Spawn getSpawn() {
+    return spawn;
+  }
+
+  /** Returns the {@link RequestMetadata} for the action being executed. */
+  public RequestMetadata getRequestMetadata() {
+    return requestMetadata;
+  }
 
   /**
-   * Get the {@link NetworkTime} instance used to measure the network time during the action
+   * Returns the {@link NetworkTime} instance used to measure the network time during the action
    * execution.
    */
-  NetworkTime getNetworkTime();
+  public NetworkTime getNetworkTime() {
+    return networkTime;
+  }
 
-  /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link RequestMetadata}. */
-  static RemoteActionExecutionContext create(RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(metadata, new NetworkTime());
+  @Nullable
+  public ActionExecutionMetadata getSpawnOwner() {
+    Spawn spawn = getSpawn();
+    if (spawn == null) {
+      return null;
+    }
+
+    return spawn.getResourceOwner();
+  }
+
+  public void setExecuteResponse(@Nullable ExecuteResponse executeResponse) {
+    this.executeResponse = executeResponse;
+  }
+
+  @Nullable
+  public ExecuteResponse getExecuteResponse() {
+    return executeResponse;
+  }
+
+  /** Creates a {@link RemoteActionExecutionContext} with given {@link RequestMetadata}. */
+  public static RemoteActionExecutionContext create(RequestMetadata metadata) {
+    return new RemoteActionExecutionContext(/*spawn=*/ null, metadata, new NetworkTime());
+  }
+
+  /**
+   * Creates a {@link RemoteActionExecutionContext} with given {@link Spawn} and {@link
+   * RequestMetadata}.
+   */
+  public static RemoteActionExecutionContext create(
+      @Nullable Spawn spawn, RequestMetadata metadata) {
+    return new RemoteActionExecutionContext(spawn, metadata, new NetworkTime());
   }
 }

@@ -60,14 +60,9 @@ public class CoverageReportFunction implements SkyFunction {
               actions,
               CoverageReportValue.COVERAGE_REPORT_KEY,
               /*outputFiles=*/ null);
-    } catch (ActionConflictException e) {
-      throw new IllegalStateException("Action conflicts not expected in coverage: " + skyKey, e);
+    } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      throw new IllegalStateException("Issues not expected in coverage: " + skyKey, e);
     }
     return new CoverageReportValue(generatingActions);
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

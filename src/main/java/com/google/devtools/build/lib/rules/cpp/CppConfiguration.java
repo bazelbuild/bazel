@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
+
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -26,28 +29,36 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration.AppleCpus;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.EnumMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
- * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
+ * This class represents the C/C++ parts of the {@link BuildConfigurationValue}, including the host
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
-@RequiresOptions(options = {CppOptions.class})
+@RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   /**
@@ -150,12 +161,6 @@ public final class CppConfiguration extends Fragment
    */
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
-  // TODO(lberki): This is only used for determining the output directory name.
-  // Unfortunately, we can't move it easily to OutputDirectories.buildMnemonic() because the CPU is
-  // currently in the middle of the name of the configuration directory (e.g. it comes after the
-  // Android configuration)
-  private final String cpu;
-
   private final PathFragment fdoPath;
   private final Label fdoOptimizeLabel;
 
@@ -167,6 +172,7 @@ public final class CppConfiguration extends Fragment
 
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
+  private final ImmutableList<String> objcopts;
 
   private final ImmutableList<String> linkopts;
   private final ImmutableList<String> ltoindexOptions;
@@ -181,6 +187,7 @@ public final class CppConfiguration extends Fragment
   private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
   private final boolean appleGenerateDsym;
+  private final AppleBitcodeMode appleBitcodeMode;
 
   public CppConfiguration(BuildOptions options) throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -264,7 +271,6 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    this.cpu = commonOptions.cpu;
     this.fdoPath = fdoPath;
     this.fdoOptimizeLabel = fdoProfileLabel;
     this.csFdoAbsolutePath = csFdoAbsolutePath;
@@ -273,6 +279,7 @@ public final class CppConfiguration extends Fragment
     this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
     this.copts = ImmutableList.copyOf(cppOptions.coptList);
     this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
+    this.objcopts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.linkopts = linkoptsBuilder.build();
     this.ltoindexOptions = ImmutableList.copyOf(cppOptions.ltoindexoptList);
     this.ltobackendOptions = ImmutableList.copyOf(cppOptions.ltobackendoptList);
@@ -288,6 +295,20 @@ public final class CppConfiguration extends Fragment
     this.appleGenerateDsym =
         (cppOptions.appleGenerateDsym
             || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
+    this.appleBitcodeMode =
+        computeAppleBitcodeMode(options.get(AppleCommandLineOptions.class), commonOptions);
+  }
+
+  private static AppleBitcodeMode computeAppleBitcodeMode(
+      AppleCommandLineOptions options, CoreOptions commonOptions) {
+    ApplePlatform.PlatformType applePlatformType =
+        Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
+    AppleCpus appleCpus = AppleCpus.create(options, commonOptions);
+    EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes =
+        AppleConfiguration.collectBitcodeModes(options.appleBitcodeMode);
+
+    return AppleConfiguration.getAppleBitcodeMode(
+        applePlatformType, appleCpus, platformBitcodeModes);
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -333,6 +354,13 @@ public final class CppConfiguration extends Fragment
     return cppOptions.dynamicMode;
   }
 
+  @StarlarkMethod(
+      name = "dynamic_mode",
+      doc = "Whether C/C++ binaries/tests were requested to be linked dynamically.")
+  public String getDynamicModeFlagString() {
+    return cppOptions.dynamicMode.name();
+  }
+
   public boolean isFdo() {
     return cppOptions.isFdo();
   }
@@ -343,6 +371,16 @@ public final class CppConfiguration extends Fragment
 
   public boolean useArgsParamsFile() {
     return cppOptions.useArgsParamsFile;
+  }
+
+  public boolean useCcTestFeature() {
+    return cppOptions.enableCcTestFeature;
+  }
+
+  @Override
+  public boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return useCcTestFeature();
   }
 
   /** Returns whether or not to strip the binaries. */
@@ -356,6 +394,12 @@ public final class CppConfiguration extends Fragment
    */
   public ImmutableList<String> getStripOpts() {
     return ImmutableList.copyOf(cppOptions.stripoptList);
+  }
+
+  @Override
+  public Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getStripOpts());
   }
 
   /** Returns whether temporary outputs from gcc will be saved. */
@@ -384,6 +428,7 @@ public final class CppConfiguration extends Fragment
   @StarlarkConfigurationField(
       name = "custom_malloc",
       doc = "The label specified in --custom_malloc")
+  @Nullable
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }
@@ -401,6 +446,12 @@ public final class CppConfiguration extends Fragment
   /** Returns true if --build_test_dwp is set on this build. */
   public boolean buildTestDwpIsActivated() {
     return cppOptions.buildTestDwp;
+  }
+
+  @Override
+  public boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return buildTestDwpIsActivated();
   }
 
   /**
@@ -422,6 +473,22 @@ public final class CppConfiguration extends Fragment
   @Nullable
   public String getCompilerFromOptions() {
     return cppOptions.cppCompiler;
+  }
+
+  public boolean experimentalLinkStaticLibrariesOnce() {
+    return cppOptions.experimentalLinkStaticLibrariesOnce;
+  }
+
+  public boolean experimentalEnableTargetExportCheck() {
+    return cppOptions.experimentalEnableTargetExportCheck;
+  }
+
+  public boolean experimentalCcSharedLibraryDebug() {
+    return cppOptions.experimentalCcSharedLibraryDebug;
+  }
+
+  public boolean experimentalPlatformCcTest() {
+    return cppOptions.experimentalPlatformCcTest;
   }
 
   public boolean legacyWholeArchive() {
@@ -475,6 +542,12 @@ public final class CppConfiguration extends Fragment
     return conlyopts;
   }
 
+  /** Returns flags passed to Bazel by --objccopt option. */
+  @Override
+  public ImmutableList<String> getObjcopts() {
+    return objcopts;
+  }
+
   /** Returns flags passed to Bazel by --linkopt option. */
   @Override
   public ImmutableList<String> getLinkopts() {
@@ -526,7 +599,8 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public String getOutputDirectoryName() {
-    String result = cpu;
+    // Add a tag that will be replaced with the CPU identifier.
+    String result = "{CPU}";
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       result += "-" + cppOptions.outputDirectoryTag;
     }
@@ -673,6 +747,18 @@ public final class CppConfiguration extends Fragment
     return cppOptions.libcTopLabel;
   }
 
+  @Override
+  public Label getLibcTopLabelStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLibcTopLabel();
+  }
+
+  @Override
+  public boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return shareNativeDeps();
+  }
+
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
@@ -690,6 +776,12 @@ public final class CppConfiguration extends Fragment
       return null;
     }
     return cppOptions.targetLibcTopLabel;
+  }
+
+  @StarlarkMethod(name = "enable_legacy_cc_provider", documented = false, useStarlarkThread = true)
+  public boolean enableLegacyCcProviderForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableLegacyCcProvider();
   }
 
   public boolean enableLegacyCcProvider() {
@@ -763,6 +855,45 @@ public final class CppConfiguration extends Fragment
     return cppOptions.generateLlvmLcov;
   }
 
+  public boolean experimentalIncludeScanning() {
+    return cppOptions.experimentalIncludeScanning;
+  }
+
+  public boolean objcShouldScanIncludes() {
+    return cppOptions.objcScanIncludes;
+  }
+
+  public boolean objcShouldGenerateDotdFiles() {
+    return cppOptions.objcGenerateDotdFiles;
+  }
+
+  @Override
+  public boolean objcGenerateLinkmap() {
+    return cppOptions.objcGenerateLinkmap;
+  }
+
+  public boolean objcEnableBinaryStripping() {
+    return cppOptions.objcEnableBinaryStripping;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_cc_interface_deps",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalCcInterfaceDepsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcInterfaceDeps();
+  }
+
+  public boolean experimentalCcInterfaceDeps() {
+    return cppOptions.experimentalCcInterfaceDeps;
+  }
+
+  public boolean getExperimentalCppCompileResourcesEstimation() {
+    return cppOptions.experimentalCppCompileResourcesEstimation;
+  }
+
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;
@@ -774,7 +905,7 @@ public final class CppConfiguration extends Fragment
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label()
             .getPackageName();
-    if (!EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
+    if (!isBuiltIn(thread) && !EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
       throw Starlark.errorf(
           "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
     }
@@ -800,13 +931,13 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public boolean processHeadersInDependenciesStarlark(StarlarkThread thread) throws EvalException {
-    checkInExpandedApiAllowlist(thread, "process_headers_in_dependencies");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return processHeadersInDependencies();
   }
 
   @Override
   public boolean saveFeatureStateStarlark(StarlarkThread thread) throws EvalException {
-    checkInExpandedApiAllowlist(thread, "save_feature_state");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return saveFeatureState();
   }
 
@@ -815,5 +946,47 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     checkInExpandedApiAllowlist(thread, "fission_active_for_current_compilation_mode");
     return fissionIsActiveForCurrentCompilationMode();
+  }
+
+  @Override
+  public boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalLinkStaticLibrariesOnce();
+  }
+
+  @Override
+  public boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalEnableTargetExportCheck();
+  }
+
+  @Override
+  public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcSharedLibraryDebug();
+  }
+
+  @Override
+  public boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalPlatformCcTest();
+  }
+
+  /**
+   * Returns the bitcode mode to use for compilation.
+   *
+   * <p>Users can control bitcode mode using the {@code apple_bitcode} build flag, but bitcode will
+   * be disabled for all simulator architectures regardless of this flag.
+   */
+  @Override
+  public AppleBitcodeMode getAppleBitcodeMode() {
+    return appleBitcodeMode;
+  }
+
+  @Override
+  public boolean objcShouldStripBinary() {
+    return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
   }
 }

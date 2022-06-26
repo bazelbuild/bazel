@@ -69,6 +69,11 @@ public final class PyStarlarkTransitions implements PyStarlarkTransitionsApi {
     }
 
     @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+
+    @Override
     public void repr(Printer printer) {
       printer.append("<py_transitions.cfg>");
     }

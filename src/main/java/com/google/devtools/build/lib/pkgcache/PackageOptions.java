@@ -122,20 +122,16 @@ public class PackageOptions extends OptionsBase {
   )
   public RuleVisibility defaultVisibility;
 
-
   @Option(
       name = "incompatible_enforce_config_setting_visibility",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If true, enforce config_setting visibility restrictions. If false, every "
-       + "config_setting is visible to every target. See "
-       + "https://github.com/bazelbuild/bazel/issues/12932."
-  )
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, enforce config_setting visibility restrictions. If false, every "
+              + "config_setting is visible to every target. See "
+              + "https://github.com/bazelbuild/bazel/issues/12932.")
   public boolean enforceConfigSettingVisibility;
 
   @Option(
@@ -143,15 +139,13 @@ public class PackageOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If incompatible_enforce_config_setting_visibility=false, this is a noop. Else, if "
-          + "this flag is false, any config_setting without an explicit visibility attribute is "
-          + "//visibility:public. If this flag is true, config_setting follows the same visibility "
-          + "logic as all other rules. See https://github.com/bazelbuild/bazel/issues/12933."
-  )
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If incompatible_enforce_config_setting_visibility=false, this is a noop. Else, if this"
+              + " flag is false, any config_setting without an explicit visibility attribute is"
+              + " //visibility:public. If this flag is true, config_setting follows the same"
+              + " visibility logic as all other rules. See"
+              + " https://github.com/bazelbuild/bazel/issues/12933.")
   public boolean configSettingPrivateDefaultVisibility;
 
   @Option(
@@ -189,14 +183,15 @@ public class PackageOptions extends OptionsBase {
   public boolean fetch;
 
   @Option(
-    name = "experimental_check_output_files",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Check for modifications made to the output files of a build. Consider setting "
-            + "this flag to false to see the effect on incremental build times."
-  )
+      name = "experimental_check_output_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check for modifications made to the output files of a build. Consider setting "
+              + "this flag to false if you don't expect these files to change outside of bazel "
+              + "since it will speed up subsequent runs as they won't have to check a "
+              + "previous run's cache.")
   public boolean checkOutputFiles;
 
   /**
@@ -231,13 +226,9 @@ public class PackageOptions extends OptionsBase {
   }
 
   public ImmutableSet<PackageIdentifier> getDeletedPackages() {
-    if (deletedPackages == null || deletedPackages.isEmpty()) {
+    if (deletedPackages == null) {
       return ImmutableSet.of();
     }
-    ImmutableSet.Builder<PackageIdentifier> newDeletedPackages = ImmutableSet.builder();
-    for (PackageIdentifier pkg : deletedPackages) {
-      newDeletedPackages.add(pkg.makeAbsolute());
-    }
-    return newDeletedPackages.build();
+    return ImmutableSet.copyOf(deletedPackages);
   }
 }

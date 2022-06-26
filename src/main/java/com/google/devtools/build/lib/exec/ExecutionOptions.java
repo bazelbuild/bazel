@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -94,7 +94,8 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
               + " list of strategies from highest to lowest priority. For each action Bazel picks"
               + " the strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\". See"
+              + " value is \"remote,worker,sandboxed,local\". This flag overrides the values set"
+              + " by --spawn_strategy (and --genrule_strategy if used with mnemonic Genrule). See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
@@ -159,7 +160,10 @@ public class ExecutionOptions extends OptionsBase {
       converter = ShowSubcommandsConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Display the subcommands executed during a build.")
+      help =
+          "Display the subcommands executed during a build. Related flags:"
+              + " --execution_log_json_file, --execution_log_binary_file (for logging subcommands"
+              + " to a file in a tool-friendly format).")
   public ShowSubcommands showSubcommands;
 
   @Option(
@@ -264,7 +268,7 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+          "Specifies maximum per-test-log size that can be emitted when --test_output is 'errors' "
               + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
               + "output. The test header is included in the log size. Negative values imply no "
               + "limit. Output is all or nothing.")
@@ -277,7 +281,7 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Specifies the desired format ot the test summary. Valid values are 'short' to print "
+          "Specifies the desired format of the test summary. Valid values are 'short' to print "
               + "information only about tests executed, 'terse', to print information only about "
               + "unsuccessful tests that were run, 'detailed' to print detailed information about "
               + "failed test cases, and 'none' to omit the summary.")
@@ -297,12 +301,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set the number of local CPU threads available to Bazel. Takes "
-              + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
-              + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
-              + "number of CPU cores available for the locally executed build actions. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
+              + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
+              + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
+              + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
+              + " the number of CPU cores available.",
       converter = CpuResourceConverter.class)
   public float localCpuResources;
 
@@ -312,13 +315,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set the amount of local host RAM (in MB) available to Bazel. Takes "
-              + "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_RAM*.5 to use half the available RAM)."
-              + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
-              + "amount of RAM available for the locally executed build actions and will use 67% "
-              + "of available RAM. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
+              + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
+              + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
+              + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
+              + " the amount of RAM available and will use 67% of it.",
       converter = RamResourceConverter.class)
   public float localRamResources;
 
@@ -357,12 +358,22 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
-    name = "debug_print_action_contexts",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Print the contents of the SpawnActionContext and ContextProviders maps."
-  )
+      name = "experimental_prioritize_local_actions",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, actions that can only run locally are given first chance at acquiring resources,"
+              + " dynamically run workers get second chance, and dynamically-run standalone actions"
+              + " come last.")
+  public boolean prioritizeLocalActions;
+
+  @Option(
+      name = "debug_print_action_contexts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Print the contents of the SpawnActionContext and ContextProviders maps.")
   public boolean debugPrintActionContexts;
 
   @Option(
@@ -406,7 +417,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos, according to "
+              + "src/main/protobuf/spawn.proto. This file is written in order of the execution "
+              + "of the Spawns. Related flags:"
+              + " --execution_log_binary_file (ordered binary protobuf format),"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogFile;
 
   @Option(
@@ -416,8 +433,23 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos, according to"
+              + " src/main/protobuf/spawn.proto. The log is first written unordered and is then,"
+              + " at the end of the invocation, sorted in a stable order (can be CPU and memory"
+              + " intensive). Related flags:"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
+
+  @Option(
+      name = "experimental_execution_log_spawn_metrics",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Include spawn metrics in the executed spawns log.")
+  public boolean executionLogSpawnMetrics;
 
   @Option(
       name = "execution_log_json_file",
@@ -428,7 +460,12 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos.")
+              + " protos, according to src/main/protobuf/spawn.proto. The log is first written"
+              + " unordered and is then, at the end of the invocation, sorted in a stable order"
+              + " (can be CPU and memory intensive). Related flags:"
+              + " Related flags: --execution_log_binary_file (ordered binary protobuf format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
   @Option(
@@ -544,46 +581,6 @@ public class ExecutionOptions extends OptionsBase {
     public ShowSubcommandsConverter() {
       super(
           ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);
-    }
-  }
-
-  /**
-   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
-   * "HOST_CPUS", optionally followed by [-|*]<float>.
-   */
-  public static class CpuResourceConverter extends ResourceConverter {
-    public CpuResourceConverter() {
-      super(
-          ImmutableMap.of(
-              "HOST_CPUS",
-              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage())),
-          1,
-          Integer.MAX_VALUE);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float>.";
-    }
-  }
-
-  /**
-   * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
-   * "HOST_RAM", optionally followed by [-|*]<float>.
-   */
-  public static class RamResourceConverter extends ResourceConverter {
-    public RamResourceConverter() {
-      super(
-          ImmutableMap.of(
-              "HOST_RAM",
-              () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
-          1,
-          Integer.MAX_VALUE);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
     }
   }
 }

@@ -80,7 +80,9 @@
 
 using blaze_util::GetLastErrorString;
 
+#if !defined(_WIN32)
 extern char **environ;
+#endif
 
 namespace blaze {
 
@@ -356,10 +358,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
                    workspace_layout.GetPrettyWorkspaceName(workspace) + ")");
   startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
                                        &result);
-
-  result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
-  result.push_back("-XX:HeapDumpPath=" +
-                   startup_options.output_base.AsJvmArgument());
 
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
   if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
@@ -738,7 +736,7 @@ static void WriteFileToStderrOrDie(const blaze_util::Path &path) {
   FILE *fp = fopen(path.AsNativePath().c_str(), "r");
 #endif
 
-  if (fp == NULL) {
+  if (fp == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "opening " << path.AsPrintablePath()
         << " failed: " << GetLastErrorString();
@@ -801,8 +799,9 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
       auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(
           attempt_time - start_time);
       BAZEL_LOG(USER) << "... still trying to connect to local "
-                      << startup_options.product_name << " server after "
-                      << elapsed_time.count() << " seconds ...";
+                      << startup_options.product_name << " server ("
+                      << server_pid << ") after " << elapsed_time.count()
+                      << " seconds ...";
       last_message_time = attempt_time;
     }
 
@@ -955,7 +954,7 @@ static void BlessFiles(const string &embedded_binaries) {
 // no-one has modified the extracted files beneath this directory once
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
-// becomes visible automically at the new path.
+// becomes visible atomically at the new path.
 static DurationMillis ExtractData(const string &self_path,
                                   const vector<string> &archive_contents,
                                   const string &expected_install_md5,
@@ -1053,9 +1052,13 @@ static bool IsVolatileArg(const string &arg) {
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
-      "--option_sources=",       "--max_idle_secs=",
-      "--connect_timeout_secs=", "--local_startup_timeout_secs=",
-      "--client_debug=",         "--preemptible="};
+      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
+      "--local_startup_timeout_secs=", "--client_debug=", "--preemptible=",
+      // Internally, -XX:HeapDumpPath is set automatically via the user's TMPDIR
+      // environment variable. Since that can change based on the shell, we
+      // tolerate changes to it. Note that an explicit setting of
+      // -XX:HeapDumpPath via --host_jvm_args *will* trigger a restart.
+      "-XX:HeapDumpPath="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1385,7 +1388,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // environment variables to modify the current process, we may actually use
   // such map to configure a process from scratch (via interfaces like execvpe
   // or posix_spawn), so we need to inherit any untouched variables.
-  for (char **entry = environ; *entry != NULL; entry++) {
+  for (char **entry = environ; *entry != nullptr; entry++) {
     const std::string var_value = *entry;
     std::string::size_type equals = var_value.find('=');
     if (equals == std::string::npos) {
@@ -1492,6 +1495,67 @@ static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
   return custom_exit_code;
 }
 
+void PrintBazelLeaf() {
+  // Bazel's basil leaf and B-shaped logo at initial release, back in 2015. The
+  // new heart shaped logo was unveiled in 2017:
+  // https://blog.bazel.build/2017/07/05/new-logo-and-homepage.html
+  const string leaf =
+      ".:                                                                    \n"
+      "+: `:`                                                                \n"
+      "o:  -o:`                                                              \n"
+      "o:   `:+/-.`                                                          \n"
+      "o:     `./oo+:-.``                                                    \n"
+      "o:        ``-/+soo//-`                                                \n"
+      "oo.            ..:+osso:-`                                            \n"
+      "oo.  `.``          `-:+sss+.`                                         \n"
+      "oo.  `://:.`           `-+sys:`                                       \n"
+      "oo.      .://:.`          `:oys:`                                     \n"
+      "oo+         .:+o/:`         `:syo-                                    \n"
+      "ooo            -/oo+:         `:ss-                                   \n"
+      "ooo              `:oso-.        -ys-                                  \n"
+      "ooo:               `:sss+.       :ss                                  \n"
+      ".oo/                 .osss-       :s/                                 \n"
+      ".oo+.                 `:sss+-      oo.                                \n"
+      " :oo/`                  -osss-     -s-                                \n"
+      " `+oo/                   .osss+.   `s-       `...:/://::::-           \n"
+      "  `+oo/`                  .ossso.   :-   `-/+oosos+sssssss-           \n"
+      "   `:+o+.`                 -ossso`  `` `:ossssssssssssssso.           \n"
+      "     `:+oo:.`               :ssss+`   .ossssssssssssssooo/            \n"
+      "       `:/+++/-.``           +ssss:   +sssssssssssoooooo+`            \n"
+      "          `-:++o+/:::````    -oooos` .osssoooooooooooooo-             \n"
+      "               ...-::::::---``ooooo- /oooo//ooooooooooo-              \n"
+      "                             `ooooo+`/oo//ooooooooooo+.               \n"
+      "                              /ooooo+oo/:oooooooooo/:.                \n"
+      "                              .ooooooo-.//+oooo//-.                   \n"
+      "                              .oooooo-     ````                       \n"
+      "                              .ooooo/`                                \n"
+      "                             `+/+oo+                                  \n"
+      "                             `++++++   `.--//////////:..``            \n"
+      "                             `+++++/`-:+++++++++++++++++//:.`         \n"
+      "                             `++++++/++++++++++++++++++++++//-.       \n"
+      "                             .++++++++++++/::.......-://+++++//:`     \n"
+      "                             /+++++++++/--`           `.-////////.`   \n"
+      "                             /+++++++/-`                 `-///////-   \n"
+      "                            `///////:`                     `-//////-  \n"
+      "                            -//////-                         .//////. \n"
+      "                            -/////-                           ://///: \n"
+      "                           `//////.                           `////::.\n"
+      "                           ./////:`                           `/:::::.\n"
+      "                           .//////.                           `::::::.\n"
+      "                           `::////.                           `:::::- \n"
+      "                            -::::::`                         `::::::- \n"
+      "                            `:::::::`                       `-::::::` \n"
+      "                             `:::::::.                     `-::::::.  \n"
+      "                              `:::::::-.                ``-:-::::-.   \n"
+      "                               `.:::::::--``         ``.--::-::--`    \n"
+      "                                 .-::::::::---.....---::::----.`      \n"
+      "                                  ``.-::::::::::::-::--------`        \n"
+      "                                      `.----------------..`           \n"
+      "                                         ```.........```             \n";
+
+  printf("%s\n", leaf.c_str());
+}
+
 void PrintVersionInfo(const string &self_path, const string &product_name) {
   string build_label;
   ExtractBuildLabel(self_path, &build_label);
@@ -1588,6 +1652,11 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
 
   const string self_path = GetSelfPath(argv[0]);
 
+  if (argc == 2 && strcmp(argv[1], "leaf") == 0) {
+    PrintBazelLeaf();
+    return blaze_exit_code::SUCCESS;
+  }
+
   if (argc == 2 && strcmp(argv[1], "--version") == 0) {
     PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());
     return blaze_exit_code::SUCCESS;
@@ -1639,6 +1708,10 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   // than emit a help message.
   if (!workspace_layout->InWorkspace(workspace)) {
     startup_options->batch = true;
+    BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
+                       << " in batch mode since it is not invoked from within"
+                       << " a workspace (below a directory having a WORKSPACE"
+                       << " file).";
   }
 
   vector<string> archive_contents;
@@ -1714,14 +1787,19 @@ bool BlazeServer::Connect() {
   assert(!Connected());
 
   blaze_util::Path server_dir = output_base_.GetRelative("server");
-  std::string port;
-  std::string ipv4_prefix = "127.0.0.1:";
-  std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
-  std::string ipv6_prefix_2 = "[::1]:";
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("command_port"), &port)) {
+  command_server::ServerInfo server_info;
+  std::string bytes;
+  if (!blaze_util::ReadFile(server_dir.GetRelative("server_info.rawproto"),
+                            &bytes) ||
+      !server_info.ParseFromString(bytes)) {
     return false;
   }
+
+  const std::string port = server_info.address();
+  const std::string ipv4_prefix = "127.0.0.1:";
+  const std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
+  const std::string ipv6_prefix_2 = "[::1]:";
 
   // Make sure that we are being directed to localhost
   if (port.compare(0, ipv4_prefix.size(), ipv4_prefix) &&
@@ -1730,17 +1808,10 @@ bool BlazeServer::Connect() {
     return false;
   }
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("request_cookie"),
-                            &request_cookie_)) {
-    return false;
-  }
+  request_cookie_ = server_info.request_cookie();
+  response_cookie_ = server_info.response_cookie();
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("response_cookie"),
-                            &response_cookie_)) {
-    return false;
-  }
-
-  pid_t server_pid = GetServerPid(blaze_util::Path(server_dir));
+  const pid_t server_pid = server_info.pid();
   if (server_pid < 0) {
     return false;
   }
@@ -2089,7 +2160,7 @@ unsigned int BlazeServer::Communicate(
 
     // Execute the requested program, but before doing so, flush everything
     // we still have to say.
-    fflush(NULL);
+    fflush(nullptr);
     ExecuteRunRequest(blaze_util::Path(request.argv(0)), argv);
   }
 

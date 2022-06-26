@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -45,7 +47,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
       AspectParameters parameters,
-      String toolsRepository)
+      RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
     StarlarkRuleContext ctx;
     try {
@@ -81,6 +83,11 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         return null;
       }
       return createAspect(aspectStarlarkObject, ruleContext);
+    } catch (Starlark.UncheckedEvalException ex) {
+      // MissingDepException is expected to transit through Starlark execution.
+      throw ex.getCause() instanceof CachingAnalysisEnvironment.MissingDepException
+          ? (CachingAnalysisEnvironment.MissingDepException) ex.getCause()
+          : ex;
     } catch (EvalException e) {
       ruleContext.ruleError("\n" + e.getMessageWithStack());
       return null;

@@ -1,0 +1,73 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+title: Reference
+landing_page:
+  nav: left
+  rows:
+  - background: BAZEL_THEME
+    options:
+    - hero
+    - description-50
+    - no-image-background
+    - padding-large
+    items:
+    - image_path: "/images/placeholder_960.png"
+      heading: Reference
+      description: >
+        Look up commands, queries, and terminology necessary to working with Bazel.
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Build Encyclopedia
+      classname: fully-clickable
+      path: /reference/be/overview
+      description: >
+        Use the Build Encyclopedia as the source of truth for all Bazel functions, as it autogenerates with each new build.
+      icon:
+        name: menu_book
+        position: top
+    - heading: Test Encyclopedia
+      classname: fully-clickable
+      path: /reference/test-encyclopedia
+      description: >
+        Learn about the runtime environment for and expected behavior of Bazel tests.
+      icon:
+        name: library_books
+        position: top
+    - heading: Query reference
+      classname: fully-clickable
+      path: /reference/query
+      description: >
+        Reference the query manual when analyzing build dependencies with one of Bazel's query languages.
+      icon:
+        name: quiz
+        position: top
+  - options:
+    - cards
+    background: grey
+    items:
+    - heading: Execution groups
+      classname: fully-clickable
+      path: /reference/exec-groups
+      description: >
+        Rule authors use execution groups to allow for multiple execution platforms within a single target.
+      icon:
+        name: inventory_2
+        position: top
+    - heading: Glossary
+      classname: fully-clickable
+      path: /reference/glossary
+      description: >
+        Look up specialized vocabulary, as well as context-specific uses of common words.
+      icon:
+        name: info
+        position: top
+    - heading: Versions & releases
+      classname: fully-clickable
+      path: /versions/
+      description: >
+         Learn about Bazel's version policy, read release notes, and browse older documentation.
+      icon:
+        name: info
+        position: top

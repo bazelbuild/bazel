@@ -14,43 +14,70 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import static net.starlark.java.eval.Module.ofInnermostEnclosingStarlarkFunction;
+
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Optional;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since package groups are
  * not really first-class Targets.
  */
-@AutoCodec
 @Immutable
-public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
-    implements PackageSpecificationProvider {
+public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
+    implements PackageSpecificationProvider, Info {
   private static final FileProvider NO_FILES = new FileProvider(
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<PackageGroupContents> packageSpecifications;
 
-  @VisibleForSerialization
-  @Instantiator
-  PackageGroupConfiguredTarget(
+  public static final BuiltinProvider<PackageGroupConfiguredTarget> PROVIDER =
+      new BuiltinProvider<PackageGroupConfiguredTarget>(
+          "PackageSpecificationInfo", PackageGroupConfiguredTarget.class) {};
+
+  // TODO(b/200065655): Only builtins should depend on a PackageGroupConfiguredTarget.
+  //  Allowlists should be migrated to a new rule type that isn't package_group. Do not expose this
+  //  to pure Starlark.
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+    if (provider == FileProvider.class) {
+      return provider.cast(NO_FILES); // can't fail
+    } else {
+      return super.getProvider(provider);
+    }
+  }
+
+  public PackageGroupConfiguredTarget(
       Label label,
       NestedSet<PackageGroupContents> visibility,
       NestedSet<PackageGroupContents> packageSpecifications) {
@@ -72,8 +99,8 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       TransitiveInfoCollection include =
           targetContext.findDirectPrerequisite(
               label, Optional.ofNullable(targetContext.getConfiguration()));
-      PackageSpecificationProvider provider = include == null ? null
-          : include.getProvider(PackageSpecificationProvider.class);
+      PackageSpecificationProvider provider =
+          include == null ? null : include.get(PackageGroupConfiguredTarget.PROVIDER);
       if (provider == null) {
         targetContext
             .getAnalysisEnvironment()
@@ -98,21 +125,35 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-    if (provider == FileProvider.class) {
-      return provider.cast(NO_FILES); // can't fail
-    } else {
-      return super.getProvider(provider);
-    }
-  }
-
-  @Override
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
+    if (providerKey.equals(PROVIDER.getKey())) {
+      return this;
+    }
     return null;
   }
 
   @Override
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
+  }
+
+  @StarlarkMethod(
+      name = "isAvailableFor",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "label",
+            allowedTypes = {@ParamType(type = Label.class)})
+      },
+      useStarlarkThread = true)
+  public boolean starlarkMatches(Label label, StarlarkThread starlarkThread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(ofInnermostEnclosingStarlarkFunction(starlarkThread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
+      throw Starlark.errorf("private API only for use by builtins");
+    }
+    return Allowlist.isAvailableFor(getPackageSpecifications(), label);
   }
 }

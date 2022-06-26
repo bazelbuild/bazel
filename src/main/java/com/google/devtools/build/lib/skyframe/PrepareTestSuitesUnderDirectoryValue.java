@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -27,7 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** Dummy {@link SkyValue} for {@link PrepareDepsOfTargetsUnderDirectoryFunction}. */
 public class PrepareTestSuitesUnderDirectoryValue implements SkyValue {
-  @AutoCodec
+  @SerializationConstant
   public static final PrepareTestSuitesUnderDirectoryValue INSTANCE =
       new PrepareTestSuitesUnderDirectoryValue();
 
@@ -37,9 +38,10 @@ public class PrepareTestSuitesUnderDirectoryValue implements SkyValue {
     return PrepareTestSuitesUnderDirectoryValue.Key.create(repository, rootedPath, excludedPaths);
   }
 
+  /** SkyKey for PREPARE_TEST_SUITES_UNDER_DIRECTORY nodes. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends RecursivePkgSkyKey {
+  public static class Key extends RecursivePkgSkyKey {
     private static final Interner<PrepareTestSuitesUnderDirectoryValue.Key> interner =
         BlazeInterners.newWeakInterner();
 

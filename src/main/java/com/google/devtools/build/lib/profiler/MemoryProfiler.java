@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.profiler;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.OutputStream;
@@ -30,17 +32,15 @@ import javax.annotation.Nullable;
 /**
  * Blaze memory profiler.
  *
- * <p>At each call to {@code profile} performs garbage collection and stores
- * heap and non-heap memory usage in an external file.
+ * <p>At each call to {@code profile} performs garbage collection and stores heap and non-heap
+ * memory usage in an external file.
  *
- * <p><em>Heap memory</em> is the runtime data area from which memory for all
- * class instances and arrays is allocated. <em>Non-heap memory</em> includes
- * the method area and memory required for the internal processing or
- * optimization of the JVM. It stores per-class structures such as a runtime
- * constant pool, field and method data, and the code for methods and
- * constructors. The Java Native Interface (JNI) code or the native library of
- * an application and the JVM implementation allocate memory from the
- * <em>native heap</em>.
+ * <p><em>Heap memory</em> is the runtime data area from which memory for all class instances and
+ * arrays is allocated. <em>Non-heap memory</em> includes the method area and memory required for
+ * the internal processing or optimization of the JVM. It stores per-class structures such as a
+ * runtime constant pool, field and method data, and the code for methods and constructors. The Java
+ * Native Interface (JNI) code or the native library of an application and the JVM implementation
+ * allocate memory from the <em>native heap</em>.
  *
  * <p>The script in /devtools/blaze/scripts/blaze-memchart.sh can be used for post processing.
  */
@@ -83,9 +83,11 @@ public final class MemoryProfiler {
   public synchronized void markPhase(ProfilePhase nextPhase) throws InterruptedException {
     if (memoryProfile != null) {
       MemoryMXBean bean = ManagementFactory.getMemoryMXBean();
-      prepareBean(nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
+      HeapAndNonHeap memoryUsages =
+          prepareBeanAndGetLocalMinUsage(
+              nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
       String name = currentPhase.description;
-      MemoryUsage memoryUsage = bean.getHeapMemoryUsage();
+      MemoryUsage memoryUsage = memoryUsages.getHeap();
       memoryProfile.println(name + ":heap:init:" + memoryUsage.getInit());
       memoryProfile.println(name + ":heap:used:" + memoryUsage.getUsed());
       memoryProfile.println(name + ":heap:commited:" + memoryUsage.getCommitted());
@@ -94,7 +96,7 @@ public final class MemoryProfiler {
         heapUsedMemoryAtFinish = memoryUsage.getUsed();
       }
 
-      memoryUsage = bean.getNonHeapMemoryUsage();
+      memoryUsage = memoryUsages.getNonHeap();
       memoryProfile.println(name + ":non-heap:init:" + memoryUsage.getInit());
       memoryProfile.println(name + ":non-heap:used:" + memoryUsage.getUsed());
       memoryProfile.println(name + ":non-heap:commited:" + memoryUsage.getCommitted());
@@ -104,15 +106,23 @@ public final class MemoryProfiler {
   }
 
   @VisibleForTesting
-  synchronized void prepareBean(ProfilePhase nextPhase, MemoryMXBean bean, Sleeper sleeper)
-      throws InterruptedException {
+  synchronized HeapAndNonHeap prepareBeanAndGetLocalMinUsage(
+      ProfilePhase nextPhase, MemoryMXBean bean, Sleeper sleeper) throws InterruptedException {
     bean.gc();
+    MemoryUsage minHeapUsed = bean.getHeapMemoryUsage();
+    MemoryUsage minNonHeapUsed = bean.getNonHeapMemoryUsage();
     if (nextPhase == ProfilePhase.FINISH && memoryProfileStableHeapParameters != null) {
       for (int i = 1; i < memoryProfileStableHeapParameters.numTimesToDoGc; i++) {
         sleeper.sleep(memoryProfileStableHeapParameters.timeToSleepBetweenGcs);
         bean.gc();
+        MemoryUsage currentHeapUsed = bean.getHeapMemoryUsage();
+        if (currentHeapUsed.getUsed() < minHeapUsed.getUsed()) {
+          minHeapUsed = currentHeapUsed;
+          minNonHeapUsed = bean.getNonHeapMemoryUsage();
+        }
       }
     }
+    return HeapAndNonHeap.create(minHeapUsed, minNonHeapUsed);
   }
 
   /**
@@ -148,7 +158,7 @@ public final class MemoryProfiler {
           }
           if (numSecondsToSleepBetweenGcs < 0) {
             throw new OptionsParsingException(
-                "Number of seconds to sleep between GC's must be positive");
+                "Number of seconds to sleep between GC's must be non-negative");
           }
           return new MemoryProfileStableHeapParameters(
               numTimesToDoGc, Duration.ofSeconds(numSecondsToSleepBetweenGcs));
@@ -163,10 +173,30 @@ public final class MemoryProfiler {
         return "two integers, separated by a comma";
       }
     }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("numTimesToDoGc", numTimesToDoGc)
+          .add("timeToSleepBetweenGcs", timeToSleepBetweenGcs)
+          .toString();
+    }
   }
 
   @VisibleForTesting
   interface Sleeper {
     void sleep(Duration duration) throws InterruptedException;
+  }
+
+  @VisibleForTesting
+  @AutoValue
+  abstract static class HeapAndNonHeap {
+    abstract MemoryUsage getHeap();
+
+    abstract MemoryUsage getNonHeap();
+
+    static HeapAndNonHeap create(MemoryUsage heap, MemoryUsage nonHeap) {
+      return new AutoValue_MemoryProfiler_HeapAndNonHeap(heap, nonHeap);
+    }
   }
 }

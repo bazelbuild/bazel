@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.ref.SoftReference;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -47,6 +48,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     return new SingleRunfilesSupplier(
         runfilesSupport.getRunfilesDirectoryExecPath(),
         runfilesSupport.getRunfiles(),
+        /*runfilesCachingEnabled=*/ false,
         /*manifest=*/ null,
         runfilesSupport.isBuildRunfileLinks(),
         runfilesSupport.isRunfilesEnabled());
@@ -68,7 +70,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     return new SingleRunfilesSupplier(
         runfilesDir,
         runfiles,
-        new RunfilesCacher(runfiles),
+        /*runfilesCachingEnabled=*/ true,
         /*manifest=*/ null,
         buildRunfileLinks,
         runfileLinksEnabled);
@@ -95,7 +97,25 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     this(
         runfilesDir,
         runfiles,
-        () -> runfiles.getRunfilesInputs(/*eventHandler=*/ null, /*location=*/ null),
+        /*runfilesCachingEnabled=*/ false,
+        manifest,
+        buildRunfileLinks,
+        runfileLinksEnabled);
+  }
+
+  private SingleRunfilesSupplier(
+      PathFragment runfilesDir,
+      Runfiles runfiles,
+      boolean runfilesCachingEnabled,
+      @Nullable Artifact manifest,
+      boolean buildRunfileLinks,
+      boolean runfileLinksEnabled) {
+    this(
+        runfilesDir,
+        runfiles,
+        runfilesCachingEnabled
+            ? new RunfilesCacher(runfiles)
+            : () -> runfiles.getRunfilesInputs(/*eventHandler=*/ null, /*location=*/ null),
         manifest,
         buildRunfileLinks,
         runfileLinksEnabled);
@@ -115,6 +135,26 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     this.manifest = manifest;
     this.buildRunfileLinks = buildRunfileLinks;
     this.runfileLinksEnabled = runfileLinksEnabled;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof SingleRunfilesSupplier)) {
+      return false;
+    }
+
+    SingleRunfilesSupplier that = (SingleRunfilesSupplier) other;
+    // Not dependent on runfilesInputs which is only used for enabling caching.
+    return (Objects.equals(runfilesDir, that.runfilesDir)
+        && Objects.equals(runfiles, that.runfiles)
+        && Objects.equals(manifest, that.manifest)
+        && (buildRunfileLinks == that.buildRunfileLinks)
+        && (runfileLinksEnabled == that.runfileLinksEnabled));
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(runfilesDir, runfiles, manifest, buildRunfileLinks, runfileLinksEnabled);
   }
 
   @Override

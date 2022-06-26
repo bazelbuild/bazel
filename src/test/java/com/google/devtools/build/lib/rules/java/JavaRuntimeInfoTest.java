@@ -30,19 +30,21 @@ public class JavaRuntimeInfoTest {
     JavaRuntimeInfo a =
         JavaRuntimeInfo.create(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            PathFragment.create(""),
+            PathFragment.create(""),
+            PathFragment.create(""),
+            PathFragment.create(""),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            PathFragment.create(""),
-            PathFragment.create(""),
-            PathFragment.create(""),
-            PathFragment.create(""));
+            null);
     JavaRuntimeInfo b =
         JavaRuntimeInfo.create(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            PathFragment.create(""),
+            PathFragment.create(""),
+            PathFragment.create(""),
+            PathFragment.create(""),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            PathFragment.create(""),
-            PathFragment.create(""),
-            PathFragment.create(""),
-            PathFragment.create(""));
+            null);
 
     new EqualsTester().addEqualityGroup(a).addEqualityGroup(b).testEquals();
   }

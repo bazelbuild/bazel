@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import java.util.List;
 
@@ -48,6 +48,8 @@ public class ApkActionsBuilder {
   private Artifact signingLineage;
   private String artifactLocation;
   private Artifact v4SignatureFile;
+  private boolean deterministicSigning;
+  private String signingKeyRotationMinSdk;
 
   private final String apkName;
 
@@ -146,9 +148,19 @@ public class ApkActionsBuilder {
     return this;
   }
 
+  public ApkActionsBuilder setSigningKeyRotationMinSdk(String minSdk) {
+    this.signingKeyRotationMinSdk = minSdk;
+    return this;
+  }
+
   /** Sets the output APK instead of creating with a static/standard path. */
   public ApkActionsBuilder setArtifactLocationDirectory(String artifactLocation) {
     this.artifactLocation = artifactLocation;
+    return this;
+  }
+
+  public ApkActionsBuilder setDeterministicSigning(boolean deterministicSigning) {
+    this.deterministicSigning = deterministicSigning;
     return this;
   }
 
@@ -179,7 +191,7 @@ public class ApkActionsBuilder {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
 
     SpawnAction.Builder compressedApkActionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
             .addOutput(compressedApk);
@@ -219,7 +231,7 @@ public class ApkActionsBuilder {
     }
 
     SpawnAction.Builder singleJarActionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
             .addInput(compressedApk)
@@ -238,7 +250,7 @@ public class ApkActionsBuilder {
       Artifact extractedJavaResourceZip =
           getApkArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
       ruleContext.registerAction(
-          new SpawnAction.Builder()
+          createSpawnActionBuilder(ruleContext)
               .setExecutable(resourceExtractor)
               .setMnemonic("ResourceExtractor")
               .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
@@ -300,7 +312,7 @@ public class ApkActionsBuilder {
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
   private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
     ruleContext.registerAction(
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .addInput(inputApk)
             .addOutput(zipAlignedApk)
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
@@ -328,7 +340,7 @@ public class ApkActionsBuilder {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
     SpawnAction.Builder actionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
             .setProgressMessage("Signing %s", apkName)
             .setMnemonic("ApkSignerTool")
@@ -340,6 +352,18 @@ public class ApkActionsBuilder {
       actionBuilder.addInput(signingLineage);
       commandLine.add("--lineage").addExecPath(signingLineage);
     }
+
+    if (deterministicSigning) {
+      // Enable deterministic DSA signing to keep the output of apksigner deterministic.
+      // This requires including BouncyCastleProvider as a Security provider, since the standard
+      // JDK Security providers do not include support for deterministic DSA signing.
+      // Since this adds BouncyCastleProvider to the end of the Provider list, any non-DSA signing
+      // algorithms (such as RSA) invoked by apksigner will still use the standard JDK
+      // implementations and not Bouncy Castle.
+      commandLine.add("--deterministic-dsa-signing", "true");
+      commandLine.add("--provider-class", "org.bouncycastle.jce.provider.BouncyCastleProvider");
+    }
+
     for (int i = 0; i < signingKeys.size(); i++) {
       if (i > 0) {
         commandLine.add("--next-signer");
@@ -353,6 +377,9 @@ public class ApkActionsBuilder {
     if (signingMethod.signV4() != null) {
       commandLine.add("--v4-signing-enabled", Boolean.toString(signingMethod.signV4()));
     }
+    if (!Strings.isNullOrEmpty(signingKeyRotationMinSdk)) {
+      commandLine.add("--rotation-min-sdk-version", signingKeyRotationMinSdk);
+    }
     commandLine.add("--out").addExecPath(signedAndZipalignedApk).addExecPath(unsignedApk);
 
     if (v4SignatureFile != null) {
@@ -362,20 +389,10 @@ public class ApkActionsBuilder {
         actionBuilder.addCommandLine(commandLine.build()).build(ruleContext));
   }
 
-  // Adds the appropriate SpawnAction options depending on if SingleJar is a jar or not.
   private static void setSingleJarAsExecutable(
       RuleContext ruleContext, SpawnAction.Builder builder) {
     Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-    if (singleJar.getFilename().endsWith(".jar")) {
-      builder
-          .setJarExecutable(
-              JavaCommon.getHostJavaExecutable(ruleContext),
-              singleJar,
-              JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
-    } else {
-      builder.setExecutable(singleJar);
-    }
+    builder.setExecutable(singleJar);
   }
 
   private Artifact getApkArtifact(RuleContext ruleContext, String baseName) {
@@ -385,5 +402,13 @@ public class ApkActionsBuilder {
     } else {
       return AndroidBinary.getDxArtifact(ruleContext, baseName);
     }
+  }
+
+  /** Adds execution info by propagating tags from the target */
+  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) {
+    return new SpawnAction.Builder()
+        .setExecutionInfo(
+            TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 }

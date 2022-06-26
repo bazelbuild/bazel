@@ -27,14 +27,21 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * lead to an error if both actions were executed in the same build.
  */
 public class ArtifactPrefixConflictException extends Exception implements DetailedException {
+  private final Label firstOwner;
+
   public ArtifactPrefixConflictException(
       PathFragment firstPath, PathFragment secondPath, Label firstOwner, Label secondOwner) {
     super(
         String.format(
-            "output path '%s' (belonging to %s) is a prefix of output path '%s' (belonging to %s). "
-                + "These actions cannot be simultaneously present; please rename one of the output "
-                + "files or build just one of them",
+            "One of the output paths '%s' (belonging to %s) and '%s' (belonging to %s) is a"
+                + " prefix of the other. These actions cannot be simultaneously present; please"
+                + " rename one of the output files or build just one of them",
             firstPath, firstOwner, secondPath, secondOwner));
+    this.firstOwner = firstOwner;
+  }
+
+  public Label getFirstOwner() {
+    return firstOwner;
   }
 
   @Override

@@ -33,7 +33,7 @@ using std::unique_ptr;
 using std::wstring;
 
 wstring GetTestTmpDirW() {
-  DWORD size = ::GetEnvironmentVariableW(L"TEST_TMPDIR", NULL, 0);
+  DWORD size = ::GetEnvironmentVariableW(L"TEST_TMPDIR", nullptr, 0);
   unique_ptr<WCHAR[]> buf(new WCHAR[size]);
   ::GetEnvironmentVariableW(L"TEST_TMPDIR", buf.get(), size);
   wstring result(buf.get());
@@ -98,14 +98,14 @@ bool CreateDummyFile(const wstring& path, const std::string& content) {
 bool CreateDummyFile(const std::wstring& path, const void* content,
                      const DWORD size) {
   HANDLE handle =
-      ::CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, NULL,
-                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+      ::CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr,
+                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
   bool result = true;
   DWORD actually_written = 0;
-  if (!::WriteFile(handle, content, size, &actually_written, NULL) &&
+  if (!::WriteFile(handle, content, size, &actually_written, nullptr) &&
       actually_written != size) {
     result = false;
   }

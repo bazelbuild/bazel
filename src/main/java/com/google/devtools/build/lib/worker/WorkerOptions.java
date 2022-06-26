@@ -46,16 +46,6 @@ public class WorkerOptions extends OptionsBase {
       })
   public Void experimentalPersistentJavac;
 
-  @Option(
-      name = "experimental_worker_allow_json_protocol",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Allows workers to use the JSON worker protocol until it is determined to be"
-              + " stable.")
-  public boolean experimentalJsonWorkerProtocol;
-
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
@@ -178,4 +168,31 @@ public class WorkerOptions extends OptionsBase {
           "If enabled, workers that support the experimental multiplexing feature will use that"
               + " feature.")
   public boolean workerMultiplex;
+
+  @Option(
+      name = "experimental_worker_cancellation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, Bazel may send cancellation requests to workers that support them.")
+  public boolean workerCancellation;
+
+  @Option(
+      name = "experimental_worker_as_resource",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, workers are acquired as resources from ResourceManager.")
+  public boolean workerAsResource;
+
+  @Option(
+      name = "experimental_worker_multiplex_sandboxing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, multiplex workers will be sandboxed, using a separate sandbox directory"
+              + " per work request. Only workers that have the 'supports-multiplex-sandboxing' "
+              + "execution requirement will be sandboxed.")
+  public boolean multiplexSandboxing;
 }

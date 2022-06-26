@@ -22,7 +22,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/java/jacoco:core-0.8.3",
-        "//third_party/java/jacoco:report-0.8.3",
+        "//third_party/java/jacoco:core",
+        "//third_party/java/jacoco:report",
     ],
 )

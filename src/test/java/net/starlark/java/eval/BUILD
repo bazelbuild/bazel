@@ -19,6 +19,7 @@ java_test(
         "EvaluationTestCase.java",
         "Examples.java",
         "FunctionTest.java",
+        "ImmutableKeyTrackingDictTest.java",
         "MethodLibraryTest.java",
         "MutabilityTest.java",
         "PrinterTest.java",

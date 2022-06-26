@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,7 +41,7 @@ class ExtraActionUtils {
   static ExtraActionArtifactsProvider createExtraActionProvider(
       Set<ActionAnalysisMetadata> actionsWithoutExtraAction, RuleContext ruleContext)
       throws InterruptedException {
-    BuildConfiguration configuration = ruleContext.getConfiguration();
+    BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration.isToolConfiguration()) {
       return ExtraActionArtifactsProvider.EMPTY;
     }

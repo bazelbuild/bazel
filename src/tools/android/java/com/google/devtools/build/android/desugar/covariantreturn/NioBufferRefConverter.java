@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.langmodel.TypeMapper;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -71,7 +72,7 @@ public final class NioBufferRefConverter extends ClassVisitor {
 
   private NioBufferRefConverter(
       ClassVisitor classVisitor, ImmutableMap<MethodKey, MethodKey> methodInvocationMappings) {
-    super(Opcodes.ASM8, classVisitor);
+    super(Opcodes.ASM9, classVisitor);
     this.methodInvocationMappings = methodInvocationMappings;
   }
 
@@ -96,7 +97,7 @@ public final class NioBufferRefConverter extends ClassVisitor {
             MethodKey.create(typeSpecificNioBuffer, baseMethod.name(), baseMethod.descriptor()));
       }
     }
-    return methodMappings.build();
+    return methodMappings.buildOrThrow();
   }
 
   private static class NioBufferMethodVisitor extends MethodVisitor {

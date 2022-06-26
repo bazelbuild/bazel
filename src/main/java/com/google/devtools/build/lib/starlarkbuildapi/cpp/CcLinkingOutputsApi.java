@@ -19,6 +19,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a structured representation of the linking outputs of a C++ rule. */
@@ -49,4 +52,7 @@ public interface CcLinkingOutputsApi<
       documented = true)
   @Nullable
   FileT getExecutable();
+
+  @StarlarkMethod(name = "all_lto_artifacts", documented = false, useStarlarkThread = true)
+  Sequence<?> getAllLtoArtifactsForStarlark(StarlarkThread thread) throws EvalException;
 }

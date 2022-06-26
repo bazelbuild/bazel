@@ -175,6 +175,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'per_object_debug_info_file'",
                         "      flag: '-gsplit-dwarf'",
+                        "      flag: '-g'",
                         "    }",
                         "  }")));
       }
@@ -381,6 +382,10 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
+      if (!existingFeatureNames.contains(
+          CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS)) {
+        featureBuilder.add(getFeature("name: 'propeller_optimize_thinlto_compile_actions'"));
+      }
       if (!existingFeatureNames.contains(CppRuleClasses.PROPELLER_OPTIMIZE)) {
         featureBuilder.add(
             getFeature(
@@ -394,6 +399,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'propeller_optimize_cc_path'",
                         "      flag: '-fbasic-block-sections=list=%{propeller_optimize_cc_path}'",
+                        "      flag: '-DBUILD_PROPELLER_TYPE=\"full\"'",
                         "    }",
                         "  }",
                         "  flag_set {",

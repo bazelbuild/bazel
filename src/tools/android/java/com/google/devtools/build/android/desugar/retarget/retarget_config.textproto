@@ -563,6 +563,28 @@ replacements {
 
 replacements {
   source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "parseInt"
+      desc: "(Ljava/lang/CharSequence;III)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarInteger"
+      name: "parseInt"
+      desc: "(Ljava/lang/CharSequence;III)I"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
+}
+
+replacements {
+  source {
     method_id {
       owner: "java/lang/Long"
       name: "max"
@@ -670,6 +692,28 @@ replacements {
   }
   range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "parseLong"
+      desc: "(Ljava/lang/CharSequence;III)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/DesugarLong"
+      name: "parseLong"
+      desc: "(Ljava/lang/CharSequence;III)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_CORE_LIBS
 }
 
 replacements {
@@ -933,23 +977,6 @@ replacements {
   source {
     method_id {
       owner: "java/util/Arrays"
-      name: "deepEquals0"
-    }
-  }
-  destination {
-    method_id {
-      owner: "java/util/DesugarArrays"
-      name: "deepEquals0"
-    }
-  }
-  range: DESUGAR_JAVA8_CORE_LIBS
-  auto_deduce_opcode_and_desc: true
-}
-
-replacements {
-  source {
-    method_id {
-      owner: "java/util/Arrays"
       name: "spliterator"
     }
   }
@@ -1165,6 +1192,23 @@ replacements {
     }
   }
   range: DESUGAR_JAVA8_LIBS
+  range: DESUGAR_JAVA8_CORE_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Iterable"
+      name: "forEach"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarCollections"
+      name: "forEachIterable"
+    }
+  }
   range: DESUGAR_JAVA8_CORE_LIBS
   auto_deduce_opcode_and_desc: true
 }

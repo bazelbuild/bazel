@@ -14,15 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
-
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -43,9 +40,8 @@ public class LateBoundSplitUtil {
   }
 
   /** The {@link Fragment} that contains the options. */
-  @AutoCodec
   @RequiresOptions(options = {TestOptions.class})
-  public static class TestFragment extends Fragment {
+  public static final class TestFragment extends Fragment {
     private final BuildOptions buildOptions;
 
     public TestFragment(BuildOptions buildOptions) {
@@ -64,22 +60,8 @@ public class LateBoundSplitUtil {
       "rule_with_test_fragment",
       (builder, env) -> builder.requiresConfigurationFragments(TestFragment.class));
 
-  /**
-   * Returns a rule class provider with standard test setup plus the above rules/configs.
-   */
-  static ConfiguredRuleClassProvider getRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    builder.addRuleDefinition(RULE_WITH_TEST_FRAGMENT);
-    builder.addConfigurationFragment(TestFragment.class);
-    builder.addConfigurationOptions(TestOptions.class);
-    return builder.build();
-  }
-
-  /**
-   * Returns the {@link TestOptions} from the given configuration.
-   */
-  static TestOptions getOptions(BuildConfiguration config) {
+  /** Returns the {@link TestOptions} from the given configuration. */
+  static TestOptions getOptions(BuildConfigurationValue config) {
     return config.getOptions().get(TestOptions.class);
   }
 }

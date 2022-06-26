@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.exec.FilesetManifestTest.ManifestCommonTest
 import com.google.devtools.build.lib.exec.FilesetManifestTest.OneOffManifestTests;
 import com.google.devtools.build.lib.exec.FilesetManifestTest.ResolvingManifestTests;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -166,17 +165,17 @@ public final class FilesetManifestTest {
   public static final class OneOffManifestTests {
 
     @Test
-    public void testManifestWithErrorOnRelativeSymlink() throws Exception {
+    public void testManifestWithErrorOnRelativeSymlink() {
       List<FilesetOutputSymlink> symlinks =
           ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
-      IOException e =
+      FilesetManifest.ForbiddenRelativeSymlinkException e =
           assertThrows(
-              IOException.class,
+              FilesetManifest.ForbiddenRelativeSymlinkException.class,
               () ->
                   FilesetManifest.constructFilesetManifest(
                       symlinks, PathFragment.create("out/foo"), ERROR));
-      assertThat(e).hasMessageThat().isEqualTo("runfiles target is not absolute: foo");
+      assertThat(e).hasMessageThat().contains("Fileset symlink foo is not absolute");
     }
 
     @Test

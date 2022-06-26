@@ -108,22 +108,12 @@ std::vector<const char *> ConvertToCArgs(const std::vector<std::string> &args) {
   return c_args;
 }
 
-// Turn our current process into a new process. Avoids fork overhead.
-// Never returns.
-void ExecProcess(const std::vector<std::string> &args) {
-  std::vector<const char *> exec_argv = ConvertToCArgs(args);
-  execv(args[0].c_str(), const_cast<char **>(exec_argv.data()));
-  std::cerr << "Error executing child process.'" << args[0] << "'. "
-            << strerror(errno) << "\n";
-  abort();
-}
-
 // Spawns a subprocess for given arguments args. The first argument is used
 // for the executable path.
 void RunSubProcess(const std::vector<std::string> &args) {
   std::vector<const char *> exec_argv = ConvertToCArgs(args);
   pid_t pid;
-  int status = posix_spawn(&pid, args[0].c_str(), NULL, NULL,
+  int status = posix_spawn(&pid, args[0].c_str(), nullptr, nullptr,
                            const_cast<char **>(exec_argv.data()), environ);
   if (status == 0) {
     int wait_status;
@@ -410,19 +400,18 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  RunSubProcess(invocation_args);
   if (!postprocess) {
-    ExecProcess(invocation_args);
-    std::cerr << "ExecProcess should not return. Please fix!\n";
-    abort();
+    return 0;
   }
 
-  RunSubProcess(invocation_args);
-
-  std::vector<std::string> dsymutil_args = {
-      "/usr/bin/xcrun", "dsymutil", linked_binary, "-o", dsym_path, "--flat"};
-  ExecProcess(dsymutil_args);
-  std::cerr << "ExecProcess should not return. Please fix!\n";
-  abort();
-
+  std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun",
+                                            "dsymutil",
+                                            linked_binary,
+                                            "-o",
+                                            dsym_path,
+                                            "--flat",
+                                            "--no-swiftmodule-timestamp"};
+  RunSubProcess(dsymutil_args);
   return 0;
 }

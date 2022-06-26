@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.common.base.Preconditions;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -24,9 +27,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -35,12 +37,12 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedSpawn {
 
-  private final Path sandboxPath;
-  private final Path sandboxExecRoot;
-  private final List<String> arguments;
-  private final Map<String, String> environment;
-  private final SandboxInputs inputs;
-  private final SandboxOutputs outputs;
+  final Path sandboxPath;
+  final Path sandboxExecRoot;
+  private final ImmutableList<String> arguments;
+  private final ImmutableMap<String, String> environment;
+  final SandboxInputs inputs;
+  final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
   private final TreeDeleter treeDeleter;
   private final Path statisticsPath;
@@ -48,8 +50,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
       Path sandboxExecRoot,
-      List<String> arguments,
-      Map<String, String> environment,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
       SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<Path> writableDirs,
@@ -72,12 +74,12 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   }
 
   @Override
-  public List<String> getArguments() {
+  public ImmutableList<String> getArguments() {
     return arguments;
   }
 
   @Override
-  public Map<String, String> getEnvironment() {
+  public ImmutableMap<String, String> getEnvironment() {
     return environment;
   }
 
@@ -89,75 +91,61 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   @Override
   public void createFileSystem() throws IOException {
-    createDirectories();
-    createInputs(inputs);
+    // First compute all the inputs and directories that we need. This is based only on
+    // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
+    Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
+    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> writableSandboxDirs =
+        writableDirs.stream()
+            .filter(p -> p.startsWith(sandboxExecRoot))
+            .map(p -> p.relativeTo(sandboxExecRoot))
+            .collect(Collectors.toSet());
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        writableSandboxDirs,
+        inputsToCreate,
+        dirsToCreate,
+        Iterables.concat(
+            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+        outputs.files(),
+        outputs.dirs());
+
+    // Allow subclasses to filter out inputs and dirs that don't need to be created.
+    filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+
+    // Finally create what needs creating.
+    SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict=*/ true);
+    createInputs(inputsToCreate, inputs);
     inputs.materializeVirtualInputs(sandboxExecRoot);
   }
 
+  protected void filterInputsAndDirsToCreate(
+      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
+      throws IOException {}
+
   /**
-   * No input can be a child of another input, because otherwise we might try to create a symlink
-   * below another symlink we created earlier - which means we'd actually end up writing somewhere
-   * in the workspace.
+   * Creates all inputs needed for this spawn's sandbox.
    *
-   * <p>If all inputs were regular files, this situation could naturally not happen - but
-   * unfortunately, we might get the occasional action that has directories in its inputs.
-   *
-   * <p>Creating all parent directories first ensures that we can safely create symlinks to
-   * directories, too, because we'll get an IOException with EEXIST if inputs happen to be nested
-   * once we start creating the symlinks for all inputs.
+   * @param inputsToCreate The inputs that actually need to be created. Some inputs may already
+   *     exist if we're reusing a previously existing sandbox.
+   * @param inputs All the inputs for this spawn.
    */
-  private void createDirectories() throws IOException {
-    LinkedHashSet<Path> dirsToCreate = new LinkedHashSet<>();
-
-    for (PathFragment path :
-        Iterables.concat(
-            inputs.getFiles().keySet(),
-            inputs.getSymlinks().keySet(),
-            outputs.files(),
-            outputs.dirs())) {
-      Preconditions.checkArgument(!path.isAbsolute());
-      if (path.segmentCount() > 1) {
-        // Allow a single up-level reference to allow inputs from the siblings of the main
-        // repository in the sandbox execution root.
-        Preconditions.checkArgument(
-            !path.subFragment(1).containsUplevelReferences(),
-            "%s escapes the sandbox exec root.",
-            path);
+  void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs)
+      throws IOException {
+    for (PathFragment fragment : inputsToCreate) {
+      Path key = sandboxExecRoot.getRelative(fragment);
+      if (inputs.getFiles().containsKey(fragment)) {
+        Path fileDest = inputs.getFiles().get(fragment);
+        if (fileDest != null) {
+          copyFile(fileDest, key);
+        } else {
+          FileSystemUtils.createEmptyFile(key);
+        }
+      } else if (inputs.getSymlinks().containsKey(fragment)) {
+        PathFragment symlinkDest = inputs.getSymlinks().get(fragment);
+        if (symlinkDest != null) {
+          key.createSymbolicLink(symlinkDest);
+        }
       }
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(sandboxExecRoot.getRelative(path.subFragment(0, i)));
-      }
-    }
-    for (PathFragment path : outputs.dirs()) {
-      dirsToCreate.add(sandboxExecRoot.getRelative(path));
-    }
-
-    for (Path path : dirsToCreate) {
-      path.createDirectory();
-    }
-
-    for (Path dir : writableDirs) {
-      if (dir.startsWith(sandboxExecRoot)) {
-        dir.createDirectoryAndParents();
-      }
-    }
-  }
-
-  protected void createInputs(SandboxInputs inputs) throws IOException {
-    // All input files are relative to the execroot.
-    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
-      Path key = sandboxExecRoot.getRelative(entry.getKey());
-      // A null value means that we're supposed to create an empty file as the input.
-      if (entry.getValue() != null) {
-        copyFile(entry.getValue(), key);
-      } else {
-        FileSystemUtils.createEmptyFile(key);
-      }
-    }
-
-    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
-      Path key = sandboxExecRoot.getRelative(entry.getKey());
-      key.createSymbolicLink(entry.getValue());
     }
   }
 

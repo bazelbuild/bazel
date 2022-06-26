@@ -276,6 +276,7 @@ public final class TestXmlOutputParser {
             throw createBadElementException(elementName, parser);
           }
           return;
+        default: // fall out
       }
     }
   }
@@ -345,6 +346,7 @@ public final class TestXmlOutputParser {
             return;
           }
           break;
+        default: // fall out
       }
     }
   }

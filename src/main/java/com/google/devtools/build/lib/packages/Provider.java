@@ -61,7 +61,7 @@ public interface Provider extends ProviderApi {
   Location getLocation();
 
   /** A serializable and fingerprintable representation of {@link Provider}. */
-  public abstract static class Key {
+  abstract class Key {
     abstract void fingerprint(Fingerprint fp);
   }
 }

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import javax.annotation.Nullable;
 
@@ -49,10 +50,10 @@ public final class TransitionResolver {
    * @return the target's configuration(s), expressed as a diff from the original configuration.
    */
   public static ConfigurationTransition evaluateTransition(
-      BuildConfiguration fromConfig,
+      BuildConfigurationValue fromConfig,
       ConfigurationTransition baseTransition,
       Target toTarget,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
 
     // I. The null configuration always remains the null configuration. We could fold this into
     // (III), but NoTransition doesn't work if the source is the null configuration.
@@ -93,7 +94,7 @@ public final class TransitionResolver {
   private static ConfigurationTransition applyRuleTransition(
       ConfigurationTransition currentTransition, Target toTarget) {
     Rule associatedRule = toTarget.getAssociatedRule();
-    TransitionFactory<Rule> transitionFactory =
+    TransitionFactory<RuleTransitionData> transitionFactory =
         associatedRule.getRuleClassObject().getTransitionFactory();
     return applyTransitionFromFactory(currentTransition, toTarget, transitionFactory);
   }
@@ -106,10 +107,11 @@ public final class TransitionResolver {
   private static ConfigurationTransition applyTransitionFromFactory(
       ConfigurationTransition currentTransition,
       Target toTarget,
-      @Nullable TransitionFactory<Rule> transitionFactory) {
+      @Nullable TransitionFactory<RuleTransitionData> transitionFactory) {
     if (transitionFactory != null) {
       return ComposingTransition.of(
-          currentTransition, transitionFactory.create(toTarget.getAssociatedRule()));
+          currentTransition,
+          transitionFactory.create(RuleTransitionData.create(toTarget.getAssociatedRule())));
     }
     return currentTransition;
   }

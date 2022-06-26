@@ -42,17 +42,17 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,7 +88,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   private static final class TrackingEvaluationProgressReceiver
-      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+      implements EvaluationProgressReceiver {
 
     public static final class InvalidatedKey {
       public final SkyKey skyKey;
@@ -179,6 +179,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     public void evaluated(
         SkyKey skyKey,
         @Nullable SkyValue value,
+        @Nullable ErrorInfo error,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
       evaluated.add(new EvaluatedEntry(skyKey, evaluationSuccessState.get(), state));
@@ -227,7 +228,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     @Override
     public String getMnemonic() {
-      return null;
+      return "ExecutionCountingAction";
     }
 
     @Override
@@ -271,10 +272,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public Object processSkyframeValues(
         ImmutableList<? extends SkyKey> keys,
-        Map<SkyKey, ValueOrException<IOException>> values,
+        SkyframeIterableResult values,
         boolean valuesMissing) {
       assertThat(keys).containsExactly(actionDepKey);
-      assertThat(values.keySet()).containsExactly(actionDepKey);
       return null;
     }
 
@@ -864,10 +864,9 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
           @Override
           public Object processSkyframeValues(
               ImmutableList<? extends SkyKey> keys,
-              Map<SkyKey, ValueOrException<IOException>> values,
+              SkyframeIterableResult values,
               boolean valuesMissing) {
             assertThat(keys).isEmpty();
-            assertThat(values).isEmpty();
             assertThat(valuesMissing).isFalse();
             return null;
           }

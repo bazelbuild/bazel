@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Helper functions for Starlark to access coverage-related infrastructure */
@@ -58,6 +63,23 @@ public interface CoverageCommonApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "coverage_support_files",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              @ParamType(type = Depset.class, generic1 = FileApi.class)
+            },
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "coverage_environment",
+            allowedTypes = {@ParamType(type = Dict.class)},
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "{}"),
+        @Param(
             name = "extensions",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
@@ -71,11 +93,15 @@ public interface CoverageCommonApi<
             positional = false,
             named = true,
             defaultValue = "None"),
-      })
+      },
+      useStarlarkThread = true)
   InstrumentedFilesInfoApi instrumentedFilesInfo(
       RuleContextT starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String> expected
       Sequence<?> dependencyAttributes, // <String> expected
-      Object extensions)
-      throws EvalException;
+      Object supportFiles, // Sequence or Depset of <FileApi> expected
+      Dict<?, ?> environment, // <String, String>
+      Object extensions,
+      StarlarkThread thread)
+      throws EvalException, TypeException;
 }

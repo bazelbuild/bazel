@@ -42,9 +42,9 @@ alias(
 # without needing the SDK repo's name (typically @androidsdk but not required).
 java_binary(
     name = "d8_dexbuilder",
-    main_class = "com.android.tools.r8.compatdexbuilder.CompatDexBuilder",
+    main_class = "com.google.devtools.build.android.r8.CompatDexBuilder",
     visibility = ["//visibility:private"],
-    runtime_deps = ["//external:android/d8_jar_import"],
+    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/r8"],
 )
 
 # NOTE: d8 dex builder doesn't support the persistent worker mode at the moment. To use this config,
@@ -68,7 +68,7 @@ alias(
     actual = select({
         "d8_incremental_dexing": ":d8_dexbuilder",
         "dx_incremental_dexing": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
-        "//conditions:default": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
+        "//conditions:default": ":d8_dexbuilder",
     }),
 )
 
@@ -81,9 +81,9 @@ alias(
 # without needing the SDK repo's name (typically @androidsdk but not required).
 java_binary(
     name = "d8_dexmerger",
-    main_class = "com.android.tools.r8.dexfilemerger.DexFileMerger",
+    main_class = "com.google.devtools.build.android.r8.DexFileMerger",
     visibility = ["//visibility:private"],
-    runtime_deps = ["//external:android/d8_jar_import"],
+    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/r8"],
 )
 
 config_setting(
@@ -105,7 +105,7 @@ alias(
     actual = select({
         "use_d8_dexmerger": ":d8_dexmerger",
         "use_dx_dexmerger": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
-        "//conditions:default": "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
+        "//conditions:default": ":d8_dexmerger",
     }),
 )
 
@@ -114,10 +114,32 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
 )
 
+config_setting(
+    name = "d8_desugaring",
+    values = {
+        "define": "android_desugaring_tool=d8",
+    },
+)
+
+config_setting(
+    name = "legacy_desugaring",
+    values = {
+        "define": "android_desugaring_tool=legacy",
+    },
+)
+
 sh_binary(
     name = "desugar_java8",
-    srcs = ["desugar.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+    srcs = select({
+        "legacy_desugaring": ["desugar.sh"],
+        "d8_desugaring": ["d8_desugar.sh"],
+        "//conditions:default": ["desugar.sh"],
+    }),
+    data = select({
+        "legacy_desugaring": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+        "d8_desugaring": ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:desugar", "chm_only_desugar_jdk_libs.json"],
+        "//conditions:default": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+    })
 )
 
 alias(
@@ -180,6 +202,12 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+sh_binary(
+    name = "merge_proguard_maps",
+    srcs = ["fail.sh"],
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "java8_legacy_dex",
     outs = ["java8_legacy.dex.zip"],
@@ -198,6 +226,7 @@ genrule(
     name = "desugar_java8_legacy_libs",
     srcs = ["@android_tools//:desugar_jdk_libs.jar"],
     outs = ["desugared_java8_legacy_libs.jar"],
+    message = "Desugaring java8 legacy libs",
     cmd = """
     $(location :desugar_java8) \
         --input $< \
@@ -208,14 +237,15 @@ genrule(
         --noemit_dependency_metadata_as_needed \
         --nodesugar_try_with_resources_if_needed \
         --desugar_supported_core_libs \
+        --rewrite_core_library_prefix java/time/ \
         --rewrite_core_library_prefix java/lang/Double8 \
         --rewrite_core_library_prefix java/lang/Integer8 \
         --rewrite_core_library_prefix java/lang/Long8 \
         --rewrite_core_library_prefix java/lang/Math8 \
-        --rewrite_core_library_prefix java/time/ \
+        --rewrite_core_library_prefix java/io/Desugar \
+        --rewrite_core_library_prefix java/io/UncheckedIOException \
         --rewrite_core_library_prefix java/util/stream/ \
         --rewrite_core_library_prefix java/util/function/ \
-        --rewrite_core_library_prefix java/util/Comparators \
         --rewrite_core_library_prefix java/util/Desugar \
         --rewrite_core_library_prefix java/util/DoubleSummaryStatistics \
         --rewrite_core_library_prefix java/util/IntSummaryStatistics \
@@ -223,15 +253,13 @@ genrule(
         --rewrite_core_library_prefix java/util/Objects \
         --rewrite_core_library_prefix java/util/Optional \
         --rewrite_core_library_prefix java/util/PrimitiveIterator \
-        --rewrite_core_library_prefix java/util/SortedSet\\$$1 \
         --rewrite_core_library_prefix java/util/Spliterator \
         --rewrite_core_library_prefix java/util/StringJoiner \
-        --rewrite_core_library_prefix java/util/Tripwire \
+        --rewrite_core_library_prefix javadesugar/testing/ \
         --rewrite_core_library_prefix java/util/concurrent/ConcurrentHashMap \
-        --rewrite_core_library_prefix java/util/concurrent/DesugarUnsafe \
         --rewrite_core_library_prefix java/util/concurrent/ThreadLocalRandom \
         --rewrite_core_library_prefix java/util/concurrent/atomic/DesugarAtomic \
-        --retarget_core_library_member "java/util/LinkedHashSet#spliterator->java/util/DesugarLinkedHashSet" \
+        --auto_desugar_shadowed_api_use \
         --emulate_core_library_interface java/util/Collection \
         --emulate_core_library_interface java/util/Map \
         --emulate_core_library_interface java/util/Map\\$$Entry \
@@ -294,7 +322,6 @@ py_binary(
     python_version = "PY3",
     deps = [
         "//third_party/py/abseil",
-        "//third_party/py/concurrent:futures",
     ],
 )
 
@@ -324,6 +351,16 @@ py_binary(
     srcs = ["stubify_manifest.py"],
     python_version = "PY3",
     deps = [
+        "//third_party/py/abseil",
+    ],
+)
+
+py_binary(
+    name = "aar_embedded_proguard_extractor",
+    srcs = ["aar_embedded_proguard_extractor.py"],
+    python_version = "PY3",
+    deps = [
+        ":junction_lib",
         "//third_party/py/abseil",
     ],
 )
@@ -403,7 +440,7 @@ alias(
 )
 
 # This is the default value of databinding_annotation_processor if the user does
-# not provide one.
+# not provide one. Also used by the bind rules in android.WORKSPACE.
 filegroup(name = "empty")
 
 alias(

@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link CrashFailureDetails}. */
 @RunWith(JUnit4.class)
-public class CrashFailureDetailsTest {
+public final class CrashFailureDetailsTest {
 
   private static final String TEST_EXCEPTION_NAME =
       "com.google.devtools.build.lib.util.CrashFailureDetailsTest$TestException";
@@ -91,6 +91,17 @@ public class CrashFailureDetailsTest {
   }
 
   @Test
+  public void testMessageLimit() {
+    TestException exception = new TestException("x".repeat(5000));
+
+    String crashMessage =
+        CrashFailureDetails.forThrowable(exception).getCrash().getCauses(0).getMessage();
+
+    assertThat(crashMessage).hasLength(2000);
+    assertThat(crashMessage).endsWith("[truncated]");
+  }
+
+  @Test
   public void causeCycle() {
     // This test confirms that throwables in a cause cycle are visited at most once.
     TestException inner2 = new TestException("inner2");
@@ -120,12 +131,25 @@ public class CrashFailureDetailsTest {
   }
 
   @Test
-  public void detailedExitConstruction() {
+  public void detailedExitConstruction_oom() {
     assertThat(
             CrashFailureDetails.detailedExitCodeForThrowable(new OutOfMemoryError()).getExitCode())
         .isEqualTo(ExitCode.OOM_ERROR);
+  }
+
+  @Test
+  public void detailedExitConstruction_wrappedOom() {
     assertThat(
-            CrashFailureDetails.detailedExitCodeForThrowable(new InterruptedException())
+            CrashFailureDetails.detailedExitCodeForThrowable(
+                    new IllegalStateException(new OutOfMemoryError()))
+                .getExitCode())
+        .isEqualTo(ExitCode.OOM_ERROR);
+  }
+
+  @Test
+  public void detailedExtitConstruction_otherCrash() {
+    assertThat(
+            CrashFailureDetails.detailedExitCodeForThrowable(new IllegalStateException())
                 .getExitCode())
         .isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR);
   }

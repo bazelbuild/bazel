@@ -23,15 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.stream.Stream;
@@ -41,7 +39,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link TestResultAggregator}. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public final class TestResultAggregatorTest {
 
@@ -51,6 +48,7 @@ public final class TestResultAggregatorTest {
   public void configureMockParams() {
     when(mockParams.runsDetectsFlakes()).thenReturn(false);
     when(mockParams.getTimeout()).thenReturn(TestTimeout.LONG);
+    when(mockParams.getShards()).thenReturn(1);
   }
 
   @Test
@@ -115,9 +113,83 @@ public final class TestResultAggregatorTest {
   }
 
   @Test
-  public void cancelConcurrentTests_cancellationAfterPassIgnored() {
-    TestResultAggregator underTest = createAggregatorWithTestRuns(2);
+  public void attemptCount_agggregatesSingleShardSingleAttempt() {
     when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    TestResultAggregator underTest = createAggregatorWithTestRuns(1);
+
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(1L, 2L)),
+            /*shardNum=*/ 0));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getNumAttempts()).isEqualTo(2);
+  }
+
+  @Test
+  public void attemptCount_agggregatesSingleShardMultipleAttempts() {
+    when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    TestResultAggregator underTest = createAggregatorWithTestRuns(2);
+
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(1L, 2L)),
+            /*shardNum=*/ 0));
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(3L, 4L)),
+            /*shardNum=*/ 0));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getNumAttempts()).isEqualTo(4);
+  }
+
+  @Test
+  public void attemptCount_agggregatesMultipleShardsMultipleAttempts() {
+    when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    when(mockParams.getShards()).thenReturn(2);
+    TestResultAggregator underTest = createAggregatorWithTestRuns(3);
+
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(1L, 2L, 3L)),
+            /*shardNum=*/ 0));
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(3L, 4L)),
+            /*shardNum=*/ 1));
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(3L, 4L)),
+            /*shardNum=*/ 1));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getNumAttempts()).isEqualTo(4);
+  }
+
+  @Test
+  public void attemptCount_agggregatesMultipleShardsSingleShardHasMostAttempts() {
+    when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    when(mockParams.getShards()).thenReturn(2);
+    TestResultAggregator underTest = createAggregatorWithTestRuns(3);
+
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(1L, 2L, 3L, 4L, 5L)),
+            /*shardNum=*/ 0));
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(3L, 4L)),
+            /*shardNum=*/ 1));
+    underTest.testEvent(
+        shardedTestResult(
+            TestResultData.newBuilder().addAllTestTimes(ImmutableList.of(3L, 4L)),
+            /*shardNum=*/ 1));
+
+    assertThat(underTest.aggregateAndReportSummary(false).getNumAttempts()).isEqualTo(5);
+  }
+
+  @Test
+  public void cancelConcurrentTests_cancellationAfterPassIgnored() {
+    when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    TestResultAggregator underTest = createAggregatorWithTestRuns(2);
 
     underTest.testEvent(
         testResult(
@@ -171,7 +243,7 @@ public final class TestResultAggregatorTest {
 
     return new TestResultAggregator(
         mockTarget,
-        mock(BuildConfiguration.class),
+        mock(BuildConfigurationValue.class),
         new AggregationPolicy(
             new EventBus(), /*testCheckUpToDate=*/ false, /*testVerboseTimeoutWarnings=*/ false),
         /*skippedThisTest=*/ false);
@@ -181,5 +253,12 @@ public final class TestResultAggregatorTest {
     TestRunnerAction mockTestAction = mock(TestRunnerAction.class);
     when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableList.of());
     return new TestResult(mockTestAction, data.build(), locallyCached, /*systemFailure=*/ null);
+  }
+
+  private static TestResult shardedTestResult(TestResultData.Builder data, int shardNum) {
+    TestRunnerAction mockTestAction = mock(TestRunnerAction.class);
+    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableList.of());
+    when(mockTestAction.getShardNum()).thenReturn(shardNum);
+    return new TestResult(mockTestAction, data.build(), /*cached=*/ false, /*systemFailure=*/ null);
   }
 }

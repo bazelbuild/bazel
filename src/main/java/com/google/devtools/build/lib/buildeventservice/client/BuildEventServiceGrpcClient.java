@@ -28,6 +28,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusException;
@@ -48,11 +49,14 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private final PublishBuildEventBlockingStub besBlocking;
 
   public BuildEventServiceGrpcClient(
-      ManagedChannel channel, @Nullable CallCredentials callCredentials) {
-    this(
-        withCallCredentials(PublishBuildEventGrpc.newStub(channel), callCredentials),
-        withCallCredentials(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials),
-        channel);
+      ManagedChannel channel,
+      @Nullable CallCredentials callCredentials,
+      ClientInterceptor interceptor) {
+    this.besAsync =
+        configureStub(PublishBuildEventGrpc.newStub(channel), callCredentials, interceptor);
+    this.besBlocking =
+        configureStub(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials, interceptor);
+    this.channel = channel;
   }
 
   @VisibleForTesting
@@ -65,9 +69,10 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     this.channel = channel;
   }
 
-  private static <T extends AbstractStub<T>> T withCallCredentials(
-      T stub, @Nullable CallCredentials callCredentials) {
+  private static <T extends AbstractStub<T>> T configureStub(
+      T stub, @Nullable CallCredentials callCredentials, @Nullable ClientInterceptor interceptor) {
     stub = callCredentials != null ? stub.withCallCredentials(callCredentials) : stub;
+    stub = interceptor != null ? stub.withInterceptors(interceptor) : stub;
     return stub;
   }
 

@@ -16,19 +16,23 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.DiffToByteCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
@@ -47,6 +51,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class BuildOptionsTest {
+
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
       ImmutableList.of(CoreOptions.class);
 
@@ -63,7 +68,8 @@ public final class BuildOptionsTest {
     // The cache keys of the OptionSets must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
-    assertThat(b.computeCacheKey()).isEqualTo(a.computeCacheKey());
+    assertThat(b.checksum()).isEqualTo(a.checksum());
+    assertThat(a).isEqualTo(b);
   }
 
   @Test
@@ -131,64 +137,10 @@ public final class BuildOptionsTest {
 
   @Test
   public void optionsDiff_nullOptionsThrow() throws Exception {
-    BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    BuildOptions two = null;
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> BuildOptions.diff(one, two));
-    assertThat(e).hasMessageThat().contains("Cannot diff null BuildOptions");
-  }
-
-  @Test
-  public void optionsDiff_nullSecondValue() throws Exception {
-    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=gcc");
-    BuildOptions two = BuildOptions.of(ImmutableList.of(CppOptions.class));
-    OptionsDiffForReconstruction diffForReconstruction =
-        BuildOptions.diffForReconstruction(one, two);
-    OptionsDiff diff = BuildOptions.diff(one, two);
-    assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getSecond().values()).contains(null);
-    BuildOptions reconstructed = one.applyDiff(diffForReconstruction);
-    assertThat(reconstructed.get(CppOptions.class).cppCompiler).isNull();
-  }
-
-  @Test
-  public void optionsDiff_differentBaseThrowException() throws Exception {
-    BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
-    BuildOptions three = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=gcc");
-    OptionsDiffForReconstruction diffForReconstruction =
-        BuildOptions.diffForReconstruction(one, two);
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> three.applyDiff(diffForReconstruction));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Cannot reconstruct BuildOptions with a different base");
-  }
-
-  @Test
-  public void optionsDiff_getEmptyAndApplyEmpty() throws Exception {
-    BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    OptionsDiffForReconstruction diffForReconstruction =
-        BuildOptions.diffForReconstruction(one, two);
-    BuildOptions reconstructed = one.applyDiff(diffForReconstruction);
-    assertThat(one).isEqualTo(reconstructed);
-  }
-
-  @Test
-  public void applyDiff_nativeOptions() throws Exception {
-    BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
-    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
-    assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
-    BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
-    assertThat(reconstructedOne).isSameInstanceAs(one);
-    BuildOptions otherFragment = BuildOptions.of(ImmutableList.of(CppOptions.class));
-    assertThat(one.applyDiff(BuildOptions.diffForReconstruction(one, otherFragment)))
-        .isEqualTo(otherFragment);
-    assertThat(otherFragment.applyDiff(BuildOptions.diffForReconstruction(otherFragment, one)))
-        .isEqualTo(one);
+    BuildOptions options =
+        BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
+    assertThrows(NullPointerException.class, () -> BuildOptions.diff(options, null));
+    assertThrows(NullPointerException.class, () -> BuildOptions.diff(null, options));
   }
 
   @Test
@@ -236,81 +188,27 @@ public final class BuildOptionsTest {
   }
 
   @Test
-  public void applyDiff_sameStarlarkOptions() {
-    Label flagName = Label.parseAbsoluteUnchecked("//foo/flag");
-    String flagValue = "value";
-    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
-    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
-
-    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
-
-    assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
-
-    BuildOptions reconstructedOne = one.applyDiff(BuildOptions.diffForReconstruction(one, one));
-
-    assertThat(reconstructedOne).isSameInstanceAs(one);
-  }
-
-  @Test
-  public void applyDiff_differentStarlarkOptions() {
-    Label flagName = Label.parseAbsoluteUnchecked("//bar/flag");
-    String flagValueOne = "valueOne";
-    String flagValueTwo = "valueTwo";
-    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
-    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValueTwo));
-
-    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
-
-    assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
-  }
-
-  @Test
-  public void applyDiff_extraStarlarkOptions() {
-    Label flagNameOne = Label.parseAbsoluteUnchecked("//extra/flag/one");
-    Label flagNameTwo = Label.parseAbsoluteUnchecked("//extra/flag/two");
-    String flagValue = "foo";
-    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
-    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
-
-    BuildOptions reconstructedTwo = one.applyDiff(uncachedDiffForReconstruction(one, two));
-
-    assertThat(reconstructedTwo).isEqualTo(two);
-    assertThat(reconstructedTwo).isNotSameInstanceAs(two);
-  }
-
-  @Test
-  public void applyDiff_returnsOriginalOptionsInstanceIfStillExists() throws Exception {
-    BuildOptions base = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=a");
-    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=b");
-    BuildOptions reconstructed = base.applyDiff(BuildOptions.diffForReconstruction(base, original));
-    assertThat(reconstructed).isSameInstanceAs(original);
-  }
-
-  @Test
-  public void diffForReconstruction_calledTwiceWithSameArgs_returnsSameInstance() throws Exception {
-    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=one");
-    BuildOptions two = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=two");
-
-    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
-    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
-
-    assertThat(diff1).isSameInstanceAs(diff2);
-  }
-
-  @Test
-  public void diffForReconstruction_againstDifferentBase() throws Exception {
-    BuildOptions base1 = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=base1");
-    BuildOptions base2 = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=base2");
-    BuildOptions other = BuildOptions.of(ImmutableList.of(CppOptions.class), "--compiler=other");
-
-    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(base1, other);
-    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(base2, other);
-
-    assertThat(diff1).isNotEqualTo(diff2);
-    assertThat(base1.applyDiff(diff1)).isEqualTo(other);
-    assertThat(base2.applyDiff(diff2)).isEqualTo(other);
+  public void serialization() throws Exception {
+    new SerializationTester(
+            BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8"),
+            BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8"),
+            BuildOptions.of(
+                makeOptionsClassBuilder()
+                    .add(AndroidConfiguration.Options.class)
+                    .add(ProtoConfiguration.Options.class)
+                    .build()),
+            BuildOptions.of(
+                makeOptionsClassBuilder().add(JavaOptions.class).add(PythonOptions.class).build(),
+                "--cpu=k8",
+                "--compilation_mode=opt",
+                "--compiler=gcc",
+                "--copt=-Dfoo",
+                "--javacopt=--javacoption",
+                "--experimental_fix_deps_tool=fake",
+                "--build_python_zip=no",
+                "--python_version=PY2"))
+        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
+        .runTests();
   }
 
   private static ImmutableList.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {
@@ -319,53 +217,46 @@ public final class BuildOptionsTest {
         .add(CppOptions.class);
   }
 
-  /**
-   * Tests that an {@link OptionsDiffForReconstruction} serializes stably. Unfortunately, still
-   * passes without fixes! (Perhaps more classes and diffs are needed?)
-   */
   @Test
-  public void codecStability() throws Exception {
-    BuildOptions one =
-        BuildOptions.of(
-            makeOptionsClassBuilder()
-                .add(AndroidConfiguration.Options.class)
-                .add(ProtoConfiguration.Options.class)
-                .build());
-    BuildOptions two =
-        BuildOptions.of(
-            makeOptionsClassBuilder().add(JavaOptions.class).add(PythonOptions.class).build(),
-            "--cpu=k8",
-            "--compilation_mode=opt",
-            "--compiler=gcc",
-            "--copt=-Dfoo",
-            "--javacopt=--javacoption",
-            "--experimental_fix_deps_tool=fake",
-            "--build_python_zip=no",
-            "--python_version=PY2");
-    OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
-    OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
-    assertThat(diff2).isEqualTo(diff1);
-    assertThat(
-            TestUtils.toBytes(
-                diff2,
-                ImmutableMap.of(
-                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())))
-        .isEqualTo(
-            TestUtils.toBytes(
-                diff1,
-                ImmutableMap.of(
-                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())));
+  public void deserialize_unprimedCache_throws() throws Exception {
+    BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+
+    SerializationContext serializationContext =
+        new SerializationContext(
+            ImmutableClassToInstanceMap.of(
+                OptionsChecksumCache.class, new MapBackedChecksumCache()));
+    ByteString bytes = TestUtils.toBytes(serializationContext, options);
+    assertThat(bytes).isNotNull();
+
+    // Different checksum cache than the one used for serialization, and it has not been primed.
+    DeserializationContext deserializationContext =
+        new DeserializationContext(
+            ImmutableClassToInstanceMap.of(
+                OptionsChecksumCache.class, new MapBackedChecksumCache()));
+    Exception e =
+        assertThrows(
+            SerializationException.class, () -> TestUtils.fromBytes(deserializationContext, bytes));
+    assertThat(e).hasMessageThat().contains(options.checksum());
   }
 
   @Test
-  public void repeatedCodec() throws Exception {
-    BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
-    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(one, two);
-    BuildOptions.OptionsDiffCache cache = new BuildOptions.FingerprintingKDiffToByteStringCache();
-    assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
-        .isEqualTo(
-            TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
+  public void deserialize_primedCache_returnsPrimedInstance() throws Exception {
+    BuildOptions options = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+
+    SerializationContext serializationContext =
+        new SerializationContext(
+            ImmutableClassToInstanceMap.of(
+                OptionsChecksumCache.class, new MapBackedChecksumCache()));
+    ByteString bytes = TestUtils.toBytes(serializationContext, options);
+    assertThat(bytes).isNotNull();
+
+    // Different checksum cache than the one used for serialization, but it has been primed.
+    OptionsChecksumCache checksumCache = new MapBackedChecksumCache();
+    checksumCache.prime(options);
+    DeserializationContext deserializationContext =
+        new DeserializationContext(
+            ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, checksumCache));
+    assertThat(TestUtils.fromBytes(deserializationContext, bytes)).isSameInstanceAs(options);
   }
 
   @Test
@@ -547,56 +438,5 @@ public final class BuildOptionsTest {
     parser.parse("--platform_suffix=foo"); // Note: platform_suffix is null by default.
 
     assertThat(original.matches(parser)).isFalse();
-  }
-
-  @Test
-  public void trim() throws Exception {
-    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
-    BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class));
-    assertThat(trimmed.getFragmentClasses()).containsExactly(CppOptions.class);
-  }
-
-  @Test
-  public void trim_retainsBuildConfigurationOptions() throws Exception {
-    BuildOptions original =
-        BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class, CoreOptions.class));
-    BuildOptions trimmed = original.trim(ImmutableSet.of());
-    assertThat(trimmed.getFragmentClasses()).containsExactly(CoreOptions.class);
-  }
-
-  @Test
-  public void trim_nothingTrimmed_returnsSameInstance() throws Exception {
-    BuildOptions original = BuildOptions.of(ImmutableList.of(CppOptions.class, JavaOptions.class));
-    BuildOptions trimmed = original.trim(ImmutableSet.of(CppOptions.class, JavaOptions.class));
-    assertThat(trimmed).isSameInstanceAs(original);
-  }
-
-  @Test
-  public void noSharingBetweenDiffToBytesCacheInstances() {
-    BuildOptions options = BuildOptions.builder().build();
-    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(options, options);
-    ByteString serialized1 = ByteString.copyFromUtf8("1");
-    ByteString serialized2 = ByteString.copyFromUtf8("2");
-    DiffToByteCache cache1 = new DiffToByteCache();
-    DiffToByteCache cache2 = new DiffToByteCache();
-
-    cache1.putBytesFromOptionsDiff(diff, serialized1);
-    assertThat(cache1.getBytesFromOptionsDiff(diff)).isEqualTo(serialized1);
-    assertThat(cache1.getOptionsDiffFromBytes(serialized1)).isEqualTo(diff);
-    assertThat(cache2.getBytesFromOptionsDiff(diff)).isNull();
-    assertThat(cache2.getOptionsDiffFromBytes(serialized1)).isNull();
-
-    cache2.putBytesFromOptionsDiff(diff, serialized2);
-    assertThat(cache1.getBytesFromOptionsDiff(diff)).isEqualTo(serialized1);
-    assertThat(cache1.getOptionsDiffFromBytes(serialized2)).isNull();
-    assertThat(cache2.getBytesFromOptionsDiff(diff)).isEqualTo(serialized2);
-    assertThat(cache2.getOptionsDiffFromBytes(serialized2)).isEqualTo(diff);
-  }
-
-  private static OptionsDiffForReconstruction uncachedDiffForReconstruction(
-      BuildOptions first, BuildOptions second) {
-    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(first, second);
-    diff.clearCachedReconstructedForTesting();
-    return diff;
   }
 }

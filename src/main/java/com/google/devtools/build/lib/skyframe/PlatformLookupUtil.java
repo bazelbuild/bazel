@@ -14,31 +14,27 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException;
-import com.google.devtools.build.skyframe.ValueOrException3;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -48,30 +44,18 @@ public class PlatformLookupUtil {
 
   @Nullable
   public static Map<ConfiguredTargetKey, PlatformInfo> getPlatformInfo(
-      ImmutableList<ConfiguredTargetKey> platformKeys,
-      Environment env,
-      boolean sanityCheckConfiguration)
+      ImmutableList<ConfiguredTargetKey> platformKeys, Environment env)
       throws InterruptedException, InvalidPlatformException {
-
     validatePlatformKeys(platformKeys, env);
     if (env.valuesMissing()) {
       return null;
     }
 
-    Map<
-            SkyKey,
-            ValueOrException3<
-                ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>>
-        values =
-            env.getValuesOrThrow(
-                platformKeys,
-                ConfiguredValueCreationException.class,
-                NoSuchThingException.class,
-                ActionConflictException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(platformKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : platformKeys) {
-      PlatformInfo platformInfo = findPlatformInfo(key, values.get(key), sanityCheckConfiguration);
+      PlatformInfo platformInfo = findPlatformInfo(key, values);
       if (!valuesMissing && platformInfo != null) {
         platforms.put(key, platformInfo);
       }
@@ -96,13 +80,12 @@ public class PlatformLookupUtil {
             .map(PackageValue::key)
             .collect(toImmutableSet());
 
-    Map<SkyKey, ValueOrException<NoSuchPackageException>> values =
-        env.getValuesOrThrow(packageKeys, NoSuchPackageException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(packageKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<PackageIdentifier, Package> packages = valuesMissing ? null : new HashMap<>();
-    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> value : values.entrySet()) {
+    while (values.hasNext()) {
       try {
-        PackageValue packageValue = (PackageValue) value.getValue().get();
+        PackageValue packageValue = (PackageValue) values.nextOrThrow(NoSuchPackageException.class);
         if (!valuesMissing && packageValue != null) {
           packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
         }
@@ -110,7 +93,12 @@ public class PlatformLookupUtil {
         throw new InvalidPlatformException(e);
       }
     }
-    if (valuesMissing) {
+    if (env.valuesMissing()) {
+      if (valuesMissing != env.valuesMissing()) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Some value from " + packageKeys + " was missing, this should never happen"));
+      }
       return;
     }
 
@@ -132,49 +120,26 @@ public class PlatformLookupUtil {
 
   /**
    * Returns the {@link PlatformInfo} provider from the {@link ConfiguredTarget} in the {@link
-   * ValueOrException3}, or {@code null} if the {@link ConfiguredTarget} is not present. If the
+   * SkyframeIterableResult}, or {@code null} if the {@link ConfiguredTarget} is not present. If the
    * {@link ConfiguredTarget} does not have a {@link PlatformInfo} provider, a {@link
    * InvalidPlatformException} is thrown.
    */
   @Nullable
   private static PlatformInfo findPlatformInfo(
-      ConfiguredTargetKey key,
-      ValueOrException3<
-              ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>
-          valueOrException,
-      boolean sanityCheckConfiguration)
-      throws InvalidPlatformException {
+      ConfiguredTargetKey key, SkyframeIterableResult values) throws InvalidPlatformException {
 
     try {
-      ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
+      ConfiguredTargetValue ctv =
+          (ConfiguredTargetValue)
+              values.nextOrThrow(
+                  ConfiguredValueCreationException.class,
+                  NoSuchThingException.class,
+                  ActionConflictException.class);
       if (ctv == null) {
         return null;
       }
 
       ConfiguredTarget configuredTarget = ctv.getConfiguredTarget();
-      BuildConfigurationValue.Key configurationKey = configuredTarget.getConfigurationKey();
-      // This check is necessary because trimming for other rules assumes that platform resolution
-      // uses the platform fragment and _only_ the platform fragment. Without this check, it's
-      // possible another fragment could slip in without us realizing, and thus break this
-      // assumption.
-      if (sanityCheckConfiguration
-          && configurationKey.getFragments().stream()
-              .anyMatch(not(equalTo(PlatformConfiguration.class)))) {
-        // Only the PlatformConfiguration fragment may be present on a platform rule in retroactive
-        // trimming mode.
-        String extraFragmentDescription =
-            configurationKey.getFragments().stream()
-                .filter(not(equalTo(PlatformConfiguration.class)))
-                .map(Class::getSimpleName)
-                .collect(joining(","));
-        throw new InvalidPlatformException(
-            configuredTarget.getLabel(),
-            "has fragments other than PlatformConfiguration, "
-                + "which is forbidden in retroactive trimming mode: "
-                + "extra fragments are ["
-                + extraFragmentDescription
-                + "]");
-      }
       PlatformInfo platformInfo = PlatformProviderUtils.platform(configuredTarget);
       if (platformInfo == null) {
         throw new InvalidPlatformException(configuredTarget.getLabel());
@@ -191,16 +156,18 @@ public class PlatformLookupUtil {
   }
 
   static boolean hasPlatformInfo(Target target) {
+    Rule rule = target.getAssociatedRule();
     // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
-    if (target.getAssociatedRule() == null) {
+    if (rule == null) {
       return false;
     }
-    RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-    if (ruleClass == null || ruleClass.useToolchainResolution()) {
+    if (rule.useToolchainResolution()) {
       return false;
     }
 
-    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+    return rule.getRuleClassObject()
+        .getAdvertisedProviders()
+        .advertises(PlatformInfo.PROVIDER.id());
   }
 
   /** Exception used when a platform label is not a valid platform. */

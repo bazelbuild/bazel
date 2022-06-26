@@ -17,18 +17,15 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
 /** A representation of a list of arguments. */
 public abstract class CommandLine {
-  @AutoCodec
-  @VisibleForSerialization
-  static class EmptyCommandLine extends CommandLine {
+  private static class EmptyCommandLine extends CommandLine {
     @Override
     public Iterable<String> arguments() {
       return ImmutableList.of();
@@ -54,6 +51,11 @@ public abstract class CommandLine {
     return arguments();
   }
 
+  public Iterable<String> arguments(ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
+      throws CommandLineExpansionException, InterruptedException {
+    return arguments(artifactExpander);
+  }
+
   /**
    * Adds the command line to the provided {@link Fingerprint}.
    *
@@ -72,9 +74,7 @@ public abstract class CommandLine {
     }
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static class SimpleCommandLine extends CommandLine {
+  private static class SimpleCommandLine extends CommandLine {
     private Iterable<String> args;
 
     SimpleCommandLine(Iterable<String> args) {
@@ -93,13 +93,10 @@ public abstract class CommandLine {
     return new SimpleCommandLine(immutableArguments);
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static class PrefixedCommandLine extends CommandLine {
+  private static class PrefixedCommandLine extends CommandLine {
     private ImmutableList<String> executableArgs;
     private CommandLine commandLine;
 
-    @VisibleForSerialization
     PrefixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
       this.executableArgs = executableArgs;
       this.commandLine = commandLine;
@@ -117,13 +114,10 @@ public abstract class CommandLine {
     }
   }
 
-  @AutoCodec
-  @VisibleForSerialization
-  static class SuffixedCommandLine extends CommandLine {
+  private static class SuffixedCommandLine extends CommandLine {
     private ImmutableList<String> executableArgs;
     private CommandLine commandLine;
 
-    @VisibleForSerialization
     SuffixedCommandLine(ImmutableList<String> executableArgs, CommandLine commandLine) {
       this.executableArgs = executableArgs;
       this.commandLine = commandLine;

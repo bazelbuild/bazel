@@ -49,8 +49,8 @@ import net.starlark.java.eval.StarlarkValue;
             + "manipulating the data. <code>Args</code> objects do not process the depsets they "
             + "encapsulate until the execution phase, when it comes time to calculate the command "
             + "line. This helps defer any expensive copying until after the analysis phase is "
-            + "complete. See the <a href='../performance.$DOC_EXT'>Optimizing Performance</a> page "
-            + "for more information."
+            + "complete. See the <a href='https://bazel.build/rules/performance'>Optimizing "
+            + "Performance</a> page for more information."
             + ""
             + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"
             + "ctx.actions.args()</code></a>. They can be passed as the <code>arguments</code> "
@@ -244,7 +244,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "<p>To avoid unintended retention of large analysis-phase data structures "
                     + "into the execution phase, the <code>map_each</code> function must be "
                     + "declared by a top-level <code>def</code> statement; it may not be a "
-                    + "nested function closure."
+                    + "nested function closure by default."
                     + ""
                     + "<p><i>Warning:</i> <a href='globals.html#print'><code>print()</code></a> "
                     + "statements that are executed during the call to <code>map_each</code> will "
@@ -318,6 +318,15 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "added if <code>omit_if_empty</code> is true (the default) and no other "
                     + "items are appended (as happens if <code>values</code> is empty or all of "
                     + "its items are filtered)."),
+        @Param(
+            name = "allow_closure",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc =
+                "If true, allows the use of closures in function parameters like "
+                    + "<code>map_each</code>. Usually this isn't necessary and it risks retaining "
+                    + "large analysis-phase data structures into the execution phase."),
       },
       useStarlarkThread = true)
   CommandLineArgsApi addAll(
@@ -330,6 +339,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Boolean uniquify,
       Boolean expandDirectories,
       Object terminateWith,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException;
 
@@ -434,7 +444,13 @@ public interface CommandLineArgsApi extends StarlarkValue {
             named = true,
             positional = false,
             defaultValue = "True",
-            doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>.")
+            doc = "Same as for <a href='#add_all.expand_directories'><code>add_all</code></a>."),
+        @Param(
+            name = "allow_closure",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc = "Same as for <a href='#add_all.allow_closure'><code>add_all</code></a>."),
       },
       useStarlarkThread = true)
   CommandLineArgsApi addJoined(
@@ -447,6 +463,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Boolean omitIfEmpty,
       Boolean uniquify,
       Boolean expandDirectories,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException;
 

@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -43,7 +43,7 @@ public class CppLinkstampCompileHelper {
       RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
       @Nullable Artifact grepIncludes,
-      BuildConfiguration configuration,
+      BuildConfigurationValue configuration,
       Artifact sourceFile,
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,
@@ -79,11 +79,12 @@ public class CppLinkstampCompileHelper {
                     ccToolchainProvider,
                     needsPic,
                     fdoBuildStamp,
-                    codeCoverageEnabled))
+                    codeCoverageEnabled,
+                    semantics))
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setSemantics(semantics)
-            .setOutputs(outputFile, null)
+            .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
             .setInputsForInvalidation(inputsForInvalidation)
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
@@ -148,7 +149,8 @@ public class CppLinkstampCompileHelper {
       CcToolchainProvider ccToolchainProvider,
       boolean needsPic,
       String fdoBuildStamp,
-      boolean codeCoverageEnabled) {
+      boolean codeCoverageEnabled,
+      CppSemantics semantics) {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
     Preconditions.checkArgument(
         featureConfiguration.actionIsConfigured(CppActionNames.LINKSTAMP_COMPILE));
@@ -168,11 +170,13 @@ public class CppLinkstampCompileHelper {
         buildInfoHeaderArtifacts.stream()
             .map(Artifact::getExecPathString)
             .collect(ImmutableList.toImmutableList()),
-        CcCompilationHelper.getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()),
+        CcCompilationHelper.getCoptsFromOptions(
+            cppConfiguration, semantics, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
         needsPic,
         fdoBuildStamp,
         /* dotdFileExecPath= */ null,
+        /* diagnosticsFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),

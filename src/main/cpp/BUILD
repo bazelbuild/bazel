@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-
 # Description:
 #   The Bazel launcher.
 package(
@@ -38,6 +36,7 @@ cc_library(
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",
+            "get_self_path_linux.cc",
         ],
     }),
     hdrs = [

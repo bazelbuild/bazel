@@ -126,25 +126,13 @@ function test_java_tools_has_junitrunner() {
   expect_path_in_java_tools "src/java_tools/junitrunner/java/com/google/testing/junit/runner/util"
 }
 
-function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "jdk_compiler-src.jar"
-}
-
-function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_compiler-src.jar"
-}
-
-function test_java_tools_has_javac() {
-  expect_path_in_java_tools "javac-9+181-r4173-1.srcjar"
-}
-
 function test_java_tools_has_jacocoagent() {
-  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-0.8.3-sources.jar"
-  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-0.8.3-sources.jar"
-  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.report-0.8.3-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-analysis-8.0-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-commons-8.0-sources.jar"
-  expect_path_in_java_tools "third_party/asm/asm-8.0-sources.jar"
+  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-.*-sources.jar"
+  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-.*-sources.jar"
+  expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.report-.*-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-analysis-.*-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-commons-.*-sources.jar"
+  expect_path_in_java_tools "third_party/asm/asm-.*-sources.jar"
 }
 
 function test_java_tools_has_proguard() {

@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,7 +28,10 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
@@ -48,7 +50,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
-import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
 import com.google.devtools.build.lib.runtime.UiStateTracker.StrategyIds;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
@@ -331,7 +332,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // For various sample sizes verify the progress bar
     for (int i = 1; i < 11; i++) {
-      stateTracker.setProgressMode(ProgressMode.OLDEST_ACTIONS, i);
+      stateTracker.setProgressSampleSize(i);
       LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
       stateTracker.writeProgressBar(terminalWriter);
       String output = terminalWriter.getTranscript();
@@ -581,6 +582,96 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Output should mention strategy '" + strategy + "', but was: " + output)
         .that(output.contains(strategy))
         .isTrue();
+  }
+
+  private Action createDummyAction(String progressMessage) {
+    String primaryOutput = "some/path/to/a/file";
+    Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
+    Artifact artifact =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
+    Action action = mockAction(progressMessage, primaryOutput);
+    when(action.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action.getPrimaryOutput()).thenReturn(artifact);
+    return action;
+  }
+
+  @Test
+  public void actionProgress_visible() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("action progress");
+  }
+
+  @Test
+  public void actionProgress_withTooSmallWidth_progressSkipped() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 30);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).doesNotContain("action progress");
+  }
+
+  @Test
+  public void actionProgress_withSmallWidth_progressShortened() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 50);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("action pro...");
+  }
+
+  @Test
+  public void actionProgress_multipleProgress_displayInOrder() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id1", "action progress 1", false));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id2", "action progress 2", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("action progress 1");
+    assertThat(output).doesNotContain("action progress 2");
   }
 
   @Test
@@ -1203,7 +1294,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Verify that the progress bar contains useful information on a 60-character terminal.
     //   - Too long names should be shortened to reasonably long prefixes of the name.
     ManualClock clock = new ManualClock();
-    BuildEventTransport transport1 = newBepTransport(Strings.repeat("A", 61));
+    BuildEventTransport transport1 = newBepTransport("A".repeat(61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
@@ -1218,7 +1309,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String output = terminalWriter.getTranscript();
     assertThat(longestLine(output)).isAtMost(60);
     assertThat(output, containsString("1s"));
-    assertThat(output, containsString(Strings.repeat("A", 30) + "..."));
+    assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, containsString("BuildEventTransport"));
     assertThat(output, containsString("success"));
     assertThat(output, containsString("complete"));
@@ -1230,7 +1321,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     output = terminalWriter.getTranscript();
     assertThat(longestLine(output)).isAtMost(60);
     assertThat(output, containsString("2s"));
-    assertThat(output, containsString(Strings.repeat("A", 30) + "..."));
+    assertThat(output, containsString("A".repeat(30) + "..."));
     assertThat(output, not(containsString("BuildEventTransport")));
     assertThat(output, containsString("success"));
     assertThat(output, containsString("complete"));
@@ -1262,43 +1353,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("30 fetches"));
   }
 
-  private Action mockActionWithMnemonic(String mnemonic, String primaryOutput) {
-    Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
-    Action action = mock(Action.class);
-    when(action.getMnemonic()).thenReturn(mnemonic);
-    when(action.getPrimaryOutput()).thenReturn(artifact);
-    return action;
-  }
-
-  @Test
-  public void testMnemonicHistogram() throws IOException {
-    // Verify that the number of actions shown in the progress bar can be set as sample size.
-    ManualClock clock = new ManualClock();
-    clock.advanceMillis(Duration.ofSeconds(123).toMillis());
-    UiStateTracker stateTracker = new UiStateTracker(clock);
-    clock.advanceMillis(Duration.ofSeconds(2).toMillis());
-
-    // Start actions with 10 different mnemonics Mnemonic0-9, n+1 of each mnemonic.
-    for (int i = 0; i < 10; i++) {
-      clock.advanceMillis(Duration.ofSeconds(1).toMillis());
-      for (int j = 0; j <= i; j++) {
-        Action action = mockActionWithMnemonic("Mnemonic" + i, "action-" + i + "-" + j + ".out");
-        stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
-      }
-    }
-
-    for (int sampleSize = 1; sampleSize < 11; sampleSize++) {
-      stateTracker.setProgressMode(ProgressMode.MNEMONIC_HISTOGRAM, sampleSize);
-      LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-      stateTracker.writeProgressBar(terminalWriter);
-      String output = terminalWriter.getTranscript();
-      assertThat(output).contains("Mnemonic" + (10 - sampleSize) + " " + (10 - sampleSize + 1));
-      assertThat(output).doesNotContain("Mnemonic" + (10 - sampleSize - 1));
-    }
-  }
-
   private static class FetchEvent implements FetchProgress {
     private final String id;
 
@@ -1320,5 +1374,60 @@ public class UiStateTrackerTest extends FoundationTestCase {
     public boolean isFinished() {
       return false;
     }
+  }
+
+  @Test
+  public void waitingRemoteCacheMessage_beforeBuildComplete_invisible() throws IOException {
+    ManualClock clock = new ManualClock();
+    Action action = mockAction("Some action", "foo");
+    UiStateTracker stateTracker = new UiStateTracker(clock);
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    stateTracker.writeProgressBar(terminalWriter);
+
+    String output = terminalWriter.getTranscript();
+    assertThat(output).doesNotContain("1 upload");
+  }
+
+  @Test
+  public void waitingRemoteCacheMessage_afterBuildComplete_visible() throws IOException {
+    ManualClock clock = new ManualClock();
+    Action action = mockAction("Some action", "foo");
+    UiStateTracker stateTracker = new UiStateTracker(clock);
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
+    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
+    buildResult.setStopTime(clock.currentTimeMillis());
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    clock.advanceMillis(Duration.ofSeconds(2).toMillis());
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    stateTracker.writeProgressBar(terminalWriter);
+
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("1 upload");
+  }
+
+  @Test
+  public void waitingRemoteCacheMessage_multipleUploadEvents_countCorrectly() throws IOException {
+    ManualClock clock = new ManualClock();
+    Action action = mockAction("Some action", "foo");
+    UiStateTracker stateTracker = new UiStateTracker(clock);
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "a"));
+    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
+    buildResult.setStopTime(clock.currentTimeMillis());
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "b"));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "c"));
+    stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, "a"));
+    clock.advanceMillis(Duration.ofSeconds(2).toMillis());
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    stateTracker.writeProgressBar(terminalWriter);
+
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("2 uploads");
   }
 }

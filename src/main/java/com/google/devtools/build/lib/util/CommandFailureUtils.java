@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.util;
 
 import static java.util.Map.Entry.comparingByKey;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
@@ -41,7 +41,15 @@ public class CommandFailureUtils {
     void describeCommandCwd(String cwd, StringBuilder message);
     void describeCommandEnvPrefix(StringBuilder message, boolean isolated);
     void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry);
-    void describeCommandElement(StringBuilder message, String commandElement);
+    /**
+     * Formats the command element and adds it to the message.
+     *
+     * @param message the message to modify
+     * @param commandElement the command element to be added to the message
+     * @param isBinary is true if the `commandElement` is the binary to be executed
+     */
+    void describeCommandElement(StringBuilder message, String commandElement, boolean isBinary);
+
     void describeCommandExec(StringBuilder message);
   }
 
@@ -76,7 +84,8 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandElement(StringBuilder message, String commandElement) {
+    public void describeCommandElement(
+        StringBuilder message, String commandElement, boolean isBinary) {
       message.append(ShellEscaper.escapeString(commandElement));
     }
 
@@ -102,7 +111,7 @@ public class CommandFailureUtils {
 
     @Override
     public void describeCommandCwd(String cwd, StringBuilder message) {
-      message.append("cd ").append(cwd).append("\n");
+      message.append("cd ").append("/d ").append(cwd).append("\n");
     }
 
     @Override
@@ -115,8 +124,10 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandElement(StringBuilder message, String commandElement) {
-      message.append(commandElement);
+    public void describeCommandElement(
+        StringBuilder message, String commandElement, boolean isBinary) {
+      // Replace the forward slashes with back slashes if the `commandElement` is the binary path
+      message.append(isBinary ? commandElement.replace('/', '\\') : commandElement);
     }
 
     @Override
@@ -133,20 +144,21 @@ public class CommandFailureUtils {
   private CommandFailureUtils() {} // Prevent instantiation.
 
   /**
-   * Construct a string that describes the command.
-   * Currently this returns a message of the form "foo bar baz",
-   * with shell meta-characters appropriately quoted and/or escaped,
-   * prefixed (if verbose is true) with an "env" command to set the environment.
+   * Construct a string that describes the command. Currently this returns a message of the form
+   * "foo bar baz", with shell meta-characters appropriately quoted and/or escaped, prefixed (if
+   * verbose is true) with an "env" command to set the environment.
    *
-   * @param form Form of the command to generate; see the documentation of the
-   * {@link CommandDescriptionForm} values.
+   * @param form Form of the command to generate; see the documentation of the {@link
+   *     CommandDescriptionForm} values.
    */
   public static String describeCommand(
       CommandDescriptionForm form,
       boolean prettyPrintArgs,
       Collection<String> commandLineElements,
       @Nullable Map<String, String> environment,
-      @Nullable String cwd) {
+      @Nullable String cwd,
+      @Nullable String configurationChecksum,
+      @Nullable String executionPlatformAsLabelString) {
 
     Preconditions.checkNotNull(form);
     StringBuilder message = new StringBuilder();
@@ -203,23 +215,41 @@ public class CommandFailureUtils {
       }
     }
 
+    boolean isFirstArgument = true;
     for (String commandElement : commandLineElements) {
       if (form == CommandDescriptionForm.ABBREVIATED
           && message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
-        message.append(
-            " ... (remaining " + numberRemaining + " argument(s) skipped)");
+        message
+            .append(" ... (remaining ")
+            .append(numberRemaining)
+            .append(numberRemaining == 1 ? " argument" : " arguments")
+            .append(" skipped)");
         break;
       } else {
         if (numberRemaining < size) {
           message.append(prettyPrintArgs ? " \\\n    " : " ");
         }
-        describeCommandImpl.describeCommandElement(message, commandElement);
+        describeCommandImpl.describeCommandElement(message, commandElement, isFirstArgument);
         numberRemaining--;
       }
+      isFirstArgument = false;
     }
 
     if (form == CommandDescriptionForm.COMPLETE) {
       describeCommandImpl.describeCommandEndIsolate(message);
+    }
+
+    if (form == CommandDescriptionForm.COMPLETE) {
+
+      if (configurationChecksum != null) {
+        message.append("\n");
+        message.append("# Configuration: ").append(configurationChecksum);
+      }
+
+      if (executionPlatformAsLabelString != null) {
+        message.append("\n");
+        message.append("# Execution platform: ").append(executionPlatformAsLabelString);
+      }
     }
 
     return message.toString();
@@ -227,14 +257,21 @@ public class CommandFailureUtils {
 
   /**
    * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "error executing command foo bar baz".
+   * message of the form "foo failed: error executing command /dir/foo bar baz".
    */
-  public static String describeCommandError(
+  @VisibleForTesting
+  static String describeCommandFailure(
       boolean verbose,
       Collection<String> commandLineElements,
       Map<String, String> env,
-      String cwd,
-      @Nullable PlatformInfo executionPlatform) {
+      @Nullable String cwd,
+      @Nullable String configurationChecksum,
+      @Nullable String targetLabel,
+      @Nullable String executionPlatformAsLabelString) {
+
+    String commandName = commandLineElements.iterator().next();
+    // Extract the part of the command name after the last "/", if any.
+    String shortCommandName = new File(commandName).getName();
 
     CommandDescriptionForm form = verbose
         ? CommandDescriptionForm.COMPLETE
@@ -242,34 +279,33 @@ public class CommandFailureUtils {
 
     StringBuilder output = new StringBuilder();
     output.append("error executing command ");
+    if (targetLabel != null) {
+      output.append("(from target ").append(targetLabel).append(") ");
+    }
     if (verbose) {
       output.append("\n  ");
     }
     output.append(
-        describeCommand(form, /* prettyPrintArgs= */ false, commandLineElements, env, cwd));
-    if (verbose && executionPlatform != null) {
-      output.append("\n");
-      output.append("Execution platform: ").append(executionPlatform.label());
-    }
-    return output.toString();
+        describeCommand(
+            form,
+            /* prettyPrintArgs= */ false,
+            commandLineElements,
+            env,
+            cwd,
+            configurationChecksum,
+            executionPlatformAsLabelString));
+    return shortCommandName + " failed: " + output;
   }
 
-  /**
-   * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "foo failed: error executing command /dir/foo bar baz".
-   */
   public static String describeCommandFailure(
-      boolean verbose,
-      Collection<String> commandLineElements,
-      Map<String, String> env,
-      String cwd,
-      @Nullable PlatformInfo executionPlatform) {
-
-    String commandName = commandLineElements.iterator().next();
-    // Extract the part of the command name after the last "/", if any.
-    String shortCommandName = new File(commandName).getName();
-    return shortCommandName
-        + " failed: "
-        + describeCommandError(verbose, commandLineElements, env, cwd, executionPlatform);
+      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+    return describeCommandFailure(
+        verboseFailures,
+        command.getArguments(),
+        command.getEnvironment(),
+        cwd,
+        command.getConfigurationChecksum(),
+        command.getTargetLabel(),
+        command.getExecutionPlatformLabelString());
   }
 }

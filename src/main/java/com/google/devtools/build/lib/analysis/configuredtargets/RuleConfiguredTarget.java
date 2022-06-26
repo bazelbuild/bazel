@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
@@ -85,7 +85,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @VisibleForSerialization
   RuleConfiguredTarget(
       Label label,
-      BuildConfigurationValue.Key configurationKey,
+      BuildConfigurationKey configurationKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -240,16 +240,17 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /**
-   * Provide an artifact by its corresponding output label, for use by output file configured
+   * Provides an artifact by its corresponding output label, for use by output file configured
    * targets.
    */
   public Artifact getArtifactByOutputLabel(Label outputLabel) {
     return Preconditions.checkNotNull(
         artifactsByOutputLabel.get(outputLabel),
-        "%s %s %s",
+        "%s %s %s %s",
         outputLabel,
         this,
-        this.artifactsByOutputLabel);
+        this.artifactsByOutputLabel,
+        this.actions);
   }
 
   @Override

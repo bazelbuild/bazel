@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -38,6 +39,8 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.protobuf.util.Durations;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -58,15 +61,24 @@ import javax.annotation.Nullable;
 public class SpawnLogContext implements ActionContext {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final Path execRoot;
   private final MessageOutputStream executionLog;
+  @Nullable private final ExecutionOptions executionOptions;
   @Nullable private final RemoteOptions remoteOptions;
+  private final XattrProvider xattrProvider;
 
   public SpawnLogContext(
-      Path execRoot, MessageOutputStream executionLog, @Nullable RemoteOptions remoteOptions) {
+      Path execRoot,
+      MessageOutputStream executionLog,
+      @Nullable ExecutionOptions executionOptions,
+      @Nullable RemoteOptions remoteOptions,
+      XattrProvider xattrProvider) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
+    this.executionOptions = executionOptions;
     this.remoteOptions = remoteOptions;
+    this.xattrProvider = xattrProvider;
   }
 
   /** Log the executed spawn to the output stream. */
@@ -98,7 +110,7 @@ public class SpawnLogContext implements ActionContext {
         if (inputPath.isDirectory()) {
           listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
         } else {
-          Digest digest = computeDigest(input, null, metadataProvider);
+          Digest digest = computeDigest(input, null, metadataProvider, xattrProvider);
           builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
         }
       }
@@ -119,7 +131,8 @@ public class SpawnLogContext implements ActionContext {
         File.Builder outputBuilder = builder.addActualOutputsBuilder();
         outputBuilder.setPath(path.relativeTo(execRoot).toString());
         try {
-          outputBuilder.setDigest(computeDigest(e.getValue(), path, metadataProvider));
+          outputBuilder.setDigest(
+              computeDigest(e.getValue(), path, metadataProvider, xattrProvider));
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
         }
@@ -138,15 +151,79 @@ public class SpawnLogContext implements ActionContext {
       builder.setTimeoutMillis(timeout.toMillis());
     }
     builder.setCacheable(Spawns.mayBeCached(spawn));
+    builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());
+    if (result.getDigest().isPresent()) {
+      builder
+          .getDigestBuilder()
+          .setHash(result.getDigest().get().getHash())
+          .setSizeBytes(result.getDigest().get().getSizeBytes());
+    }
+
     String progressMessage = spawn.getResourceOwner().getProgressMessage();
     if (progressMessage != null) {
       builder.setProgressMessage(progressMessage);
     }
     builder.setMnemonic(spawn.getMnemonic());
+    builder.setWalltime(durationToProto(result.getMetrics().executionWallTime()));
+
+    if (spawn.getTargetLabel() != null) {
+      builder.setTargetLabel(spawn.getTargetLabel());
+    }
+
+    if (executionOptions != null && executionOptions.executionLogSpawnMetrics) {
+      SpawnMetrics metrics = result.getMetrics();
+      Protos.SpawnMetrics.Builder metricsBuilder = builder.getMetricsBuilder();
+      if (!metrics.totalTime().isZero()) {
+        metricsBuilder.setTotalTime(durationToProto(metrics.totalTime()));
+      }
+      if (!metrics.parseTime().isZero()) {
+        metricsBuilder.setParseTime(durationToProto(metrics.parseTime()));
+      }
+      if (!metrics.networkTime().isZero()) {
+        metricsBuilder.setNetworkTime(durationToProto(metrics.networkTime()));
+      }
+      if (!metrics.fetchTime().isZero()) {
+        metricsBuilder.setFetchTime(durationToProto(metrics.fetchTime()));
+      }
+      if (!metrics.queueTime().isZero()) {
+        metricsBuilder.setQueueTime(durationToProto(metrics.queueTime()));
+      }
+      if (!metrics.setupTime().isZero()) {
+        metricsBuilder.setSetupTime(durationToProto(metrics.setupTime()));
+      }
+      if (!metrics.uploadTime().isZero()) {
+        metricsBuilder.setUploadTime(durationToProto(metrics.uploadTime()));
+      }
+      if (!metrics.executionWallTime().isZero()) {
+        metricsBuilder.setExecutionWallTime(durationToProto(metrics.executionWallTime()));
+      }
+      if (!metrics.processOutputsTime().isZero()) {
+        metricsBuilder.setProcessOutputsTime(durationToProto(metrics.processOutputsTime()));
+      }
+      if (!metrics.retryTime().isZero()) {
+        metricsBuilder.setRetryTime(durationToProto(metrics.retryTime()));
+      }
+      metricsBuilder.setInputBytes(metrics.inputBytes());
+      metricsBuilder.setInputFiles(metrics.inputFiles());
+      metricsBuilder.setMemoryEstimateBytes(metrics.memoryEstimate());
+      metricsBuilder.setInputBytesLimit(metrics.inputBytesLimit());
+      metricsBuilder.setInputFilesLimit(metrics.inputFilesLimit());
+      metricsBuilder.setOutputBytesLimit(metrics.outputBytesLimit());
+      metricsBuilder.setOutputFilesLimit(metrics.outputFilesLimit());
+      metricsBuilder.setMemoryBytesLimit(metrics.memoryLimit());
+      if (!metrics.timeLimit().isZero()) {
+        metricsBuilder.setTimeLimit(durationToProto(metrics.timeLimit()));
+      }
+    }
+
     executionLog.write(builder.build());
+  }
+
+  private static com.google.protobuf.Duration durationToProto(Duration d) {
+    return Durations.fromNanos(d.toNanos());
   }
 
   public void close() throws IOException {
@@ -188,7 +265,7 @@ public class SpawnLogContext implements ActionContext {
           addFile.accept(
               File.newBuilder()
                   .setPath(child.relativeTo(execRoot).toString())
-                  .setDigest(computeDigest(null, child, metadataProvider))
+                  .setDigest(computeDigest(null, child, metadataProvider, xattrProvider))
                   .build());
         }
       }
@@ -202,7 +279,10 @@ public class SpawnLogContext implements ActionContext {
    * Metadata cache first, if it is available, and fall back to digesting the contents manually.
    */
   private Digest computeDigest(
-      @Nullable ActionInput input, @Nullable Path path, MetadataProvider metadataProvider)
+      @Nullable ActionInput input,
+      @Nullable Path path,
+      MetadataProvider metadataProvider,
+      XattrProvider xattrProvider)
       throws IOException {
     Preconditions.checkArgument(input != null || path != null);
     DigestHashFunction hashFunction = execRoot.getFileSystem().getDigestFunction();
@@ -240,7 +320,9 @@ public class SpawnLogContext implements ActionContext {
     long fileSize = path.getFileSize();
     return digest
         .setHash(
-            HashCode.fromBytes(DigestUtils.getDigestWithManualFallback(path, fileSize)).toString())
+            HashCode.fromBytes(
+                    DigestUtils.getDigestWithManualFallback(path, fileSize, xattrProvider))
+                .toString())
         .setSizeBytes(fileSize)
         .build();
   }

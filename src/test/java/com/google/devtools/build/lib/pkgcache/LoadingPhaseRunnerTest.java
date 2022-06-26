@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.PatternExpanded.TestSuiteExpansion;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -67,10 +67,13 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -84,10 +87,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link SkyframeExecutor#loadTargetPatternsWithFilters}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class LoadingPhaseRunnerTest {
 
   private LoadingPhaseTester tester;
@@ -98,7 +100,7 @@ public final class LoadingPhaseRunnerTest {
   }
 
   @Before
-  public final void createLoadingPhaseTester() throws Exception {
+  public void createLoadingPhaseTester() throws Exception {
     tester = new LoadingPhaseTester();
   }
 
@@ -110,9 +112,10 @@ public final class LoadingPhaseRunnerTest {
     return result;
   }
 
-  private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
+  private void assertCircularSymlinksDuringTargetParsing(String targetPattern, String errorMessage)
+      throws Exception {
     assertThrows(TargetParsingException.class, () -> tester.load(targetPattern));
-    tester.assertContainsError("circular symlinks detected");
+    tester.assertContainsError(errorMessage);
     TargetPatternPhaseValue result = tester.loadKeepGoing(targetPattern);
     assertThat(result.hasError()).isTrue();
   }
@@ -725,7 +728,7 @@ public final class LoadingPhaseRunnerTest {
     fooFilePath.createSymbolicLink(barFilePath);
     barFilePath.createSymbolicLink(bazFilePath);
     bazFilePath.createSymbolicLink(fooFilePath);
-    assertCircularSymlinksDuringTargetParsing("//hello:a");
+    assertCircularSymlinksDuringTargetParsing("//hello:a", "Too many levels of symbolic links");
   }
 
   @Test
@@ -738,7 +741,7 @@ public final class LoadingPhaseRunnerTest {
         .getRelative(PathFragment.create("broken/BUILD"))
         .createSymbolicLink(PathFragment.create("BUILD"));
 
-    assertCircularSymlinksDuringTargetParsing("//broken/...");
+    assertCircularSymlinksDuringTargetParsing("//broken/...", "circular symlinks detected");
   }
 
   @Test
@@ -755,7 +758,7 @@ public final class LoadingPhaseRunnerTest {
         .getRelative(PathFragment.create("broken/x"))
         .createSymbolicLink(PathFragment.create("BUILD"));
 
-    assertCircularSymlinksDuringTargetParsing("//broken/...");
+    assertCircularSymlinksDuringTargetParsing("//broken/...", "circular symlinks detected");
   }
 
   @Test
@@ -1294,17 +1297,20 @@ public final class LoadingPhaseRunnerTest {
     runTestPackageFileInconsistencyError(false, "//...");
   }
 
-  private void runTestExtensionLoadingError(boolean keepGoing, String... patterns)
+  @Test
+  public void extensionLoadingError(
+      @TestParameter boolean keepGoing,
+      @TestParameter({"//bad:BUILD", "//bad:all", "//bad/...", "//..."}) String pattern)
       throws Exception {
     tester.addFile("bad/f1.bzl", "nope");
     tester.addFile("bad/BUILD", "load(\":f1.bzl\", \"not_a_symbol\")");
     if (keepGoing) {
-      TargetPatternPhaseValue value = tester.loadKeepGoing(patterns);
+      TargetPatternPhaseValue value = tester.loadKeepGoing(pattern);
       assertThat(value.hasError()).isTrue();
       tester.assertContainsWarning("Target pattern parsing failed");
     } else {
       TargetParsingException exn =
-          assertThrows(TargetParsingException.class, () -> tester.load(patterns));
+          assertThrows(TargetParsingException.class, () -> tester.load(pattern));
       assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
       assertThat(exn)
           .hasCauseThat()
@@ -1316,50 +1322,6 @@ public final class LoadingPhaseRunnerTest {
           .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
     }
     tester.assertContainsError("/workspace/bad/f1.bzl:1:1: name 'nope' is not defined");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_explicitTarget() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_explicitTarget() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_targetsInPackage() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:all");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_targetsInPackage() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:all");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_targetsBeneathDirectory() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad/...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_targetsBeneathDirectory() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad/...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_someGoodTargetsBeneathDirectory()
-      throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_someGoodTargetsBeneathDirectory()
-      throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//...");
   }
 
   private static final class LoadingPhaseTester {
@@ -1400,29 +1362,22 @@ public final class LoadingPhaseRunnerTest {
           analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
-      BuildOptions defaultBuildOptions;
-      try {
-        defaultBuildOptions = BuildOptions.of(ImmutableList.of());
-      } catch (OptionsParsingException e) {
-        throw new RuntimeException(e);
-      }
-      ActionKeyContext actionKeyContext = new ActionKeyContext();
       skyframeExecutor =
           BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)
-              .setActionKeyContext(actionKeyContext)
-              .setDefaultBuildOptions(defaultBuildOptions)
+              .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
-              null,
+              /*outputBase=*/ null,
               options.packagePath,
               storedErrors,
-              workspace,
+              workspace.asFragment(),
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
@@ -1432,8 +1387,8 @@ public final class LoadingPhaseRunnerTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+              PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
@@ -1517,7 +1472,7 @@ public final class LoadingPhaseRunnerTest {
       FileSystemUtils.writeContentAsLatin1(buildFile, Joiner.on('\n').join(content));
     }
 
-    private void sync() throws InterruptedException {
+    private void sync() throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();
       for (Path path : changes) {
@@ -1614,18 +1569,18 @@ public final class LoadingPhaseRunnerTest {
    * IOException instead of the usual behavior.
    */
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
-    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     synchronized void throwExceptionOnGetInputStream(Path path, IOException exn) {
-      pathsToErrorOnGetInputStream.put(path, exn);
+      pathsToErrorOnGetInputStream.put(path.asFragment(), exn);
     }
 
     @Override
-    protected synchronized InputStream getInputStream(Path path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

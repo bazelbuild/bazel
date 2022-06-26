@@ -22,17 +22,43 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
+import javax.annotation.Nullable;
 
 /** A dummy implementation of Executor. */
 public class DummyExecutor implements Executor {
 
   private final FileSystem fileSystem;
+  private final BugReporter bugReporter;
   private final Path inputDir;
   private final ManualClock clock = new ManualClock();
+  @Nullable private final OptionsProvider optionsProvider;
+  @Nullable private final ShowSubcommands showSubcommands;
+
+  public DummyExecutor(
+      FileSystem fileSystem,
+      BugReporter bugReporter,
+      Path inputDir,
+      @Nullable OptionsProvider optionsProvider,
+      @Nullable ShowSubcommands showSubcommands) {
+    this.fileSystem = fileSystem;
+    this.bugReporter = bugReporter;
+    this.inputDir = inputDir;
+    this.optionsProvider = optionsProvider;
+    this.showSubcommands = showSubcommands;
+  }
+
+  public DummyExecutor(
+      FileSystem fileSystem, Path inputDir, @Nullable OptionsProvider optionsProvider) {
+    this(
+        fileSystem,
+        BugReporter.defaultInstance(),
+        inputDir,
+        optionsProvider,
+        /*showSubcommands=*/ null);
+  }
 
   public DummyExecutor(FileSystem fileSystem, Path inputDir) {
-    this.fileSystem = fileSystem;
-    this.inputDir = inputDir;
+    this(fileSystem, inputDir, null);
   }
 
   public DummyExecutor() {
@@ -56,7 +82,7 @@ public class DummyExecutor implements Executor {
 
   @Override
   public BugReporter getBugReporter() {
-    return BugReporter.defaultInstance();
+    return bugReporter;
   }
 
   @Override
@@ -66,11 +92,17 @@ public class DummyExecutor implements Executor {
 
   @Override
   public OptionsProvider getOptions() {
+    if (optionsProvider != null) {
+      return optionsProvider;
+    }
     throw new UnsupportedOperationException();
   }
 
   @Override
   public ShowSubcommands reportsSubcommands() {
+    if (showSubcommands != null) {
+      return showSubcommands;
+    }
     throw new UnsupportedOperationException();
   }
 }

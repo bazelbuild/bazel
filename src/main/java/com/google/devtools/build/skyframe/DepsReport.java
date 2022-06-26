@@ -20,7 +20,7 @@ import java.util.Collection;
 import java.util.Iterator;
 
 /**
- * Result of {@link EvaluableGraph#analyzeDepsDoneness}: Equivalent to an {@code
+ * Result of {@link ProcessableGraph#analyzeDepsDoneness}: Equivalent to an {@code
  * Optional<Collection<SkyKey>>} but without the overhead of the wrapper {@code Optional}.
  */
 public class DepsReport implements Collection<SkyKey> {

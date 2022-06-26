@@ -166,11 +166,6 @@ public class AndroidResourceOutputs {
       }
       super.addEntry(relativeName, content, storageMethod);
     }
-
-    public void addDirEntry(String rawName) throws IOException {
-      String dirName = rawName + (rawName.endsWith("/") ? "" : "/");
-      addEntry(dirName, new byte[0], ZipEntry.STORED);
-    }
   }
 
   /** A FileVisitor that will add all R class files to be stored in a zip archive. */
@@ -315,15 +310,6 @@ public class AndroidResourceOutputs {
       zipBuilder.addEntry(entry, content, storageMethod);
     }
 
-    protected void addDirEntry(Path file) throws IOException {
-      Preconditions.checkArgument(file.startsWith(root), "%s does not start with %s", file, root);
-      String entryName = directoryPrefix + root.relativize(file);
-      if (!entryName.endsWith("/")) {
-        entryName += "/";
-      }
-      zipBuilder.addEntry(entryName, new byte[0], storageMethod);
-    }
-
     public void setCompress(boolean compress) {
       storageMethod = compress ? ZipEntry.DEFLATED : ZipEntry.STORED;
     }
@@ -346,9 +332,7 @@ public class AndroidResourceOutputs {
     }
 
     protected void writeEntry(Path file) throws IOException {
-      if (Files.isDirectory(file)) {
-        addDirEntry(file);
-      } else {
+      if (!Files.isDirectory(file)) {
         byte[] content = Files.readAllBytes(file);
         addEntry(file, content);
       }

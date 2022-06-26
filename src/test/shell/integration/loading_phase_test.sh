@@ -57,9 +57,6 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-# Our tests use the static crosstool, so make it the default.
-# add_to_bazelrc "build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
-
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 
@@ -316,6 +313,10 @@ function test_incremental_deleting_package_roots() {
 }
 
 function test_no_package_loading_on_benign_workspace_file_changes() {
+  if [ -f WORKSPACE ]; then
+    cp WORKSPACE "${TEST_TMPDIR}/OLD_WORKSPACE"
+  fi
+
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
@@ -346,6 +347,12 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
+
+  if [ -f "${TEST_TMPDIR}/OLD_WORKSPACE" ]; then
+    # Restore the old WORKSPACE file we don't pollute the behavior of other test
+    # cases.
+    mv "${TEST_TMPDIR}/OLD_WORKSPACE" WORKSPACE
+  fi
 }
 
 function test_disallow_load_labels_to_cross_package_boundaries() {
@@ -598,8 +605,8 @@ function test_path_from_subdir() {
   cd "$pkg/subdir"
   bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
       || fail "Expected success"
-  assert_contains "^//$pkg:BUILD\$" output
-  assert_contains "^//$pkg:foo\$" output
+  assert_contains "^//$pkg:BUILD" output
+  assert_contains "^//$pkg:foo" output
 }
 
 function test_target_with_BUILD() {
@@ -607,7 +614,7 @@ function test_target_with_BUILD() {
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
   echo 'filegroup(name = "foo/BUILD", srcs = [])' > "$pkg/BUILD" || fail "echo"
   bazel query "$pkg/foo/BUILD" >output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "^//$pkg:foo/BUILD\$" output
+  assert_contains "^//$pkg:foo/BUILD" output
 }
 
 function test_directory_with_BUILD() {
@@ -615,7 +622,7 @@ function test_directory_with_BUILD() {
   mkdir -p "$pkg/BUILD" || fail "could not create \"$pkg/BUILD\""
   touch "$pkg/BUILD/BUILD" || fail "Couldn't touch"
   bazel query "$pkg/BUILD" >output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "^//$pkg/BUILD:BUILD\$" output
+  assert_contains "^//$pkg/BUILD:BUILD" output
 }
 
 function test_missing_BUILD() {

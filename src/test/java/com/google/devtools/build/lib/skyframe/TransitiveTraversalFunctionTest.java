@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -30,13 +31,12 @@ import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
 /** Test for {@link TransitiveTraversalFunction}. */
@@ -79,13 +79,17 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     AtomicBoolean wasOptimizationUsed = new AtomicBoolean(false);
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getTemporaryDirectDeps()).thenReturn(groupedList);
-    when(mockEnv.getValuesOrThrow(
-            groupedList.get(1), NoSuchPackageException.class, NoSuchTargetException.class))
+    when(mockEnv.getValuesAndExceptions(groupedList.get(1)))
         .thenAnswer(
             (invocationOnMock) -> {
               wasOptimizationUsed.set(true);
-              // It doesn't matter what this map is, we'll return false in the valuesMissing() call.
-              return ImmutableMap.of();
+              // It doesn't matter what this SkyframeLookupResult is, we'll return true in the
+              // valuesMissing() call.
+              return new SkyframeLookupResult(
+                  /* valuesMissingCallback= */ () -> {},
+                  k -> {
+                    throw new IllegalStateException("Shouldn't have been called: " + k);
+                  });
             });
     when(mockEnv.valuesMissing()).thenReturn(true);
 
@@ -116,30 +120,20 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         };
     SkyKey dep1 = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
     SkyKey dep2 = function.getKey(Label.parseAbsolute("//foo:baz", ImmutableMap.of()));
-    ImmutableMap<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>
-        returnedDeps =
-            ImmutableMap.of(dep1, makeException("bad bar"), dep2, makeException("bad baz"));
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
-    // Try two evaluations, with the environment reversing the order of the map it returns.
-    when(mockEnv.getValuesOrThrow(
-            ArgumentMatchers.any(),
-            Mockito.eq(NoSuchPackageException.class),
-            Mockito.eq(NoSuchTargetException.class)))
-        .thenReturn(returnedDeps);
+    NoSuchTargetException exp1 = new NoSuchTargetException("bad bar");
+    NoSuchTargetException exp2 = new NoSuchTargetException("bad baz");
+    SkyframeLookupResult returnedDeps =
+        new SkyframeLookupResult(
+            () -> {},
+            key ->
+                key.equals(dep1)
+                    ? ValueOrUntypedException.ofExn(exp1)
+                    : key.equals(dep2) ? ValueOrUntypedException.ofExn(exp2) : null);
+
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(dep1, dep2))).thenReturn(returnedDeps);
     when(mockEnv.valuesMissing()).thenReturn(false);
 
-    assertThat(
-            ((TransitiveTraversalValue) function.compute(function.getKey(label), mockEnv))
-                .getErrorMessage())
-        .isEqualTo("bad bar");
-    ImmutableMap<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>
-        reversedDeps =
-            ImmutableMap.of(dep2, makeException("bad baz"), dep1, makeException("bad bar"));
-    when(mockEnv.getValuesOrThrow(
-            ArgumentMatchers.any(),
-            Mockito.eq(NoSuchPackageException.class),
-            Mockito.eq(NoSuchTargetException.class)))
-        .thenReturn(reversedDeps);
     assertThat(
             ((TransitiveTraversalValue) function.compute(function.getKey(label), mockEnv))
                 .getErrorMessage())
@@ -149,8 +143,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   @Test
   public void selfErrorWins() throws Exception {
     Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
-    scratch.file(
-        "foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
+    scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAnyImpl targetAndErrorIfAny =
         new TargetAndErrorIfAnyImpl(
@@ -165,12 +158,12 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
           }
         };
     SkyKey dep = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    NoSuchTargetException exp = new NoSuchTargetException("bad bar");
+    SkyframeLookupResult returnedDep =
+        new SkyframeLookupResult(
+            () -> {}, key -> key.equals(dep) ? ValueOrUntypedException.ofExn(exp) : null);
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
-    when(mockEnv.getValuesOrThrow(
-            ArgumentMatchers.any(),
-            Mockito.eq(NoSuchPackageException.class),
-            Mockito.eq(NoSuchTargetException.class)))
-        .thenReturn(ImmutableMap.of(dep, makeException("bad bar")));
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(dep))).thenReturn(returnedDep);
     when(mockEnv.valuesMissing()).thenReturn(false);
 
     TransitiveTraversalValue transitiveTraversalValue =
@@ -178,12 +171,58 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     assertThat(transitiveTraversalValue.getErrorMessage()).isEqualTo("self error is long and last");
   }
 
-  private static ValueOrException2<NoSuchPackageException, NoSuchTargetException> makeException(
-      String errorMessage) {
-    ValueOrUntypedException exn =
-        ValueOrUntypedException.ofExn(new NoSuchTargetException(errorMessage));
-    return ValueOrException2.fromUntypedException(
-        exn, NoSuchPackageException.class, NoSuchTargetException.class);
+  @Test
+  public void getStrictLabelAspectKeys() throws Exception {
+    Label label = Label.parseAbsolute("//test:foo", ImmutableMap.of());
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_aspect_impl,",
+        "   attr_aspects=['deps'],",
+        "   attrs = { '_extra_deps' : attr.label(default = Label('//foo:bar'))},",
+        ")",
+        "my_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : ",
+        "             attr.label_list(mandatory=True, aspects = [MyAspect]) ",
+        "           },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "my_rule(name = 'foo',attr = [':bad'])");
+    Package pkg = loadPackage(label.getPackageIdentifier());
+    TargetAndErrorIfAnyImpl targetAndErrorIfAny =
+        new TargetAndErrorIfAnyImpl(
+            /*packageLoadedSuccessfully=*/ true,
+            /*errorLoadingTarget=*/ null,
+            pkg.getTarget(label.getName()));
+    TransitiveTraversalFunction function =
+        new TransitiveTraversalFunction() {
+          @Override
+          TargetAndErrorIfAny loadTarget(Environment env, Label label) {
+            return targetAndErrorIfAny;
+          }
+        };
+    SkyKey badDep = function.getKey(Label.parseAbsolute("//test:bad", ImmutableMap.of()));
+    NoSuchTargetException exp = new NoSuchTargetException("bad test");
+    AtomicBoolean valuesMissing = new AtomicBoolean(false);
+    SkyframeLookupResult returnedDep =
+        new SkyframeLookupResult(
+            () -> valuesMissing.set(true),
+            key -> key.equals(badDep) ? ValueOrUntypedException.ofExn(exp) : null);
+    SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
+    when(mockEnv.getValuesAndExceptions(ImmutableSet.of(badDep))).thenReturn(returnedDep);
+
+    TransitiveTraversalValue transitiveTraversalValue =
+        (TransitiveTraversalValue) function.compute(function.getKey(label), mockEnv);
+    assertThat(transitiveTraversalValue.getErrorMessage()).isEqualTo("bad test");
+    assertThat(valuesMissing.get()).isFalse();
   }
 
   /* Invokes the loading phase, using Skyframe. */

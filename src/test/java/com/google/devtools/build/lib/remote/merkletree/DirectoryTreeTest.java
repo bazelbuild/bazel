@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -50,7 +51,7 @@ public abstract class DirectoryTreeTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
-    digestUtil = new DigestUtil(fs.getDigestFunction());
+    digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
   }
 
   protected abstract DirectoryTree build(Path... paths) throws IOException;
@@ -75,10 +76,12 @@ public abstract class DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).containsExactly("fizz");
     assertThat(directoriesAtDepth(2, tree)).isEmpty();
 
-    FileNode expectedFooNode = new FileNode("foo.cc", foo, digestUtil.computeAsUtf8("foo"), false);
-    FileNode expectedBarNode = new FileNode("bar.cc", bar, digestUtil.computeAsUtf8("bar"), false);
+    FileNode expectedFooNode =
+        FileNode.createExecutable("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
+    FileNode expectedBarNode =
+        FileNode.createExecutable("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
     FileNode expectedBuzzNode =
-        new FileNode("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"), false);
+        FileNode.createExecutable("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBuzzNode);

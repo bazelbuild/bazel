@@ -31,6 +31,7 @@ java_library(
     }),
     deps = [
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/tools/android/java/com/google/devtools/build/android/r8",
         "//third_party:guava",
         "//third_party:junit4",
@@ -69,41 +70,49 @@ java_test(
 java_library(
     name = "twosimpleclasses",
     srcs = glob(["testdata/twosimpleclasses/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "naming001",
     srcs = glob(["testdata/naming001/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "arithmetic",
     srcs = glob(["testdata/arithmetic/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "barray",
     srcs = glob(["testdata/barray/*.java"]),
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
+    ],
 )
 
 java_library(
     name = "dexmergersample",
     srcs = glob(["testdata/dexmergersample/*.java"]),
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
+    # Must be compiled as java8, otherwise CompatDx complains about invoke-customs
+    javacopts = [
+        "-source 8",
+        "-target 8",
     ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
 )

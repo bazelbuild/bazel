@@ -40,16 +40,39 @@ public class SingleStringArgFormatter {
    */
   public static String format(String formatStr, String subject) {
     int n = formatStr.length();
-    int idx = onlyOccurrence(formatStr, n);
-    if (idx < 0) {
+    int idx0 = 0;
+    int subjects = 0;
+    StringBuilder sb = new StringBuilder(n + subject.length() - 2);
+
+    while (idx0 < n) {
+      int idx = formatStr.indexOf('%', idx0);
+      if (idx == -1) {
+        break;
+      }
+      if ((idx + 1) < n) {
+        char c = formatStr.charAt(idx + 1);
+        if (c == 's') {
+          sb.append(formatStr, idx0, idx).append(subject);
+          subjects++;
+        } else if (c == '%') {
+          sb.append(formatStr, idx0, idx + 1);
+        } else {
+          // Illegal sequence found
+          throw new IllegalArgumentException(
+              "Expected format string with single '%s', found: " + formatStr);
+        }
+        idx0 = idx + 2;
+      } else {
+        // Terminating '%' found, illegal
+        throw new IllegalArgumentException(
+            "Expected format string with single '%s', found: " + formatStr);
+      }
+    }
+    if (subjects != 1) {
       throw new IllegalArgumentException(
           "Expected format string with single '%s', found: " + formatStr);
     }
-    return new StringBuilder(n + subject.length() - 2)
-        .append(formatStr, 0, idx)
-        .append(subject)
-        .append(formatStr, idx + 2, n)
-        .toString();
+    return sb.append(formatStr, idx0, n).toString();
   }
 
   /*

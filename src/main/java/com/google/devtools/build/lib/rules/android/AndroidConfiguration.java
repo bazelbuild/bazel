@@ -150,7 +150,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
      * <p>If null/unset, the V4 signing flag should not be passed to apksigner. This extra level of
      * control is needed to support environments where older build tools may be used.
      */
-    public @Nullable Boolean signV4() {
+    @Nullable
+    public Boolean signV4() {
       return signV4;
     }
   }
@@ -201,7 +202,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         converter = ConfigurationDistinguisherConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        metadataTags = {OptionMetadataTag.INTERNAL})
+        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH})
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
@@ -783,10 +784,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.EAGERNESS_TO_EXIT,
         },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If enabled, direct usage of the native Android rules is disabled. Please use the"
                 + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
@@ -797,10 +795,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
                 + " native)")
@@ -887,21 +882,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Tracking flag for when busybox workers are enabled.")
     public boolean persistentBusyboxTools;
 
-    // TODO(b/142520065): Remove.
     @Option(
-        name = "incompatible_prohibit_aapt1",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        name = "experimental_persistent_multiplex_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
         },
-        defaultValue = "true",
-        help =
-            "End support for aapt in Android rules. "
-                + "To resolve issues when migrating your app to build with aapt2, see "
-                + "https://developer.android.com/studio/command-line/aapt2#aapt2_changes")
-    public boolean incompatibleProhibitAapt1;
+        defaultValue = "false",
+        help = "Tracking flag for when multiplex busybox workers are enabled.")
+    public boolean experimentalPersistentMultiplexBusyboxTools;
 
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
@@ -978,6 +968,27 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
 
+    @Option(
+        name = "android_include_proguard_location_references",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "When using aapt2 to generate proguard configurations, include location references."
+                + " This will make the build nondeterministic.")
+    public boolean includeProguardLocationReferences;
+
+    @Option(
+        name = "incompatible_android_platforms_transition_updated_affected",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "If set to true, the AndroidPlatformsTransition will also update `affected by Starlark"
+                + " transition` with changed options to avoid potential action conflicts.")
+    public boolean androidPlatformsTransitionsUpdateAffected;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -985,6 +996,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
+      host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+      host.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
 
       host.desugarJava8 = desugarJava8;
       host.desugarJava8Libs = desugarJava8Libs;
@@ -1005,8 +1018,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
-
-      host.incompatibleProhibitAapt1 = incompatibleProhibitAapt1;
+      host.experimentalPersistentMultiplexBusyboxTools =
+          experimentalPersistentMultiplexBusyboxTools;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
@@ -1052,6 +1065,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
+  private final boolean experimentalPersistentMultiplexBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
@@ -1062,6 +1076,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean incompatibleUseToolchainResolution;
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
+  private final boolean includeProguardLocationReferences;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1110,6 +1125,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
+    this.experimentalPersistentMultiplexBusyboxTools =
+        options.experimentalPersistentMultiplexBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1122,6 +1139,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
+    this.includeProguardLocationReferences = options.includeProguardLocationReferences;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1290,7 +1308,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public @Nullable Boolean apkSigningMethodV4() {
+  @Nullable
+  public Boolean apkSigningMethodV4() {
     return apkSigningMethod.signV4();
   }
 
@@ -1360,6 +1379,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
+  public boolean persistentMultiplexBusyboxTools() {
+    return experimentalPersistentMultiplexBusyboxTools;
+  }
+
+  @Override
   public boolean incompatibleUseToolchainResolution() {
     return incompatibleUseToolchainResolution;
   }
@@ -1400,6 +1424,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
+  }
+
+  public boolean includeProguardLocationReferences() {
+    return includeProguardLocationReferences;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

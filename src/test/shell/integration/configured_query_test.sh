@@ -70,10 +70,10 @@ sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
 
- bazel cquery "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
+  bazel cquery "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
 
- assert_contains "//$pkg:maple" output
- assert_contains "//$pkg:japanese" output
+  assert_contains "//$pkg:maple" output
+  assert_contains "//$pkg:japanese" output
 }
 
 function test_basic_query_output_textproto() {
@@ -84,10 +84,10 @@ sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
 
- bazel cquery --output=textproto "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
+  bazel cquery --output=textproto "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
 
- assert_contains "name: \"//$pkg:maple\"" output
- assert_contains "name: \"//$pkg:japanese\"" output
+  assert_contains "name: \"//$pkg:maple\"" output
+  assert_contains "name: \"//$pkg:japanese\"" output
 }
 
 function test_basic_query_output_labelkind() {
@@ -98,12 +98,37 @@ sh_library(name='maple', data=[':japanese'])
 cc_binary(name='japanese', srcs = ['japanese.cc'])
 EOF
 
- bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" ||
- --noimplicit_deps --nohost_deps fail "Expected success"
+  bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" || fail "Expected success"
 
- assert_contains "sh_library rule //$pkg:maple" output
- assert_contains "cc_binary rule //$pkg:japanese" output
- assert_contains "source file //$pkg:japanese.cc" output
+  assert_contains "sh_library rule //$pkg:maple" output
+  assert_contains "cc_binary rule //$pkg:japanese" output
+  assert_contains "source file //$pkg:japanese.cc" output
+}
+
+function test_config_checksum_determinism() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name = 'lib')
+EOF
+
+  bazel cquery "$pkg:lib" > out1 2>"$TEST_log" || fail "Expected success"
+  bazel shutdown >& "$TEST_log" || fail "Failed to shutdown"
+  bazel cquery "$pkg:lib" > out2 2>"$TEST_log" || fail "Expected success"
+
+  output1="$(cat out1)"
+  output2="$(cat out2)"
+  if [[ "$output1" != "$output2" ]]
+  then
+    fail "$(cat<<EOF
+Nondeterminism in cquery:
+${output1}
+!=
+${output2}
+You may have added an option without a meaningful toString() implementation
+EOF
+)"
+  fi
 }
 
 function test_respects_selects() {
@@ -169,16 +194,6 @@ function test_universe_scope_specified() {
   assert_not_equals $HOST_CONFIG $TARGET_CONFIG
 }
 
-function test_host_config_output() {
-  local -r pkg=$FUNCNAME
-  write_test_targets $pkg
-
-  bazel cquery //$pkg:host --universe_scope=//$pkg:main \
-    > output 2>"$TEST_log" || fail "Excepted success"
-
-  assert_contains "//$pkg:host (HOST)" output
-}
-
 function test_transitions_lite() {
   local -r pkg=$FUNCNAME
   write_test_targets $pkg
@@ -187,7 +202,7 @@ function test_transitions_lite() {
     > output 2>"$TEST_log" || fail "Excepted success"
 
   assert_contains "//$pkg:main" output
-  assert_contains "host_dep#//$pkg:host#HostTransition" output
+  assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
 
@@ -199,7 +214,7 @@ function test_transitions_full() {
     > output 2>"$TEST_log" || fail "Excepted success"
 
   assert_contains "//$pkg:main" output
-  assert_contains "host_dep#//$pkg:host#HostTransition" output
+  assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
 function write_test_targets() {
@@ -335,6 +350,37 @@ EOF
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
+function test_direct_alias_requirements() {
+  # Aliases delegate many read calls to their actual targets. This test
+  # ensures we don't skip requirements that the alias has but its actual
+  # target doesn't.
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+cc_library(
+    name = "ccrule",
+    srcs = ["ccrule.cc"],
+)
+config_setting(
+    name = "cfg",
+    define_values = {"abc": "1"},
+)
+alias(
+    name = "al",
+    actual = select({
+        ":cfg": ":ccrule",
+    }),
+)
+EOF
+
+  bazel cquery "//$pkg:al" --show_config_fragments=direct --define=abc=1 \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:al .*--define:abc" output
+  # CppConfiguration is a transitive, not direct, requirement.
+  assert_not_contains "//$pkg:al .*CppConfiguration" output
+}
+
 function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -422,32 +468,6 @@ EOF
 
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
   assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
-}
-
-function test_show_direct_host_only_config_fragments() {
-  local -r pkg=$FUNCNAME
-  mkdir -p $pkg
-  cat > $pkg/BUILD <<'EOF'
-genrule(
-    name = "gen",
-    outs = ["gen.out"],
-    cmd = "$(location :tool) > $@",
-    tools = [":tool"],
-)
-
-genrule(
-    name = "tool",
-    outs = ["tool.sh"],
-    cmd = 'echo "echo built by TOOL" > $@',
-)
-EOF
-
-  bazel cquery "deps(//$pkg:gen)" --show_config_fragments=direct_host_only \
-    > output 2>"$TEST_log" || fail "Expected success"
-
-  assert_contains "//$pkg:gen" output
-  assert_not_contains "//$pkg:gen .*CoreOptions" output
-  assert_contains "//$pkg:tool .*CoreOptions" output
 }
 
 function test_show_direct_config_fragments_select() {
@@ -570,6 +590,11 @@ rule_with_flag_dep(
 EOF
 
   bazel cquery "//$pkg:all" --show_config_fragments=direct > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:my_rule .*//$pkg:my_flag" output
+
+  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:my_rule .*//$pkg:my_flag" output
@@ -793,6 +818,20 @@ EOF
   assert_contains "//$pkg:my_test" output
 }
 
+function test_build_tests_only_override() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+cc_binary(
+  name = "not_a_test",
+  srcs = ["not_a_test.cc"])
+EOF
+
+  bazel cquery --build_tests_only "//$pkg:all" > output 2>"$TEST_log" || \
+    fail "Expected success"
+  assert_contains "//$pkg:not_a_test" output
+}
+
 function test_label_output_shows_alias_labels() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -916,7 +955,7 @@ bool_flag = rule(
 def _dep_transition_impl(settings, attr):
     return {
         "//$pkg:myflag": True,
-        "//command_line_option:test_arg": ["blah"]
+        "//command_line_option:platform_suffix": "blah"
     }
 
 _dep_transition = transition(
@@ -924,7 +963,7 @@ _dep_transition = transition(
     inputs = [],
     outputs = [
         "//$pkg:myflag",
-        "//command_line_option:test_arg",
+        "//command_line_option:platform_suffix",
     ],
 )
 
@@ -967,7 +1006,7 @@ def format(target):
   print(bo)
   if bo == None:
     return str(target.label) + '%None'
-  first = ','.join(bo['//command_line_option:test_arg'])
+  first = str(bo['//command_line_option:platform_suffix'])
   second = str(('//$pkg:myflag' in bo) and bo['//$pkg:myflag'])
   return str(target.label) + '%' + first + '%' + second
 EOF
@@ -975,17 +1014,17 @@ EOF
   bazel cquery "//$pkg:bar" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:bar%%False" output
+  assert_contains "//$pkg:bar%None%False" output
 
   bazel cquery "//$pkg:foo" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%%False" output
+  assert_contains "//$pkg:foo%None%False" output
 
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%%False" output
+  assert_contains "//$pkg:foo%None%False" output
   assert_contains "//$pkg:bar%blah%True" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \
@@ -1232,6 +1271,149 @@ EOF
 
   # A Bazel crash would have exit codes 3x.
   assert_equals $? 1
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/13301
+function test_external_repo_scope() {
+  if [ "${PRODUCT_NAME}" != "bazel" ]; then
+    # Tests of external repositories only work under bazel.
+    return 0
+  fi
+
+  local -r dir=$FUNCNAME
+
+  mkdir -p $dir/repo
+  touch $dir/repo/WORKSPACE
+  cat > $dir/repo/BUILD <<EOF
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+  mkdir -p $dir/main
+  cat > $dir/main/WORKSPACE <<EOF
+local_repository(name = "repo", path = "../repo")
+EOF
+  touch $dir/main/BUILD
+
+  cd $dir/main
+  bazel cquery @repo//... &>"$TEST_log" || fail "Unexpected failure"
+  expect_not_log "no targets found beneath"
+  expect_log "@repo//:maple"
+  expect_log "@repo//:japanese"
+}
+
+function test_test_arg_in_bazelrc() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat >$pkg/BUILD <<EOF
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+
+  touch $pkg/test.sh
+  chmod +x $pkg/test.sh
+
+  output_before="$(bazel cquery "//$pkg:test")"
+
+  add_to_bazelrc "test --test_arg=foo"
+
+  output_after="$(bazel cquery "//$pkg:test")"
+
+  assert_not_equals "${output_before}" "${output_after}"
+}
+
+function set_up_config_test() {
+  mkdir -p $pkg
+
+  # Use a rule that has a configuration transition.
+  cat > $pkg/rule.bzl <<EOF
+def _impl(ctx):
+    pass
+
+demo_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "binary": attr.label(cfg = "exec"),
+    },
+)
+EOF
+
+  cat > $pkg/tool.sh <<EOF
+echo "Hello"
+exit 0
+EOF
+  chmod +x $pkg/tool.sh
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rule.bzl", "demo_rule")
+
+sh_binary(name = "tool", srcs = ["tool.sh"])
+
+demo_rule(
+    name = 'demo',
+    binary = ":tool",
+)
+EOF
+
+  # Find out what the specific configurations are.
+  bazel cquery "deps(//$pkg:demo)" &>"$TEST_log" || fail "Unexpected failure"
+
+  # Find the target config.
+  target_config="$(grep "^//$pkg:demo ([0-9a-f]\+)" $TEST_log | sed -e 's,.*(\([^)]*\)).*,\1,')"
+  tool_config="$(grep "^//$pkg:tool ([0-9a-f]\+)" $TEST_log | sed -e 's,.*(\([^)]*\)).*,\1,')"
+
+  assert_not_equals "$target_config" "$tool_config"
+}
+
+function test_config_function() {
+  local -r pkg=$FUNCNAME
+
+  set_up_config_test $pkg
+
+  # Actually call config, verify output
+  bazel cquery "config(//$pkg:demo, $target_config)" &>"$TEST_log" || fail "Unexpected failure"
+  expect_log "^//$pkg:demo ($target_config)"
+  bazel cquery "config(//$pkg:tool, $tool_config)" &>"$TEST_log" || fail "Unexpected failure"
+  expect_log "^//$pkg:tool ($tool_config)"
+}
+
+function test_config_function_wrong_order() {
+  local -r pkg=$FUNCNAME
+
+  set_up_config_test $pkg
+
+  # Actually call config, verify output
+  bazel cquery "config($target_config, //$pkg:demo)" &>"$TEST_log" && fail "Expected to fail"
+  expect_not_log "^//$pkg:demo ($target_config)"
+  expect_log "couldn't determine target from filename '$target_config'"
+}
+
+function test_config_function_invalid_config() {
+  local -r pkg=$FUNCNAME
+
+  set_up_config_test $pkg
+
+  # Actually call config, verify output
+  bazel cquery "config(//$pkg:demo, notaconfighash)" &>"$TEST_log" && fail "Expected to fail"
+  expect_not_log "^//$pkg:demo ($target_config)"
+  expect_log "Unknown configuration ID 'notaconfighash'"
+}
+
+function test_error_keep_going() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+  # This causes a failure in the cquery function, which should produce an
+  # actionable error, not a stack trace.
+  bazel cquery --keep_going "config(//$pkg:oak, notaconfighash)" > output 2>"$TEST_log" && fail "Expected error"
+  expect_not_log "QueryException"
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

@@ -13,18 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
+import com.google.devtools.build.lib.skyframe.TopLevelAspectsValue;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectBuiltEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,13 +48,13 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * Listener for executed actions and built artifacts. We use a listener so that we have an
- * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
+ * Listener for executed actions and built artifacts. We use a listener so that we have an accurate
+ * set of successfully run actions and built artifacts, even if the build is interrupted.
  */
 public final class ExecutionProgressReceiver
-    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
     implements SkyframeActionExecutor.ProgressSupplier,
-        SkyframeActionExecutor.ActionCompletedReceiver {
+        SkyframeActionExecutor.ActionCompletedReceiver,
+        EvaluationProgressReceiver {
   private static final ThreadLocal<NumberFormat> PROGRESS_MESSAGE_NUMBER_FORMATTER =
       ThreadLocal.withInitial(
           () -> {
@@ -59,6 +69,7 @@ public final class ExecutionProgressReceiver
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
+  private final EventBus eventBus;
 
   /** Number of exclusive tests. To be accounted for in progress messages. */
   private final int exclusiveTestsCount;
@@ -68,10 +79,15 @@ public final class ExecutionProgressReceiver
    * permitted while this receiver is active.
    */
   ExecutionProgressReceiver(
-      Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects, int exclusiveTestsCount) {
+      Set<ConfiguredTargetKey> builtTargets,
+      Set<AspectKey> builtAspects,
+      int exclusiveTestsCount,
+      EventBus eventBus) {
+    // TODO(b/227138583) Remove these.
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.builtAspects = Collections.synchronizedSet(builtAspects);
     this.exclusiveTestsCount = exclusiveTestsCount;
+    this.eventBus = eventBus;
   }
 
   @Override
@@ -102,22 +118,59 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
-      @Nullable SkyValue value,
+      @Nullable SkyValue newValue,
+      @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     SkyFunctionName type = skyKey.functionName();
-    if (type.equals(SkyFunctions.TARGET_COMPLETION)) {
-      if (evaluationSuccessState.get().succeeded()) {
-        builtTargets.add(((TargetCompletionValue.TargetCompletionKey) skyKey).actionLookupKey());
-      }
-    } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
-      if (evaluationSuccessState.get().succeeded()) {
-        builtAspects.add(((AspectCompletionValue.AspectCompletionKey) skyKey).actionLookupKey());
-      }
-    } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
+    if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or
       // really executed.
       actionCompleted((ActionLookupData) skyKey.argument());
+      return;
+    }
+
+    if (!evaluationSuccessState.get().succeeded()) {
+      return;
+    }
+
+    if (type.equals(SkyFunctions.TARGET_COMPLETION)) {
+      ConfiguredTargetKey configuredTargetKey =
+          ((TargetCompletionValue.TargetCompletionKey) skyKey).actionLookupKey();
+      eventBus.post(TopLevelTargetBuiltEvent.create(configuredTargetKey));
+      // TODO(b/227138583) Remove this.
+      builtTargets.add(configuredTargetKey);
+      return;
+    }
+
+    if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
+      AspectKeyCreator.AspectKey aspectKey =
+          ((AspectCompletionValue.AspectCompletionKey) skyKey).actionLookupKey();
+      eventBus.post(AspectBuiltEvent.create(aspectKey));
+      // TODO(b/227138583) Remove this.
+      builtAspects.add(aspectKey);
+      return;
+    }
+
+    if (type.equals(SkyFunctions.BUILD_DRIVER)) {
+      BuildDriverKey buildDriverKey = (BuildDriverKey) skyKey;
+      // BuildDriverKeys are re-evaluated every build.
+      BuildDriverValue buildDriverValue = (BuildDriverValue) Preconditions.checkNotNull(newValue);
+
+      if (buildDriverValue.isSkipped()) {
+        return;
+      }
+
+      if (buildDriverKey.isTopLevelAspectDriver()) {
+        ((TopLevelAspectsValue) buildDriverValue.getWrappedSkyValue())
+            .getTopLevelAspectsValues()
+            .forEach(x -> eventBus.post(AspectBuiltEvent.create(((AspectValue) x).getKey())));
+        return;
+      }
+
+      eventBus.post(
+          TopLevelTargetBuiltEvent.create(
+              (ConfiguredTargetKey) buildDriverKey.getActionLookupKey()));
     }
   }
 

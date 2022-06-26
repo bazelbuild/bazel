@@ -303,16 +303,16 @@ function generate_release_message() {
 }
 
 # Returns the release notes for the CHANGELOG.md taken from either from
-# the notes for a release candidate or from the commit message for a
+# the notes for a release candidate/rolling release, or from the commit message for a
 # full release.
 function get_full_release_notes() {
   local release_name="$(get_full_release_name "$@")"
 
-  if [[ "${release_name}" =~ rc[0-9]+$ ]]; then
-    # Release candidate, we need to generate from the notes
+  if [[ "${release_name}" =~ rc[0-9]+$ ]] || [[ "$(is_rolling_release)" -eq 1 ]]; then
+    # Release candidate or rolling release -> generate from the notes
     generate_release_message "${release_name}" "$@"
   else
-    # Full release, returns the commit message
+    # Full LTS release -> return the commit message
     git_commit_msg "$@"
   fi
 }
