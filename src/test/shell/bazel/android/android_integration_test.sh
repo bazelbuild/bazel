@@ -85,6 +85,10 @@ EOF
 }
 
 function write_hello_android_files() {
+  local num_classes=0
+  set +u
+  [[ ! -z "$1" ]] && num_classes=$1
+  set -u
   mkdir -p java/com/example/hello
   mkdir -p java/com/example/hello/res/values
   cat > java/com/example/hello/res/values/strings.xml <<'EOF'
@@ -126,6 +130,13 @@ public class MainActivity extends Activity {
 }
 EOF
 
+  if [[ $num_classes -gt 0 ]]; then
+    local i=0
+    for (( i=0; i<$num_classes; i++ )); do
+      echo public class DummyClass$i {} > java/com/example/hello/DummyClass$i.java
+    done
+  fi
+
 }
 
 function test_d8_dexes_hello_android() {
@@ -163,6 +174,24 @@ EOF
   bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
       --define=android_desugaring_tool=d8 \
       --strategy=Desugar=sandboxed \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_native_d8_multidex_many_classfiles() {
+  write_hello_android_files 65537
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = 'native',
+)
+EOF
+
+  bazel clean
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
       //java/com/example/hello:hello || fail "build failed"
 }
 
