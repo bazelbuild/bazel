@@ -29,11 +29,6 @@ flags.DEFINE_multi_string('file', [], 'A file to add to the layer')
 flags.DEFINE_string('mode', None,
                     'Force the mode on the added files (in octal).')
 
-flags.DEFINE_string(
-    'mtime', None, 'Set mtime on tar file entries. May be an integer or the'
-    ' value "portable", to get the value 2000-01-01, which is'
-    ' is usable with non *nix OSes')
-
 flags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
 
 flags.DEFINE_string('directory', None,
@@ -61,20 +56,17 @@ class TarFile(object):
   class DebError(Exception):
     pass
 
-  def __init__(self, output, directory, compression, root_directory,
-               default_mtime):
+  def __init__(self, output, directory, compression, root_directory):
     self.directory = directory
     self.output = output
     self.compression = compression
     self.root_directory = root_directory
-    self.default_mtime = default_mtime
 
   def __enter__(self):
     self.tarfile = archive.TarFileWriter(
         self.output,
         self.compression,
-        self.root_directory,
-        default_mtime=self.default_mtime)
+        self.root_directory)
     return self
 
   def __exit__(self, t, v, traceback):
@@ -181,7 +173,7 @@ def main(unused_argv):
 
   # Add objects to the tar file
   with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression,
-               FLAGS.root_directory, FLAGS.mtime) as output:
+               FLAGS.root_directory) as output:
 
     def file_attributes(filename):
       if filename.startswith('/'):

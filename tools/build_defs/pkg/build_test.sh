@@ -99,10 +99,6 @@ function test_tar() {
   check_eq "./
 ./not-etc/
 ./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
-  check_eq \
-    "drwxr-xr-x 0/0               0 1999-12-31 23:59 ./
--r-xr-xr-x 0/0               2 1999-12-31 23:59 ./nsswitch.conf" \
-    "$(get_tar_verbose_listing test-tar-mtime.tar)"
 }
 
 

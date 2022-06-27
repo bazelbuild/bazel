@@ -141,16 +141,6 @@ pkg_tar(
     },
 )
 
-pkg_tar(
-    name = "test-tar-mtime",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    mtime = 946684740,  # 1999-12-31, 23:59
-    portable_mtime = False,
-)
-
 sh_test(
     name = "build_test",
     size = "medium",
@@ -166,7 +156,6 @@ sh_test(
         ":test-tar-inclusion-.tar",
         ":test-tar-inclusion-bz2.tar",
         ":test-tar-inclusion-gz.tar",
-        ":test-tar-mtime.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",
