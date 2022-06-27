@@ -27,7 +27,6 @@ import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -4084,17 +4083,13 @@ public abstract class MemoizingEvaluatorTest {
           }
 
           @Override
-          public boolean apply(Event input) {
+          public boolean test(Event input) {
             return true;
           }
 
           @Override
-          public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-            if (primaryKey.equals(parent)) {
-              return includedDep::equals;
-            } else {
-              return Predicates.alwaysTrue();
-            }
+          public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+            return !primaryKey.equals(parent) || depKey.equals(includedDep);
           }
         });
     tester.initialize();

@@ -25,7 +25,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
@@ -163,6 +162,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -821,22 +821,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         }
 
         @Override
-        public boolean apply(Event input) {
+        public boolean test(Event input) {
           // Use the filtering defined in the default filter: no info/progress messages.
-          return InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER.apply(input);
+          return InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER.test(input);
         }
 
         @Override
-        public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-          return isAnalysisPhaseKey(primaryKey)
-              ? Predicates.alwaysTrue()
-              : depKey -> !isAnalysisPhaseKey(depKey);
+        public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+          // Do not propagate events from analysis phase nodes to execution phase nodes.
+          return isAnalysisPhaseKey(primaryKey) || !isAnalysisPhaseKey(depKey);
         }
       };
 
   private static boolean isAnalysisPhaseKey(SkyKey key) {
-    return (key instanceof ActionLookupKey)
-        && !(key instanceof ActionTemplateExpansionValue.ActionTemplateExpansionKey);
+    return key instanceof ActionLookupKey && !(key instanceof ActionTemplateExpansionKey);
   }
 
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
