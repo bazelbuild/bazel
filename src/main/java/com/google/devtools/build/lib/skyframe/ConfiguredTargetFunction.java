@@ -249,6 +249,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     State state = env.getState(() -> new State(storeTransitivePackagesForPackageRootResolution));
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
+      // Fetching blocks on other resources, so we don't want to hold on to the semaphore meanwhile.
       env =
           new StateInformingSkyFunctionEnvironment(
               env,
