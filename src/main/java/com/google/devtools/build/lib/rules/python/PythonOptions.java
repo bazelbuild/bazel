@@ -40,7 +40,7 @@ public class PythonOptions extends FragmentOptions {
 
   /** Converter for options that take ({@code PY2} or {@code PY3}). */
   // We don't use EnumConverter because we want to disallow non-target PythonVersion values.
-  public static class TargetPythonVersionConverter implements Converter<PythonVersion> {
+  public static class TargetPythonVersionConverter extends Converter.Contextless<PythonVersion> {
 
     @Override
     public PythonVersion convert(String input) throws OptionsParsingException {

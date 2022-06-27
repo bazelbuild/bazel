@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
  */
 public abstract class AssignmentConverterTest {
 
-  protected Converter<Map.Entry<String, String>> converter = null;
+  protected Converter.Contextless<Map.Entry<String, String>> converter = null;
 
   protected abstract void setConverter();
 

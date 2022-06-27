@@ -29,7 +29,7 @@ import org.junit.BeforeClass;
 public class InvocationPolicyEnforcerTestBase {
 
   /** Test converter that splits a string by commas to produce a list. */
-  public static class ToListConverter implements Converter<List<String>> {
+  public static class ToListConverter extends Converter.Contextless<List<String>> {
 
     public ToListConverter() {}
 
@@ -64,7 +64,8 @@ public class InvocationPolicyEnforcerTestBase {
     return new InvocationPolicyEnforcer(
         InvocationPolicyParser.parsePolicy(
             startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy),
-        Level.INFO);
+        Level.INFO,
+        /*conversionContext=*/ null);
   }
 
   OptionsParser parser;

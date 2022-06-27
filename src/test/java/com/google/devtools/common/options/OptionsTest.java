@@ -375,7 +375,7 @@ public class OptionsTest {
             "  --none\n" + "    An expanded option.\n" + "      Expands to: --host=www.google.com");
   }
 
-  public static class MyURLConverter implements Converter<URL> {
+  public static class MyURLConverter extends Converter.Contextless<URL> {
 
     @Override
     public URL convert(String input) throws OptionsParsingException {

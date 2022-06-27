@@ -52,7 +52,7 @@ public class WorkerOptions extends OptionsBase {
    * the empty string is used as the key. The default value for unspecified mnemonics is {@value
    * DEFAULT_VALUE}. "auto" currently returns the default.
    */
-  public static class MultiResourceConverter implements Converter<Entry<String, Integer>> {
+  public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
     public static final int DEFAULT_VALUE = 4;
 
@@ -67,11 +67,11 @@ public class WorkerOptions extends OptionsBase {
       }
       int pos = input.indexOf('=');
       if (pos < 0) {
-        return Maps.immutableEntry("", valueConverter.convert(input));
+        return Maps.immutableEntry("", valueConverter.convert(input, /*conversionContext=*/ null));
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
-      return Maps.immutableEntry(name, valueConverter.convert(value));
+      return Maps.immutableEntry(name, valueConverter.convert(value, /*conversionContext=*/ null));
     }
 
     @Override

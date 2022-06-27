@@ -121,9 +121,9 @@ public enum TestSize {
     /**
      * {@inheritDoc}
      *
-     * <p>This override is necessary to prevent OptionsData
-     * from throwing a "must be assignable from the converter return type" exception.
-     * OptionsData doesn't recognize the generic type and actual type are the same.
+     * <p>This override is necessary to prevent OptionsData from throwing a "must be assignable from
+     * the converter return type" exception. OptionsData doesn't recognize the generic type and
+     * actual type are the same.
      */
     @Override
     public final Set<TestSize> convert(String input) throws OptionsParsingException {

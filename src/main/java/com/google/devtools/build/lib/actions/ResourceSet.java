@@ -167,7 +167,8 @@ public class ResourceSet implements ResourceSetOrBuilder {
         + getLocalTestCount() * p * p;
   }
 
-  public static class ResourceSetConverter implements Converter<ResourceSet> {
+  /** Converter for {@link ResourceSet}. */
+  public static class ResourceSetConverter extends Converter.Contextless<ResourceSet> {
     private static final Splitter SPLITTER = Splitter.on(',');
 
     @Override
