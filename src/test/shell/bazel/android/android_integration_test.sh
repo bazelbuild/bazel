@@ -178,6 +178,10 @@ EOF
 }
 
 function test_native_d8_multidex_many_classfiles() {
+  # The dexer file format uses a 16-bit int in its metadata to codify how many
+  # classes exist, so projects with >2^16 classfiles need special handling. This
+  # test exercises the dex tool to make sure that >2^16 classfiles are properly
+  # handled.
   write_hello_android_files 65537
   setup_android_sdk_support
   cat > java/com/example/hello/BUILD <<'EOF'
