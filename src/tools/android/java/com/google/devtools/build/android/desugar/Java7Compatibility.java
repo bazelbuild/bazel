@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import org.objectweb.asm.Opcodes;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
@@ -49,7 +50,7 @@ public class Java7Compatibility extends ClassVisitor {
 
   public Java7Compatibility(
       ClassVisitor cv, ClassReaderFactory factory, ClassReaderFactory bootclasspathReader) {
-    super(Opcodes.ASM8, cv);
+    super(Opcodes.ASM9, cv);
     this.factory = factory;
     this.bootclasspathReader = bootclasspathReader;
   }
@@ -124,7 +125,7 @@ public class Java7Compatibility extends ClassVisitor {
     boolean updated = false;
 
     public UpdateBytecodeVersionIfNecessary(MethodVisitor methodVisitor) {
-      super(Opcodes.ASM8, methodVisitor);
+      super(Opcodes.ASM9, methodVisitor);
     }
 
     @Override
@@ -156,7 +157,7 @@ public class Java7Compatibility extends ClassVisitor {
 
   private class InlineJacocoInit extends MethodVisitor {
     public InlineJacocoInit(MethodVisitor dest) {
-      super(Opcodes.ASM8, dest);
+      super(Opcodes.ASM9, dest);
     }
 
     @Override
@@ -185,7 +186,7 @@ public class Java7Compatibility extends ClassVisitor {
     private int copied = 0;
 
     public InlineOneMethod(String methodName, MethodVisitor dest) {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
       this.methodName = methodName;
       this.dest = dest;
     }
@@ -219,7 +220,7 @@ public class Java7Compatibility extends ClassVisitor {
     public InlineMethodBody(MethodVisitor dest) {
       // We'll set the destination visitor in visitCode() to reduce the risk of copying anything
       // we didn't mean to copy
-      super(Opcodes.ASM8, (MethodVisitor) null);
+      super(Opcodes.ASM9, (MethodVisitor) null);
       this.dest = dest;
     }
 

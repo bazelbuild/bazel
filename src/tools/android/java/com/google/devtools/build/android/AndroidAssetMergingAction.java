@@ -141,7 +141,6 @@ public class AndroidAssetMergingAction extends AbstractBusyBoxAction {
             options.transitiveData,
             /* resourcesOut = */ ignored,
             mergedAssets,
-            /* cruncher = */ null,
             VariantType.LIBRARY,
             /* symbolsOut = */ null,
             /* rclassWriter = */ null,

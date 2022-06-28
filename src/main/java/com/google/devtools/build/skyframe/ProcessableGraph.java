@@ -45,7 +45,8 @@ public interface ProcessableGraph extends QueryableGraph {
    * @param reason the reason the nodes are being requested.
    */
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) throws InterruptedException;
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
 
   /**
    * Like {@link QueryableGraph#getBatchAsync}, except it creates a new node for each key not

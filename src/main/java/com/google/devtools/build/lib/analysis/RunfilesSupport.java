@@ -211,6 +211,24 @@ public final class RunfilesSupport {
   }
 
   /**
+   * Helper method that returns a collection of artifacts that are necessary for the runfiles of the
+   * given target. Note that the runfile symlink tree is never built, so this may include artifacts
+   * that end up not being used (see {@link Runfiles}).
+   *
+   * @return the Runfiles object
+   */
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
+    RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+    if (runfilesProvider != null) {
+      return runfilesProvider.getDefaultRunfiles();
+    } else {
+      return new Runfiles.Builder(workspaceName)
+          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
+          .build();
+    }
+  }
+
+  /**
    * Returns the .runfiles_manifest file outside of the runfiles symlink farm. Returns null if
    * --nobuild_runfile_manifests is in effect.
    *
@@ -378,24 +396,6 @@ public final class RunfilesSupport {
     return outputManifest;
   }
 
-  /**
-   * Helper method that returns a collection of artifacts that are necessary for the runfiles of the
-   * given target. Note that the runfile symlink tree is never built, so this may include artifacts
-   * that end up not being used (see {@link Runfiles}).
-   *
-   * @return the Runfiles object
-   */
-  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
-    RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
-    if (runfilesProvider != null) {
-      return runfilesProvider.getDefaultRunfiles();
-    } else {
-      return new Runfiles.Builder(workspaceName)
-          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
-          .build();
-    }
-  }
-
   /** Returns the unmodifiable list of expanded and tokenized 'args' attribute values. */
   public CommandLine getArgs() {
     return args;
@@ -475,9 +475,7 @@ public final class RunfilesSupport {
   }
 
   private static ActionEnvironment computeActionEnvironment(RuleContext ruleContext) {
-    // Currently, "env" and "env_inherit" are not added to Starlark-defined rules (unlike "args"),
-    // in order to avoid breaking existing Starlark rules that use those attribute names.
-    // TODO(brandjon): Support "env" and "env_inherit" for Starlark-defined rules.
+    // Executable Starlark rules can use RunEnvironmentInfo to specify environment variables.
     boolean isNativeRule =
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null;
     if (!isNativeRule

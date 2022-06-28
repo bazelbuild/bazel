@@ -1537,10 +1537,6 @@ def _impl(ctx):
     if ctx.attr.tool_paths == {}:
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/mock-ar"),
-            tool_path(
-                name = "compat-ld",
-                path = "/usr/bin/mock-compat-ld",
-            ),
             tool_path(name = "cpp", path = "/usr/bin/mock-cpp"),
             tool_path(name = "dwp", path = "/usr/bin/mock-dwp"),
             tool_path(name = "gcc", path = "/usr/bin/mock-gcc"),

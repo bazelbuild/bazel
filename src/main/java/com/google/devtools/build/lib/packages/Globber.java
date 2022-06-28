@@ -21,16 +21,13 @@ public interface Globber {
   /** An opaque token for fetching the result of a glob computation. */
   abstract class Token {}
 
-  /**
-   * Indiciates they type of globbing operations we're doing, whether looking for Files+Dirs or
-   * sub-packages.
-   */
+  /** Indicates the type of globbing operations we are doing. */
   enum Operation {
-    // Return only files,
+    // Return only files.
     FILES,
-    // Return files and directories, but not sub-packages
+    // Return files and directories, but not sub-packages.
     FILES_AND_DIRS,
-    // Return only sub-packages
+    // Return only sub-packages.
     SUBPACKAGES,
   }
 

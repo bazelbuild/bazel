@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 
@@ -32,6 +33,11 @@ public class ObjcCppSemantics implements CppSemantics {
   public static final ObjcCppSemantics INSTANCE = new ObjcCppSemantics();
 
   private ObjcCppSemantics() {}
+
+  @Override
+  public Language language() {
+    return Language.OBJC;
+  }
 
   @Override
   public void finalizeCompileActionBuilder(

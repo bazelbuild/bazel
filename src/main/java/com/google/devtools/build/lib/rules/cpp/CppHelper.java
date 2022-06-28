@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -85,6 +86,8 @@ public class CppHelper {
   static final PathFragment PIC_OBJS = PathFragment.create("_pic_objs");
   static final PathFragment DOTD_FILES = PathFragment.create("_dotd");
   static final PathFragment PIC_DOTD_FILES = PathFragment.create("_pic_dotd");
+  static final PathFragment DIA_FILES = PathFragment.create("_dia");
+  static final PathFragment PIC_DIA_FILES = PathFragment.create("_pic_dia");
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
@@ -288,7 +291,8 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext, Language.CPP, defaultToolchain, semantics);
 
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
@@ -305,7 +309,8 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext, Language.CPP, defaultToolchain, semantics);
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
@@ -402,11 +407,18 @@ public class CppHelper {
     }
   }
 
-  /** Returns the directory where object files are created. */
+  /** Returns the directory where dotd files are created. */
   private static PathFragment getDotdDirectory(
       Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
     return AnalysisUtils.getUniqueDirectory(
         ruleLabel, usePic ? PIC_DOTD_FILES : DOTD_FILES, siblingRepositoryLayout);
+  }
+
+  /** Returns the directory where serialized diagnostics files are created. */
+  private static PathFragment getDiagnosticsDirectory(
+      Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
+    return AnalysisUtils.getUniqueDirectory(
+        ruleLabel, usePic ? PIC_DIA_FILES : DIA_FILES, siblingRepositoryLayout);
   }
 
   /**
@@ -764,6 +776,25 @@ public class CppHelper {
         sourceTreeArtifact.getRoot());
   }
 
+  /**
+   * Returns the corresponding serialized diagnostics files TreeArtifact given the source
+   * TreeArtifact.
+   */
+  public static SpecialArtifact getDiagnosticsOutputTreeArtifact(
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      Artifact sourceTreeArtifact,
+      String outputName,
+      boolean usePic) {
+    return actionConstructionContext.getTreeArtifact(
+        getDiagnosticsDirectory(
+                label,
+                usePic,
+                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
+            .getRelative(outputName),
+        sourceTreeArtifact.getRoot());
+  }
+
   public static String getArtifactNameForCategory(
       CcToolchainProvider toolchain,
       ArtifactCategory category,
@@ -784,6 +815,19 @@ public class CppHelper {
             : getArtifactNameForCategory(toolchain, outputCategory, outputName);
 
     return getArtifactNameForCategory(toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+  }
+
+  static String getDiagnosticsFileName(
+      CcToolchainProvider toolchain, ArtifactCategory outputCategory, String outputName)
+      throws RuleErrorException {
+    String baseName =
+        outputCategory == ArtifactCategory.OBJECT_FILE
+                || outputCategory == ArtifactCategory.PROCESSED_HEADER
+            ? outputName
+            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
+
+    return getArtifactNameForCategory(
+        toolchain, ArtifactCategory.SERIALIZED_DIAGNOSTICS_FILE, baseName);
   }
 
   /**
@@ -896,7 +940,7 @@ public class CppHelper {
         && (!ruleContext.isAttrDefined("win_def_file", LABEL)
             || ruleContext.getPrerequisiteArtifact("win_def_file") == null)) {
       Fingerprint digest = new Fingerprint();
-      digest.addString(ruleContext.getRepository().getName());
+      digest.addString(ruleContext.getRepository().getNameWithAt());
       digest.addPath(ruleContext.getPackageDirectory());
       return "_" + digest.hexDigestAndReset().substring(0, 10);
     }

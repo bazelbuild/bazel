@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -165,7 +167,7 @@ public class BuildTool {
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
-        env.getEventBus().post(new BuildStartingEvent(env, request));
+        env.getEventBus().post(BuildStartingEvent.create(env, request));
       }
       logger.atInfo().log("Build identifier: %s", request.getId());
 
@@ -206,36 +208,53 @@ public class BuildTool {
           Set<AspectKey> builtAspects = new HashSet<>();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(
-                request.getId(),
-                builtTargets,
-                builtAspects,
-                loadingResult.getNotSymlinkedInExecrootDirectories());
+            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
           }
 
           // TODO(b/199053098): implement support for --nobuild.
-          AnalysisAndExecutionResult analysisAndExecutionResult =
-              AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
-
-          result.setBuildConfigurationCollection(
-              analysisAndExecutionResult.getConfigurationCollection());
-          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
-          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
-          try (SilentCloseable c = Profiler.instance().profile("Show results")) {
-            result.setSuccessfulTargets(
-                ExecutionTool.determineSuccessfulTargets(
-                    analysisAndExecutionResult.getTargetsToBuild(), builtTargets));
-            result.setSuccessfulAspects(
-                ExecutionTool.determineSuccessfulAspects(
-                    analysisAndExecutionResult.getAspectsMap().keySet(), builtAspects));
-            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
-            BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-            buildResultPrinter.showBuildResult(
-                request,
-                result,
-                analysisAndExecutionResult.getTargetsToBuild(),
-                analysisAndExecutionResult.getTargetsToSkip(),
-                analysisAndExecutionResult.getAspectsMap());
+          AnalysisAndExecutionResult analysisAndExecutionResult;
+          boolean buildCompleted = false;
+          try {
+            analysisAndExecutionResult =
+                AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
+            buildCompleted = true;
+            result.setBuildConfigurationCollection(
+                analysisAndExecutionResult.getConfigurationCollection());
+          } catch (InvalidConfigurationException
+              | TargetParsingException
+              | LoadingFailedException
+              | ViewCreationFailedException
+              | BuildFailedException
+              | TestExecException e) {
+            // These are non-catastrophic.
+            buildCompleted = true;
+            throw e;
+          } finally {
+            BuildResultListener buildResultListener =
+                Preconditions.checkNotNull(env.getBuildResultListener());
+            result.setActualTargets(buildResultListener.getAnalyzedTargets());
+            result.setTestTargets(buildResultListener.getAnalyzedTests());
+            try (SilentCloseable c = Profiler.instance().profile("Show results")) {
+              result.setSuccessfulTargets(
+                  ExecutionTool.determineSuccessfulTargets(
+                      buildResultListener.getAnalyzedTargets(),
+                      buildResultListener.getBuiltTargets()));
+              result.setSuccessfulAspects(
+                  ExecutionTool.determineSuccessfulAspects(
+                      buildResultListener.getAnalyzedAspects().keySet(),
+                      buildResultListener.getBuiltAspects()));
+              result.setSkippedTargets(buildResultListener.getSkippedTargets());
+              if (buildCompleted) {
+                getReporter().handle(Event.progress("Building complete."));
+              }
+              BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+              buildResultPrinter.showBuildResult(
+                  request,
+                  result,
+                  buildResultListener.getAnalyzedTargets(),
+                  buildResultListener.getSkippedTargets(),
+                  buildResultListener.getAnalyzedAspects());
+            }
           }
           FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
           if (delayedFailureDetail != null) {
@@ -288,7 +307,8 @@ public class BuildTool {
               analysisResult,
               result,
               analysisResult.getPackageRoots(),
-              request.getTopLevelArtifactContext());
+              request.getTopLevelArtifactContext(),
+              request.getBuildOptions().useEventBasedBuildCompletionStatus);
         } else {
           env.getReporter().post(new NoExecutionEvent());
         }
@@ -306,7 +326,7 @@ public class BuildTool {
                 request.getOptions(BuildEventProtocolOptions.class),
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException e) {
+          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
@@ -373,7 +393,8 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException {
+      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException,
+          TemplateExpansionException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
     UploadContext streamingContext = null;
@@ -419,7 +440,9 @@ public class BuildTool {
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
-              aqueryOutputHandler);
+              /* includeFileWriteContents */ false,
+              aqueryOutputHandler,
+              getReporter());
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
   }

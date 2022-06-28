@@ -14,8 +14,9 @@
 
 #ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_H_
 #define SRC_MAIN_TOOLS_LINUX_SANDBOX_H_
+#include <sys/types.h>
 
-extern int global_outer_uid;
-extern int global_outer_gid;
+extern uid_t global_outer_uid;
+extern gid_t global_outer_gid;
 
 #endif

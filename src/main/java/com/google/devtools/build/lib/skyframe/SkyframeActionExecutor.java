@@ -258,7 +258,7 @@ public final class SkyframeActionExecutor {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       OutputService outputService,
-      boolean incrementalAnalysis) {
+      boolean trackIncrementalState) {
     this.reporter = Preconditions.checkNotNull(reporter);
     this.executorEngine = Preconditions.checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
@@ -284,7 +284,7 @@ public final class SkyframeActionExecutor {
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
     freeDiscoveredInputsAfterExecution =
-        !incrementalAnalysis && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
+        !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
   }
 
   public void setActionLogBufferPathGenerator(
@@ -390,6 +390,9 @@ public final class SkyframeActionExecutor {
       actionExecutionState.obsolete(actionLookupData, buildActionMap, ownerlessArtifactWrapper);
     }
     completedAndResetActions.add(ownerlessArtifactWrapper);
+    if (!actionFileSystemType().inMemoryFileSystem()) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
+    }
   }
 
   @Nullable
@@ -411,6 +414,9 @@ public final class SkyframeActionExecutor {
     }
     if (!lostDiscoveredInputs.isEmpty()) {
       lostDiscoveredInputsMap.put(ownerlessArtifactWrapper, lostDiscoveredInputs);
+    }
+    if (!actionFileSystemType().inMemoryFileSystem()) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
     }
   }
 
@@ -991,7 +997,7 @@ public final class SkyframeActionExecutor {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
-          if (!actionFileSystemType().inMemoryFileSystem()) {
+          if (actionFileSystemType().supportLocalActions()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
@@ -1011,12 +1017,12 @@ public final class SkyframeActionExecutor {
                   null,
                   Code.ACTION_OUTPUTS_DELETION_FAILURE);
             }
-          } else {
+          }
+
+          if (actionFileSystemType().inMemoryFileSystem()) {
             // There's nothing to delete when the action file system is used, but we must ensure
             // that the output directories for stdout and stderr exist.
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-          }
-          if (actionFileSystemType().inMemoryFileSystem()) {
             createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
           } else {
             createOutputDirectories(action);
@@ -1220,7 +1226,6 @@ public final class SkyframeActionExecutor {
             /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
-            actionFileSystemType().inMemoryFileSystem(),
             actionException,
             fileOutErr,
             ErrorTiming.AFTER_EXECUTION);
@@ -1233,7 +1238,6 @@ public final class SkyframeActionExecutor {
             /*primaryOutputMetadata=*/ null,
             action,
             actionResult,
-            actionFileSystemType().inMemoryFileSystem(),
             new ActionExecutionException(
                 exception,
                 action,
@@ -1260,7 +1264,6 @@ public final class SkyframeActionExecutor {
           primaryOutputMetadata,
           action,
           actionResult,
-          actionFileSystemType().inMemoryFileSystem(),
           null,
           fileOutErr,
           ErrorTiming.NO_ERROR);
@@ -1282,7 +1285,7 @@ public final class SkyframeActionExecutor {
     private class ActionContinuationStep extends ActionStep {
       private final ActionContinuationOrResult actionContinuationOrResult;
 
-      public ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
+      ActionContinuationStep(ActionContinuationOrResult actionContinuationOrResult) {
         Preconditions.checkArgument(!actionContinuationOrResult.isDone());
         this.actionContinuationOrResult = actionContinuationOrResult;
       }
@@ -1306,7 +1309,7 @@ public final class SkyframeActionExecutor {
     private class ActionPostprocessingStep extends ActionStep {
       private final ActionExecutionValue value;
 
-      public ActionPostprocessingStep(ActionExecutionValue value) {
+      ActionPostprocessingStep(ActionExecutionValue value) {
         this.value = value;
       }
 
@@ -1413,7 +1416,6 @@ public final class SkyframeActionExecutor {
         /*primaryOutputMetadata=*/ null,
         action,
         null,
-        actionFileSystemType().inMemoryFileSystem(),
         e,
         outErrBuffer,
         errorTiming);
@@ -1694,7 +1696,6 @@ public final class SkyframeActionExecutor {
       @Nullable FileArtifactValue primaryOutputMetadata,
       Action action,
       @Nullable ActionResult actionResult,
-      boolean isInMemoryFs,
       ActionExecutionException exception,
       FileOutErr outErr,
       ErrorTiming errorTiming) {
@@ -1726,8 +1727,7 @@ public final class SkyframeActionExecutor {
             stdout,
             stderr,
             logs,
-            errorTiming,
-            isInMemoryFs));
+            errorTiming));
   }
 
   /** An object supplying data for action execution progress reporting. */

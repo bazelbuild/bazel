@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
+import org.objectweb.asm.Opcodes;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -111,7 +112,7 @@ public class CorePackageRenamerTest {
     final MockMethodVisitor mv = new MockMethodVisitor();
 
     public MockClassVisitor() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -127,7 +128,7 @@ public class CorePackageRenamerTest {
     String desc;
 
     public MockMethodVisitor() {
-      super(Opcodes.ASM8);
+      super(Opcodes.ASM9);
     }
 
     @Override

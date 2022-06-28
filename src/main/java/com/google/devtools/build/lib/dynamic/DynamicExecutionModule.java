@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -86,33 +85,14 @@ public class DynamicExecutionModule extends BlazeModule {
   ImmutableMap<String, List<String>> getLocalStrategies(DynamicExecutionOptions options)
       throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
-    // functionality here. Additionally, since we are still supporting --dynamic_worker_strategy,
-    // but will deprecate it soon, we add its functionality to --dynamic_local_strategy. This allows
-    // users to set --dynamic_local_strategy and not --dynamic_worker_strategy to stop defaulting to
-    // worker strategy. For simplicity, we add the default strategy first, it may be overridden
-    // later.
+    // functionality here.
     // ImmutableMap.Builder fails on duplicates, so we use a regular map first to remove dups.
     Map<String, List<String>> localAndWorkerStrategies = new HashMap<>();
-    // TODO(steinman): Deprecate --dynamic_worker_strategy and clean this up.
-    List<String> defaultValue = Lists.newArrayList();
-    String workerStrategy =
-        options.dynamicWorkerStrategy.isEmpty() ? "worker" : options.dynamicWorkerStrategy;
-    defaultValue.addAll(ImmutableList.of(workerStrategy, "sandboxed"));
-    throwIfContainsDynamic(defaultValue, "--dynamic_local_strategy");
-    localAndWorkerStrategies.put("", defaultValue);
+    localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed"));
 
     if (!options.dynamicLocalStrategy.isEmpty()) {
       for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
-        if ("".equals(entry.getKey())) {
-          List<String> newValue = Lists.newArrayList();
-          if (!options.dynamicWorkerStrategy.isEmpty()) {
-            newValue.add(options.dynamicWorkerStrategy);
-          }
-          newValue.addAll(entry.getValue());
-          localAndWorkerStrategies.put("", newValue);
-        } else {
-          localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
-        }
+        localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
         throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
       }
     }

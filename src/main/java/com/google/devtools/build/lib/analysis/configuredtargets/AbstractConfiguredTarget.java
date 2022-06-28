@@ -218,14 +218,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     return rawGetStarlarkProvider(providerKey);
   }
 
-  /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
-  @Nullable
-  protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
-
-  public String getRuleClassString() {
-    return "";
-  }
-
   /** Returns a value provided by this target. Only meant to use from Starlark. */
   @Override
   public final Object get(String providerKey) {
@@ -246,7 +238,15 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
+  @Nullable
+  protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
+
+  /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
   protected abstract Object rawGetStarlarkProvider(String providerKey);
+
+  public String getRuleClassString() {
+    return "";
+  }
 
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.

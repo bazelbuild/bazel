@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -276,14 +274,14 @@ public class InMemoryNodeEntry implements NodeEntry {
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
     Preconditions.checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
-    Version version = firstNonNull(maxTransitiveSourceVersion, graphVersion);
     Preconditions.checkState(
-        this.lastChangedVersion.atMost(version) && this.lastEvaluatedVersion.atMost(version),
+        this.lastChangedVersion.atMost(graphVersion)
+            && this.lastEvaluatedVersion.atMost(graphVersion),
         "Bad version (this=%s, version=%s, value=%s)",
         this,
-        version,
+        graphVersion,
         value);
-    this.lastEvaluatedVersion = version;
+    this.lastEvaluatedVersion = graphVersion;
 
     if (dirtyBuildingState.unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
@@ -292,7 +290,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     } else {
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
-      this.lastChangedVersion = version;
+      this.lastChangedVersion = graphVersion;
       this.value = value;
     }
     return setStateFinishedAndReturnReverseDepsToSignal();

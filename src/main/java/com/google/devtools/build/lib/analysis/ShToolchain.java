@@ -14,48 +14,58 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Class to work with the shell toolchain, e.g. get the shell interpreter's path. */
 public final class ShToolchain {
 
-  /**
-   * Returns the shell executable's path, or an empty path if not set.
-   *
-   * <p>This method checks the configuration's {@link ShellConfiguration} fragment.
-   */
-  public static PathFragment getPath(BuildConfigurationValue config) {
-    PathFragment result = PathFragment.EMPTY_FRAGMENT;
-
-    ShellConfiguration configFragment =
-        (ShellConfiguration) config.getFragment(ShellConfiguration.class);
-    if (configFragment != null) {
-      PathFragment path = configFragment.getShellExecutable();
-      if (path != null) {
-        result = path;
-      }
+  private static PathFragment getHostOrDefaultPath() {
+    OS current = OS.getCurrent();
+    if (!ShellConfiguration.getShellExecutables().containsKey(current)) {
+      current = OS.UNKNOWN;
     }
+    Preconditions.checkState(
+        ShellConfiguration.getShellExecutables().containsKey(current),
+        "shellExecutableFinder should set a value with key '%s'",
+        current);
 
-    return result;
+    return ShellConfiguration.getShellExecutables().get(current);
   }
 
   /**
-   * Returns the shell executable's path, or reports a rule error if the path is empty.
+   * Returns the default shell executable's path for the host OS.
    *
-   * <p>This method checks the rule's configuration's {@link ShellConfiguration} fragment for the
-   * shell executable's path. If null or empty, the method reports an error against the rule.
+   * <p>This method checks the configuration's {@link ShellConfiguration} fragment.
    */
-  public static PathFragment getPathOrError(RuleContext ctx) {
-    PathFragment result = getPath(ctx.getConfiguration());
-
-    if (result.isEmpty()) {
-      ctx.ruleError(
-          "This rule needs a shell interpreter. Use the --shell_executable=<path> flag to specify"
-              + " the interpreter's path, e.g. --shell_executable=/usr/local/bin/bash");
+  public static PathFragment getPathForHost(BuildConfigurationValue config) {
+    ShellConfiguration configFragment = config.getFragment(ShellConfiguration.class);
+    if (configFragment != null) {
+      if (configFragment.getOptionsBasedDefault() != null) {
+        return configFragment.getOptionsBasedDefault();
+      } else {
+        return getHostOrDefaultPath();
+      }
     }
+    return PathFragment.EMPTY_FRAGMENT;
+  }
 
-    return result;
+  /**
+   * Returns the shell executable's path for the provided platform. If none is present, return the
+   * path for the host platform. Otherwise, return the default.
+   */
+  public static PathFragment getPathOrError(PlatformInfo platformInfo) {
+    for (OS os : ShellConfiguration.getShellExecutables().keySet()) {
+      if (platformInfo
+          .constraints()
+          .hasConstraintValue(ShellConfiguration.OS_TO_CONSTRAINTS.get(os))) {
+        return ShellConfiguration.getShellExecutables().get(os);
+      }
+    }
+    return getHostOrDefaultPath();
   }
 
   private ShToolchain() {}

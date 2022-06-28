@@ -17,6 +17,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +30,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * An implementation of ToolchainContextApi that can better handle converting strings into Labels.
@@ -85,7 +87,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
       return ((ToolchainTypeInfo) key).typeLabel();
     } else if (key instanceof String) {
       try {
-        LabelConverter converter = LabelConverter.forThread(starlarkThread);
+        LabelConverter converter = LabelConverter.forBzlEvaluatingThread(starlarkThread);
         return converter.convert((String) key);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf("Unable to parse toolchain label '%s': %s", key, e.getMessage());
@@ -98,7 +100,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
   }
 
   @Override
-  public ToolchainInfo getIndex(
+  public StarlarkValue getIndex(
       StarlarkThread starlarkThread, StarlarkSemantics semantics, Object key) throws EvalException {
     Label toolchainTypeLabel = transformKey(starlarkThread, key);
 
@@ -110,12 +112,16 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
           "In %s, toolchain type %s was requested but only types [%s] are configured",
           toolchainContext().targetDescription(),
           toolchainTypeLabel,
-          toolchainContext().requiredToolchainTypes().stream()
-              .map(ToolchainTypeInfo::typeLabel)
+          toolchainContext().toolchainTypes().stream()
+              .map(ToolchainTypeRequirement::toolchainType)
               .map(Label::toString)
               .collect(joining(", ")));
     }
-    return toolchainContext().forToolchainType(toolchainTypeLabel);
+    ToolchainInfo toolchainInfo = toolchainContext().forToolchainType(toolchainTypeLabel);
+    if (toolchainInfo == null) {
+      return Starlark.NONE;
+    }
+    return toolchainInfo;
   }
 
   @Override

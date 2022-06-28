@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
+import net.starlark.java.eval.EvalException;
 
 /** Strategy to perform template expansion locally. */
 public class LocalTemplateExpansionStrategy implements TemplateExpansionContext {
@@ -40,20 +42,26 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
       return ctx.getContext(FileWriteActionContext.class)
           .beginWriteOutputToFile(
               action, ctx, deterministicWriter, action.makeExecutable(), /*isRemotable=*/ true);
-    } catch (IOException e) {
+    } catch (IOException | EvalException e) {
       return SpawnContinuation.failedWithExecException(
           new EnvironmentalExecException(
-              e, FailureDetails.Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE));
+              e,
+              FailureDetail.newBuilder()
+                  .setExecution(
+                      Execution.newBuilder()
+                          .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
+                  .build()));
     }
   }
 
   /**
-   * Get the result of the template expansion prior to executing the action.
-   * TODO(b/110418949): Stop public access to this method as it's unhealthy to evaluate the
-   * action result without the action being executed.
+   * Get the result of the template expansion prior to executing the action. TODO(b/110418949): Stop
+   * public access to this method as it's unhealthy to evaluate the action result without the action
+   * being executed.
    */
-  public String getExpandedTemplateUnsafe(TemplateExpansionAction action,
-      ArtifactPathResolver resolver) throws IOException {
+  public String getExpandedTemplateUnsafe(
+      TemplateExpansionAction action, ArtifactPathResolver resolver)
+      throws EvalException, IOException {
     String templateString;
     templateString = action.getTemplate().getContent(resolver);
     for (Substitution entry : action.getSubstitutions()) {

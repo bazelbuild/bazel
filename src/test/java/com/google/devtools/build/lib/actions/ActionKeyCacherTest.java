@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -179,7 +180,7 @@ public class ActionKeyCacherTest {
 
   @Test
   public void getKey_withoutExpander_skipsPrimedCache()
-      throws CommandLineExpansionException, InterruptedException {
+      throws CommandLineExpansionException, InterruptedException, EvalException {
     String withExpander = cacher.getKey(actionKeyContext, ARTIFACT_EXPANDER);
     String withoutExpander = cacher.getKey(actionKeyContext, /*artifactExpander=*/ null);
 

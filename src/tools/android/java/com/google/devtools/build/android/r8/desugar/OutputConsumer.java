@@ -18,7 +18,6 @@ import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.
 import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.INCLUDE_PATH_ENTRIES;
 import static org.objectweb.asm.Opcodes.ACC_BRIDGE;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
-import static org.objectweb.asm.Opcodes.ASM7;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 import com.android.tools.r8.ArchiveProgramResourceProvider;
@@ -33,6 +32,7 @@ import com.google.devtools.build.android.r8.DependencyCollector;
 import com.google.devtools.build.android.r8.DescriptorUtils;
 import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.ZipUtils;
+import org.objectweb.asm.Opcodes;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -206,7 +206,7 @@ public class OutputConsumer implements ClassFileConsumer {
       private int methodCount;
 
       private DependencyCollectorClassVisitor(DependencyCollector dependencyCollector) {
-        super(ASM7, null);
+        super(Opcodes.ASM9, null);
         this.dependencyCollector = dependencyCollector;
       }
 

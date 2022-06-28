@@ -56,7 +56,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                 .aspect(javaProtoAspect))
         .add(
             attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
-                .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER.id())
+                .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)
                 .value(getProtoToolchainLabel(DEFAULT_PROTO_TOOLCHAIN_LABEL)))
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();

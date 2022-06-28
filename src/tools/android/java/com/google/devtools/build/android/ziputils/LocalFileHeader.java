@@ -114,8 +114,8 @@ public class LocalFileHeader extends View<LocalFileHeader> {
 
   private LocalFileHeader init(byte[] name, byte[] extra, int size) {
     buffer.putInt(0, SIGNATURE);
-    set(LOCNAM, (short) name.length);
-    set(LOCEXT, (short) extra.length);
+    set(LOCNAM, name.length);
+    set(LOCEXT, extra.length);
     buffer.position(SIZE);
     buffer.put(name);
     if (extra.length > 0) {
@@ -126,10 +126,10 @@ public class LocalFileHeader extends View<LocalFileHeader> {
   }
 
   /**
-   * Flag used to mark a compressed entry, for which the size is unknown at the time
-   * of writing the header.
+   * Flag used to mark a compressed entry, for which the size is unknown at the time of writing the
+   * header.
    */
-  public static final short SIZE_MASKED_FLAG = 0x8;
+  public static final int SIZE_MASKED_FLAG = 0x8;
 
   /**
    * Signature of local file header.
@@ -143,82 +143,72 @@ public class LocalFileHeader extends View<LocalFileHeader> {
   public static final int SIZE = 30;
 
   /**
-   * For accessing the local header signature, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the local header signature, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<LocalFileHeader> LOCSIG = new IntFieldId<>(0);
 
   /**
-   * For accessing the "needed version" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "needed version" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<LocalFileHeader> LOCVER = new ShortFieldId<>(4);
 
   /**
-   * For accessing the "flags" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "flags" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<LocalFileHeader> LOCFLG = new ShortFieldId<>(6);
 
   /**
-   * For accessing the "method" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "method" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<LocalFileHeader> LOCHOW = new ShortFieldId<>(8);
 
   /**
-   * For accessing the "modified time" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "modified time" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<LocalFileHeader> LOCTIM = new IntFieldId<>(10);
 
   /**
-   * For accessing the "crc" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "crc" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<LocalFileHeader> LOCCRC = new IntFieldId<>(14);
 
   /**
-   * For accessing the "compressed size" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "compressed size" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<LocalFileHeader> LOCSIZ = new IntFieldId<>(18);
 
   /**
-   * For accessing the "uncompressed size" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "uncompressed size" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<LocalFileHeader> LOCLEN = new IntFieldId<>(22);
 
   /**
-   * For accessing the "filename length" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "filename length" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<LocalFileHeader> LOCNAM = new ShortFieldId<>(26);
 
   /**
-   * For accessing the "extra data length" local header field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "extra data length" local header field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<LocalFileHeader> LOCEXT = new ShortFieldId<>(28);
 
@@ -246,16 +236,16 @@ public class LocalFileHeader extends View<LocalFileHeader> {
 
   /**
    * Returns entry data size, based on directory entry information. For a valid zip file, this will
-   * be the correct size of the entry data, or -1, if the size cannot be determined from the
-   * header. Notice, if ths method returns 0, it may  be because the writer of the zip file forgot
-   * to set the {@link #SIZE_MASKED_FLAG}.
+   * be the correct size of the entry data, or -1, if the size cannot be determined from the header.
+   * Notice, if ths method returns 0, it may be because the writer of the zip file forgot to set the
+   * {@link #SIZE_MASKED_FLAG}.
    *
-   * @return if the {@link #LOCHOW} field is 0, returns the value of the
-   * {@link #LOCLEN} field (uncompressed size). If {@link #LOCHOW} is not 0, and the
-   * {@link #SIZE_MASKED_FLAG} is not set, returns the value of the {@link #LOCSIZ} field
-   * (compressed size). Otherwise return -1 (size unknown).
+   * @return if the {@link #LOCHOW} field is 0, returns the value of the {@link #LOCLEN} field
+   *     (uncompressed size). If {@link #LOCHOW} is not 0, and the {@link #SIZE_MASKED_FLAG} is not
+   *     set, returns the value of the {@link #LOCSIZ} field (compressed size). Otherwise return -1
+   *     (size unknown).
    */
-  public int dataSize() {
+  public long dataSize() {
     return get(LOCHOW) == 0 ? get(LOCLEN)
         : (get(LOCFLG) & SIZE_MASKED_FLAG) == 0 ? get(LOCSIZ) : -1;
   }

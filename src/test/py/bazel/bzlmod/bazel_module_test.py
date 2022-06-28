@@ -40,11 +40,17 @@ class BazelModuleTest(test_base.TestBase):
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
             'build --experimental_enable_bzlmod',
             'build --registry=' + self.main_registry.getURL(),
+            # We need to have BCR here to make sure built-in modules like
+            # bazel_tools can work.
+            'build --registry=https://registry.bazel.build',
             'build --verbose_failures',
         ])
+    self.ScratchFile('WORKSPACE')
+    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
+    # from being used; this allows us to test built-in modules actually work
+    self.ScratchFile('WORKSPACE.bzlmod')
 
   def writeMainProjectFiles(self):
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('A.patch', [
         '--- a/a.cc',
         '+++ b/a.cc',
@@ -77,7 +83,6 @@ class BazelModuleTest(test_base.TestBase):
     ])
 
   def testSimple(self):
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "A", version = "1.0")',
     ])
@@ -98,7 +103,6 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('main function => A@1.0', stdout)
 
   def testSimpleTransitive(self):
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "B", version = "1.0")',
     ])
@@ -257,7 +261,6 @@ class BazelModuleTest(test_base.TestBase):
     ])
     self.main_registry.createCcModule(
         'A', '1.1-1', patches=[patch_file], patch_strip=1)
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "A", version = "1.1-1")',
     ])

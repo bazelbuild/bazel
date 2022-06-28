@@ -270,7 +270,7 @@ public final class AspectsListBuilder {
    */
   public void addAspect(StarlarkDefinedAspect starlarkAspect, @Nullable String baseAspectName)
       throws EvalException {
-    boolean needsToAdd = checkAndUpdateExistingAspects(starlarkAspect.getName(), baseAspectName);
+    boolean needsToAdd = needsToBeAdded(starlarkAspect.getName(), baseAspectName);
     if (needsToAdd) {
       StarlarkAspectDetails starlarkAspectDetails =
           new StarlarkAspectDetails(starlarkAspect, baseAspectName);
@@ -287,7 +287,7 @@ public final class AspectsListBuilder {
    */
   public void addAspect(StarlarkNativeAspect nativeAspect, @Nullable String baseAspectName)
       throws EvalException {
-    boolean needsToAdd = checkAndUpdateExistingAspects(nativeAspect.getName(), baseAspectName);
+    boolean needsToAdd = needsToBeAdded(nativeAspect.getName(), baseAspectName);
     if (needsToAdd) {
       NativeAspectDetails nativeAspectDetails =
           new NativeAspectDetails(
@@ -307,7 +307,7 @@ public final class AspectsListBuilder {
     }
   }
 
-  private boolean checkAndUpdateExistingAspects(String aspectName, @Nullable String baseAspectName)
+  private boolean needsToBeAdded(String aspectName, @Nullable String baseAspectName)
       throws EvalException {
 
     AspectDetails<?> oldAspect = this.aspects.get(aspectName);

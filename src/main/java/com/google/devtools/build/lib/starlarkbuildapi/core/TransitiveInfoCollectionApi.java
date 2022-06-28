@@ -25,7 +25,7 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "The BUILD target for a dependency. Appears in the fields of <code><a"
             + " href='ctx.html#attr'>ctx.attr</a></code> corresponding to <a"
-            + " href='$STARLARK_DOCS_ROOT/rules.html#dependency-attributes'>dependency"
+            + " href='https://bazel.build/rules/rules#dependency_attributes'>dependency"
             + " attributes</a> (<code><a href='attr.html#label'>label</a></code> or <code><a"
             + " href='attr.html#label_list'>label_list</a></code>). Has the following fields:\n"
             //
@@ -46,7 +46,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "applied to this target.</li>\n" //
             //
             + "<li><h3 id='modules.Target.providers'>Providers</h3>\n" //
-            + "The <a href='$STARLARK_DOCS_ROOT/rules.html#providers'>providers</a> of a rule"
+            + "The <a href='https://bazel.build/rules/rules#providers'>providers</a> of a rule"
             + " target can be accessed by type using index notation"
             + " (<code>target[DefaultInfo]</code>). The presence of providers can be checked using"
             + " the <code>in</code> operator (<code>SomeInfo in target</code>).<br/>\n" //
@@ -56,7 +56,7 @@ import net.starlark.java.eval.StarlarkValue;
             + " href='Provider.html'>Provider</a></code> instances, the struct's fields can be"
             + " accessed via the corresponding fields of the <code>Target</code>"
             + " (<code>target.some_legacy_info</code>). This behavior <a"
-            + " href='$STARLARK_DOCS_ROOT/rules.html#migrating-from-legacy-providers'>is"
+            + " href='https://bazel.build/rules/rules#migrating_from_legacy_providers'>is"
             + " deprecated</a>.</li>\n" //
             + "</ul>")
 public interface TransitiveInfoCollectionApi extends StarlarkValue {}

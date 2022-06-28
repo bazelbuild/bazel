@@ -16,8 +16,8 @@ package com.google.devtools.build.android.r8.desugar;
 import static com.google.common.truth.Truth.assertThat;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
-import static org.objectweb.asm.Opcodes.ASM7;
 
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
@@ -40,7 +40,7 @@ public class DesugarInfoCollector extends ClassVisitor {
   }
 
   public DesugarInfoCollector(ClassVisitor classVisitor) {
-    super(ASM7, classVisitor);
+    super(Opcodes.ASM9, classVisitor);
   }
 
   public int getNumberOfInvokeDynamic() {

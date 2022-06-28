@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.EXCLUSIVE;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.NOT_TEST;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PARALLEL;
 
@@ -23,26 +24,44 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.EnvironmentCompatibility;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.PlatformCompatibility;
+import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.Sharder;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
@@ -57,20 +76,22 @@ import javax.annotation.Nullable;
 public class BuildDriverFunction implements SkyFunction {
   private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
-  private final Supplier<EventBus> eventBus;
+  private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
 
   BuildDriverFunction(
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
-      Supplier<EventBus> eventBus) {
+      Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics) {
     this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
-    this.eventBus = eventBus;
+    this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
   }
 
   private static class State implements SkyKeyComputeState {
     private ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts;
-    private boolean sentTestAnalysisCompleteEvent = false;
+    // It's only necessary to do this check once.
+    private boolean checkedForCompatibility = false;
+    private boolean checkedForPlatformCompatibility = false;
   }
   /**
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
@@ -122,32 +143,157 @@ public class BuildDriverFunction implements SkyFunction {
         topLevelSkyValue instanceof ConfiguredTargetValue
             || topLevelSkyValue instanceof TopLevelAspectsValue);
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
+      ConfiguredTarget configuredTarget =
+          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
+      env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
+
+      BuildConfigurationValue buildConfigurationValue =
+          (BuildConfigurationValue) env.getValue(configuredTarget.getConfigurationKey());
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      if (!state.checkedForCompatibility) {
+        try {
+          Boolean isConfiguredTargetCompatible =
+              isConfiguredTargetCompatible(
+                  env,
+                  state,
+                  configuredTarget,
+                  buildConfigurationValue,
+                  buildDriverKey.isExplicitlyRequested());
+          if (isConfiguredTargetCompatible == null) {
+            return null;
+          }
+
+          state.checkedForCompatibility = true;
+          if (!isConfiguredTargetCompatible) {
+            env.getListener().post(TopLevelTargetSkippedEvent.create(configuredTarget));
+            // We still record analyzed but skipped tests, as this information is needed for the
+            // result summary.
+            if (!NOT_TEST.equals(buildDriverKey.getTestType())) {
+              env.getListener()
+                  .post(
+                      TestAnalyzedEvent.create(
+                          configuredTarget, buildConfigurationValue, /*isSkipped=*/ true));
+            }
+            // We consider the evaluation of this BuildDriverKey successful at this point, even when
+            // the target is skipped.
+            return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
+          }
+        } catch (TargetCompatibilityCheckException e) {
+          throw new BuildDriverFunctionException(e);
+        }
+      }
+
       requestConfiguredTargetExecution(
-          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget(),
+          configuredTarget,
           buildDriverKey,
           actionLookupKey,
+          buildConfigurationValue,
           env,
-          topLevelArtifactContext,
-          state);
+          topLevelArtifactContext);
     } else {
       requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
 
-    return env.valuesMissing() ? null : new BuildDriverValue(topLevelSkyValue);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    // If we get to this point, the execution of this target/aspect succeeded.
+
+    if (EXCLUSIVE.equals(buildDriverKey.getTestType())) {
+      Preconditions.checkState(topLevelSkyValue instanceof ConfiguredTargetValue);
+      return new ExclusiveTestBuildDriverValue(
+          topLevelSkyValue, ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget());
+    }
+
+    return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+  }
+
+  /**
+   * Checks if a ConfiguredTarget is compatible with the platform/environment. See {@link
+   * TopLevelConstraintSemantics}.
+   *
+   * @return null if a value is missing in the environment.
+   */
+  private Boolean isConfiguredTargetCompatible(
+      Environment env,
+      State state,
+      ConfiguredTarget configuredTarget,
+      BuildConfigurationValue buildConfigurationValue,
+      boolean isExplicitlyRequested)
+      throws InterruptedException, TargetCompatibilityCheckException {
+
+    if (!state.checkedForPlatformCompatibility) {
+      PlatformCompatibility platformCompatibility =
+          TopLevelConstraintSemantics.compatibilityWithPlatformRestrictions(
+              configuredTarget,
+              env.getListener(),
+              /*eagerlyThrowError=*/ true,
+              isExplicitlyRequested);
+      state.checkedForPlatformCompatibility = true;
+      switch (platformCompatibility) {
+        case INCOMPATIBLE_EXPLICIT:
+        case INCOMPATIBLE_IMPLICIT:
+          return false;
+        case COMPATIBLE:
+          break;
+      }
+    }
+
+    EnvironmentCompatibility environmentCompatibility =
+        TopLevelConstraintSemantics.compatibilityWithTargetEnvironment(
+            configuredTarget,
+            buildConfigurationValue,
+            label -> getTarget(env, label),
+            env.getListener());
+    if (env.valuesMissing() || environmentCompatibility == null) {
+      return null;
+    }
+    if (environmentCompatibility.isCompatible()) {
+      return true;
+    }
+    if (environmentCompatibility.severeMissingEnvironments() == null) {
+      return false;
+    }
+    String badTargetsUserMessage =
+        TopLevelConstraintSemantics.getErrorMessageForTarget(
+            ruleContextConstraintSemantics.get(),
+            configuredTarget,
+            environmentCompatibility.severeMissingEnvironments());
+    throw new TargetCompatibilityCheckException(
+        badTargetsUserMessage,
+        FailureDetail.newBuilder()
+            .setMessage(badTargetsUserMessage)
+            .setAnalysis(Analysis.newBuilder().setCode(Code.TARGETS_MISSING_ENVIRONMENTS))
+            .build());
+  }
+
+  private static Target getTarget(Environment env, Label label)
+      throws InterruptedException, NoSuchTargetException {
+    PackageValue packageValue =
+        (PackageValue) env.getValue(PackageValue.key(label.getPackageIdentifier()));
+    if (env.valuesMissing() || packageValue == null) {
+      return null;
+    }
+    Package pkg = packageValue.getPackage();
+    return pkg.getTarget(label.getName());
   }
 
   private void requestConfiguredTargetExecution(
       ConfiguredTarget configuredTarget,
       BuildDriverKey buildDriverKey,
       ActionLookupKey actionLookupKey,
+      BuildConfigurationValue buildConfigurationValue,
       Environment env,
-      TopLevelArtifactContext topLevelArtifactContext,
-      State state)
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
-    if (buildDriverKey.getTestType() == NOT_TEST) {
+    if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
           env,
           Iterables.concat(
@@ -158,33 +304,27 @@ public class BuildDriverFunction implements SkyFunction {
       return;
     }
 
-    if (!state.sentTestAnalysisCompleteEvent) {
-      SkyValue buildConfigurationValue = env.getValue(configuredTarget.getConfigurationKey());
-      if (env.valuesMissing()) {
-        return;
-      }
-      eventBus
-          .get()
-          .post(
-              new TestAnalysisCompleteEvent(
-                  configuredTarget, (BuildConfigurationValue) buildConfigurationValue));
-      state.sentTestAnalysisCompleteEvent = true;
+    env.getListener()
+        .post(
+            TestAnalyzedEvent.create(
+                configuredTarget, buildConfigurationValue, /*isSkipped=*/ false));
+
+    if (PARALLEL.equals(buildDriverKey.getTestType())) {
+      // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
+      declareDependenciesAndCheckValues(
+          env,
+          Iterables.concat(
+              artifactsToBuild.build(),
+              Collections.singletonList(
+                  TestCompletionValue.key(
+                      (ConfiguredTargetKey) actionLookupKey,
+                      topLevelArtifactContext,
+                      /*exclusiveTesting=*/ false))));
+      return;
     }
 
-    Preconditions.checkState(
-        PARALLEL.equals(buildDriverKey.getTestType()),
-        "Invalid test type, expect only parallel tests: %s",
-        buildDriverKey);
-    // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
-    declareDependenciesAndCheckValues(
-        env,
-        Iterables.concat(
-            artifactsToBuild.build(),
-            Collections.singletonList(
-                TestCompletionValue.key(
-                    (ConfiguredTargetKey) actionLookupKey,
-                    topLevelArtifactContext,
-                    /*exclusiveTesting=*/ false))));
+    // Exclusive tests will be run with sequential Skyframe evaluations afterwards.
+    declareDependenciesAndCheckValues(env, artifactsToBuild.build());
   }
 
   private void requestAspectExecution(
@@ -196,15 +336,14 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
     for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
+      AspectKey aspectKey = ((AspectValue) aspectValue).getKey();
+      ConfiguredAspect configuredAspect = ((AspectValue) aspectValue).getConfiguredAspect();
       addExtraActionsIfRequested(
-          ((AspectValue) aspectValue)
-              .getConfiguredAspect()
-              .getProvider(ExtraActionArtifactsProvider.class),
-          artifactsToBuild);
-      aspectCompletionKeys.add(
-          AspectCompletionKey.create(
-              ((AspectValue) aspectValue).getKey(), topLevelArtifactContext));
+          configuredAspect.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+      aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
+
     declareDependenciesAndCheckValues(
         env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
   }
@@ -269,6 +408,10 @@ public class BuildDriverFunction implements SkyFunction {
     // The exception is transient here since it could be caused by external factors (conflict with
     // another target).
     BuildDriverFunctionException(TopLevelConflictException cause) {
+      super(cause, Transience.TRANSIENT);
+    }
+
+    BuildDriverFunctionException(TargetCompatibilityCheckException cause) {
       super(cause, Transience.TRANSIENT);
     }
   }

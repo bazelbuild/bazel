@@ -151,7 +151,7 @@ issues.
   addressed in an future release and/or an easy workaround exists.
 * [**P3**](https://github.com/bazelbuild/bazel/labels/P3){: .external} - Desirable minor bug
   fix or enhancement with small impact. Not prioritized into Bazel roadmaps or
-  any imminent release. May never be fixed.
+  any imminent release, however community contributions are encouraged.
 * [**P4**](https://github.com/bazelbuild/bazel/labels/P4){: .external} - Low priority defect
   or feature request that is unlikely to get closed. Can also be kept open for a
   potential re-prioritization if more users are impacted.
@@ -169,12 +169,12 @@ issues.
     *   Contact: [ahumesky](https://github.com/ahumesky){: .external}
 *   [`team-Bazel`](https://github.com/bazelbuild/bazel/labels/team-Bazel){: .external}: General Bazel product/strategy issues
     * Contact: [sventiffe](https://github.com/sventiffe){: .external}
-*   [`team-Build-Language`](https://github.com/bazelbuild/bazel/labels/team-Build-Language): Issues for the BUILD and .bzl APIs
+*   [`team-Build-Language`](https://github.com/bazelbuild/bazel/labels/team-Build-Language): Issues for the BUILD, .bzl APIs and Stardoc.
     * Contact: [brandjon](https://github.com/brandjon)
 *   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team
     * Contact: [gregestren](https://github.com/gregestren){: .external}
 *   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Issues for Core team
-    * Contact: [janakdr](https://github.com/janakdr){: .external}
+    * Contact: [haxorz](https://github.com/haxorz){: .external}
 *   [`team-Documentation`](https://github.com/bazelbuild/bazel/labels/team-Documentation){: .external}: Issues for Documentation team
     * Contact: [communikit](https://github.com/communikit){: .external}
 *   [`team-ExternalDeps`](https://github.com/bazelbuild/bazel/labels/team-ExternalDeps): External dependency handling, Bzlmod, remote repositories, WORKSPACE file

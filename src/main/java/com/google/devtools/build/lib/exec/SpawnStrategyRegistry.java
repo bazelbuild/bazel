@@ -222,7 +222,7 @@ public final class SpawnStrategyRegistry
     }
   }
 
-  private String toImplementationNames(Collection<?> strategies) {
+  private static String toImplementationNames(Collection<?> strategies) {
     return strategies.stream()
         .map(strategy -> strategy.getClass().getSimpleName())
         .collect(joining(", "));
@@ -425,7 +425,7 @@ public final class SpawnStrategyRegistry
       AbstractSpawnStrategy remoteLocalFallbackStrategy = null;
       if (remoteLocalFallbackStrategyIdentifier != null) {
         SpawnStrategy strategy =
-            toStrategy("remote fallback strategy", remoteLocalFallbackStrategyIdentifier);
+            toStrategy(remoteLocalFallbackStrategyIdentifier, "remote fallback strategy");
         if (!(strategy instanceof AbstractSpawnStrategy)) {
           // TODO(schmitt): Check if all strategies can use the same base and remove check if so.
           throw createExitException(
@@ -464,12 +464,13 @@ public final class SpawnStrategyRegistry
         if (identifier.isEmpty()) {
           continue;
         }
-        strategies.add(toStrategy(requestName, identifier));
+        strategies.add(toStrategy(identifier, requestName));
       }
       return strategies.build();
     }
 
-    private SpawnStrategy toStrategy(Object requestName, String identifier)
+    @VisibleForTesting
+    public SpawnStrategy toStrategy(String identifier, Object requestName)
         throws AbruptExitException {
       SpawnStrategy strategy = identifierToStrategy.get(identifier);
       if (strategy == null) {

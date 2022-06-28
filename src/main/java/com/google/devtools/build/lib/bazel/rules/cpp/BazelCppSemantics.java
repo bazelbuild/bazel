@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
@@ -61,15 +62,15 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           Label.parseAbsoluteUnchecked("@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
-  private enum Language {
-    CPP,
-    OBJC
-  }
-
   private final Language language;
 
   private BazelCppSemantics(Language language) {
     this.language = language;
+  }
+
+  @Override
+  public Language language() {
+    return language;
   }
 
   @Override

@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -87,6 +88,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -165,6 +167,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     public CcCompilationOutputs getCcCompilationOutputs(RuleContext ruleContext) {
       checkRestrictedUsage(ruleContext);
+      return ccCompilationOutputs;
+    }
+
+    @VisibleForTesting
+    public CcCompilationOutputs getCcCompilationOutputsForTesting() {
       return ccCompilationOutputs;
     }
 
@@ -308,6 +315,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(context);
@@ -397,6 +405,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             requestedFeaturesBuilder.build(),
             /* unsupportedFeatures= */ disabledFeaturesBuilder.build(),
+            Language.CPP,
             ccToolchain,
             semantics);
 

@@ -192,6 +192,11 @@ public abstract class Type<T> {
      * in cases where doing so would cause a dependency cycle.
      */
     NONDEP_REFERENCE,
+    /**
+     * Used for types which declare a dependency, but the dependency should not be configured. Used
+     * when the label is used only in the loading phase. e.g. genquery.scope
+     */
+    GENQUERY_SCOPE_REFERENCE,
     /** Used for types which use labels to declare an output path. */
     OUTPUT,
     /**

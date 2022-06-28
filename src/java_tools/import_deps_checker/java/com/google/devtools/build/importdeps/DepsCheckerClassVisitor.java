@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import org.objectweb.asm.Opcodes;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
@@ -43,7 +44,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private final DepsCheckerMethodVisitor defaultMethodChecker = new DepsCheckerMethodVisitor();
 
   public DepsCheckerClassVisitor(ClassCache classCache, ResultCollector resultCollector) {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM9);
     this.classCache = classCache;
     this.resultCollector = resultCollector;
   }
@@ -198,7 +199,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       }
       ClassInfo info = state.classInfo().get();
       if (!info.directDep()) {
-        resultCollector.addIndirectDep(info.jarPath());
+        resultCollector.addIndirectDep(internalName, info.jarPath());
       }
     }
     return state;
@@ -229,7 +230,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerAnnotationVisitor extends AnnotationVisitor {
 
     DepsCheckerAnnotationVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -270,7 +271,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerFieldVisitor extends FieldVisitor {
 
     DepsCheckerFieldVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -291,7 +292,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
   private class DepsCheckerMethodVisitor extends MethodVisitor {
 
     DepsCheckerMethodVisitor() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -337,8 +338,27 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
 
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-      checkMember(owner, name, desc);
+      if (!isMethodHandle(opcode, owner, name)) {
+        checkMember(owner, name, desc);
+      }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private boolean isMethodHandle(int opcode, String owner, String name) {
+      if (opcode != Opcodes.INVOKEVIRTUAL) {
+        return false;
+      }
+      if (!owner.equals("java/lang/invoke/MethodHandle")) {
+        return false;
+      }
+      switch (name) {
+        case "invoke":
+        case "invokeExact":
+          break;
+        default:
+          return false;
+      }
+      return true;
     }
 
     @Override

@@ -133,7 +133,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
         public void handle(Event e) {
           checkActive();
-          if (evaluatorContext.getStoredEventFilter().apply(e)) {
+          if (evaluatorContext.getStoredEventFilter().test(e)) {
             super.handle(e);
           } else {
             evaluatorContext.getReporter().handle(e);
@@ -207,7 +207,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.maxTransitiveSourceVersion =
         bubbleErrorInfo == null
                 && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
-            ? MinimalVersion.INSTANCE
+            ? evaluatorContext.getMinimalVersion()
             : null;
     this.previouslyRequestedDepsValues = batchPrefetch(throwIfPreviouslyRequestedDepsUndone);
     Preconditions.checkState(
@@ -290,7 +290,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
                 ? depKeys.getAllElementsAsIterable()
                 : Iterables.filter(
                     depKeys.getAllElementsAsIterable(),
-                    eventFilter.depEdgeFilterForEventsAndPosts(skyKey)),
+                    depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
             expectDoneDeps,
             depKeys.numElements());
     for (SkyValue value : deps) {
@@ -847,10 +847,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       }
     }
 
-    if (temporaryDirectDeps.isEmpty()
-        && skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC) {
-      maxTransitiveSourceVersion = null; // No dependencies on source.
-    }
     Preconditions.checkState(
         maxTransitiveSourceVersion == null || newlyRegisteredDeps.isEmpty(),
         "Dependency registration not supported when tracking max transitive source versions");
@@ -993,5 +989,11 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     ImmutableList<SkyKey> getDepKeys() {
       return depKeys;
     }
+  }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return maxTransitiveSourceVersion;
   }
 }

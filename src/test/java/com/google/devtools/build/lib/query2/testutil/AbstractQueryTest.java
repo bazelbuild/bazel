@@ -79,6 +79,11 @@ public abstract class AbstractQueryTest<T> {
 
   private static final String DEFAULT_UNIVERSE = "//...:*";
 
+  protected static final String BAD_PACKAGE_NAME =
+      "package names may contain "
+          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
+          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
+
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
   protected AnalysisMock analysisMock;
@@ -315,11 +320,7 @@ public abstract class AbstractQueryTest<T> {
   protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
     assertThat(failureDetail.getTargetPatterns().getCode())
         .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    // TODO(bazel-team): This error message could use some improvement. It's verbose (duplicate
-    //   message) and shows an extra "@" that wasn't in the input.
-    assertThat(message)
-        .isEqualTo(
-            "Invalid package name 'bad:*': invalid package identifier '@//bad:*': contains ':'");
+    assertThat(message).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
   }
 
   @Test
@@ -451,6 +452,35 @@ public abstract class AbstractQueryTest<T> {
     // Assure that integers query correctly for BOOLEAN values.
     assertThat(evalToString("attr(testonly, 0, t:*)")).isEqualTo("//t:t");
     assertThat(evalToString("attr(testonly, 1, t:*)")).isEqualTo("//t:t_test");
+  }
+
+  protected void runGenqueryScopeTest(boolean isPostAnalysisQuery) throws Exception {
+    // Tests the relationship between deps(genquery_rule) and that of its scope.
+    // For query, deps(genquery_rule) should include transitive deps of its scope
+    // For cquery and aquery, deps(genquery_rule) should include its scope, but not its transitive
+    // deps.
+
+    writeFile("a/BUILD", "sh_library(name='a')");
+    writeFile("b/BUILD", "sh_library(name='b', deps=['//a:a'])");
+    writeFile("q/BUILD", "genquery(name='q', scope=['//b'], expression='deps(//b)')");
+
+    // Assure that deps of a genquery rule includes the transitive closure of its scope.
+    // This is required for correctness of incremental "blaze build genqueryrule"
+    ImmutableList<String> evalResult = evalToListOfStrings("deps(//q:q)");
+    if (isPostAnalysisQuery) {
+      // Not checking for equality, since when run as a cquery test, there will be other
+      // dependencies.
+      assertThat(evalResult).contains("//q:q");
+      // assert that transitive closure of scope is NOT present.
+      assertThat(evalResult).containsNoneOf("//a:a", "//b:b");
+    } else {
+      assertThat(evalResult).containsExactly("//q:q", "//a:a", "//b:b");
+    }
+  }
+
+  @Test
+  public void testGenqueryScope() throws Exception {
+    runGenqueryScopeTest(false);
   }
 
   @Test
@@ -1358,7 +1388,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("y/BUILD");
 
     eval("//x:*");
-    helper.assertPackageNotLoaded("@//y");
+    helper.assertPackageNotLoaded("y");
   }
 
   // #1352570, "NPE crash in deps(x, n)".

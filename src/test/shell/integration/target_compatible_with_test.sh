@@ -636,8 +636,8 @@ EOF
 
   # Validate that we get the dependency chain printed out.
   expect_log '^Dependency chain:$'
-  expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
+  expect_log '^    //target_skipping:generate_with_tool (.*)$'
+  expect_log "^    //target_skipping:generator_tool (.*)   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
   expect_log 'FAILED: Build did NOT complete successfully'
 
   # Validate the test.
@@ -650,9 +650,9 @@ EOF
 
   # Validate that we get the dependency chain printed out.
   expect_log '^Dependency chain:$'
-  expect_log '^    //target_skipping:generated_test$'
-  expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
+  expect_log '^    //target_skipping:generated_test (.*)$'
+  expect_log '^    //target_skipping:generate_with_tool (.*)$'
+  expect_log "^    //target_skipping:generator_tool (.*)   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1"
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 
@@ -698,9 +698,9 @@ EOF
 
   # Validate that we get the dependency chain and constraints printed out.
   expect_log '^Dependency chain:$'
-  expect_log '^    //target_skipping:generated_test$'
-  expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraints \[//target_skipping:foo1, //target_skipping:bar2\]"
+  expect_log '^    //target_skipping:generated_test (.*)$'
+  expect_log '^    //target_skipping:generate_with_tool (.*)$'
+  expect_log "^    //target_skipping:generator_tool (.*)   <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraints \[//target_skipping:foo1, //target_skipping:bar2\]"
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 

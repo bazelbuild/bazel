@@ -93,7 +93,7 @@ def _get_escaped_windows_msys_starlark_content(repository_ctx, use_mingw = False
     tool_bin_path = tool_path_prefix + "/bin"
     tool_path = {}
 
-    for tool in ["ar", "compat-ld", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
+    for tool in ["ar", "cpp", "dwp", "gcc", "gcov", "ld", "nm", "objcopy", "objdump", "strip"]:
         if msys_root:
             tool_path[tool] = tool_bin_path + "/" + tool
         else:
@@ -571,10 +571,10 @@ def _get_clang_version(repository_ctx, clang_cl):
     result = repository_ctx.execute([clang_cl, "-v"])
     first_line = result.stderr.strip().splitlines()[0]
 
-    # The first line of stderr should look like "clang version X.X.X"
-    if result.return_code != 0 or not first_line.startswith("clang version "):
+    # The first line of stderr should look like "[vendor ]clang version X.X.X"
+    if result.return_code != 0 or first_line.find("clang version ") == -1:
         auto_configure_fail("Failed to get clang version by running \"%s -v\"" % clang_cl)
-    return first_line.split(" ")[2]
+    return first_line.split(" ")[-1]
 
 def _get_msys_mingw_vars(repository_ctx):
     """Get the variables we need to populate the msys/mingw toolchains."""

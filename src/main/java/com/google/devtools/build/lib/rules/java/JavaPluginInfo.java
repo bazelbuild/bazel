@@ -41,6 +41,10 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static final String PROVIDER_NAME = "JavaPluginInfo";
   public static final Provider PROVIDER = new Provider();
 
+  private static final JavaPluginInfo EMPTY =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+
   @Override
   public Provider getProvider() {
     return PROVIDER;
@@ -64,9 +68,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       JavaInfo javaInfos =
           JavaInfo.merge(
               Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              ImmutableList.of(),
-              ImmutableList.of(),
-              false);
+              /* mergeJavaOutputs= */ true,
+              /* mergeSourceJars= */ true);
 
       NestedSet<Artifact> processorClasspath =
           javaInfos.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars();
@@ -91,6 +94,11 @@ public abstract class JavaPluginInfo extends NativeInfo
   @Immutable
   @AutoValue
   public abstract static class JavaPluginData implements JavaPluginInfoApi.JavaPluginDataApi {
+    private static final JavaPluginData EMPTY =
+        create(
+            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+            NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
 
     public static JavaPluginData create(
         NestedSet<String> processorClasses,
@@ -101,10 +109,7 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
 
     public static JavaPluginData empty() {
-      return create(
-          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
+      return EMPTY;
     }
 
     public static JavaPluginData merge(Iterable<JavaPluginData> plugins) {
@@ -168,8 +173,15 @@ public abstract class JavaPluginInfo extends NativeInfo
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
-      plugins.add(provider.plugins());
-      apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
+      if (!provider.plugins().isEmpty()) {
+        plugins.add(provider.plugins());
+      }
+      if (!provider.apiGeneratingPlugins().isEmpty()) {
+        apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
+      }
+    }
+    if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
+      return JavaPluginInfo.empty();
     }
     return new AutoValue_JavaPluginInfo(
         ImmutableList.of(),
@@ -184,8 +196,7 @@ public abstract class JavaPluginInfo extends NativeInfo
   }
 
   public static JavaPluginInfo empty() {
-    return new AutoValue_JavaPluginInfo(
-        ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+    return EMPTY;
   }
 
   public abstract JavaPluginData plugins();

@@ -186,6 +186,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
             new ParallelEvaluator(
                 graph,
                 graphVersion,
+                MinimalVersion.INSTANCE,
                 skyFunctions,
                 evaluationContext.getEventHandler(),
                 emittedEventState,
@@ -323,7 +324,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   public static final EventFilter DEFAULT_STORED_EVENT_FILTER =
       new EventFilter() {
         @Override
-        public boolean apply(Event event) {
+        public boolean test(Event event) {
           switch (event.getKind()) {
             case INFO:
             case PROGRESS:

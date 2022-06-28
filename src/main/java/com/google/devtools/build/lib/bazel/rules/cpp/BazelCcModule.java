@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcDebugInfoContext;
@@ -116,6 +117,7 @@ public class BazelCcModule extends CcModule
       Object purpose,
       Object grepIncludes,
       Object coptsFilter,
+      Object separateModuleHeaders,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -156,6 +158,7 @@ public class BazelCcModule extends CcModule
         language,
         purpose,
         coptsFilter,
+        separateModuleHeaders,
         thread);
   }
 

@@ -571,6 +571,15 @@ public final class AndroidRuleClasses {
           <code>en_XA</code> and/or <code>ar_XB</code> pseudo-locales.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, STRING_LIST))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(min_sdk_version) -->
+          The minSdkVersion. This must match the minSdkVersion specified in the AndroidManifest.xml.
+          If set, will be used for dex/desugaring.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("min_sdk_version", INTEGER)
+                  .undocumented("experimental")
+                  .value(StarlarkInt.of(0))
+                  .nonconfigurable("AspectParameters don't support configurations."))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(shrink_resources) -->
           Whether to perform resource shrinking. Resources that are not used by the binary will be
           removed from the APK. This is only supported for rules using local resources (i.e. the
@@ -732,7 +741,7 @@ public final class AndroidRuleClasses {
           .add(
               attr("multidex", STRING)
                   .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
-                  .value(MultidexMode.OFF.getAttributeValue()))
+                  .value(MultidexMode.NATIVE.getAttributeValue()))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
           Use this option to affect the classes included in the main dex list.
@@ -905,9 +914,7 @@ public final class AndroidRuleClasses {
     // Build dexes with multidex and implement support at the application level.
     LEGACY,
     // Build dexes with multidex, main dex list needs to be manually specified.
-    MANUAL_MAIN_DEX,
-    // Build all dex code into a single classes.dex file.
-    OFF;
+    MANUAL_MAIN_DEX;
 
     /** Returns the attribute value that specifies this mode. */
     public String getAttributeValue() {
@@ -919,7 +926,7 @@ public final class AndroidRuleClasses {
      * (possibly) multiple files.
      */
     public String getOutputDexFilename() {
-      return this == OFF ? "classes.dex" : "classes.dex.zip";
+      return "classes.dex.zip";
     }
 
     /** Converts an attribute value to a corresponding mode. Returns null on no match. */

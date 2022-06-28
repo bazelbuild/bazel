@@ -83,7 +83,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     if (tofind.startsWith(prefix)) {
       // Using the path prefix can be either "external" or "..", depending on whether the sibling
       // repository layout is used.
-      RepositoryName repository = RepositoryName.createFromValidStrippedName(tofind.getSegment(1));
+      RepositoryName repository = RepositoryName.createUnvalidated(tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2));
     } else {
       return PackageIdentifier.createInMainRepo(tofind);
@@ -116,9 +116,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     }
     LabelParser.Parts parts = LabelParser.Parts.parse(input + ":dummy_target");
     RepositoryName repoName =
-        parts.repo == null
-            ? RepositoryName.MAIN
-            : RepositoryName.createFromValidStrippedName(parts.repo);
+        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
     return create(repoName, PathFragment.create(parts.pkg));
   }
 
@@ -148,7 +146,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     return repository.isMain() || siblingRepositoryLayout
         ? pkgName
         : LabelConstants.EXTERNAL_PATH_PREFIX
-            .getRelative(repository.strippedName())
+            .getRelative(repository.getName())
             .getRelative(pkgName);
   }
 
@@ -171,8 +169,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
    */
   // TODO(bazel-team): Maybe rename to "getDefaultForm"?
   public String getCanonicalForm() {
-    String repository = getRepository().getCanonicalForm();
-    return repository + "//" + getPackageFragment();
+    return repository.getCanonicalForm() + "//" + getPackageFragment();
   }
 
   /**
@@ -185,9 +182,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   // that disparity?
   @Override
   public String toString() {
-    // Avoid creating a new String object in the common case of the main repository (PathFragment
-    // stores its toString).
-    return repository.isMain() ? pkgName.toString() : (repository + "//" + pkgName);
+    if (repository.isMain()) {
+      return getPackageFragment().getPathString();
+    }
+    return getCanonicalForm();
   }
 
   @Override
@@ -220,7 +218,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
       return pkgName.compareTo(that.pkgName);
     }
     return ComparisonChain.start()
-        .compare(repository.toString(), that.repository.toString())
+        .compare(repository.getName(), that.repository.getName())
         .compare(pkgName, that.pkgName)
         .result();
   }

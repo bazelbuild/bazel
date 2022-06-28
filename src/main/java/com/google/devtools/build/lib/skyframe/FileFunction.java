@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.io.FileSymlinkCycleException;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkException;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -49,9 +51,15 @@ import javax.annotation.Nullable;
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
+  private final ImmutableList<Root> immutablePaths;
 
-  public FileFunction(AtomicReference<PathPackageLocator> pkgLocator) {
+  public FileFunction(
+      AtomicReference<PathPackageLocator> pkgLocator, BlazeDirectories directories) {
     this.pkgLocator = pkgLocator;
+    this.immutablePaths =
+        ImmutableList.of(
+            Root.fromPath(directories.getOutputBase()),
+            Root.fromPath(directories.getInstallBase()));
   }
 
   private static class SymlinkResolutionState {
@@ -142,7 +150,11 @@ public class FileFunction implements SkyFunction {
   }
 
   private RootedPath toRootedPath(Path path) {
-    return RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries());
+    // We check whether the path to be transformed is under the output base or the install base.
+    // These directories are under the control of Bazel and it therefore does not make much sense
+    // to check for changes in them or in their ancestors in the usual Skyframe way.
+    return RootedPath.toRootedPathMaybeUnderRoot(
+        path, Iterables.concat(pkgLocator.get().getPathEntries(), immutablePaths));
   }
 
   /**

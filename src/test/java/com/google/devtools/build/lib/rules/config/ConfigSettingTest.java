@@ -148,7 +148,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   /** Checks the behavior of {@link ConfigSetting#isUnderToolsPackage}. */
   @Test
   public void isUnderToolsPackage() throws Exception {
-    RepositoryName toolsRepo = RepositoryName.create("@tools");
+    RepositoryName toolsRepo = RepositoryName.create("tools");
     // Subpackage of the tools package.
     assertThat(
             ConfigSetting.isUnderToolsPackage(
@@ -1232,6 +1232,44 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(
             getConfigMatchingProvider("//test:refined")
                 .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingIfThereIsNoOverlap() throws Exception {
+    useConfiguration(
+        "--copt=-Dright",
+        "--javacopt=-Dgood",
+        "--enforce_transitive_configs_for_config_feature_flag");
+    scratch.file(
+        "test/BUILD",
+        "constraint_setting(name = 'setting_a')",
+        "constraint_value(name = 'value_a', constraint_setting = 'setting_a')",
+        "config_setting(",
+        "    name = 'configA',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    transitive_configs = [':flag'],",
+        ")",
+        "config_setting(",
+        "    name = 'configB',",
+        "    constraint_values = [",
+        "        ':value_a',",
+        "    ],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:configA")
+                .refines(getConfigMatchingProvider("//test:configB")))
+        .isFalse();
+    assertThat(
+            getConfigMatchingProvider("//test:configB")
+                .refines(getConfigMatchingProvider("//test:configA")))
         .isFalse();
   }
 

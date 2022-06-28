@@ -21,6 +21,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -42,12 +43,16 @@ import net.starlark.java.eval.Module;
 public class BzlLoadValue implements SkyValue {
 
   private final Module module; // .bzl module (and indirectly, the entire load DAG)
+  // TODO(brandjon): Is this field redundant with BazelModuleContext#bzlTransitiveDigest, accessible
+  // from the Module as client data?
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
+  private final BzlVisibility bzlVisibility;
 
   @VisibleForTesting
-  public BzlLoadValue(Module module, byte[] transitiveDigest) {
+  public BzlLoadValue(Module module, byte[] transitiveDigest, BzlVisibility bzlVisibility) {
     this.module = checkNotNull(module);
     this.transitiveDigest = checkNotNull(transitiveDigest);
+    this.bzlVisibility = checkNotNull(bzlVisibility);
   }
 
   /** Returns the .bzl module. */
@@ -58,6 +63,11 @@ public class BzlLoadValue implements SkyValue {
   /** Returns the digest of the .bzl module and its transitive load dependencies. */
   public byte[] getTransitiveDigest() {
     return transitiveDigest;
+  }
+
+  /** Returns the visibility of this module for the purpose of {@code load()} statements. */
+  public BzlVisibility getBzlVisibility() {
+    return bzlVisibility;
   }
 
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();

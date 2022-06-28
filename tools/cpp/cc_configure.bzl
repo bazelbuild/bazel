@@ -150,6 +150,7 @@ cc_autoconf = repository_rule(
         "BAZEL_LINKOPTS",
         "BAZEL_LINKLIBS",
         "BAZEL_LLVM_COV",
+        "BAZEL_LLVM_PROFDATA",
         "BAZEL_PYTHON",
         "BAZEL_SH",
         "BAZEL_TARGET_CPU",
@@ -185,3 +186,9 @@ def cc_configure():
         # Use register_toolchain's target pattern expansion to register all toolchains in the package.
         "@local_config_cc_toolchains//:all",
     )
+
+def _cc_configure_extension_impl(ctx):
+    cc_autoconf_toolchains(name = "local_config_cc_toolchains")
+    cc_autoconf(name = "local_config_cc")
+
+cc_configure_extension = module_extension(implementation = _cc_configure_extension_impl)

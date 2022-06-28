@@ -155,6 +155,32 @@ public final class CcCommon implements StarlarkValue {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
+  public static final ImmutableSet<String> OBJC_ACTIONS =
+      ImmutableSet.of(
+          CppActionNames.OBJC_COMPILE,
+          CppActionNames.OBJCPP_COMPILE,
+          CppActionNames.OBJC_ARCHIVE,
+          CppActionNames.OBJC_FULLY_LINK,
+          CppActionNames.OBJC_EXECUTABLE,
+          CppActionNames.OBJCPP_EXECUTABLE);
+
+  /** An enum for the list of supported languages. */
+  public enum Language {
+    CPP("c++"),
+    OBJC("objc"),
+    OBJCPP("objc++");
+
+    private final String representation;
+
+    Language(String representation) {
+      this.representation = representation;
+    }
+
+    public String getRepresentation() {
+      return representation;
+    }
+  }
+
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
   private static final String SYSROOT_FLAG = "--sysroot=";
 
@@ -356,8 +382,13 @@ public final class CcCommon implements StarlarkValue {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
-          ruleContext.attributeWarning("hdrs", "file '" + artifact.getFilename()
-              + "' from target '" + target.getLabel() + "' is not allowed in hdrs");
+          ruleContext.attributeWarning(
+              "hdrs",
+              "file '"
+                  + artifact.getFilename()
+                  + "' from target '"
+                  + target.getLabel()
+                  + "' is not allowed in hdrs");
           continue;
         }
         Label oldLabel = map.put(artifact, target.getLabel());
@@ -366,9 +397,7 @@ public final class CcCommon implements StarlarkValue {
               "hdrs",
               String.format(
                   "Artifact '%s' is duplicated (through '%s' and '%s')",
-                  artifact.getExecPathString(),
-                  oldLabel,
-                  target.getLabel()));
+                  artifact.getExecPathString(), oldLabel, target.getLabel()));
         }
       }
     }
@@ -380,6 +409,14 @@ public final class CcCommon implements StarlarkValue {
     return result.build();
   }
 
+  /**
+   * Returns the files from headers and does some checks. Note that this method reports warnings to
+   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
+   */
+  public List<Pair<Artifact, Label>> getHeaders() {
+    return getHeaders(ruleContext);
+  }
+
   /** Returns the C++ toolchain provider. */
   @StarlarkMethod(name = "toolchain", documented = false, structField = true)
   public CcToolchainProvider getToolchain() {
@@ -389,14 +426,6 @@ public final class CcCommon implements StarlarkValue {
   /** Returns the C++ FDO optimization support provider. */
   public FdoContext getFdoContext() {
     return fdoContext;
-  }
-
-  /**
-   * Returns the files from headers and does some checks. Note that this method reports warnings to
-   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
-   */
-  public List<Pair<Artifact, Label>> getHeaders() {
-    return getHeaders(ruleContext);
   }
 
   @StarlarkMethod(
@@ -916,11 +945,15 @@ public final class CcCommon implements StarlarkValue {
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext, CcToolchainProvider toolchain, CppSemantics semantics) {
+      RuleContext ruleContext,
+      Language language,
+      CcToolchainProvider toolchain,
+      CppSemantics semantics) {
     return configureFeaturesOrReportRuleError(
         ruleContext,
         /* requestedFeatures= */ ruleContext.getFeatures(),
         /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+        language,
         toolchain,
         semantics);
   }
@@ -934,6 +967,7 @@ public final class CcCommon implements StarlarkValue {
       RuleContext ruleContext,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
     return configureFeaturesOrReportRuleError(
@@ -941,6 +975,7 @@ public final class CcCommon implements StarlarkValue {
         ruleContext.getConfiguration(),
         requestedFeatures,
         unsupportedFeatures,
+        language,
         toolchain,
         cppSemantics);
   }
@@ -950,6 +985,7 @@ public final class CcCommon implements StarlarkValue {
       BuildConfigurationValue buildConfiguration,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
     cppSemantics.validateLayeringCheckFeatures(
@@ -958,6 +994,7 @@ public final class CcCommon implements StarlarkValue {
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
           unsupportedFeatures,
+          language,
           toolchain,
           buildConfiguration.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
@@ -969,6 +1006,7 @@ public final class CcCommon implements StarlarkValue {
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration)
       throws EvalException {
@@ -981,7 +1019,8 @@ public final class CcCommon implements StarlarkValue {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }
 
-    if (!requestedFeatures.contains(CppRuleClasses.LANG_OBJC)
+    if (language != Language.OBJC
+        && language != Language.OBJCPP
         && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
@@ -997,6 +1036,16 @@ public final class CcCommon implements StarlarkValue {
       allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
       allRequestedFeaturesBuilder.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
+    }
+
+    if (language == Language.OBJC || language == Language.OBJCPP) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.LANG_OBJC);
+      if (cppConfiguration.objcGenerateLinkmap()) {
+        allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_LINKMAP_FEATURE_NAME);
+      }
+      if (cppConfiguration.objcShouldStripBinary()) {
+        allRequestedFeaturesBuilder.add(CppRuleClasses.DEAD_STRIP_FEATURE_NAME);
+      }
     }
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
@@ -1024,6 +1073,10 @@ public final class CcCommon implements StarlarkValue {
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
             .addAll(cppConfiguration.getAppleBitcodeMode().getFeatureNames());
+
+    if (language == Language.OBJC || language == Language.OBJCPP) {
+      allFeatures.addAll(OBJC_ACTIONS);
+    }
 
     if (!cppConfiguration.dontEnableHostNonhost()) {
       if (toolchain.isToolConfiguration()) {
@@ -1212,6 +1265,7 @@ public final class CcCommon implements StarlarkValue {
           configureFeaturesOrThrowEvalException(
               ruleContext.getFeatures(),
               ruleContext.getDisabledFeatures(),
+              Language.CPP,
               toolchainProvider,
               cppConfiguration);
     } catch (EvalException e) {
@@ -1271,7 +1325,7 @@ public final class CcCommon implements StarlarkValue {
 
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label.getRepository().getName().equals("@_builtins")) {
+    if (label.getRepository().getNameWithAt().equals("@_builtins")) {
       // always permit builtins
       return true;
     }

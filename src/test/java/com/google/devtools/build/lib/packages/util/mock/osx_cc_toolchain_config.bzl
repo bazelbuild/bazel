@@ -5575,6 +5575,30 @@ def _impl(ctx):
         ],
     )
 
+    serialized_diagnostics_file_feature = feature(
+        name = "serialized_diagnostics_file",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["--serialize-diagnostics", "%{serialized_diagnostics_file}"],
+                        expand_if_available = "serialized_diagnostics_file",
+                    ),
+                ],
+            ),
+        ],
+    )
+
     opt_only_flag_feature = feature(
         name = "opt_only_flag",
         flag_sets = [
@@ -7823,6 +7847,7 @@ def _impl(ctx):
         version_min_feature,
         dead_strip_feature,
         dependency_file_feature,
+        serialized_diagnostics_file_feature,
         random_seed_feature,
         pic_feature,
         per_object_debug_info_feature,
@@ -7878,7 +7903,6 @@ def _impl(ctx):
     if (ctx.attr.cpu == "x64_windows"):
         tool_paths = [
             tool_path(name = "ar", path = "<tool_dir>/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "<tool_dir>/ld"),
             tool_path(name = "cpp", path = "<tool_dir>/cpp"),
             tool_path(name = "gcov", path = "<tool_dir>/gcov"),
             tool_path(name = "gcc", path = "<tool_dir>/clang"),
@@ -7892,7 +7916,6 @@ def _impl(ctx):
           ctx.attr.cpu == "ios_armv7"):
         tool_paths = [
             tool_path(name = "ar", path = "ios/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "ios/ld"),
             tool_path(name = "cpp", path = "ios/cpp"),
             tool_path(name = "gcov", path = "ios/gcov"),
             tool_path(name = "gcc", path = "ios/clang"),
@@ -7906,7 +7929,6 @@ def _impl(ctx):
           ctx.attr.cpu == "ios_x86_64"):
         tool_paths = [
             tool_path(name = "ar", path = "iossim/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "iossim/ld"),
             tool_path(name = "cpp", path = "iossim/cpp"),
             tool_path(name = "gcov", path = "iossim/gcov"),
             tool_path(name = "gcc", path = "iossim/clang"),
@@ -7919,7 +7941,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "darwin_x86_64"):
         tool_paths = [
             tool_path(name = "ar", path = "mac/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "mac/ld"),
             tool_path(name = "cpp", path = "mac/cpp"),
             tool_path(name = "gcov", path = "mac/gcov"),
             tool_path(name = "gcc", path = "mac/clang"),
@@ -7932,7 +7953,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "tvos_arm64"):
         tool_paths = [
             tool_path(name = "ar", path = "tvos/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "tvos/ld"),
             tool_path(name = "cpp", path = "tvos/cpp"),
             tool_path(name = "gcov", path = "tvos/gcov"),
             tool_path(name = "gcc", path = "tvos/clang"),
@@ -7945,7 +7965,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "tvos_x86_64"):
         tool_paths = [
             tool_path(name = "ar", path = "tvsim/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "tvsim/ld"),
             tool_path(name = "cpp", path = "tvsim/cpp"),
             tool_path(name = "gcov", path = "tvsim/gcov"),
             tool_path(name = "gcc", path = "tvsim/clang"),
@@ -7958,7 +7977,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "watchos_armv7k"):
         tool_paths = [
             tool_path(name = "ar", path = "watchos/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "watchos/ld"),
             tool_path(name = "cpp", path = "watchos/cpp"),
             tool_path(name = "gcov", path = "watchos/gcov"),
             tool_path(name = "gcc", path = "watchos/clang"),
@@ -7971,7 +7989,6 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "watchos_i386"):
         tool_paths = [
             tool_path(name = "ar", path = "watchsim/ar_wrapper"),
-            tool_path(name = "compat-ld", path = "watchsim/ld"),
             tool_path(name = "cpp", path = "watchsim/cpp"),
             tool_path(name = "gcov", path = "watchsim/gcov"),
             tool_path(name = "gcc", path = "watchsim/clang"),

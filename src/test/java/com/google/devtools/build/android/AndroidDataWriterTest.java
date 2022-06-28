@@ -14,16 +14,11 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertAbout;
-import static com.google.common.truth.Truth.assertThat;
 
-import com.android.ide.common.internal.PngCruncher;
-import com.android.ide.common.internal.PngException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.Subject;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -83,27 +78,6 @@ public class AndroidDataWriterTest {
             target,
             target.resolve("res"),
             target.resolve("assets"),
-            new PngCruncher() {
-              @Override
-              public int start() {
-                return 0;
-              }
-
-              @Override
-              public void end(int key) throws InterruptedException {
-              }
-
-              @Override
-              public void crunchPng(int key, File from, File to)
-                  throws PngException {
-                assertThat(from.toString()).doesNotContain(raw);
-                try {
-                  Files.copy(from.toPath(), to.toPath());
-                } catch (IOException e) {
-                  throw new PngException(e);
-                }
-              }
-            },
             MoreExecutors.newDirectExecutorService());
     ParsedAndroidData direct =
         AndroidDataBuilder.of(source)

@@ -184,10 +184,23 @@ public interface JavaSemantics {
                 attributes.has("proguard_specs")
                     && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
             JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
-            if (!hasProguardSpecs || !optimizer.label().isPresent()) {
+            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
+                || !optimizer.label().isPresent()) {
               return null;
             }
             return optimizer.label().get();
+          });
+
+  @SerializationConstant
+  LabelListLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
+      LabelListLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          (rule, attributes, javaConfig) -> {
+            // Don't bother adding the configuration dep if we're not going to use it.
+            if (!javaConfig.runLocalJavaOptimizations()) {
+              return ImmutableList.of();
+            }
+            return javaConfig.getLocalJavaOptimizationConfiguration();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
@@ -267,7 +280,12 @@ public interface JavaSemantics {
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       Artifact oneVersionAllowlistArtifact,
       Artifact sharedArchive,
-      boolean multiReleaseDeployJars);
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens);
 
   /**
    * Creates the action that writes the Java executable stub script.

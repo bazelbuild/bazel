@@ -503,6 +503,7 @@ sh_test(
 
 <h3 id="recursive_glob_example">Recursive Glob Examples</h3>
 
+
 <p>Make the test depend on all txt files in the testdata directory and any
    of its subdirectories (and their subdirectories, and so on).
    Subdirectories containing a BUILD file are ignored. (See limitations
@@ -617,7 +618,9 @@ sh_binary(
   <li>If multiple conditions match and one is a specialization of the others,
     the specialization takes precedence. Condition B is considered a
     specialization of condition A if B has all the same flags and constraint
-    values as A plus some additional flags and constraint values.
+    values as A plus some additional flags or constraint values. This also
+    means that specialization resolution is not designed to create an ordering as
+    demonstrated in Example 2 below.
   </li>
   <li>If multiple conditions match and one is not a specialization of all the
     others, Bazel fails with an error.

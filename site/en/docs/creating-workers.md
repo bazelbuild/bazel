@@ -9,9 +9,7 @@ would benefit from cross-action caching, you may want to implement your own
 persistent worker to perform these actions.
 
 The Bazel server communicates with the worker using `stdin`/`stdout`. It
-supports the use of protocol buffers or JSON strings. Support for JSON is
-experimental and thus subject to change. It is guarded behind the
-`--experimental_worker_allow_json_protocol` flag.
+supports the use of protocol buffers or JSON strings.
 
 The worker implementation has two parts:
 

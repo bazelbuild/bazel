@@ -140,7 +140,7 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {'@x' : '@y'},",
         ")");
-    assertMapping(helper, "@foo", "@x", "@y");
+    assertMapping(helper, "foo", "x", "y");
   }
 
   @Test
@@ -156,8 +156,8 @@ public class WorkspaceFactoryTest {
         "    path = '/bar',",
         "    repo_mapping = {'@a' : '@b'},",
         ")");
-    assertMapping(helper, "@foo", "@x", "@y");
-    assertMapping(helper, "@bar", "@a", "@b");
+    assertMapping(helper, "foo", "x", "y");
+    assertMapping(helper, "bar", "a", "b");
   }
 
   @Test
@@ -168,9 +168,9 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {'@a' : '@b', '@c' : '@d', '@e' : '@f'},",
         ")");
-    assertMapping(helper, "@foo", "@a", "@b");
-    assertMapping(helper, "@foo", "@c", "@d");
-    assertMapping(helper, "@foo", "@e", "@f");
+    assertMapping(helper, "foo", "a", "b");
+    assertMapping(helper, "foo", "c", "d");
+    assertMapping(helper, "foo", "e", "f");
   }
 
   @Test
@@ -181,7 +181,7 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {},",
         ")");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@foo"))).isEmpty();
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("foo"))).isEmpty();
   }
 
   @Test
@@ -200,13 +200,13 @@ public class WorkspaceFactoryTest {
   @Test
   public void testImplicitMainRepoRename() throws Exception {
     helper.parse("workspace(name = 'foo')");
-    assertMapping(helper, "@", "@foo", "@");
+    assertMapping(helper, "", "foo", "");
   }
 
   @Test
   public void testEmptyRepositoryHasEmptyMap() throws Exception {
     helper.parse("");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@"))).isEmpty();
+    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(""))).isEmpty();
   }
 
   @Test
@@ -218,17 +218,15 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {'@x' : '@y', '@bar' : '@newname'},",
         ")");
-    assertMapping(helper, "@foo", "@x", "@y");
-    assertMapping(helper, "@foo", "@bar", "@newname");
+    assertMapping(helper, "foo", "x", "y");
+    assertMapping(helper, "foo", "bar", "newname");
   }
 
   private void assertMapping(
       WorkspaceFactoryTestHelper helper, String repo, String local, String global)
       throws Exception {
-    RepositoryName localRepoName = RepositoryName.create(local);
-    RepositoryName globalRepoName = RepositoryName.create(global);
     assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(repo)))
-        .containsEntry(localRepoName, globalRepoName);
+        .containsEntry(local, RepositoryName.create(global));
   }
 
 }

@@ -199,6 +199,25 @@ public class ActionOutputDirectoryHelperTest {
     assertThat(e).hasCauseThat().isSameInstanceAs(injectedException);
   }
 
+  @Test
+  public void invalidateTreeArtifactDirectoryCreation_onlyInvalidatesTreeArtifactDirs()
+      throws Exception {
+    ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
+    Artifact regularOutput = createOutput("example/regular/file.txt");
+    SpecialArtifact treeOutput = createTreeOutput("example/tree/tree_dir");
+    ImmutableSet<Artifact> outputs = ImmutableSet.of(regularOutput, treeOutput);
+
+    outputDirectoryHelper.createOutputDirectories(outputs);
+    regularOutput.getPath().getParentDirectory().deleteTree();
+    treeOutput.getPath().deleteTree();
+    outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
+    outputDirectoryHelper.createOutputDirectories(outputs);
+
+    // Only tree artifact directories are recreated.
+    assertThat(regularOutput.getPath().getParentDirectory().exists()).isFalse();
+    assertThat(treeOutput.getPath().exists()).isTrue();
+  }
+
   private FileSystem createFileSystemInjectingException(
       PathFragment failingPath, IOException injectedException) {
     return new DelegateFileSystem(execRoot.getFileSystem()) {

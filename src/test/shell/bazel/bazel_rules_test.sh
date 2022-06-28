@@ -612,6 +612,7 @@ if not "%FIXED_ONLY%" == "fixed" exit /B 1
 if not "%FIXED_AND_INHERITED%" == "inherited" exit /B 1
 if not "%FIXED_AND_INHERITED_BUT_NOT_SET%" == "fixed" exit /B 1
 if not "%INHERITED_ONLY%" == "inherited" exit /B 1
+if defined INHERITED_BUT_UNSET exit /B 1
 """
 EOF
   else
@@ -621,7 +622,8 @@ _SCRIPT_CONTENT = """#!/bin/bash
 [[ "$FIXED_ONLY" == "fixed" \
   && "$FIXED_AND_INHERITED" == "inherited" \
   && "$FIXED_AND_INHERITED_BUT_NOT_SET" == "fixed" \
-  && "$INHERITED_ONLY" == "inherited" ]]
+  && "$INHERITED_ONLY" == "inherited" \
+  && -z "${INHERITED_BUT_UNSET+default}" ]]
 """
 EOF
   fi
@@ -644,13 +646,14 @@ def _my_test_impl(ctx):
         "FIXED_AND_INHERITED",
         "FIXED_AND_INHERITED_BUT_NOT_SET",
         "INHERITED_ONLY",
+        "INHERITED_BUT_UNSET",
       ]
     )
     return [
         DefaultInfo(
             executable = test_sh,
         ),
-        test_env
+        test_env,
     ]
 
 my_test = rule(
@@ -661,7 +664,83 @@ my_test = rule(
 EOF
 
   FIXED_AND_INHERITED=inherited INHERITED_ONLY=inherited \
-    bazel test //pkg:my_test &> /dev/null || fail "Test should pass"
+    bazel test //pkg:my_test >$TEST_log 2>&1 || fail "Test should pass"
+}
+
+function test_starlark_rule_with_run_environment() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+load(":rules.bzl", "my_executable")
+my_executable(
+  name = "my_executable",
+)
+EOF
+
+  # On Windows this file needs to be acceptable by CreateProcessW(), rather
+  # than a Bourne script.
+  if "$is_windows"; then
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".bat"
+_SCRIPT_CONTENT = """@ECHO OFF
+if not "%FIXED_ONLY%" == "fixed" exit /B 1
+if not "%FIXED_AND_INHERITED%" == "inherited" exit /B 1
+if not "%FIXED_AND_INHERITED_BUT_NOT_SET%" == "fixed" exit /B 1
+if not "%INHERITED_ONLY%" == "inherited" exit /B 1
+if defined INHERITED_BUT_UNSET exit /B 1
+"""
+EOF
+  else
+    cat >pkg/rules.bzl <<'EOF'
+_SCRIPT_EXT = ".sh"
+_SCRIPT_CONTENT = """#!/bin/bash
+set -x
+env
+[[ "$FIXED_ONLY" == "fixed" \
+  && "$FIXED_AND_INHERITED" == "inherited" \
+  && "$FIXED_AND_INHERITED_BUT_NOT_SET" == "fixed" \
+  && "$INHERITED_ONLY" == "inherited" \
+  && -z "${INHERITED_BUT_UNSET+default}" ]]
+"""
+EOF
+  fi
+
+  cat >>pkg/rules.bzl <<'EOF'
+def _my_executable_impl(ctx):
+    executable_sh = ctx.actions.declare_file(ctx.attr.name + _SCRIPT_EXT)
+    ctx.actions.write(
+        output = executable_sh,
+        content = _SCRIPT_CONTENT,
+        is_executable = True,
+    )
+    run_env = RunEnvironmentInfo(
+      {
+        "FIXED_AND_INHERITED": "fixed",
+        "FIXED_AND_INHERITED_BUT_NOT_SET": "fixed",
+        "FIXED_ONLY": "fixed",
+      },
+      [
+        "FIXED_AND_INHERITED",
+        "FIXED_AND_INHERITED_BUT_NOT_SET",
+        "INHERITED_ONLY",
+        "INHERITED_BUT_UNSET",
+      ]
+    )
+    return [
+        DefaultInfo(
+            executable = executable_sh,
+        ),
+        run_env,
+    ]
+
+my_executable = rule(
+    implementation = _my_executable_impl,
+    attrs = {},
+    executable = True,
+)
+EOF
+
+  FIXED_AND_INHERITED=inherited INHERITED_ONLY=inherited \
+    bazel run //pkg:my_executable >$TEST_log 2>&1 || fail "Binary should have exit code 0"
 }
 
 run_suite "rules test"

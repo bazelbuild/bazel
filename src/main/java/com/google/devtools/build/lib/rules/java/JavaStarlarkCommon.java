@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfigured
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -91,8 +91,10 @@ public class JavaStarlarkCommon
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
       Boolean enableJSpecify,
-      boolean createOutputSourceJar,
+      boolean includeCompilationInfo,
       Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected
+      Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -132,7 +134,7 @@ public class JavaStarlarkCommon
     // checks for private API access
     if (!enableCompileJarAction
         || !enableJSpecify
-        || !createOutputSourceJar
+        || !includeCompilationInfo
         || !classpathResources.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
@@ -168,9 +170,11 @@ public class JavaStarlarkCommon
             enableAnnotationProcessing,
             enableCompileJarAction,
             enableJSpecify,
-            createOutputSourceJar,
+            includeCompilationInfo,
             javaSemantics,
             injectingRuleKind,
+            Sequence.cast(addExports, String.class, "add_exports"),
+            Sequence.cast(addOpens, String.class, "add_opens"),
             thread);
   }
 
@@ -228,19 +232,15 @@ public class JavaStarlarkCommon
   @Override
   public JavaInfo mergeJavaProviders(
       Sequence<?> providers, /* <JavaInfo> expected. */
-      Sequence<?> exports, /* <JavaInfo> expected. */
-      Sequence<?> runtimeDeps, /* <JavaInfo> expected. */
-      boolean includeSourceJarsFromExports,
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
       StarlarkThread thread)
       throws EvalException {
-    if (!exports.isEmpty() || !runtimeDeps.isEmpty() || includeSourceJarsFromExports) {
+    if (!mergeJavaOutputs || !mergeSourceJars) {
       checkPrivateAccess(thread);
     }
     return JavaInfo.merge(
-        Sequence.cast(providers, JavaInfo.class, "providers"),
-        Sequence.cast(exports, JavaInfo.class, "exports"),
-        Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-        includeSourceJarsFromExports);
+        Sequence.cast(providers, JavaInfo.class, "providers"), mergeJavaOutputs, mergeSourceJars);
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -338,7 +338,7 @@ public class JavaStarlarkCommon
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
     if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
-        && !label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }

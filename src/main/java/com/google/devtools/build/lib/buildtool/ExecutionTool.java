@@ -24,7 +24,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -250,10 +249,7 @@ public class ExecutionTool {
    * tests for these setup steps.
    */
   public void prepareForExecution(
-      UUID buildId,
-      Set<ConfiguredTargetKey> builtTargets,
-      Set<AspectKey> builtAspects,
-      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories)
+      UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
     BuildRequestOptions options = request.getBuildOptions();
@@ -275,7 +271,6 @@ public class ExecutionTool {
             getExecRoot(),
             singleSourceRoot.asPath(),
             /*prefix=*/ env.getDirectories().getProductName() + "-",
-            notSymlinkedInExecrootDirectories,
             request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
       } catch (IOException e) {
         throw new AbruptExitException(
@@ -308,7 +303,7 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -340,7 +335,10 @@ public class ExecutionTool {
     // TODO(leba): count test actions
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(
-            Preconditions.checkNotNull(builtTargets), Preconditions.checkNotNull(builtAspects), 0);
+            Preconditions.checkNotNull(builtTargets),
+            Preconditions.checkNotNull(builtAspects),
+            /*exclusiveTestsCount=*/ 0,
+            env.getEventBus());
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
@@ -381,10 +379,11 @@ public class ExecutionTool {
       AnalysisResult analysisResult,
       BuildResult buildResult,
       PackageRoots packageRoots,
-      TopLevelArtifactContext topLevelArtifactContext)
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean useEventBasedBuildCompletionStatus)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots, analysisResult.getNonSymlinkedDirectoriesUnderExecRoot());
+    prepare(packageRoots);
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
@@ -403,7 +402,7 @@ public class ExecutionTool {
       }
     }
 
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -439,6 +438,7 @@ public class ExecutionTool {
         installExplanationHandler(
             request.getBuildOptions().explanationPath, request.getOptionsDescription());
 
+    // TODO(b/227138583): Remove these.
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
 
@@ -535,6 +535,11 @@ public class ExecutionTool {
         saveActionCache(actionCache);
       }
 
+      if (useEventBasedBuildCompletionStatus) {
+        builtTargets = env.getBuildResultListener().getBuiltTargets();
+        builtAspects = env.getBuildResultListener().getBuiltAspects();
+      }
+
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(configuredTargets, builtTargets));
@@ -576,9 +581,7 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(
-      PackageRoots packageRoots, ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot)
-      throws AbruptExitException, InterruptedException {
+  private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
     Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
         packageRoots.getPackageRootsMap();
     if (packageRootMap.isPresent()) {
@@ -592,7 +595,6 @@ public class ExecutionTool {
                 packageRootMap.get(),
                 getExecRoot(),
                 runtime.getProductName(),
-                nonSymlinkedDirectoriesUnderExecRoot,
                 request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
@@ -727,7 +729,9 @@ public class ExecutionTool {
     // Gather configurations to consider.
     Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
+                && !analysisResult.getTargetsToBuild().isEmpty()
             ? analysisResult.getTargetsToBuild().stream()
+                .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
                 .filter(Objects::nonNull)
                 .distinct()

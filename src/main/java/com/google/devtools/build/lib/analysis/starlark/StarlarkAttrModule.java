@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactor
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelConverter;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -142,10 +143,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         //  instance to avoid adding a dependency to the C++ package.
         builder.value((NativeComputedDefaultApi) defaultValue);
       } else {
-        BazelModuleContext moduleContext =
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
-            defaultValue, LabelConverter.forModuleContext(moduleContext), DEFAULT_ARG);
+            defaultValue, LabelConverter.forBzlEvaluatingThread(thread), DEFAULT_ARG);
       }
     }
 
@@ -229,6 +228,15 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       }
       // TODO(b/203203933): Officially deprecate HOST transition and remove this.
       if (trans.equals("host")) {
+        boolean disableStarlarkHostTransitions =
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
+        if (disableStarlarkHostTransitions) {
+          throw new EvalException(
+              "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
+                  + "'cfg = \"exec\"' instead.");
+        }
         builder.cfg(ExecutionTransitionFactory.create());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.create());
@@ -255,8 +263,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         // android_split_transition because users of those transitions should already know about
         // them.
         throw Starlark.errorf(
-            "cfg must be either 'host', 'target', 'exec' or a starlark defined transition defined"
-                + " by the exec() or transition() functions.");
+            "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
+                + "exec() or transition() functions.");
       }
     }
 
@@ -452,7 +460,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Label label =
           ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
               .label();
-      if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
         throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
       }
     }

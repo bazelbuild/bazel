@@ -143,8 +143,8 @@ relative to the top-level directory of the containing repository.
 For example: `my/app`.
 
 Package names must be composed entirely of characters drawn from the set
-`A`-`Z`, `a`–`z`, `0`–`9`, '`/`', '`-`', '`.`', and '`_`', and cannot start
-with a slash.
+`A`-`Z`, `a`–`z`, `0`–`9`, '`/`', '`-`', '`.`', '`@`', and '`_`', and cannot
+start with a slash.
 
 For a language with a directory structure that is significant to its module
 system (for example, Java), it's important to choose directory names that are

@@ -111,7 +111,7 @@ public class ExecutableSymlinkActionTest {
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     ActionExecutionException e =
         assertThrows(ActionExecutionException.class, () -> action.execute(createContext()));
-    assertThat(e).hasMessageThat().contains("'some-dir' is not a file");
+    assertThat(e).hasMessageThat().contains("'in/some-dir' is not a file");
   }
 
   @Test
@@ -125,7 +125,7 @@ public class ExecutableSymlinkActionTest {
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     ActionExecutionException e =
         assertThrows(ActionExecutionException.class, () -> action.execute(createContext()));
-    String want = "'some-file' is not executable";
+    String want = "'in/some-file' is not executable";
       String got = e.getMessage();
     assertWithMessage(String.format("got %s, want %s", got, want))
         .that(got.contains(want))

@@ -16,11 +16,9 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocumentMethods;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -63,52 +61,9 @@ public interface WorkspaceGlobalsApi {
                     + "letters, numbers, underscores, dashes, and dots.",
             named = true,
             positional = false),
-        @Param(
-            name = "managed_directories",
-            named = true,
-            positional = false,
-            defaultValue = "{}",
-            doc =
-                "Dict (strings to list of strings) for defining the mappings between external"
-                    + " repositories and relative (to the workspace root) paths to directories"
-                    + " they incrementally update."
-                    + "\nManaged directories must be excluded from the source tree by listing"
-                    + " them (or their parent directories) in the .bazelignore file."),
       },
       useStarlarkThread = true)
-  void workspace(
-      String name,
-      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
-      name = "toplevel_output_directories",
-      doc =
-          "Exclude directories under workspace from symlinking into execroot.\n"
-              + "<p>Normally, source directories are symlinked to the execroot, so that the"
-              + " actions can access the input (source) files.<p/><p>In the case of Ninja"
-              + " execution (enabled with --experimental_ninja_actions flag), it is typical that"
-              + " the directory with build-related files contains source files for the build, and"
-              + " Ninja prescribes creation of the outputs in that same directory.</p><p>Since"
-              + " commands in the Ninja file use relative paths to address source files and"
-              + " directories, we must still allow the execution in the same-named directory under"
-              + " the execroot. But we must avoid populating the underlying source directory with"
-              + " output files.</p><p>This method can be used to specify that Ninja build"
-              + " configuration directories should not be symlinked to the execroot. It is not"
-              + " expected that there could be other use cases for using this method.</p>",
-      parameters = {
-        @Param(
-            name = "paths",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-            doc = "",
-            named = true,
-            positional = false)
-      },
-      useStarlarkThread = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS)
-  void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  void workspace(String name, StarlarkThread thread) throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "register_execution_platforms",

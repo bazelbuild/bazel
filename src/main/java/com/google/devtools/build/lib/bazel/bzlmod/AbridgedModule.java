@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /**
  * An abridged version of a {@link Module}, with a reduced set of information available, used for
@@ -29,7 +30,7 @@ public abstract class AbridgedModule {
 
   public abstract ModuleKey getKey();
 
-  public final String getCanonicalRepoName() {
+  public final RepositoryName getCanonicalRepoName() {
     return getKey().getCanonicalRepoName();
   }
 

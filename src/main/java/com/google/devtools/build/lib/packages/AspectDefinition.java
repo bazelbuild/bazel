@@ -67,7 +67,6 @@ public final class AspectDefinition {
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
-  private final boolean useToolchainTransition;
 
   /**
    * Which attributes aspect should propagate along:
@@ -92,6 +91,9 @@ public final class AspectDefinition {
 
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
+  private final ImmutableSet<Label> execCompatibleWith;
+  private final ImmutableMap<String, ExecGroup> execGroups;
+
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
   }
@@ -103,26 +105,28 @@ public final class AspectDefinition {
       RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      boolean useToolchainTransition,
       @Nullable ImmutableSet<String> restrictToAttributes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
       BiPredicate<Object, String> propagateViaAttribute,
-      ImmutableSet<AspectClass> requiredAspectClasses) {
+      ImmutableSet<AspectClass> requiredAspectClasses,
+      ImmutableSet<Label> execCompatibleWith,
+      ImmutableMap<String, ExecGroup> execGroups) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
     this.requiredProvidersForAspects = requiredProvidersForAspects;
     this.attributes = attributes;
     this.toolchainTypes = toolchainTypes;
-    this.useToolchainTransition = useToolchainTransition;
     this.restrictToAttributes = restrictToAttributes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.propagateViaAttribute = propagateViaAttribute;
     this.requiredAspectClasses = requiredAspectClasses;
+    this.execCompatibleWith = execCompatibleWith;
+    this.execGroups = execGroups;
   }
 
   public String getName() {
@@ -143,8 +147,16 @@ public final class AspectDefinition {
     return toolchainTypes;
   }
 
-  public boolean useToolchainTransition() {
-    return useToolchainTransition;
+  /**
+   * Returns the constraint values that must be present on an execution platform for this aspect.
+   */
+  public ImmutableSet<Label> execCompatibleWith() {
+    return execCompatibleWith;
+  }
+
+  /** Returns the execution groups that this aspect can use when creating actions. */
+  public ImmutableMap<String, ExecGroup> execGroups() {
+    return execGroups;
   }
 
   /**
@@ -280,8 +292,9 @@ public final class AspectDefinition {
     private boolean applyToFiles = false;
     private boolean applyToGeneratingRules = false;
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
-    private boolean useToolchainTransition = false;
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
+    private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
+    private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -432,10 +445,6 @@ public final class AspectDefinition {
 
     /**
      * Adds an attribute to the aspect.
-     *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
-     * available in the BUILD file, starting with '$') or late-bound (determined after the
-     * configuration is available, starting with ':')
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       Attribute attribute = attr.build();
@@ -445,9 +454,9 @@ public final class AspectDefinition {
     /**
      * Adds an attribute to the aspect.
      *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
-     * available in the BUILD file, starting with '$') or late-bound (determined after the
-     * configuration is available, starting with ':')
+     * <p>Aspects attributes can be of any data type if they are not public, i.e. implicit (starting
+     * with '$') or late-bound (starting with ':'). While public attributes can only be of types
+     * string, integer or boolean.
      *
      * <p>Aspect definition currently cannot handle {@link ComputedDefault} dependencies (type LABEL
      * or LABEL_LIST), because all the dependencies are resolved from the aspect definition and the
@@ -595,8 +604,19 @@ public final class AspectDefinition {
       return this;
     }
 
-    public Builder useToolchainTransition(boolean useToolchainTransition) {
-      this.useToolchainTransition = useToolchainTransition;
+    /**
+     * Adds the given constraint values to the set required for execution platforms for this aspect.
+     */
+    public Builder execCompatibleWith(ImmutableSet<Label> execCompatibleWith) {
+      this.execCompatibleWith = execCompatibleWith;
+      return this;
+    }
+
+    /** Sets the execution groups that are available for actions created by this aspect. */
+    public Builder execGroups(ImmutableMap<String, ExecGroup> execGroups) {
+      // TODO(b/230337573): validate names
+      // TODO(b/230337573): handle copy_from_default
+      this.execGroups = execGroups;
       return this;
     }
 
@@ -620,13 +640,14 @@ public final class AspectDefinition {
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(toolchainTypes),
-          useToolchainTransition,
           propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,
           propagateViaAttribute,
-          requiredAspectClasses);
+          requiredAspectClasses,
+          execCompatibleWith,
+          execGroups);
     }
   }
 }

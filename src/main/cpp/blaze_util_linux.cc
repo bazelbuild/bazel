@@ -82,13 +82,6 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
   }
 }
 
-string GetSelfPath(const char* argv0) {
-  // The file to which this symlink points could change contents or go missing
-  // concurrent with execution of the Bazel client, so we don't eagerly resolve
-  // it.
-  return "/proc/self/exe";
-}
-
 uint64_t GetMillisecondsMonotonic() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);

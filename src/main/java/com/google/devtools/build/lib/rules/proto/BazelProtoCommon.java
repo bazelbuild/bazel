@@ -59,8 +59,6 @@ public class BazelProtoCommon implements ProtoCommonApi {
         @Param(name = "direct_descriptor_set", doc = "Direct descriptor set."),
         @Param(name = "transitive_descriptor_set", doc = "Transitive descriptor sets."),
         @Param(name = "exported_sources", doc = "Exported sources"),
-        @Param(name = "strict_importable_sources", doc = "Strict importable sources."),
-        @Param(name = "public_import_protos", doc = "Public import protos."),
       },
       useStarlarkThread = true)
   @SuppressWarnings("unchecked")
@@ -74,8 +72,6 @@ public class BazelProtoCommon implements ProtoCommonApi {
       Artifact directDescriptorSet,
       Depset transitiveDescriptorSets,
       Depset exportedSources,
-      Depset strictImportableSources,
-      Depset publicImportSources,
       StarlarkThread thread)
       throws EvalException {
     ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
@@ -89,8 +85,6 @@ public class BazelProtoCommon implements ProtoCommonApi {
             strictImportableProtoSourcesForDependents, Artifact.class, "check_deps_sources"),
         directDescriptorSet,
         Depset.cast(transitiveDescriptorSets, Artifact.class, "transitive_descriptor_set"),
-        Depset.cast(exportedSources, ProtoSource.class, "exported_sources"),
-        Depset.cast(strictImportableSources, ProtoSource.class, "strict_importable_sources"),
-        Depset.cast(publicImportSources, ProtoSource.class, "public_import_protos"));
+        Depset.cast(exportedSources, ProtoSource.class, "exported_sources"));
   }
 }

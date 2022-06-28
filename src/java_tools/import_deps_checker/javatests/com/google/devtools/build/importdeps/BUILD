@@ -300,6 +300,32 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "invoke_polymorphic_test",
+    srcs = ["golden_test.sh"],
+    args = [
+        "$(location golden_invoke_polymorphic_test.txt)",
+        "$(location golden_invoke_polymorphic_test.stderr.txt)",
+        "199",
+        "$(location :DumpProto)",
+        "$(location //src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker)",
+        "--checking_mode=error",
+        "--bootclasspath_entry",
+        "$(location @local_jdk//:jre/lib/rt.jar)",
+        "--input",
+        "$(location //src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libInvokePolymorphic.jar)",
+    ],
+    data = [
+        ":DumpProto",
+        ":libempty.jar",
+        "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:golden_invoke_polymorphic_test.stderr.txt",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:golden_invoke_polymorphic_test.txt",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:libInvokePolymorphic.jar",
+        "@local_jdk//:jre/lib/rt.jar",
+    ],
+)
+
 java_binary(
     name = "DumpProto",
     srcs = ["DumpProto.java"],

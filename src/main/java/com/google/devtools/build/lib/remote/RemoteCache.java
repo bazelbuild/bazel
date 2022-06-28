@@ -87,9 +87,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      RemoteCacheClient cacheProtocol,
-      RemoteOptions options,
-      DigestUtil digestUtil) {
+      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
@@ -332,44 +330,20 @@ public class RemoteCache extends AbstractReferenceCounted {
     reporter.started();
     OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
 
-    SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
-    Futures.addCallback(
-        f,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {
-            try {
-              out.close();
-              outerF.set(null);
-              reporter.finished();
-            } catch (IOException e) {
-              outerF.setException(e);
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              outerF.setException(e);
-            }
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            try {
-              out.close();
-              reporter.finished();
-            } catch (IOException e) {
-              if (t != e) {
-                t.addSuppressed(e);
-              }
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              t.addSuppressed(e);
-            } finally {
-              outerF.setException(t);
-            }
+    f.addListener(
+        () -> {
+          try {
+            out.close();
+            reporter.finished();
+          } catch (IOException e) {
+            logger.atWarning().withCause(e).log(
+                "Unexpected exception closing output stream after downloading %s/%d to %s",
+                digest.getHash(), digest.getSizeBytes(), path);
           }
         },
         directExecutor());
-    return outerF;
+    return f;
   }
 
   /**

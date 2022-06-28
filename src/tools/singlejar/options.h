@@ -24,7 +24,8 @@
 class Options {
  public:
   Options()
-      : exclude_build_data(false),
+      : output_jar_creator("singlejar"),
+        exclude_build_data(false),
         force_compression(false),
         normalize_timestamps(false),
         add_missing_directories(false),
@@ -42,6 +43,7 @@ class Options {
   void ParseCommandLine(int argc, const char *const argv[]);
 
   std::string output_jar;
+  std::string output_jar_creator;
   std::string main_class;
   std::string java_launcher;
   std::string cds_archive;
@@ -65,6 +67,9 @@ class Options {
   bool warn_duplicate_resources;
   bool check_desugar_deps;
   bool multi_release;
+  std::string hermetic_java_home;
+  std::vector<std::string> add_exports;
+  std::vector<std::string> add_opens;
 
  protected:
   /*

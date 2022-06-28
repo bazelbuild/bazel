@@ -35,11 +35,16 @@ bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
 
 const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
+const char *KOTLIN_BUILTINS_EXTENSION = ".kotlin_builtins";
+const size_t KOTLIN_BUILTINS_EXTENSION_LENGTH =
+    strlen(KOTLIN_BUILTINS_EXTENSION);
 const char *KOTLIN_MODULE_EXTENSION = ".kotlin_module";
 const size_t KOTLIN_MODULE_EXTENSION_LENGTH = strlen(KOTLIN_MODULE_EXTENSION);
 const char *SCALA_TASTY_EXTENSION = ".tasty";
 const size_t SCALA_TASTY_EXTENSION_LENGTH = strlen(SCALA_TASTY_EXTENSION);
 
+const char *KOTLIN_PKG_PATH = "kotlin/";
+const size_t KOTLIN_PKG_PATH_LENGTH = strlen(KOTLIN_PKG_PATH);
 const char *MANIFEST_DIR_PATH = "META-INF/";
 const size_t MANIFEST_DIR_PATH_LENGTH = strlen(MANIFEST_DIR_PATH);
 const char *MANIFEST_PATH = "META-INF/MANIFEST.MF";
@@ -100,11 +105,16 @@ static bool EndsWith(const char *str, const size_t str_len, const char *suffix,
          strcmp(str + str_len - suffix_len, suffix) == 0;
 }
 
+// Returns true for .kotlin_module and the similar .kotlin_builtins files.
 static bool IsKotlinModule(const char *filename, const size_t filename_len) {
-  return StartsWith(filename, filename_len, MANIFEST_DIR_PATH,
-                    MANIFEST_DIR_PATH_LENGTH) &&
-         EndsWith(filename, filename_len, KOTLIN_MODULE_EXTENSION,
-                  KOTLIN_MODULE_EXTENSION_LENGTH);
+  return (StartsWith(filename, filename_len, MANIFEST_DIR_PATH,
+                     MANIFEST_DIR_PATH_LENGTH) &&
+          EndsWith(filename, filename_len, KOTLIN_MODULE_EXTENSION,
+                   KOTLIN_MODULE_EXTENSION_LENGTH)) ||
+         (StartsWith(filename, filename_len, KOTLIN_PKG_PATH,
+                     KOTLIN_PKG_PATH_LENGTH) &&
+          EndsWith(filename, filename_len, KOTLIN_BUILTINS_EXTENSION,
+                   KOTLIN_BUILTINS_EXTENSION_LENGTH));
 }
 
 static bool IsScalaTasty(const char *filename, const size_t filename_len) {

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the sh_binary rule.
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public class ShBinary implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs").list();
@@ -134,7 +136,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+    // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
     return createWindowsExeLauncher(ruleContext, shExecutable);
   }
 }

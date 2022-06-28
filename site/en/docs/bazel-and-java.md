@@ -137,7 +137,6 @@ projects:
     *   [`java_compilation_info`](/rules/lib/java_compilation_info)
     *   [`java_output`](/rules/lib/java_output)
     *   [`java_output_jars`](/rules/lib/java_output_jars)
-    *   [`java_proto_common`](/rules/lib/java_proto_common)
     *   [`JavaRuntimeInfo`](/rules/lib/JavaRuntimeInfo)
     *   [`JavaToolchainInfo`](/rules/lib/JavaToolchainInfo)
 
@@ -173,6 +172,7 @@ local_java_repository(
 ```
 
 Example configuration of remote JVM:
+
 ```python
 load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
 
@@ -265,7 +265,6 @@ Predefined configurations:
 -   `DEFAULT_TOOLCHAIN_CONFIGURATION`: all features, supports JDK versions >= 9
 -   `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports JDKs of
     arbitrary vendors.
--   `JVM8_TOOLCHAIN_CONFIGURATION`: all features, JDK version 8
 -   `PREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but only use prebuilt
     tools (`ijar`, `singlejar`)
 -   `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are

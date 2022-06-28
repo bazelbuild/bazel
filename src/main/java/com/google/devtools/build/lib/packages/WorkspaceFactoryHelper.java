@@ -104,8 +104,8 @@ public class WorkspaceFactoryHelper {
       // Create repository names with validation, LabelSyntaxException is thrown is the name
       // is not valid.
       builder.addRepositoryMappingEntry(
-          RepositoryName.create("@" + externalRepoName),
-          RepositoryName.create("@" + builder.getPackageWorkspaceName()),
+          RepositoryName.create(externalRepoName),
+          builder.getPackageWorkspaceName(),
           RepositoryName.MAIN);
     }
   }
@@ -124,10 +124,31 @@ public class WorkspaceFactoryHelper {
       for (Map.Entry<String, String> e :
           Dict.cast(repoMapping, String.class, String.class, "repo_mapping").entrySet()) {
         // Create repository names with validation; may throw LabelSyntaxException.
+        // For legacy reasons, the repository names given to the repo_mapping attribute need to be
+        // prefixed with an @.
+        if (!e.getKey().startsWith("@")) {
+          throw new LabelSyntaxException(
+              "invalid repository name '"
+                  + e.getKey()
+                  + "': repo names used in the repo_mapping attribute must start with '@'");
+        }
+        if (!e.getValue().startsWith("@")) {
+          throw new LabelSyntaxException(
+              "invalid repository name '"
+                  + e.getValue()
+                  + "': repo names used in the repo_mapping attribute must start with '@'");
+        }
+        if (!WorkspaceGlobals.isLegalWorkspaceName(e.getKey().substring(1))) {
+          throw new LabelSyntaxException(
+              "invalid repository name '"
+                  + e.getKey().substring(1)
+                  + "': must start with a letter and contain only letters, digits, '.', '-', or"
+                  + " '_'");
+        }
         builder.addRepositoryMappingEntry(
-            RepositoryName.create("@" + externalRepoName),
-            RepositoryName.create(e.getKey()),
-            RepositoryName.create(e.getValue()));
+            RepositoryName.create(externalRepoName),
+            e.getKey().substring(1),
+            RepositoryName.create(e.getValue().substring(1)));
       }
     }
   }

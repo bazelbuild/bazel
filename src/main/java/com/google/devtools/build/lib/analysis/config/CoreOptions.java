@@ -645,8 +645,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       help =
-          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
-              + "allowing the user to create symlinks (resolved and unresolved)")
+          "If enabled, Bazel allows the use of ctx.action.declare_symlink() and the use of "
+              + "ctx.actions.symlink() without a target file, thus allowing the creation of "
+              + "unresolved symlinks")
   public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */
@@ -666,15 +667,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /**
      * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
      * registered to support this feature.
-     *
-     * <p>This works independently of {@code --experimental_path_agnostic_action} ({@link
-     * com.google.devtools.build.lib.exec.ExecutionOptions#pathAgnosticActions}). This flag enables
-     * actions that know how to strip output paths from their command lines, which requires custom
-     * code in the action creation logic. {@code --experimental_path_agnostic_action} is a catch-all
-     * that automatically strips command lines after actions have constructed them. The latter is
-     * suitable for experimentation but not as robust since it's essentially a textual replacement
-     * postprocessor. That may miss subtleties in the command line's structure, isn't particularly
-     * efficient, and isn't safe for actions with special dependencies on their output paths.
      *
      * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for details.
      */
@@ -955,6 +947,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
     host.enableAspectHints = enableAspectHints;
+    host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
     return host;
   }

@@ -116,7 +116,7 @@ public abstract class AndroidCommonTest extends AndroidBuildViewTestCase {
   @Test
   public void testMultidexModeEnum() throws Exception {
     assertThat(MultidexMode.getValidValues())
-        .containsExactly("native", "legacy", "manual_main_dex", "off");
+        .containsExactly("native", "legacy", "manual_main_dex");
     assertThat(MultidexMode.fromValue("native")).isSameInstanceAs(MultidexMode.NATIVE);
     assertThat(MultidexMode.NATIVE.getAttributeValue()).isEqualTo("native");
     assertThat(MultidexMode.fromValue("legacy")).isSameInstanceAs(MultidexMode.LEGACY);
@@ -124,14 +124,11 @@ public abstract class AndroidCommonTest extends AndroidBuildViewTestCase {
     assertThat(MultidexMode.fromValue("manual_main_dex"))
         .isSameInstanceAs(MultidexMode.MANUAL_MAIN_DEX);
     assertThat(MultidexMode.MANUAL_MAIN_DEX.getAttributeValue()).isEqualTo("manual_main_dex");
-    assertThat(MultidexMode.fromValue("off")).isSameInstanceAs(MultidexMode.OFF);
-    assertThat(MultidexMode.OFF.getAttributeValue()).isEqualTo("off");
   }
 
   /** Tests that each multidex mode produces the expected output dex classes file name. */
   @Test
   public void testOutputDexforMultidexModes() throws Exception {
-    assertThat(MultidexMode.OFF.getOutputDexFilename()).isEqualTo("classes.dex");
     assertThat(MultidexMode.LEGACY.getOutputDexFilename()).isEqualTo("classes.dex.zip");
     assertThat(MultidexMode.NATIVE.getOutputDexFilename()).isEqualTo("classes.dex.zip");
   }

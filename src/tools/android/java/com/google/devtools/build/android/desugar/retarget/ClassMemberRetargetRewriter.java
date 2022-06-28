@@ -23,9 +23,9 @@ import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /** This class rewrites (or removes) some trivial primitive wrapper methods. */
 public class ClassMemberRetargetRewriter extends ClassVisitor {
@@ -45,7 +45,7 @@ public class ClassMemberRetargetRewriter extends ClassVisitor {
       ClassVisitor cv,
       ClassMemberRetargetConfig classMemberRetargetConfig,
       ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes) {
-    super(Opcodes.ASM8, cv);
+    super(Opcodes.ASM9, cv);
     this.classMemberRetargetConfig = classMemberRetargetConfig;
     this.requiredRuntimeSupportTypes = requiredRuntimeSupportTypes;
   }
@@ -60,7 +60,7 @@ public class ClassMemberRetargetRewriter extends ClassVisitor {
   private class ClassMemberRetargetMethodVisitor extends MethodVisitor {
 
     ClassMemberRetargetMethodVisitor(MethodVisitor visitor) {
-      super(Opcodes.ASM8, visitor);
+      super(Opcodes.ASM9, visitor);
     }
 
     @Override

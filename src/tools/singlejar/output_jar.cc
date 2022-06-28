@@ -72,8 +72,6 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  manifest_.AppendLine("Manifest-Version: 1.0");
-  manifest_.AppendLine("Created-By: singlejar");
 }
 
 static std::string Basename(const std::string &path) {
@@ -98,6 +96,10 @@ int OutputJar::Doit(Options *options) {
     known_members_.emplace(build_properties_.filename(),
                            EntryInfo{&build_properties_});
   }
+
+  // Populate the manifest file.
+  manifest_.AppendLine("Manifest-Version: 1.0");
+  manifest_.AppendLine("Created-By: " + options_->output_jar_creator);
 
   // TODO(b/28294322): do we need to resolve the path to be absolute or
   // canonical?
@@ -144,6 +146,11 @@ int OutputJar::Doit(Options *options) {
 
   if (options_->multi_release) {
     manifest_.EnableMultiRelease();
+  }
+  manifest_.AddExports(options_->add_exports);
+  manifest_.AddOpens(options_->add_opens);
+  if (!options_->hermetic_java_home.empty()) {
+    manifest_.AppendLine("Hermetic-Java-Home: " + options_->hermetic_java_home);
   }
   for (auto &manifest_line : options_->manifest_lines) {
     if (!manifest_line.empty()) {

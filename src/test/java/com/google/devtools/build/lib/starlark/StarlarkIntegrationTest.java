@@ -22,7 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.truth.Correspondence;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -30,14 +30,13 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleTransitionProvider;
-import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
-import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -97,14 +97,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
-
-  private static final Correspondence<AnalysisFailure, AnalysisFailure>
-      analysisFailureCorrespondence =
-          Correspondence.from(
-              (actual, expected) ->
-                  actual.getLabel().equals(expected.getLabel())
-                      && actual.getMessage().contains(expected.getMessage()),
-              "is equivalent to");
 
   @Test
   public void testRemoteLabelAsDefaultAttributeValue() throws Exception {
@@ -2142,231 +2134,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAnalysisFailureInfo() throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "   fail('This Is My Failure Message')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'r')");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:r");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
-    assertThat(failure.getMessage()).contains("This Is My Failure Message");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
-  }
-
-  @Test
-  public void testAnalysisFailureInfo_forTest() throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "   fail('This Is My Failure Message')",
-        "",
-        "custom_test = rule(implementation = custom_rule_impl,",
-        "    test = True)");
-
-    scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'custom_test')", "", "custom_test(name = 'r')");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:r");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
-    assertThat(failure.getMessage()).contains("This Is My Failure Message");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
-  }
-
-  @Test
-  public void testAnalysisFailureInfoWithOutput() throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "   fail('This Is My Failure Message')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "    outputs = {'my_output': '%{name}.txt'})");
-
-    scratch.file(
-        "test/BUILD", "load('//test:extension.bzl', 'custom_rule')", "", "custom_rule(name = 'r')");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:r");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
-    assertThat(failure.getMessage()).contains("This Is My Failure Message");
-    assertThat(failure.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:r"));
-  }
-
-  @Test
-  public void testTransitiveAnalysisFailureInfo() throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "   fail('This Is My Failure Message')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)",
-        "",
-        "def depending_rule_impl(ctx):",
-        "   return []",
-        "",
-        "depending_rule = rule(implementation = depending_rule_impl,",
-        "     attrs = {'deps' : attr.label_list()})");
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule', 'depending_rule')",
-        "",
-        "custom_rule(name = 'one')",
-        "custom_rule(name = 'two')",
-        "depending_rule(name = 'failures_are_direct_deps',",
-        "    deps = [':one', ':two'])",
-        "depending_rule(name = 'failures_are_indirect_deps',",
-        "    deps = [':failures_are_direct_deps'])");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:failures_are_indirect_deps");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-
-    AnalysisFailure expectedOne =
-        new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Failure Message");
-    AnalysisFailure expectedTwo =
-        new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
-
-    assertThat(info.getCausesNestedSet().toList())
-        .comparingElementsUsing(analysisFailureCorrespondence)
-        .containsExactly(expectedOne, expectedTwo);
-  }
-
-  @Test
-  public void analysisFailureInfo_fromFailingAspect() throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_aspect_impl(target, ctx):",
-        "   fail('This Is My Aspect Failure Message')",
-        "",
-        "custom_aspect = aspect(implementation = custom_aspect_impl, attr_aspects = ['deps'])",
-        "",
-        "def custom_rule_impl(ctx):",
-        "   return []",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect])})");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'one')",
-        "custom_rule(name = 'two', deps = [':one'])");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:two");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure expectedOne =
-        new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Aspect Failure Message");
-
-    assertThat(info.getCausesNestedSet().toList())
-        .comparingElementsUsing(analysisFailureCorrespondence)
-        .containsExactly(expectedOne);
-  }
-
-  @Test
-  public void analysisFailureInfo_fromTransitivelyFailingAspect() throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_aspect_impl(target, ctx):",
-        "   if hasattr(ctx.rule.attr, 'kaboom') and ctx.rule.attr.kaboom:",
-        "       fail('This Is My Aspect Failure Message')",
-        "   return []",
-        "",
-        "custom_aspect = aspect(implementation = custom_aspect_impl, attr_aspects = ['deps'])",
-        "",
-        "def custom_rule_impl(ctx):",
-        "   return []",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect]),",
-        "              'kaboom' : attr.bool()})");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'one', kaboom = True)",
-        "custom_rule(name = 'two', deps = [':one'])",
-        "custom_rule(name = 'three', deps = [':two'])");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:three");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure expectedOne =
-        new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Aspect Failure Message");
-
-    assertThat(info.getCausesNestedSet().toList())
-        .comparingElementsUsing(analysisFailureCorrespondence)
-        .containsExactly(expectedOne);
-  }
-
-  @Test
-  public void analysisFailureInfo_withFailingAspectAndFailingRule_propagatesOnlyFromFailingRule()
-      throws Exception {
-    scratch.file(
-        "test/extension.bzl",
-        "def custom_aspect_impl(target, ctx):",
-        "   fail('This Is My Aspect Failure Message')",
-        "",
-        "custom_aspect = aspect(implementation = custom_aspect_impl, attr_aspects = ['deps'])",
-        "",
-        "def custom_rule_impl(ctx):",
-        "   fail('This Is My Rule Failure Message')",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect])})");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'one')",
-        "custom_rule(name = 'two', deps = [':one'])");
-
-    useConfiguration("--allow_analysis_failures=true");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:two");
-    AnalysisFailureInfo info =
-        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
-    AnalysisFailure expectedRuleFailure =
-        new AnalysisFailure(
-            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Rule Failure Message");
-
-    assertThat(info.getCausesNestedSet().toList())
-        .comparingElementsUsing(analysisFailureCorrespondence)
-        .containsExactly(expectedRuleFailure);
-  }
-
-  @Test
   public void testTestResultInfo() throws Exception {
     scratch.file(
         "test/extension.bzl",
@@ -3805,5 +3572,89 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("compilation of module 'test/starlark/error.bzl' failed");
+  }
+
+  @Test
+  public void testStarlarkRulePropagatesRunEnvironmentProvider() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  script = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(script, '', is_executable = True)",
+        "  run_env = RunEnvironmentInfo(",
+        "    {'FIXED': 'fixed'},",
+        "    ['INHERITED']",
+        "  )",
+        "  return [",
+        "    DefaultInfo(executable = script),",
+        "    run_env,",
+        "  ]",
+        "my_rule = rule(",
+        " implementation = my_rule_impl,",
+        "  attrs = {},",
+        "  executable = True,",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples:my_target");
+    RunEnvironmentInfo provider = starlarkTarget.get(RunEnvironmentInfo.PROVIDER);
+
+    assertThat(provider.getEnvironment()).containsExactly("FIXED", "fixed");
+    assertThat(provider.getInheritedEnvironment()).containsExactly("INHERITED");
+  }
+
+  @Test
+  public void nonExecutableStarlarkRuleReturningRunEnvironmentInfoErrors() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  return [RunEnvironmentInfo()]",
+        "my_rule = rule(",
+        "  implementation = my_rule_impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//examples:my_target");
+    assertContainsEvent(
+        "in my_rule rule //examples:my_target: Returning RunEnvironmentInfo from a non-executable,"
+            + " non-test target has no effect",
+        ImmutableSet.of(EventKind.ERROR));
+  }
+
+  @Test
+  public void nonExecutableStarlarkRuleReturningTestEnvironmentProducesAWarning() throws Exception {
+    scratch.file(
+        "examples/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  return [testing.TestEnvironment(environment = {})]",
+        "my_rule = rule(",
+        "  implementation = my_rule_impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "examples/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_target',",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//examples:my_target");
+    assertContainsEvent(
+        "in my_rule rule //examples:my_target: Returning RunEnvironmentInfo from a non-executable,"
+            + " non-test target has no effect",
+        ImmutableSet.of(EventKind.WARNING));
   }
 }

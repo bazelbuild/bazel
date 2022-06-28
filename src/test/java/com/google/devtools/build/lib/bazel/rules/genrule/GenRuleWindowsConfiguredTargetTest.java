@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.util.OS;
@@ -164,11 +164,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
 
     String expected = "echo \"Hello, Bash cmd.\" >" + messageArtifact.getExecPathString();
     assertThat(shellAction.getArguments().get(0))
-        .isEqualTo(
-            targetConfig
-                .getFragment(ShellConfiguration.class)
-                .getShellExecutable()
-                .getPathString());
+        .isEqualTo(ShToolchain.getPathForHost(targetConfig).getPathString());
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertBashCommandEquals(expected, shellAction.getArguments().get(2));
   }

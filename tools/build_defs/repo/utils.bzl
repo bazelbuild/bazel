@@ -219,7 +219,7 @@ def maybe(repo_rule, name, **kwargs):
     """Utility function for only adding a repository if it's not already present.
 
     This is to implement safe repositories.bzl macro documented in
-    https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies.
+    https://bazel.build/rules/deploying#dependencies.
 
     Args:
         repo_rule: repository rule function.
@@ -282,6 +282,8 @@ def parse_netrc(contents, filename = None):
                 macdef = None
                 currentmacro = ""
         else:
+            line = line.replace("\t", " ")
+
             # Essentially line.split(None) which starlark does not support.
             tokens = [
                 w.strip()

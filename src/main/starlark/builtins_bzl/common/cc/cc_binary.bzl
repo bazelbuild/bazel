@@ -45,11 +45,6 @@ def _strip_extension(file):
         return file.basename
     return file.basename[:-(1 + len(file.extension))]
 
-def _grep_includes_executable(grep_includes):
-    if grep_includes == None:
-        return None
-    return grep_includes.files_to_run.executable
-
 def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
     return {
         "tools": dwp_tools,
@@ -154,14 +149,6 @@ def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
         inputs = packager["inputs"],
         outputs = packager["outputs"],
     )
-
-def _is_stamping_enabled(ctx):
-    if ctx.configuration.is_tool_configuration():
-        return 0
-    stamp = 0
-    if hasattr(ctx.attr, "stamp"):
-        stamp = ctx.attr.stamp
-    return stamp
 
 def _get_non_data_deps(ctx):
     return ctx.attr.srcs + ctx.attr.deps
@@ -532,8 +519,8 @@ def _create_transitive_linking_actions(
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         compilation_outputs = cc_compilation_outputs_with_only_objects,
-        grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
-        stamp = _is_stamping_enabled(ctx),
+        grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
+        stamp = cc_helper.is_stamping_enabled(ctx),
         additional_inputs = additional_linker_inputs,
         linking_contexts = [cc_linking_context],
         name = ctx.label.name,
@@ -582,9 +569,16 @@ def _malloc_for_target(ctx, cpp_config):
     return ctx.attr.malloc
 
 def _get_link_staticness(ctx, cpp_config):
+    linkstatic_attr = None
+    if hasattr(ctx.attr, "_linkstatic_explicitly_set") and not ctx.attr._linkstatic_explicitly_set:
+        # If we know that linkstatic is not explicitly set, use computed default:
+        linkstatic_attr = semantics.get_linkstatic_default(ctx)
+    else:
+        linkstatic_attr = ctx.attr.linkstatic
+
     if cpp_config.dynamic_mode() == "FULLY":
         return _LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic:
+    elif cpp_config.dynamic_mode() == "OFF" or linkstatic_attr:
         return _LINKING_STATIC
     else:
         return _LINKING_DYNAMIC
@@ -701,7 +695,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         copts_filter = common.copts_filter,
         srcs = common.srcs,
         compilation_contexts = compilation_context_deps,
-        grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
+        grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
         hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
     )
@@ -728,16 +722,16 @@ def cc_binary_impl(ctx, additional_linkopts):
     # cc_binary output, while DYNAMIC_LIBRARY is a cc_binary rules that produces an
     # output matching a shared object, for example cc_binary(name="foo.so", ...) on linux.
     cc_linking_outputs = None
-    if link_compile_output_separately and (len(cc_compilation_outputs.objects) != 0 or len(cc_compilation_outputs.pic_objects) != 0):
+    if link_compile_output_separately and not cc_helper.is_compilation_outputs_empty(cc_compilation_outputs):
         (linking_context, cc_linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
             compilation_outputs = cc_compilation_outputs,
             name = ctx.label.name,
-            grep_includes = _grep_includes_executable(ctx.attr._grep_includes),
+            grep_includes = cc_helper.grep_includes_executable(ctx.attr._grep_includes),
             linking_contexts = cc_helper.get_linking_contexts_from_deps([_malloc_for_target(ctx, cpp_config)]) + cc_helper.get_linking_contexts_from_deps(ctx.attr.deps),
-            stamp = _is_stamping_enabled(ctx),
+            stamp = cc_helper.is_stamping_enabled(ctx),
             alwayslink = True,
         )
 
@@ -987,9 +981,7 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
         exec_groups = {
             "cpp_link": exec_group(copy_from_rule = True),
         },
-        toolchains = [
-            "@" + semantics.get_repo() + "//tools/cpp:toolchain_type",
-        ],
+        toolchains = cc_helper.use_cpp_toolchain(),
         incompatible_use_toolchain_transition = True,
         executable = True,
         **kwargs

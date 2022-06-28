@@ -49,7 +49,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -163,7 +162,6 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
               /*analysisRuleLabel=*/ null,
               /*networkAllowlistForTests=*/ null)
@@ -182,7 +180,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               processWrapper,
               starlarkSemantics,
               repositoryRemoteExecutor,
-              syscallCache);
+              syscallCache,
+              directories.getWorkspace());
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets

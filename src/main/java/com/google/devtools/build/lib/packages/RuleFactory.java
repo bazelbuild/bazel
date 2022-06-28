@@ -91,7 +91,7 @@ public class RuleFactory {
     } catch (LabelSyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
-    boolean inWorkspaceFile = pkgBuilder.isWorkspace();
+    boolean inWorkspaceFile = pkgBuilder.isRepoRulePackage();
     if (ruleClass.getWorkspaceOnly() && !inWorkspaceFile) {
       throw new RuleFactory.InvalidRuleException(
           ruleClass + " must be in the WORKSPACE file " + "(used by " + label + ")");

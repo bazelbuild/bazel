@@ -39,7 +39,7 @@ public interface InMemoryGraph extends ProcessableGraph {
 
   @Override
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
-      @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys);
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 
   @Nullable
   @Override

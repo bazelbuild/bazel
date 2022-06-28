@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -36,7 +34,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       BuildConfigurationCollection configurations,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
+      @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable FailureDetail failureDetail,
       ImmutableSet<Artifact> artifactsToBuild,
@@ -44,8 +42,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       ImmutableSet<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     super(
         configurations,
         targetsToBuild,
@@ -60,7 +57,6 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
         topLevelContext,
         /*packageRoots=*/ null,
         workspaceName,
-        topLevelTargetsWithConfigs,
-        nonSymlinkedDirectoriesUnderExecRoot);
+        topLevelTargetsWithConfigs);
   }
 }

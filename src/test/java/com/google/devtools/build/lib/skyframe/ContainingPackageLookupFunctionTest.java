@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue.ContainingPackage;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue.NoContainingPackage;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -118,7 +119,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-            PackageFunction.IncrementalityIntent.INCREMENTAL,
+            GlobbingStrategy.SKYFRAME_HYBRID,
             k -> ThreadStateReceiver.NULL_INSTANCE));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
@@ -130,7 +131,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
+    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
@@ -163,7 +164,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
 
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
@@ -245,10 +245,10 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("a/b/BUILD");
     ContainingPackageLookupValue value =
         lookupContainingPackage(
-            PackageIdentifier.create(RepositoryName.create("@a"), PathFragment.create("b")));
+            PackageIdentifier.create(RepositoryName.create("a"), PathFragment.create("b")));
     assertThat(value.hasContainingPackage()).isTrue();
     assertThat(value.getContainingPackageName())
-        .isEqualTo(PackageIdentifier.create(RepositoryName.create("@a"), PathFragment.create("b")));
+        .isEqualTo(PackageIdentifier.create(RepositoryName.create("a"), PathFragment.create("b")));
   }
 
   @Test
@@ -260,7 +260,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
     assertThat(value.hasContainingPackage()).isTrue();
     assertThat(value.getContainingPackageName())
-        .isEqualTo(PackageIdentifier.create(RepositoryName.create("@a"), PathFragment.create("b")));
+        .isEqualTo(PackageIdentifier.create(RepositoryName.create("a"), PathFragment.create("b")));
   }
 
   @Test
@@ -292,7 +292,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   @Test
   public void testNonExistentExternalRepositoryErrorReason() throws Exception {
     PackageIdentifier identifier =
-        PackageIdentifier.create("@some_repo", PathFragment.create(":atarget"));
+        PackageIdentifier.create("some_repo", PathFragment.create(":atarget"));
     ContainingPackageLookupValue value = lookupContainingPackage(identifier);
     assertThat(value.hasContainingPackage()).isFalse();
     assertThat(value.getClass()).isEqualTo(NoContainingPackage.class);

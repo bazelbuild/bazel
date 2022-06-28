@@ -146,7 +146,6 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -156,14 +155,12 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -325,14 +322,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories);
-    ManagedDirectoriesKnowledge managedDirectoriesKnowledge = getManagedDirectoriesKnowledge();
-    if (managedDirectoriesKnowledge != null) {
-      builder.setRepositoryHelpersHolder(
-          SkyframeExecutorRepositoryHelpersHolder.create(
-              managedDirectoriesKnowledge,
-              new RepositoryDirectoryDirtinessChecker(
-                  directories.getWorkspace(), managedDirectoriesKnowledge)));
-    }
     skyframeExecutor = builder.build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory, directories);
@@ -423,10 +412,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredRuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
-  }
-
-  protected ManagedDirectoriesKnowledge getManagedDirectoriesKnowledge() {
-    return null;
   }
 
   protected final PackageFactory getPackageFactory() {
@@ -1118,6 +1103,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
       throws LabelSyntaxException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
+  }
+
+  /** Returns the configurations in which the given label has already been configured. */
+  protected Set<BuildConfigurationKey> getKnownConfigurations(String label) throws Exception {
+    Label parsed = Label.parseAbsoluteUnchecked(label);
+    Set<BuildConfigurationKey> cts = new HashSet<>();
+    for (Map.Entry<SkyKey, SkyValue> e :
+        skyframeExecutor.getEvaluator().getDoneValues().entrySet()) {
+      if (!(e.getKey() instanceof ConfiguredTargetKey)) {
+        continue;
+      }
+      ConfiguredTargetKey ctKey = (ConfiguredTargetKey) e.getKey();
+      if (parsed.equals(ctKey.getLabel())) {
+        cts.add(ctKey.getConfigurationKey());
+      }
+    }
+    return cts;
   }
 
   /**
@@ -2028,6 +2030,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     customLoadingOptions = Options.parse(LoadingOptions.class, options).getOptions();
   }
 
+  protected AnalysisResult update(String target, int loadingPhaseThreads, boolean doAnalysis)
+      throws Exception {
+    return update(
+        ImmutableList.of(target),
+        ImmutableList.of(),
+        /*keepGoing=*/ true, // value doesn't matter since we have only one target.
+        loadingPhaseThreads,
+        doAnalysis,
+        new EventBus());
+  }
+
   protected AnalysisResult update(
       List<String> targets,
       boolean keepGoing,
@@ -2213,11 +2226,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
       throw new UnsupportedOperationException();
     }
 

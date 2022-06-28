@@ -307,13 +307,13 @@ public class BuildRequestOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Comma-separated list of aspects to be applied to top-level targets. In the list, if"
-              + " aspect <code>some_aspect</code> specifies required aspect providers via"
-              + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
+              + " aspect some_aspect specifies required aspect providers via"
+              + " required_aspect_providers, some_aspect will run after"
               + " every aspect that was mentioned before it in the aspects list whose advertised"
-              + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
-              + " <code>some_aspect</code> will run after all its required aspects specified by"
-              + " <code>requires</code> attribute."
-              + " <code>some_aspect</code> will then have access to the values of those aspects'"
+              + " providers satisfy some_aspect required aspect providers. Moreover,"
+              + " some_aspect will run after all its required aspects specified by"
+              + " requires attribute."
+              + " some_aspect will then have access to the values of those aspects'"
               + " providers."
               + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
               + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
@@ -344,7 +344,7 @@ public class BuildRequestOptions extends OptionsBase {
   // To be made a no-op and deleted once new symlink behavior is battle-tested.
   @Option(
       name = "use_top_level_targets_for_symlinks",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -419,6 +419,16 @@ public class BuildRequestOptions extends OptionsBase {
       },
       help = "Whether to store output metadata in the action cache")
   public boolean actionCacheStoreOutputMetadata;
+
+  @Option(
+      name = "rewind_lost_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to use action rewinding to recover from lost inputs. Ignored unless"
+              + " prerequisites for rewinding are met (no incrementality, no action cache).")
+  public boolean rewindLostInputs;
 
   @Option(
       name = "discard_actions_after_execution",
@@ -536,6 +546,17 @@ public class BuildRequestOptions extends OptionsBase {
               + " Bazel's output base, unless it's an absolute path.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
+
+  @Option(
+      name = "experimental_use_event_based_build_completion_status",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      help =
+          "If this flag is set, use the event bus to keep track of whether a top-level target or"
+              + " its aspect is analyzed/built.")
+  public boolean useEventBasedBuildCompletionStatus;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -42,8 +41,6 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -52,8 +49,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,6 +62,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   /** Simple native test rule. */
   public static final class NativeTest implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext context)
         throws ActionConflictException, InterruptedException {
       Artifact executable = context.getBinArtifact(context.getLabel().getName());
@@ -865,24 +862,5 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     update("//test:starlark_dep");
     ConfiguredTarget top = getConfiguredTarget("//test:starlark_dep");
     assertThat(getConfiguration(top).hasFragment(TestConfiguration.class)).isTrue();
-  }
-
-  // Test Starlark API of AnalysisFailure{,Info}.
-  @Test
-  public void testAnalysisFailureInfo() throws Exception {
-    Label label = Label.create("test", "test");
-    AnalysisFailure failure = new AnalysisFailure(label, "ErrorMessage");
-    assertThat(getattr(failure, "label")).isSameInstanceAs(label);
-    assertThat(getattr(failure, "message")).isEqualTo("ErrorMessage");
-
-    AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(ImmutableList.of(failure));
-    // info.causes.to_list()[0] == failure
-    NestedSet<AnalysisFailure> causes =
-        Depset.cast(getattr(info, "causes"), AnalysisFailure.class, "causes");
-    assertThat(causes.toList().get(0)).isSameInstanceAs(failure);
-  }
-
-  private static Object getattr(Object x, String name) throws Exception {
-    return Starlark.getattr(/*mu=*/ null, StarlarkSemantics.DEFAULT, x, name, null);
   }
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -46,10 +47,15 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -57,6 +63,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -134,7 +141,7 @@ public final class AnalysisPhaseRunner {
         module.afterAnalysis(env, request, buildOptions, analysisResult);
       }
 
-      reportTargets(env, analysisResult);
+      reportTargets(env, analysisResult.getTargetsToBuild(), analysisResult.getTargetsToTest());
 
       for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
         BuildConfigurationValue config =
@@ -205,7 +212,7 @@ public final class AnalysisPhaseRunner {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
-    ImmutableSet<String> explicitTargetPatterns =
+    ImmutableSet<Label> explicitTargetPatterns =
         getExplicitTargetPatterns(env, request.getTargets());
 
     BuildView view =
@@ -234,7 +241,8 @@ public final class AnalysisPhaseRunner {
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
               /*includeExecutionPhase=*/ false,
-              /*mergedPhasesExecutionJobsCount=*/ 0);
+              /*mergedPhasesExecutionJobsCount=*/ 0,
+              /*resourceManager=*/ null);
     } catch (BuildFailedException | TestExecException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }
@@ -271,12 +279,42 @@ public final class AnalysisPhaseRunner {
                 analysisResult.getTargetsToTest(),
                 analysisResult.getTargetsToSkip(),
                 configurationMap));
+    postTopLevelStatusEvents(env, analysisResult, configurationMap);
+
     return analysisResult;
   }
 
-  private static void reportTargets(CommandEnvironment env, AnalysisResult analysisResult) {
-    Collection<ConfiguredTarget> targetsToBuild = analysisResult.getTargetsToBuild();
-    Collection<ConfiguredTarget> targetsToTest = analysisResult.getTargetsToTest();
+  /** Post the appropriate {@link com.google.devtools.build.lib.skyframe.TopLevelStatusEvents}. */
+  private static void postTopLevelStatusEvents(
+      CommandEnvironment env,
+      AnalysisResult analysisResult,
+      Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
+    for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
+      env.getEventBus().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
+      if (analysisResult.getTargetsToSkip().contains(configuredTarget)) {
+        env.getEventBus().post(TopLevelTargetSkippedEvent.create(configuredTarget));
+      }
+
+      if (analysisResult.getTargetsToTest() != null
+          && analysisResult.getTargetsToTest().contains(configuredTarget)) {
+        env.getEventBus()
+            .post(
+                TestAnalyzedEvent.create(
+                    configuredTarget,
+                    configurationMap.get(configuredTarget.getConfigurationKey()),
+                    /*isSkipped=*/ analysisResult.getTargetsToSkip().contains(configuredTarget)));
+      }
+    }
+
+    for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
+      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
+    }
+  }
+
+  static void reportTargets(
+      CommandEnvironment env,
+      Collection<ConfiguredTarget> targetsToBuild,
+      Collection<ConfiguredTarget> targetsToTest) {
     if (targetsToTest != null) {
       int testCount = targetsToTest.size();
       int targetCount = targetsToBuild.size() - testCount;
@@ -317,10 +355,10 @@ public final class AnalysisPhaseRunner {
    *     stringified labels are in the "unambiguous canonical form".
    * @throws ViewCreationFailedException if a pattern fails to parse for some reason.
    */
-  private static ImmutableSet<String> getExplicitTargetPatterns(
+  private static ImmutableSet<Label> getExplicitTargetPatterns(
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
-    ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
+    ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
     TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
@@ -344,7 +382,7 @@ public final class AnalysisPhaseRunner {
       }
 
       if (parsedPattern.getType() == TargetPattern.Type.SINGLE_TARGET) {
-        explicitTargetPatterns.add(parsedPattern.getSingleTargetPath());
+        explicitTargetPatterns.add(parsedPattern.getSingleTargetLabel());
       }
     }
 

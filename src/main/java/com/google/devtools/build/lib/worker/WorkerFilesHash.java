@@ -64,7 +64,8 @@ public class WorkerFilesHash {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(spawn.getToolFiles(), artifactExpander);
+        ActionInputHelper.expandArtifacts(
+            spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
     for (ActionInput tool : tools) {
       @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(tool);
       if (metadata == null) {

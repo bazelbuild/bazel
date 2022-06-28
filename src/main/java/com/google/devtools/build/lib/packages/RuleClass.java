@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -270,53 +269,19 @@ public class RuleClass {
     }
   }
 
-  /** Possible values for setting whether a rule uses the toolchain transition. */
-  public enum ToolchainTransitionMode {
-    /** The rule should use the toolchain transition. */
-    ENABLED,
-    /** The rule should not use the toolchain transition. */
-    DISABLED,
-    /** The rule should inherit the value from its parent rules. */
-    INHERIT;
-
-    /** Determine the correct value to use based on the current setting and the parent's value. */
-    ToolchainTransitionMode apply(String name, ToolchainTransitionMode parent) {
-      if (this == INHERIT) {
-        return parent;
-      } else if (parent == INHERIT) {
-        return this;
-      } else if (this != parent) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Rule %s has useToolchainTransition set to %s, but the parent is trying to set it"
-                    + " to %s",
-                name, this, parent));
-      }
-      return this;
-    }
-
-    boolean isActive() {
-      switch (this) {
-        case ENABLED:
-          return true;
-        case DISABLED:
-          return false;
-        default:
-      }
-      return false; // Default is that toolchain transition is disabled.
-    }
-  }
-
   /** A factory or builder class for rule implementations. */
   public interface ConfiguredTargetFactory<
       TConfiguredTarget, TContext, TActionConflictException extends Throwable> {
     /**
-     * Returns a fully initialized configured target instance using the given context.
+     * Returns a fully initialized configured target instance using the given context, or {@code
+     * null} on certain rule errors (typically if {@code ruleContext.hasErrors()} becomes {@code
+     * true} while trying to create the target).
      *
      * @throws RuleErrorException if configured target creation could not be completed due to rule
      *     errors
      * @throws TActionConflictException if there were conflicts during action registration
      */
+    @Nullable
     TConfiguredTarget create(TContext ruleContext)
         throws InterruptedException, RuleErrorException, TActionConflictException;
 
@@ -835,7 +800,6 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ToolchainResolutionMode useToolchainResolution = ToolchainResolutionMode.INHERIT;
-    private ToolchainTransitionMode useToolchainTransition = ToolchainTransitionMode.INHERIT;
     private final Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
@@ -873,8 +837,6 @@ public class RuleClass {
         addToolchainTypes(parent.getToolchainTypes());
         this.useToolchainResolution =
             this.useToolchainResolution.apply(name, parent.useToolchainResolution);
-        this.useToolchainTransition =
-            this.useToolchainTransition.apply(name, parent.useToolchainTransition);
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
           addExecGroups(parent.getExecGroups());
@@ -966,7 +928,6 @@ public class RuleClass {
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
         this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
-        this.useToolchainTransition(ToolchainTransitionMode.DISABLED);
       }
 
       return new RuleClass(
@@ -1001,7 +962,6 @@ public class RuleClass {
           thirdPartyLicenseExistencePolicy,
           toolchainTypes,
           useToolchainResolution,
-          useToolchainTransition,
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
@@ -1614,11 +1574,6 @@ public class RuleClass {
       return this;
     }
 
-    public Builder useToolchainTransition(ToolchainTransitionMode mode) {
-      this.useToolchainTransition = mode;
-      return this;
-    }
-
     /**
      * Adds additional execution platform constraints that apply for all targets from this rule.
      *
@@ -1772,7 +1727,6 @@ public class RuleClass {
 
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final ToolchainResolutionMode useToolchainResolution;
-  private final ToolchainTransitionMode useToolchainTransition;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
 
@@ -1829,7 +1783,6 @@ public class RuleClass {
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<ToolchainTypeRequirement> toolchainTypes,
       ToolchainResolutionMode useToolchainResolution,
-      ToolchainTransitionMode useToolchainTransition,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
@@ -1870,7 +1823,6 @@ public class RuleClass {
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
     this.useToolchainResolution = useToolchainResolution;
-    this.useToolchainTransition = useToolchainTransition;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
@@ -2169,10 +2121,9 @@ public class RuleClass {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             rule,
-            pkgBuilder.getRepositoryMapping(),
+            pkgBuilder.getLabelConverter(),
             attributeValues,
             pkgBuilder.getListInterner(),
-            pkgBuilder.getConvertedLabelsInPackage(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -2192,10 +2143,9 @@ public class RuleClass {
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
       Rule rule,
-      RepositoryMapping repositoryMapping,
+      LabelConverter labelConverter,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
-      Map<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2228,13 +2178,7 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(
-                  rule,
-                  attr,
-                  attributeValue,
-                  repositoryMapping,
-                  listInterner,
-                  convertedLabelsInPackage);
+              convertFromBuildLangType(rule, attr, attributeValue, labelConverter, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2530,18 +2474,15 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      RepositoryMapping repositoryMapping,
-      Interner<ImmutableList<?>> listInterner,
-      Map<String, Label> convertedLabelsInPackage)
+      LabelConverter labelConverter,
+      Interner<ImmutableList<?>> listInterner)
       throws ConversionException {
-    LabelConverter context =
-        new LabelConverter(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),
             buildLangValue,
             new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-            context);
+            labelConverter);
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(
@@ -2792,10 +2733,6 @@ public class RuleClass {
    */
   ToolchainResolutionMode useToolchainResolution() {
     return this.useToolchainResolution;
-  }
-
-  public boolean useToolchainTransition() {
-    return this.useToolchainTransition.isActive();
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {

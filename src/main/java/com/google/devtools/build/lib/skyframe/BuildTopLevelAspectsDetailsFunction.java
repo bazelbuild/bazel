@@ -154,7 +154,6 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     }
 
     try {
-        // Only use the parameters list if the experimental flag is used.
         aspectsList.validateTopLevelAspectsParameters(topLevelAspectsParameters);
         return aspectsList.buildAspects(topLevelAspectsParameters);
     } catch (EvalException e) {

@@ -44,6 +44,16 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+function has_iso_8859_1_locale() {
+  charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "ISO-8859-1" ]]
+}
+
+function has_utf8_locale() {
+  charmap="$(LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null)"
+  [[ "${charmap}" == "UTF-8" ]]
+}
+
 function assert_only_action_foo() {
   expect_log_n "^action '" 1 "Expected exactly one action."
   assert_contains "action.*foo" $1
@@ -1424,7 +1434,6 @@ EOF
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains "PYTHON_BINARY = '%python_binary%'" output
   assert_contains "{%python_binary%:" output
 
   bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
@@ -1553,6 +1562,138 @@ EOF
 
   # Verify the execution platform's exec_properties end up as execution requirements.
   assert_contains "ExecutionInfo: {prop1: foo, prop2: bar}" output
+}
+
+function test_unicode_text() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! "$is_windows"; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "mkdir -p ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = glob(["input-*.txt"]),
+    outs = ["output-ünïcödë.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  # ${pkg}/input-ünïcödë.txt
+  touch "${pkg}/"$'input-\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab.txt'
+
+  bazel aquery --output=text "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains 'Inputs: \[.*/input-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
+  assert_contains 'Outputs: \[.*/output-\\u00FCn\\u00EFc\\u00F6d\\u00EB.txt' output
+}
+
+function test_file_write() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/rule.bzl" <<'EOF'
+def _impl(ctx):
+    ctx.actions.write(content = "hello world", output = ctx.outputs.out)
+
+hello = rule(
+    implementation = _impl,
+    attrs = {
+    },
+    outputs = {"out": "%{name}.count"},
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":rule.bzl", "hello")
+
+hello(
+    name = 'bar',
+)
+EOF
+
+  bazel aquery --output=text --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "Mnemonic: FileWrite" output
+  # FileWrite contents is  base64-encoded 'hello world'
+  assert_contains "FileWriteContents: \[aGVsbG8gd29ybGQ=\]" output
+
+  bazel aquery --output=textproto --include_file_write_contents "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains 'file_contents: "hello world"' output
+}
+
+function test_source_symlink_manifest() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  touch "$pkg/foo.sh"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(name = "foo",
+          srcs = ["foo.sh"],
+)
+EOF
+  bazel aquery --output=textproto --include_file_write_contents \
+     "//$pkg:foo" >output 2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^file_contents:.*$pkg/foo.sh" output
+
+  bazel aquery --output=text --include_file_write_contents "//$pkg:foo" | \
+    sed -nr '/Mnemonic: SourceSymlinkManifest/,/^ *$/p' >output \
+      2> "$TEST_log" || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "^ *FileWriteContents: \[.*\]" output
+  # Verify file contents if we can decode base64-encoded data.
+  if which base64 >/dev/null; then
+    sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
+       sh | tee -a "$TEST_log"  | assert_contains "$pkg/foo\.sh" -
+  fi
+}
+
+# TODO(bazel-team): The non-text aquery output formats don't correctly handle
+# non-ASCII fields (input/output paths, environment variables, etc).
+function DISABLED_test_unicode_textproto() {
+  # Bazel relies on the JVM for filename encoding, and can only support
+  # UTF-8 if either a UTF-8 or ISO-8859-1 locale is available.
+  if ! "$is_windows"; then
+    if ! has_iso_8859_1_locale && ! has_utf8_locale; then
+      echo "Skipping test (no ISO-8859-1 or UTF-8 locale)."
+      echo "Available locales (need ISO-8859-1 or UTF-8):"
+      locale -a
+      return
+    fi
+  fi
+
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}" || fail "mkdir -p ${pkg}"
+  cat > "${pkg}/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = glob(["input-*.txt"]),
+    outs = ["output-ünïcödë.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  # ${pkg}/input-ünïcödë.txt
+  unicode=$'\xc3\xbcn\xc3\xafc\xc3\xb6d\xc3\xab'
+  touch "${pkg}/input-${unicode}.txt"
+
+  bazel aquery --output=textproto "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains 'label: "input-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
+  assert_contains 'label: "output-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
 }
 
 # Usage: assert_matches expected_pattern actual

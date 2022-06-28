@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
@@ -68,4 +70,20 @@ public interface JavaRuntimeInfoApi extends StructApi {
       doc = "Returns the files in the Java runtime.",
       structField = true)
   Depset starlarkJavaBaseInputs();
+
+  /** The files in the Java runtime needed for hermetic deployments. */
+  @StarlarkMethod(
+      name = "hermetic_files",
+      doc = "Returns the files in the Java runtime needed for hermetic deployments.",
+      structField = true)
+  Depset starlarkHermeticInputs();
+
+  /** The lib/modules file. */
+  @StarlarkMethod(
+      name = "lib_modules",
+      doc = "Returns the lib/modules file.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi libModules();
 }

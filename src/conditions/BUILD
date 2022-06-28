@@ -118,6 +118,10 @@ config_setting(
 
 config_setting(
     name = "darwin_arm64_flag",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
     values = {"cpu": "darwin_arm64"},
 )
 
@@ -188,6 +192,10 @@ config_setting(
 # Remove the flag after toolchain cc resolution is fixed
 config_setting(
     name = "windows_x64_arm64_flag",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
     values = {"cpu": "x64_arm64_windows"},
 )
 

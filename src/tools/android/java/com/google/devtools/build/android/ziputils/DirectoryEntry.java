@@ -122,9 +122,9 @@ public class DirectoryEntry extends View<DirectoryEntry> {
 
   private DirectoryEntry init(byte[] name, byte[] extra, byte[] comment, int size) {
     buffer.putInt(0, SIGNATURE);
-    set(CENNAM, (short) name.length);
-    set(CENEXT, (short) extra.length);
-    set(CENCOM, (short) comment.length);
+    set(CENNAM, name.length);
+    set(CENEXT, extra.length);
+    set(CENCOM, comment.length);
     buffer.position(SIZE);
     buffer.put(name);
     if (extra.length > 0) {
@@ -153,130 +153,114 @@ public class DirectoryEntry extends View<DirectoryEntry> {
   public static final int SIZE = 46;
 
   /**
-   * For accessing the directory entry signature, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the directory entry signature, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENSIG = new IntFieldId<>(0);
 
   /**
-   * For accessing the "made by version" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "made by version" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENVEM = new ShortFieldId<>(4);
 
   /**
-   * For accessing the "version needed" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "version needed" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENVER = new ShortFieldId<>(6);
 
   /**
-   * For accessing the "flags" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "flags" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENFLG = new ShortFieldId<>(8);
 
   /**
-   * For accessing the "method" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "method" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENHOW = new ShortFieldId<>(10);
 
   /**
-   * For accessing the "modified time" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "modified time" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENTIM = new IntFieldId<>(12);
 
   /**
-   * For accessing the "crc" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "crc" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENCRC = new IntFieldId<>(16);
 
   /**
-   * For accessing the "compressed size" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "compressed size" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENSIZ = new IntFieldId<>(20);
 
   /**
-   * For accessing the "uncompressed size" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "uncompressed size" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENLEN = new IntFieldId<>(24);
 
   /**
-   * For accessing the "filename length" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "filename length" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENNAM = new ShortFieldId<>(28);
 
   /**
-   * For accessing the "extra data length" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "extra data length" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENEXT = new ShortFieldId<>(30);
 
   /**
-   * For accessing the "file comment length" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "file comment length" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENCOM = new ShortFieldId<>(32);
 
   /**
-   * For accessing the "disk number" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "disk number" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENDSK = new ShortFieldId<>(34);
 
   /**
-   * For accessing the "internal attributes" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, short)}
-   * methods.
+   * For accessing the "internal attributes" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.ShortFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.ShortFieldId, int)} methods.
    */
   public static final ShortFieldId<DirectoryEntry> CENATT = new ShortFieldId<>(36);
 
   /**
-   * For accessing the "external attributes" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "external attributes" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENATX = new IntFieldId<>(38);
 
   /**
-   * For accessing the "local file header offset" directory entry field, with the
-   * {@link View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)}
-   * and {@link View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, int)}
-   * methods.
+   * For accessing the "local file header offset" directory entry field, with the {@link
+   * View#get(com.google.devtools.build.android.ziputils.View.IntFieldId)} and {@link
+   * View#set(com.google.devtools.build.android.ziputils.View.IntFieldId, long)} methods.
    */
   public static final IntFieldId<DirectoryEntry> CENOFF = new IntFieldId<>(42);
 
@@ -306,11 +290,12 @@ public class DirectoryEntry extends View<DirectoryEntry> {
   /**
    * Returns entry data size, based on directory entry information. For a valid zip file, this will
    * be the correct size of of the entry data.
-   * @return if the {@link #CENHOW} field is 0, returns the value of the
-   * {@link #CENLEN} field (uncompressed size), otherwise returns the value of
-   * the {@link #CENSIZ} field (compressed size).
+   *
+   * @return if the {@link #CENHOW} field is 0, returns the value of the {@link #CENLEN} field
+   *     (uncompressed size), otherwise returns the value of the {@link #CENSIZ} field (compressed
+   *     size).
    */
-  public int dataSize() {
+  public long dataSize() {
     return get(CENHOW) == 0 ? get(CENLEN) : get(CENSIZ);
   }
 }

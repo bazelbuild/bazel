@@ -30,24 +30,6 @@ filegroup(
     ],
 )
 
-# TODO: Remove after migrating non-third-party imports to use `third_party/grpc-java` directly.
-alias(
-   name = "bootstrap-grpc-jars",
-   actual = "//third_party/grpc-java:bootstrap-grpc-jars",
-)
-
-# TODO: Remove after migrating non-third-party imports to use `third_party/grpc-java` directly.
-alias(
-   name = "grpc-jar",
-   actual = "//third_party/grpc-java:grpc-jar",
-)
-
-# TODO: Remove after migrating non-third-party imports to use `third_party/grpc-java` directly.
-alias(
-   name = "grpc-java-plugin",
-   actual = "//third_party/grpc-java:grpc-java-plugin",
-)
-
 alias(
     name = "cpp_plugin",
     actual = select({

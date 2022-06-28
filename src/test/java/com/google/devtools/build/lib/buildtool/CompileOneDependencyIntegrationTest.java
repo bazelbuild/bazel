@@ -39,7 +39,6 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
     addOptions("--compile_one_dependency");
     // Make build super minimal.
     addOptions("--nobuild_runfile_links");
-
     write("package/BUILD", "py_binary(name='foo', srcs=['foo.py'])");
     write("package/foo.py");
     buildTarget("package/foo.py");

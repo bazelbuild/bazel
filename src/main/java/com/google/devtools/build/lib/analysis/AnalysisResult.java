@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,7 +30,7 @@ import javax.annotation.Nullable;
 public class AnalysisResult {
   private final BuildConfigurationCollection configurations;
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
-  @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
+  @Nullable private final ImmutableSet<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final FailureDetail failureDetail;
   private final ActionGraph actionGraph;
@@ -44,13 +42,12 @@ public class AnalysisResult {
   private final PackageRoots packageRoots;
   private final String workspaceName;
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
-  private final ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot;
 
   AnalysisResult(
       BuildConfigurationCollection configurations,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
+      @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable FailureDetail failureDetail,
       ActionGraph actionGraph,
@@ -60,8 +57,7 @@ public class AnalysisResult {
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      ImmutableSortedSet<String> nonSymlinkedDirectoriesUnderExecRoot) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configurations = configurations;
     this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
@@ -76,7 +72,6 @@ public class AnalysisResult {
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
-    this.nonSymlinkedDirectoriesUnderExecRoot = nonSymlinkedDirectoriesUnderExecRoot;
   }
 
   public BuildConfigurationCollection getConfigurationCollection() {
@@ -105,7 +100,7 @@ public class AnalysisResult {
    * (e.g. "build" command rather than "test" command).
    */
   @Nullable
-  public ImmutableList<ConfiguredTarget> getTargetsToTest() {
+  public ImmutableSet<ConfiguredTarget> getTargetsToTest() {
     return targetsToTest;
   }
 
@@ -160,10 +155,6 @@ public class AnalysisResult {
     return topLevelTargetsWithConfigs;
   }
 
-  public ImmutableSortedSet<String> getNonSymlinkedDirectoriesUnderExecRoot() {
-    return nonSymlinkedDirectoriesUnderExecRoot;
-  }
-
   /**
    * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
    * tests.
@@ -183,7 +174,6 @@ public class AnalysisResult {
         topLevelContext,
         packageRoots,
         workspaceName,
-        topLevelTargetsWithConfigs,
-        nonSymlinkedDirectoriesUnderExecRoot);
+        topLevelTargetsWithConfigs);
   }
 }

@@ -120,6 +120,7 @@ public class ParallelEvaluatorTest {
     return new ParallelEvaluator(
         graph,
         oldGraphVersion,
+        MinimalVersion.INSTANCE,
         builders,
         storedEventHandler,
         new MemoizingEvaluator.EmittedEventState(),
@@ -728,7 +729,7 @@ public class ParallelEvaluatorTest {
             /*keepGoing=*/ false,
             new EventFilter() {
               @Override
-              public boolean apply(Event event) {
+              public boolean test(Event event) {
                 return event.getKind() == EventKind.ERROR;
               }
 
@@ -3118,6 +3119,7 @@ public class ParallelEvaluatorTest {
         new ParallelEvaluator(
             graph,
             graphVersion,
+            MinimalVersion.INSTANCE,
             tester.getSkyFunctionMap(),
             storedEventHandler,
             new MemoizingEvaluator.EmittedEventState(),

@@ -184,7 +184,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private final ProjectFile.Provider projectFileProvider;
   private final QueryRuntimeHelper.Factory queryRuntimeHelperFactory;
-  @Nullable private final InvocationPolicy moduleInvocationPolicy;
+  private final InvocationPolicy moduleInvocationPolicy;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final BugReporter bugReporter;
   private final String productName;
@@ -300,7 +300,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  @Nullable
   public InvocationPolicy getModuleInvocationPolicy() {
     return moduleInvocationPolicy;
   }

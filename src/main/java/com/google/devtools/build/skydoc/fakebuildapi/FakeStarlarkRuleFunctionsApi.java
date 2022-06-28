@@ -196,6 +196,8 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       boolean useToolchainTransition,
       String doc,
       Boolean applyToFiles,
+      Sequence<?> execCompatibleWith,
+      Object execGroups,
       StarlarkThread thread)
       throws EvalException {
     FakeStarlarkAspect fakeAspect = new FakeStarlarkAspect();

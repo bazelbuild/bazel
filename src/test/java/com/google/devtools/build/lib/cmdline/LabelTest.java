@@ -54,50 +54,22 @@ public class LabelTest {
     }
     {
       Label l = Label.parseAbsolute("@foo", ImmutableMap.of());
-      assertThat(l.getRepository().getName()).isEqualTo("@foo");
+      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
     }
     {
       Label l = Label.parseAbsolute("//@foo", ImmutableMap.of());
-      assertThat(l.getRepository().getName()).isEqualTo("@");
+      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("@foo");
       assertThat(l.getName()).isEqualTo("@foo");
     }
     {
       Label l = Label.parseAbsolute("//xyz/@foo:abc", ImmutableMap.of());
-      assertThat(l.getRepository().getName()).isEqualTo("@");
+      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
       assertThat(l.getName()).isEqualTo("abc");
     }
-  }
-
-  private static String parseCommandLine(String label, String prefix) throws LabelSyntaxException {
-    return Label.parseCommandLineLabel(label, PathFragment.create(prefix)).toString();
-  }
-
-  @Test
-  public void testLabelResolution() throws Exception {
-    assertThat(parseCommandLine("//absolute:label", "")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("//absolute:label", "absolute")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine(":label", "absolute")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("label", "absolute")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("absolute:label", "")).isEqualTo("//absolute:label");
-    assertThat(parseCommandLine("path:label", "absolute")).isEqualTo("//absolute/path:label");
-    assertThat(parseCommandLine("path:label/path", "absolute"))
-        .isEqualTo("//absolute/path:label/path");
-    assertThat(parseCommandLine("label/path", "absolute")).isEqualTo("//absolute:label/path");
-  }
-
-  @Test
-  public void testLabelResolutionAbsolutePath() throws Exception {
-    assertThrows(
-        IllegalArgumentException.class, () -> parseCommandLine("//absolute:label", "/absolute"));
-  }
-
-  @Test
-  public void testLabelResolutionBadSyntax() throws Exception {
-    assertThrows(LabelSyntaxException.class, () -> parseCommandLine("//absolute:A+bad:syntax", ""));
   }
 
   @Test
@@ -133,22 +105,22 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithDifferentRepo() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelativeWithRemapping("@remote//x:y", ImmutableMap.of());
 
-    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("@remote"));
+    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("remote"));
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
   }
 
   @Test
   public void testGetRelativeWithoutRemappingBaseLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@a", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("a", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
-        ImmutableMap.of(RepositoryName.create("@a"), RepositoryName.create("@b"));
+    ImmutableMap<String, RepositoryName> repoMapping =
+        ImmutableMap.of("a", RepositoryName.create("b"));
     Label relative = base.getRelativeWithRemapping(":y", repoMapping);
 
     // getRelative should only remap repositories passed in the string arg and not
@@ -159,10 +131,10 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithDifferentRepoAndRemapping() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
-        ImmutableMap.of(RepositoryName.create("@a"), RepositoryName.create("@b"));
+    ImmutableMap<String, RepositoryName> repoMapping =
+        ImmutableMap.of("a", RepositoryName.create("b"));
     Label relative = base.getRelativeWithRemapping("@a//x:y", repoMapping);
 
     Label actual = Label.parseAbsoluteUnchecked("@b//x:y");
@@ -171,7 +143,7 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithRepoLocalAbsoluteLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelativeWithRemapping("//x:y", ImmutableMap.of());
@@ -183,7 +155,7 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithLocalRepoRelativeLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelativeWithRemapping(":y", ImmutableMap.of());
@@ -195,12 +167,13 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithRepoAndReservedPackage() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative =
         base.getRelativeWithRemapping(
-            "//conditions:default", RepositoryMapping.create(ImmutableMap.of(), "repo"));
+            "//conditions:default",
+            RepositoryMapping.create(ImmutableMap.of(), RepositoryName.create("repo")));
 
     PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
     assertThat(relative.getRepository()).isEqualTo(expected.getRepository());
@@ -210,12 +183,12 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithRemoteRepoToDefaultRepo() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelativeWithRemapping("@//x:y", ImmutableMap.of());
 
-    assertThat(relative.getRepository()).isEqualTo(RepositoryName.create("@"));
+    assertThat(relative.getRepository()).isEqualTo(RepositoryName.MAIN);
     assertThat(relative.getPackageFragment()).isEqualTo(PathFragment.create("x"));
     assertThat(relative.getName()).isEqualTo("y");
   }
@@ -422,7 +395,7 @@ public class LabelTest {
             LabelSyntaxException.class, () -> Label.parseAbsolute("@foo:xyz", ImmutableMap.of()));
     assertThat(e)
         .hasMessageThat()
-        .containsMatch("invalid repository name '@foo:xyz': workspace names may contain only");
+        .containsMatch("invalid repository name '@foo:xyz': repo names may contain only");
   }
 
   @Test

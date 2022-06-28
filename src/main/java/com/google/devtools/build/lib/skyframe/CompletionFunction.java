@@ -314,6 +314,7 @@ public final class CompletionFunction<
     }
     env.getListener().post(postable);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
+
     return completor.getResult();
   }
 

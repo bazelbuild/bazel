@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -390,21 +391,6 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Adds headers that are compiled into a separate module (when using C++ modules). The idea here
-   * is that a single (generated) library might want to create headers of very different transitive
-   * dependency size. In this case, building headers with very few transitive dependencies into a
-   * separate module can drastrically improve build performance of that module and its users.
-   *
-   * <p>Headers in this separate module must not include any of the regular headers.
-   *
-   * <p>THIS IS AN EXPERIMENTAL FACILITY THAT MIGHT GO AWAY.
-   */
-  public CcCompilationHelper addSeparateModuleHeaders(Collection<Artifact> headers) {
-    separateModuleHeaders.addAll(headers);
-    return this;
-  }
-
-  /**
    * Adds {@code headers} as public header files. These files will be made visible to dependent
    * rules. They may be parsed/preprocessed or compiled into a header module depending on the
    * configuration.
@@ -423,6 +409,21 @@ public final class CcCompilationHelper {
     for (Pair<Artifact, Label> header : headers) {
       addHeader(header.first, header.second);
     }
+    return this;
+  }
+
+  /**
+   * Adds headers that are compiled into a separate module (when using C++ modules). The idea here
+   * is that a single (generated) library might want to create headers of very different transitive
+   * dependency size. In this case, building headers with very few transitive dependencies into a
+   * separate module can drastrically improve build performance of that module and its users.
+   *
+   * <p>Headers in this separate module must not include any of the regular headers.
+   *
+   * <p>THIS IS AN EXPERIMENTAL FACILITY THAT MIGHT GO AWAY.
+   */
+  public CcCompilationHelper addSeparateModuleHeaders(Collection<Artifact> headers) {
+    separateModuleHeaders.addAll(headers);
     return this;
   }
 
@@ -982,7 +983,8 @@ public final class CcCompilationHelper {
                 actionConstructionContext.getActionOwner(),
                 originalHeader,
                 virtualHeader,
-                "Symlinking virtual headers for " + label));
+                "Symlinking virtual headers for " + label,
+                /*useExecRootForSource=*/ true));
         moduleHeadersBuilder.add(virtualHeader);
         if (configuration.isCodeCoverageEnabled()) {
           virtualToOriginalHeaders.add(
@@ -1551,8 +1553,8 @@ public final class CcCompilationHelper {
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(
             actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // Dotd file output is specified in the execution phase.
-    builder.setOutputs(outputFiles, /* dotdFile= */ null);
+    // Dotd and dia file outputs are specified in the execution phase.
+    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
             builder,
@@ -1574,11 +1576,18 @@ public final class CcCompilationHelper {
           CppHelper.getDotdOutputTreeArtifact(
               actionConstructionContext, label, sourceArtifact, outputName, usePic);
     }
+    SpecialArtifact diagnosticsTreeArtifact = null;
+    if (builder.serializedDiagnosticsFilesEnabled()) {
+      diagnosticsTreeArtifact =
+          CppHelper.getDiagnosticsOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
             dotdTreeArtifact,
+            diagnosticsTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,
@@ -1593,7 +1602,7 @@ public final class CcCompilationHelper {
    * into account.
    */
   public static ImmutableList<String> getCoptsFromOptions(
-      CppConfiguration config, String sourceFilename) {
+      CppConfiguration config, CppSemantics semantics, String sourceFilename) {
     ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
 
     flagsBuilder.addAll(config.getCopts());
@@ -1609,12 +1618,20 @@ public final class CcCompilationHelper {
       flagsBuilder.addAll(config.getCxxopts());
     }
 
+    if (CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
+        || (CppFileTypes.CPP_HEADER.matches(sourceFilename)
+            && semantics.language() == Language.OBJC)) {
+      flagsBuilder.addAll(config.getObjcopts());
+    }
+
     return flagsBuilder.build();
   }
 
   private ImmutableList<String> getCopts(Artifact sourceFile, Label sourceLabel) {
     ImmutableList.Builder<String> coptsList = ImmutableList.builder();
-    coptsList.addAll(getCoptsFromOptions(cppConfiguration, sourceFile.getExecPathString()));
+    coptsList.addAll(
+        getCoptsFromOptions(cppConfiguration, semantics, sourceFile.getExecPathString()));
     coptsList.addAll(copts);
     if (sourceFile != null && sourceLabel != null) {
       coptsList.addAll(collectPerFileCopts(sourceFile, sourceLabel));
@@ -1637,6 +1654,10 @@ public final class CcCompilationHelper {
     String dotdFileExecPath = null;
     if (builder.getDotdFile() != null) {
       dotdFileExecPath = builder.getDotdFile().getExecPathString();
+    }
+    String diagnosticsFileExecPath = null;
+    if (builder.getDiagnosticsFile() != null) {
+      diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
     }
     if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
@@ -1713,6 +1734,7 @@ public final class CcCompilationHelper {
         /* thinLtoOutputObjectFile= */ null,
         getCopts(builder.getSourceFile(), sourceLabel),
         dotdFileExecPath,
+        diagnosticsFileExecPath,
         usePic,
         ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);

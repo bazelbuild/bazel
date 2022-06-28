@@ -77,7 +77,7 @@ public class WorkerModule extends BlazeModule {
    */
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    WorkerOptions options = event.getRequest().getOptions(WorkerOptions.class);
+    WorkerOptions options = event.request().getOptions(WorkerOptions.class);
     if (workerFactory != null) {
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
     }
@@ -160,7 +160,6 @@ public class WorkerModule extends BlazeModule {
             RunfilesTreeUpdater.INSTANCE,
             env.getOptions().getOptions(WorkerOptions.class),
             env.getEventBus(),
-            Runtime.getRuntime(),
             env.getXattrProvider());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));

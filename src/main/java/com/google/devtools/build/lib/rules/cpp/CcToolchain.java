@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.io.Serializable;
 import java.util.HashMap;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -59,6 +60,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       Label.parseAbsoluteUnchecked(LOOSE_HEADER_CHECK_TARGET);
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     validateToolchain(ruleContext);

@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
@@ -41,10 +42,10 @@ public abstract class GitOverride implements NonRegistryOverride {
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
-  public RepoSpec getRepoSpec(String repoName) {
+  public RepoSpec getRepoSpec(RepositoryName repoName) {
     ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
     attrBuilder
-        .put("name", repoName)
+        .put("name", repoName.getName())
         .put("remote", getRemote())
         .put("commit", getCommit())
         .put("patches", getPatches())

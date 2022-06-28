@@ -85,12 +85,12 @@ public class BaseSpawn implements Spawn {
       return environment;
     } else {
       ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-      env.putAll(environment);
       // TODO(bazel-team): Unify these into a single env variable.
       String runfilesRootString = runfilesRoot.getPathString();
       env.put("JAVA_RUNFILES", runfilesRootString);
       env.put("PYTHON_RUNFILES", runfilesRootString);
-      return env.buildOrThrow();
+      env.putAll(environment);
+      return env.buildKeepingLast();
     }
   }
 

@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -54,7 +56,6 @@ import net.starlark.java.syntax.Location;
  * and returns the generated repos.
  */
 public class SingleExtensionEvalFunction implements SkyFunction {
-  private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final DownloadManager downloadManager;
@@ -64,11 +65,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor = null;
 
   public SingleExtensionEvalFunction(
-      PackageFactory packageFactory,
       BlazeDirectories directories,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       DownloadManager downloadManager) {
-    this.packageFactory = packageFactory;
     this.directories = directories;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.downloadManager = downloadManager;
@@ -155,7 +154,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
             usagesValue.getExtensionUniqueName() + ".",
-            packageFactory,
+            extensionId.getBzlFileLabel().getPackageIdentifier(),
+            BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             directories,
             env.getListener());
     try (Mutability mu =
@@ -191,8 +191,24 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    // TODO(wyv): check that all used repos have been generated (for better error reporting). Or...
-    //   somehow check it at use time?
+    // Check that all imported repos have been actually generated
+    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
+      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
+        if (!threadContext.getGeneratedRepos().containsKey(repoImport.getValue())) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
+                      + " is imported as \"%s\" in the usage at %s",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  repoImport.getValue(),
+                  repoImport.getKey(),
+                  usage.getLocation()),
+              Transience.PERSISTENT);
+        }
+      }
+    }
 
     return SingleExtensionEvalValue.create(threadContext.getGeneratedRepos());
   }

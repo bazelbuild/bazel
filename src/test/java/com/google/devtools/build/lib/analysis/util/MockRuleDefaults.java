@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import javax.annotation.Nullable;
 
 /**
  * Default behaviors for {@link MockRule}.
@@ -81,6 +82,7 @@ public class MockRuleDefaults {
    * */
   public static class DefaultConfiguredTargetFactory implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       NestedSet<Artifact> filesToBuild =

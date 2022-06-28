@@ -135,8 +135,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     CommandAction action = (CommandAction) lipoLibAction("//x:x");
-    String i386Lib = "x/x-ios_i386-fl.a";
-    String x8664Lib = "x/x-ios_x86_64-fl.a";
+    String i386Lib = "x/x-i386-apple-ios-fl.a";
+    String x8664Lib = "x/x-x86_64-apple-ios-fl.a";
 
     assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAtLeast(i386Lib, x8664Lib);
 
@@ -169,7 +169,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//package:test");
 
-    String i386Bin = "i386-fl.a";
+    String i386Bin = "i386-apple-watchos-fl.a";
     Artifact libArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(libArtifact);
     CommandAction objcLibCompileAction =
@@ -199,11 +199,13 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     CommandAction i386BinAction =
         (CommandAction)
-            getGeneratingAction(getFirstArtifactEndingWith(action.getInputs(), "i386-fl.a"));
+            getGeneratingAction(
+                getFirstArtifactEndingWith(action.getInputs(), "i386-apple-ios-fl.a"));
 
     CommandAction x8664BinAction =
         (CommandAction)
-            getGeneratingAction(getFirstArtifactEndingWith(action.getInputs(), "x86_64-fl.a"));
+            getGeneratingAction(
+                getFirstArtifactEndingWith(action.getInputs(), "x86_64-apple-ios-fl.a"));
 
     assertThat(removeConfigFragment(Artifact.asExecPaths(i386BinAction.getInputs())))
         .contains(removeConfigFragment(i386Prefix + "package/libcclib.a"));
@@ -219,8 +221,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--ios_multi_cpus=x86_64", "--ios_cpu=x86_64", "--watchos_cpus=i386,armv7k");
 
     CommandAction action = (CommandAction) lipoLibAction("//x:x");
-    String i386Bin = "x/x-watchos_i386-fl.a";
-    String armv7kBin = "x/x-watchos_armv7k-fl.a";
+    String i386Bin = "x/x-i386-apple-watchos-fl.a";
+    String armv7kBin = "x/x-armv7k-apple-watchos-fl.a";
 
     assertThat(Artifact.toRootRelativePaths(action.getInputs()))
         .containsAtLeast(i386Bin, armv7kBin);
@@ -339,7 +341,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//x:x");
 
-    String i386Lib = "i386-fl.a";
+    String i386Lib = "i386-apple-watchos-fl.a";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Lib);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -353,7 +355,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//x:x");
 
-    String armv7kLib = "armv7k-fl.a";
+    String armv7kLib = "armv7k-apple-watchos-fl.a";
     Artifact libArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7kLib);
     CommandAction linkAction = (CommandAction) getGeneratingAction(libArtifact);
 
@@ -386,7 +388,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//package:test");
 
-    String i386Bin = "i386-fl.a";
+    String i386Bin = "i386-apple-watchos-fl.a";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -688,7 +690,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     for (String cpu : cpus) {
       CommandAction action =
           (CommandAction)
-              actionProducingArtifact("//package:main_library", String.format("-ios_%s-fl.a", cpu));
+              actionProducingArtifact(
+                  "//package:main_library", String.format("-%s-apple-ios-fl.a", cpu));
       assertThat(action.getArguments()).containsAtLeast("-arch_only", cpu).inOrder();
     }
   }

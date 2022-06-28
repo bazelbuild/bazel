@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -172,6 +172,7 @@ public final class CppConfiguration extends Fragment
 
   private final ImmutableList<String> copts;
   private final ImmutableList<String> cxxopts;
+  private final ImmutableList<String> objcopts;
 
   private final ImmutableList<String> linkopts;
   private final ImmutableList<String> ltoindexOptions;
@@ -278,6 +279,7 @@ public final class CppConfiguration extends Fragment
     this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
     this.copts = ImmutableList.copyOf(cppOptions.coptList);
     this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
+    this.objcopts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.linkopts = linkoptsBuilder.build();
     this.ltoindexOptions = ImmutableList.copyOf(cppOptions.ltoindexoptList);
     this.ltobackendOptions = ImmutableList.copyOf(cppOptions.ltobackendoptList);
@@ -538,6 +540,12 @@ public final class CppConfiguration extends Fragment
   @Override
   public ImmutableList<String> getConlyopts() {
     return conlyopts;
+  }
+
+  /** Returns flags passed to Bazel by --objccopt option. */
+  @Override
+  public ImmutableList<String> getObjcopts() {
+    return objcopts;
   }
 
   /** Returns flags passed to Bazel by --linkopt option. */
@@ -859,6 +867,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcGenerateDotdFiles;
   }
 
+  @Override
+  public boolean objcGenerateLinkmap() {
+    return cppOptions.objcGenerateLinkmap;
+  }
+
+  public boolean objcEnableBinaryStripping() {
+    return cppOptions.objcEnableBinaryStripping;
+  }
+
   @StarlarkMethod(
       name = "experimental_cc_interface_deps",
       documented = false,
@@ -966,5 +983,10 @@ public final class CppConfiguration extends Fragment
   @Override
   public AppleBitcodeMode getAppleBitcodeMode() {
     return appleBitcodeMode;
+  }
+
+  @Override
+  public boolean objcShouldStripBinary() {
+    return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
   }
 }

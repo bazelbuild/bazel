@@ -289,10 +289,6 @@ public class GlobCache {
     finishBackgroundTasks(globCache.values());
   }
 
-  public void cancelBackgroundTasks() {
-    cancelBackgroundTasks(globCache.values());
-  }
-
   private static void finishBackgroundTasks(Collection<Future<List<Path>>> tasks) {
     for (Future<List<Path>> task : tasks) {
       try {
@@ -302,6 +298,10 @@ public class GlobCache {
         // failure already occurred.
       }
     }
+  }
+
+  public void cancelBackgroundTasks() {
+    cancelBackgroundTasks(globCache.values());
   }
 
   private static void cancelBackgroundTasks(Collection<Future<List<Path>>> tasks) {

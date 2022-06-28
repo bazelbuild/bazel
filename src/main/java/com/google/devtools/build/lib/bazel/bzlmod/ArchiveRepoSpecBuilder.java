@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -30,41 +31,49 @@ public class ArchiveRepoSpecBuilder {
     attrBuilder = new ImmutableMap.Builder<>();
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRepoName(String repoName) {
     attrBuilder.put("name", repoName);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setUrls(ImmutableList<String> urls) {
     attrBuilder.put("urls", urls);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setIntegrity(String integrity) {
     attrBuilder.put("integrity", integrity);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setStripPrefix(String stripPrefix) {
     attrBuilder.put("strip_prefix", stripPrefix);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setPatches(ImmutableList<String> patches) {
     attrBuilder.put("patches", patches);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setPatchStrip(int patchStrip) {
     attrBuilder.put("patch_args", ImmutableList.of("-p" + patchStrip));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
     attrBuilder.put("remote_patches", remotePatches);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatchStrip(int remotePatchStrip) {
     attrBuilder.put("remote_patch_strip", StarlarkInt.of(remotePatchStrip));
     return this;

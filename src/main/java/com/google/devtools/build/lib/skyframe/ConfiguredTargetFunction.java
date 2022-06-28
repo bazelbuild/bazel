@@ -102,6 +102,7 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -248,6 +249,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     State state = env.getState(() -> new State(storeTransitivePackagesForPackageRootResolution));
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
+      // Fetching blocks on other resources, so we don't want to hold on to the semaphore meanwhile.
       env =
           new StateInformingSkyFunctionEnvironment(
               env,
@@ -346,8 +348,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
-              DependencyResolver.shouldUseToolchainTransition(
-                  targetAndConfiguration.getConfiguration(), targetAndConfiguration.getTarget()),
               ruleClassProvider,
               view.getHostConfiguration());
       if (!state.transitiveRootCauses.isEmpty()) {
@@ -533,13 +533,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ExecGroupCollection.emptyBuilder();
   }
 
-  /**
-   * Returns the toolchain context and exec group collection for this target. The toolchain context
-   * may be {@code null} if the target doesn't use toolchains.
-   *
-   * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
-   * to check the result is valid.
-   */
   @VisibleForTesting
   @Nullable
   public static ComputedToolchainContexts computeUnloadedToolchainContexts(
@@ -548,9 +541,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       TargetAndConfiguration targetAndConfig,
       @Nullable Label parentExecutionPlatformLabel)
       throws InterruptedException, ToolchainException {
+
+    // We can only perform toolchain resolution on Targets and Aspects.
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
       return new ComputedToolchainContexts();
     }
+
+    Label label = targetAndConfig.getLabel();
     Rule rule = ((Rule) targetAndConfig.getTarget());
     BuildConfigurationValue configuration = targetAndConfig.getConfiguration();
 
@@ -560,23 +557,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     ImmutableSet<Label> defaultExecConstraintLabels =
         getExecutionPlatformConstraints(
             rule, configuration.getFragment(PlatformConfiguration.class));
-
-    // Create a merged version of the exec groups that handles exec group inheritance properly.
-    ExecGroup defaultExecGroup =
-        ExecGroup.builder()
-            .toolchainTypes(toolchainTypes)
-            .execCompatibleWith(defaultExecConstraintLabels)
-            .copyFrom(null)
-            .build();
-    ExecGroupCollection.Builder execGroupCollectionBuilder =
-        ExecGroupCollection.builder(defaultExecGroup, rule.getRuleClassObject().getExecGroups());
-
-    // Short circuit and end now if this target doesn't require toolchain resolution.
-    if (!rule.useToolchainResolution()) {
-      ComputedToolchainContexts result = new ComputedToolchainContexts();
-      result.execGroupCollectionBuilder = execGroupCollectionBuilder;
-      return result;
-    }
+    ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
 
     // The toolchain context's options are the parent rule's options with manual trimming
     // auto-applied. This means toolchains don't inherit feature flags. This helps build
@@ -611,18 +592,64 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     BuildConfigurationKey toolchainConfig =
         BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
 
+    return computeUnloadedToolchainContexts(
+        env,
+        label,
+        rule.useToolchainResolution(),
+        l -> configuration.getFragment(PlatformConfiguration.class).debugToolchainResolution(l),
+        toolchainConfig,
+        toolchainTypes,
+        defaultExecConstraintLabels,
+        execGroups,
+        parentExecutionPlatformLabel);
+  }
+
+  /**
+   * Returns the toolchain context and exec group collection for this target. The toolchain context
+   * may be {@code null} if the target doesn't use toolchains.
+   *
+   * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
+   * to check the result is valid.
+   */
+  @Nullable
+  static ComputedToolchainContexts computeUnloadedToolchainContexts(
+      Environment env,
+      Label label,
+      boolean useToolchainResolution,
+      Predicate<Label> debugResolution,
+      BuildConfigurationKey configurationKey,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
+      ImmutableSet<Label> defaultExecConstraintLabels,
+      ImmutableMap<String, ExecGroup> execGroups,
+      @Nullable Label parentExecutionPlatformLabel)
+      throws InterruptedException, ToolchainException {
+
+    // Create a merged version of the exec groups that handles exec group inheritance properly.
+    ExecGroup defaultExecGroup =
+        ExecGroup.builder()
+            .toolchainTypes(toolchainTypes)
+            .execCompatibleWith(defaultExecConstraintLabels)
+            .copyFrom(null)
+            .build();
+    ExecGroupCollection.Builder execGroupCollectionBuilder =
+        ExecGroupCollection.builder(defaultExecGroup, execGroups);
+
+    // Short circuit and end now if this target doesn't require toolchain resolution.
+    if (!useToolchainResolution) {
+      ComputedToolchainContexts result = new ComputedToolchainContexts();
+      result.execGroupCollectionBuilder = execGroupCollectionBuilder;
+      return result;
+    }
+
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
 
     // Check if this specific target should be debugged for toolchain resolution.
-    boolean debugTarget =
-        configuration
-            .getFragment(PlatformConfiguration.class)
-            .debugToolchainResolution(targetAndConfig.getLabel());
+    boolean debugTarget = debugResolution.test(label);
 
     ToolchainContextKey.Builder toolchainContextKeyBuilder =
         ToolchainContextKey.key()
-            .configurationKey(toolchainConfig)
+            .configurationKey(configurationKey)
             .toolchainTypes(toolchainTypes)
             .execConstraintLabels(defaultExecConstraintLabels)
             .debugTarget(debugTarget);
@@ -640,7 +667,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       toolchainContextKeys.put(
           name,
           ToolchainContextKey.key()
-              .configurationKey(toolchainConfig)
+              .configurationKey(configurationKey)
               .toolchainTypes(execGroup.toolchainTypes())
               .execConstraintLabels(execGroup.execCompatibleWith())
               .debugTarget(debugTarget)
@@ -659,11 +686,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           (UnloadedToolchainContext)
               values.getOrThrow(unloadedToolchainContextKey.getValue(), ToolchainException.class);
       if (valuesMissing != env.valuesMissing()) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "ToolchainContextValue "
-                    + unloadedToolchainContextKey.getValue()
-                    + " was missing, this should never happen"));
+        BugReport.logUnexpected(
+            "Value for: '%s' was missing, this should never happen",
+            unloadedToolchainContextKey.getValue());
         break;
       }
       if (!valuesMissing) {
@@ -736,7 +761,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-      boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
       BuildConfigurationValue hostConfiguration)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
@@ -765,7 +789,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     aspects,
                     configConditions,
                     toolchainContexts,
-                    useToolchainTransition,
                     transitiveRootCauses,
                     ((ConfiguredRuleClassProvider) ruleClassProvider)
                         .getTrimmingTransitionFactory());

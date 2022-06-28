@@ -369,6 +369,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .allowedFileTypes()
                 .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id()))
                 .undocumented("experimental"))
+        .add(
+            attr(":bytecode_optimizer", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(JavaSemantics.BYTECODE_OPTIMIZER)
+                .exec())
+        .add(
+            attr(":local_java_optimization_configuration", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(JavaSemantics.LOCAL_JAVA_OPTIMIZATION_CONFIGURATION))
         .build();
   }
 

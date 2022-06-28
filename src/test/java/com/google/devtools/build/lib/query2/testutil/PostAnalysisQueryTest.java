@@ -593,6 +593,12 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertConfigurableQueryCode(result.getFailureDetail(), Code.BUILDFILES_FUNCTION_NOT_SUPPORTED);
   }
 
+  @Override
+  @Test
+  public void testGenqueryScope() throws Exception {
+    runGenqueryScopeTest(true);
+  }
+
   // LabelListAttr not currently supported.
   @Override
   public void testLabelsOperator() {}

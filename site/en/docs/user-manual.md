@@ -1579,15 +1579,15 @@ The status of a target with failing runs depends on the value of the
 
 If a single number is specified, all tests will run that many times.
 Alternatively, a regular expression may be specified using the syntax
-regex@number. This constrains the effect of --runs_per_test to targets
+regex@number. This constrains the effect of `--runs_per_test` to targets
 which match the regex (`--runs_per_test=^//pizza:.*@4` runs all tests
-under //pizza/ 4 times).
-This form of --runs_per_test may be specified more than once.
+under `//pizza/` 4 times).
+This form of `--runs_per_test` may be specified more than once.
 
 #### `--[no]runs_per_test_detects_flakes` {:#run-per-test-detects-flakes}
 
 If this option is specified (by default it is not), Bazel will detect flaky
-test shards through --runs_per_test. If one or more runs for a single shard
+test shards through `--runs_per_test`. If one or more runs for a single shard
 fail and one or more runs for the same shard pass, the target will be
 considered flaky with the flag. If unspecified, the target will report a
 failing status.
@@ -1626,7 +1626,7 @@ Specifies how test output should be displayed:
 #### `--java_debug` {:#java-debug}
 
 This option causes the Java virtual machine of a java test to wait for a connection from a
-JDWP-compliant debugger before starting the test. This option implies --test_output=streamed.
+JDWP-compliant debugger before starting the test. This option implies `--test_output=streamed`.
 
 #### `--[no]verbose_test_summary` {:#verbose-test-summary}
 

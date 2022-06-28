@@ -370,7 +370,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)
-                .getGenfilesFragment(RepositoryName.create("@bla"))
+                .getGenfilesFragment(RepositoryName.create("bla"))
                 .getRelative("external/bla"));
   }
 

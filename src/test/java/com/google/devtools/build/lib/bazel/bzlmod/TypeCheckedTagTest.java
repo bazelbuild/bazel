@@ -26,6 +26,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelConverter;
@@ -77,7 +78,7 @@ public class TypeCheckedTagTest {
                     "foo", StarlarkList.immutableOf(":thing1", "//pkg:thing2", "@repo//pkg:thing3"))
                 .build(),
             new LabelConverter(
-                Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
+                PackageIdentifier.parse("@myrepo//mypkg"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo"))
@@ -96,7 +97,7 @@ public class TypeCheckedTagTest {
                 attr("foo", BuildType.LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build()),
             buildTag("tag_name").build(),
             new LabelConverter(
-                Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
+                PackageIdentifier.parse("@myrepo//mypkg"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);

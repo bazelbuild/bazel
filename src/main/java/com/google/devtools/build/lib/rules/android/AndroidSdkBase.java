@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import javax.annotation.Nullable;
 
 /** Implementation of the {@code android_sdk} rule. */
 public class AndroidSdkBase implements RuleConfiguredTargetFactory {
@@ -41,6 +42,7 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);

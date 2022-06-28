@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.android;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -30,7 +32,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.file.FileSystems;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -183,41 +187,54 @@ public class ResourceProcessorBusyBox {
     PrintStream ps = new PrintStream(buf, true);
     PrintStream realStdOut = System.out;
     PrintStream realStdErr = System.err;
+
+    // Redirect all stdout and stderr output for logging.
+    System.setOut(ps);
+    System.setErr(ps);
     try {
-      // Redirect all stdout and stderr output for logging.
-      System.setOut(ps);
-      System.setErr(ps);
-
-      while (true) {
-        try {
-          WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
-          if (request == null) {
-            break;
-          }
-
-          int exitCode = processRequest(request.getArgumentsList());
-          ps.flush();
-
-          WorkResponse.newBuilder()
-              .setExitCode(exitCode)
-              .setRequestId(request.getRequestId())
-              .setOutput(buf.toString())
-              .build()
-              .writeDelimitedTo(realStdOut);
-
-          realStdOut.flush();
-          buf.reset();
-        } catch (IOException e) {
-          logger.severe(e.getMessage());
-          e.printStackTrace(realStdErr);
-          return 1;
-        }
-      }
+      WorkRequestHandler workerHandler =
+          new WorkRequestHandler.WorkRequestHandlerBuilder(
+                  new WorkRequestHandler.WorkRequestCallback(
+                      (request, pw) -> processRequest(request.getArgumentsList(), pw, buf)),
+                  realStdErr,
+                  new ProtoWorkerMessageProcessor(System.in, realStdOut))
+              .setCpuUsageBeforeGc(Duration.ofSeconds(10))
+              .build();
+      workerHandler.processRequests();
+    } catch (IOException e) {
+      logger.severe(e.getMessage());
+      e.printStackTrace(realStdErr);
+      return 1;
     } finally {
       System.setOut(realStdOut);
       System.setErr(realStdErr);
     }
     return 0;
+  }
+
+  /**
+   * Processes the request for the given args and writes the captured byte array buffer to the
+   * WorkRequestHandler print writer.
+   */
+  private static int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+    int exitCode;
+    try {
+      // Process the actual request and grab the exit code
+      exitCode = processRequest(args);
+    } catch (Exception e) {
+      e.printStackTrace(pw);
+      exitCode = 1;
+    } finally {
+      // Write the captured buffer to the work response. We synchronize to avoid race conditions
+      // while reading from and calling reset on the shared ByteArrayOutputStream.
+      synchronized (buf) {
+        String captured = buf.toString(UTF_8).trim();
+        buf.reset();
+        pw.print(captured);
+      }
+    }
+
+    return exitCode;
   }
 
   private static int processRequest(List<String> args) throws Exception {

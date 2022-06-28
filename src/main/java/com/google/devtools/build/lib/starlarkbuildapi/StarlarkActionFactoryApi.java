@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -47,7 +48,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + " addition to declaring a file, you must separately create an action that emits the"
               + " file. Creating that action will require passing the returned <code>File</code>"
               + " object to the action's construction function.<p>Note that <a"
-              + " href='$STARLARK_DOCS_ROOT/rules.html#files'>predeclared output files</a> do not"
+              + " href='https://bazel.build/rules/rules#files'>predeclared output files</a> do not"
               + " need to be (and cannot be) declared using this function. You can obtain their"
               + " <code>File</code> objects from <a"
               + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
@@ -326,7 +327,12 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "List or depset of any tools needed by the action. Tools are inputs with "
                     + "additional runfiles that are automatically made available to the action. "
-                    + "The list can contain Files or FilesToRunProvider instances."),
+                    + "When a list is provided, it can be a heterogenous collection of "
+                    + "Files, FilesToRunProvider instances, or depsets of Files. Files which are "
+                    + "directly in the list and come from ctx.executable will have their runfiles "
+                    + "automatically added. When a depset is provided, it must contain only Files. "
+                    + "In both cases, files within depsets are not cross-referenced with "
+                    + "ctx.executable for runfiles."),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -718,16 +724,30 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "substitutions",
             named = true,
             positional = false,
+            defaultValue = "{}",
             doc = "Substitutions to make when expanding the template."),
         @Param(
             name = "is_executable",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the output file should be executable.")
+            doc = "Whether the output file should be executable."),
+        @Param(
+            name = "computed_substitutions",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = TemplateDictApi.class)},
+            defaultValue = "unbound",
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION,
+            valueWhenDisabled = "unbound",
+            doc = "Substitutions to make when expanding the template.")
       })
   void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      Object computedSubstitutions)
       throws EvalException;
 
   @StarlarkMethod(
@@ -735,4 +755,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)
   CommandLineArgsApi args(StarlarkThread thread);
+
+  @StarlarkMethod(
+      name = "template_dict",
+      doc = "Returns a TemplateDict object for memory-efficient template expansion.")
+  TemplateDictApi templateDict();
 }

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
@@ -131,23 +132,6 @@ public abstract class CcModule
       ImmutableList.of(
           "bazel_internal/test_rules/cc", "rust/private");
 
-  /** Enum for strings coming in from Starlark representing languages */
-  protected enum Language {
-    CPP("c++"),
-    OBJC("objc"),
-    OBJCPP("objc++");
-
-    private final String representation;
-
-    Language(String representation) {
-      this.representation = representation;
-    }
-
-    public String getRepresentation() {
-      return representation;
-    }
-  }
-
   public abstract CppSemantics getSemantics();
 
   public abstract CppSemantics getSemantics(Language language);
@@ -160,11 +144,21 @@ public abstract class CcModule
   @Override
   public FeatureConfigurationForStarlark configureFeatures(
       Object ruleContextOrNone,
-      CcToolchainProvider toolchain, // <String> expected
+      CcToolchainProvider toolchain,
+      Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
-      Sequence<?> unsupportedFeatures)
+      Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException {
     StarlarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, StarlarkRuleContext.class);
+
+    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
+    Language language = parseLanguage(languageString);
+    // TODO(236152224): Remove the following when all Starlark objc configure_features have the
+    // chance to migrate to using the language parameter.
+    if (requestedFeatures.contains(CppRuleClasses.LANG_OBJC)) {
+      language = Language.OBJC;
+    }
+
     ImmutableSet<String> requestedFeaturesSet =
         ImmutableSet.copyOf(Sequence.cast(requestedFeatures, String.class, "requested_features"));
     ImmutableSet<String> unsupportedFeaturesSet =
@@ -194,8 +188,7 @@ public abstract class CcModule
       // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
       // flipped.
       buildOptions = ruleContext.getConfiguration().getOptions();
-      getSemantics(
-              requestedFeatures.contains(CppRuleClasses.LANG_OBJC) ? Language.OBJC : Language.CPP)
+      getSemantics(language)
           .validateLayeringCheckFeatures(
               ruleContext.getRuleContext(),
               ruleContext.getAspectDescriptor(),
@@ -204,7 +197,7 @@ public abstract class CcModule
     }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
-            requestedFeaturesSet, unsupportedFeaturesSet, toolchain, cppConfiguration),
+            requestedFeaturesSet, unsupportedFeaturesSet, language, toolchain, cppConfiguration),
         cppConfiguration,
         buildOptions);
   }
@@ -320,6 +313,7 @@ public abstract class CcModule
                     usePic,
                     /* fdoStamp= */ null,
                     /* dotdFileExecPath= */ null,
+                    /* diagnosticsFileExecPath= */ null,
                     variablesExtensions,
                     /* additionalBuildVariables= */ ImmutableMap.of(),
                     /* directModuleMaps= */ ImmutableList.of(),
@@ -504,7 +498,6 @@ public abstract class CcModule
    * @param objectFiles {@code Sequence<Artifact>}
    * @return
    * @throws EvalException
-   * @throws InterruptedException
    */
   @Override
   public LibraryToLink createLibraryLinkerInput(
@@ -1809,10 +1802,10 @@ public abstract class CcModule
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFile,
+      Object winDefFileObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFile)) {
+    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -1841,6 +1834,7 @@ public abstract class CcModule
     } else {
       staticLinkTargetType = LinkTargetType.OBJC_ARCHIVE;
     }
+    Artifact winDefFile = convertFromNoneable(winDefFileObject, /* defaultValue= */ null);
     List<CcLinkingContext> ccLinkingContexts =
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
@@ -1878,7 +1872,7 @@ public abstract class CcModule
             .emitInterfaceSharedLibraries(true)
             .setLinkedDLLNameSuffix(
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
-            .setDefFile(convertFromNoneable(winDefFile, /* defaultValue= */ null))
+            .setDefFile(winDefFile)
             .setIsStampingEnabled(isStampingEnabled)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     if (!asDict(variablesExtension).isEmpty()) {
@@ -1937,7 +1931,7 @@ public abstract class CcModule
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    return label.getPackageIdentifier().getRepository().toString().equals("@_builtins");
+    return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
   }
 
   protected Language parseLanguage(String string) throws EvalException {
@@ -2021,6 +2015,7 @@ public abstract class CcModule
       Object languageObject,
       Object purposeObject,
       Object coptsFilterObject,
+      Object separateModuleHeadersObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -2034,7 +2029,8 @@ public abstract class CcModule
         hdrsCheckingModeObject,
         implementationCcCompilationContextsObject,
         coptsFilterObject,
-        starlarkLooseIncludes)) {
+        starlarkLooseIncludes,
+        separateModuleHeadersObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -2216,6 +2212,10 @@ public abstract class CcModule
     if (purpose != null) {
       helper.setPurpose(purpose);
     }
+    ImmutableList<Artifact> separateModuleHeaders =
+        asClassImmutableList(separateModuleHeadersObject);
+    helper.addSeparateModuleHeaders(separateModuleHeaders);
+
     try {
       RuleContext ruleContext = actions.getRuleContext();
       CompilationInfo compilationInfo = helper.compile(ruleContext);

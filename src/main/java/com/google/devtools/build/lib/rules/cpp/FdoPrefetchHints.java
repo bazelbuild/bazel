@@ -21,11 +21,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code fdo_prefetch_hints} rule. */
 @Immutable
 public final class FdoPrefetchHints implements RuleConfiguredTargetFactory {
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     FdoInputFile inputFile = FdoInputFile.fromProfileRule(ruleContext);

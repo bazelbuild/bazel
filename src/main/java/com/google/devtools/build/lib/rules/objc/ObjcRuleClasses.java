@@ -37,12 +37,10 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -219,8 +217,8 @@ public class ObjcRuleClasses {
           "Foundation" are always included when building for the iOS, tvOS and watchOS platforms.
           For macOS, only "Foundation" is always included.
 
-          <p> When linking a top level binary (e.g. apple_binary), all SDK frameworks listed in that
-          binary's transitive dependency graph are linked.
+          <p> When linking a top level Apple binary, all SDK frameworks listed in that binary's
+          transitive dependency graph are linked.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("sdk_frameworks", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_sdk_frameworks_depender_rule).ATTRIBUTE(weak_sdk_frameworks) -->
@@ -313,13 +311,7 @@ public class ObjcRuleClasses {
           .add(
               attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
-          // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-          // optional.
-          .addToolchainTypes(
-              ToolchainTypeRequirement.builder(CppRuleClasses.ccToolchainTypeAttribute(env))
-                  .mandatory(true)
-                  .build())
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
+          .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
           .build();
     }
 

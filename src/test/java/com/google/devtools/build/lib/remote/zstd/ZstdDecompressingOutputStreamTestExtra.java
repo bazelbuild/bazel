@@ -33,11 +33,12 @@ public class ZstdDecompressingOutputStreamTestExtra {
     byte[] compressed = Zstd.compress(data);
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ZstdDecompressingOutputStream zdos = new ZstdDecompressingOutputStream(baos);
-    for (byte b : compressed) {
-      zdos.write(b);
+    try (ZstdDecompressingOutputStream zdos = new ZstdDecompressingOutputStream(baos)) {
+      for (byte b : compressed) {
+        zdos.write(b);
+      }
+      zdos.flush();
     }
-    zdos.flush();
 
     assertThat(baos.toByteArray()).isEqualTo(data);
   }
@@ -47,22 +48,23 @@ public class ZstdDecompressingOutputStreamTestExtra {
     byte[] data = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".getBytes(UTF_8);
 
     ByteArrayOutputStream compressed = new ByteArrayOutputStream();
-    ZstdOutputStream zos = new ZstdOutputStream(compressed);
-    zos.setCloseFrameOnFlush(true);
-    for (int i = 0; i < data.length; i++) {
-      zos.write(data[i]);
-      if (i % 5 == 0) {
-        // Create multiple frames of 5 bytes each.
-        zos.flush();
+    try (ZstdOutputStream zos = new ZstdOutputStream(compressed)) {
+      zos.setCloseFrameOnFlush(true);
+      for (int i = 0; i < data.length; i++) {
+        zos.write(data[i]);
+        if (i % 5 == 0) {
+          // Create multiple frames of 5 bytes each.
+          zos.flush();
+        }
       }
     }
-    zos.close();
 
     ByteArrayOutputStream decompressed = new ByteArrayOutputStream();
-    ZstdDecompressingOutputStream zdos = new ZstdDecompressingOutputStream(decompressed);
-    for (byte b : compressed.toByteArray()) {
-      zdos.write(b);
-      zdos.flush();
+    try (ZstdDecompressingOutputStream zdos = new ZstdDecompressingOutputStream(decompressed)) {
+      for (byte b : compressed.toByteArray()) {
+        zdos.write(b);
+        zdos.flush();
+      }
     }
     assertThat(decompressed.toByteArray()).isEqualTo(data);
   }

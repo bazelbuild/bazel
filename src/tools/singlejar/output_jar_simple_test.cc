@@ -394,6 +394,19 @@ TEST_F(OutputJarSimpleTest, MainClass) {
       manifest);
 }
 
+// --output_jar_creator option
+TEST_F(OutputJarSimpleTest, CreatedByFieldTest) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--output_jar_creator", "SingleJarTestValue 123.456"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: SingleJarTestValue 123.456\r\n"
+      "\r\n",
+      manifest);
+}
+
 // --deploy_manifest_lines option.
 TEST_F(OutputJarSimpleTest, DeployManifestLines) {
   string out_path = OutputFilePath("out.jar");
@@ -985,6 +998,64 @@ TEST_F(OutputJarSimpleTest, MultiReleaseManifestLines) {
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --hermetic_java_home
+TEST_F(OutputJarSimpleTest, HermeticJavaHome) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--hermetic_java_home", "foo/bar/java_home"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Hermetic-Java-Home: foo/bar/java_home\r\n"
+      "\r\n",
+      manifest);
+}
+
+// --add_exports and --add_opens options combines with --deploy_manifest_lines.
+TEST_F(OutputJarSimpleTest, AddExportsManifestLines) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--add_exports", "foo/com.export", "--add_opens",
+                "foo/com.open", "--deploy_manifest_lines",
+                "Add-Exports: bar/com.export", "Add-Opens: bar/com.open"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: bar/com.export foo/com.export\r\n"
+      "Add-Opens: bar/com.open foo/com.open\r\n"
+      "\r\n",
+      manifest);
+}
+
+// Deduplicate --add_exports
+TEST_F(OutputJarSimpleTest, AddExportsDuplicate) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--add_exports", "foo/export", "--add_exports", "foo/export"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: foo/export\r\n"
+      "\r\n",
+      manifest);
+}
+
+// Tokenize, sort, and deduplicate existing Add-Exports lines
+TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--deploy_manifest_lines",
+                          "Add-Exports: foo/export bar/export foo/export"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: singlejar\r\n"
+      "Add-Exports: bar/export foo/export\r\n"
       "\r\n",
       manifest);
 }

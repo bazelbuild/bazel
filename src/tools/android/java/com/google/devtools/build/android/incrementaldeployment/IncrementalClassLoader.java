@@ -43,6 +43,11 @@ public class IncrementalClassLoader extends ClassLoader {
     return delegateClassLoader.findClass(className);
   }
 
+  @Override
+  public String findLibrary(String name) {
+    return delegateClassLoader.findLibrary(name);
+  }
+
   /**
    * A class loader whose only purpose is to make {@code findClass()} public.
    */
@@ -55,6 +60,20 @@ public class IncrementalClassLoader extends ClassLoader {
     @Override
     public Class<?> findClass(String name) throws ClassNotFoundException {
       return super.findClass(name);
+    }
+
+    @Override
+    public String findLibrary(String name) {
+      String foundLib = super.findLibrary(name);
+
+      for (ClassLoader parent = getParent();
+          foundLib == null && parent != null;
+          parent = parent.getParent()) {
+        if (parent instanceof BaseDexClassLoader) {
+          foundLib = ((BaseDexClassLoader) parent).findLibrary(name);
+        }
+      }
+      return foundLib;
     }
   }
 

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -43,9 +42,11 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
@@ -120,16 +121,10 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
-            .addToolchainTypes(
-                ToolchainTypeRequirement.builder(ccToolchainType)
-                    // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this
-                    // can be optional.
-                    .mandatory(true)
-                    .build())
-            .useToolchainTransition(true)
+            .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(ccToolchainType))
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
-                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER.id())
+                    .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)
                     .value(PROTO_TOOLCHAIN_LABEL))
             .add(
                 attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
@@ -288,7 +283,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
 
     private boolean areSrcsExcluded() throws RuleErrorException, InterruptedException {
       return !ProtoCommon.shouldGenerateCode(
-          ruleContext, protoTarget, getProtoToolchainProvider(), "cc_proto_library");
+          ruleContext, protoTarget, getStarlarkProtoToolchainProvider(), "cc_proto_library");
     }
 
     private FeatureConfiguration getFeatureConfiguration()
@@ -304,14 +299,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       } else {
         unsupportedFeatures.add(CppRuleClasses.HEADER_MODULES);
       }
-      FeatureConfiguration featureConfiguration =
-          CcCommon.configureFeaturesOrReportRuleError(
-              ruleContext,
-              requestedFeatures.build(),
-              unsupportedFeatures.build(),
-              ccToolchain(ruleContext),
-              cppSemantics);
-      return featureConfiguration;
+      return CcCommon.configureFeaturesOrReportRuleError(
+          ruleContext,
+          requestedFeatures.build(),
+          unsupportedFeatures.build(),
+          Language.CPP,
+          ccToolchain(ruleContext),
+          cppSemantics);
     }
 
     private CcCompilationHelper initializeCompilationHelper(
@@ -408,12 +402,11 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
           ccToolchainType);
     }
 
-    private ImmutableSet<Artifact> getOutputFiles(Iterable<String> suffixes) {
+    private ImmutableSet<Artifact> getOutputFiles(Iterable<String> suffixes)
+        throws RuleErrorException, InterruptedException {
       ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
       for (String suffix : suffixes) {
-        result.addAll(
-            ProtoCommon.getGeneratedOutputs(
-                ruleContext, protoInfo.getDirectProtoSources(), suffix));
+        result.addAll(ProtoCommon.declareGeneratedFiles(ruleContext, protoTarget, suffix));
       }
       return result.build();
     }
@@ -461,7 +454,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         ProtoCommon.compile(
             ruleContext,
             protoTarget,
-            getProtoToolchainProvider(),
+            getStarlarkProtoToolchainProvider(),
             outputs,
             genfilesPath,
             "Generating C++ proto_library %{label}");
@@ -469,7 +462,11 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {
-      return ruleContext.getPrerequisite(PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.PROVIDER);
+      return ProtoLangToolchainProvider.get(ruleContext, PROTO_TOOLCHAIN_ATTR);
+    }
+
+    private StarlarkInfo getStarlarkProtoToolchainProvider() {
+      return ProtoLangToolchainProvider.getStarlarkProvider(ruleContext, PROTO_TOOLCHAIN_ATTR);
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {

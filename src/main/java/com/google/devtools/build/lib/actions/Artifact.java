@@ -1520,41 +1520,62 @@ public abstract class Artifact
     return Joiner.on(delimiter).join(toRootRelativePaths(artifacts));
   }
 
-  /** Adds a collection of artifacts to a given collection, with middleman actions expanded once. */
+  /**
+   * Adds a collection of artifacts to a given collection, with middleman actions and tree artifacts
+   * expanded once.
+   *
+   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
+   * is true, a tree artifact will be included in the constructed list when it expands into zero
+   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
+   * included.
+   */
   static void addExpandedArtifacts(
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,
-      ArtifactExpander artifactExpander) {
-    addExpandedArtifacts(artifacts, output, Functions.identity(), artifactExpander);
+      ArtifactExpander artifactExpander,
+      boolean keepEmptyTreeArtifacts) {
+    addExpandedArtifacts(
+        artifacts, output, Functions.identity(), artifactExpander, keepEmptyTreeArtifacts);
   }
 
   /**
-   * Converts a collection of artifacts into the outputs computed by
-   * outputFormatter and adds them to a given collection. Middleman artifacts
-   * are expanded once.
+   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
+   * to a given collection. Middleman artifacts and tree artifacts are expanded once.
+   *
+   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
+   * is true, a tree artifact will be included in the constructed list when it expands into zero
+   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
+   * included.
    */
-  private static <E> void addExpandedArtifacts(Iterable<? extends Artifact> artifacts,
-                                               Collection<? super E> output,
-                                               Function<? super Artifact, E> outputFormatter,
-                                               ArtifactExpander artifactExpander) {
+  private static <E> void addExpandedArtifacts(
+      Iterable<? extends Artifact> artifacts,
+      Collection<? super E> output,
+      Function<? super Artifact, E> outputFormatter,
+      ArtifactExpander artifactExpander,
+      boolean keepEmptyTreeArtifacts) {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
-        expandArtifact(artifact, output, outputFormatter, artifactExpander);
+        expandArtifact(artifact, output, outputFormatter, artifactExpander, keepEmptyTreeArtifacts);
       } else {
         output.add(outputFormatter.apply(artifact));
       }
     }
   }
 
-  private static <E> void expandArtifact(Artifact middleman,
+  private static <E> void expandArtifact(
+      Artifact middleman,
       Collection<? super E> output,
       Function<? super Artifact, E> outputFormatter,
-      ArtifactExpander artifactExpander) {
+      ArtifactExpander artifactExpander,
+      boolean keepEmptyTreeArtifacts) {
     Preconditions.checkArgument(middleman.isMiddlemanArtifact() || middleman.isTreeArtifact());
     List<Artifact> artifacts = new ArrayList<>();
     artifactExpander.expand(middleman, artifacts);
     for (Artifact artifact : artifacts) {
       output.add(outputFormatter.apply(artifact));
+    }
+    if (keepEmptyTreeArtifacts && middleman.isTreeArtifact() && artifacts.isEmpty()) {
+      output.add(outputFormatter.apply(middleman));
     }
   }
 

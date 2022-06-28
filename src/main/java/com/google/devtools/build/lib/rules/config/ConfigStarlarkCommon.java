@@ -48,7 +48,7 @@ public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {
     if (name instanceof Label) {
       label = (Label) name;
     } else if (name instanceof String) {
-      LabelConverter converter = LabelConverter.forThread(thread);
+      LabelConverter converter = LabelConverter.forBzlEvaluatingThread(thread);
       try {
         label = converter.convert((String) name);
       } catch (LabelSyntaxException e) {

@@ -384,6 +384,8 @@ public class JavaHeaderCompileActionBuilder {
       commandLine.add("--reduce_classpath_mode", "NONE");
 
       NestedSet<Artifact> allInputs = mandatoryInputsBuilder.build();
+      boolean stripOutputPaths =
+          JavaCompilationHelper.stripOutputPaths(allInputs, ruleContext.getConfiguration());
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer =
           createResultConsumer(
               outputDepsProto,
@@ -391,10 +393,9 @@ public class JavaHeaderCompileActionBuilder {
               // If classPathMode == BAZEL, also make sure to inject the dependencies to be
               // available to downstream actions. Else just do enough work to locally create the
               // full .jdeps from the .stripped .jdeps produced on the executor.
-              /*insertDependencies=*/ classpathMode == JavaClasspathMode.BAZEL);
+              /*insertDependencies=*/ classpathMode == JavaClasspathMode.BAZEL,
+              stripOutputPaths);
 
-      boolean stripOutputPaths =
-          JavaCompilationHelper.stripOutputPaths(allInputs, ruleContext.getConfiguration());
       if (stripOutputPaths) {
         PathFragment outputBase = JavaCompilationHelper.outputBase(outputJar);
         commandLine.stripOutputPaths(outputBase);
@@ -493,7 +494,10 @@ public class JavaHeaderCompileActionBuilder {
    * function to avoid capturing a data member, which would keep the entire builder instance alive.
    */
   private static Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> createResultConsumer(
-      Artifact outputDepsProto, NestedSet<Artifact> inputs, boolean insertDependencies) {
+      Artifact outputDepsProto,
+      NestedSet<Artifact> inputs,
+      boolean insertDependencies,
+      boolean stripOutputPaths) {
     return (Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> & Serializable)
         contextAndResults -> {
           SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
@@ -501,7 +505,7 @@ public class JavaHeaderCompileActionBuilder {
           try {
             Deps.Dependencies fullOutputDeps =
                 JavaCompileAction.createFullOutputDeps(
-                    spawnResult, outputDepsProto, inputs, context);
+                    spawnResult, outputDepsProto, inputs, context, stripOutputPaths);
             JavaCompileActionContext javaContext =
                 context.getContext(JavaCompileActionContext.class);
             if (insertDependencies && javaContext != null) {

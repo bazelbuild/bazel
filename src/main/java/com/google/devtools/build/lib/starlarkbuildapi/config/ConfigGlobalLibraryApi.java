@@ -44,7 +44,7 @@ public interface ConfigGlobalLibraryApi {
               + "    inputs = [\"//command_line_option:cpu\"],\n"
               + "    outputs = [\"//command_line_option:compilation_mode\"],\n"
               + ")</pre></p><p>For more details see <a"
-              + " href=\"$STARLARK_DOCS_ROOT/config.html#user-defined-transitions\">here</a>.</p>",
+              + " href=\"https://bazel.build/rules/config#user-defined-transitions\">here</a>.</p>",
       parameters = {
         @Param(
             name = "implementation",
@@ -107,7 +107,7 @@ public interface ConfigGlobalLibraryApi {
               + " using this function are limited in potential scope as compared to transitions"
               + " created using <a href=\"transition.html\">transition</a>. <p>This function is"
               + " primarily designed to facilitate the <a"
-              + " href=\"$STARLARK_DOCS_ROOT/testing.html\">Analysis Test Framework</a> core"
+              + " href=\"https://bazel.build/rules/testing\">Analysis Test Framework</a> core"
               + " library. See its documentation (or its implementation) for best practices.",
       parameters = {
         @Param(

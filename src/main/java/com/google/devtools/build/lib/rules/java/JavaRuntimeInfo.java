@@ -43,13 +43,17 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath) {
+      PathFragment javaBinaryRunfilesPath,
+      NestedSet<Artifact> hermeticInputs,
+      @Nullable Artifact libModules) {
     return new JavaRuntimeInfo(
         javaBaseInputs,
         javaHome,
         javaBinaryExecPath,
         javaHomeRunfilesPath,
-        javaBinaryRunfilesPath);
+        javaBinaryRunfilesPath,
+        hermeticInputs,
+        libModules);
   }
 
   @Override
@@ -98,18 +102,24 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaHomeRunfilesPath;
   private final PathFragment javaBinaryRunfilesPath;
+  private final NestedSet<Artifact> hermeticInputs;
+  @Nullable private final Artifact libModules;
 
   private JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath) {
+      PathFragment javaBinaryRunfilesPath,
+      NestedSet<Artifact> hermeticInputs,
+      @Nullable Artifact libModules) {
     this.javaBaseInputs = javaBaseInputs;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
     this.javaHomeRunfilesPath = javaHomeRunfilesPath;
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
+    this.hermeticInputs = hermeticInputs;
+    this.libModules = libModules;
   }
 
   /** All input artifacts in the javabase. */
@@ -151,6 +161,22 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   public PathFragment javaBinaryRunfilesPathFragment() {
     return javaBinaryRunfilesPath;
+  }
+
+  /** Input artifacts required for hermetic deployments. */
+  public NestedSet<Artifact> hermeticInputs() {
+    return hermeticInputs;
+  }
+
+  @Override
+  public Depset starlarkHermeticInputs() {
+    return Depset.of(Artifact.TYPE, hermeticInputs());
+  }
+
+  @Override
+  @Nullable
+  public Artifact libModules() {
+    return libModules;
   }
 
   @Override

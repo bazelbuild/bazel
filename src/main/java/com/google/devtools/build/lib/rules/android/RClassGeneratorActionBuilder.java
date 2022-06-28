@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Builds up the spawn action for $android_rclass_generator. */
 public class RClassGeneratorActionBuilder {
@@ -33,16 +34,19 @@ public class RClassGeneratorActionBuilder {
 
   private boolean finalFields = true;
 
+  @CanIgnoreReturnValue
   public RClassGeneratorActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencies = resourceDeps;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public RClassGeneratorActionBuilder finalFields(boolean finalFields) {
     this.finalFields = finalFields;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public RClassGeneratorActionBuilder setClassJarOut(Artifact classJarOut) {
     this.classJarOut = classJarOut;
     return this;

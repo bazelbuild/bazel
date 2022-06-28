@@ -114,10 +114,32 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter",
 )
 
+config_setting(
+    name = "d8_desugaring",
+    values = {
+        "define": "android_desugaring_tool=d8",
+    },
+)
+
+config_setting(
+    name = "legacy_desugaring",
+    values = {
+        "define": "android_desugaring_tool=legacy",
+    },
+)
+
 sh_binary(
     name = "desugar_java8",
-    srcs = ["desugar.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+    srcs = select({
+        "legacy_desugaring": ["desugar.sh"],
+        "d8_desugaring": ["d8_desugar.sh"],
+        "//conditions:default": ["desugar.sh"],
+    }),
+    data = select({
+        "legacy_desugaring": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+        "d8_desugaring": ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:desugar", "chm_only_desugar_jdk_libs.json"],
+        "//conditions:default": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+    })
 )
 
 alias(
@@ -204,6 +226,7 @@ genrule(
     name = "desugar_java8_legacy_libs",
     srcs = ["@android_tools//:desugar_jdk_libs.jar"],
     outs = ["desugared_java8_legacy_libs.jar"],
+    message = "Desugaring java8 legacy libs",
     cmd = """
     $(location :desugar_java8) \
         --input $< \

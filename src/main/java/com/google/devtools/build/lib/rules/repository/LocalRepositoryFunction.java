@@ -50,7 +50,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     Path targetPath = directories.getWorkspace().getRelative(userDefinedPath);
     RepositoryDirectoryValue.Builder result =
         RepositoryDelegatorFunction.symlinkRepoRoot(
-            outputDirectory, targetPath, userDefinedPath, env);
+            directories, outputDirectory, targetPath, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }

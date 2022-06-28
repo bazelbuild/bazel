@@ -19,6 +19,9 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
 import java.nio.file.Path;
@@ -32,7 +35,8 @@ public class ResultCollector {
   private final HashSet<String> missingClasss = new HashSet<>();
   private final HashMap<String, IncompleteState> incompleteClasses = new HashMap<>();
   private final HashSet<MissingMember> missingMembers = new HashSet<>();
-  private final HashSet<Path> indirectDeps = new HashSet<>();
+  private final SetMultimap<Path, String> indirectDeps =
+      MultimapBuilder.treeKeys().treeSetValues().build();
   private final boolean checkMissingMembers;
 
   public ResultCollector(boolean checkMissingMembers) {
@@ -79,8 +83,8 @@ public class ResultCollector {
     }
   }
 
-  public void addIndirectDep(Path indirectDep) {
-    indirectDeps.add(indirectDep);
+  public void addIndirectDep(String internalName, Path indirectDep) {
+    indirectDeps.put(indirectDep, internalName);
   }
 
   public ImmutableList<String> getSortedMissingClassInternalNames() {
@@ -96,8 +100,8 @@ public class ResultCollector {
     return ImmutableList.sortedCopyOf(missingMembers);
   }
 
-  public ImmutableList<Path> getSortedIndirectDeps() {
-    return ImmutableList.sortedCopyOf(indirectDeps);
+  public ImmutableMultimap<Path, String> getSortedIndirectDeps() {
+    return ImmutableMultimap.copyOf(indirectDeps);
   }
 
   /**

@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -35,12 +36,14 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
   // A key representing the input data.
   public static SingleToolchainResolutionKey key(
       BuildConfigurationKey configurationKey,
-      Label toolchainTypeLabel,
+      ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
     return key(
         configurationKey,
-        toolchainTypeLabel,
+        toolchainType,
+        toolchainTypeInfo,
         targetPlatformKey,
         availableExecutionPlatformKeys,
         false);
@@ -48,13 +51,15 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
   public static SingleToolchainResolutionKey key(
       BuildConfigurationKey configurationKey,
-      Label toolchainTypeLabel,
+      ToolchainTypeRequirement toolchainType,
+      ToolchainTypeInfo toolchainTypeInfo,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys,
       boolean debugTarget) {
     return SingleToolchainResolutionKey.create(
         configurationKey,
-        toolchainTypeLabel,
+        toolchainType,
+        toolchainTypeInfo,
         targetPlatformKey,
         availableExecutionPlatformKeys,
         debugTarget);
@@ -71,7 +76,9 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
     abstract BuildConfigurationKey configurationKey();
 
-    public abstract Label toolchainTypeLabel();
+    public abstract ToolchainTypeRequirement toolchainType();
+
+    public abstract ToolchainTypeInfo toolchainTypeInfo();
 
     abstract ConfiguredTargetKey targetPlatformKey();
 
@@ -81,13 +88,15 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
     static SingleToolchainResolutionKey create(
         BuildConfigurationKey configurationKey,
-        Label toolchainTypeLabel,
+        ToolchainTypeRequirement toolchainType,
+        ToolchainTypeInfo toolchainTypeInfo,
         ConfiguredTargetKey targetPlatformKey,
         List<ConfiguredTargetKey> availableExecutionPlatformKeys,
         boolean debugTarget) {
       return new AutoValue_SingleToolchainResolutionValue_SingleToolchainResolutionKey(
           configurationKey,
-          toolchainTypeLabel,
+          toolchainType,
+          toolchainTypeInfo,
           targetPlatformKey,
           ImmutableList.copyOf(availableExecutionPlatformKeys),
           debugTarget);

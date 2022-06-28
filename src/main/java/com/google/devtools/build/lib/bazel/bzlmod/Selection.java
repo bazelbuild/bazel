@@ -35,7 +35,8 @@ import javax.annotation.Nullable;
 /**
  * Runs module selection. This step of module resolution reads the output of {@link Discovery} and
  * applies the Minimal Version Selection algorithm to it, removing unselected modules from the
- * dependency graph and rewriting dependencies to point to the selected versions.
+ * dependency graph and rewriting dependencies to point to the selected versions. It also returns an
+ * un-pruned version of the dep graph for inspection purpose.
  *
  * <p>Essentially, what needs to happen is:
  *
@@ -65,6 +66,34 @@ import javax.annotation.Nullable;
  */
 final class Selection {
   private Selection() {}
+
+  /**
+   * The result of the selection process, containing both the pruned and the un-pruned dependency
+   * graphs.
+   */
+  @AutoValue
+  abstract static class SelectionResult {
+    /* TODO(andreisolo): Also load the modules overridden by {@code single_version_override} or
+        NonRegistryOverride if we need to detect changes in the dependency graph caused by them.
+    */
+
+    /** Final dep graph sorted in BFS iteration order, with unused modules removed. */
+    abstract ImmutableMap<ModuleKey, Module> getResolvedDepGraph();
+
+    /**
+     * Un-pruned dep graph, with updated dep keys, and additionally containing the unused modules
+     * which were initially discovered (and their MODULE.bazel files loaded). Does not contain
+     * modules overridden by {@code single_version_override} or {@link NonRegistryOverride}, only by
+     * {@code multiple_version_override}.
+     */
+    abstract ImmutableMap<ModuleKey, Module> getUnprunedDepGraph();
+
+    static SelectionResult create(
+        ImmutableMap<ModuleKey, Module> resolvedDepGraph,
+        ImmutableMap<ModuleKey, Module> unprunedDepGraph) {
+      return new AutoValue_Selection_SelectionResult(resolvedDepGraph, unprunedDepGraph);
+    }
+  }
 
   /** During selection, a version is selected for each distinct "selection group". */
   @AutoValue
@@ -164,11 +193,8 @@ final class Selection {
         allowedVersionSet.ceiling(module.getVersion()));
   }
 
-  /**
-   * Runs module selection (aka version resolution). Returns a dep graph sorted in BFS iteration
-   * order.
-   */
-  public static ImmutableMap<ModuleKey, Module> run(
+  /** Runs module selection (aka version resolution). Returns a {@link SelectionResult}. */
+  public static SelectionResult run(
       ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
       throws ExternalDepsException {
     // For any multiple-version overrides, build a mapping from (moduleName, compatibilityLevel) to
@@ -195,29 +221,40 @@ final class Selection {
 
     // Build a new dep graph where deps with unselected versions are removed.
     ImmutableMap.Builder<ModuleKey, Module> newDepGraphBuilder = new ImmutableMap.Builder<>();
-    for (Module module : depGraph.values()) {
-      // Remove any dep whose version isn't selected.
-      Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
-      if (!module.getKey().getVersion().equals(selectedVersion)) {
-        continue;
-      }
 
+    // Also keep a version of the full dep graph with updated deps.
+    ImmutableMap.Builder<ModuleKey, Module> unprunedDepGraphBuilder = new ImmutableMap.Builder<>();
+    for (Module module : depGraph.values()) {
       // Rewrite deps to point to the selected version.
-      newDepGraphBuilder.put(
-          module.getKey(),
+      ModuleKey key = module.getKey();
+      Module updatedModule =
           module.withDepKeysTransformed(
               depKey ->
                   ModuleKey.create(
-                      depKey.getName(), selectedVersions.get(selectionGroups.get(depKey)))));
+                      depKey.getName(), selectedVersions.get(selectionGroups.get(depKey))));
+
+      // Add all updated modules to the un-pruned dep graph.
+      unprunedDepGraphBuilder.put(key, updatedModule);
+
+      // Remove any dep whose version isn't selected from the resolved graph.
+      Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
+      if (module.getKey().getVersion().equals(selectedVersion)) {
+        newDepGraphBuilder.put(key, updatedModule);
+      }
     }
     ImmutableMap<ModuleKey, Module> newDepGraph = newDepGraphBuilder.buildOrThrow();
+    ImmutableMap<ModuleKey, Module> unprunedDepGraph = unprunedDepGraphBuilder.buildOrThrow();
 
-    // Further remove unreferenced modules from the graph. We can find out which modules are
+    // Further, removes unreferenced modules from the graph. We can find out which modules are
     // referenced by collecting deps transitively from the root.
     // We can also take this opportunity to check that none of the remaining modules conflict with
     // each other (e.g. same module name but different compatibility levels, or not satisfying
     // multiple_version_override).
-    return new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
+    ImmutableMap<ModuleKey, Module> prunedDepGraph =
+        new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
+
+    // Return the result containing both the pruned and un-pruned dep graphs
+    return SelectionResult.create(prunedDepGraph, unprunedDepGraph);
   }
 
   /**

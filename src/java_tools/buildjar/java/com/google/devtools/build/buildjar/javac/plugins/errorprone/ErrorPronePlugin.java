@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
-import static java.util.Comparator.comparing;
-
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
@@ -26,6 +23,7 @@ import com.google.errorprone.BaseErrorProneJavaCompiler;
 import com.google.errorprone.ErrorProneAnalyzer;
 import com.google.errorprone.ErrorProneError;
 import com.google.errorprone.ErrorProneOptions;
+import com.google.errorprone.ErrorProneTimings;
 import com.google.errorprone.InvalidCommandLineOptionException;
 import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
@@ -68,49 +66,6 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   private ErrorProneOptions epOptions;
   private ErrorProneTimings timings;
   private final Stopwatch elapsed = Stopwatch.createUnstarted();
-
-  // TODO(cushon): delete this shim after the next Error Prone update
-  static class ErrorProneTimings {
-    static Class<?> clazz;
-
-    static {
-      try {
-        clazz = Class.forName("com.google.errorprone.ErrorProneTimings");
-      } catch (ClassNotFoundException e) {
-        // ignored
-      }
-    }
-
-    private final Object instance;
-
-    public ErrorProneTimings(Object instance) {
-      this.instance = instance;
-    }
-
-    public static ErrorProneTimings instance(Context context) {
-      Object instance = null;
-      if (clazz != null) {
-        try {
-          instance = clazz.getMethod("instance", Context.class).invoke(null, context);
-        } catch (ReflectiveOperationException e) {
-          throw new LinkageError(e.getMessage(), e);
-        }
-      }
-      return new ErrorProneTimings(instance);
-    }
-
-    @SuppressWarnings("unchecked") // reflection
-    public Map<String, Duration> timings() {
-      if (clazz == null) {
-        return ImmutableMap.of();
-      }
-      try {
-        return (Map<String, Duration>) clazz.getMethod("timings").invoke(instance);
-      } catch (ReflectiveOperationException e) {
-        throw new LinkageError(e.getMessage(), e);
-      }
-    }
-  }
 
   /** Registers our message bundle. */
   public static void setupMessageBundle(Context context) {
@@ -160,7 +115,7 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     try {
       errorProneAnalyzer.finished(new TaskEvent(Kind.ANALYZE, env.toplevel, env.enclClass.sym));
     } catch (ErrorProneError e) {
-      e.logFatalError(log);
+      e.logFatalError(log, context);
       // let the exception propagate to javac's main, where it will cause the compilation to
       // terminate with Result.ABNORMAL
       throw e;
@@ -173,8 +128,8 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   public void finish() {
     statisticsBuilder.totalErrorProneTime(elapsed.elapsed());
     timings.timings().entrySet().stream()
-        .sorted(comparing((Map.Entry<String, Duration> e) -> e.getValue()).reversed())
+        .sorted(Map.Entry.<String, Duration>comparingByValue().reversed())
         .limit(10) // best-effort to stay under the action metric size limit
-        .forEachOrdered((e) -> statisticsBuilder.addBugpatternTiming(e.getKey(), e.getValue()));
+        .forEachOrdered(e -> statisticsBuilder.addBugpatternTiming(e.getKey(), e.getValue()));
   }
 }

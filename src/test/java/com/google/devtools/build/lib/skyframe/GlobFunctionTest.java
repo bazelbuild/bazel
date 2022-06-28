@@ -183,7 +183,7 @@ public abstract class GlobFunctionTest {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
+    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     AnalysisMock analysisMock = AnalysisMock.get();
@@ -653,6 +653,15 @@ public abstract class GlobFunctionTest {
   @Test
   public void testDoubleStarPatternWithNamedChild() throws Exception {
     assertGlobMatches("**/bar", "foo/bar");
+  }
+
+  @Test
+  public void testDoubleStarPatternWithErrorChild() throws Exception {
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("self"), "self");
+
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob("**/self", Operation.FILES));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
   }
 
   @Test

@@ -148,6 +148,33 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testSerializedDiagnosticsFileFeature() throws Exception {
+    useConfiguration("--features=serialized_diagnostics_file");
+
+    createLibraryTargetWriter("//objc/lib1")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .write();
+
+    createLibraryTargetWriter("//objc/lib2")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib1")
+        .write();
+
+    createLibraryTargetWriter("//objc:x")
+        .setAndCreateFiles("srcs", "a.m", "private.h")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib2:lib2")
+        .write();
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//objc:x", "a.o");
+
+    assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
+        .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d", "objc/_objs/x/arc/a.dia");
+  }
+
+  @Test
   public void testCompilesSourcesWithSameBaseName() throws Exception {
     createLibraryTargetWriter("//foo:lib")
         .setAndCreateFiles("srcs", "a.m", "pkg1/a.m", "b.m")
@@ -203,6 +230,74 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments())
         .containsAtLeast("-stdlib=libc++", "-std=gnu++11", "-mmacosx-version-min=9.10.11");
+  }
+
+  @Test
+  public void testObjcSourceContainsObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.m");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.m']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).contains("--xyzzy");
+  }
+
+  @Test
+  public void testObjcppSourceContainsObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.mm");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.mm']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).contains("--xyzzy");
+  }
+
+  @Test
+  public void testCSourceDoesNotContainObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.c");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.c']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testCppSourceDoesNotContainObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.cc");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.cc']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testCppHeaderDoesNotContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/x.h.processed", x).getArguments())
+        .doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testObjcHeaderContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/x.h.processed", x).getArguments())
+        .contains("--xyzzy");
   }
 
   @Test
@@ -2062,7 +2157,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
 
     CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
-    assertThat(archiveAction.getMnemonic()).isEqualTo("CppLink");
+    assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
   protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
@@ -2332,11 +2427,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
-    ActionAnalysisMetadata linkAction =
+    ActionAnalysisMetadata archiveAction =
         libTarget.getActions().stream()
-            .filter((a) -> a.getMnemonic().equals("CppLink"))
+            .filter((a) -> a.getMnemonic().equals("CppArchive"))
             .collect(onlyElement());
-    assertThat(linkAction.getInputs().toList())
+    assertThat(archiveAction.getInputs().toList())
         .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
 
     ActionAnalysisMetadata objcCompileAction =

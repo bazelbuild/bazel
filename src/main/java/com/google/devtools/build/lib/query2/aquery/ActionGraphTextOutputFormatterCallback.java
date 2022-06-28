@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -29,6 +31,8 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -45,11 +49,13 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
 class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -63,7 +69,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor,
+      TargetAccessor<KeyedConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.actionFilters = actionFilters;
@@ -75,13 +81,15 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
+      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
+        ConfiguredTargetValue configuredTargetValue =
+            keyedConfiguredTargetValue.getConfiguredTargetValue();
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
           // We have to include non-rule values in the graph to visit their dependencies, but they
           // don't have any actions to print out.
@@ -92,7 +100,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           writeAction(action, printStream);
         }
         if (options.useAspects) {
-          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
+          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
                 writeAction(action, printStream);
@@ -101,13 +109,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           }
         }
       }
-    } catch (CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | EvalException e) {
       throw new IOException(e.getMessage());
     }
   }
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
-      throws IOException, CommandLineExpansionException, InterruptedException {
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
     if (options.includeParamFiles && action instanceof ParameterFileWriteAction) {
       ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
 
@@ -199,7 +207,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               action.getInputs().toList().stream()
-                  .map(input -> input.getExecPathString())
+                  .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n")
@@ -208,9 +216,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getOutputs().stream()
                   .map(
                       output ->
-                          output.isTreeArtifact()
-                              ? output.getExecPathString() + " (TreeArtifact)"
-                              : output.getExecPathString())
+                          escapeBytestringUtf8(
+                              output.isTreeArtifact()
+                                  ? output.getExecPathString() + " (TreeArtifact)"
+                                  : output.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");
@@ -229,7 +238,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                 Streams.stream(fixedEnvironment)
                     .map(
                         environmentVariable ->
-                            environmentVariable.getKey() + "=" + environmentVariable.getValue())
+                            escapeBytestringUtf8(
+                                environmentVariable.getKey()
+                                    + "="
+                                    + environmentVariable.getValue()))
                     .sorted()
                     .collect(Collectors.joining(", ")))
             .append("]\n");
@@ -259,7 +271,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               CommandFailureUtils.describeCommand(
                   CommandDescriptionForm.COMPLETE,
                   /* prettyPrintArgs= */ true,
-                  ((CommandAction) action).getArguments(),
+                  ((CommandAction) action)
+                      .getArguments().stream()
+                          .map(a -> escapeBytestringUtf8(a))
+                          .collect(toImmutableList()),
                   /* environment= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
@@ -318,6 +333,25 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
+    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
+      FileWriteAction fileWriteAction = (FileWriteAction) action;
+      stringBuilder
+          .append("  FileWriteContents: [")
+          .append(
+              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
+          .append("]\n");
+    }
+    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
+      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+      stringBuilder
+          .append("  FileWriteContents: [")
+          .append(
+              Base64.getEncoder()
+                  .encodeToString(
+                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
+          .append("]\n");
+    }
+
     stringBuilder.append('\n');
 
     printStream.write(stringBuilder.toString().getBytes(UTF_8));
@@ -329,5 +363,38 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       paramFileNameToContentMap = new HashMap<>();
     }
     return paramFileNameToContentMap;
+  }
+
+  /**
+   * Decode a bytestring that might contain UTF-8, and escape any characters outside the basic
+   * printable ASCII range.
+   *
+   * <p>This function is intended for human consumption in debug output that needs to be durable
+   * against unusual encoding settings, and does not guarantee that the escaping process is
+   * reverseable.
+   *
+   * <p>Characters other than printable ASCII but within the Basic Multilingual Plane are formatted
+   * with `\\uXXXX`. Characters outside the BMP are formatted as `\\UXXXXXXXX`.
+   */
+  public static String escapeBytestringUtf8(String maybeUtf8) {
+    if (maybeUtf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
+      return maybeUtf8;
+    }
+
+    final String decoded = decodeBytestringUtf8(maybeUtf8);
+    final StringBuilder sb = new StringBuilder(decoded.length() * 8);
+    decoded
+        .codePoints()
+        .forEach(
+            c -> {
+              if (c >= 0x20 && c < 0x7F) {
+                sb.appendCodePoint(c);
+              } else if (c <= 0xFFFF) {
+                sb.append(String.format("\\u%04X", c));
+              } else {
+                sb.append(String.format("\\U%08X", c));
+              }
+            });
+    return sb.toString();
   }
 }

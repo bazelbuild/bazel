@@ -19,23 +19,23 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.starlark.Args;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -78,61 +78,6 @@ public class ProtoCommon {
   // Protocol compiler invocation stuff.
 
   /**
-   * Each language-specific initialization method will call this to construct Artifacts representing
-   * its protocol compiler outputs.
-   *
-   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
-   *     ".pb.cc".
-   * @param pythonNames If true, replace hyphens in the file name with underscores, and dots in the
-   *     file name with forward slashes, as required for Python modules.
-   */
-  public static ImmutableList<Artifact> getGeneratedOutputs(
-      RuleContext ruleContext,
-      ImmutableList<Artifact> protoSources,
-      String extension,
-      boolean pythonNames) {
-    ImmutableList.Builder<Artifact> outputsBuilder = new ImmutableList.Builder<>();
-    ArtifactRoot genfiles = ruleContext.getGenfilesDirectory();
-    for (Artifact src : protoSources) {
-      PathFragment srcPath =
-          src.getOutputDirRelativePath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
-      if (pythonNames) {
-        srcPath = srcPath.replaceName(srcPath.getBaseName().replace('-', '_'));
-
-        // Protoc python plugin converts dots in filenames to slashes when generating python source
-        // paths. For example, "myproto.gen.proto" generates "myproto/gen_pb2.py".
-        String baseName = srcPath.getBaseName();
-        int lastDot = baseName.lastIndexOf('.');
-        if (lastDot > 0) {
-          String baseNameNoExtension = baseName.substring(0, lastDot);
-          srcPath =
-              srcPath.replaceName(
-                  baseNameNoExtension.replace('.', '/') + baseName.substring(lastDot));
-        }
-      }
-      // Note that two proto_library rules can have the same source file, so this is actually a
-      // shared action. NB: This can probably result in action conflicts if the proto_library rules
-      // are not the same.
-      outputsBuilder.add(
-          ruleContext.getShareableArtifact(
-              FileSystemUtils.replaceExtension(srcPath, extension), genfiles));
-    }
-    return outputsBuilder.build();
-  }
-
-  /**
-   * Each language-specific initialization method will call this to construct Artifacts representing
-   * its protocol compiler outputs.
-   *
-   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
-   *     ".pb.cc".
-   */
-  public static ImmutableList<Artifact> getGeneratedOutputs(
-      RuleContext ruleContext, ImmutableList<Artifact> protoSources, String extension) {
-    return getGeneratedOutputs(ruleContext, protoSources, extension, false);
-  }
-
-  /**
    * Decides whether this proto_library should check for strict proto deps.
    *
    * <p>Only takes into account the command-line flag --strict_proto_deps.
@@ -153,10 +98,78 @@ public class ProtoCommon {
     }
   }
 
+  public static ImmutableList<Artifact> declareGeneratedFiles(
+      RuleContext ruleContext, ConfiguredTarget protoTarget, String extension)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction declareGeneratedFiles =
+        (StarlarkFunction)
+            ruleContext.getStarlarkDefinedBuiltin("proto_common_declare_generated_files");
+    ruleContext.initStarlarkRuleContext();
+    Sequence<?> outputs =
+        (Sequence<?>)
+            ruleContext.callStarlarkOrThrowRuleError(
+                declareGeneratedFiles,
+                ImmutableList.of(
+                    /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+                    /* proto_library_target */ Starlark.NONE,
+                    /* extension */ extension),
+                ImmutableMap.of("proto_info", protoTarget.get(ProtoInfo.PROVIDER)));
+    try {
+      return Sequence.cast(outputs, Artifact.class, "declare_generated_files").getImmutableList();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessageWithStack());
+    }
+  }
+
+  private static final StarlarkCallable pythonMapper =
+      new StarlarkCallable() {
+        @Override
+        public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
+          return args.get(0).toString().replace('-', '_').replace('.', '/');
+        }
+
+        @Override
+        public String getName() {
+          return "python_mapper";
+        }
+      };
+
+  /**
+   * Each language-specific initialization method will call this to construct Artifacts representing
+   * its protocol compiler outputs. The cals replaces hyphens in the file name with underscores, and
+   * dots in the file name with forward slashes, as required for Python modules.
+   *
+   * @param extension Remove ".proto" and replace it with this to produce the output file name, e.g.
+   *     ".pb.cc".
+   */
+  public static ImmutableList<Artifact> declareGeneratedFilesPython(
+      RuleContext ruleContext, ConfiguredTarget protoTarget, String extension)
+      throws RuleErrorException, InterruptedException {
+    StarlarkFunction declareGeneratedFiles =
+        (StarlarkFunction)
+            ruleContext.getStarlarkDefinedBuiltin("proto_common_declare_generated_files");
+    ruleContext.initStarlarkRuleContext();
+    Sequence<?> outputs =
+        (Sequence<?>)
+            ruleContext.callStarlarkOrThrowRuleError(
+                declareGeneratedFiles,
+                ImmutableList.of(
+                    /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+                    /* proto_library_target */ Starlark.NONE,
+                    /* extension */ extension,
+                    /* experimental_python_names */ pythonMapper),
+                ImmutableMap.of("proto_info", protoTarget.get(ProtoInfo.PROVIDER)));
+    try {
+      return Sequence.cast(outputs, Artifact.class, "declare_generated_files").getImmutableList();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessageWithStack());
+    }
+  }
+
   public static void compile(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,
-      ProtoLangToolchainProvider protoLangToolchainInfo,
+      StarlarkInfo protoLangToolchainInfo,
       Iterable<Artifact> generatedFiles,
       @Nullable Object pluginOutput,
       @Nullable Args additionalArgs,
@@ -172,7 +185,6 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
-            /* proto_library_target */ protoTarget,
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput,
@@ -183,14 +195,15 @@ public class ProtoCommon {
                 : Depset.of(
                     Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs)),
             /* resource_set */ resourceSet == null ? Starlark.NONE : resourceSet,
-            /* experimental_progress_message */ progressMessage),
+            /* experimental_progress_message */ progressMessage,
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER)),
         ImmutableMap.of());
   }
 
   public static void compile(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,
-      ProtoLangToolchainProvider protoLangToolchainInfo,
+      StarlarkInfo protoLangToolchainInfo,
       Iterable<Artifact> generatedFiles,
       @Nullable Object pluginOutput,
       String progressMessage)
@@ -202,17 +215,20 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
-            /* proto_library_target */ protoTarget,
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
-        ImmutableMap.of("experimental_progress_message", progressMessage));
+        ImmutableMap.of(
+            "experimental_progress_message",
+            progressMessage,
+            "proto_info",
+            protoTarget.get(ProtoInfo.PROVIDER)));
   }
 
   public static boolean shouldGenerateCode(
       RuleContext ruleContext,
       ConfiguredTarget protoTarget,
-      ProtoLangToolchainProvider protoLangToolchainInfo,
+      StarlarkInfo protoLangToolchainInfo,
       String ruleName)
       throws RuleErrorException, InterruptedException {
     StarlarkFunction shouldGenerateCode =
@@ -230,9 +246,7 @@ public class ProtoCommon {
   }
 
   public static Sequence<Artifact> filterSources(
-      RuleContext ruleContext,
-      ConfiguredTarget protoTarget,
-      ProtoLangToolchainProvider protoLangToolchainInfo)
+      RuleContext ruleContext, ConfiguredTarget protoTarget, StarlarkInfo protoLangToolchainInfo)
       throws RuleErrorException, InterruptedException {
     StarlarkFunction filterSources =
         (StarlarkFunction)

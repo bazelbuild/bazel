@@ -67,6 +67,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the config_setting rule.
@@ -77,6 +78,7 @@ import java.util.Map;
 public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
@@ -218,7 +220,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private static RepositoryName getToolsRepository(RuleContext ruleContext) {
-    return RepositoryName.createFromValidStrippedName(
+    return RepositoryName.createUnvalidated(
         ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
   }
 
