@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -140,6 +141,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       return DEFAULT_RULE_CLASS_PROVIDER;
     }
 
+    @CanIgnoreReturnValue
     Builder setFetchForTesting() {
       this.isFetch.set(true);
       return this;

@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -89,12 +90,14 @@ public class AndroidDataBuilder {
     return result;
   }
 
+  @CanIgnoreReturnValue
   public AndroidDataBuilder addResource(
       String path, AndroidDataBuilder.ResourceType template, String... lines) {
     filesToWrite.put(resourceDir.resolve(path), template.create(lines));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidDataBuilder addValuesWithAttributes(
       String path, Map<String, String> attributes, String... lines) {
     ImmutableList.Builder<String> attributeBuilder = ImmutableList.builder();
@@ -110,12 +113,14 @@ public class AndroidDataBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidDataBuilder addResourceBinary(String path, Path source) {
     final Path target = resourceDir.resolve(path);
     filesToCopy.put(target, source);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidDataBuilder addAsset(String path, String... lines) {
     filesToWrite.put(assetDir.resolve(path), Joiner.on("\n").join(lines));
     return this;
@@ -125,6 +130,7 @@ public class AndroidDataBuilder {
     return createManifest(path, manifestPackage, ImmutableList.<String>of(), lines);
   }
 
+  @CanIgnoreReturnValue
   public AndroidDataBuilder createManifest(
       String path, String manifestPackage, List<String> namespaces, String... lines) {
     this.manifest = root.resolve(path);
@@ -141,6 +147,7 @@ public class AndroidDataBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidDataBuilder createRTxt(String path, String... lines) {
     this.rTxt = root.resolve(path);
     filesToWrite.put(rTxt, Joiner.on("\n").join(lines));
