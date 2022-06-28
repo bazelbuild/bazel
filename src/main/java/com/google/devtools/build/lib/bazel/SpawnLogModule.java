@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import com.google.devtools.build.lib.bazel.execlog.ExeclogExplain;
 import com.google.devtools.build.lib.bazel.execlog.StableSort;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutp
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.MessageOutputStreamCollection;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -109,7 +111,10 @@ public final class SpawnLogModule extends BlazeModule {
       outStream = new AsynchronousFileOutputStream(rawOutput);
     }
 
-    if (outStream == null) {
+    PathFragment explainFile = executionOptions.executionLogExplainFile;
+    ExeclogExplain execlogExplain = (explainFile != null)? new ExeclogExplain(env, explainFile): null;
+
+    if (outStream == null && execlogExplain == null) {
       // No logging needed
       clear();
       return;
@@ -121,7 +126,8 @@ public final class SpawnLogModule extends BlazeModule {
             outStream,
             env.getOptions().getOptions(ExecutionOptions.class),
             env.getOptions().getOptions(RemoteOptions.class),
-            env.getXattrProvider());
+            env.getXattrProvider(),
+            execlogExplain);
   }
 
   @Override

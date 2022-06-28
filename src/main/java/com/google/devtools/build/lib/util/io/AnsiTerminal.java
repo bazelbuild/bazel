@@ -153,6 +153,20 @@ public class AnsiTerminal {
   }
 
   /**
+   * Makes text print on the terminal in cyan.
+   */
+  public void textCyan() throws IOException {
+    setTextColor(Color.CYAN);
+  }
+
+  /**
+   * Makes text print on the terminal in gray.
+   */
+  public void textGray() throws IOException {
+    setTextColor(Color.GRAY);
+  }
+
+  /**
    * Set the terminal title.
    */
   public void setTitle(String title) throws IOException {

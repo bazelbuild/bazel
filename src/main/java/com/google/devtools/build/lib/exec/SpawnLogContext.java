@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.protobuf.Message;
 import com.google.protobuf.util.Durations;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -67,18 +68,21 @@ public class SpawnLogContext implements ActionContext {
   @Nullable private final ExecutionOptions executionOptions;
   @Nullable private final RemoteOptions remoteOptions;
   private final XattrProvider xattrProvider;
+  private final MessageOutputStream execlogExplain;
 
   public SpawnLogContext(
       Path execRoot,
       MessageOutputStream executionLog,
       @Nullable ExecutionOptions executionOptions,
       @Nullable RemoteOptions remoteOptions,
-      XattrProvider xattrProvider) {
+      XattrProvider xattrProvider,
+      MessageOutputStream execlogExplain) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
     this.executionOptions = executionOptions;
     this.remoteOptions = remoteOptions;
     this.xattrProvider = xattrProvider;
+    this.execlogExplain = execlogExplain;
   }
 
   /** Log the executed spawn to the output stream. */
@@ -219,7 +223,13 @@ public class SpawnLogContext implements ActionContext {
       }
     }
 
-    executionLog.write(builder.build());
+    Message m = builder.build();
+    if (executionLog != null) {
+      executionLog.write(m);
+    }
+    if (execlogExplain != null) {
+      execlogExplain.write(m);
+    }
   }
 
   private static com.google.protobuf.Duration durationToProto(Duration d) {
@@ -227,7 +237,12 @@ public class SpawnLogContext implements ActionContext {
   }
 
   public void close() throws IOException {
-    executionLog.close();
+    if (executionLog != null) {
+      executionLog.close();
+    }
+    if (execlogExplain != null) {
+      execlogExplain.close();
+    }
   }
 
   private static Protos.Platform buildPlatform(Platform platform) {

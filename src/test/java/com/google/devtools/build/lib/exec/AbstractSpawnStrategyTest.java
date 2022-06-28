@@ -524,7 +524,7 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
         .thenReturn(
             new SpawnLogContext(
-                execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE));
+                execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE, null));
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
             FutureSpawn.immediate(

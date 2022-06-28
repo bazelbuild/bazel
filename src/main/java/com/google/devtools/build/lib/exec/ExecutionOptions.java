@@ -456,6 +456,17 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment executionLogJsonFile;
 
   @Option(
+      name = "experimental_execution_log_explain_file",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "Causes the build system to explain each action executed by the "
+              + "build in detail. The explanation is written to the specified log file.")
+  public PathFragment executionLogExplainFile;
+
+  @Option(
       name = "experimental_split_xml_generation",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
