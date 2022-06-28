@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
+import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.base.MoreObjects;
@@ -165,7 +165,11 @@ public final class TestActionBuilder {
   }
 
   private ActionOwner getOwner() {
-    ActionOwner owner = ruleContext.getActionOwner(TEST_RUNNER_EXEC_GROUP);
+    ActionOwner owner =
+        ruleContext.getActionOwner(
+            this.executionRequirements != null
+                ? this.executionRequirements.getExecGroup()
+                : DEFAULT_TEST_RUNNER_EXEC_GROUP);
     return owner == null ? ruleContext.getActionOwner() : owner;
   }
 

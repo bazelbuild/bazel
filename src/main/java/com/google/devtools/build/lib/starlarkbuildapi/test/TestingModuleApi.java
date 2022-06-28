@@ -45,10 +45,17 @@ public interface TestingModuleApi extends StarlarkValue {
                 "A map of string keys and values to indicate special execution requirements,"
                     + " such as hardware platforms, etc. These keys and values are passed to the"
                     + " executor of the test action as parameters to configure the execution"
-                    + " environment.")
+                    + " environment."),
+        @Param(
+            name = "exec_group",
+            named = true,
+            positional = false,
+            defaultValue = "'test'",
+            doc = "The name of the execution group to use for executing the test."),
       })
-  ExecutionInfoApi executionInfo(Dict<?, ?> requirements // <String, String> expected
-      ) throws EvalException;
+  ExecutionInfoApi executionInfo(
+      /* <String, String> expected */ Dict<?, ?> requirements, String execGroup)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "TestEnvironment",
