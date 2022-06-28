@@ -427,5 +427,27 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         args=['build', '@other_repo//:file'], cwd=work_dir)
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testRepoEnv(self):
+    # Testing fix for issue: https://github.com/bazelbuild/bazel/issues/15430
+
+    self.ScratchFile('WORKSPACE', [
+        'load("//:main.bzl", "dump_env")', 'dump_env(', '    name = "debug"',
+        ')'
+    ])
+    self.ScratchFile('BUILD')
+    self.ScratchFile('main.bzl', [
+        'def _dump_env(ctx):', '    val = ctx.os.environ.get("FOO", "nothing")',
+        '    print("FOO", val)', '    ctx.file("BUILD")',
+        'dump_env = repository_rule(', '    implementation = _dump_env,',
+        '    local = True,', ')'
+    ])
+
+    exit_code, _, stderr = self.RunBazel(
+        args=['build', '@debug//:all', '--repo_env=FOO'],
+        env_add={'FOO': 'bar'})
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('FOO bar', os.linesep.join(stderr))
+    self.assertNotIn('null value in entry: FOO=null', os.linesep.join(stderr))
+
 if __name__ == '__main__':
   unittest.main()
