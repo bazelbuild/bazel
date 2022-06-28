@@ -1124,7 +1124,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Returns the {@link ConfiguredAspect} with the given label. For example: {@code
-   * //my:base_target%my_aspect}.
+   * //my:defs.bzl%my_aspect}.
    *
    * <p>Assumes only one configured aspect exists for this label. If this isn't true, or you need
    * finer grained selection for different configurations, you'll need to expand this method.
