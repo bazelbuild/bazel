@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
 /**
@@ -62,6 +63,7 @@ public class ApkActionsBuilder {
   }
 
   /** Sets the native libraries to be included in the APK. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setNativeLibs(NativeLibs nativeLibs) {
     this.nativeLibs = nativeLibs;
     return this;
@@ -72,6 +74,7 @@ public class ApkActionsBuilder {
    *
    * <p>Can be either a plain classes.dex or a .zip file containing dexes.
    */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setClassesDex(Artifact classesDex) {
     Preconditions.checkArgument(
         classesDex.getFilename().endsWith(".zip")
@@ -81,11 +84,13 @@ public class ApkActionsBuilder {
   }
 
   /** Add a zip file that should be copied as is into the APK. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder addInputZip(Artifact inputZip) {
     this.inputZips.add(inputZip);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ApkActionsBuilder addInputZips(Iterable<Artifact> inputZips) {
     this.inputZips.addAll(inputZips);
     return this;
@@ -95,6 +100,7 @@ public class ApkActionsBuilder {
    * Adds a zip to be added to the APK and an executable that filters the zip to extract the
    * relevant contents first.
    */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setJavaResourceZip(
       Artifact javaResourceZip, FilesToRunProvider resourceExtractor) {
     this.javaResourceZip = javaResourceZip;
@@ -108,57 +114,67 @@ public class ApkActionsBuilder {
    * <p>This provides the same functionality as {@code javaResourceZip}, except much more hacky.
    * Will most probably won't work if there is an input artifact in the same directory as this file.
    */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setJavaResourceFile(Artifact javaResourceFile) {
     this.javaResourceFile = javaResourceFile;
     return this;
   }
 
   /** Requests an unsigned APK be built at the specified artifact. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setUnsignedApk(Artifact unsignedApk) {
     this.unsignedApk = unsignedApk;
     return this;
   }
 
   /** Requests a signed APK be built at the specified artifact. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setSignedApk(Artifact signedApk) {
     this.signedApk = signedApk;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setV4Signature(Artifact v4SignatureFile) {
     this.v4SignatureFile = v4SignatureFile;
     return this;
   }
 
   /** Requests that signed APKs are zipaligned. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setZipalignApk(boolean zipalign) {
     this.zipalignApk = zipalign;
     return this;
   }
 
   /** Sets the signing keys that will be used to sign the APK. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setSigningKeys(List<Artifact> signingKeys) {
     this.signingKeys = signingKeys;
     return this;
   }
 
   /** Sets the signing lineage file used to sign the APK. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setSigningLineageFile(Artifact signingLineage) {
     this.signingLineage = signingLineage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setSigningKeyRotationMinSdk(String minSdk) {
     this.signingKeyRotationMinSdk = minSdk;
     return this;
   }
 
   /** Sets the output APK instead of creating with a static/standard path. */
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setArtifactLocationDirectory(String artifactLocation) {
     this.artifactLocation = artifactLocation;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ApkActionsBuilder setDeterministicSigning(boolean deterministicSigning) {
     this.deterministicSigning = deterministicSigning;
     return this;

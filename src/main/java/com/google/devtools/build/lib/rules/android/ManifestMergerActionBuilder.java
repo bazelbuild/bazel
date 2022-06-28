@@ -18,6 +18,7 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -33,41 +34,49 @@ public class ManifestMergerActionBuilder {
   private Artifact manifestOutput;
   private Artifact logOut;
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setManifest(Artifact manifest) {
     this.manifest = manifest;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setMergeeManifests(Map<Artifact, Label> mergeeManifests) {
     this.mergeeManifests = ImmutableMap.copyOf(mergeeManifests);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setMergeManifestPermissions(boolean mergeManifestPermissions) {
     this.mergeManifestPermissions = mergeManifestPermissions;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setManifestValues(Map<String, String> manifestValues) {
     this.manifestValues = manifestValues;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setCustomPackage(String customPackage) {
     this.customPackage = customPackage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setManifestOutput(Artifact manifestOutput) {
     this.manifestOutput = manifestOutput;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ManifestMergerActionBuilder setLogOut(Artifact logOut) {
     this.logOut = logOut;
     return this;

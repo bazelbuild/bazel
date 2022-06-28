@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 
 /**
@@ -49,6 +50,7 @@ public class AndroidRuntimeJarProvider implements TransitiveInfoProvider {
      * Copies all mappings from the given providers, which is useful to aggregate providers from
      * dependencies.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveProviders(Iterable<AndroidRuntimeJarProvider> providers) {
       for (AndroidRuntimeJarProvider provider : providers) {
         transitiveMappings.addTransitive(provider.runtimeJars);
@@ -57,6 +59,7 @@ public class AndroidRuntimeJarProvider implements TransitiveInfoProvider {
     }
 
     /** Adds a mapping from a Jar to its desugared version. */
+    @CanIgnoreReturnValue
     public Builder addDesugaredJar(Artifact jar, Artifact desugared) {
       newlyDesugared.put(checkNotNull(jar, "jar"), checkNotNull(desugared, "desugared"));
       return this;

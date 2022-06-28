@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +64,7 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
      * Adds all dex archives from the given providers, which is useful to aggregate providers from
      * dependencies.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveProviders(Iterable<DexArchiveProvider> providers) {
       for (DexArchiveProvider provider : providers) {
         transitiveDexArchives.addTransitive(provider.dexArchives);
@@ -75,6 +77,7 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
      *
      * @param dexopts
      */
+    @CanIgnoreReturnValue
     public Builder addDexArchive(Set<String> dexopts, Artifact dexArchive, Artifact dexedJar) {
       checkArgument(
           dexArchive.getFilename().endsWith(".dex.zip"),

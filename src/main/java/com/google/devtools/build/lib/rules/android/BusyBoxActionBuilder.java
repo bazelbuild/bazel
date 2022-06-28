@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.Collection;
 import java.util.List;
@@ -71,6 +72,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds a direct input artifact. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addInput(Artifact value) {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(value);
@@ -79,6 +81,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds a direct input artifact. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addInput(@CompileTimeConstant String arg, Artifact value) {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
@@ -95,6 +98,7 @@ public final class BusyBoxActionBuilder {
    *
    * @param value a string representation of the value artifacts
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addInput(
       @CompileTimeConstant String arg, String value, Iterable<Artifact> valueArtifacts) {
     commandLine.add(arg, value);
@@ -103,12 +107,14 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds the given input artifacts without any command line options. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addInputs(Iterable<Artifact> inputs) {
     this.inputs.addAll(inputs);
     return this;
   }
 
   /** Adds an input artifact if it is non-null */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddInput(
       @CompileTimeConstant String arg, @Nullable Artifact value) {
     if (value != null) {
@@ -118,6 +124,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds an input artifact if it is non-null */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddInput(@Nullable Artifact value) {
     if (value != null) {
       this.inputs.add(value);
@@ -132,6 +139,7 @@ public final class BusyBoxActionBuilder {
    * such as {@link #addTransitiveFlag(String, NestedSet, AndroidDataConverter)} and {@link
    * #addTransitiveInputValues(NestedSet)}, instead.
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddInput(
       @CompileTimeConstant String arg, @Nullable Collection<Artifact> values) {
     if (values != null && !values.isEmpty()) {
@@ -150,6 +158,7 @@ public final class BusyBoxActionBuilder {
    *
    * @param value a string representation of the value artifacts
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddInput(
       @CompileTimeConstant String arg,
       String value,
@@ -161,6 +170,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds an output artifact */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addOutput(@CompileTimeConstant String arg, Artifact value) {
     Preconditions.checkNotNull(value);
     commandLine.addExecPath(arg, value);
@@ -169,6 +179,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds the given output artifacts without adding any command line options. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addOutputs(Iterable<Artifact> outputs) {
     this.outputs.addAll(outputs);
     return this;
@@ -189,6 +200,7 @@ public final class BusyBoxActionBuilder {
    * <p>These artifacts will not be mentioned on the command line - use {@link
    * #addTransitiveFlag(String, NestedSet, AndroidDataConverter)} for that.
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addTransitiveInputValues(NestedSet<Artifact> values) {
     inputs.addTransitive(values);
     return this;
@@ -205,6 +217,7 @@ public final class BusyBoxActionBuilder {
    * <p>The values will not be added as inputs - use {@link #addTransitiveInputValues(NestedSet)}
    * for that.
    */
+  @CanIgnoreReturnValue
   public <T> BusyBoxActionBuilder addTransitiveFlag(
       @CompileTimeConstant String arg,
       NestedSet<? extends T> transitiveValues,
@@ -224,6 +237,7 @@ public final class BusyBoxActionBuilder {
    * <p>The values will not be added as inputs - use {@link #addTransitiveInputValues(NestedSet)}
    * for that.
    */
+  @CanIgnoreReturnValue
   public <T> BusyBoxActionBuilder addTransitiveFlagForEach(
       @CompileTimeConstant String arg,
       NestedSet<? extends T> transitiveValues,
@@ -241,6 +255,7 @@ public final class BusyBoxActionBuilder {
    * <p>Unlike other transitive input methods in this class, this method adds the values to both the
    * command line and the list of inputs.
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addTransitiveVectoredInput(
       @CompileTimeConstant String arg, NestedSet<Artifact> values) {
     commandLine.addExecPaths(arg, VectorArg.join(":").each(values));
@@ -249,18 +264,21 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds a flag with a value set to the current target's label */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addLabelFlag(@CompileTimeConstant String arg) {
     commandLine.addLabel(arg, dataContext.getLabel());
     return this;
   }
 
   /** Adds a flag with no arguments to the command line. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addFlag(@CompileTimeConstant String value) {
     commandLine.add(value);
     return this;
   }
 
   /** Adds a flag with a String value to the command line. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addFlag(@CompileTimeConstant String arg, String value) {
     Preconditions.checkNotNull(value);
     commandLine.add(arg, value);
@@ -268,6 +286,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** If the condition is true, adds a flag with no arguments to the command line. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddFlag(@CompileTimeConstant String arg, boolean condition) {
     if (condition) {
       commandLine.add(arg);
@@ -276,6 +295,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** If the flag is a non-null, non-empty String, adds the flag and value to the command line. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddFlag(
       @CompileTimeConstant String arg, @Nullable String value) {
     if (value != null && !value.isEmpty()) {
@@ -289,6 +309,7 @@ public final class BusyBoxActionBuilder {
    *
    * <p>The values will be joined in execution and separated by commas.
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addVectoredFlag(
       @CompileTimeConstant String arg, List<String> values) {
     Preconditions.checkNotNull(values);
@@ -302,6 +323,7 @@ public final class BusyBoxActionBuilder {
    *
    * <p>The values will be joined in execution and separated by commas.
    */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder maybeAddVectoredFlag(
       @CompileTimeConstant String arg, @Nullable List<String> values) {
     if (values != null && !values.isEmpty()) {
@@ -311,6 +333,7 @@ public final class BusyBoxActionBuilder {
   }
 
   /** Adds aapt to the command line and inputs. */
+  @CanIgnoreReturnValue
   public BusyBoxActionBuilder addAapt() {
     FilesToRunProvider aapt2 = dataContext.getSdk().getAapt2();
     commandLine.addExecPath("--aapt2", aapt2.getExecutable());

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerTy
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.List;
 
@@ -70,100 +71,119 @@ public class AndroidResourcesProcessorBuilder {
    * <p>If null, data binding processing is skipped (and data binding expressions aren't allowed in
    * layout resources).
    */
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setDataBindingInfoZip(Artifact zip) {
     this.dataBindingInfoZip = zip;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder withResourceDependencies(
       ResourceDependencies resourceDeps) {
     this.resourceDependencies = resourceDeps;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder withAssetDependencies(AssetDependencies assetDeps) {
     this.assetDependencies = assetDeps;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setUncompressedExtensions(
       List<String> uncompressedExtensions) {
     this.uncompressedExtensions = uncompressedExtensions;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setCrunchPng(boolean crunchPng) {
     this.crunchPng = crunchPng;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setResourceFilterFactory(
       ResourceFilterFactory resourceFilterFactory) {
     this.resourceFilterFactory = resourceFilterFactory;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setDebug(boolean debug) {
     this.debug = debug;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setProguardOut(Artifact proguardCfg) {
     this.proguardOut = proguardCfg;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder conditionalKeepRules(boolean conditionalKeepRules) {
     this.conditionalKeepRules = conditionalKeepRules;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setMainDexProguardOut(Artifact mainDexProguardCfg) {
     this.mainDexProguardOut = mainDexProguardCfg;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setIncludeProguardLocationReferences(
       boolean includeProguardLocationReferences) {
     this.includeProguardLocationReferences = includeProguardLocationReferences;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setRTxtOut(Artifact rTxtOut) {
     this.rTxtOut = rTxtOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setSymbols(Artifact symbols) {
     this.symbols = symbols;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setApkOut(Artifact apkOut) {
     this.apkOut = apkOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setSourceJarOut(Artifact sourceJarOut) {
     this.sourceJarOut = sourceJarOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setManifestOut(Artifact manifestOut) {
     this.manifestOut = manifestOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setMergedResourcesOut(Artifact mergedResourcesOut) {
     this.mergedResourcesOut = mergedResourcesOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setThrowOnResourceConflict(
       boolean throwOnResourceConflict) {
     this.throwOnResourceConflict = throwOnResourceConflict;
@@ -249,16 +269,19 @@ public class AndroidResourcesProcessorBuilder {
         mainDexProguardOut);
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setJavaPackage(String customJavaPackage) {
     this.customJavaPackage = customJavaPackage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setVersionCode(String versionCode) {
     this.versionCode = versionCode;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setApplicationId(String applicationId) {
     if (applicationId != null && !applicationId.isEmpty()) {
       this.applicationId = applicationId;
@@ -266,16 +289,19 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setVersionName(String versionName) {
     this.versionName = versionName;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setPackageUnderTest(String packageUnderTest) {
     this.packageUnderTest = packageUnderTest;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourcesProcessorBuilder setIsTestWithResources(boolean isTestWithResources) {
     this.isTestWithResources = isTestWithResources;
     return this;
