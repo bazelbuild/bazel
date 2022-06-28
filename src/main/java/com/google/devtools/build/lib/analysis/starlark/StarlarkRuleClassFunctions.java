@@ -335,10 +335,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
-        // TODO(brandjon): Embedding bazelContext in a callback is not thread safe! Instead
-        // construct a new BazelStarlarkContext with copies of the relevant fields that are safe to
-        // share. Maybe create a method on BazelStarlarkContext for safely constructing a child
-        // context.
         StarlarkCallbackHelper callback =
             new StarlarkCallbackHelper(
                 (StarlarkFunction) implicitOutputs, thread.getSemantics(), bazelContext);

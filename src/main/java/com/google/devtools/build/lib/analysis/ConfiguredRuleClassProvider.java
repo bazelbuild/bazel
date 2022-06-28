@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
@@ -871,12 +871,10 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   @Override
   public void setStarlarkThreadContext(StarlarkThread thread, Label fileLabel) {
-    new BazelStarlarkContext(
-            BazelStarlarkContext.Phase.LOADING,
+    new BzlInitThreadContext(
             toolsRepository,
             configurationFragmentMap,
             new SymbolGenerator<>(fileLabel),
-            /*analysisRuleLabel=*/ null,
             networkAllowlistForTests)
         .storeInThread(thread);
   }
