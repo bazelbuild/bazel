@@ -35,7 +35,7 @@ Manager.
 The following command can be used to build the example app:
 
 ```
-bazel build //examples/android/java/bazel:hello_world
+bazel build //examples/android/java/bazel:hello_world --java_language_version=8
 ```
 
 We also have a nice way to speed up the edit-compile-install development cycle for physical Android devices and emulators: Bazel knows what code changed since the last build, and can use this knowledge to install only the changed code to the device. This currently works with L devices and changes to Java code and Android resources. To try this out, take an `android_binary` rule and:

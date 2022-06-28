@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -185,6 +186,7 @@ public abstract class Module {
 
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);
       return this;
@@ -192,6 +194,7 @@ public abstract class Module {
 
     abstract ImmutableMap.Builder<String, ModuleKey> originalDepsBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addOriginalDep(String depRepoName, ModuleKey depKey) {
       originalDepsBuilder().put(depRepoName, depKey);
       return this;
@@ -203,6 +206,7 @@ public abstract class Module {
 
     abstract ImmutableList.Builder<ModuleExtensionUsage> extensionUsagesBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addExtensionUsage(ModuleExtensionUsage value) {
       extensionUsagesBuilder().add(value);
       return this;

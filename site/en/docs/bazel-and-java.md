@@ -265,7 +265,6 @@ Predefined configurations:
 -   `DEFAULT_TOOLCHAIN_CONFIGURATION`: all features, supports JDK versions >= 9
 -   `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports JDKs of
     arbitrary vendors.
--   `JVM8_TOOLCHAIN_CONFIGURATION`: all features, JDK version 8
 -   `PREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but only use prebuilt
     tools (`ijar`, `singlejar`)
 -   `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are

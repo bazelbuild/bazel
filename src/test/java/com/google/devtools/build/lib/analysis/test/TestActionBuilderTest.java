@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -327,6 +328,40 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "        srcs = ['illegal.sh'],",
         "        timeout = 'unreasonable')",
         "test_suite(name = 'everything')");
+  }
+
+  /**
+   * Overriding the exec group from within the test affects the way exec properties are selected.
+   */
+  @Test
+  public void testOverrideExecGroup() throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "        testing.ExecutionInfo({}, exec_group = 'custom_group'),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    exec_groups = {'custom_group': exec_group()},",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "some_test(",
+        "    name = 'custom_exec_group_test',",
+        "    exec_properties = {'test.key': 'bad', 'custom_group.key': 'good'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:custom_exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key", "good");
   }
 
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(String label)

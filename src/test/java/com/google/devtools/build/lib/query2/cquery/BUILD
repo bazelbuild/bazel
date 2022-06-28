@@ -12,7 +12,7 @@ filegroup(
 
 java_test(
     name = "BuildOutputFormatterCallbackTest",
-    size = "large",
+    size = "medium",
     srcs = ["BuildOutputFormatterCallbackTest.java"],
     shard_count = 4,
     deps = [
@@ -33,7 +33,7 @@ java_test(
 
 java_test(
     name = "GraphOutputFormatterCallbackTest",
-    size = "large",
+    size = "medium",
     srcs = ["GraphOutputFormatterCallbackTest.java"],
     shard_count = 4,
     deps = [
@@ -50,7 +50,7 @@ java_test(
 
 java_test(
     name = "ConfiguredTargetQuerySemanticsTest",
-    size = "large",
+    size = "medium",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
     shard_count = 2,
     deps = [
@@ -116,7 +116,7 @@ java_library(
 
 java_test(
     name = "ProtoOutputFormatterCallbackTest",
-    size = "large",
+    size = "medium",
     srcs = ["ProtoOutputFormatterCallbackTest.java"],
     shard_count = 4,
     deps = [
@@ -140,7 +140,7 @@ java_test(
 
 java_test(
     name = "TransitionsOutputFormatterTest",
-    size = "large",
+    size = "medium",
     srcs = ["TransitionsOutputFormatterTest.java"],
     shard_count = 4,
     deps = [

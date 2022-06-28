@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
@@ -36,6 +38,8 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -145,6 +149,53 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
     verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
+  }
+
+  @Test
+  public void testExecInWorker_virtualInputs_doesntQueryInputFileCache()
+      throws ExecException, InterruptedException, IOException {
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilestTreeUpdater */ null,
+            new WorkerOptions(),
+            eventBus,
+            SyscallCache.NO_CACHE);
+    WorkerKey key = createWorkerKey(fs, "mnem", false);
+    Path logFile = fs.getPath("/worker.log");
+    when(worker.getResponse(0))
+        .thenReturn(WorkResponse.newBuilder().setExitCode(0).setOutput("out").build());
+    VirtualActionInput virtualActionInput =
+        ActionsTestUtil.createVirtualActionInput("input", "content");
+    when(spawn.getInputFiles())
+        .thenAnswer(
+            invocation ->
+                NestedSetBuilder.create(Order.COMPILE_ORDER, (ActionInput) virtualActionInput));
+
+    WorkResponse response =
+        runner.execInWorker(
+            spawn,
+            key,
+            context,
+            new SandboxInputs(
+                ImmutableMap.of(), ImmutableSet.of(virtualActionInput), ImmutableMap.of()),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableList.of(),
+            inputFileCache,
+            spawnMetrics);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getExitCode()).isEqualTo(0);
+    assertThat(response.getRequestId()).isEqualTo(0);
+    assertThat(response.getOutput()).isEqualTo("out");
+    assertThat(logFile.exists()).isFalse();
+    verify(inputFileCache, never()).getMetadata(virtualActionInput);
   }
 
   @Test

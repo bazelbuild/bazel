@@ -1802,10 +1802,10 @@ public abstract class CcModule
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFile,
+      Object winDefFileObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFile)) {
+    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -1834,6 +1834,7 @@ public abstract class CcModule
     } else {
       staticLinkTargetType = LinkTargetType.OBJC_ARCHIVE;
     }
+    Artifact winDefFile = convertFromNoneable(winDefFileObject, /* defaultValue= */ null);
     List<CcLinkingContext> ccLinkingContexts =
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
@@ -1871,7 +1872,7 @@ public abstract class CcModule
             .emitInterfaceSharedLibraries(true)
             .setLinkedDLLNameSuffix(
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
-            .setDefFile(convertFromNoneable(winDefFile, /* defaultValue= */ null))
+            .setDefFile(winDefFile)
             .setIsStampingEnabled(isStampingEnabled)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     if (!asDict(variablesExtension).isEmpty()) {

@@ -259,10 +259,6 @@ public final class BlazeDirectories {
     return BlazeDirectories.getRelativeOutputPath(productName);
   }
 
-  public String getProductName() {
-    return productName;
-  }
-
   /**
    * Returns the directory where Bazel writes build outputs, relative to the execRoot.
    *
@@ -270,6 +266,10 @@ public final class BlazeDirectories {
    */
   public static String getRelativeOutputPath(String productName) {
     return StringCanonicalizer.intern(productName + "-out");
+  }
+
+  public String getProductName() {
+    return productName;
   }
 
   @Override

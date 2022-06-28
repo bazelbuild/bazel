@@ -854,6 +854,41 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
+    /** Add the other {@link Runfiles} object transitively. */
+    public Builder merge(Runfiles runfiles) {
+      return merge(runfiles, true);
+    }
+
+    /** Add the other {@link Runfiles} object transitively. */
+    private Builder merge(Runfiles runfiles, boolean includeArtifacts) {
+      // Propagate the most strict conflict checking from merged-in runfiles
+      if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
+        conflictPolicy = runfiles.conflictPolicy;
+      }
+      if (runfiles.isEmpty()) {
+        return this;
+      }
+      // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
+      // may have an empty suffix, but that is covered above.
+      Preconditions.checkArgument(
+          suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
+      if (includeArtifacts) {
+        artifactsBuilder.addTransitive(runfiles.getArtifacts());
+      }
+      symlinksBuilder.addTransitive(runfiles.getSymlinks());
+      rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
+      extraMiddlemenBuilder.addTransitive(runfiles.getExtraMiddlemen());
+      if (emptyFilesSupplier == DUMMY_EMPTY_FILES_SUPPLIER) {
+        emptyFilesSupplier = runfiles.getEmptyFilesProvider();
+      } else {
+        EmptyFilesSupplier otherSupplier = runfiles.getEmptyFilesProvider();
+        Preconditions.checkState(
+            (otherSupplier == DUMMY_EMPTY_FILES_SUPPLIER)
+                || emptyFilesSupplier.equals(otherSupplier));
+      }
+      return this;
+    }
+
     /**
      * Adds the runfiles for a particular target and visits the transitive closure of "srcs",
      * "deps" and "data", collecting all of their respective runfiles.
@@ -973,40 +1008,6 @@ public final class Runfiles implements RunfilesApi {
     /** Add the other {@link Runfiles} object transitively, but don't merge artifacts. */
     public Builder mergeExceptArtifacts(Runfiles runfiles) {
       return merge(runfiles, false);
-    }
-
-    /** Add the other {@link Runfiles} object transitively. */
-    public Builder merge(Runfiles runfiles) {
-      return merge(runfiles, true);
-    }
-
-    /** Add the other {@link Runfiles} object transitively. */
-    private Builder merge(Runfiles runfiles, boolean includeArtifacts) {
-      // Propagate the most strict conflict checking from merged-in runfiles
-      if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
-        conflictPolicy = runfiles.conflictPolicy;
-      }
-      if (runfiles.isEmpty()) {
-        return this;
-      }
-      // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
-      // may have an empty suffix, but that is covered above.
-      Preconditions.checkArgument(
-          suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
-      if (includeArtifacts) {
-        artifactsBuilder.addTransitive(runfiles.getArtifacts());
-      }
-      symlinksBuilder.addTransitive(runfiles.getSymlinks());
-      rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
-      extraMiddlemenBuilder.addTransitive(runfiles.getExtraMiddlemen());
-      if (emptyFilesSupplier == DUMMY_EMPTY_FILES_SUPPLIER) {
-        emptyFilesSupplier = runfiles.getEmptyFilesProvider();
-      } else {
-        EmptyFilesSupplier otherSupplier = runfiles.getEmptyFilesProvider();
-        Preconditions.checkState((otherSupplier == DUMMY_EMPTY_FILES_SUPPLIER)
-          || emptyFilesSupplier.equals(otherSupplier));
-      }
-      return this;
     }
 
     private static Iterable<TransitiveInfoCollection> getNonDataDeps(RuleContext ruleContext) {

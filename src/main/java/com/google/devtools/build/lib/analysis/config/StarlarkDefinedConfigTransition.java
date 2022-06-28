@@ -334,7 +334,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       try (Mutability mu = Mutability.create("eval_transition_function")) {
         StarlarkThread thread = new StarlarkThread(mu, semantics);
         thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
-        // TODO: If the resulting values of Starlark transitions ever evolve to be
+        // TODO(brandjon): If the resulting values of Starlark transitions ever evolve to be
         //  complex Starlark objects like structs as opposed to the ints, strings,
         //  etc they are today then we need a real symbol generator which is used
         //  to calculate equality between instances of Starlark objects. A candidate

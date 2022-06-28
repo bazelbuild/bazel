@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
@@ -54,18 +53,6 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /** Returns a map from rule names to rule class objects. */
   Map<String, RuleClass> getRuleClassMap();
-
-  /**
-   * Stores a BazelStarlarkContext in the specified StarlarkThread about to initialize a .bzl file.
-   *
-   * <p>A .bzl file loaded by (or indirectly by) a BUILD file may differ semantically from the same
-   * file loaded on behalf of a WORKSPACE file, because of the repository mapping and native module;
-   * these differences much be accounted for by caching.
-   *
-   * @param thread StarlarkThread in which to store the context.
-   * @param label the label of the .bzl file
-   */
-  void setStarlarkThreadContext(StarlarkThread thread, Label label);
 
   /**
    * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
@@ -121,7 +108,7 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    * Retrieves a {@link Map} from Starlark configuration fragment name to configuration fragment
    * class.
    */
-  Map<String, Class<?>> getConfigurationFragmentMap();
+  ImmutableMap<String, Class<?>> getConfigurationFragmentMap();
 
   /** Returns the policy on checking that third-party rules have licenses. */
   ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();

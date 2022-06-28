@@ -17,16 +17,9 @@
 # shift stderr to stdout.
 exec 2>&1
 
-no_echo=
-if [[ "$1" = "--no_echo" ]]; then
-  # Don't print anything to stdout in this special case.
-  # Currently needed for persistent test runner.
-  no_echo="true"
-  shift
-else
-  echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
-  echo "Executing tests from ${TEST_TARGET}"
-fi
+# Executing the test log will page it.
+echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+echo "Executing tests from ${TEST_TARGET}"
 
 function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
@@ -155,9 +148,7 @@ if [ -z "$COVERAGE_DIR" ]; then
 fi
 
 # This header marks where --test_output=streamed will start being printed.
-if [[ -z "$no_echo" ]]; then
-  echo "-----------------------------------------------------------------------------"
-fi
+echo "-----------------------------------------------------------------------------"
 
 # Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
 function encode_stream {
@@ -278,7 +269,7 @@ function kill_group {
 childPid=""
 function signal_children {
   local signal="${1-}"
-  if [ "${signal}" = "SIGTERM" ] && [ -z "$no_echo" ]; then
+  if [ "${signal}" = "SIGTERM" ]; then
     echo "-- Test timed out at $(date +"%F %T %Z") --"
   fi
   if [ ! -z "$childPid" ]; then

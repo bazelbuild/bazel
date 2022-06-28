@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -75,37 +76,44 @@ public final class BzlmodTestUtil {
       return create(name, version, 0);
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder addDep(String depRepoName, ModuleKey key) {
       deps.put(depRepoName, key);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
       originalDeps.put(depRepoName, key);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder setKey(ModuleKey value) {
       this.key = value;
       this.builder.setKey(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder setRegistry(FakeRegistry value) {
       this.builder.setRegistry(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder setExecutionPlatformsToRegister(ImmutableList<String> value) {
       this.builder.setExecutionPlatformsToRegister(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder setToolchainsToRegister(ImmutableList<String> value) {
       this.builder.setToolchainsToRegister(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ModuleBuilder addExtensionUsage(ModuleExtensionUsage value) {
       this.builder.addExtensionUsage(value);
       return this;
@@ -153,6 +161,7 @@ public final class BzlmodTestUtil {
       this.tagName = tagName;
     }
 
+    @CanIgnoreReturnValue
     public TestTagBuilder addAttr(String attrName, Object attrValue) {
       attrValuesBuilder.put(attrName, attrValue);
       return this;

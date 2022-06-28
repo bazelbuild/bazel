@@ -133,7 +133,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
         public void handle(Event e) {
           checkActive();
-          if (evaluatorContext.getStoredEventFilter().apply(e)) {
+          if (evaluatorContext.getStoredEventFilter().test(e)) {
             super.handle(e);
           } else {
             evaluatorContext.getReporter().handle(e);
@@ -290,7 +290,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
                 ? depKeys.getAllElementsAsIterable()
                 : Iterables.filter(
                     depKeys.getAllElementsAsIterable(),
-                    eventFilter.depEdgeFilterForEventsAndPosts(skyKey)),
+                    depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
             expectDoneDeps,
             depKeys.numElements());
     for (SkyValue value : deps) {

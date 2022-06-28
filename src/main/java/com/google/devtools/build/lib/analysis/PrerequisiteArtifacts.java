@@ -93,6 +93,16 @@ public final class PrerequisiteArtifacts {
     return new PrerequisiteArtifacts(ruleContext, attributeName, filtered.build());
   }
 
+  /** Returns an equivalent instance but only containing artifacts of the given type. */
+  public PrerequisiteArtifacts filter(FileType fileType) {
+    return filter(fileType, /*errorsForNonMatching=*/ false);
+  }
+
+  /** Returns an equivalent instance but only containing artifacts of the given types. */
+  public PrerequisiteArtifacts filter(FileTypeSet fileTypeSet) {
+    return filter(fileTypeSet, /*errorsForNonMatching=*/ false);
+  }
+
   /**
    * Returns an equivalent instance but only containing artifacts of the given type, reporting
    * errors for non-matching artifacts.
@@ -107,19 +117,5 @@ public final class PrerequisiteArtifacts {
    */
   public PrerequisiteArtifacts errorsForNonMatching(FileTypeSet fileTypeSet) {
     return filter(fileTypeSet, /*errorsForNonMatching=*/true);
-  }
-
-  /**
-   * Returns an equivalent instance but only containing artifacts of the given type.
-   */
-  public PrerequisiteArtifacts filter(FileType fileType) {
-    return filter(fileType, /*errorsForNonMatching=*/false);
-  }
-
-  /**
-   * Returns an equivalent instance but only containing artifacts of the given types.
-   */
-  public PrerequisiteArtifacts filter(FileTypeSet fileTypeSet) {
-    return filter(fileTypeSet, /*errorsForNonMatching=*/false);
   }
 }

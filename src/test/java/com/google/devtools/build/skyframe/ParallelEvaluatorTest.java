@@ -729,7 +729,7 @@ public class ParallelEvaluatorTest {
             /*keepGoing=*/ false,
             new EventFilter() {
               @Override
-              public boolean apply(Event event) {
+              public boolean test(Event event) {
                 return event.getKind() == EventKind.ERROR;
               }
 

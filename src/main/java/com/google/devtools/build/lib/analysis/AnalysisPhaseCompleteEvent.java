@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import java.util.Collection;
 
 /**

@@ -21,7 +21,14 @@ import net.starlark.java.eval.Module;
 /**
  * BazelModuleContext records Bazel-specific information associated with a .bzl {@link
  * net.starlark.java.eval.Module}.
+ *
+ * <p>Maintainer's note: This object is determined prior to the module's evaluation. It is saved in
+ * the {@code Module} as {@link Module#getClientData client data}. For data that is computed after
+ * the module's evaluation and which need not be exposed outside the module-loading machinery,
+ * consider {@link BzlLoadValue}.
  */
+// Immutability is useful because this object is retrievable from a Module and therefore from a
+// BzlLoadValue.
 @AutoValue
 public abstract class BazelModuleContext {
   /** Label associated with the Starlark {@link net.starlark.java.eval.Module}. */

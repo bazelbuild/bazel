@@ -318,12 +318,19 @@ public class ResourceManager {
 
     threadLocked.set(true);
 
+    CountDownLatch latch;
+    Worker worker;
+    synchronized (this) {
+      latch = latchWithWorker.latch;
+      worker = latchWithWorker.worker;
+    }
+
     // Profile acquisition only if it waited for resource to become available.
-    if (latchWithWorker.latch != null) {
+    if (latch != null) {
       p.complete();
     }
 
-    return new ResourceHandle(this, owner, resources, latchWithWorker.worker);
+    return new ResourceHandle(this, owner, resources, worker);
   }
 
   /**
@@ -498,7 +505,7 @@ public class ResourceManager {
     return anyProcessed;
   }
 
-  private void processWaitingThreads(Deque<Pair<ResourceSet, LatchWithWorker>> requests)
+  private synchronized void processWaitingThreads(Deque<Pair<ResourceSet, LatchWithWorker>> requests)
       throws IOException, InterruptedException {
     Iterator<Pair<ResourceSet, LatchWithWorker>> iterator = requests.iterator();
     while (iterator.hasNext()) {

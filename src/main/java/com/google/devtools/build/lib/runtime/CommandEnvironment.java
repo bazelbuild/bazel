@@ -266,8 +266,8 @@ public class CommandEnvironment {
         value = System.getenv(name);
       }
       if (value != null) {
-        repoEnv.put(entry.getKey(), entry.getValue());
-        repoEnvFromOptions.put(entry.getKey(), entry.getValue());
+        repoEnv.put(name, value);
+        repoEnvFromOptions.put(name, value);
       }
     }
     this.buildResultListener = new BuildResultListener();

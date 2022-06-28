@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
-import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
+import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -335,10 +335,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
-        // TODO(brandjon): Embedding bazelContext in a callback is not thread safe! Instead
-        // construct a new BazelStarlarkContext with copies of the relevant fields that are safe to
-        // share. Maybe create a method on BazelStarlarkContext for safely constructing a child
-        // context.
         StarlarkCallbackHelper callback =
             new StarlarkCallbackHelper(
                 (StarlarkFunction) implicitOutputs, thread.getSemantics(), bazelContext);
@@ -394,8 +390,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       builder.addExecGroups(execGroupDict);
     }
-    if (test && !builder.hasExecGroup(TEST_RUNNER_EXEC_GROUP)) {
-      builder.addExecGroup(TEST_RUNNER_EXEC_GROUP);
+    if (test && !builder.hasExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP)) {
+      builder.addExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP);
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
