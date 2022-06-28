@@ -40,8 +40,12 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
+import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -721,6 +725,7 @@ public class BzlLoadFunction implements SkyFunction {
       Environment env,
       @Nullable InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
     // Ensure the .bzl exists and passes static checks (parsing, resolving).
     // (A missing prelude file still returns a valid but empty BzlCompileValue.)
     if (!compileValue.lookupSuccessful()) {
@@ -736,16 +741,13 @@ public class BzlLoadFunction implements SkyFunction {
     }
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
-        getLoadLabels(
-            env.getListener(), programLoads, key.getLabel().getPackageIdentifier(), repoMapping);
+        getLoadLabels(env.getListener(), programLoads, label.getPackageIdentifier(), repoMapping);
     if (loadLabels == null) {
       throw new BzlLoadFailedException(
           String.format(
               "module '%s'%s has invalid load statements",
-              key.getLabel().toPathFragment(),
-              StarlarkBuiltinsValue.isBuiltinsRepo(key.getLabel().getRepository())
-                  ? " (internal)"
-                  : ""),
+              label.toPathFragment(),
+              StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
           Code.PARSE_ERROR);
     }
     ImmutableList.Builder<BzlLoadValue.Key> loadKeys =
@@ -786,23 +788,44 @@ public class BzlLoadFunction implements SkyFunction {
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
-    // Construct the initial Starlark module, then execute the code and return the result.
-    // The additional information in BazelModuleContext reifies the load DAG.
-    // The module must match the environment used to compile the .bzl file.
+    // Construct the initial Starlark module used for executing the program.
+    // The set of keys in the predeclared environment matches the set of predeclareds used to
+    // compile the .bzl file into a Program.
     Module module = Module.withPredeclared(builtins.starlarkSemantics, predeclared);
+    // The BazelModuleContext holds additional contextual info to be associated with the Module,
+    // including the label and a reified copy of the load DAG.
     module.setClientData(
         BazelModuleContext.create(
-            key.getLabel(),
+            label,
             repoMapping,
             prog.getFilename(),
             ImmutableMap.copyOf(loadMap),
             transitiveDigest));
 
+    // The BzlInitThreadContext holds Starlark thread-local state to be read and updated during
+    // evaluation.
+    RuleClassProvider ruleClassProvider = packageFactory.getRuleClassProvider();
+    BzlInitThreadContext context =
+        new BzlInitThreadContext(
+            ruleClassProvider.getToolsRepository(),
+            ruleClassProvider.getConfigurationFragmentMap(),
+            new SymbolGenerator<>(label),
+            ruleClassProvider.getNetworkAllowlistForTests().orElse(null));
+
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
-    // caching BzlLoadValues. Note that executing the code mutates the module.
+    // caching BzlLoadValues. Note that executing the code mutates the Module and
+    // BzlInitThreadContext.
     executeBzlFile(
-        prog, key.getLabel(), module, loadMap, builtins.starlarkSemantics, env.getListener());
-    return new BzlLoadValue(module, transitiveDigest);
+        prog, label, module, loadMap, context, builtins.starlarkSemantics, env.getListener());
+
+    BzlVisibility bzlVisibility = context.getBzlVisibility();
+    if (bzlVisibility == null) {
+      bzlVisibility = BzlVisibility.PUBLIC;
+    }
+    // We save bzl-visibility in the BzlLoadValue rather than the BazelModuleContext because
+    // visibility doesn't need to be introspected by any Starlark builtin methods, and because the
+    // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
+    return new BzlLoadValue(module, transitiveDigest, bzlVisibility);
   }
 
   private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
@@ -1085,6 +1108,7 @@ public class BzlLoadFunction implements SkyFunction {
       Label label,
       Module module,
       Map<String, Module> loadedModules,
+      BzlInitThreadContext context,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler skyframeEventHandler)
       throws BzlLoadFailedException, InterruptedException {
@@ -1093,7 +1117,8 @@ public class BzlLoadFunction implements SkyFunction {
       thread.setLoader(loadedModules::get);
       StoredEventHandler starlarkEventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
-      packageFactory.getRuleClassProvider().setStarlarkThreadContext(thread, label);
+      context.storeInThread(thread);
+
       execAndExport(prog, label, starlarkEventHandler, module, thread);
 
       Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());

@@ -47,13 +47,11 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -78,7 +76,6 @@ import java.util.zip.ZipInputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
@@ -870,16 +867,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public void setStarlarkThreadContext(StarlarkThread thread, Label fileLabel) {
-    new BzlInitThreadContext(
-            toolsRepository,
-            configurationFragmentMap,
-            new SymbolGenerator<>(fileLabel),
-            networkAllowlistForTests)
-        .storeInThread(thread);
-  }
-
-  @Override
   public String getDefaultWorkspacePrefix() {
     return defaultWorkspaceFilePrefix;
   }
@@ -890,7 +877,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public Map<String, Class<?>> getConfigurationFragmentMap() {
+  public ImmutableMap<String, Class<?>> getConfigurationFragmentMap() {
     return configurationFragmentMap;
   }
 
@@ -915,6 +902,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
     return thirdPartyLicenseExistencePolicy;
+  }
+
+  @Override
+  public Optional<Label> getNetworkAllowlistForTests() {
+    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

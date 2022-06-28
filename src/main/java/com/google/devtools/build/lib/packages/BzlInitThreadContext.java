@@ -29,6 +29,9 @@ import net.starlark.java.eval.StarlarkThread;
  */
 public final class BzlInitThreadContext extends BazelStarlarkContext {
 
+  // For storing the result of calling `visibility()`.
+  @Nullable private BzlVisibility bzlVisibility;
+
   // TODO(b/236456122): Are all these arguments needed for .bzl initialization?
   public BzlInitThreadContext(
       @Nullable RepositoryName toolsRepository,
@@ -68,5 +71,18 @@ public final class BzlInitThreadContext extends BazelStarlarkContext {
           "'%s' can only be called during .bzl initialization (top-level evaluation)", function);
     }
     return (BzlInitThreadContext) ctx;
+  }
+
+  /**
+   * Returns the saved BzlVisibility that was declared for the currently initializing .bzl module.
+   */
+  @Nullable
+  public BzlVisibility getBzlVisibility() {
+    return bzlVisibility;
+  }
+
+  /** Sets the BzlVisibility for the currently initializing .bzl module. */
+  public void setBzlVisibility(BzlVisibility bzlVisibility) {
+    this.bzlVisibility = bzlVisibility;
   }
 }
