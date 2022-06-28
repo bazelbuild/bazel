@@ -16,6 +16,7 @@ package com.google.devtools.build.android.ziputils;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENOFF;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -98,6 +99,7 @@ public class CentralDirectory extends View<CentralDirectory> {
    * @return this central directory view
    * @throws IllegalStateException if the file offset is not set prior to parsing
    */
+  @CanIgnoreReturnValue
   public CentralDirectory parse() throws IllegalStateException {
     Preconditions.checkState(fileOffset != -1, "File offset not set prior to parsing");
     count = 0;

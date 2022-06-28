@@ -16,6 +16,7 @@ package com.google.devtools.build.android.ziputils;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -112,6 +113,7 @@ public class LocalFileHeader extends View<LocalFileHeader> {
     return view;
   }
 
+  @CanIgnoreReturnValue
   private LocalFileHeader init(byte[] name, byte[] extra, int size) {
     buffer.putInt(0, SIGNATURE);
     set(LOCNAM, name.length);

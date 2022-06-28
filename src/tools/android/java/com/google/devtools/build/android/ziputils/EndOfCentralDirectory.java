@@ -16,6 +16,7 @@ package com.google.devtools.build.android.ziputils;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -83,6 +84,7 @@ public class EndOfCentralDirectory extends View<EndOfCentralDirectory> {
     return view;
   }
 
+  @CanIgnoreReturnValue
   private EndOfCentralDirectory init(byte[] comment) {
     buffer.putInt(0, SIGNATURE);
     set(ENDCOM, comment.length);
