@@ -584,4 +584,21 @@ EOF
   expect_log "cycle in dependency graph"
 }
 
+function test_unresolved_symlink_in_exec_cfg() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="non/existent")
+genrule(
+    name = "exec",
+    srcs = [],
+    outs = ["out"],
+    cmd = "touch $@",
+    exec_tools = [":a"],
+)
+EOF
+
+  bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:exec || fail "build failed"
+}
+
 run_suite "Tests for symlink artifacts"
