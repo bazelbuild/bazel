@@ -286,10 +286,6 @@ public class ResourceManager {
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
-    Worker worker = null;
-    if (resources.getWorkerKey() != null) {
-      worker = this.workerPool.borrowObject(resources.getWorkerKey());
-    }
     resources = tryAcquireUserEstimatesForResources(mnemonic, resources);
 
     LatchWithWorker latchWithWorker = null;
