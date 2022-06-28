@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 
 /** The collection of source jars from the transitive closure. */
@@ -79,12 +80,14 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
     private final NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
 
     /** Add a source jar that is to be built when the target is on the command line. */
+    @CanIgnoreReturnValue
     public Builder addSourceJar(Artifact sourceJar) {
       sourceJars.add(Preconditions.checkNotNull(sourceJar));
       return this;
     }
 
     /** Add source jars to be built when the target is on the command line. */
+    @CanIgnoreReturnValue
     public Builder addAllSourceJars(Iterable<Artifact> sourceJars) {
       this.sourceJars.addAll(Preconditions.checkNotNull(sourceJars));
       return this;
@@ -94,6 +97,7 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
      * Add a source jar in the transitive closure, that can be reached by a chain of
      * JavaSourceJarsProvider instances.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveSourceJar(Artifact transitiveSourceJar) {
       transitiveSourceJars.add(Preconditions.checkNotNull(transitiveSourceJar));
       return this;
@@ -103,12 +107,14 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
      * Add source jars in the transitive closure, that can be reached by a chain of
      * JavaSourceJarsProvider instances.
      */
+    @CanIgnoreReturnValue
     public Builder addAllTransitiveSourceJars(NestedSet<Artifact> transitiveSourceJars) {
       this.transitiveSourceJars.addTransitive(Preconditions.checkNotNull(transitiveSourceJars));
       return this;
     }
 
     /** Merge the source jars and transitive source jars from the provider into this builder. */
+    @CanIgnoreReturnValue
     public Builder mergeFrom(JavaSourceJarsProvider provider) {
       addAllTransitiveSourceJars(provider.getTransitiveSourceJars());
       addAllSourceJars(provider.getSourceJars());
