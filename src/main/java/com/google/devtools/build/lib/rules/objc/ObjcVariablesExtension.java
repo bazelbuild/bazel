@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import java.util.Set;
 
@@ -212,7 +213,7 @@ class ObjcVariablesExtension implements VariablesExtension {
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
     builder.addStringVariable(
         LINKED_BINARY_VARIABLE_NAME,
-        ruleContext.getFragment(ObjcConfiguration.class).shouldStripBinary()
+        ruleContext.getFragment(CppConfiguration.class).objcShouldStripBinary()
             ? intermediateArtifacts.unstrippedSingleArchitectureBinary().getExecPathString()
             : intermediateArtifacts.strippedSingleArchitectureBinary().getExecPathString());
 

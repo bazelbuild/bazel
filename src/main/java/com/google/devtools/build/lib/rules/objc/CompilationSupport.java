@@ -234,7 +234,6 @@ public class CompilationSupport implements StarlarkValue {
 
   private final RuleContext ruleContext;
   private final BuildConfigurationValue buildConfiguration;
-  private final ObjcConfiguration objcConfiguration;
   private final AppleConfiguration appleConfiguration;
   private final CppSemantics cppSemantics;
   private final CompilationAttributes attributes;
@@ -271,7 +270,6 @@ public class CompilationSupport implements StarlarkValue {
       throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
-    this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
     this.cppSemantics = cppSemantics;
     this.attributes = compilationAttributes;
@@ -449,7 +447,7 @@ public class CompilationSupport implements StarlarkValue {
    * Registers any actions necessary to link this rule and its dependencies. Automatically infers
    * the toolchain from the configuration of this CompilationSupport.
    *
-   * <p>Dsym bundle is generated if {@link ObjcConfiguration#generateDsym()} is set.
+   * <p>Dsym bundle is generated if {@link CppConfiguration#appleGenerateDsym()} is set.
    *
    * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
    * are specified, additional optimizations will be performed on the linked binary: all-symbol
@@ -575,7 +573,7 @@ public class CompilationSupport implements StarlarkValue {
 
     if (cppConfiguration.appleGenerateDsym()) {
       Artifact dsymSymbol =
-          objcConfiguration.shouldStripBinary()
+          cppConfiguration.objcShouldStripBinary()
               ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
               : intermediateArtifacts.dsymSymbolForStrippedBinary();
       extensionBuilder
@@ -584,7 +582,7 @@ public class CompilationSupport implements StarlarkValue {
       linkerOutputs.add(dsymSymbol);
     }
 
-    if (objcConfiguration.generateLinkmap()) {
+    if (cppConfiguration.objcGenerateLinkmap()) {
       Artifact linkmap = intermediateArtifacts.linkmap();
       extensionBuilder.setLinkmap(linkmap).addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
       linkerOutputs.add(linkmap);
@@ -627,7 +625,7 @@ public class CompilationSupport implements StarlarkValue {
         ImmutableSet.<Artifact>builder().addAll(objFiles).addAll(linkstampValues).build(),
         inputFileList);
 
-    if (objcConfiguration.shouldStripBinary()) {
+    if (cppConfiguration.objcShouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
     }
 
@@ -669,8 +667,7 @@ public class CompilationSupport implements StarlarkValue {
   /**
    * Returns all framework names to pass to the linker using {@code -framework} flags. For a
    * framework in the directory foo/bar.framework, the name is "bar". Each framework is found
-   * without using the full path by means of the framework search paths. Search paths are added by
-   * {@link#commonLinkAndCompileFlagsForClang(ObjcProvider, ObjcConfiguration, AppleConfiguration)})
+   * without using the full path by means of the framework search paths.
    *
    * <p>It's awful that we can't pass the full path to the framework and avoid framework search
    * paths, but this is imposed on us by clang. clang does not support passing the full path to the
@@ -833,7 +830,8 @@ public class CompilationSupport implements StarlarkValue {
     // symbols for dead-code removal. The binary is also used to generate dSYM bundle if
     // --apple_generate_dsym is specified. A symbol strip action is later registered to strip
     // the symbol table from the unstripped binary.
-    return objcConfiguration.shouldStripBinary()
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
+    return cppConfiguration.objcShouldStripBinary()
         ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
         : intermediateArtifacts.strippedSingleArchitectureBinary();
   }
