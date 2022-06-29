@@ -118,7 +118,7 @@ class TargetCompletor
 
   @Override
   @Nullable
-  public ExtendedEventHandler.Postable createSucceeded(
+  public TargetCompleteEvent createSucceeded(
       TargetCompletionKey skyKey,
       ConfiguredTargetValue value,
       CompletionContext completionContext,

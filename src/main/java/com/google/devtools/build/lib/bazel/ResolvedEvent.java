@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 
 /** Interface for events reporting information to be added to a resolved file. */
-public interface ResolvedEvent extends ExtendedEventHandler.ProgressLike {
+public interface ResolvedEvent extends ExtendedEventHandler.Postable {
   /** The name of the resolved entity, e.g., the name of an external repository. */
   String getName();
 

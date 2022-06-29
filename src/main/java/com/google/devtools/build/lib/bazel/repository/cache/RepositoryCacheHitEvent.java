@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.net.URL;
 
 /** Event reporting about cache hits for download requests. */
-public class RepositoryCacheHitEvent implements ProgressLike {
+public final class RepositoryCacheHitEvent implements Postable {
   private final RepositoryName repo;
   private final String hash;
   private final URL url;

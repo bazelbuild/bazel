@@ -37,7 +37,7 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** This event is fired as soon as a top-level aspect is either built or fails. */
-public class AspectCompleteEvent
+public final class AspectCompleteEvent
     implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
   private final AspectKey aspectKey;
   private final AspectDescriptor descriptor;
@@ -169,5 +169,10 @@ public class AspectCompleteEvent
             converters.artifactGroupNamer(),
             /*baselineCoverageArtifacts=*/ null));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 }

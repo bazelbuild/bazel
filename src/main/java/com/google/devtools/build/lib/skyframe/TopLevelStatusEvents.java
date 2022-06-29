@@ -17,7 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 
 /**
@@ -35,7 +35,7 @@ public final class TopLevelStatusEvents {
 
   /** An event that marks the successful analysis of a top-level target, including tests. */
   @AutoValue
-  public abstract static class TopLevelTargetAnalyzedEvent implements ProgressLike {
+  public abstract static class TopLevelTargetAnalyzedEvent implements Postable {
     abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
@@ -45,7 +45,7 @@ public final class TopLevelStatusEvents {
 
   /** An event that marks the skipping of a top-level target, including skipped tests. */
   @AutoValue
-  public abstract static class TopLevelTargetSkippedEvent implements ProgressLike {
+  public abstract static class TopLevelTargetSkippedEvent implements Postable {
     abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
@@ -55,7 +55,7 @@ public final class TopLevelStatusEvents {
 
   /** An event that marks the successful build of a top-level target, including tests. */
   @AutoValue
-  public abstract static class TopLevelTargetBuiltEvent implements ProgressLike {
+  public abstract static class TopLevelTargetBuiltEvent implements Postable {
     abstract ConfiguredTargetKey configuredTargetKey();
 
     public static TopLevelTargetBuiltEvent create(ConfiguredTargetKey configuredTargetKey) {
@@ -65,7 +65,7 @@ public final class TopLevelStatusEvents {
 
   /** An event that marks the successful analysis of a test target. */
   @AutoValue
-  public abstract static class TestAnalyzedEvent implements ProgressLike {
+  public abstract static class TestAnalyzedEvent implements Postable {
     public abstract ConfiguredTarget configuredTarget();
 
     public abstract BuildConfigurationValue buildConfigurationValue();
@@ -83,7 +83,7 @@ public final class TopLevelStatusEvents {
 
   /** An event that marks the successful analysis of an aspect. */
   @AutoValue
-  public abstract static class AspectAnalyzedEvent implements ProgressLike {
+  public abstract static class AspectAnalyzedEvent implements Postable {
     abstract AspectKey aspectKey();
 
     abstract ConfiguredAspect configuredAspect();
@@ -96,7 +96,7 @@ public final class TopLevelStatusEvents {
 
   /** An event that marks the successful building of an aspect. */
   @AutoValue
-  public abstract static class AspectBuiltEvent implements ProgressLike {
+  public abstract static class AspectBuiltEvent implements Postable {
     abstract AspectKey aspectKey();
 
     public static AspectBuiltEvent create(AspectKey aspectKey) {

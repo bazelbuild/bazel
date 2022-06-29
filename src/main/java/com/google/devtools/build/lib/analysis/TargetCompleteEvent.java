@@ -496,6 +496,11 @@ public final class TargetCompleteEvent
     return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifacts);
   }
 
+  @Override
+  public boolean storeForReplay() {
+    return true;
+  }
+
   static ReportedArtifacts toReportedArtifacts(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       CompletionContext completionContext,

@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** Notifies that an in-flight action is checking the cache. */
 @AutoValue
-public abstract class CachingActionEvent implements ProgressLike {
+public abstract class CachingActionEvent implements Postable {
 
   public static CachingActionEvent create(ActionExecutionMetadata action, String strategy) {
     return new AutoValue_CachingActionEvent(
