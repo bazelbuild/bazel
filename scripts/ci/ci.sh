@@ -46,7 +46,7 @@ set -eu
 
 MAIN_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD)
 
-COMMIT_RANGE=${COMMIT_RANGE:-$(git merge-base $MAIN_BRANCH HEAD)".."}
+COMMIT_RANGE=${COMMIT_RANGE:-$(git merge-base ${MAIN_BRANCH} HEAD)".."}
 
 # Go to the root of the repo
 cd "$(git rev-parse --show-toplevel)"
