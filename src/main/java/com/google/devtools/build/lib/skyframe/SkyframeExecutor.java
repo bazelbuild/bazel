@@ -215,6 +215,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -1039,7 +1040,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
-    try (AutoProfiler p = GoogleAutoProfilerUtils.logged("discarding analysis cache")) {
+    try (SilentCloseable p = trackDiscardAnalysisCache()) {
       lastAnalysisDiscarded = true;
       Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
           memoizingEvaluator.getGraphEntries().iterator();
@@ -1101,6 +1102,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         }
       }
     }
+  }
+
+  /** Tracks how long it takes to clear the analysis cache. */
+  private final SilentCloseable trackDiscardAnalysisCache() {
+    AutoProfiler profiler = GoogleAutoProfilerUtils.logged("discarding analysis cache");
+    return () -> {
+      Duration d = Duration.ofNanos(profiler.completeAndGetElapsedTimeNanos());
+      getEventBus().post(new AnalysisCacheClearEvent(d));
+    };
   }
 
   /**

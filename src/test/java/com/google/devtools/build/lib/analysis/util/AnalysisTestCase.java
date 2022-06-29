@@ -215,6 +215,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
+    skyframeExecutor.setEventBus(new EventBus());
     reinitializeSkyframeExecutor();
     packageManager = skyframeExecutor.getPackageManager();
     buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);

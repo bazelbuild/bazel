@@ -258,6 +258,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   // is used. This saves about 10% of the memory during execution.
   @Test
   public void testClearAnalysisCache() throws Exception {
+    skyframeExecutor.setEventBus(new EventBus());
     scratch.file(rootDirectory + "/discard/BUILD",
         "genrule(name='x', srcs=['input'], outs=['out'], cmd='false')");
     scratch.file(rootDirectory + "/discard/input", "foo");
