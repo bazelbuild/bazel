@@ -18,6 +18,7 @@ import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -127,36 +128,43 @@ public class DecompressorDescriptor {
           targetKind, targetName, archivePath, repositoryPath, prefix, executable, decompressor);
     }
 
+    @CanIgnoreReturnValue
     public Builder setTargetKind(String targetKind) {
       this.targetKind = targetKind;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTargetName(String targetName) {
       this.targetName = targetName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setArchivePath(Path archivePath) {
       this.archivePath = archivePath;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRepositoryPath(Path repositoryPath) {
       this.repositoryPath = repositoryPath;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPrefix(String prefix) {
       this.prefix = prefix;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutable(boolean executable) {
       this.executable = executable;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDecompressor(Decompressor decompressor) {
       this.decompressor = decompressor;
       return this;

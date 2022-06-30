@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -204,6 +205,7 @@ public final class AllocationTracker implements Sampler, Debug.ThreadHook {
       return bytes;
     }
 
+    @CanIgnoreReturnValue
     public RuleBytes addBytes(long bytes) {
       this.bytes += bytes;
       return this;

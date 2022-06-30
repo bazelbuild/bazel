@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -109,6 +110,7 @@ public class EnvironmentCollection {
         ImmutableMultimap.builder();
 
     /** Inserts the given environment / owning group pair. */
+    @CanIgnoreReturnValue
     public Builder put(EnvironmentLabels group, Label environment) {
       if (addedLabels.add(environment)) {
         mapBuilder.put(group, environment);
@@ -117,6 +119,7 @@ public class EnvironmentCollection {
     }
 
     /** Inserts the given set of environments, all belonging to the specified group. */
+    @CanIgnoreReturnValue
     public Builder putAll(EnvironmentLabels group, Iterable<Label> environments) {
       for (Label env : environments) {
         if (addedLabels.add(env)) {
@@ -126,9 +129,8 @@ public class EnvironmentCollection {
       return this;
     }
 
-    /**
-     * Inserts the contents of another {@link EnvironmentCollection} into this one.
-     */
+    /** Inserts the contents of another {@link EnvironmentCollection} into this one. */
+    @CanIgnoreReturnValue
     public Builder putAll(EnvironmentCollection other) {
       for (Map.Entry<EnvironmentLabels, Label> entry : other.map.entries()) {
         if (addedLabels.add(entry.getValue())) {

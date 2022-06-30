@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.ByteStreams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -304,6 +305,7 @@ public class ObjectCodecRegistry {
      * Adds the given codec. If a codec for this codec's encoded class already exists in the
      * registry, it is overwritten.
      */
+    @CanIgnoreReturnValue
     public Builder add(ObjectCodec<?> codec) {
       codecs.put(codec.getEncodedClass(), codec);
       return this;
@@ -312,6 +314,7 @@ public class ObjectCodecRegistry {
     /**
      * Set whether or not we allow fallback to java serialization when no matching codec is found.
      */
+    @CanIgnoreReturnValue
     public Builder setAllowDefaultCodec(boolean allowDefaultCodec) {
       this.allowDefaultCodec = allowDefaultCodec;
       return this;
@@ -339,26 +342,31 @@ public class ObjectCodecRegistry {
      * not serialize bit-for-bit identical disregarding this list of constants, since the list
      * object's codec will be different for the two objects.
      */
+    @CanIgnoreReturnValue
     public Builder addReferenceConstant(Object object) {
       referenceConstantsBuilder.add(object);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addReferenceConstants(Iterable<?> referenceConstants) {
       referenceConstantsBuilder.addAll(referenceConstants);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addClassName(String className) {
       classNames.add(className);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder excludeClassNamePrefix(String classNamePrefix) {
       excludedClassNamePrefixes.add(classNamePrefix);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder computeChecksum(boolean computeChecksum) {
       this.computeChecksum = computeChecksum;
       return this;

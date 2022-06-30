@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android.databinding;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
 
 /**
@@ -32,6 +33,7 @@ public class DataBindingProcessorArgsBuilder {
   }
 
   /** Sets directories where data binding reads its input and also writes its output */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder metadataOutputDir(String metadataOutputDir) {
     if (useUpdatedArgs) {
       flags.add(
@@ -50,12 +52,14 @@ public class DataBindingProcessorArgsBuilder {
   }
 
   /** Path to the Android SDK installation (if available). */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder sdkDir(String sdkDir) {
     flags.add(createProcessorFlag("sdkDir", sdkDir));
     return this;
   }
 
   /** Whether the current rule is a library or binary. */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder binary(boolean isBinary) {
     flags.add(createProcessorFlag("artifactType", isBinary ? "APPLICATION" : "LIBRARY"));
     return this;
@@ -65,6 +69,7 @@ public class DataBindingProcessorArgsBuilder {
    * Where data binding exports the list of classes it has created and that should be removed after
    * compilation. Not used in blaze.
    */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder exportClassListTo(String path) {
     if (useUpdatedArgs) {
       flags.add(createProcessorFlag("exportClassListOutFile", path));
@@ -75,12 +80,14 @@ public class DataBindingProcessorArgsBuilder {
   }
 
   /** The Java package for the current rule. This should match the AndroidManifest package. */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder modulePackage(String pkg) {
     flags.add(createProcessorFlag("modulePackage", pkg));
     return this;
   }
 
   /** Min SDK defined for the app */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder minApi(String minApi) {
     flags.add(createProcessorFlag("minApi", minApi));
     return this;
@@ -90,12 +97,14 @@ public class DataBindingProcessorArgsBuilder {
    * If set, data binding prints its errors in an encoded format that can be consumed by Android
    * Studio
    */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder printEncodedErrors() {
     flags.add(createProcessorFlag("printEncodedErrors", "1"));
     return this;
   }
 
   /** Call this method if we should use Data Binding compiler v2 */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder enableV2() {
     flags.add(createProcessorFlag("enableV2", "1"));
     return this;
@@ -105,6 +114,7 @@ public class DataBindingProcessorArgsBuilder {
    * The location where the processor wrote the information about the layout classes it has
    * generated during layout processing.
    */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder classLogDir(String classLogDir) {
     flags.add(createProcessorFlag("classLogDir", classLogDir));
     return this;
@@ -114,6 +124,7 @@ public class DataBindingProcessorArgsBuilder {
    * The location where the processor wrote the information about the layout classes it has
    * generated during layout processing.
    */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder classLogDir(Artifact classLogDir) {
     flags.add(createProcessorFlag("classLogDir", classLogDir));
     return this;
@@ -123,6 +134,7 @@ public class DataBindingProcessorArgsBuilder {
    * The path where data binding's resource processor wrote its output (the data binding XML
    * expressions). The annotation processor reads this file to translate that XML into Java.
    */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder layoutInfoDir(String layoutInfoDir) {
     if (useUpdatedArgs) {
       flags.add(createProcessorFlag("layoutInfoDir", layoutInfoDir));
@@ -136,14 +148,14 @@ public class DataBindingProcessorArgsBuilder {
    * The path where data binding's resource processor wrote its output (the data binding XML
    * expressions). The annotation processor reads this file to translate that XML into Java.
    */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder layoutInfoDir(Artifact layoutInfoDir) {
     flags.add(createProcessorFlag("layoutInfoDir", layoutInfoDir));
     return this;
   }
 
-  /**
-   * Sets the Java packages of the direct dependencies.
-   */
+  /** Sets the Java packages of the direct dependencies. */
+  @CanIgnoreReturnValue
   public DataBindingProcessorArgsBuilder directDependencyPkgs(Set<String> packages) {
     String value = String.format("[%s]", Joiner.on(",").join(packages));
     flags.add(createProcessorFlag("directDependencyPkgs", value));

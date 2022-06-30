@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -119,9 +120,8 @@ public final class TestActionBuilder {
     return createTestAction(shards);
   }
 
-  /**
-   * Set the runfiles and executable to be run as a test.
-   */
+  /** Set the runfiles and executable to be run as a test. */
+  @CanIgnoreReturnValue
   public TestActionBuilder setFilesToRunProvider(FilesToRunProvider provider) {
     Preconditions.checkNotNull(provider.getRunfilesSupport());
     Preconditions.checkNotNull(provider.getExecutable());
@@ -130,35 +130,38 @@ public final class TestActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestActionBuilder addTools(List<Artifact> tools) {
     this.additionalTools.addAll(tools);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestActionBuilder setInstrumentedFiles(@Nullable InstrumentedFilesInfo instrumentedFiles) {
     this.instrumentedFiles = instrumentedFiles;
     return this;
   }
 
-  public TestActionBuilder setExecutionRequirements(
-      @Nullable ExecutionInfo executionRequirements) {
+  @CanIgnoreReturnValue
+  public TestActionBuilder setExecutionRequirements(@Nullable ExecutionInfo executionRequirements) {
     this.executionRequirements = executionRequirements;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestActionBuilder addExtraEnv(Map<String, String> extraEnv) {
     this.extraEnv.putAll(extraEnv);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestActionBuilder addExtraInheritedEnv(List<String> extraInheritedEnv) {
     this.extraInheritedEnv.addAll(extraInheritedEnv);
     return this;
   }
 
-  /**
-   * Set the explicit shard count. Note that this may be overridden by the sharding strategy.
-   */
+  /** Set the explicit shard count. Note that this may be overridden by the sharding strategy. */
+  @CanIgnoreReturnValue
   public TestActionBuilder setShardCount(int explicitShardCount) {
     this.explicitShardCount = explicitShardCount;
     return this;

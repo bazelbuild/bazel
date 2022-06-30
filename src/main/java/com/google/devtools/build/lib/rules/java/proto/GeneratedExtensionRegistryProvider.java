@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.eval.EvalException;
 
 /**
@@ -109,30 +110,35 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
     private NestedSet<Artifact> inputs = null;
 
     /** Sets the rule label for which this registry was built. */
+    @CanIgnoreReturnValue
     public Builder setGeneratingRuleLabel(Label label) {
       this.generatingRuleLabel = label;
       return this;
     }
 
     /** Indicates this registry was built for lite runtime if <tt>true</tt>, full otherwise. */
+    @CanIgnoreReturnValue
     public Builder setLite(boolean lite) {
       this.isLite = lite;
       return this;
     }
 
     /** Sets the class jar containing the generated extension registry. */
+    @CanIgnoreReturnValue
     public Builder setClassJar(Artifact classJar) {
       this.classJar = classJar;
       return this;
     }
 
     /** Sets the source jar containing the generated extension registry. */
+    @CanIgnoreReturnValue
     public Builder setSrcJar(Artifact srcJar) {
       this.srcJar = srcJar;
       return this;
     }
 
     /** Sets the transitive set of protos used to produce the generated extension registry. */
+    @CanIgnoreReturnValue
     public Builder setInputs(NestedSet<Artifact> inputs) {
       this.inputs = inputs;
       return this;
