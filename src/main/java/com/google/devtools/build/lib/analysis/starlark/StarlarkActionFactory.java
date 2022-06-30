@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.actions.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -273,7 +274,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             ? (String) progressMessageUnchecked
             : "Creating symlink " + outputArtifact.getExecPathString();
 
-    SymlinkAction action;
+    Action action;
     if (targetFile != Starlark.NONE) {
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
@@ -315,12 +316,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf("\"is_executable\" cannot be True when using \"target_path\"");
       }
 
-      action =
-          SymlinkAction.createUnresolved(
-              ruleContext.getActionOwner(),
-              outputArtifact,
-              PathFragment.create((String) targetPath),
-              progressMessage);
+      action = new UnresolvedSymlinkAction(
+          ruleContext.getActionOwner(),
+          outputArtifact,
+          (String) targetPath,
+          progressMessage);
     }
     registerAction(action);
   }

@@ -411,11 +411,11 @@ EOF
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "a")
 
-a(name="a", link_target="somewhere/in/my/heart")
+a(name="a", link_target="../somewhere/../in/my/heart/..")
 EOF
 
   bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
-  assert_contains "input link is .*[/\\]somewhere/in/my/heart" bazel-bin/a/a.file
+  assert_contains "input link is ../somewhere/../in/my/heart/.." bazel-bin/a/a.file
 }
 
 function test_symlink_created_from_symlink_action() {
