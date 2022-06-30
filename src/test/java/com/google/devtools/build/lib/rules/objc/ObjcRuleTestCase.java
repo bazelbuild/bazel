@@ -1110,39 +1110,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileArgs).contains("-mwatchos-simulator-version-min=5.4");
   }
 
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_nonVersion(RuleType ruleType) throws Exception {
-    checkError(
-        "x", "x", "the form", ruleType.target(scratch, "x", "x", "minimum_os_version", "'foobar'"));
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_containsAlphabetic(RuleType ruleType) throws Exception {
-    checkError(
-        "x",
-        "x",
-        "Invalid version string",
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3alpha'"));
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_tooManyComponents(RuleType ruleType) throws Exception {
-    checkError(
-        "x",
-        "x",
-        "Invalid version string",
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3.1'"));
-  }
-
   private void checkAvoidDepsDependenciesSetupFramework() throws Exception {
     scratch.file(
         "fx/defs.bzl",

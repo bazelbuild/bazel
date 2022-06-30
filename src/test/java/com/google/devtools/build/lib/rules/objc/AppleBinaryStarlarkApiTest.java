@@ -126,7 +126,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
             + " minimum_os_version='7.0')",
         "objc_library(name='b', srcs=['b.c'])");
 
-    useConfiguration("--experimental_apple_mandatory_minimum_version", "ios_cpus=i386");
+    useConfiguration("ios_cpus=i386");
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//a:b");
 
@@ -141,7 +141,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   public void testMandatoryMinimumOsVersionSet() throws Exception {
     getRuleType()
         .scratchTarget(scratch, "minimum_os_version", "'8.0'", "platform_type", "'watchos'");
-    useConfiguration("--experimental_apple_mandatory_minimum_version");
     getConfiguredTarget("//x:x");
   }
 

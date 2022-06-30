@@ -20,7 +20,6 @@ load("@_builtins//:common/cc/cc_test.bzl", cc_test = "cc_test_wrapper")
 load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library", "cc_shared_library_permissions")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
-load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
@@ -50,7 +49,6 @@ exported_rules = {
     "objc_import": objc_import,
     "objc_library": objc_library,
     "+proto_library": proto_library,
-    "apple_static_library": apple_static_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "+cc_binary": cc_binary,

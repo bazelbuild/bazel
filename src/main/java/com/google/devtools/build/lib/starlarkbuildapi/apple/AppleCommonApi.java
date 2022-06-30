@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
@@ -154,19 +153,6 @@ public interface AppleCommonApi<
               + "</pre>",
       structField = true)
   ProviderApi getAppleExecutableBinaryConstructor();
-
-  @StarlarkMethod(
-      name = "AppleStaticLibrary",
-      doc =
-          "The constructor/key for the <code>AppleStaticLibrary</code> provider.<p>"
-              + "If a target propagates the <code>AppleStaticLibrary</code> provider, use "
-              + "this as the key with which to retrieve it. Example:<br>"
-              + "<pre class='language-python'>\n"
-              + "dep = ctx.attr.deps[0]\n"
-              + "p = dep[apple_common.AppleStaticLibrary]\n"
-              + "</pre>",
-      structField = true)
-  AppleStaticLibraryInfoProvider<?, ?> getAppleStaticLibraryProvider();
 
   @StarlarkMethod(
       name = "AppleDebugOutputs",
@@ -395,8 +381,9 @@ public interface AppleCommonApi<
       name = "link_multi_arch_static_library",
       doc =
           "Links a (potentially multi-architecture) static library targeting Apple platforms."
-              + " This method comprises a part of the <code>apple_static_library</code> rule logic,"
-              + " and is exposed as an API to iterate on XCFrameworks support on Starlark.\n"
+              + " This method comprises a part of the Starlark <code>apple_static_library</code>"
+              + " rule logic, in the rules_apple domain and exists to aid in the migration of its"
+              + " linking logic to Starlark in rules_apple.\n"
               + "<p>This API is <b>highly experimental</b> and subject to change at any time."
               + " Do not depend on the stability of this function at this time.",
       parameters = {
