@@ -222,7 +222,7 @@ public final class OutputDirectoryLinksUtils {
       try {
         if (entry.isSymbolicLink()
             && entry.relativeTo(workspace).getPathString().startsWith(symlinkPrefix)
-            && entry.readSymbolicLink().startsWith(outputBase.asFragment())) {
+            && PathFragment.create(entry.readSymbolicLink()).startsWith(outputBase.asFragment())) {
           logger.atFinest().log("Removing %s", entry);
           entry.delete();
         }

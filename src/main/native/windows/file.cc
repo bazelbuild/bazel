@@ -443,23 +443,10 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
     }
     return CreateSymlinkResult::kError;
   }
-  if (!IsAbsoluteNormalizedWindowsPath(symlink_target)) {
-    if (error) {
-      *error = MakeErrorMessage(
-          WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-          L"expected an absolute Windows path for symlink_target");
-    }
-    return CreateSymlinkResult::kError;
-  }
 
   const wstring name = AddUncPrefixMaybe(symlink_name);
-  const wstring target = AddUncPrefixMaybe(symlink_target);
-
-  DWORD attrs = GetFileAttributesW(target.c_str());
-  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-    // Instead of creating a symlink to a directory use a Junction.
-    return CreateSymlinkResult::kTargetIsDirectory;
-  }
+  const wstring target = IsAbsoluteNormalizedWindowsPath(symlink_target)
+      ? AddUncPrefixMaybe(symlink_target) : symlink_target;
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
                            symlinkPrivilegeFlag)) {
@@ -470,12 +457,14 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
         return CreateSymlinkResult::kSuccess;
       }
     }
-    *error = MakeErrorMessage(
-        WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-        GetLastError() == ERROR_PRIVILEGE_NOT_HELD
-            ? L"createSymbolicLinkW failed (permission denied). Either "
-              "Windows developer mode or admin privileges are required."
-            : L"createSymbolicLinkW failed");
+    *error = GetLastError() == ERROR_PRIVILEGE_NOT_HELD
+             ? MakeErrorMessage(
+                 WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+                 L"createSymbolicLinkW failed (permission denied). Either "
+                 "Windows developer mode or admin privileges are required.")
+             : MakeErrorMessage(
+                 WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+                 GetLastError());
     return CreateSymlinkResult::kError;
   }
   return CreateSymlinkResult::kSuccess;

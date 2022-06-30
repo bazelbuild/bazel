@@ -89,7 +89,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       case DIRECTORY:
         return DIRECTORY_FILE_STATE_NODE;
       case SYMLINK:
-        return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
+        return new SymlinkFileStateValue(PathFragment.create(path.readSymbolicLinkUnchecked()));
       case FILE:
       case UNKNOWN:
         if (stat == null) {
@@ -125,7 +125,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
-      return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
+      return new SymlinkFileStateValue(PathFragment.create(path.readSymbolicLinkUnchecked()));
     }
     throw new InconsistentFilesystemException("according to stat, existing path " + path + " is "
         + "neither a file nor directory nor symlink.");

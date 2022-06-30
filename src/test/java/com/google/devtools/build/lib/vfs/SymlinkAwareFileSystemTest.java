@@ -192,7 +192,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       if (testFS.supportsSymbolicLinksNatively(linkPath.asFragment())) {
         assertThat(linkPath.getFileSize(Symlinks.NOFOLLOW))
             .isEqualTo(relative.getSafePathString().length());
-        assertThat(linkPath.readSymbolicLink()).isEqualTo(relative);
+        assertThat(PathFragment.create(linkPath.readSymbolicLink())).isEqualTo(relative);
       }
     }
   }
@@ -313,20 +313,24 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   @Test
   public void testReadSymbolicLink() throws IOException {
     if (testFS.supportsSymbolicLinksNatively(xDanglingLink.asFragment())) {
-      assertThat(xDanglingLink.readSymbolicLink().toString()).isEqualTo(xNothing.toString());
+      assertThat(PathFragment.create(xDanglingLink.readSymbolicLink()).toString()).isEqualTo(
+          xNothing.toString());
     }
 
-    assertThat(xLinkToFile.readSymbolicLink().toString()).isEqualTo(xFile.toString());
+    assertThat(PathFragment.create(xLinkToFile.readSymbolicLink()).toString()).isEqualTo(
+        xFile.toString());
 
-    assertThat(xLinkToDirectory.readSymbolicLink().toString())
+    assertThat(PathFragment.create(xLinkToDirectory.readSymbolicLink()).toString())
         .isEqualTo(xEmptyDirectory.toString());
 
     NotASymlinkException nase =
-        assertThrows(NotASymlinkException.class, () -> xFile.readSymbolicLink());
+        assertThrows(NotASymlinkException.class,
+            () -> PathFragment.create(xFile.readSymbolicLink()));
     assertThat(nase).hasMessageThat().isEqualTo(xFile.toString() + " is not a symlink");
 
     FileNotFoundException fnfe =
-        assertThrows(FileNotFoundException.class, () -> xNothing.readSymbolicLink());
+        assertThrows(FileNotFoundException.class,
+            () -> PathFragment.create(xNothing.readSymbolicLink()));
     assertThat(fnfe).hasMessageThat().isEqualTo(xNothing + " (No such file or directory)");
   }
 

@@ -162,7 +162,8 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             Path symlink = base.getRelative("symlink" + i);
             assertThat(symlink.exists()).isTrue();
             assertThat(symlink.isSymbolicLink()).isTrue();
-            assertThat(symlink.readSymbolicLink()).isEqualTo(file.asFragment());
+            assertThat(PathFragment.create(symlink.readSymbolicLink())).isEqualTo(
+                file.asFragment());
           }
         };
 
@@ -245,7 +246,8 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
             Path symlink = base.getRelative("symlink_" + threadId + "_" + i);
             assertThat(symlink.exists()).isTrue();
             assertThat(symlink.isSymbolicLink()).isTrue();
-            assertThat(symlink.readSymbolicLink()).isEqualTo(file.asFragment());
+            assertThat(PathFragment.create(symlink.readSymbolicLink())).isEqualTo(
+                file.asFragment());
           }
         };
 

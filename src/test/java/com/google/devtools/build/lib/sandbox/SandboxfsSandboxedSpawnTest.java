@@ -193,24 +193,24 @@ public class SandboxfsSandboxedSpawnTest {
     Path linkToInput1 = workspaceDir.getRelative("dir2/link-to-input-1");
     linkToInput1.getParentDirectory().createDirectory();
     linkToInput1.createSymbolicLink(PathFragment.create("../dir1/input-1.txt"));
-    assertThat(linkToInput1.readSymbolicLink().isAbsolute()).isFalse();
+    assertThat(PathFragment.create(linkToInput1.readSymbolicLink()).isAbsolute()).isFalse();
 
     Path linkToInput2 = workspaceDir.getRelative("dir2/link-to-input-2");
     linkToInput2.getParentDirectory().createDirectory();
     linkToInput2.createSymbolicLink(PathFragment.create("../dir1/input-2.txt"));
-    assertThat(linkToInput2.readSymbolicLink().isAbsolute()).isFalse();
+    assertThat(PathFragment.create(linkToInput2.readSymbolicLink()).isAbsolute()).isFalse();
 
     Path linkToLink = workspaceDir.getRelative("dir2/link-to-link");
     linkToLink.getParentDirectory().createDirectory();
     linkToLink.createSymbolicLink(PathFragment.create("link-to-input-2"));
-    assertThat(linkToLink.readSymbolicLink().isAbsolute()).isFalse();
+    assertThat(PathFragment.create(linkToLink.readSymbolicLink()).isAbsolute()).isFalse();
 
     Path linkToAbsolutePath = workspaceDir.getRelative("dir2/link-to-absolute-path");
     linkToAbsolutePath.getParentDirectory().createDirectory();
     Path randomPath = workspaceDir.getRelative("/some-random-path");
     FileSystemUtils.createEmptyFile(randomPath);
     linkToAbsolutePath.createSymbolicLink(randomPath.asFragment());
-    assertThat(linkToAbsolutePath.readSymbolicLink().isAbsolute()).isTrue();
+    assertThat(PathFragment.create(linkToAbsolutePath.readSymbolicLink()).isAbsolute()).isTrue();
 
     SandboxedSpawn spawn =
         new SandboxfsSandboxedSpawn(
@@ -240,15 +240,17 @@ public class SandboxfsSandboxedSpawnTest {
     Path execRoot = spawn.getSandboxExecRoot();
 
     // Relative symlinks must be kept as such in the sandbox and they must resolve properly.
-    assertThat(execRoot.getRelative("such/link-1.txt").readSymbolicLink())
+    assertThat(PathFragment.create(execRoot.getRelative("such/link-1.txt").readSymbolicLink()))
         .isEqualTo(PathFragment.create("../dir1/input-1.txt"));
     assertThat(execRoot.getRelative("such/link-1.txt").resolveSymbolicLinks()).isEqualTo(input1);
-    assertThat(execRoot.getRelative("such/link-to-link.txt").readSymbolicLink())
+    assertThat(
+        PathFragment.create(execRoot.getRelative("such/link-to-link.txt").readSymbolicLink()))
         .isEqualTo(PathFragment.create("link-to-input-2"));
     if (mapSymlinkTargets) {
       assertThat(execRoot.getRelative("such/link-to-link.txt").resolveSymbolicLinks())
           .isEqualTo(input2);
-      assertThat(execRoot.getRelative("such/link-to-input-2").readSymbolicLink())
+      assertThat(
+          PathFragment.create(execRoot.getRelative("such/link-to-input-2").readSymbolicLink()))
           .isEqualTo(PathFragment.create("../dir1/input-2.txt"));
       assertThat(execRoot.getRelative("such/link-to-input-2").resolveSymbolicLinks())
           .isEqualTo(input2);
@@ -269,7 +271,8 @@ public class SandboxfsSandboxedSpawnTest {
 
     // Absolute symlinks must be kept as such in the sandbox no matter where they point to.
     assertThat(execRoot.getRelative("such/abs-link.txt").isSymbolicLink()).isTrue();
-    assertThat(execRoot.getRelative("such/abs-link.txt").readSymbolicLinkUnchecked())
+    assertThat(
+        PathFragment.create(execRoot.getRelative("such/abs-link.txt").readSymbolicLinkUnchecked()))
         .isEqualTo(randomPath.asFragment());
   }
 

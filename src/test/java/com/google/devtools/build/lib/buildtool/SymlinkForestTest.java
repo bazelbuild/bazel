@@ -182,7 +182,7 @@ public class SymlinkForestTest {
 
   private static void assertLinksTo(Path fromRoot, Path toRoot) throws IOException {
     assertWithMessage("stat: " + fromRoot.stat()).that(fromRoot.isSymbolicLink()).isTrue();
-    assertThat(fromRoot.readSymbolicLink()).isEqualTo(toRoot.asFragment());
+    assertThat(PathFragment.create(fromRoot.readSymbolicLink())).isEqualTo(toRoot.asFragment());
   }
 
   private static void assertLinksToExternalRepo(Path fromRoot, Root toRoot, String repoName)

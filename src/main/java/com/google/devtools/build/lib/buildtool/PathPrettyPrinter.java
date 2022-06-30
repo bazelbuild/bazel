@@ -57,7 +57,7 @@ public final class PathPrettyPrinter {
       PathFragment linkFragment = PathFragment.create(linkName);
       Path dir = workspaceDirectory.getRelative(linkFragment);
       try {
-        PathFragment levelOneLinkTarget = dir.readSymbolicLink();
+        PathFragment levelOneLinkTarget = PathFragment.create(dir.readSymbolicLink());
         if (levelOneLinkTarget.isAbsolute()) {
           result.put(linkFragment, dir.getRelative(levelOneLinkTarget).asFragment());
         }

@@ -113,7 +113,7 @@ final class FakeSandboxfsProcess implements SandboxfsProcess {
             // sandboxfs is able to expose symlinks as they are in the underlying file system.
             // Mimic this behavior by respecting the symlink in that case, instead of just creating
             // a new symlink that points to the actual target.
-            link.createSymbolicLink(target.readSymbolicLink());
+            link.createSymbolicLink(PathFragment.create(target.readSymbolicLink()));
           } else {
             link.createSymbolicLink(fileSystem.getPath(underlyingPath));
           }

@@ -267,7 +267,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
             .getFileSystem()
             .getDigestFunction()
             .getHashFunction()
-            .hashString(symlink.readSymbolicLink().getPathString(), ISO_8859_1)
+            .hashString(PathFragment.create(symlink.readSymbolicLink()).getPathString(), ISO_8859_1)
             .asBytes();
 
     // We need to be able to tell the difference between a symlink and a file containing the same

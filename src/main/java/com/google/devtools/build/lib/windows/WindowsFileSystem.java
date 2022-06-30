@@ -77,8 +77,22 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException {
+    if (createSymbolicLinks) {
+      try {
+        java.nio.file.Path link = getIoFile(linkPath).toPath();
+        WindowsFileOperations.createSymlink(link.toString(), rawTarget);
+      } catch (java.nio.file.FileAlreadyExistsException e) {
+        throw new IOException(linkPath + ERR_FILE_EXISTS, e);
+      } catch (java.nio.file.AccessDeniedException e) {
+        throw new IOException(linkPath + ERR_PERMISSION_DENIED, e);
+      } catch (java.nio.file.NoSuchFileException e) {
+        throw new FileNotFoundException(linkPath + ERR_NO_SUCH_FILE_OR_DIR);
+      }
+      return;
+    }
+    PathFragment targetFragment = PathFragment.create(rawTarget);
     PathFragment targetPath =
         targetFragment.isAbsolute()
             ? targetFragment
@@ -90,11 +104,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (!target.toFile().exists() || target.toFile().isDirectory()) {
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        if (createSymbolicLinks) {
-          WindowsFileOperations.createSymlink(link.toString(), target.toString());
-        } else {
-          Files.copy(target, link);
-        }
+        Files.copy(target, link);
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
@@ -106,12 +116,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  protected String readSymbolicLink(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
     WindowsFileOperations.ReadSymlinkOrJunctionResult result =
         WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
     if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
-      return PathFragment.create(result.getResult());
+      return result.getResult();
     }
     if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
       throw new NotASymlinkException(path);

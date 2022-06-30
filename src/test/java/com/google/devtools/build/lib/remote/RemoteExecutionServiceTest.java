@@ -463,7 +463,8 @@ public class RemoteExecutionServiceTest {
 
     Path path = execRoot.getRelative("outputs/a/b/link");
     assertThat(path.isSymbolicLink()).isTrue();
-    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
+    assertThat(PathFragment.create(path.readSymbolicLink())).isEqualTo(
+        PathFragment.create("../../foo"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -483,7 +484,7 @@ public class RemoteExecutionServiceTest {
 
     Path path = execRoot.getRelative("outputs/a/b/link");
     assertThat(path.isSymbolicLink()).isTrue();
-    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
+    assertThat(PathFragment.create(path.readSymbolicLink())).isEqualTo(PathFragment.create("foo"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -510,7 +511,8 @@ public class RemoteExecutionServiceTest {
 
     Path path = execRoot.getRelative("outputs/dir/link");
     assertThat(path.isSymbolicLink()).isTrue();
-    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../foo"));
+    assertThat(PathFragment.create(path.readSymbolicLink())).isEqualTo(
+        PathFragment.create("../foo"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 

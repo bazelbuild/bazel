@@ -469,17 +469,27 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    */
   public void createSymbolicLink(Path target) throws IOException {
     checkSameFileSystem(target);
-    fileSystem.createSymbolicLink(asFragment(), target.asFragment());
+    createSymbolicLink(target.asFragment());
   }
 
   /**
    * Creates a symbolic link with the name of the current path, following symbolic links. The
-   * referent of the created symlink is is the path fragment "target", which may be absolute or
+   * referent of the created symlink is the path fragment "target", which may be absolute or
    * relative.
    *
    * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
    */
   public void createSymbolicLink(PathFragment target) throws IOException {
+    fileSystem.createSymbolicLink(asFragment(), target.getSafePathString());
+  }
+
+  /**
+   * Creates a symbolic link with the name of the current path, following symbolic links. The
+   * referent of the created symlink is unmodified content of the string "target".
+   *
+   * @throws IOException if the creation of the symbolic link was unsuccessful for any reason
+   */
+  public void createSymbolicLink(String target) throws IOException {
     fileSystem.createSymbolicLink(asFragment(), target);
   }
 
@@ -495,7 +505,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws FileSystem.NotASymlinkException if the current path is not a symbolic link.
    * @throws IOException if the contents of the link could not be read for any reason
    */
-  public PathFragment readSymbolicLink() throws IOException {
+  public String readSymbolicLink() throws IOException {
     return fileSystem.readSymbolicLink(asFragment());
   }
 
@@ -507,7 +517,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws FileSystem.NotASymlinkException if the current path is not a symbolic link.
    * @throws IOException if the contents of the link could not be read for any reason
    */
-  public PathFragment readSymbolicLinkUnchecked() throws IOException {
+  public String readSymbolicLinkUnchecked() throws IOException {
     return fileSystem.readSymbolicLinkUnchecked(asFragment());
   }
 
@@ -722,7 +732,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
       } else if (stat.isDirectory()) {
         hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(xattrProvider));
       } else if (stat.isSymbolicLink()) {
-        PathFragment link = path.readSymbolicLink();
+        PathFragment link = PathFragment.create(path.readSymbolicLink());
         if (link.isAbsolute()) {
           try {
             Path resolved = path.resolveSymbolicLinks();

@@ -235,7 +235,7 @@ public final class FilesystemValueCheckerTest {
     }
 
     @Override
-    protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+    protected String readSymbolicLink(PathFragment path) throws IOException {
       if (readlinkThrowsIoException) {
         throw new IOException("readlink failed");
       }

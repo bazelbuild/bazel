@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import org.junit.Test;
@@ -122,7 +123,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     action.execute(makeDummyContext());
     symlink.stat(Symlinks.NOFOLLOW);
     assertThat(symlink.isSymbolicLink()).isTrue();
-    assertThat(b.getPath().asFragment()).isEqualTo(symlink.readSymbolicLink());
+    assertThat(b.getPath().asFragment()).isEqualTo(PathFragment.create(symlink.readSymbolicLink()));
     assertThat(rootDirectory.getRelative("a").exists()).isFalse();
   }
 
