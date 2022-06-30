@@ -930,7 +930,6 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.localRamResources,
