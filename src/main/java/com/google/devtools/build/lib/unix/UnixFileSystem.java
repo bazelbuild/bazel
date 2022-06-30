@@ -141,7 +141,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
     return stat(path, false).isSymbolicLink()
-        ? readSymbolicLink(path)
+        ? PathFragment.create(readSymbolicLink(path))
         : null;
   }
 
@@ -351,19 +351,19 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException {
-    NativePosixFiles.symlink(targetFragment.getSafePathString(), linkPath.toString());
+    NativePosixFiles.symlink(rawTarget, linkPath.toString());
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  protected String readSymbolicLink(PathFragment path) throws IOException {
     // Note that the default implementation of readSymbolicLinkUnchecked calls this method and thus
     // is optimal since we only make one system call in here.
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return PathFragment.create(NativePosixFiles.readlink(name));
+      return NativePosixFiles.readlink(name);
     } catch (InvalidArgumentIOException e) {
       throw new NotASymlinkException(path, e);
     } finally {

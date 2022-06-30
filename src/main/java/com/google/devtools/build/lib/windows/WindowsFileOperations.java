@@ -94,7 +94,6 @@ public class WindowsFileOperations {
   // Keep CREATE_SYMLINK_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_SYMLINK_SUCCESS = 0;
   // CREATE_SYMLINK_ERROR = 1;
-  private static final int CREATE_SYMLINK_TARGET_IS_DIRECTORY = 2;
 
   // Keep DELETE_PATH_* values in sync with src/main/native/windows/file.h.
   private static final int DELETE_PATH_SUCCESS = 0;
@@ -167,9 +166,32 @@ public class WindowsFileOperations {
 
   /** Returns a Windows-style path suitable to pass to unicode WinAPI functions. */
   static String asLongPath(String path) {
-    return !path.startsWith("\\\\?\\")
+    return !path.startsWith("\\\\?\\") && isAbsolute(path)
         ? ("\\\\?\\" + path.replace('/', '\\'))
         : path.replace('/', '\\');
+  }
+
+  private static boolean isAbsolute(String path) {
+    // Based on WindowsOsPathPolicy.getDriveStrLength, which can't be used here as it would create
+    // a circular reference.
+    if (path.isEmpty()) {
+      return false;
+    }
+    if (isSeparator(path.charAt(0))) {
+      return true;
+    }
+    if (path.length() < 3) {
+      return false;
+    }
+    return isDriveLetter(path.charAt(0)) && path.charAt(1) == ':' && isSeparator(path.charAt(2));
+  }
+
+  private static boolean isDriveLetter(char c) {
+    return ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
+  }
+
+  private static boolean isSeparator(char c) {
+    return c == '/' || c == '\\';
   }
 
   private static String removeUncPrefixAndUseSlashes(String p) {
@@ -222,16 +244,12 @@ public class WindowsFileOperations {
 
   public static void createSymlink(String name, String target) throws IOException {
     String[] error = new String[] {null};
-    switch (nativeCreateSymlink(asLongPath(name), asLongPath(target), error)) {
-      case CREATE_SYMLINK_SUCCESS:
-        return;
-      case CREATE_SYMLINK_TARGET_IS_DIRECTORY:
-        error[0] = "symlink target is a directory, use a junction";
-        break;
-      default:
-        // this is CREATE_SYMLINK_ERROR (1). The JNI code puts a custom message in 'error[0]'.
-        break;
+    if (nativeCreateSymlink(asLongPath(name), asLongPath(target), error)
+        == CREATE_SYMLINK_SUCCESS) {
+      return;
     }
+    // The return value is CREATE_SYMLINK_ERROR (1). The JNI code puts a custom message in
+    // 'error[0]'.
     throw new IOException(
         String.format("Cannot create symlink (name=%s, target=%s): %s", name, target, error[0]));
   }

@@ -108,9 +108,9 @@ public class WorkerExecRootTest {
         sandboxHelper.getSandboxInputs(),
         sandboxHelper.getSandboxOutputs());
 
-    assertThat(workDir.getRelative("dir/input_symlink_1").readSymbolicLink())
+    assertThat(PathFragment.create(workDir.getRelative("dir/input_symlink_1").readSymbolicLink()))
         .isEqualTo(PathFragment.create("new_content"));
-    assertThat(workDir.getRelative("dir/input_symlink_2").readSymbolicLink())
+    assertThat(PathFragment.create(workDir.getRelative("dir/input_symlink_2").readSymbolicLink()))
         .isEqualTo(PathFragment.create("unchanged"));
     assertThat(workDir.getRelative("dir/input_symlink_3").exists()).isFalse();
   }
@@ -162,7 +162,7 @@ public class WorkerExecRootTest {
         sandboxHelper.getSandboxInputs(),
         sandboxHelper.getSandboxOutputs());
 
-    assertThat(workDir.getRelative("needed_file").readSymbolicLink())
+    assertThat(PathFragment.create(workDir.getRelative("needed_file").readSymbolicLink()))
         .isEqualTo(neededWorkspaceFile.asFragment());
     assertThat(workDir.getRelative("other_file").exists()).isFalse();
 
@@ -223,9 +223,9 @@ public class WorkerExecRootTest {
         sandboxHelper.getSandboxInputs(),
         sandboxHelper.getSandboxOutputs());
 
-    assertThat(workDir.getRelative("../foo/bar/input1").readSymbolicLink())
+    assertThat(PathFragment.create(workDir.getRelative("../foo/bar/input1").readSymbolicLink()))
         .isEqualTo(input1.asFragment());
-    assertThat(workDir.getRelative("../foo/input2").readSymbolicLink())
+    assertThat(PathFragment.create(workDir.getRelative("../foo/input2").readSymbolicLink()))
         .isEqualTo(input2.asFragment());
     assertThat(workDir.getRelative("bar/random").exists()).isFalse();
   }

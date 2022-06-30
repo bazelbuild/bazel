@@ -383,7 +383,8 @@ public class FileSystemUtilsTest {
 
     assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(target.isSymbolicLink()).isTrue();
-    assertThat(target.readSymbolicLink()).isEqualTo(PathFragment.create("link-target"));
+    assertThat(PathFragment.create(target.readSymbolicLink())).isEqualTo(
+        PathFragment.create("link-target"));
   }
 
   @Test
@@ -569,21 +570,23 @@ public class FileSystemUtilsTest {
     Path copiedLink1 = copiedInnerDir.getChild("link-1");
     assertThat(copiedLink1.exists()).isTrue();
     assertThat(copiedLink1.isSymbolicLink()).isTrue();
-    assertThat(copiedLink1.readSymbolicLink()).isEqualTo(file4.asFragment());
+    assertThat(PathFragment.create(copiedLink1.readSymbolicLink())).isEqualTo(file4.asFragment());
 
     Path copiedDirLink = copiedInnerDir.getChild("dir-link");
     assertThat(copiedDirLink.exists()).isTrue();
     assertThat(copiedDirLink.isDirectory()).isTrue();
-    assertThat(copiedDirLink.readSymbolicLink()).isEqualTo(bDir.asFragment());
+    assertThat(PathFragment.create(copiedDirLink.readSymbolicLink())).isEqualTo(bDir.asFragment());
 
-    assertThat(toPath.getRelative("relative-link").readSymbolicLink()).isEqualTo(relative1);
     assertThat(
-            toPath
-                .getRelative(bDir.relativeTo(topDir))
-                .getRelative("relative-inner-link")
-                .readSymbolicLink())
+        PathFragment.create(toPath.getRelative("relative-link").readSymbolicLink())).isEqualTo(
+        relative1);
+    assertThat(PathFragment.create(
+        toPath.getRelative(bDir.relativeTo(topDir)).getRelative("relative-inner-link")
+            .readSymbolicLink()))
         .isEqualTo(relativeInner);
-    assertThat(toPath.getRelative("absolute-link").readSymbolicLink()).isEqualTo(rootDirectory);
+    assertThat(
+        PathFragment.create(toPath.getRelative("absolute-link").readSymbolicLink())).isEqualTo(
+        rootDirectory);
   }
 
   @Test

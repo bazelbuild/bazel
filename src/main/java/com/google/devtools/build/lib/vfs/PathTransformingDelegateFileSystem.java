@@ -113,14 +113,15 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException {
-    delegateFs.createSymbolicLink(toDelegatePath(linkPath), targetFragment);
+    delegateFs.createSymbolicLink(toDelegatePath(linkPath), rawTarget);
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    return fromDelegatePath(delegateFs.readSymbolicLink(toDelegatePath(path)));
+  protected String readSymbolicLink(PathFragment path) throws IOException {
+    return fromDelegatePath(
+        PathFragment.create(delegateFs.readSymbolicLink(toDelegatePath(path)))).getPathString();
   }
 
   @Override
@@ -263,7 +264,7 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
+  protected String readSymbolicLinkUnchecked(PathFragment path) throws IOException {
     return delegateFs.readSymbolicLinkUnchecked(toDelegatePath(path));
   }
 

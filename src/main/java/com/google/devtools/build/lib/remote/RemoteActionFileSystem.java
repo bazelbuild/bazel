@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  *
  * <p>The implementation mostly delegates to the local file system except for the case where an
  * action input is a remotely stored action output. Most notably {@link
- * #getInputStream(PathFragment)} and {@link #createSymbolicLink(PathFragment, PathFragment)}.
+ * #getInputStream(PathFragment)} and {@link #createSymbolicLink(PathFragment, String)}.
  *
  * <p>This implementation only supports creating local action outputs.
  */
@@ -175,7 +175,7 @@ class RemoteActionFileSystem extends DelegateFileSystem {
   // -------------------- Symlinks --------------------
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  protected String readSymbolicLink(PathFragment path) throws IOException {
     FileArtifactValue m = getRemoteInputMetadata(path);
     if (m != null) {
       // We don't support symlinks as remote action outputs.
@@ -185,14 +185,14 @@ class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException {
     /*
      * TODO(buchgr): Optimize the case where we are creating a symlink to a remote output. This does
      * add a non-trivial amount of complications though (as symlinks tend to do).
      */
-    downloadFileIfRemote(execRoot.getRelative(targetFragment));
-    super.createSymbolicLink(linkPath, targetFragment);
+    downloadFileIfRemote(execRoot.getRelative(rawTarget));
+    super.createSymbolicLink(linkPath, rawTarget);
   }
 
   // -------------------- Implementations based on stat() --------------------

@@ -520,7 +520,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment path, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment path, String rawTarget)
       throws IOException {
     if (isRootDirectory(path)) {
       throw Errno.EACCES.exception(path);
@@ -531,17 +531,17 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
       if (parent.getChild(baseNameOrWindowsDrive(path)) != null) {
         throw Errno.EEXIST.exception(path);
       }
-      insert(
-          parent, baseNameOrWindowsDrive(path), new InMemoryLinkInfo(clock, targetFragment), path);
+      insert(parent, baseNameOrWindowsDrive(path),
+          new InMemoryLinkInfo(clock, PathFragment.create(rawTarget)), path);
     }
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  protected String readSymbolicLink(PathFragment path) throws IOException {
     InMemoryContentInfo status = inodeStat(path, false);
     if (status.isSymbolicLink()) {
       Preconditions.checkState(status instanceof InMemoryLinkInfo, status);
-      return ((InMemoryLinkInfo) status).getLinkContent();
+      return ((InMemoryLinkInfo) status).getLinkContent().getPathString();
     }
     throw new NotASymlinkException(path);
   }

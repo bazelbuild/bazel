@@ -417,7 +417,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   private static void checkSymlink(PathFragment subDir, Path path) throws IOException {
-    PathFragment linkTarget = path.readSymbolicLinkUnchecked();
+    PathFragment linkTarget = PathFragment.create(path.readSymbolicLinkUnchecked());
     if (linkTarget.isAbsolute()) {
       // We tolerate absolute symlinks here. They will probably be dangling if any downstream
       // consumer tries to read them, but let that be downstream's problem.

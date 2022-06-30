@@ -228,7 +228,7 @@ public final class SandboxHelpers {
           getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
       if (destination.isPresent()) {
         if (SYMLINK.equals(dirent.getType())
-            && absPath.readSymbolicLink().equals(destination.get())) {
+            && PathFragment.create(absPath.readSymbolicLink()).equals(destination.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
         } else {
           absPath.delete();
@@ -549,7 +549,7 @@ public final class SandboxHelpers {
           }
         } else if (actionInput.isSymlink()) {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+          inputSymlinks.put(pathFragment, PathFragment.create(inputPath.readSymbolicLink()));
         } else {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
           inputFiles.put(pathFragment, inputPath);
@@ -564,7 +564,7 @@ public final class SandboxHelpers {
 
         if (actionInput.isSymlink()) {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+          inputSymlinks.put(pathFragment, PathFragment.create(inputPath.readSymbolicLink()));
         } else {
           Path inputPath =
               actionInput instanceof EmptyActionInput

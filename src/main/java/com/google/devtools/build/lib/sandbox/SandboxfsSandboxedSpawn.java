@@ -264,7 +264,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       PathFragment path, Path symlink, Map<PathFragment, PathFragment> mappings)
       throws IOException {
     for (; ; ) {
-      PathFragment symlinkTarget = symlink.readSymbolicLinkUnchecked();
+      PathFragment symlinkTarget = PathFragment.create(symlink.readSymbolicLinkUnchecked());
       if (!symlinkTarget.isAbsolute()) {
         PathFragment keyParent = path.getParentDirectory();
         if (keyParent == null) {

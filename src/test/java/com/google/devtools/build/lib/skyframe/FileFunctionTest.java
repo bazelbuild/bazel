@@ -1628,7 +1628,7 @@ public class FileFunctionTest {
     Path changedPath = path(changedPathString);
     if (changedPath.isSymbolicLink()) {
       ImmutableList<String> filesTouched = filesTouchedIfTouched(changedPath);
-      PathFragment oldTarget = changedPath.readSymbolicLink();
+      PathFragment oldTarget = PathFragment.create(changedPath.readSymbolicLink());
       FileSystemUtils.ensureSymbolicLink(changedPath, oldTarget.getChild("__different_target__"));
       return Pair.of(filesTouched, makeSymlinkCallback(changedPath, oldTarget));
     } else if (isSupposedToBeFile) {

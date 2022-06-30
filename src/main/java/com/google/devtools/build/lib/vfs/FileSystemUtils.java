@@ -324,7 +324,7 @@ public class FileSystemUtils {
     // TODO(bazel-team): (2009) consider adding the logic for recovering from the case when
     // we have already created a parent directory symlink earlier.
     try {
-      if (link.readSymbolicLink().equals(target)) {
+      if (PathFragment.create(link.readSymbolicLink()).equals(target)) {
         return;  // Do nothing if the link is already there.
       }
     } catch (IOException e) { // link missing or broken
@@ -472,7 +472,7 @@ public class FileSystemUtils {
         }
         to.setExecutable(from.isExecutable()); // Copy executable bit.
       } else if (stat.isSymbolicLink()) {
-        to.createSymbolicLink(from.readSymbolicLink());
+        to.createSymbolicLink(PathFragment.create(from.readSymbolicLink()));
       } else {
         throw new IOException("Don't know how to copy " + from);
       }
@@ -570,7 +570,7 @@ public class FileSystemUtils {
     for (Path entry : entries) {
       Path toPath = to.getChild(entry.getBaseName());
       if (!followSymlinks.toBoolean() && entry.isSymbolicLink()) {
-        FileSystemUtils.ensureSymbolicLink(toPath, entry.readSymbolicLink());
+        FileSystemUtils.ensureSymbolicLink(toPath, PathFragment.create(entry.readSymbolicLink()));
       } else if (entry.isFile()) {
         copyFile(entry, toPath);
       } else {

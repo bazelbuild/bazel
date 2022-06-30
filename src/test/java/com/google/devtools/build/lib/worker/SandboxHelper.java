@@ -39,7 +39,7 @@ class SandboxHelper {
   private final Map<PathFragment, Path> inputs = new HashMap<>();
 
   private final Map<PathFragment, String> virtualInputs = new HashMap<>();
-  private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
+  private final Map<PathFragment, String> symlinks = new HashMap<>();
   private final Map<PathFragment, Path> workerFiles = new HashMap<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
   private final List<PathFragment> outputDirs = new ArrayList<>();
@@ -91,7 +91,8 @@ class SandboxHelper {
   /** Adds a symlink to the inputs. */
   @CanIgnoreReturnValue
   public SandboxHelper addSymlink(String relativePath, String linkTo) {
-    symlinks.put(PathFragment.create(relativePath), PathFragment.create(linkTo));
+    symlinks.put(PathFragment.create(relativePath),
+        PathFragment.create(linkTo).getSafePathString());
     return this;
   }
 

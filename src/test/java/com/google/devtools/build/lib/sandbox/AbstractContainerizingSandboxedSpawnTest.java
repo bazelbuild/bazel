@@ -381,7 +381,8 @@ public class AbstractContainerizingSandboxedSpawnTest {
         symlinks.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))));
+                    e -> PathFragment.create(e.getKey()),
+                    e -> PathFragment.create(e.getValue()).getSafePathString())));
   }
 
   /** Return a list of all entries under the provided directory recursively. */

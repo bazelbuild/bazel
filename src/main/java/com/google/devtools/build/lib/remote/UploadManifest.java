@@ -186,7 +186,7 @@ public class UploadManifest {
         Digest digest = digestUtil.compute(file, stat.getSize());
         addFile(digest, file);
       } else if (stat.isSymbolicLink() && allowSymlinks) {
-        PathFragment target = file.readSymbolicLink();
+        PathFragment target = PathFragment.create(file.readSymbolicLink());
         // Need to resolve the symbolic link to know what to add, file or directory.
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
@@ -310,7 +310,7 @@ public class UploadManifest {
         b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
         tree.addChildren(dir);
       } else if (dirent.getType() == Dirent.Type.SYMLINK && allowSymlinks) {
-        PathFragment target = child.readSymbolicLink();
+        PathFragment target = PathFragment.create(child.readSymbolicLink());
         if (uploadSymlinks && !target.isAbsolute()) {
           // Whether it is dangling or not, we're passing it on.
           b.addSymlinksBuilder().setName(name).setTarget(target.toString());

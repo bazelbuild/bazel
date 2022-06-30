@@ -80,7 +80,7 @@ public abstract class ReadonlyFileSystemWithCustomStat extends AbstractFileSyste
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException {
     throw modificationException();
   }

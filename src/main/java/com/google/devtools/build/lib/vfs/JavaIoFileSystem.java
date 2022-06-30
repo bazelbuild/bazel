@@ -277,11 +277,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException {
     java.nio.file.Path nioPath = getNioPath(linkPath);
     try {
-      Files.createSymbolicLink(nioPath, Paths.get(targetFragment.getSafePathString()));
+      Files.createSymbolicLink(nioPath, Paths.get(rawTarget));
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -292,12 +292,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
+  protected String readSymbolicLink(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      String link = Files.readSymbolicLink(nioPath).toString();
-      return PathFragment.create(link);
+      return Files.readSymbolicLink(nioPath).toString();
     } catch (java.nio.file.NotLinkException e) {
       throw new NotASymlinkException(path, e);
     } catch (java.nio.file.NoSuchFileException e) {

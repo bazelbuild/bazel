@@ -151,7 +151,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     Path p = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/runfile");
     assertWithMessage("Path %s expected to exist", p).that(p.exists(Symlinks.NOFOLLOW)).isTrue();
     assertWithMessage("Path %s expected to be a symlink", p).that(p.isSymbolicLink()).isTrue();
-    assertThat(p.readSymbolicLink()).isEqualTo(runfile.getPath().asFragment());
+    assertThat(PathFragment.create(p.readSymbolicLink())).isEqualTo(runfile.getPath().asFragment());
     Path q = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/empty");
     assertWithMessage("Path %s expected to be a file", q).that(q.isFile()).isTrue();
     assertThat(FileSystemUtils.readContent(q)).isEmpty();

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -30,6 +31,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -297,19 +300,21 @@ public class WindowsFileSystemTest {
     assertThat(scratchRoot.createDirectory()).isTrue();
     // Create symlink with directory target, relative path.
     Path link1 = scratchRoot.getRelative("link1");
-    fs.createSymbolicLink(link1.asFragment(), PathFragment.create(".."));
+    fs.createSymbolicLink(link1.asFragment(), PathFragment.create("..").getSafePathString());
     // Create symlink with directory target, absolute path.
     Path link2 = scratchRoot.getRelative("link2");
-    fs.createSymbolicLink(link2.asFragment(), scratchRoot.getRelative("link1").asFragment());
+    fs.createSymbolicLink(link2.asFragment(),
+        scratchRoot.getRelative("link1").asFragment().getSafePathString());
     // Create scratch files that'll be symlink targets.
     testUtil.scratchFile("foo.txt", "hello");
     testUtil.scratchFile("bar.txt", "hello");
     // Create symlink with file target, relative path.
     Path link3 = scratchRoot.getRelative("link3");
-    fs.createSymbolicLink(link3.asFragment(), PathFragment.create("foo.txt"));
+    fs.createSymbolicLink(link3.asFragment(), PathFragment.create("foo.txt").getSafePathString());
     // Create symlink with file target, absolute path.
     Path link4 = scratchRoot.getRelative("link4");
-    fs.createSymbolicLink(link4.asFragment(), scratchRoot.getRelative("bar.txt").asFragment());
+    fs.createSymbolicLink(link4.asFragment(),
+        scratchRoot.getRelative("bar.txt").asFragment().getSafePathString());
     // Assert that link1 and link2 are true junctions and have the right contents.
     for (Path p : ImmutableList.of(link1, link2)) {
       assertThat(WindowsFileSystem.isSymlinkOrJunction(new File(p.getPathString()))).isTrue();
@@ -339,10 +344,10 @@ public class WindowsFileSystemTest {
     java.nio.file.Path helloPath = testUtil.scratchFile("hello.txt", "hello");
     PathFragment targetFragment = PathFragment.create(helloPath.toString());
     Path linkPath = scratchRoot.getRelative("link.txt");
-    fs.createSymbolicLink(linkPath.asFragment(), targetFragment);
+    fs.createSymbolicLink(linkPath.asFragment(), targetFragment.getSafePathString());
 
     assertThat(linkPath.isSymbolicLink()).isTrue();
-    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetFragment);
+    assertThat(PathFragment.create(linkPath.readSymbolicLink())).isEqualTo(targetFragment);
 
     // Assert deleting the symbolic link keeps the target file.
     linkPath.delete();
@@ -385,6 +390,26 @@ public class WindowsFileSystemTest {
       assertThat(expected).hasMessageThat().matches(".*is not a symlink");
     }
 
-    assertThat(juncPath.readSymbolicLink()).isEqualTo(dirPath.asFragment());
+    assertThat(PathFragment.create(juncPath.readSymbolicLink())).isEqualTo(dirPath.asFragment());
+  }
+
+  @Test
+  public void testCreateUnresolvedSymbolicLinkWithRealSymlinks() throws Exception {
+    fs = new WindowsFileSystem(DigestHashFunction.SHA256, /*createSymbolicLinks=*/ true);
+    Path linkPath = scratchRoot.getRelative("link.txt");
+    fs.createSymbolicLink(linkPath.asFragment(), "not/../resolved/dir/hello.txt");
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo("not/../resolved/dir/hello.txt");
+
+    // Verify that the symlink doesn't resolve.
+    assertThrows(IOException.class, linkPath::getInputStream);
+
+    // Make the symlinks resolvable.
+    testUtil.scratchDir("not");
+    testUtil.scratchFile("resolved/dir/hello.txt", "hello");
+    try (InputStream input = linkPath.getInputStream()) {
+      assertThat(input.readAllBytes()).isEqualTo("hello".getBytes(StandardCharsets.UTF_8));
+    }
   }
 }

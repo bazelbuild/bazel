@@ -281,7 +281,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     Path actualPath = repositoryDirectoryValue.getPath();
     assertThat(actualPath).isEqualTo(expectedPath);
     assertThat(actualPath.isSymbolicLink()).isTrue();
-    assertThat(actualPath.readSymbolicLink()).isEqualTo(overrideDirectory.asFragment());
+    assertThat(PathFragment.create(actualPath.readSymbolicLink())).isEqualTo(
+        overrideDirectory.asFragment());
   }
 
   @Test

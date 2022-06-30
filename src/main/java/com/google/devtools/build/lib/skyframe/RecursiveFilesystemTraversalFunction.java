@@ -353,13 +353,13 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           if (fileState.getType() != FileStateType.SYMLINK) {
             throw new IOException("Expected symlink for " + path + ", but got: " + fileState);
           }
-          unresolvedLinkTarget = path.readSymbolicLink();
+          unresolvedLinkTarget = PathFragment.create(path.readSymbolicLink());
         } else if (fileState.getType() == FileStateType.REGULAR_FILE) {
           type = FileType.FILE;
         } else if (fileState.getType() == FileStateType.DIRECTORY) {
           type = FileType.DIRECTORY;
         } else {
-          unresolvedLinkTarget = path.readSymbolicLink();
+          unresolvedLinkTarget = PathFragment.create(path.readSymbolicLink());
           realPath =
               RootedPath.toRootedPath(
                   Root.absoluteRoot(path.getFileSystem()), path.resolveSymbolicLinks());

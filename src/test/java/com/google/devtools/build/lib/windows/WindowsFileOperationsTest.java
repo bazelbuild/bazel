@@ -85,18 +85,6 @@ public class WindowsFileOperationsTest {
   }
 
   @Test
-  public void testSymlinkCreationFailsForDirectory() throws Exception {
-    testUtil.scratchDir("dir").toFile();
-
-    try {
-      testUtil.createSymlinks(ImmutableMap.of("symlink", "dir"));
-      fail("Expected to throw: Symlinks to a directory should fail.");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().contains("target is a directory");
-    }
-  }
-
-  @Test
   public void testIsJunction() throws Exception {
     final Map<String, String> junctions = new HashMap<>();
     junctions.put("shrtpath/a", "shrttrgt");

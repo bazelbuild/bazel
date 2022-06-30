@@ -206,7 +206,7 @@ public class RemoteCacheTest {
 
     // assert
     assertThat(file.isSymbolicLink()).isTrue();
-    assertThat(file.readSymbolicLink())
+    assertThat(PathFragment.create(file.readSymbolicLink()))
         .isEqualTo(
             PathFragment.create(
                 "/home/alice/cas/a378b939ad2e1d470a9a28b34b0e256b189e85cb236766edc1d46ec3b6ca82e5-14"));

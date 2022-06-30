@@ -103,7 +103,7 @@ public abstract class FileSystem {
    * <p>Returns true if FileSystem supports the following:
    *
    * <ul>
-   *   <li>{@link #createSymbolicLink(PathFragment, PathFragment)}
+   *   <li>{@link #createSymbolicLink(PathFragment, String)}
    *   <li>{@link #getFileSize(PathFragment, boolean)} where {@code followSymlinks=false}
    *   <li>{@link #getLastModifiedTime(PathFragment, boolean)} where {@code followSymlinks=false}
    *   <li>{@link #readSymbolicLink(PathFragment)} where the link points to a non-existent file
@@ -402,7 +402,7 @@ public abstract class FileSystem {
    */
   protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     try {
-      return readSymbolicLink(path);
+      return PathFragment.create(readSymbolicLink(path));
     } catch (NotASymlinkException e) {
       // Not a symbolic link.  Check it exists.
 
@@ -546,12 +546,12 @@ public abstract class FileSystem {
   protected abstract boolean isSpecialFile(PathFragment path, boolean followSymlinks);
 
   /**
-   * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for specification.
+   * Creates a symbolic link. See {@link Path#createSymbolicLink(String)} for specification.
    *
    * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively(PathFragment)}
    * returns false, this method will throw an {@link UnsupportedOperationException}
    */
-  protected abstract void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+  protected abstract void createSymbolicLink(PathFragment linkPath, String rawTarget)
       throws IOException;
 
   /**
@@ -564,7 +564,7 @@ public abstract class FileSystem {
    * @throws NotASymlinkException if the current path is not a symbolic link
    * @throws IOException if the contents of the link could not be read for any reason.
    */
-  protected abstract PathFragment readSymbolicLink(PathFragment path) throws IOException;
+  protected abstract String readSymbolicLink(PathFragment path) throws IOException;
 
   /**
    * Returns the target of a symbolic link, under the assumption that the given path is indeed a
@@ -573,7 +573,7 @@ public abstract class FileSystem {
    *
    * @throws IOException if the contents of the link could not be read for any reason.
    */
-  protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
+  protected String readSymbolicLinkUnchecked(PathFragment path) throws IOException {
     return readSymbolicLink(path);
   }
 
