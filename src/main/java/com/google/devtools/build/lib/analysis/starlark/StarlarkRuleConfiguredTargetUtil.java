@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -348,6 +349,17 @@ public final class StarlarkRuleConfiguredTargetUtil {
       if (getProviderKey(declaredProvider).equals(DefaultInfo.PROVIDER.getKey())) {
         parseDefaultProviderFields((DefaultInfo) declaredProvider, context, builder);
         defaultProviderProvidedExplicitly = true;
+      } else if (getProviderKey(declaredProvider).equals(RunEnvironmentInfo.PROVIDER.getKey())
+          && !(context.isExecutable() || context.getRuleContext().isTestTarget())) {
+        String message =
+            "Returning RunEnvironmentInfo from a non-executable, non-test target has no effect";
+        RunEnvironmentInfo runEnvironmentInfo = (RunEnvironmentInfo) declaredProvider;
+        if (runEnvironmentInfo.shouldErrorOnNonExecutableRule()) {
+          context.getRuleContext().ruleError(message);
+        } else {
+          context.getRuleContext().ruleWarning(message);
+          builder.addStarlarkDeclaredProvider(declaredProvider);
+        }
       } else {
         builder.addStarlarkDeclaredProvider(declaredProvider);
       }

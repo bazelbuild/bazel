@@ -20,9 +20,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -472,9 +475,18 @@ public class RunCommand implements BlazeCommand  {
       }
     } else {
       workingDir = runfilesDir;
+      ActionEnvironment actionEnvironment = ActionEnvironment.EMPTY;
       if (runfilesSupport != null) {
-        runfilesSupport.getActionEnvironment().resolve(runEnvironment, env.getClientEnv());
+        actionEnvironment = runfilesSupport.getActionEnvironment();
       }
+      RunEnvironmentInfo environmentProvider = targetToRun.get(RunEnvironmentInfo.PROVIDER);
+      if (environmentProvider != null) {
+        actionEnvironment =
+            actionEnvironment.withAdditionalVariables(
+                environmentProvider.getEnvironment(),
+                ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
+      }
+      actionEnvironment.resolve(runEnvironment, env.getClientEnv());
       try {
         List<String> args = computeArgs(targetToRun, commandLineArgs);
         constructCommandLine(
@@ -506,7 +518,7 @@ public class RunCommand implements BlazeCommand  {
               runEnvironment,
               workingDir.getPathString(),
               configuration.checksum(),
-              /* executionPlatform= */ null);
+              /* executionPlatformAsLabelString= */ null);
 
       PathFragment shExecutable = ShToolchain.getPath(configuration);
       if (shExecutable.isEmpty()) {
