@@ -381,11 +381,11 @@ java_binary(
     srcs = ["MakeSymlink.java"],
     main_class = "MakeSymlink",
 )
-a(name="a", link_target="somewhere/over/the/rainbow")
+a(name="a", link_target="../somewhere/../over/the/rainbow/..")
 EOF
 
   bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
-  assert_contains "input link is somewhere/over/the/rainbow" bazel-bin/a/a.file
+  assert_contains "input link is ../somewhere/../over/the/rainbow/.." bazel-bin/a/a.file
 }
 
 function test_dangling_symlink_created_from_symlink_action() {

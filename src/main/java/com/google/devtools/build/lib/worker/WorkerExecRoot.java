@@ -79,7 +79,7 @@ final class WorkerExecRoot {
           FileSystemUtils.createEmptyFile(key);
         }
       } else if (inputs.getSymlinks().containsKey(fragment)) {
-        PathFragment symlinkDest = inputs.getSymlinks().get(fragment);
+        String symlinkDest = inputs.getSymlinks().get(fragment);
         if (symlinkDest != null) {
           key.createSymbolicLink(symlinkDest);
         }

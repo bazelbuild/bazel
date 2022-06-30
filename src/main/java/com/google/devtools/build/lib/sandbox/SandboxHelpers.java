@@ -224,11 +224,10 @@ public final class SandboxHelpers {
             LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
                 absPath.relativeTo(execroot));
       }
-      Optional<PathFragment> destination =
-          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
+      Optional<String> destination = getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
       if (destination.isPresent()) {
-        if (SYMLINK.equals(dirent.getType())
-            && PathFragment.create(absPath.readSymbolicLink()).equals(destination.get())) {
+        if (SYMLINK.equals(dirent.getType()) && absPath.readSymbolicLink()
+            .equals(destination.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
         } else {
           absPath.delete();
@@ -248,14 +247,14 @@ public final class SandboxHelpers {
   }
 
   /**
-   * Returns what the destination of the symlink {@code file} should be, according to {@code
-   * inputs}.
+   * Returns what the destination of the symlink {@code file} should be, according to
+   * {@code inputs}.
    */
-  static Optional<PathFragment> getExpectedSymlinkDestination(
+  static Optional<String> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
     Path file = inputs.getFiles().get(fragment);
     if (file != null) {
-      return Optional.of(file.asFragment());
+      return Optional.of(file.asFragment().getPathString());
     }
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
@@ -369,7 +368,7 @@ public final class SandboxHelpers {
     private final Set<VirtualActionInput> virtualInputsWithDelayedMaterialization;
     // Virtual inputs that are materialized during {@link #processInputFiles}.
     private final Map<VirtualActionInput, byte[]> materializedVirtualInputs;
-    private final Map<PathFragment, PathFragment> symlinks;
+    private final Map<PathFragment, String> symlinks;
 
     private static final SandboxInputs EMPTY_INPUTS =
         new SandboxInputs(
@@ -379,7 +378,7 @@ public final class SandboxHelpers {
         Map<PathFragment, Path> files,
         Set<VirtualActionInput> virtualInputsWithDelayedMaterialization,
         Map<VirtualActionInput, byte[]> materializedVirtualInputs,
-        Map<PathFragment, PathFragment> symlinks) {
+        Map<PathFragment, String> symlinks) {
       checkState(
           virtualInputsWithDelayedMaterialization.isEmpty() || materializedVirtualInputs.isEmpty(),
           "Either virtualInputsWithDelayedMaterialization or materializedVirtualInputs should be"
@@ -393,7 +392,7 @@ public final class SandboxHelpers {
     public SandboxInputs(
         Map<PathFragment, Path> files,
         Set<VirtualActionInput> virtualInputsWithDelayedMaterialization,
-        Map<PathFragment, PathFragment> symlinks) {
+        Map<PathFragment, String> symlinks) {
       this(files, virtualInputsWithDelayedMaterialization, ImmutableMap.of(), symlinks);
     }
 
@@ -405,7 +404,7 @@ public final class SandboxHelpers {
       return files;
     }
 
-    public Map<PathFragment, PathFragment> getSymlinks() {
+    public Map<PathFragment, String> getSymlinks() {
       return symlinks;
     }
 
@@ -531,7 +530,7 @@ public final class SandboxHelpers {
       throws IOException {
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Set<VirtualActionInput> virtualInputsWithDelayedMaterialization = new HashSet<>();
-    Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
+    Map<PathFragment, String> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> materializedVirtualInputs = new HashMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
@@ -549,7 +548,7 @@ public final class SandboxHelpers {
           }
         } else if (actionInput.isSymlink()) {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, PathFragment.create(inputPath.readSymbolicLink()));
+          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
         } else {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
           inputFiles.put(pathFragment, inputPath);
@@ -564,7 +563,7 @@ public final class SandboxHelpers {
 
         if (actionInput.isSymlink()) {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, PathFragment.create(inputPath.readSymbolicLink()));
+          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
         } else {
           Path inputPath =
               actionInput instanceof EmptyActionInput
