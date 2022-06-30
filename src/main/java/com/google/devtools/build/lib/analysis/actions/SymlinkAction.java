@@ -36,7 +36,13 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/** Action to create a symbolic link. */
+/**
+ * Action to create a symlink to a known-to-exist target with alias semantics similar to a true copy
+ * of the input (if any).
+ *
+ * To create a possibly unresolved symlink to a raw path, use {@link UnresolvedSymlinkAction}
+ * instead.
+ */
 public final class SymlinkAction extends AbstractAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
@@ -150,13 +156,6 @@ public final class SymlinkAction extends AbstractAction {
     Preconditions.checkState(!execPath.isAbsolute());
     return new SymlinkAction(
         owner, execPath, primaryInput, primaryOutput, progressMessage, TargetType.FILESET);
-  }
-
-  public static SymlinkAction createUnresolved(
-      ActionOwner owner, Artifact primaryOutput, PathFragment targetPath, String progressMessage) {
-    Preconditions.checkArgument(primaryOutput.isSymlink());
-    return new SymlinkAction(
-        owner, targetPath, null, primaryOutput, progressMessage, TargetType.OTHER);
   }
 
   /**

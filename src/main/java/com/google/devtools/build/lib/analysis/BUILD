@@ -276,6 +276,7 @@ java_library(
         ":actions/substitution",
         ":actions/symlink_action",
         ":actions/template_expansion_action",
+        ":actions/unresolved_symlink_action",
         ":actions_provider",
         ":aspect_aware_attribute_mapper",
         ":aspect_collection",
@@ -1510,6 +1511,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "actions/unresolved_symlink_action",
+    srcs = ["actions/UnresolvedSymlinkAction.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
