@@ -195,4 +195,15 @@ public class WorkerOptions extends OptionsBase {
               + " per work request. Only workers that have the 'supports-multiplex-sandboxing' "
               + "execution requirement will be sandboxed.")
   public boolean multiplexSandboxing;
+
+  @Option(
+      name = "experimental_worker_strict_flagfiles",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, actions arguments for workers that do not follow the worker specification"
+              + " will cause an error. Worker arguments must have exactly one @flagfile argument"
+              + " as the last of its list of arguments.")
+  public boolean strictFlagfiles;
 }
