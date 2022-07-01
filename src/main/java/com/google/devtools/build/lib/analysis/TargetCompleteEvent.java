@@ -314,6 +314,10 @@ public final class TargetCompleteEvent
     return outputs.get(outputGroup);
   }
 
+  public ImmutableMap<String, ArtifactsInOutputGroup> getOutputs() {
+    return outputs;
+  }
+
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
   // field.
 

@@ -930,6 +930,7 @@ public final class RemoteModule extends BlazeModule {
               new TempPathGenerator(tempDir));
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      actionContextProvider.setActionInputFetcher(actionInputFetcher);
     }
   }
 
