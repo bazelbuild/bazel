@@ -290,12 +290,7 @@ def Main():
     else:
       # On Windows, os.execv doesn't handle arguments with spaces correctly,
       # and it actually starts a subprocess just like subprocess.call.
-      #
-      # If we may need to emit a host config warning after execution, don't
-      # execv because we need control to return here. This only happens for
-      # targets built in the host config, so other targets still get to take
-      # advantage of the performance benefits of execv.
-      if IsWindows() or %enable_host_version_warning%:
+      if IsWindows():
         ret_code = subprocess.call(args)
         sys.exit(ret_code)
       else:
