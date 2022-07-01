@@ -260,7 +260,7 @@ public final class Chunker {
     checkState(offset == 0);
     checkState(chunkCache == null);
     try {
-      var src = dataSupplier.get();
+      InputStream src = dataSupplier.get();
       ByteStreams.skipFully(src, srcPos);
       data =
           compressed
