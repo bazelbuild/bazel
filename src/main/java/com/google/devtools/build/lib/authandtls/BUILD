@@ -4,7 +4,9 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
