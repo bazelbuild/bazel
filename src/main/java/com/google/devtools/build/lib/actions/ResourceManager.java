@@ -157,11 +157,9 @@ public class ResourceManager {
 
   private WorkerPool workerPool;
 
-  // The total amount of resources on the local host. Must be set by
+  // The total amount of available for Bazel resources on the local host. Must be set by
   // an explicit call to setAvailableResources(), often using
   // LocalHostCapacity.getLocalHostCapacity() as an argument.
-  private ResourceSet staticResources = null;
-
   @VisibleForTesting public ResourceSet availableResources = null;
 
   // Used amount of CPU capacity (where 1.0 corresponds to the one fully
@@ -207,7 +205,6 @@ public class ResourceManager {
     localRequests.clear();
     dynamicWorkerRequests.clear();
     dynamicStandaloneRequests.clear();
-    staticResources = null;
   }
 
   /**
@@ -218,12 +215,7 @@ public class ResourceManager {
   public synchronized void setAvailableResources(ResourceSet resources) {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
-    staticResources = resources;
-    availableResources =
-        ResourceSet.create(
-            staticResources.getMemoryMb(),
-            staticResources.getCpuUsage(),
-            staticResources.getLocalTestCount());
+    availableResources = resources;
   }
 
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
