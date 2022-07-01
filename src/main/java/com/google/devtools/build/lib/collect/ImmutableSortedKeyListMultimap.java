@@ -117,7 +117,6 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
       return this;
     }
 
-    @SuppressWarnings("unchecked")
     public Builder<K, V> putAll(K key, V... values) {
       return putAll(Preconditions.checkNotNull(key), Arrays.asList(values));
     }
