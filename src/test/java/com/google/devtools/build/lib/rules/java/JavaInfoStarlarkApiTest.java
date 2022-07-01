@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -865,21 +866,25 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     private boolean neverLink = false;
     private boolean sourceFiles = false;
 
+    @CanIgnoreReturnValue
     private RuleBuilder withIJar() {
       useIJar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withStampJar() {
       stampJar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withNeverLink() {
       neverLink = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withSourceFiles() {
       sourceFiles = true;
       return this;

@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -302,6 +303,7 @@ public final class UnixGlob {
      *
      * <p>For a description of the syntax of the patterns, see {@link UnixGlob}.
      */
+    @CanIgnoreReturnValue
     public Builder addPattern(String pattern) {
       this.patterns.add(pattern);
       return this;
@@ -312,6 +314,7 @@ public final class UnixGlob {
      *
      * <p>For a description of the syntax of the patterns, see {@link UnixGlob}.
      */
+    @CanIgnoreReturnValue
     public Builder addPatterns(String... patterns) {
       Collections.addAll(this.patterns, patterns);
       return this;
@@ -322,6 +325,7 @@ public final class UnixGlob {
      *
      * <p>For a description of the syntax of the patterns, see {@link UnixGlob}.
      */
+    @CanIgnoreReturnValue
     public Builder addPatterns(Collection<String> patterns) {
       this.patterns.addAll(patterns);
       return this;
@@ -331,6 +335,7 @@ public final class UnixGlob {
      * Sets the executor to use for parallel glob evaluation. If unset, evaluation is done
      * in-thread.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutor(Executor pool) {
       this.executor = pool;
       return this;
@@ -348,6 +353,7 @@ public final class UnixGlob {
      * exclude files from the glob and decide which directories to traverse, like skipping sub-dirs
      * containing BUILD files.
      */
+    @CanIgnoreReturnValue
     public Builder setPathDiscriminator(UnixGlobPathDiscriminator pathDiscriminator) {
       this.pathDiscriminator = pathDiscriminator;
       return this;

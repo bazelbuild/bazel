@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Set;
@@ -342,6 +343,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
       assertThat(modifiedFileSet.treatEverythingAsModified()).isTrue();
     }
 
+    @CanIgnoreReturnValue
     public ModifiedFileSetChecker modify(String filename) {
       modified.add(PathFragment.create(filename));
       return this;
