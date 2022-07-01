@@ -23,6 +23,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.primitives.Ints;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -101,11 +102,13 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
       return ImmutableSortedKeyListMultimap.copyOf(builderMultimap);
     }
 
+    @CanIgnoreReturnValue
     public Builder<K, V> put(K key, V value) {
       builderMultimap.put(Preconditions.checkNotNull(key), Preconditions.checkNotNull(value));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<K, V> putAll(K key, Collection<? extends V> values) {
       Collection<V> valueList = builderMultimap.get(Preconditions.checkNotNull(key));
       for (V value : values) {
@@ -119,6 +122,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
       return putAll(Preconditions.checkNotNull(key), Arrays.asList(values));
     }
 
+    @CanIgnoreReturnValue
     public Builder<K, V> putAll(Multimap<? extends K, ? extends V> multimap) {
       multimap.asMap().forEach((key, collectionValue) -> putAll(key, collectionValue));
       return this;

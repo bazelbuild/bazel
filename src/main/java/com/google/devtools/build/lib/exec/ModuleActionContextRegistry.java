@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -119,6 +120,7 @@ public final class ModuleActionContextRegistry
      * @param restriction command-line identifier used during registration of the desired
      *     implementation or {@code ""} to allow any implementation of the identifying type
      */
+    @CanIgnoreReturnValue
     public Builder restrictTo(Class<?> identifyingType, String restriction) {
       typeToRestriction.put(identifyingType, restriction);
       return this;
@@ -128,6 +130,7 @@ public final class ModuleActionContextRegistry
      * Registers an action context implementation identified by the given type and which can be
      * {@linkplain #restrictTo restricted} by its provided command-line identifiers.
      */
+    @CanIgnoreReturnValue
     public <T extends ActionContext> Builder register(
         Class<T> identifyingType, T context, String... commandLineIdentifiers) {
       actionContexts.add(

@@ -33,6 +33,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import java.util.Set;
@@ -219,31 +220,37 @@ public final class BuildEventServiceProtoUtil {
     @Nullable private String projectId;
     private boolean checkPrecedingLifecycleEvents;
 
+    @CanIgnoreReturnValue
     public Builder buildRequestId(String value) {
       this.buildRequestId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder invocationId(String value) {
       this.invocationId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder projectId(String value) {
       this.projectId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder commandName(String value) {
       this.commandName = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder keywords(Set<String> value) {
       this.keywords = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder checkPrecedingLifecycleEvents(boolean value) {
       this.checkPrecedingLifecycleEvents = value;
       return this;

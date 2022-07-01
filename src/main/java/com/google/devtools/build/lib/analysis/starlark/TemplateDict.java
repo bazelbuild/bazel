@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
@@ -42,6 +43,7 @@ public class TemplateDict implements TemplateDictApi {
     return new TemplateDict();
   }
 
+  @CanIgnoreReturnValue
   @Override
   public TemplateDictApi addArgument(String key, String value, StarlarkThread thread)
       throws EvalException {
@@ -49,6 +51,7 @@ public class TemplateDict implements TemplateDictApi {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public TemplateDictApi addJoined(
       String key,

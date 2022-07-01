@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Timestamp;
 import java.time.Duration;
 import javax.annotation.Nullable;
@@ -113,52 +114,62 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     @Nullable private Sleeper sleeper;
     private Timestamp commandStartTime;
 
+    @CanIgnoreReturnValue
     public Builder besClient(BuildEventServiceClient value) {
       this.besClient = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder localFileUploader(BuildEventArtifactUploader value) {
       this.localFileUploader = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder besProtoUtil(BuildEventServiceProtoUtil value) {
       this.besProtoUtil = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder bepOptions(BuildEventProtocolOptions value) {
       this.bepOptions = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder besOptions(BuildEventServiceOptions value) {
       this.besOptions = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder clock(Clock value) {
       this.clock = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder artifactGroupNamer(ArtifactGroupNamer value) {
       this.artifactGroupNamer = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder eventBus(EventBus value) {
       this.eventBus = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder sleeper(Sleeper value) {
       this.sleeper = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder commandStartTime(Timestamp value) {
       this.commandStartTime = value;
       return this;

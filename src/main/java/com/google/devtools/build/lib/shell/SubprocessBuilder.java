@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.shell;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -92,6 +93,7 @@ public class SubprocessBuilder {
    * @throws IllegalArgumentException if argv is empty, or its first element (which becomes
    *     this.argv[0]) is neither an absolute path nor just a single file name
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setArgv(ImmutableList<String> argv) {
     this.argv = Preconditions.checkNotNull(argv);
     Preconditions.checkArgument(!this.argv.isEmpty());
@@ -112,6 +114,7 @@ public class SubprocessBuilder {
    * Sets the environment passed to the child process. If null, inherit the environment of the
    * server.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setEnv(@Nullable Map<String, String> env) {
     this.env = env == null ? null : ImmutableMap.copyOf(env);
     return this;
@@ -130,6 +133,7 @@ public class SubprocessBuilder {
    *
    * <p>It can also be redirected to a file using {@link #setStdout(File)}.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStdout(StreamAction action) {
     if (action == StreamAction.REDIRECT) {
       throw new IllegalStateException();
@@ -143,12 +147,14 @@ public class SubprocessBuilder {
    * Sets the file stdout is appended to. If null, the stdout will be available as an input stream
    * on the resulting object representing the process.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStdout(File file) {
     this.stdoutAction = StreamAction.REDIRECT;
     this.stdoutFile = file;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SubprocessBuilder setTimeoutMillis(long timeoutMillis) {
     this.timeoutMillis = timeoutMillis;
     return this;
@@ -171,6 +177,7 @@ public class SubprocessBuilder {
    *
    * <p>It can also be redirected to a file using {@link #setStderr(File)}.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStderr(StreamAction action) {
     if (action == StreamAction.REDIRECT) {
       throw new IllegalStateException();
@@ -185,6 +192,7 @@ public class SubprocessBuilder {
    * on the resulting object representing the process. When {@code redirectErrorStream} is set to
    * True, this method has no effect.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setStderr(File file) {
     this.stderrAction = StreamAction.REDIRECT;
     this.stderrFile = file;
@@ -209,6 +217,7 @@ public class SubprocessBuilder {
    * makes it easier to correlate error messages with the corresponding output. The initial value is
    * {@code false}.
    */
+  @CanIgnoreReturnValue
   public SubprocessBuilder redirectErrorStream(boolean redirectErrorStream) {
     this.redirectErrorStream = redirectErrorStream;
     return this;
@@ -218,9 +227,8 @@ public class SubprocessBuilder {
     return workingDirectory;
   }
 
-  /**
-   * Sets the current working directory. If null, it will be that of this process.
-   */
+  /** Sets the current working directory. If null, it will be that of this process. */
+  @CanIgnoreReturnValue
   public SubprocessBuilder setWorkingDirectory(File workingDirectory) {
     this.workingDirectory = workingDirectory;
     return this;
