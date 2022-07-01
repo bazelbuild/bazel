@@ -38,23 +38,24 @@ public class LabelConverter {
   public static LabelConverter forBzlEvaluatingThread(StarlarkThread thread) {
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    return new LabelConverter(
-        moduleContext.label().getPackageIdentifier(), moduleContext.repoMapping());
+    return new LabelConverter(moduleContext.packageContext());
   }
 
-  private final PackageIdentifier base;
-  private final RepositoryMapping repositoryMapping;
+  private final Label.PackageContext packageContext;
   private final Map<String, Label> labelCache = new HashMap<>();
+
+  public LabelConverter(Label.PackageContext packageContext) {
+    this.packageContext = packageContext;
+  }
 
   /** Creates a label converter using the given base package and repo mapping. */
   public LabelConverter(PackageIdentifier base, RepositoryMapping repositoryMapping) {
-    this.base = base;
-    this.repositoryMapping = repositoryMapping;
+    this(Label.PackageContext.of(base, repositoryMapping));
   }
 
   /** Returns the base package identifier that relative labels will be resolved against. */
   PackageIdentifier getBasePackage() {
-    return base;
+    return packageContext.packageIdentifier();
   }
 
   /** Returns the Label corresponding to the input, using the current conversion context. */
@@ -65,7 +66,7 @@ public class LabelConverter {
     // label-strings across all their attribute values.
     Label converted = labelCache.get(input);
     if (converted == null) {
-      converted = Label.parseWithPackageContext(input, base, repositoryMapping);
+      converted = Label.parseWithPackageContext(input, packageContext);
       labelCache.put(input, converted);
     }
     return converted;
@@ -73,6 +74,6 @@ public class LabelConverter {
 
   @Override
   public String toString() {
-    return base.toString();
+    return getBasePackage().toString();
   }
 }
