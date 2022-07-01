@@ -43,6 +43,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -378,6 +379,7 @@ public final class BuildOptions implements Cloneable {
      * Merges the given BuildOptions into this builder, overriding any previous instances of
      * Starlark options or FragmentOptions subclasses found in the new BuildOptions.
      */
+    @CanIgnoreReturnValue
     public Builder merge(BuildOptions options) {
       for (FragmentOptions fragment : options.getNativeOptions()) {
         this.addFragmentOptions(fragment);
@@ -393,6 +395,7 @@ public final class BuildOptions implements Cloneable {
      *
      * <p>The options get preprocessed with {@link FragmentOptions#getNormalized}.
      */
+    @CanIgnoreReturnValue
     public <T extends FragmentOptions> Builder addFragmentOptions(T options) {
       fragmentOptions.put(options.getClass(), options.getNormalized());
       return this;
@@ -401,24 +404,28 @@ public final class BuildOptions implements Cloneable {
     /**
      * Adds multiple Starlark options to the builder. Overrides previous instances of the same key.
      */
+    @CanIgnoreReturnValue
     public Builder addStarlarkOptions(Map<Label, Object> options) {
       starlarkOptions.putAll(options);
       return this;
     }
 
     /** Adds a Starlark option to the builder. Overrides previous instances of the same key. */
+    @CanIgnoreReturnValue
     public Builder addStarlarkOption(Label key, Object value) {
       starlarkOptions.put(key, value);
       return this;
     }
 
     /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    @CanIgnoreReturnValue
     public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
       fragmentOptions.remove(key);
       return this;
     }
 
     /** Removes the value for the Starlark option with the given key. */
+    @CanIgnoreReturnValue
     public Builder removeStarlarkOption(Label key) {
       starlarkOptions.remove(key);
       return this;

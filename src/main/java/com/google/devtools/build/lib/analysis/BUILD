@@ -1630,6 +1630,7 @@ java_library(
         ":config/fragment",
         ":config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:error_prone_annotations",
     ],
 )
 
