@@ -102,6 +102,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -1030,98 +1031,116 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return skyframeExecutor;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPkgFactory(PackageFactory pkgFactory) {
       this.pkgFactory = pkgFactory;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFileSystem(FileSystem fileSystem) {
       this.fileSystem = fileSystem;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDirectories(BlazeDirectories directories) {
       this.directories = directories;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
       this.actionKeyContext = actionKeyContext;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setIgnoredPackagePrefixesFunction(SkyFunction ignoredPackagePrefixesFunction) {
       this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExtraSkyFunctions(
         ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
       this.extraSkyFunctions = extraSkyFunctions;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWorkspaceStatusActionFactory(@Nullable Factory workspaceStatusActionFactory) {
       this.workspaceStatusActionFactory = workspaceStatusActionFactory;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDiffAwarenessFactories(
         Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
       this.diffAwarenessFactories = diffAwarenessFactories;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWorkspaceInfoFromDiffReceiver(
         WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver) {
       this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRepositoryHelpersHolder(
         SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder) {
       this.repositoryHelpersHolder = repositoryHelpersHolder;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCrossRepositoryLabelViolationStrategy(
         CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
       this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setBuildFilesByPriority(ImmutableList<BuildFileName> buildFilesByPriority) {
       this.buildFilesByPriority = buildFilesByPriority;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExternalPackageHelper(ExternalPackageHelper externalPackageHelper) {
       this.externalPackageHelper = externalPackageHelper;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionOnIOExceptionReadingBuildFile(
         ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
       this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSkyframeExecutorConsumerOnInit(
         Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit) {
       this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSkyKeyStateReceiver(SkyKeyStateReceiver skyKeyStateReceiver) {
       this.skyKeyStateReceiver = Preconditions.checkNotNull(skyKeyStateReceiver);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
       this.perCommandSyscallCache = perCommandSyscallCache;
       return this;

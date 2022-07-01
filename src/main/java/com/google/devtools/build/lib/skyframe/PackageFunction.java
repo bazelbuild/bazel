@@ -77,6 +77,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -1584,31 +1585,37 @@ public class PackageFunction implements SkyFunction {
       private String message;
       private PackageLoading.Code packageLoadingCode;
 
+      @CanIgnoreReturnValue
       Builder setType(Type exceptionType) {
         this.exceptionType = exceptionType;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setPackageIdentifier(PackageIdentifier packageIdentifier) {
         this.packageIdentifier = packageIdentifier;
         return this;
       }
 
+      @CanIgnoreReturnValue
       private Builder setTransience(Transience transience) {
         this.transience = transience;
         return this;
       }
 
+      @CanIgnoreReturnValue
       private Builder setException(Exception exception) {
         this.exception = exception;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setMessage(String message) {
         this.message = message;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setPackageLoadingCode(PackageLoading.Code packageLoadingCode) {
         this.packageLoadingCode = packageLoadingCode;
         return this;
