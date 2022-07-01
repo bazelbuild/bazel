@@ -177,7 +177,7 @@ class BazelWindowsTest(test_base.TestBase):
         '        "out": attr.output(mandatory = True),',
         '        "tool": attr.label(',
         '            executable = True,',
-        '            cfg = "host",',
+        '            cfg = "exec",',
         '            allow_files = True,',
         '            default = Label("//:write.bat"),',
         '        ),',

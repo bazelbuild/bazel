@@ -283,7 +283,7 @@ demonstrates how you could pass in a tool to an aspect:
         '_protoc' : attr.label(
             default = Label('//tools:protoc'),
             executable = True,
-            cfg = "host"
+            cfg = "exec"
         )
     }
 ...
