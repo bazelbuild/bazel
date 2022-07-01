@@ -25,6 +25,50 @@ import net.starlark.java.eval.StarlarkThread;
 public interface StarlarkBuildApiGlobals {
 
   @StarlarkMethod(
+      name = "visibility",
+      // TODO(b/22193153): Link to a concepts page for bzl-visibility.
+      doc =
+          "<i>(Experimental; enabled by <code>--experimental_bzl_visibility</code>. This feature's"
+              + " API may change. Only packages that appear in"
+              + " <code>--experimental_bzl_visibility_allowlist</code> are permitted to call this"
+              + " function. Known issue: This feature currently may not work under bzlmod.)</i>"
+              + "<p>Sets the bzl-visibility of the .bzl module currently being initialized."
+              + "<p>The bzl-visibility of a .bzl module (not to be confused with target visibility)"
+              + " governs whether or not a <code>load()</code> of that .bzl is permitted from"
+              + " within the BUILD and .bzl files of a particular package. There are currently two"
+              + " allowed values:"
+              + "<ul>"
+              + "<li><code>\"public\"</code> <i>(default)</i>: the .bzl can be loaded anywhere"
+              + "<li><code>\"private\"</code>: the .bzl can only be loaded by files in the same"
+              + " package (subpackages are excluded)"
+              + "</ul>"
+              + "<p>Generally, <code>visibility()</code> is called at the top of the .bzl file,"
+              + " immediately after its <code>load()</code> statements. (It is poor style to put"
+              + " this declaration later in the file or in a helper method.) It may not be called"
+              + " more than once per .bzl, or after the .bzl's top-level code has finished"
+              + " executing."
+              + "<p>Note that a .bzl module having a public bzl-visibility does not necessarily"
+              + " imply that its corresponding file target has public visibility. This means that"
+              + " it's possible to be able to <code>load()</code> a .bzl file without being able to"
+              + " depend on it in a <code>filegroup</code> or other target.",
+      parameters = {
+        @Param(
+            name = "value",
+            named = false,
+            doc =
+                "The bzl-visibility level to set. May be <code>\"public\"</code> or"
+                    + " <code>\"private\"</code>.")
+      },
+      // Ordinarily we'd use enableOnlyWithFlag here to gate access on
+      // --experimental_bzl_visibility. However, the StarlarkSemantics isn't available at the point
+      // where the top-level environment is determined (see StarlarkModules#addPredeclared and
+      // notice that it relies on the overload of Starlark#addMethods that uses the default
+      // semantics). So instead we make this builtin unconditionally defined, but have it fail at
+      // call time if used without the flag.
+      useStarlarkThread = true)
+  void visibility(String value, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "configuration_field",
       // TODO(cparsons): Provide a link to documentation for available StarlarkConfigurationFields.
       doc =

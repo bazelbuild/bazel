@@ -135,6 +135,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (bzlLoadValue == null) {
       return null;
     }
+    // TODO(wyv): Consider whether there's a need to check bzl-visibility
+    // (BzlLoadFunction#checkLoadVisibilities).
+    // TODO(wyv): Consider refactoring to use PackageFunction#loadBzlModules, or the simpler API
+    // that may be created by b/237658764.
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());

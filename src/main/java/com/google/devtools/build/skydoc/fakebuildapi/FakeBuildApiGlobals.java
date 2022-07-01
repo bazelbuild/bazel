@@ -23,6 +23,9 @@ import net.starlark.java.eval.StarlarkThread;
 public class FakeBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override
+  public void visibility(String value, StarlarkThread thread) throws EvalException {}
+
+  @Override
   public LateBoundDefaultApi configurationField(String fragment, String name, StarlarkThread thread)
       throws EvalException {
     return new FakeLateBoundDefaultApi();

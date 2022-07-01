@@ -183,8 +183,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns a {@link PathFragment} instance representing the relative path between this {@link
-   * PathFragment} and the given {@link PathFragment}.
+   * Returns a {@link PathFragment} instance formed by resolving {@code other} relative to this
+   * path. For example, if this path is "a" and other is "b", returns "a/b".
    *
    * <p>If the passed path is absolute it is returned untouched. This can be useful to resolve
    * symlinks.
@@ -197,8 +197,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns a {@link PathFragment} instance representing the relative path between this {@link
-   * PathFragment} and the given path.
+   * Returns a {@link PathFragment} instance formed by resolving {@code other} relative to this
+   * path. For example, if this path is "a" and other is "b", returns "a/b".
    *
    * <p>See {@link #getRelative(PathFragment)} for details.
    */

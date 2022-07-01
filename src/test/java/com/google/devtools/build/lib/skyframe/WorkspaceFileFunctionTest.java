@@ -155,6 +155,30 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibility() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=pkg");
+
+    createWorkspaceFile(
+        "workspace(name = 'foo')", //
+        "load('//pkg:a.bzl', 'a')");
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/a.bzl", //
+        "visibility('private')");
+
+    reporter.removeHandler(failFastHandler);
+    SkyKey key = ExternalPackageFunction.key();
+    eval(key);
+    // The evaluation result ends up being null, probably due to the test framework swallowing
+    // exceptions (similar to b/26382502). So let's just look for the error event instead of
+    // asserting on the exception.
+    assertContainsEvent(
+        "Starlark file //pkg:a.bzl is not visible for loading from package //. Check the file's"
+            + " `visibility()` declaration.");
+  }
+
+  @Test
   public void testInvalidRepo() throws Exception {
     // Test intentionally introduces errors.
     reporter.removeHandler(failFastHandler);

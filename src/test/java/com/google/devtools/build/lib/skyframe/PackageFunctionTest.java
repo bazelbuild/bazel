@@ -770,6 +770,76 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibilityViolation() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
+
+    scratch.file(
+        "a/BUILD", //
+        "load(\"//b:foo.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/foo.bzl", //
+        "visibility(\"private\")",
+        "x = 1");
+
+    reporter.removeHandler(failFastHandler);
+    Exception ex = evaluatePackageToException("a");
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "error loading package 'a': file //a:BUILD contains .bzl load-visibility violations");
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
+    assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
+  }
+
+  @Test
+  public void testVisibilityCallableNotAvailableInBUILD() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file(
+        "a/BUILD", //
+        "visibility(\"public\")");
+
+    reporter.removeHandler(failFastHandler);
+    // The evaluation result ends up being null, probably due to the test framework swallowing
+    // exceptions (similar to b/26382502). So let's just look for the error event instead of
+    // asserting on the exception.
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(),
+        PackageValue.key(PackageIdentifier.createInMainRepo("a")),
+        /*keepGoing=*/ false,
+        reporter);
+    assertContainsEvent("name 'visibility' is not defined");
+  }
+
+  @Test
+  public void testVisibilityCallableErroneouslyInvokedInBUILD() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file(
+        "a/BUILD", //
+        "load(\":helper.bzl\", \"helper\")",
+        "helper()");
+    scratch.file(
+        "a/helper.bzl", //
+        "def helper():",
+        "    visibility(\"public\")");
+
+    reporter.removeHandler(failFastHandler);
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(),
+        PackageValue.key(PackageIdentifier.createInMainRepo("a")),
+        /*keepGoing=*/ false,
+        reporter);
+    assertContainsEvent(
+        "'visibility' can only be called during .bzl initialization (top-level evaluation)");
+  }
+
+  @Test
   public void testBadWorkspaceFile() throws Exception {
     Path workspacePath = scratch.overwriteFile("WORKSPACE", "junk");
     SkyKey skyKey = PackageValue.key(PackageIdentifier.createInMainRepo("external"));

@@ -725,13 +725,14 @@ public class BzlLoadFunction implements SkyFunction {
       Environment env,
       @Nullable InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    Label label = key.getLabel();
     // Ensure the .bzl exists and passes static checks (parsing, resolving).
     // (A missing prelude file still returns a valid but empty BzlCompileValue.)
     if (!compileValue.lookupSuccessful()) {
       throw new BzlLoadFailedException(compileValue.getError(), Code.COMPILE_ERROR);
     }
     Program prog = compileValue.getProgram();
+    Label label = key.getLabel();
+    PackageIdentifier pkg = label.getPackageIdentifier();
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
@@ -741,7 +742,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
-        getLoadLabels(env.getListener(), programLoads, label.getPackageIdentifier(), repoMapping);
+        getLoadLabels(env.getListener(), programLoads, pkg, repoMapping);
     if (loadLabels == null) {
       throw new BzlLoadFailedException(
           String.format(
@@ -750,21 +751,33 @@ public class BzlLoadFunction implements SkyFunction {
               StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
           Code.PARSE_ERROR);
     }
-    ImmutableList.Builder<BzlLoadValue.Key> loadKeys =
+    ImmutableList.Builder<BzlLoadValue.Key> loadKeysBuilder =
         ImmutableList.builderWithExpectedSize(loadLabels.size());
     for (Label loadLabel : loadLabels) {
-      loadKeys.add(key.getKeyForLoad(loadLabel));
+      loadKeysBuilder.add(key.getKeyForLoad(loadLabel));
     }
+    ImmutableList<BzlLoadValue.Key> loadKeys = loadKeysBuilder.build();
 
     // Load .bzl modules.
     // When not using bzl inlining, this is done in parallel for all loads.
     List<BzlLoadValue> loadValues =
         inliningState == null
-            ? computeBzlLoadsWithSkyframe(env, loadKeys.build(), programLoads)
-            : computeBzlLoadsWithInlining(env, loadKeys.build(), programLoads, inliningState);
+            ? computeBzlLoadsWithSkyframe(env, loadKeys, programLoads)
+            : computeBzlLoadsWithInlining(env, loadKeys, programLoads, inliningState);
     if (loadValues == null) {
       return null; // Skyframe deps unavailable
     }
+
+    // Validate that the current .bzl file satisfies each loaded dependency's bzl-visibility.
+    // Violations are reported as error events (since there can be more than one in a single file)
+    // and also trigger a BzlLoadFailedException.
+    checkLoadVisibilities(
+        pkg,
+        "module " + label.getCanonicalForm(),
+        loadValues,
+        loadKeys,
+        programLoads,
+        env.getListener());
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
     // digest of the @_builtins pseudo-repository (if applicable).
@@ -807,6 +820,7 @@ public class BzlLoadFunction implements SkyFunction {
     RuleClassProvider ruleClassProvider = packageFactory.getRuleClassProvider();
     BzlInitThreadContext context =
         new BzlInitThreadContext(
+            label,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getConfigurationFragmentMap(),
             new SymbolGenerator<>(label),
@@ -1068,6 +1082,56 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
+   * Checks that all (directly) requested loads are visible to the requesting file's package.
+   *
+   * <p>Each load that is not visible is reported as an error on the event handler. If there is at
+   * least one error, {@link BzlLoadFailedException} is thrown.
+   *
+   * <p>The requesting file may be a .bzl file or another Starlark file (BUILD, WORKSPACE, etc.).
+   * {@code requestingPackage} is its logical containing package used for visibility validation,
+   * while {@code requestingFileDescription} is a piece of text for error messages, e.g. "module
+   * foo.bzl".
+   *
+   * <p>{@code loadValues}, {@code loadKeys}, and {@code programLoads} are all ordered corresponding
+   * to the load statements of the requesting bzl.
+   */
+  // TODO(brandjon): It'd be nice to pass in a single Label argument that unifies requestingPackage
+  // and requestingFileDescription. But some callers of PackageFunction#loadBzlModules don't have
+  // such a label handy. Ex: Workspace logic has multiple possible sources of workspace file
+  // content.
+  static void checkLoadVisibilities(
+      PackageIdentifier requestingPackage,
+      String requestingFileDescription,
+      List<BzlLoadValue> loadValues,
+      List<BzlLoadValue.Key> loadKeys,
+      List<Pair<String, Location>> programLoads,
+      EventHandler handler)
+      throws BzlLoadFailedException {
+    boolean ok = true;
+    for (int i = 0; i < loadValues.size(); i++) {
+      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
+      Label loadLabel = loadKeys.get(i).getLabel();
+      PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
+      if (loadVisibility.equals(BzlVisibility.PRIVATE) && !requestingPackage.equals(loadPackage)) {
+        handler.handle(
+            Event.error(
+                programLoads.get(i).second,
+                String.format(
+                    // TODO(brandjon): Consider whether we should try to report error messages (here
+                    // and elsewhere) using the literal text of the load() rather than the (already
+                    // repo-remapped) label.
+                    "Starlark file %s is not visible for loading from package %s. Check the"
+                        + " file's `visibility()` declaration.",
+                    loadLabel, requestingPackage.getCanonicalForm())));
+        ok = false;
+      }
+    }
+    if (!ok) {
+      throw BzlLoadFailedException.visibilityViolation(requestingFileDescription);
+    }
+  }
+
+  /**
    * Obtains the predeclared environment for a .bzl file, based on the type of .bzl and (if
    * applicable) the injected builtins.
    *
@@ -1326,6 +1390,7 @@ public class BzlLoadFunction implements SkyFunction {
       return new BzlLoadFailedException(
           String.format(
               "initialization of module '%s'%s failed",
+              // TODO(brandjon): This error message drops the repo part of the label.
               label.toPathFragment(),
               StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
           Code.EVAL_ERROR);
@@ -1389,6 +1454,18 @@ public class BzlLoadFunction implements SkyFunction {
           Code.BUILTINS_ERROR,
           cause,
           cause.getTransience());
+    }
+
+    /**
+     * Returns an exception for bzl-visibility violations.
+     *
+     * <p>{@code fileDescription} is a string like {@code "module //pkg:foo.bzl"} or {@code "file
+     * //pkg:BUILD"}.
+     */
+    static BzlLoadFailedException visibilityViolation(String fileDescription) {
+      return new BzlLoadFailedException(
+          String.format("%s contains .bzl load-visibility violations", fileDescription),
+          Code.VISIBILITY_ERROR);
     }
   }
 
