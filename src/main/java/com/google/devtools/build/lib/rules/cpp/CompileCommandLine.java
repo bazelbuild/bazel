@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -221,16 +222,19 @@ public final class CompileCommandLine {
     }
 
     /** Sets the feature configuration for this compile action. */
+    @CanIgnoreReturnValue
     public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
       this.featureConfiguration = featureConfiguration;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setVariables(CcToolchainVariables variables) {
       this.variables = variables;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     Builder setCoptsFilter(CoptsFilter filter) {
       this.coptsFilter = Preconditions.checkNotNull(filter);
