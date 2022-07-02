@@ -146,8 +146,17 @@ static int CreateTarget(const char *path, bool is_directory) {
   }
 
   // Create the parent directory.
-  if (CreateTarget(dirname(strdupa(path)), true) < 0) {
-    DIE("CreateTarget %s", dirname(strdupa(path)));
+  {
+    char *buf, *dir;
+
+    if (!(buf = strdup(path))) DIE("strdup");
+
+    dir = dirname(buf);
+    if (CreateTarget(dir, true) < 0) {
+      DIE("CreateTarget %s", dir);
+    }
+
+    free(buf);
   }
 
   if (is_directory) {
