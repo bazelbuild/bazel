@@ -37,7 +37,7 @@ actual work builds do.
 ### Action key {:#action-key}
 
 The cache key of an [action](#action). Computed based on action metadata, which
-might include the command to be execution in the action, compiler flags, library
+might include the command to be executed in the action, compiler flags, library
 locations, or system headers, depending on the action. Enables Bazel to cache or
 invalidate individual actions deterministically.
 
