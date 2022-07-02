@@ -1112,7 +1112,8 @@ public class BzlLoadFunction implements SkyFunction {
       BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       Label loadLabel = loadKeys.get(i).getLabel();
       PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
-      if (loadVisibility.equals(BzlVisibility.PRIVATE) && !requestingPackage.equals(loadPackage)) {
+      if (!(requestingPackage.equals(loadPackage)
+          || loadVisibility.allowsPackage(requestingPackage))) {
         handler.handle(
             Event.error(
                 programLoads.get(i).second,

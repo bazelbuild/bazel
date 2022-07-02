@@ -424,6 +424,23 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibility_malformedAllowlist() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        // Not a valid package name.
+        "--experimental_bzl_visibility_allowlist=:::");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility(\"public\")");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("Invalid bzl-visibility allowlist");
+  }
+
+  @Test
   public void testBzlVisibility_publicExplicit() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
@@ -577,6 +594,119 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
     assertContainsEvent(".bzl visibility may not be set more than once");
+  }
+
+  @Test
+  public void testBzlVisibility_enumeratedPackages() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
+
+    scratch.file("a1/BUILD");
+    scratch.file(
+        "a1/foo1.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a2/BUILD");
+    scratch.file(
+        "a2/foo2.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        "visibility([\"//a1\"])",
+        "x = 1");
+
+    checkSuccessfulLookup("//a1:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load-visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
+  }
+
+  @Test
+  public void testBzlVisibility_enumeratedPackagesMultipleRepos() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=@repo//lib");
+
+    // @repo//pkg:foo1.bzl and @//pkg:foo2.bzl both try to access @repo//lib:bar.bzl. Test that when
+    // bar.bzl declares a visibility allowing "//pkg", it means @repo//pkg and *not* @//pkg.
+    scratch.overwriteFile(
+        "WORKSPACE", //
+        "local_repository(",
+        "    name = 'repo',",
+        "    path = 'repo'",
+        ")");
+    scratch.file("repo/WORKSPACE");
+    scratch.file("repo/pkg/BUILD");
+    scratch.file(
+        "repo/pkg/foo1.bzl", //
+        "load(\"//lib:bar.bzl\", \"x\")");
+    scratch.file("repo/lib/BUILD");
+    scratch.file(
+        "repo/lib/bar.bzl", //
+        "visibility([\"//pkg\"])",
+        "x = 1");
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/foo2.bzl", //
+        "load(\"@repo//lib:bar.bzl\", \"x\")");
+
+    checkSuccessfulLookup("@repo//pkg:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load-visibility violations");
+    assertContainsEvent(
+        "Starlark file @repo//lib:bar.bzl is not visible for loading from package //pkg.");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_badType() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility(123)");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent(
+        "Invalid bzl-visibility: got 'int', want \"public\", \"private\", or list of package path"
+            + " strings");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_badElementType() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility([\"//a\", 123])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("at index 0 of visibility list, got element of type int, want string");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_packageOutsideRepo() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility([\"@repo//b\"])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("package specifiers cannot begin with '@'");
   }
 
   @Test

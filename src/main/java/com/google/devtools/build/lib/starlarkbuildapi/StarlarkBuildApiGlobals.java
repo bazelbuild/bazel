@@ -35,12 +35,15 @@ public interface StarlarkBuildApiGlobals {
               + "<p>Sets the bzl-visibility of the .bzl module currently being initialized."
               + "<p>The bzl-visibility of a .bzl module (not to be confused with target visibility)"
               + " governs whether or not a <code>load()</code> of that .bzl is permitted from"
-              + " within the BUILD and .bzl files of a particular package. There are currently two"
-              + " allowed values:"
+              + " within the BUILD and .bzl files of a particular package. Allowed values include:"
               + "<ul>"
-              + "<li><code>\"public\"</code> <i>(default)</i>: the .bzl can be loaded anywhere"
+              + "<li><code>\"public\"</code> <i>(default)</i>: the .bzl can be loaded anywhere."
               + "<li><code>\"private\"</code>: the .bzl can only be loaded by files in the same"
-              + " package (subpackages are excluded)"
+              + " package (subpackages are excluded)."
+              + "<li>a list of package paths (e.g. <code>[\"//pkg1\", \"//pkg2/subpkg\","
+              + " ...]</code>): the .bzl can be loaded by files in any of the listed packages. Only"
+              + " packages in the current repository may be specified; the repository \"@\" syntax"
+              + " is disallowed."
               + "</ul>"
               + "<p>Generally, <code>visibility()</code> is called at the top of the .bzl file,"
               + " immediately after its <code>load()</code> statements. (It is poor style to put"
@@ -66,7 +69,7 @@ public interface StarlarkBuildApiGlobals {
       // semantics). So instead we make this builtin unconditionally defined, but have it fail at
       // call time if used without the flag.
       useStarlarkThread = true)
-  void visibility(String value, StarlarkThread thread) throws EvalException;
+  void visibility(Object value, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "configuration_field",

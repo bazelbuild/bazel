@@ -14,13 +14,57 @@
 
 package com.google.devtools.build.lib.packages;
 
-/** A visibility level governing the loading of a .bzl module. */
-// TODO(brandjon): Replace with a proper allowlist having the same granularity as target
-// visibility (i.e. package path specifications).
-public enum BzlVisibility {
-  /** Loadable by everyone (default). */
-  PUBLIC,
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import java.util.List;
 
-  /** Loadable by BUILD and .bzl files within the same package (not subpackages). */
-  PRIVATE
+/** A visibility level governing the loading of a .bzl module. */
+public abstract class BzlVisibility {
+
+  private BzlVisibility() {}
+
+  /**
+   * Returns whether the given package's BUILD and .bzl files may load the .bzl according to this
+   * visibility restriction. This does not include cases where {@code pkg} is the same package as
+   * the one containing the .bzl (i.e. this method may return false in that case).
+   */
+  public abstract boolean allowsPackage(PackageIdentifier pkg);
+
+  /** A visibility indicating that everyone may load the .bzl */
+  public static final BzlVisibility PUBLIC =
+      new BzlVisibility() {
+        @Override
+        public boolean allowsPackage(PackageIdentifier pkg) {
+          return true;
+        }
+      };
+
+  /**
+   * A visibility indicating that only BUILD and .bzl files within the same package (not including
+   * subpackages) may load the .bzl.
+   */
+  public static final BzlVisibility PRIVATE =
+      new BzlVisibility() {
+        @Override
+        public boolean allowsPackage(PackageIdentifier pkg) {
+          return false;
+        }
+      };
+
+  /**
+   * A visibility that enumerates the packages whose BUILD and .bzl files may load the .bzl.
+   * Subpackages are not implicitly included.
+   */
+  public static class PackageListBzlVisibility extends BzlVisibility {
+    private final ImmutableList<PackageIdentifier> packages;
+
+    public PackageListBzlVisibility(List<PackageIdentifier> packages) {
+      this.packages = ImmutableList.copyOf(packages);
+    }
+
+    @Override
+    public boolean allowsPackage(PackageIdentifier pkg) {
+      return packages.contains(pkg);
+    }
+  }
 }
