@@ -165,6 +165,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     try (Mutability mu =
         Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       ModuleExtensionContext moduleContext =
           createContext(env, usagesValue, starlarkSemantics, extension);
       threadContext.storeInThread(thread);
