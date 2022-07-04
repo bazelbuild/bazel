@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -1061,6 +1062,7 @@ public class Package {
     }
 
     /** Sets the package's map of "generator_name" values keyed by the location of the call site. */
+    @CanIgnoreReturnValue
     public Builder setGeneratorMap(ImmutableMap<Location, String> map) {
       this.generatorMap = map;
       return this;
@@ -1134,6 +1136,7 @@ public class Package {
      *     {@code repoWithin} repository
      * @param mappedName the RepositoryName by which localName should be referenced
      */
+    @CanIgnoreReturnValue
     Builder addRepositoryMappingEntry(
         RepositoryName repoWithin, String localName, RepositoryName mappedName) {
       HashMap<String, RepositoryName> mapping =
@@ -1144,6 +1147,7 @@ public class Package {
     }
 
     /** Adds all the mappings from a given {@link Package}. */
+    @CanIgnoreReturnValue
     Builder addRepositoryMappings(Package aPackage) {
       ImmutableMap<RepositoryName, ImmutableMap<String, RepositoryName>> repositoryMappings =
           aPackage.externalPackageRepositoryMappings;
@@ -1169,6 +1173,7 @@ public class Package {
     }
 
     /** Sets the name of this package's BUILD file. */
+    @CanIgnoreReturnValue
     public Builder setFilename(RootedPath filename) {
       this.filename = filename;
       try {
@@ -1224,6 +1229,7 @@ public class Package {
       return events;
     }
 
+    @CanIgnoreReturnValue
     Builder setMakeVariable(String name, String value) {
       this.makeEnv.put(name, value);
       return this;
@@ -1233,6 +1239,7 @@ public class Package {
      * Sets the default visibility for this package. Called at most once per package from
      * PackageFactory.
      */
+    @CanIgnoreReturnValue
     public Builder setDefaultVisibility(RuleVisibility visibility) {
       this.defaultVisibility = visibility;
       this.defaultVisibilitySet = true;
@@ -1240,40 +1247,42 @@ public class Package {
     }
 
     /** Sets whether the default visibility is set in the BUILD file. */
+    @CanIgnoreReturnValue
     public Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
       this.defaultVisibilitySet = defaultVisibilitySet;
       return this;
     }
 
     /** Sets visibility enforcement policy for <code>config_setting</code>. */
+    @CanIgnoreReturnValue
     public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
       this.configSettingVisibilityPolicy = policy;
       return this;
     }
 
     /** Sets the default value of 'testonly'. Rule-level 'testonly' will override this. */
+    @CanIgnoreReturnValue
     Builder setDefaultTestonly(boolean defaultTestonly) {
       pkg.setDefaultTestOnly(defaultTestonly);
       return this;
     }
 
-    /**
-     * Sets the default value of 'deprecation'. Rule-level 'deprecation' will append to this.
-     */
+    /** Sets the default value of 'deprecation'. Rule-level 'deprecation' will append to this. */
+    @CanIgnoreReturnValue
     Builder setDefaultDeprecation(String defaultDeprecation) {
       pkg.setDefaultDeprecation(defaultDeprecation);
       return this;
     }
 
-    /**
-     * Uses the workspace name from {@code //external} to set this package's workspace name.
-     */
+    /** Uses the workspace name from {@code //external} to set this package's workspace name. */
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setWorkspaceName(String workspaceName) {
       pkg.workspaceName = workspaceName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
       this.thirdPartyLicenceExistencePolicy = policy;
       return this;
@@ -1304,9 +1313,8 @@ public class Package {
       pkg.loads = Preconditions.checkNotNull(loads);
     }
 
-    /**
-     * Sets the default header checking mode.
-     */
+    /** Sets the default header checking mode. */
+    @CanIgnoreReturnValue
     public Builder setDefaultHdrsCheck(String hdrsCheck) {
       // Note that this setting is propagated directly to the package because
       // other code needs the ability to read this info directly from the
@@ -1316,11 +1324,13 @@ public class Package {
     }
 
     /** Sets the default value of copts. Rule-level copts will append to this. */
+    @CanIgnoreReturnValue
     public Builder setDefaultCopts(List<String> defaultCopts) {
       this.defaultCopts = defaultCopts;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addFeatures(Iterable<String> features) {
       Iterables.addAll(this.features, features);
       return this;
@@ -1338,6 +1348,7 @@ public class Package {
      * #addEvent} or {@link #addEvents} should already have been called with an {@link Event} of
      * type {@link EventKind#ERROR} that includes a {@link FailureDetail}.
      */
+    @CanIgnoreReturnValue
     public Builder setContainsErrors() {
       containsErrors = true;
       return this;
@@ -1347,6 +1358,7 @@ public class Package {
       return containsErrors;
     }
 
+    @CanIgnoreReturnValue
     Builder addPosts(Iterable<Postable> posts) {
       for (Postable post : posts) {
         this.posts.add(post);
@@ -1354,6 +1366,7 @@ public class Package {
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addEvents(Iterable<Event> events) {
       for (Event event : events) {
         addEvent(event);
@@ -1361,6 +1374,7 @@ public class Package {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addEvent(Event event) {
       this.events.add(event);
       return this;
@@ -1399,6 +1413,7 @@ public class Package {
       return null;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
       this.starlarkFileDependencies = starlarkFileDependencies;
       return this;
@@ -1788,6 +1803,7 @@ public class Package {
       this.registeredToolchains.addAll(toolchains);
     }
 
+    @CanIgnoreReturnValue
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);

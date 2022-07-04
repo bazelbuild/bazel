@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
 
 /** Build variable extensions for templating a toolchain for objc builds. */
@@ -262,90 +263,105 @@ class ObjcVariablesExtension implements VariablesExtension {
         ImmutableSet.builder();
 
     /** Sets the {@link RuleContext} for this extension. */
+    @CanIgnoreReturnValue
     public Builder setRuleContext(RuleContext ruleContext) {
       this.ruleContext = Preconditions.checkNotNull(ruleContext);
       return this;
     }
 
     /** Sets the {@link ObjcProvider} for this extension. */
+    @CanIgnoreReturnValue
     public Builder setObjcProvider(ObjcProvider objcProvider) {
       this.objcProvider = Preconditions.checkNotNull(objcProvider);
       return this;
     }
 
     /** Sets the output of the fully link action. */
+    @CanIgnoreReturnValue
     public Builder setFullyLinkArchive(Artifact fullyLinkArchive) {
       this.fullyLinkArchive = Preconditions.checkNotNull(fullyLinkArchive);
       return this;
     }
 
     /** Sets the {@link IntermediateArtifacts} for this extension. */
+    @CanIgnoreReturnValue
     public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = Preconditions.checkNotNull(intermediateArtifacts);
       return this;
     }
 
     /** Sets the configuration for this extension. */
+    @CanIgnoreReturnValue
     public Builder setConfiguration(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
       return this;
     }
 
     /** Sets the framework search paths to be passed to the compiler/linker using {@code -F}. */
+    @CanIgnoreReturnValue
     public Builder setFrameworkSearchPath(ImmutableList<String> frameworkSearchPaths) {
       this.frameworkSearchPaths = Preconditions.checkNotNull(frameworkSearchPaths);
       return this;
     }
 
     /** Sets the framework names to be passed to the linker using {@code -framework}. */
+    @CanIgnoreReturnValue
     public Builder setFrameworkNames(Set<String> frameworkNames) {
       this.frameworkNames = Preconditions.checkNotNull(frameworkNames);
       return this;
     }
 
     /** Sets binary input files to be passed to the linker with "-l" flags. */
+    @CanIgnoreReturnValue
     public Builder setLibraryNames(ImmutableList<String> libraryNames) {
       this.libraryNames = Preconditions.checkNotNull(libraryNames);
       return this;
     }
 
     /** Sets artifacts to be passed to the linker with {@code -force_load}. */
+    @CanIgnoreReturnValue
     public Builder setForceLoadArtifacts(ImmutableSet<Artifact> forceLoadArtifacts) {
       this.forceLoadArtifacts = Preconditions.checkNotNull(forceLoadArtifacts);
       return this;
     }
 
     /** Sets linkopts arising from rule attributes. */
+    @CanIgnoreReturnValue
     public Builder setAttributeLinkopts(ImmutableList<String> attributeLinkopts) {
       this.attributeLinkopts = Preconditions.checkNotNull(attributeLinkopts);
       return this;
     }
 
     /** Sets the given {@link VariableCategory} as active for this extension. */
+    @CanIgnoreReturnValue
     public Builder addVariableCategory(VariableCategory variableCategory) {
       this.activeVariableCategoriesBuilder.add(Preconditions.checkNotNull(variableCategory));
       return this;
     }
 
     /** Sets the Artifact for the dsym symbol file. */
+    @CanIgnoreReturnValue
     public Builder setDsymSymbol(Artifact dsymSymbol) {
       this.dsymSymbol = dsymSymbol;
       return this;
     }
 
     /** Sets the Artifact for the linkmap. */
+    @CanIgnoreReturnValue
     public Builder setLinkmap(Artifact linkmap) {
       this.linkmap = linkmap;
       return this;
     }
 
     /** Sets the Artifact for the bitcode symbol map. */
+    @CanIgnoreReturnValue
     public Builder setBitcodeSymbolMap(Artifact bitcodeSymbolMap) {
       this.bitcodeSymbolMap = bitcodeSymbolMap;
       return this;
     }
 
     /** Sets whether ARC is enabled. */
+    @CanIgnoreReturnValue
     public Builder setArcEnabled(boolean enabled) {
       this.arcEnabled = enabled;
       return this;

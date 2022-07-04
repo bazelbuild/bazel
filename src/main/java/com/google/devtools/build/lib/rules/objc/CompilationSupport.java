@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -305,18 +306,21 @@ public class CompilationSupport implements StarlarkValue {
     }
 
     /** Sets the {@link BuildConfigurationValue} for the calling target. */
+    @CanIgnoreReturnValue
     public Builder setConfig(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = buildConfiguration;
       return this;
     }
 
     /** Sets {@link IntermediateArtifacts} for deriving artifact paths. */
+    @CanIgnoreReturnValue
     public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
     }
 
     /** Sets {@link CompilationAttributes} for the calling target. */
+    @CanIgnoreReturnValue
     public Builder setCompilationAttributes(CompilationAttributes compilationAttributes) {
       this.compilationAttributes = compilationAttributes;
       return this;
@@ -328,6 +332,7 @@ public class CompilationSupport implements StarlarkValue {
      * <p>This is needed if it can't correctly be inferred directly from the rule context. Setting
      * to null causes the default to be used as if this was never called.
      */
+    @CanIgnoreReturnValue
     public Builder setToolchainProvider(CcToolchainProvider toolchain) {
       this.toolchain = toolchain;
       return this;
@@ -392,6 +397,7 @@ public class CompilationSupport implements StarlarkValue {
    * @return this compilation support
    * @throws RuleErrorException if there are attribute errors
    */
+  @CanIgnoreReturnValue
   CompilationSupport validateAttributes() throws RuleErrorException {
     for (PathFragment absoluteInclude :
         Iterables.filter(attributes.includes().toList(), PathFragment::isAbsolute)) {
@@ -462,6 +468,7 @@ public class CompilationSupport implements StarlarkValue {
    * @param extraLinkInputs any additional input artifacts to pass to the link action
    * @return this compilation support
    */
+  @CanIgnoreReturnValue
   CompilationSupport registerLinkActions(
       ObjcProvider objcProvider,
       Iterable<CcLinkingContext> ccLinkingContexts,
@@ -632,12 +639,12 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-
   /**
    * Registers an action that writes given set of object files to the given objList. This objList is
    * suitable to signal symbols to archive in a libtool archiving invocation.
    */
   // TODO(ulfjack): Use NestedSet for objFiles.
+  @CanIgnoreReturnValue
   private CompilationSupport registerObjFilelistAction(
       ImmutableSet<Artifact> objFiles, Artifact objList) {
     CustomCommandLine.Builder objFilesToLinkParam = new CustomCommandLine.Builder();

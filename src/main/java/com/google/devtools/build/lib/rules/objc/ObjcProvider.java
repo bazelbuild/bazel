@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -811,6 +812,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * Add all elements from providers, and propagate them to any (transitive) dependers on this
      * ObjcProvider.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveAndPropagate(Iterable<ObjcProvider> providers) {
       for (ObjcProvider provider : providers) {
         addTransitiveAndPropagate(provider);
@@ -822,6 +824,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * Add all keys and values from provider, and propagate them to any (transitive) dependers on
      * this ObjcProvider.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveAndPropagate(ObjcProvider provider) {
       for (Map.Entry<Key<?>, NestedSet<?>> typeEntry : provider.items.entrySet()) {
         uncheckedAddTransitive(typeEntry.getKey(), typeEntry.getValue());
@@ -833,6 +836,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * Add all elements from a single key of the given provider, and propagate them to any
      * (transitive) dependers on this ObjcProvider.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveAndPropagate(Key<?> key, ObjcProvider provider) {
       if (provider.items.containsKey(key)) {
         uncheckedAddTransitive(key, provider.items.get(key));
@@ -844,19 +848,20 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * Adds elements in items, and propagate them to any (transitive) dependers on this
      * ObjcProvider.
      */
+    @CanIgnoreReturnValue
     public <E> Builder addTransitiveAndPropagate(Key<E> key, NestedSet<E> items) {
       uncheckedAddTransitive(key, items);
       return this;
     }
 
-    /**
-     * Add element, and propagate it to any (transitive) dependers on this ObjcProvider.
-     */
+    /** Add element, and propagate it to any (transitive) dependers on this ObjcProvider. */
+    @CanIgnoreReturnValue
     public <E> Builder add(Key<E> key, E toAdd) {
       uncheckedAddAll(key, ImmutableList.of(toAdd));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public <E> Builder addDirect(Key<E> key, E toAdd) {
       Preconditions.checkState(KEYS_FOR_DIRECT.contains(key));
       uncheckedAddAllDirect(key, ImmutableList.of(toAdd));
@@ -873,17 +878,20 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     /**
      * Add elements in toAdd, and propagate them to any (transitive) dependers on this ObjcProvider.
      */
+    @CanIgnoreReturnValue
     public <E> Builder addAll(Key<E> key, Iterable<? extends E> toAdd) {
       uncheckedAddAll(key, toAdd);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public <E> Builder addAllDirect(Key<E> key, Iterable<? extends E> toAdd) {
       Preconditions.checkState(KEYS_FOR_DIRECT.contains(key));
       uncheckedAddAllDirect(key, toAdd);
       return this;
     }
 
+    @CanIgnoreReturnValue
     protected Builder addStrictDependencyIncludes(Iterable<PathFragment> includes) {
       strictDependencyIncludes.addAll(includes);
       return this;

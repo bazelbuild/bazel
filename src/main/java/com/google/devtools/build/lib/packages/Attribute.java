@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -383,6 +384,7 @@ public final class Attribute implements Comparable<Attribute> {
       }
     }
 
+    @CanIgnoreReturnValue
     private Builder<TYPE> setPropertyFlag(PropertyFlag flag, String propertyName) {
       Preconditions.checkState(
           !propertyFlags.contains(flag), "'%s' flag is already set", propertyName);
@@ -397,6 +399,7 @@ public final class Attribute implements Comparable<Attribute> {
      * @throws EvalException if a property flag with the provided name does not exist or cannot be
      *     set.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> setPropertyFlag(String propertyName) throws EvalException {
       PropertyFlag flag;
       try {
@@ -485,6 +488,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /** Defines the configuration transition for this attribute. */
+    @CanIgnoreReturnValue
     public Builder<TYPE> cfg(TransitionFactory<AttributeTransitionData> transitionFactory) {
       Preconditions.checkNotNull(transitionFactory);
       Preconditions.checkState(
@@ -525,6 +529,7 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * @param doc The doc string for this attribute.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> setDoc(String doc) {
       this.doc = doc;
       return this;
@@ -539,6 +544,7 @@ public final class Attribute implements Comparable<Attribute> {
      * dependency of the Rule; we will load the target (and its dependencies) if it encounters the
      * Rule and build the target if needs to apply the Rule.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> value(TYPE defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
@@ -556,6 +562,7 @@ public final class Attribute implements Comparable<Attribute> {
      * implicit dependency of this Rule; we will load the target (and its dependencies) if it
      * encounters the Rule and build the target if needs to apply the Rule.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> value(ComputedDefault defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
@@ -565,6 +572,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /** Used for b/200065655#comment3. */
+    @CanIgnoreReturnValue
     public Builder<TYPE> value(NativeComputedDefaultApi defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
@@ -587,6 +595,7 @@ public final class Attribute implements Comparable<Attribute> {
      * implicit dependency of this Rule; we will load the target (and its dependencies) if it
      * encounters the Rule and build the target if needs to apply the Rule.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> value(StarlarkComputedDefaultTemplate starlarkComputedDefaultTemplate) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = starlarkComputedDefaultTemplate;
@@ -599,6 +608,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Sets the attribute default value to be late-bound, i.e., it is derived from the build
      * configuration and/or the rule's configured attributes.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> value(LateBoundDefault<?, ? extends TYPE> defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
@@ -616,6 +626,7 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * @param parameterName The name of the attribute to use in error messages
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> defaultValue(
         Object defaultValue, Object context, @Nullable String parameterName)
         throws ConversionException {
@@ -648,6 +659,7 @@ public final class Attribute implements Comparable<Attribute> {
      * explicit attributes have been set. It can generally not access default values of other
      * attributes.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> condition(Predicate<AttributeMap> condition) {
       Preconditions.checkState(this.condition == null, "the condition is already set");
       this.condition = condition;
@@ -732,6 +744,7 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> allowedRuleClasses(RuleClassNamePredicate allowedRuleClasses) {
       Preconditions.checkState(
           type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
@@ -767,6 +780,7 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> allowedFileTypes(FileTypeSet allowedFileTypes) {
       Preconditions.checkState(
           type.getLabelClass() == LabelClass.DEPENDENCY
@@ -832,6 +846,7 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
      * for 'deps' attributes, but not 'srcs' attributes.
      */
+    @CanIgnoreReturnValue
     Builder<TYPE> allowedRuleClassesWithWarning(RuleClassNamePredicate allowedRuleClasses) {
       Preconditions.checkState(
           type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
@@ -864,6 +879,7 @@ public final class Attribute implements Comparable<Attribute> {
      * this label type attribute has to provide all the providers from one of those lists, otherwise
      * an error is produced during the analysis phase.
      */
+    @CanIgnoreReturnValue
     final Builder<TYPE> mandatoryBuiltinProvidersList(
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
       Preconditions.checkState(
@@ -875,6 +891,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<TYPE> mandatoryBuiltinProviders(
         Iterable<Class<? extends TransitiveInfoProvider>> providers) {
       if (providers.iterator().hasNext()) {
@@ -888,6 +905,7 @@ public final class Attribute implements Comparable<Attribute> {
      * this label type attribute has to provide all the providers from one of those sets, or be one
      * of {@link #allowedRuleClasses}, otherwise an error is produced during the analysis phase.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> mandatoryProvidersList(
         Iterable<? extends Iterable<StarlarkProviderIdentifier>> providersList) {
       Preconditions.checkState(
@@ -898,6 +916,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<TYPE> mandatoryProviders(Iterable<StarlarkProviderIdentifier> providers) {
       if (providers.iterator().hasNext()) {
         mandatoryProvidersList(ImmutableList.of(providers));
@@ -905,6 +924,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<TYPE> mandatoryProviders(StarlarkProviderIdentifier... providers) {
       mandatoryProviders(Arrays.asList(providers));
       return this;
@@ -921,6 +941,7 @@ public final class Attribute implements Comparable<Attribute> {
      * @param evaluator function that extracts aspect parameters from rule. If it returns null, then
      *     the aspect will not be attached.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> aspect(
         NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
       aspectsListBuilder.addAspect(aspect, evaluator);
@@ -931,18 +952,21 @@ public final class Attribute implements Comparable<Attribute> {
      * Asserts that a particular parameterized aspect probably needs to be computed for all direct
      * dependencies through this attribute.
      */
+    @CanIgnoreReturnValue
     public Builder<TYPE> aspect(NativeAspectClass aspect) {
       aspectsListBuilder.addAspect(aspect);
       return this;
     }
 
     /** Should only be used for deserialization. */
+    @CanIgnoreReturnValue
     public Builder<TYPE> aspect(final Aspect aspect) {
       aspectsListBuilder.addAspect(aspect);
       return this;
     }
 
     /** Sets the predicate-like edge validity checker. */
+    @CanIgnoreReturnValue
     public Builder<TYPE> validityPredicate(ValidityPredicate validityPredicate) {
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       this.validityPredicate = validityPredicate;
@@ -950,6 +974,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /** The value of the attribute must be one of allowedValues. */
+    @CanIgnoreReturnValue
     public Builder<TYPE> allowedValues(PredicateWithMessage<Object> allowedValues) {
       this.allowedValues = allowedValues;
       propertyFlags.add(PropertyFlag.CHECK_ALLOWED_VALUES);
