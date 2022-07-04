@@ -26,6 +26,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

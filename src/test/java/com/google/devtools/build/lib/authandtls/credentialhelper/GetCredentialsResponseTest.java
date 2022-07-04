@@ -1,0 +1,74 @@
+package com.google.devtools.build.lib.authandtls.credentialhelper;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests for {@link GetCredentialsResponse}. */
+@RunWith(JUnit4.class)
+public class GetCredentialsResponseTest {
+  private static final Gson GSON = new Gson();
+
+  @Test
+  public void parseValid() {
+    assertThat(GSON.fromJson("{}", GetCredentialsResponse.class).getHeaders()).isEmpty();
+    assertThat(GSON.fromJson("{\"headers\": {}}", GetCredentialsResponse.class).getHeaders())
+        .isEmpty();
+
+    GetCredentialsResponse.Builder expectedResponseBuilder = GetCredentialsResponse.newBuilder();
+    expectedResponseBuilder.headersBuilder().put("a", ImmutableList.of());
+    expectedResponseBuilder.headersBuilder().put("b", ImmutableList.of("b"));
+    expectedResponseBuilder.headersBuilder().put("c", ImmutableList.of("c", "c"));
+    GetCredentialsResponse expectedResponse = expectedResponseBuilder.build();
+
+    assertThat(
+            GSON.fromJson(
+                "{\"headers\": {\"c\": [\"c\", \"c\"], \"a\": [], \"b\": [\"b\"]}}",
+                GetCredentialsResponse.class))
+        .isEqualTo(expectedResponse);
+  }
+
+  @Test
+  public void parseWithExtraFields() {
+    assertThat(GSON.fromJson("{\"foo\": 123}", GetCredentialsResponse.class).getHeaders())
+        .isEmpty();
+    assertThat(
+            GSON.fromJson("{\"foo\": 123, \"bar\": []}", GetCredentialsResponse.class).getHeaders())
+        .isEmpty();
+
+    GetCredentialsResponse.Builder expectedResponseBuilder = GetCredentialsResponse.newBuilder();
+    expectedResponseBuilder.headersBuilder().put("a", ImmutableList.of());
+    expectedResponseBuilder.headersBuilder().put("b", ImmutableList.of("b"));
+    expectedResponseBuilder.headersBuilder().put("c", ImmutableList.of("c", "c"));
+    GetCredentialsResponse expectedResponse = expectedResponseBuilder.build();
+
+    assertThat(
+            GSON.fromJson(
+                "{\"foo\": 123, \"headers\": {\"c\": [\"c\", \"c\"], \"a\": [], \"b\": [\"b\"]},"
+                    + " \"bar\": 123}",
+                GetCredentialsResponse.class))
+        .isEqualTo(expectedResponse);
+  }
+
+  @Test
+  public void serializeEmptyHeaders() {
+    GetCredentialsResponse expectedResponse = GetCredentialsResponse.newBuilder().build();
+    assertThat(GSON.toJson(expectedResponse)).isEqualTo("{}");
+  }
+
+  @Test
+  public void roundTrip() {
+    GetCredentialsResponse.Builder expectedResponseBuilder = GetCredentialsResponse.newBuilder();
+    expectedResponseBuilder.headersBuilder().put("a", ImmutableList.of());
+    expectedResponseBuilder.headersBuilder().put("b", ImmutableList.of("b"));
+    expectedResponseBuilder.headersBuilder().put("c", ImmutableList.of("c", "c"));
+    GetCredentialsResponse expectedResponse = expectedResponseBuilder.build();
+
+    assertThat(GSON.fromJson(GSON.toJson(expectedResponse), GetCredentialsResponse.class))
+        .isEqualTo(expectedResponse);
+  }
+}
