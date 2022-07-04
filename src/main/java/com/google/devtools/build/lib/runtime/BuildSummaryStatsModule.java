@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.vfs.Path;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -139,6 +140,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
               .addDirectValue(
                   "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
           logger.atInfo().log("%s", criticalPath);
+          eventBus.post(new CriticalPathEvent(criticalPath));
           logger.atInfo().log(
               "Slowest actions:\n  %s",
               Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));

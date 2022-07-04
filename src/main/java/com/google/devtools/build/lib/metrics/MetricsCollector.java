@@ -45,7 +45,9 @@ import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.runtime.AggregatedCriticalPath;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CriticalPathEvent;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
@@ -81,6 +83,8 @@ class MetricsCollector {
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
   private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
   private final SpawnStats spawnStats = new SpawnStats();
+  private boolean criticalPathHasBeenReceived = false;
+  private boolean precompleteHasBeenReceived = false;
 
   @CanIgnoreReturnValue
   private MetricsCollector(
@@ -177,13 +181,30 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onBuildComplete(BuildPrecompleteEvent event) {
-    postBuildMetricsEvent();
+    addElapsedTimeToTimingMetrics();
+    precompleteHasBeenReceived = true;
+    tryPostBuildMetricsEvent();
   }
 
   @SuppressWarnings("unused") // Used reflectively
   @Subscribe
   public void onNoBuildRequestFinishedEvent(NoBuildRequestFinishedEvent event) {
+    addElapsedTimeToTimingMetrics();
     postBuildMetricsEvent();
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
+  public void onCriticalPathMetricsEvent(CriticalPathEvent event) {
+    addCriticalPathTimeToTimingMetrics(event.getCriticalPath());
+    criticalPathHasBeenReceived = true;
+    tryPostBuildMetricsEvent();
+  }
+
+  private void tryPostBuildMetricsEvent() {
+    if (precompleteHasBeenReceived && criticalPathHasBeenReceived) {
+      postBuildMetricsEvent();
+    }
   }
 
   private void postBuildMetricsEvent() {
@@ -204,7 +225,7 @@ class MetricsCollector {
         .setMemoryMetrics(createMemoryMetrics())
         .setTargetMetrics(targetMetrics.build())
         .setPackageMetrics(packageMetrics.build())
-        .setTimingMetrics(finishTimingMetrics())
+        .setTimingMetrics(timingMetrics.build())
         .setCumulativeMetrics(createCumulativeMetrics())
         .setArtifactMetrics(artifactMetrics.build())
         .setBuildGraphMetrics(buildGraphMetrics.build())
@@ -288,7 +309,12 @@ class MetricsCollector {
         .build();
   }
 
-  private TimingMetrics finishTimingMetrics() {
+  private void addCriticalPathTimeToTimingMetrics(AggregatedCriticalPath criticalPath) {
+    Duration criticalPathTime = criticalPath.totalTime();
+    timingMetrics.setCriticalPathTimeInMs(criticalPathTime.toMillis());
+  }
+
+  private void addElapsedTimeToTimingMetrics() {
     Duration elapsedWallTime = Profiler.elapsedTimeMaybe();
     if (elapsedWallTime != null) {
       timingMetrics.setWallTimeInMs(elapsedWallTime.toMillis());
@@ -297,7 +323,6 @@ class MetricsCollector {
     if (cpuTime != null) {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
     }
-    return timingMetrics.build();
   }
 
   private static class ActionStats {
