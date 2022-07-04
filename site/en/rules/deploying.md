@@ -44,6 +44,7 @@ For example, when writing new rules for the (make-believe)
   LICENSE
   README
   WORKSPACE
+  MODULE.bazel *
   mockascript/
     constraints/
       BUILD
@@ -52,7 +53,13 @@ For example, when writing new rules for the (make-believe)
       runfiles.mocs
     BUILD
     defs.bzl
+    extensions.bzl *
+    repositories.bzl
   tests/
+    bcr/ *
+      WORKSPACE
+      MODULE.bazel
+      BUILD
     BUILD
     some_test.sh
     another_test.py
@@ -62,6 +69,9 @@ For example, when writing new rules for the (make-believe)
     lib.mocs
     test.mocs
 ```
+
+Files and directories marked with `*` are used by Bazel's new and currently
+experimental external dependency management system [*Bzlmod*](/docs/bzlmod).
 
 ### WORKSPACE
 
@@ -80,6 +90,18 @@ In the following sections, assume the repository belongs to the
 ```
 workspace(name = "rules_mockascript")
 ```
+
+### MODULE.bazel *
+
+Refer to the [Bzlmod user guide](/docs/bzlmod#module-bazel) for detailed
+information on how rules can specify their dependencies using the `MODULE.bazel`
+file.
+
+Since the repository name under which a Bazel module is added can be freely
+chosen by the user via the `repo_name` attribute of
+[`bazel_dep`](/rules/lib/globals#bazel_dep), it is no longer necessary to follow
+the `<org>_rules_<lang>` naming scheme for rules outside the
+[bazelbuild](https://github.com/bazelbuild) organization.
 
 ### README
 
@@ -158,6 +180,12 @@ in the form of a library target located at `//<LANG>/runfiles` (an abbreviation
 of `//<LANG>/runfiles:runfiles`). User targets that need to access their data
 dependencies will typically add this target to their `deps` attribute.
 
+### Module extensions *
+
+If you provide [module extensions](/docs/bzlmod#module-extensions) to allow
+users of your rules to declare domain-specific external dependencies, these
+extensions should all be exported from a a file named `<LANG>/extensions.bzl`.
+
 ### Repository rules
 
 #### Dependencies
@@ -229,6 +257,32 @@ can either be in the standard location for the language the rules are for or a
 
 It is useful to users to have an `examples/` directory that shows users a couple
 of basic ways that the rules can be used.
+
+### Test module for the Bazel Central Registry *
+
+All rules available as a [Bazel module](https://bazel.build/docs/bzlmod#modules)
+from the [Bazel Central Registry (BCR)](https://github.com/bazelbuild/bazel-central-registry)
+should provide a Bazel test module under `tests/bcr/` that references the main
+module and exercises some basic functionality of the rules. This test should be
+included in source archives and is used by the BCR to determine compatibility of
+the rules with different Bazel and dependency versions.
+See [bazel-central-registry#1302](https://github.com/bazelbuild/continuous-integration/issues/1302)
+for how to configure the test module when submitting to the BCR.
+
+The `MODULE.bazel` of the test module could look as follows:
+
+```starlark
+# module(...) can be omitted
+
+bazel_dep(name = "rules_<LANG>", version = "")
+local_path_override(
+    module_name = "rules_<LANG>",
+    path = "../..", # return to root from tests/bcr/
+)
+
+# Declare further dependencies required for the tests (if necessary).
+bazel_dep(...)
+```
 
 ## Testing
 
