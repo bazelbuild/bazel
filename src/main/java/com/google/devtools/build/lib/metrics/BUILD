@@ -48,6 +48,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "@com_google_protobuf//java/util"
     ],
 )
 

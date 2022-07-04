@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.CollectMetricsEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -49,6 +49,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private AggregatedCriticalPath criticalPath;
   private ActionKeyContext actionKeyContext;
   private CriticalPathComputer criticalPathComputer;
   private EventBus eventBus;
@@ -119,6 +120,33 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   @Subscribe
+  public void onCollectMetricsEvent(CollectMetricsEvent event) {
+    criticalPath = AggregatedCriticalPath.EMPTY;
+    if (criticalPathComputer != null) {
+      try (SilentCloseable c =
+             Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
+        criticalPath = criticalPathComputer.aggregate();
+        logger.atInfo().log("%s", criticalPath);
+        logger.atInfo().log(
+          "Slowest actions:\n  %s",
+          Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
+        // We reverse the critical path because the profiler expect events ordered by the time
+        // when the actions were executed while critical path computation is stored in the reverse
+        // way.
+        for (CriticalPathComponent stat : criticalPath.components().reverse()) {
+          Profiler.instance()
+            .logSimpleTaskDuration(
+              stat.getStartTimeNanos(),
+              stat.getElapsedTime(),
+              ProfilerTask.CRITICAL_PATH_COMPONENT,
+              stat.prettyPrintAction());
+        }
+      }
+    }
+    eventBus.post(new CriticalPathMetricsEvent(criticalPath.totalTime()));
+  }
+
+  @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     try {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
@@ -130,32 +158,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
               String.format(
                   "%f", event.getResult().getElapsedSeconds()).getBytes(StandardCharsets.UTF_8));
 
-      AggregatedCriticalPath criticalPath = AggregatedCriticalPath.EMPTY;
-      if (criticalPathComputer != null) {
-        try (SilentCloseable c =
-            Profiler.instance().profile(ProfilerTask.CRITICAL_PATH, "Critical path")) {
-          criticalPath = criticalPathComputer.aggregate();
-          items.add(criticalPath.toStringSummaryNoRemote());
-          event.getResult().getBuildToolLogCollection()
-              .addDirectValue(
-                  "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
-          logger.atInfo().log("%s", criticalPath);
-          eventBus.post(new CriticalPathEvent(criticalPath));
-          logger.atInfo().log(
-              "Slowest actions:\n  %s",
-              Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
-          // We reverse the critical path because the profiler expect events ordered by the time
-          // when the actions were executed while critical path computation is stored in the reverse
-          // way.
-          for (CriticalPathComponent stat : criticalPath.components().reverse()) {
-            Profiler.instance()
-                .logSimpleTaskDuration(
-                    stat.getStartTimeNanos(),
-                    stat.getElapsedTime(),
-                    ProfilerTask.CRITICAL_PATH_COMPONENT,
-                    stat.prettyPrintAction());
-          }
-        }
+      if (criticalPath != null) {
+        items.add(criticalPath.toStringSummaryNoRemote());
+        event.getResult().getBuildToolLogCollection()
+            .addDirectValue(
+                "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
       }
       if (profilePath != null) {
         // This leads to missing the afterCommand profiles of the other modules in the profile.

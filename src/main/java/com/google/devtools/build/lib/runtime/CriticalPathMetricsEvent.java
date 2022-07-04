@@ -15,18 +15,20 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
+import java.time.Duration;
+
 /**
  * Event transporting information about the critical path. Emitted after the critical path has
  * been aggregated.
 **/
-public class CriticalPathEvent implements ExtendedEventHandler.Postable {
-  private final AggregatedCriticalPath criticalPath;
+public class CriticalPathMetricsEvent implements ExtendedEventHandler.Postable {
+  private final Duration totalTime;
 
-  public CriticalPathEvent(AggregatedCriticalPath criticalPath) {
-    this.criticalPath = criticalPath;
+  public CriticalPathMetricsEvent(Duration totalTime) {
+    this.totalTime = totalTime;
   }
 
-  public AggregatedCriticalPath getCriticalPath() {
-    return criticalPath;
+  public Duration getTotalTime() {
+    return totalTime;
   }
 }

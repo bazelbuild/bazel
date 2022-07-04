@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
+import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -542,7 +543,8 @@ public abstract class BuildIntegrationTestCase {
       builder
           .addBlazeModule(new NoSpawnCacheModule())
           .addBlazeModule(new WorkerModule())
-          .addBlazeModule(new BazelRepositoryModule());
+          .addBlazeModule(new BazelRepositoryModule())
+          .addBlazeModule(new BuildSummaryStatsModule());
     }
     return builder;
   }
