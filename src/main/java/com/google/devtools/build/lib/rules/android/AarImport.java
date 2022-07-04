@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import javax.annotation.Nullable;
 
 /**
@@ -114,7 +115,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 dataContext,
                 manifest,
                 DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
-                neverlink);
+                neverlink,
+                /* nonTransitiveRClass = */ false);
 
     MergedAndroidAssets mergedAssets =
         AndroidAssets.forAarImport(assets)

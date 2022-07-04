@@ -40,17 +40,20 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import javax.annotation.Nullable;
+
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import javax.annotation.Nullable;
 
 /** Starlark-visible methods for working with Android data (manifests, resources, and assets). */
 public abstract class AndroidStarlarkData
@@ -162,7 +165,8 @@ public abstract class AndroidStarlarkData
               ResourceDependencies.fromProviders(
                   Sequence.cast(deps, AndroidResourcesInfo.class, "deps"), neverlink),
               DataBinding.contextFrom(
-                  enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()));
+                  enableDataBinding, ctx.getActionConstructionContext(), ctx.getAndroidConfig()),
+              ctx.getAndroidConfig().nonTransitiveRClass());
     } catch (RuleErrorException e) {
       throw handleRuleException(errorReporter, e);
     }
@@ -259,7 +263,8 @@ public abstract class AndroidStarlarkData
                 ResourceDependencies.fromProviders(
                     getProviders(depsTargets, AndroidResourcesInfo.PROVIDER),
                     /* neverlink = */ false),
-                DataBinding.getDisabledDataBindingContext(ctx));
+                DataBinding.getDisabledDataBindingContext(ctx),
+                ctx.getAndroidConfig().nonTransitiveRClass());
 
     MergedAndroidAssets mergedAssets =
         AndroidAssets.forAarImport(assets)
@@ -379,10 +384,7 @@ public abstract class AndroidStarlarkData
     return resources.getMergedResources();
   }
 
-  /**
-   * Helper method to get default {@link
-   * AndroidStarlarkData.BinaryDataSettings}.
-   */
+  /** Helper method to get default {@link AndroidStarlarkData.BinaryDataSettings}. */
   private BinaryDataSettings defaultBinaryDataSettings(AndroidDataContext ctx)
       throws EvalException {
     return makeBinarySettings(
@@ -645,8 +647,7 @@ public abstract class AndroidStarlarkData
 
   private static <T extends TransitiveInfoProvider> ImmutableList<T> getProviders(
       List<ConfiguredTarget> targets, Class<T> clazz) {
-    return targets
-        .stream()
+    return targets.stream()
         .map(target -> target.getProvider(clazz))
         .filter(Objects::nonNull)
         .collect(ImmutableList.toImmutableList());

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+
 import javax.annotation.Nullable;
 
 /** Builder for creating $android_resource_parser action. */
@@ -39,6 +40,8 @@ public class AndroidResourceParsingActionBuilder {
   // Optional outputs
   @Nullable private Artifact compiledSymbols;
   @Nullable private Artifact dataBindingInfoZip;
+  @Nullable private Artifact classJarOut;
+  @Nullable private Artifact rTxtOut;
 
   /** Set the artifact location for the output protobuf. */
   @CanIgnoreReturnValue
@@ -80,6 +83,16 @@ public class AndroidResourceParsingActionBuilder {
     return this;
   }
 
+  public AndroidResourceParsingActionBuilder setClassJarOut(Artifact classJarOut) {
+    this.classJarOut = classJarOut;
+    return this;
+  }
+
+  public AndroidResourceParsingActionBuilder setRTxtOut(Artifact rTxtOut) {
+    this.rTxtOut = rTxtOut;
+    return this;
+  }
+
   @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setDataBindingInfoZip(Artifact dataBindingInfoZip) {
     this.dataBindingInfoZip = dataBindingInfoZip;
@@ -118,7 +131,19 @@ public class AndroidResourceParsingActionBuilder {
             .addOutput("--dataBindingInfoOut", dataBindingInfoZip);
       }
 
-      compiledBuilder.buildAndRegister("Compiling Android resources", "AndroidResourceCompiler");
+      if (classJarOut != null) {
+        compiledBuilder.maybeAddOutput("--classJarOutput", classJarOut);
+      }
+
+      if (rTxtOut != null) {
+        compiledBuilder.maybeAddOutput("--rTxtOut", rTxtOut);
+      }
+
+      compiledBuilder
+          .addAndroidJar()
+          .addLabelFlag("--targetLabel")
+          .maybeAddInput("--manifest", manifest)
+          .buildAndRegister("Compiling Android resources", "AndroidResourceCompiler");
     }
   }
 
@@ -144,6 +169,8 @@ public class AndroidResourceParsingActionBuilder {
         androidResources,
         output,
         compiledSymbols,
+        classJarOut,
+        rTxtOut,
         dataContext.getLabel(),
         manifest,
         dataBindingContext);

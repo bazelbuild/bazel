@@ -30,14 +30,16 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesTest.WithoutP
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Optional;
-import java.util.Set;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
+
+import java.util.Optional;
+import java.util.Set;
 
 /** Tests {@link AndroidResources} */
 @RunWith(Suite.class)
@@ -178,7 +180,8 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
                 dataContext,
                 getManifest(),
                 DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
-                /* neverlink = */ false);
+                /* neverlink = */ false,
+                /* nonTransitiveRClass = */ dataContext.getAndroidConfig().nonTransitiveRClass());
     Optional<? extends AndroidResources> maybeFiltered =
         assertFilter(unfiltered, filteredResources, /* isDependency = */ true);
 
@@ -435,12 +438,13 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
         new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"));
     StampedAndroidManifest manifest = getManifest();
-
+    AndroidDataContext dataContext = AndroidDataContext.forNative(ruleContext);
     ParsedAndroidResources parsed =
         raw.parse(
-            AndroidDataContext.forNative(ruleContext),
+            dataContext,
             manifest,
-            dataBindingContext);
+            dataBindingContext,
+            dataContext.getAndroidConfig().nonTransitiveRClass());
 
     // Inherited values should be equal
     assertThat(raw).isEqualTo(new AndroidResources(parsed));
@@ -471,12 +475,14 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
       RuleContext ruleContext, DataBindingContext dataBindingContext)
       throws RuleErrorException, InterruptedException {
     ImmutableList<Artifact> resources = getResources("values-en/foo.xml", "drawable-hdpi/bar.png");
+    AndroidDataContext dataContext = AndroidDataContext.forNative(ruleContext);
     return new AndroidResources(
             resources, AndroidResources.getResourceRoots(ruleContext, resources, "resource_files"))
         .parse(
-            AndroidDataContext.forNative(ruleContext),
+            dataContext,
             getManifest(),
-            dataBindingContext);
+            dataBindingContext,
+            dataContext.getAndroidConfig().nonTransitiveRClass());
   }
 
   private ProcessedAndroidManifest getManifest() {

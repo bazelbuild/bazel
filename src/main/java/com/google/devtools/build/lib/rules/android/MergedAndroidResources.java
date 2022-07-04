@@ -17,8 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+
 import java.util.Objects;
 import java.util.Optional;
+
 import javax.annotation.Nullable;
 
 /** Wraps merged Android resources. */

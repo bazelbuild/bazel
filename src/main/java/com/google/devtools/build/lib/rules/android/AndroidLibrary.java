@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+
 import javax.annotation.Nullable;
 
 /** An implementation for the "android_library" rule. */
@@ -162,7 +163,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
                   dataContext,
                   manifest,
                   DataBinding.contextFrom(ruleContext, dataContext.getAndroidConfig()),
-                  isNeverLink);
+                  isNeverLink,
+                  androidConfig.nonTransitiveRClass());
 
       MergedAndroidAssets assets = AndroidAssets.from(ruleContext).process(dataContext, assetDeps);
 

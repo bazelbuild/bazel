@@ -28,11 +28,13 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+
 import javax.annotation.Nullable;
 
 /**
@@ -405,9 +407,11 @@ public class AndroidResources {
   public ParsedAndroidResources parse(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
-      DataBindingContext dataBindingContext)
+      DataBindingContext dataBindingContext,
+      boolean nonTransitiveRClass)
       throws InterruptedException {
-    return ParsedAndroidResources.parseFrom(dataContext, this, manifest, dataBindingContext);
+    return ParsedAndroidResources.parseFrom(
+        dataContext, this, manifest, dataBindingContext, nonTransitiveRClass);
   }
 
   /**
@@ -419,24 +423,34 @@ public class AndroidResources {
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       DataBindingContext dataBindingContext,
-      boolean neverlink)
+      boolean neverlink,
+      boolean nonTransitiveRClass)
       throws RuleErrorException, InterruptedException {
     return process(
         dataContext,
         manifest,
         ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
-        dataBindingContext);
+        dataBindingContext,
+        nonTransitiveRClass);
   }
 
   ValidatedAndroidResources process(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
       ResourceDependencies resourceDeps,
-      DataBindingContext dataBindingContext)
+      DataBindingContext dataBindingContext,
+      boolean nonTransitiveRClass)
       throws InterruptedException {
-    return parse(dataContext, manifest, dataBindingContext)
-        .merge(dataContext, resourceDeps)
-        .validate(dataContext);
+
+    ParsedAndroidResources parse =
+        parse(dataContext, manifest, dataBindingContext, nonTransitiveRClass);
+
+    MergedAndroidResources merge =
+        nonTransitiveRClass
+            ? parse.noMerge(dataContext, resourceDeps)
+            : parse.merge(dataContext, resourceDeps);
+
+    return merge.validate(dataContext);
   }
 
   @Override

@@ -38,7 +38,9 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+
 import java.util.List;
+
 import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
@@ -936,6 +938,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean useRTxtFromMergedResources;
 
     @Option(
+        name = "android_non_transitive_r_class",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help =
+            "If enabled each library only contains references to the resources it declares"
+                + " instead of declarations plus all dependency references.")
+    public boolean nonTransitiveRClass;
+
+    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -1071,6 +1083,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final boolean nonTransitiveRClass;
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
@@ -1134,6 +1147,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
+    this.nonTransitiveRClass = options.nonTransitiveRClass;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
@@ -1428,6 +1442,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean includeProguardLocationReferences() {
     return includeProguardLocationReferences;
+  }
+
+  boolean nonTransitiveRClass() {
+    return nonTransitiveRClass;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

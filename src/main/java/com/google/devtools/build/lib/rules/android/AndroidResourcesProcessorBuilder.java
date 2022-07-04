@@ -245,6 +245,8 @@ public class AndroidResourcesProcessorBuilder {
             databindingProcessedResources,
             symbols,
             /* compiledSymbols = */ null,
+            /* classJarOut = */ null,
+            /* rTxtOut = */  null,
             dataContext.getLabel(),
             processedManifest,
             dataBindingContext);
