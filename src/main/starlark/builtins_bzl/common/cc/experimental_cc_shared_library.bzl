@@ -540,6 +540,7 @@ def _cc_shared_library_impl(ctx):
         ),
         OutputGroupInfo(
             main_shared_library_output = depset(library),
+            interface_library = depset(interface_library),
             rule_impl_debug_files = depset(direct = debug_files, transitive = transitive_debug_files),
         ),
         CcSharedLibraryInfo(
