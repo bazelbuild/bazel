@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
 /** Rule definitions for Android rules. */
@@ -853,6 +854,7 @@ public final class AndroidRuleClasses {
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override
+                        @Nullable
                         public Object getDefault(AttributeMap rule) {
                           return rule.isAttributeValueExplicitlySpecified("instruments")
                               ? env.getToolsLabel("//tools/android:instrumentation_test_check")
@@ -930,6 +932,7 @@ public final class AndroidRuleClasses {
     }
 
     /** Converts an attribute value to a corresponding mode. Returns null on no match. */
+    @Nullable
     public static MultidexMode fromValue(String value) {
       for (MultidexMode mode : values()) {
         if (mode.getAttributeValue().equals(value)) {

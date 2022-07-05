@@ -82,6 +82,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Aspect to {@link DexArDchiveProvider build .dex Archives} from Jars. */
 public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -372,6 +373,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return Functions.forMap(newlyDesugared);
   }
 
+  @Nullable
   private static Iterable<Artifact> getProducedRuntimeJars(
       ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars) {
     if (isProtoLibrary(ruleContext)) {
@@ -415,6 +417,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return null;
   }
 
+  @Nullable
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(
       ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationArgsProvider provider =
@@ -429,6 +432,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return "proto_library".equals(ruleContext.getRule().getRuleClass());
   }
 
+  @Nullable
   private static Artifact getAndroidLibraryRJar(ConfiguredTarget base) {
     AndroidIdeInfoProvider provider =
         (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
@@ -438,6 +442,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return null;
   }
 
+  @Nullable
   private static Artifact getAndroidBuildStampJar(ConfiguredTarget base) {
     AndroidApplicationResourceInfo provider =
         (AndroidApplicationResourceInfo) base.get(AndroidApplicationResourceInfo.PROVIDER.getKey());
