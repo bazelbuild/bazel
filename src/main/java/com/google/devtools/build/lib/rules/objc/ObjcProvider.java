@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -406,6 +407,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * Returns the Starlark key for the given string, or null if no such key exists or is available to
    * Starlark.
    */
+  @Nullable
   static Key<?> getStarlarkKeyForString(String keyName) {
     for (Key<?> candidateKey : KEYS_FOR_STARLARK) {
       if (candidateKey.getStarlarkKeyName().equals(keyName)) {
