@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -45,7 +44,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
   Provider.Key getStarlarkProtoLangToolchainInfoKey() throws LabelSyntaxException {
     return new StarlarkProvider.Key(
-        Label.parseAbsolute("@_builtins//:common/proto/proto_common.bzl", ImmutableMap.of()),
+        Label.parseCanonical("@_builtins//:common/proto/proto_common.bzl"),
         "ProtoLangToolchainInfo");
   }
 
@@ -56,8 +55,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         .isEqualTo("third_party/x/plugin");
 
     TransitiveInfoCollection runtimes = toolchain.runtime();
-    assertThat(runtimes.getLabel())
-        .isEqualTo(Label.parseAbsolute("//third_party/x:runtime", ImmutableMap.of()));
+    assertThat(runtimes.getLabel()).isEqualTo(Label.parseCanonical("//third_party/x:runtime"));
 
     assertThat(toolchain.protocOpts()).containsExactly("--myflag");
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -105,8 +104,7 @@ public final class PyStarlarkTransitionsTest extends BuildViewTestCase {
   private void verifyVersion(String target, PythonVersion version) throws Exception {
     ConfiguredTarget configuredTarget = getConfiguredTarget(target);
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredTarget.get(key);
     ConfiguredTarget wrapped = (ConfiguredTarget) myInfo.getValue("wrapped");
     PythonOptions wrappedPythonOptions =

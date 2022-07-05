@@ -332,7 +332,7 @@ public class IncrementalLoadingTest {
     Target target = tester.getTarget("//e:e");
     assertThat(((Rule) target).containsErrors()).isFalse();
     List<?> globList = (List<?>) ((Rule) target).getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
+    assertThat(globList).containsExactly(Label.parseCanonical("//e:data.txt"));
   }
 
   @Test

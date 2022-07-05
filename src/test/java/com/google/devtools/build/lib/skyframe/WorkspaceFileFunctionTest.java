@@ -199,8 +199,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
-    assertThat(getLabelMapping(pkg, "foo/bar"))
-        .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    assertThat(getLabelMapping(pkg, "foo/bar")).isEqualTo(Label.parseCanonical("//foo:bar"));
     assertNoEvents();
   }
 
@@ -212,8 +211,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
-    assertThat(getLabelMapping(pkg, "foo/bar"))
-        .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    assertThat(getLabelMapping(pkg, "foo/bar")).isEqualTo(Label.parseCanonical("//foo:bar"));
     assertNoEvents();
   }
 
@@ -288,8 +286,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
-    assertThat(getLabelMapping(pkg, "foo/bar"))
-        .isEqualTo(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    assertThat(getLabelMapping(pkg, "foo/bar")).isEqualTo(Label.parseCanonical("//foo:bar"));
     assertNoEvents();
   }
 

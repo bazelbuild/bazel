@@ -1134,7 +1134,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
     Label keyLabel = (Label) ev.eval("ruleContext.attr.label_dict.keys()[0].label");
-    assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(keyLabel).isEqualTo(Label.parseCanonical("//:dep"));
     String valueString = (String) ev.eval("ruleContext.attr.label_dict.values()[0]");
     assertThat(valueString).isEqualTo("value");
   }
@@ -1163,7 +1163,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
     Label keyLabel = (Label) ev.eval("ruleContext.attr.label_dict.keys()[0].label");
-    assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(keyLabel).isEqualTo(Label.parseCanonical("//:dep"));
     String valueString = (String) ev.eval("ruleContext.attr.label_dict.values()[0]");
     assertThat(valueString).isEqualTo("value");
   }
@@ -1190,7 +1190,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
     Label keyLabel = (Label) ev.eval("ruleContext.attr.label_dict.keys()[0].label");
-    assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:default", ImmutableMap.of()));
+    assertThat(keyLabel).isEqualTo(Label.parseCanonical("//:default"));
     String valueString = (String) ev.eval("ruleContext.attr.label_dict.values()[0]");
     assertThat(valueString).isEqualTo("defs");
   }
@@ -1516,13 +1516,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     invalidatePackages();
     setRuleContext(createRuleContext("//:r"));
     Label explicitDepLabel = (Label) ev.eval("ruleContext.attr.explicit_dep.label");
-    assertThat(explicitDepLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(explicitDepLabel).isEqualTo(Label.parseCanonical("//:dep"));
     Label implicitDepLabel = (Label) ev.eval("ruleContext.attr._implicit_dep.label");
-    assertThat(implicitDepLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(implicitDepLabel).isEqualTo(Label.parseCanonical("//:dep"));
     Label explicitDepListLabel = (Label) ev.eval("ruleContext.attr.explicit_dep_list[0].label");
-    assertThat(explicitDepListLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(explicitDepListLabel).isEqualTo(Label.parseCanonical("//:dep"));
     Label implicitDepListLabel = (Label) ev.eval("ruleContext.attr._implicit_dep_list[0].label");
-    assertThat(implicitDepListLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(implicitDepListLabel).isEqualTo(Label.parseCanonical("//:dep"));
   }
 
   @Test
@@ -1555,7 +1555,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     setRuleContext(createRuleContext("@r//a:r"));
     Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
-    assertThat(depLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
+    assertThat(depLabel).isEqualTo(Label.parseCanonical("//:dep"));
   }
 
   @Test
@@ -1624,7 +1624,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                     .getTarget()
                     .getAssociatedRule()
                     .getAttr("srcs"))
-        .contains(Label.parseAbsolute("@foo//:baz.txt", ImmutableMap.of()));
+        .contains(Label.parseCanonical("@foo//:baz.txt"));
 
     scratch.overwriteFile("BUILD");
     scratch.overwriteFile("bar.bzl", "dummy = 1");
@@ -2926,8 +2926,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     ConfiguredTarget a = getConfiguredTarget("//a");
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//a:a.bzl", ImmutableMap.of()), "key_provider");
+        new StarlarkProvider.Key(Label.parseCanonical("//a:a.bzl"), "key_provider");
 
     StarlarkInfo keyInfo = (StarlarkInfo) a.get(key);
     Sequence<?> keys = (Sequence) keyInfo.getValue("keys");
@@ -3124,8 +3123,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//rule:test_rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//rule:test_rule.bzl"), "result"));
 
     assertThat(info).isNotNull();
     return (String) info.getValue("value_from_toolchain");
@@ -3188,8 +3186,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//demo:test_rule.bzl"), "result"));
 
     assertThat(info).isNotNull();
     boolean hasConstraint = (boolean) info.getValue("has_constraint");
@@ -3201,8 +3198,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//demo:test_rule.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//demo:test_rule.bzl"), "result"));
 
     assertThat(info).isNotNull();
     hasConstraint = (boolean) info.getValue("has_constraint");

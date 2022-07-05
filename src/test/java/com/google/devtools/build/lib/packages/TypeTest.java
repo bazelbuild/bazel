@@ -46,7 +46,7 @@ public class TypeTest {
 
   @Before
   public final void setCurrentRule() throws Exception  {
-    this.currentRule = Label.parseAbsolute("//quux:baz", ImmutableMap.of());
+    this.currentRule = Label.parseCanonical("//quux:baz");
   }
 
   @Test
@@ -210,14 +210,14 @@ public class TypeTest {
 
   @Test
   public void testLabel() throws Exception {
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:bar");
     assertThat(BuildType.LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
     assertThat(collectLabels(BuildType.LABEL, label)).containsExactly(label);
   }
 
   @Test
   public void testNodepLabel() throws Exception {
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:bar");
     assertThat(BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
     assertThat(collectLabels(BuildType.NODEP_LABEL, label)).containsExactly(label);
   }
@@ -225,9 +225,9 @@ public class TypeTest {
   @Test
   public void testRelativeLabel() throws Exception {
     assertThat(BuildType.LABEL.convert(":wiz", null, currentRule))
-        .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//quux:wiz"));
     assertThat(BuildType.LABEL.convert("wiz", null, currentRule))
-        .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//quux:wiz"));
     assertThrows(Type.ConversionException.class, () -> BuildType.LABEL.convert("wiz", null));
   }
 
@@ -315,9 +315,7 @@ public class TypeTest {
     Object input = Arrays.asList("//foo:bar", ":wiz");
     List<Label> converted = BuildType.LABEL_LIST.convert(input, null, currentRule);
     List<Label> expected =
-        Arrays.asList(
-            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-            Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
+        Arrays.asList(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//quux:wiz"));
     assertThat(converted).isEqualTo(expected);
     assertThat(converted).isNotSameInstanceAs(expected);
     assertThat(collectLabels(BuildType.LABEL_LIST, converted)).containsExactlyElementsIn(expected);

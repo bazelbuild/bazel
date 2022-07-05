@@ -473,7 +473,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException, LabelSyntaxException,
           InterruptedException {
-    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
+    return getTarget(Label.parseCanonical(label));
   }
 
   protected Target getTarget(Label label)
@@ -704,7 +704,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
       throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
+    Label candidateLabel = Label.parseCanonical(label);
     Optional<ConfiguredTarget> prereq =
         getDirectPrerequisites(target).stream()
             .filter(candidate -> candidate.getOriginalLabel().equals(candidateLabel))
@@ -714,7 +714,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
       ConfiguredTargetAndData ctad, String label) throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
+    Label candidateLabel = Label.parseCanonical(label);
     for (ConfiguredTargetAndData candidate :
         view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
             reporter, ctad.getConfiguredTarget(), masterConfig)) {
@@ -1019,7 +1019,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfigurationValue config)
       throws LabelSyntaxException {
-    return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
+    return getConfiguredTarget(Label.parseCanonical(label), config);
   }
 
   /**
@@ -1065,7 +1065,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException, StarlarkTransition.TransitionException,
           InvalidConfigurationException, InterruptedException {
-    return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
+    return getConfiguredTargetAndData(Label.parseCanonical(label), targetConfig);
   }
 
   /**
@@ -2119,7 +2119,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
-      result.add(Label.parseAbsolute(s, ImmutableMap.of()));
+      result.add(Label.parseCanonical(s));
     }
     return result;
   }

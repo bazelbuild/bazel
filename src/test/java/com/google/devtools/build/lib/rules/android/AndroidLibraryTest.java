@@ -29,7 +29,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
@@ -1221,25 +1220,25 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
                 foo.get(AndroidResourcesInfo.PROVIDER).getTransitiveAndroidResources().toList(),
                 getLabel))
         .containsExactly(
-            Label.parseAbsolute("//java/apps/android:lib", ImmutableMap.of()),
-            Label.parseAbsolute("//java/apps/android:bar", ImmutableMap.of()));
+            Label.parseCanonical("//java/apps/android:lib"),
+            Label.parseCanonical("//java/apps/android:bar"));
     assertThat(
             Iterables.transform(
                 foo.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList(),
                 getLabel))
-        .containsExactly(Label.parseAbsolute("//java/apps/android:foo", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//java/apps/android:foo"));
 
     ConfiguredTarget lib = getConfiguredTarget("//java/apps/android:lib");
     assertThat(
             Iterables.transform(
                 lib.get(AndroidResourcesInfo.PROVIDER).getTransitiveAndroidResources().toList(),
                 getLabel))
-        .containsExactly(Label.parseAbsolute("//java/apps/android:bar", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//java/apps/android:bar"));
     assertThat(
             Iterables.transform(
                 lib.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList(),
                 getLabel))
-        .containsExactly(Label.parseAbsolute("//java/apps/android:lib", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//java/apps/android:lib"));
 
     ConfiguredTarget libNeverlink = getConfiguredTarget("//java/apps/android:lib_neverlink");
     assertThat(
