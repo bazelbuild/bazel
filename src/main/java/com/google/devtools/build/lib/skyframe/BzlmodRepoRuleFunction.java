@@ -51,7 +51,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
@@ -185,6 +187,10 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       rule =
           RuleFactory.createAndAddRule(
               pkg, ruleClass, attributeValues, env.getListener(), semantics, callStack.build());
+      if (rule.containsErrors()) {
+        throw Starlark.errorf(
+            "failed to instantiate '%s' from this module extension", ruleClass.getName());
+      }
       return new BzlmodRepoRuleValue(pkg.build(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
@@ -193,6 +199,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
+    } catch (EvalException e) {
+      throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
   }
 
@@ -308,6 +316,10 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
 
     BzlmodRepoRuleFunctionException(IOException e, Transience transience) {
+      super(e, transience);
+    }
+
+    BzlmodRepoRuleFunctionException(EvalException e, Transience transience) {
       super(e, transience);
     }
   }
