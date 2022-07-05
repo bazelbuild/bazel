@@ -222,7 +222,7 @@ public class RemoteExecutionService {
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
 
     String regex = remoteOptions.remoteDownloadRegex;
-    // TODO(bazel-team): Consider adding a warning or more validation if the experimentalForceDownloadsRegex is used
+    // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is used
     // without RemoteOutputsMode.MINIMAL
     this.shouldForceDownloads =
             !regex.isEmpty()
@@ -1067,20 +1067,13 @@ public class RemoteExecutionService {
     }
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
-    try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
-      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(result, tmpOutErr, e);
-      throw e;
-    }
-
     ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = forcedDownloadsBuilder.build();
-    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
-      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (Exception e) {
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(result, tmpOutErr, e);
+
+    try {
+      waitForDownloads(forcedDownloads, result, tmpOutErr, "Remote.download");
+      waitForDownloads(forcedDownloads, result, tmpOutErr, "Remote.forcedDownload");
+    } catch (BulkTransferException | InterruptedException | ExecException e) {
+      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just rethrowing
       throw e;
     }
 
@@ -1151,6 +1144,18 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private void waitForDownloads(ImmutableList<ListenableFuture<FileMetadata>> downloads,
+                   RemoteActionResult result, FileOutErr tmpOutErr, String profileDescriptor)
+          throws BulkTransferException, InterruptedException, ExecException {
+    try (SilentCloseable c = Profiler.instance().profile(profileDescriptor)) {
+      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (BulkTransferException | InterruptedException e) {
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(result, tmpOutErr, e);
+      throw e;
+    }
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
