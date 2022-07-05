@@ -221,7 +221,7 @@ public class ResourceManager {
   public synchronized void setAvailableResources(ResourceSet resources) {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
-    availableResources = resources
+    availableResources = resources;
   }
 
   public void setMnemonicResourceOverride(List<Map.Entry<String, String>> mnemonic_resource_override)
@@ -244,14 +244,6 @@ public class ResourceManager {
     this.mnemonicResourceOverride = buildData.build();
   }
 
-  /**
-   * If set to true, then resource acquisition will query the currently available memory, rather
-   * than counting it against the fixed maximum size.
-   */
-  public void setUseLocalMemoryEstimate(boolean value) {
-    localMemoryEstimate = value;
-  }
-  
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
   public void setWorkerPool(WorkerPool workerPool) {
     this.workerPool = workerPool;
@@ -260,21 +252,6 @@ public class ResourceManager {
   /** Sets whether to prioritize local-only actions in resource allocation. */
   public void setPrioritizeLocalActions(boolean prioritizeLocalActions) {
     this.prioritizeLocalActions = prioritizeLocalActions;
-  }
-
-  /**
-   * Acquires requested resource set that is estimated by the user via option mnemonic_resource_override
-   */
-  public ResourceHandleWithWorker acquireWorkerResources(
-      ActionExecutionMetadata owner,
-      String mnemonic,
-      ResourceSet resources,
-      WorkerKey workerKey,
-      ResourcePriority priority)
-      throws InterruptedException, IOException {
-    Worker worker = this.workerPool.borrowObject(workerKey);
-    ResourceHandle handle = acquireResources(owner, mnemonic, resources, priority);
-    return new ResourceHandleWithWorker(handle, worker);
   }
 
   /**
@@ -330,16 +307,6 @@ public class ResourceManager {
     }
 
     return new ResourceHandle(this, owner, resources, worker);
-  }
-
-  /**
-   * Acquires requested resource set that is estimated by the user via option mnemonic_resource_override
-   */
-  private ResourceSet tryAcquireUserEstimatesForResources(String mnemonic, ResourceSet resourceSet) {
-    if (mnemonicResourceOverride.containsKey(mnemonic)) {
-      return mnemonicResourceOverride.get(mnemonic);
-    }
-    return resourceSet;
   }
 
   /**

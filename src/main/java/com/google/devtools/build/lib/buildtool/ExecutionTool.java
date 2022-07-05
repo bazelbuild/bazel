@@ -934,7 +934,7 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request)  throws AbruptExitException {
 
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions
+    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     try {
       resourceMgr.setMnemonicResourceOverride(options.mnemonic_resource_override);
     } catch (NumberFormatException e) {
