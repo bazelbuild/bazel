@@ -29,6 +29,7 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * A FileSystem that does not use any JNI and hence, does not require a shared library be present at
@@ -489,6 +490,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  @Nullable
   protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
     try {
       return stat(path, followSymlinks);
