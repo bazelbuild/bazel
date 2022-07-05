@@ -55,6 +55,7 @@ public interface FeatureFlagValue {
   enum DefaultValue implements FeatureFlagValue {
     INSTANCE;
 
+    @Nullable
     @Override
     public String getValue() {
       return null;
