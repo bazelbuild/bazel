@@ -57,6 +57,7 @@ public class ExternalPackageHelper {
     return extractor.getRule();
   }
 
+  @Nullable
   private static RootedPath checkWorkspaceFile(
       Environment env, Root root, PathFragment workspaceFile) throws InterruptedException {
     RootedPath candidate = RootedPath.toRootedPath(root, workspaceFile);
