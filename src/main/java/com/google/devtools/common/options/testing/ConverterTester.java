@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
@@ -69,24 +70,25 @@ public final class ConverterTester {
    * constructor of this instance; the resulting values must be equal (and have equal hashCodes):
    *
    * <ul>
-   * <li>to themselves
-   * <li>to another copy of themselves generated from the same Converter instance
-   * <li>to another copy of themselves generated from a different Converter instance
-   * <li>to the other values converted from inputs in the same addEqualityGroup call
+   *   <li>to themselves
+   *   <li>to another copy of themselves generated from the same Converter instance
+   *   <li>to another copy of themselves generated from a different Converter instance
+   *   <li>to the other values converted from inputs in the same addEqualityGroup call
    * </ul>
    *
    * <p>They must NOT be equal:
    *
    * <ul>
-   * <li>to null
-   * <li>to an instance of an arbitrary class
-   * <li>to any values converted from inputs in a different addEqualityGroup call
+   *   <li>to null
+   *   <li>to an instance of an arbitrary class
+   *   <li>to any values converted from inputs in a different addEqualityGroup call
    * </ul>
    *
-   * @throws AssertionError if an {@link OptionsParsingException} is thrown from the
-   *     {@link Converter#convert} method when converting any of the inputs.
+   * @throws AssertionError if an {@link OptionsParsingException} is thrown from the {@link
+   *     Converter#convert} method when converting any of the inputs.
    * @see EqualsTester#addEqualityGroup
    */
+  @CanIgnoreReturnValue
   public ConverterTester addEqualityGroup(String... inputs) {
     ImmutableList.Builder<WrappedItem> wrapped = ImmutableList.builder();
     ImmutableList<String> inputList = ImmutableList.copyOf(inputs);
@@ -110,6 +112,7 @@ public final class ConverterTester {
    * @throws AssertionError if one of the expected properties did not hold up
    * @see EqualsTester#testEquals
    */
+  @CanIgnoreReturnValue
   public ConverterTester testConvert() {
     tester.testEquals();
     testItems();

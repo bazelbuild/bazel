@@ -96,6 +96,16 @@ public interface CcModuleApi<
             positional = false,
             named = true),
         @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc = "The language to configure for: either c++ or objc (default c++)"),
+        @Param(
             name = "requested_features",
             doc = "List of features to be enabled.",
             positional = false,
@@ -111,6 +121,7 @@ public interface CcModuleApi<
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
+      Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
       Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException;

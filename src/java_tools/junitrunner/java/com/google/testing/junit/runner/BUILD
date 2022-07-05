@@ -27,6 +27,7 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:junit4",
     ],

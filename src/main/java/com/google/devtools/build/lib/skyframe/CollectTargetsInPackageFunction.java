@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
@@ -40,7 +41,16 @@ class CollectTargetsInPackageFunction implements SkyFunction {
     CollectTargetsInPackageValue.CollectTargetsInPackageKey argument =
         (CollectTargetsInPackageValue.CollectTargetsInPackageKey) skyKey.argument();
     PackageIdentifier packageId = argument.getPackageId();
-    PackageValue packageValue = (PackageValue) env.getValue(PackageValue.key(packageId));
+    PackageValue packageValue;
+    try {
+      packageValue =
+          (PackageValue)
+              env.getValueOrThrow(PackageValue.key(packageId), NoSuchPackageException.class);
+    } catch (NoSuchPackageException e) {
+      // If the argument is a package that doesn't exist, the aggregator function can return
+      // a success value immediately.
+      return CollectTargetsInPackageValue.INSTANCE;
+    }
     if (env.valuesMissing()) {
       return null;
     }

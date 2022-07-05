@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -47,21 +48,25 @@ public final class JavaCompilationInfoProvider
     private NestedSet<Artifact> compilationClasspath;
     private BootClassPathInfo bootClasspath = BootClassPathInfo.empty();
 
+    @CanIgnoreReturnValue
     public Builder setJavacOpts(ImmutableList<String> javacOpts) {
       this.javacOpts = javacOpts;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRuntimeClasspath(@Nullable NestedSet<Artifact> runtimeClasspath) {
       this.runtimeClasspath = runtimeClasspath;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCompilationClasspath(@Nullable NestedSet<Artifact> compilationClasspath) {
       this.compilationClasspath = compilationClasspath;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setBootClasspath(BootClassPathInfo bootClasspath) {
       this.bootClasspath = Preconditions.checkNotNull(bootClasspath);
       return this;

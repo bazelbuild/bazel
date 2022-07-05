@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -56,8 +55,7 @@ public class ConstraintTest extends BuildViewTestCase {
     ConstraintSettingInfo constraintSettingInfo = PlatformProviderUtils.constraintSetting(setting);
     assertThat(constraintSettingInfo).isNotNull();
     assertThat(constraintSettingInfo).isNotNull();
-    assertThat(constraintSettingInfo.label())
-        .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
+    assertThat(constraintSettingInfo.label()).isEqualTo(Label.parseCanonical("//constraint:basic"));
     assertThat(constraintSettingInfo.hasDefaultConstraintValue()).isFalse();
     assertThat(constraintSettingInfo.defaultConstraintValue()).isNull();
 
@@ -67,18 +65,16 @@ public class ConstraintTest extends BuildViewTestCase {
     ConstraintValueInfo fooConstraintValueInfo = PlatformProviderUtils.constraintValue(fooValue);
     assertThat(fooConstraintValueInfo).isNotNull();
     assertThat(fooConstraintValueInfo.constraint().label())
-        .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
-    assertThat(fooConstraintValueInfo.label())
-        .isEqualTo(Label.parseAbsolute("//constraint:foo", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//constraint:basic"));
+    assertThat(fooConstraintValueInfo.label()).isEqualTo(Label.parseCanonical("//constraint:foo"));
 
     ConfiguredTarget barValue = getConfiguredTarget("//constraint:bar");
     assertThat(barValue).isNotNull();
 
     ConstraintValueInfo barConstraintValueInfo = PlatformProviderUtils.constraintValue(barValue);
     assertThat(barConstraintValueInfo.constraint().label())
-        .isEqualTo(Label.parseAbsolute("//constraint:basic", ImmutableMap.of()));
-    assertThat(barConstraintValueInfo.label())
-        .isEqualTo(Label.parseAbsolute("//constraint:bar", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//constraint:basic"));
+    assertThat(barConstraintValueInfo.label()).isEqualTo(Label.parseCanonical("//constraint:bar"));
   }
 
   @Test
@@ -180,8 +176,7 @@ public class ConstraintTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
 
     @SuppressWarnings("unchecked")
     ConstraintValueInfo defaultConstraintValue =
@@ -230,8 +225,7 @@ public class ConstraintTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
 
     assertThat(info.getValue("default_value")).isEqualTo(Starlark.NONE);
 

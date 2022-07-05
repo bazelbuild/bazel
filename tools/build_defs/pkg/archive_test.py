@@ -76,18 +76,6 @@ class TarFileWriterTest(unittest.TestCase):
       pass
     self.assertTarFileContent(self.tempfile, [])
 
-  def testDefaultMtimeNotProvided(self):
-    with archive.TarFileWriter(self.tempfile) as f:
-      self.assertEqual(f.default_mtime, 0)
-
-  def testDefaultMtimeProvided(self):
-    with archive.TarFileWriter(self.tempfile, default_mtime=1234) as f:
-      self.assertEqual(f.default_mtime, 1234)
-
-  def testPortableMtime(self):
-    with archive.TarFileWriter(self.tempfile, default_mtime="portable") as f:
-      self.assertEqual(f.default_mtime, 946684800)
-
   def testPreserveTarMtimesTrue(self):
     with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=True) as f:
       input_tar_path = os.path.join(testenv.TESTDATA_PATH, "tar_test.tar")

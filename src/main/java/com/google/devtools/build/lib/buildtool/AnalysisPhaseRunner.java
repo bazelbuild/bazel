@@ -241,7 +241,8 @@ public final class AnalysisPhaseRunner {
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
               /*includeExecutionPhase=*/ false,
-              /*mergedPhasesExecutionJobsCount=*/ 0);
+              /*mergedPhasesExecutionJobsCount=*/ 0,
+              /*resourceManager=*/ null);
     } catch (BuildFailedException | TestExecException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

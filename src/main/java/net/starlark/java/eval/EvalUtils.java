@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import java.util.IllegalFormatException;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.TokenKind;
 
 /** Internal declarations used by the evaluator. */
@@ -444,6 +445,7 @@ final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
+  @Nullable
   static Object index(StarlarkThread starlarkThread, Object object, Object key)
       throws EvalException {
     Mutability mu = starlarkThread.mutability();

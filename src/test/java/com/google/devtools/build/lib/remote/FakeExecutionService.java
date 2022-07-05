@@ -18,6 +18,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.rpc.Code;
@@ -93,6 +94,7 @@ public class FakeExecutionService extends ExecutionImplBase {
       this.request = request;
     }
 
+    @CanIgnoreReturnValue
     public OnetimeOperationSupplierBuilder thenAck() {
       Operation operation = ackOperation(request);
       operations.add(() -> operation);

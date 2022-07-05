@@ -544,11 +544,11 @@ public final class ConfiguredTargetFactory {
               ruleContext,
               aspect.getParameters(),
               ruleClassProvider.getToolsRepository());
+      if (configuredAspect == null) {
+        return erroredConfiguredAspect(ruleContext);
+      }
     } finally {
       ruleContext.close();
-    }
-    if (configuredAspect == null) {
-      return erroredConfiguredAspect(ruleContext);
     }
 
     validateAdvertisedProviders(

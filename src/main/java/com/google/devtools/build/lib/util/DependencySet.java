@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -130,6 +131,7 @@ public final class DependencySet {
    * <p>Performance-critical! In large C++ builds there are lots of .d files to read, and some of
    * them reach into hundreds of kilobytes.
    */
+  @CanIgnoreReturnValue
   public DependencySet process(byte[] content) throws IOException {
     final int n = content.length;
     if (n > 0 && content[n - 1] != '\n') {

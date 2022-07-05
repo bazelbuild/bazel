@@ -15,11 +15,12 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = glob(
-        ["*.java"],
+        [
+            "*.java",
+            "desugar/*.java",
+        ],
         exclude = [
             "NoAndroidSdkStub.java",
-            "CoreLibraryDesugar.java",
-            "Desugar.java",
         ],
     ) + ["BUILD.tools"],
     visibility = ["//visibility:public"],
@@ -29,17 +30,20 @@ java_library(
     name = "r8",
     srcs = select({
         "//external:has_androidsdk": glob(
-            ["*.java"],
+            [
+                "*.java",
+                "desugar/*.java",
+            ],
             exclude = [
                 "NoAndroidSdkStub.java",
-                "CoreLibraryDesugar.java",
-                "Desugar.java",
-                "desugar/*.java",
             ],
         ),
         "//conditions:default": ["NoAndroidSdkStub.java"],
     }),
     visibility = ["//src/test/java/com/google/devtools/build/android/r8:__pkg__"],
+    runtime_deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",

@@ -119,6 +119,14 @@ public final class WorkerPool {
     }
   }
 
+  public int getMaxTotalPerKey(WorkerKey key) {
+    return this.getPool(key).getMaxTotalPerKey();
+  }
+
+  public int getNumActive(WorkerKey key) {
+    return this.getPool(key).getNumActive(key);
+  }
+
   /**
    * Gets a worker. May block indefinitely if too many high-priority workers are in use and the
    * requested worker is not high priority.

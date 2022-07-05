@@ -16,6 +16,7 @@ package com.google.devtools.build.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +35,7 @@ public class LoggingProfiler implements Profiler {
     return profiler.startTask(taskName);
   }
 
+  @CanIgnoreReturnValue
   @Override
   public Profiler startTask(String taskName) {
     Preconditions.checkArgument(!tasks.containsKey(taskName));
@@ -41,6 +43,7 @@ public class LoggingProfiler implements Profiler {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public Profiler recordEndOf(String taskName) {
     Preconditions.checkArgument(tasks.containsKey(taskName));

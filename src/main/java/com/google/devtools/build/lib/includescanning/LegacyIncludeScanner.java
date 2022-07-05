@@ -56,6 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -495,6 +496,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
    * @param includer the including file
    * @return the resolved Path, or null if no file could be found
    */
+  @Nullable
   private Artifact locateRelative(
       Inclusion inclusion,
       IncludeScanningHeaderData headerData,

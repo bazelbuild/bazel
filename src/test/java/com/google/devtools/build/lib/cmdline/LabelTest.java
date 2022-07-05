@@ -38,34 +38,34 @@ public class LabelTest {
   @Test
   public void testAbsolute() throws Exception {
     {
-      Label l = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+      Label l = Label.parseCanonical("//foo/bar:baz");
       assertThat(l.getPackageName()).isEqualTo("foo/bar");
       assertThat(l.getName()).isEqualTo("baz");
     }
     {
-      Label l = Label.parseAbsolute("//foo/bar", ImmutableMap.of());
+      Label l = Label.parseCanonical("//foo/bar");
       assertThat(l.getPackageName()).isEqualTo("foo/bar");
       assertThat(l.getName()).isEqualTo("bar");
     }
     {
-      Label l = Label.parseAbsolute("//:bar", ImmutableMap.of());
+      Label l = Label.parseCanonical("//:bar");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("bar");
     }
     {
-      Label l = Label.parseAbsolute("@foo", ImmutableMap.of());
+      Label l = Label.parseCanonical("@foo");
       assertThat(l.getRepository().getNameWithAt()).isEqualTo("@foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
     }
     {
-      Label l = Label.parseAbsolute("//@foo", ImmutableMap.of());
+      Label l = Label.parseCanonical("//@foo");
       assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("@foo");
       assertThat(l.getName()).isEqualTo("@foo");
     }
     {
-      Label l = Label.parseAbsolute("//xyz/@foo:abc", ImmutableMap.of());
+      Label l = Label.parseCanonical("//xyz/@foo:abc");
       assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
       assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
       assertThat(l.getName()).isEqualTo("abc");
@@ -74,7 +74,7 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithAbsoluteLabel() throws Exception {
-    Label base = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label base = Label.parseCanonical("//foo/bar:baz");
     Label l = base.getRelativeWithRemapping("//p1/p2:target", ImmutableMap.of());
     assertThat(l.getPackageName()).isEqualTo("p1/p2");
     assertThat(l.getName()).isEqualTo("target");
@@ -82,7 +82,7 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithRelativeLabel() throws Exception {
-    Label base = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label base = Label.parseCanonical("//foo/bar:baz");
     Label l = base.getRelativeWithRemapping(":quux", ImmutableMap.of());
     assertThat(l.getPackageName()).isEqualTo("foo/bar");
     assertThat(l.getName()).isEqualTo("quux");
@@ -90,7 +90,7 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithIllegalLabel() throws Exception {
-    Label base = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label base = Label.parseCanonical("//foo/bar:baz");
     assertThrows(
         LabelSyntaxException.class,
         () -> base.getRelativeWithRemapping("/p1/p2:target", ImmutableMap.of()));
@@ -119,8 +119,8 @@ public class LabelTest {
   public void testGetRelativeWithoutRemappingBaseLabel() throws Exception {
     PackageIdentifier packageId = PackageIdentifier.create("a", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
-        ImmutableMap.of(RepositoryName.create("a"), RepositoryName.create("b"));
+    ImmutableMap<String, RepositoryName> repoMapping =
+        ImmutableMap.of("a", RepositoryName.create("b"));
     Label relative = base.getRelativeWithRemapping(":y", repoMapping);
 
     // getRelative should only remap repositories passed in the string arg and not
@@ -133,8 +133,8 @@ public class LabelTest {
   public void testGetRelativeWithDifferentRepoAndRemapping() throws Exception {
     PackageIdentifier packageId = PackageIdentifier.create("repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping =
-        ImmutableMap.of(RepositoryName.create("a"), RepositoryName.create("b"));
+    ImmutableMap<String, RepositoryName> repoMapping =
+        ImmutableMap.of("a", RepositoryName.create("b"));
     Label relative = base.getRelativeWithRemapping("@a//x:y", repoMapping);
 
     Label actual = Label.parseAbsoluteUnchecked("@b//x:y");
@@ -172,7 +172,8 @@ public class LabelTest {
 
     Label relative =
         base.getRelativeWithRemapping(
-            "//conditions:default", RepositoryMapping.create(ImmutableMap.of(), "repo"));
+            "//conditions:default",
+            RepositoryMapping.create(ImmutableMap.of(), RepositoryName.create("repo")));
 
     PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
     assertThat(relative.getRepository()).isEqualTo(expected.getRepository());
@@ -202,9 +203,9 @@ public class LabelTest {
   @Test
   public void testIdentities() throws Exception {
 
-    Label l1 = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
-    Label l2 = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
-    Label l3 = Label.parseAbsolute("//foo/bar:quux", ImmutableMap.of());
+    Label l1 = Label.parseCanonical("//foo/bar:baz");
+    Label l2 = Label.parseCanonical("//foo/bar:baz");
+    Label l3 = Label.parseCanonical("//foo/bar:quux");
 
     new EqualsTester()
         .addEqualityGroup(l1, l2)
@@ -216,15 +217,15 @@ public class LabelTest {
   public void testToString() throws Exception {
     {
       String s = "@//foo/bar:baz";
-      Label l = Label.parseAbsolute(s, ImmutableMap.of());
+      Label l = Label.parseCanonical(s);
       assertThat(l.toString()).isEqualTo("//foo/bar:baz");
     }
     {
-      Label l = Label.parseAbsolute("//foo/bar", ImmutableMap.of());
+      Label l = Label.parseCanonical("//foo/bar");
       assertThat(l.toString()).isEqualTo("//foo/bar:bar");
     }
     {
-      Label l = Label.parseAbsolute("@foo", ImmutableMap.of());
+      Label l = Label.parseCanonical("@foo");
       assertThat(l.toString()).isEqualTo("@foo//:foo");
     }
   }
@@ -232,26 +233,26 @@ public class LabelTest {
   @Test
   public void testToShorthandString() throws Exception {
     {
-      Label l = Label.parseAbsolute("//bar/baz:baz", ImmutableMap.of());
+      Label l = Label.parseCanonical("//bar/baz:baz");
       assertThat(l.toShorthandString()).isEqualTo("//bar/baz");
     }
     {
-      Label l = Label.parseAbsolute("//bar/baz:bat", ImmutableMap.of());
+      Label l = Label.parseCanonical("//bar/baz:bat");
       assertThat(l.toShorthandString()).isEqualTo("//bar/baz:bat");
     }
     {
-      Label l = Label.parseAbsolute("@foo//bar/baz:baz", ImmutableMap.of());
+      Label l = Label.parseCanonical("@foo//bar/baz:baz");
       assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz");
     }
     {
-      Label l = Label.parseAbsolute("@foo//bar/baz:bat", ImmutableMap.of());
+      Label l = Label.parseCanonical("@foo//bar/baz:bat");
       assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz:bat");
     }
   }
 
   @Test
   public void testDotDot() throws Exception {
-    Label.parseAbsolute("//foo/bar:baz..gif", ImmutableMap.of());
+    Label.parseCanonical("//foo/bar:baz..gif");
   }
 
   /**
@@ -263,7 +264,7 @@ public class LabelTest {
         assertThrows(
             "Label '" + label + "' did not contain a syntax error, but was expected to",
             LabelSyntaxException.class,
-            () -> Label.parseAbsolute(label, ImmutableMap.of()));
+            () -> Label.parseCanonical(label));
     assertThat(e).hasMessageThat().containsMatch(Pattern.quote(expectedError));
   }
 
@@ -306,8 +307,7 @@ public class LabelTest {
 
   @Test
   public void testTrailingDotSegment() throws Exception {
-    assertThat(Label.parseAbsolute("//foo:dir", ImmutableMap.of()))
-        .isEqualTo(Label.parseAbsolute("//foo:dir/.", ImmutableMap.of()));
+    assertThat(Label.parseCanonical("//foo:dir")).isEqualTo(Label.parseCanonical("//foo:dir/."));
   }
 
   @Test
@@ -321,18 +321,18 @@ public class LabelTest {
 
   @Test
   public void testSomeGoodLabels() throws Exception {
-    Label.parseAbsolute("//foo:..bar", ImmutableMap.of());
-    Label.parseAbsolute("//Foo:..bar", ImmutableMap.of());
-    Label.parseAbsolute("//-Foo:..bar", ImmutableMap.of());
-    Label.parseAbsolute("//00:..bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo+bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo_bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo=bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo-bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo.bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo@bar", ImmutableMap.of());
-    Label.parseAbsolute("//package:foo~bar", ImmutableMap.of());
-    Label.parseAbsolute("//$( ):$( )", ImmutableMap.of());
+    Label.parseCanonical("//foo:..bar");
+    Label.parseCanonical("//Foo:..bar");
+    Label.parseCanonical("//-Foo:..bar");
+    Label.parseCanonical("//00:..bar");
+    Label.parseCanonical("//package:foo+bar");
+    Label.parseCanonical("//package:foo_bar");
+    Label.parseCanonical("//package:foo=bar");
+    Label.parseCanonical("//package:foo-bar");
+    Label.parseCanonical("//package:foo.bar");
+    Label.parseCanonical("//package:foo@bar");
+    Label.parseCanonical("//package:foo~bar");
+    Label.parseCanonical("//$( ):$( )");
   }
 
   @Test
@@ -364,13 +364,13 @@ public class LabelTest {
 
   @Test
   public void testRepoLabel() throws Exception {
-    Label label = Label.parseAbsolute("@foo//bar/baz:bat/boo", ImmutableMap.of());
+    Label label = Label.parseCanonical("@foo//bar/baz:bat/boo");
     assertThat(label.toString()).isEqualTo("@foo//bar/baz:bat/boo");
   }
 
   @Test
   public void testNoRepo() throws Exception {
-    Label label = Label.parseAbsolute("//bar/baz:bat/boo", ImmutableMap.of());
+    Label label = Label.parseCanonical("//bar/baz:bat/boo");
     assertThat(label.toString()).isEqualTo("//bar/baz:bat/boo");
   }
 
@@ -378,8 +378,7 @@ public class LabelTest {
   public void testInvalidRepo() throws Exception {
     LabelSyntaxException e =
         assertThrows(
-            LabelSyntaxException.class,
-            () -> Label.parseAbsolute("foo//bar/baz:bat/boo", ImmutableMap.of()));
+            LabelSyntaxException.class, () -> Label.parseCanonical("foo//bar/baz:bat/boo"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -390,8 +389,7 @@ public class LabelTest {
   @Test
   public void testInvalidRepoWithColon() throws Exception {
     LabelSyntaxException e =
-        assertThrows(
-            LabelSyntaxException.class, () -> Label.parseAbsolute("@foo:xyz", ImmutableMap.of()));
+        assertThrows(LabelSyntaxException.class, () -> Label.parseCanonical("@foo:xyz"));
     assertThat(e)
         .hasMessageThat()
         .containsMatch("invalid repository name '@foo:xyz': repo names may contain only");
@@ -399,9 +397,9 @@ public class LabelTest {
 
   @Test
   public void testGetWorkspaceRoot() throws Exception {
-    Label label = Label.parseAbsolute("//bar/baz", ImmutableMap.of());
+    Label label = Label.parseCanonical("//bar/baz");
     assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
-    label = Label.parseAbsolute("@repo//bar/baz", ImmutableMap.of());
+    label = Label.parseCanonical("@repo//bar/baz");
     assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
         .isEqualTo("external/repo");
   }
@@ -420,15 +418,14 @@ public class LabelTest {
 
   @Test
   public void testWorkspaceName() throws Exception {
-    assertThat(Label.parseAbsolute("@foo//bar:baz", ImmutableMap.of()).getWorkspaceName())
-        .isEqualTo("foo");
-    assertThat(Label.parseAbsolute("//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
-    assertThat(Label.parseAbsolute("@//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
+    assertThat(Label.parseCanonical("@foo//bar:baz").getWorkspaceName()).isEqualTo("foo");
+    assertThat(Label.parseCanonical("//bar:baz").getWorkspaceName()).isEmpty();
+    assertThat(Label.parseCanonical("@//bar:baz").getWorkspaceName()).isEmpty();
   }
 
   @Test
   public void testStarlarkStrAndRepr() throws Exception {
-    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
+    Label label = Label.parseCanonical("//x");
     assertThat(Starlark.str(label)).isEqualTo("//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
   }

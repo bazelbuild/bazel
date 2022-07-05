@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatt
 import com.google.devtools.build.lib.query2.aquery.ActionGraphQueryEnvironment;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
+import com.google.devtools.build.lib.query2.aquery.KeyedConfiguredTargetValue;
 import com.google.devtools.build.lib.query2.engine.ActionFilterFunction;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -53,7 +54,7 @@ import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 
 /** Performs {@code aquery} processing. */
-public final class AqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTargetValue> {
+public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfiguredTargetValue> {
   private final AqueryActionFilter actionFilters;
 
   public AqueryProcessor(@Nullable QueryExpression queryExpression)
@@ -63,11 +64,10 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
   }
 
   /** Outputs the current action graph from Skyframe. */
-  public BlazeCommandResult dumpActionGraphFromSkyframe(
-      CommandEnvironment env, BuildRequest request) {
+  public BlazeCommandResult dumpActionGraphFromSkyframe(CommandEnvironment env) {
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
-      AqueryOptions aqueryOptions = request.getOptions(AqueryOptions.class);
+      AqueryOptions aqueryOptions = env.getOptions().getOptions(AqueryOptions.class);
 
       PrintStream printStream =
           queryRuntimeHelper.getOutputStreamForQueryOutput() == null
@@ -87,7 +87,8 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
                 aqueryOptions.includeParamFiles,
                 aqueryOptions.deduplicateDepsets,
                 aqueryOptions.includeFileWriteContents,
-                aqueryOutputHandler);
+                aqueryOutputHandler,
+                env.getReporter());
         ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
       } catch (InvalidAqueryOutputFormatException e) {
         String message =
@@ -101,6 +102,10 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
       String message = "Error while parsing command: " + e.getMessage();
       env.getReporter().handle(Event.error(message));
       return getFailureResult(message, Code.COMMAND_LINE_EXPANSION_FAILURE);
+    } catch (TemplateExpansionException e) {
+      String message = "Error while expanding template: " + e.getMessage();
+      env.getReporter().handle(Event.error(message));
+      return getFailureResult(message, Code.TEMPLATE_EXPANSION_FAILURE);
     } catch (IOException e) {
       String message = "Error while emitting output: " + e.getMessage();
       env.getReporter().handle(Event.error(message));
@@ -112,7 +117,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
   }
 
   @Override
-  protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getQueryEnvironment(
+  protected PostAnalysisQueryEnvironment<KeyedConfiguredTargetValue> getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
       BuildConfigurationValue hostConfiguration,

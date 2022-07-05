@@ -158,3 +158,18 @@ TEST(OptionsTest, EmptyMultiOptargs) {
   EXPECT_EQ(0UL, options.classpath_resources.size());
   EXPECT_EQ(1UL, options.include_prefixes.size());
 }
+
+TEST(OptionTest, CustomCreatedBy) {
+  const char *args[] = {"--output", "output_file", "--output_jar_creator",
+                        "CustomCreatedBy 123.456"};
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
+  EXPECT_EQ("CustomCreatedBy 123.456", options.output_jar_creator);
+}
+
+TEST(OptionTest, DefaultCreatedBy) {
+  const char *args[] = {"--output", "output_file"};
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
+  EXPECT_EQ("singlejar", options.output_jar_creator);
+}

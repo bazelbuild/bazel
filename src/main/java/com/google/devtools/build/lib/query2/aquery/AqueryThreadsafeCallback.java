@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -23,7 +22,7 @@ import java.io.PrintStream;
 
 /** Base class for aquery output callbacks. */
 public abstract class AqueryThreadsafeCallback
-    extends NamedThreadSafeOutputFormatterCallback<ConfiguredTargetValue> {
+    extends NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTargetValue> {
   protected final ExtendedEventHandler eventHandler;
   protected final AqueryOptions options;
   protected final PrintStream printStream;
@@ -35,7 +34,7 @@ public abstract class AqueryThreadsafeCallback
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor) {
+      TargetAccessor<KeyedConfiguredTargetValue> accessor) {
     this.eventHandler = eventHandler;
     this.options = options;
     this.printStream = out == null ? null : new PrintStream(out);

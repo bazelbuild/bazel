@@ -335,6 +335,35 @@ class BazelModuleTest(test_base.TestBase):
         'ERROR: For repository \'B\', the root module requires module version B@1.0, but got B@1.1 in the resolved dependency graph.',
         stderr)
 
+  def testRepositoryRuleErrorInModuleExtensionFailsTheBuild(self):
+    self.ScratchFile('MODULE.bazel', [
+        'module_ext = use_extension("//pkg:extension.bzl", "module_ext")',
+        'use_repo(module_ext, "foo")',
+    ])
+    self.ScratchFile('pkg/BUILD.bazel')
+    self.ScratchFile('pkg/rules.bzl', [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("WORKSPACE")',
+        'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+    ])
+    self.ScratchFile('pkg/extension.bzl', [
+        'load(":rules.bzl", "repo_rule")',
+        'def _module_ext_impl(ctx):',
+        '    repo_rule(name = "foo", invalid_attr = "value")',
+        'module_ext = module_extension(implementation = _module_ext_impl)',
+    ])
+    exit_code, _, stderr = self.RunBazel(['run', '@foo//...'],
+                                         allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        "ERROR: <builtin>: //pkg:@.module_ext.foo: no such attribute 'invalid_attr' in 'repo_rule' rule",
+        stderr)
+    self.assertTrue(
+        any([
+            '/pkg/extension.bzl", line 3, column 14, in _module_ext_impl'
+            in line for line in stderr
+        ]))
+
 
 if __name__ == '__main__':
   unittest.main()

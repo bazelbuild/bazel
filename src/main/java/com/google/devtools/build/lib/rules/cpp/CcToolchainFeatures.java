@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -1242,6 +1243,7 @@ public class CcToolchainFeatures {
       private final ImmutableMap.Builder<ArtifactCategory, ArtifactNamePattern> overrides =
           ImmutableMap.builder();
 
+      @CanIgnoreReturnValue
       Builder addOverride(ArtifactCategory category, String prefix, String extension) {
         if (!category.getDefaultPrefix().equals(prefix)
             || !category.getDefaultExtension().equals(extension)) {

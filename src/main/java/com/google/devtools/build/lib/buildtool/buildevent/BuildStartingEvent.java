@@ -42,6 +42,12 @@ public abstract class BuildStartingEvent implements BuildEvent {
   /** Returns the name of output file system. */
   public abstract String outputFileSystem();
 
+  /**
+   * Returns whether the build uses in-memory {@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem()}.
+   */
+  public abstract boolean usesInMemoryFileSystem();
+
   /** Returns the active BuildRequest. */
   public abstract BuildRequest request();
 
@@ -59,6 +65,8 @@ public abstract class BuildStartingEvent implements BuildEvent {
   public static BuildStartingEvent create(CommandEnvironment env, BuildRequest request) {
     return create(
         env.determineOutputFileSystem(),
+        env.getOutputService() != null
+            && env.getOutputService().actionFileSystemType().inMemoryFileSystem(),
         request,
         env.getDirectories().getWorkspace() != null
             ? env.getDirectories().getWorkspace().toString()
@@ -68,8 +76,13 @@ public abstract class BuildStartingEvent implements BuildEvent {
 
   @VisibleForTesting
   public static BuildStartingEvent create(
-      String outputFileSystem, BuildRequest request, @Nullable String workspace, String pwd) {
-    return new AutoValue_BuildStartingEvent(outputFileSystem, request, workspace, pwd);
+      String outputFileSystem,
+      boolean usesInMemoryFileSystem,
+      BuildRequest request,
+      @Nullable String workspace,
+      String pwd) {
+    return new AutoValue_BuildStartingEvent(
+        outputFileSystem, usesInMemoryFileSystem, request, workspace, pwd);
   }
 
   @Override

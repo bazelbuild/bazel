@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -200,7 +199,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 
@@ -285,7 +284,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
@@ -659,7 +658,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
@@ -731,7 +730,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:reader")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
@@ -781,7 +780,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:toplevel")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 
@@ -858,7 +857,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 }

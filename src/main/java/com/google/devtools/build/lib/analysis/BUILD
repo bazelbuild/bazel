@@ -348,6 +348,7 @@ java_library(
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":starlark/template_dict",
         ":target_and_configuration",
         ":template_variable_info",
         ":test/analysis_failure",
@@ -611,6 +612,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -1431,6 +1433,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -1465,11 +1468,20 @@ java_library(
 )
 
 java_library(
+    name = "template_expansion_exception",
+    srcs = ["actions/TemplateExpansionException.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
     name = "actions/template_expansion_action",
     srcs = [
         "actions/LocalTemplateExpansionStrategy.java",
         "actions/TemplateExpansionAction.java",
         "actions/TemplateExpansionContext.java",
+        "actions/TemplateExpansionException.java",
     ],
     deps = [
         ":actions/deterministic_writer",
@@ -1481,6 +1493,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
@@ -1617,6 +1630,7 @@ java_library(
         ":config/fragment",
         ":config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:error_prone_annotations",
     ],
 )
 
@@ -2180,13 +2194,28 @@ java_library(
 )
 
 java_library(
+    name = "starlark/template_dict",
+    srcs = ["starlark/TemplateDict.java"],
+    deps = [
+        ":actions/substitution",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "starlark/bazel_build_api_globals",
     srcs = ["starlark/BazelBuildApiGlobals.java"],
     deps = [
         ":starlark/starlark_late_bound_default",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 

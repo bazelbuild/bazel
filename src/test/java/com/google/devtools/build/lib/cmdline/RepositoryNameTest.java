@@ -22,9 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for @{link RepositoryName}.
- */
+/** Tests for {@link RepositoryName}. */
 @RunWith(JUnit4.class)
 public class RepositoryNameTest {
 
@@ -45,12 +43,14 @@ public class RepositoryNameTest {
     assertThat(RepositoryName.create("..foo").getNameWithAt()).isEqualTo("@..foo");
     assertThat(RepositoryName.create("foo..").getNameWithAt()).isEqualTo("@foo..");
     assertThat(RepositoryName.create(".foo").getNameWithAt()).isEqualTo("@.foo");
+    assertThat(RepositoryName.create("@foo").getNameWithAt()).isEqualTo("@@foo");
+    assertThat(RepositoryName.create("@foo#bar").getNameWithAt()).isEqualTo("@@foo#bar");
 
     assertNotValid(".", "repo names are not allowed to be '@.'");
     assertNotValid("..", "repo names are not allowed to be '@..'");
-    assertNotValid("foo/bar", "repo names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-    assertNotValid("foo@", "repo names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-    assertNotValid("foo\0", "repo names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
+    assertNotValid("foo/bar", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '#'");
+    assertNotValid("foo@", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '#'");
+    assertNotValid("foo\0", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '#'");
   }
 
   @Test

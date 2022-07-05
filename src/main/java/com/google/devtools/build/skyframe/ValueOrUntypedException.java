@@ -94,6 +94,7 @@ public abstract class ValueOrUntypedException {
       return value;
     }
 
+    @Nullable
     @Override
     public Exception getException() {
       return null;

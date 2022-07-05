@@ -33,6 +33,7 @@ import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.stream.Stream;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -124,6 +125,7 @@ public final class ShadowedApiAdaptersGenerator {
         .collect(toImmutableList());
   }
 
+  @CanIgnoreReturnValue
   private ShadowedApiAdaptersGenerator emitAdapterMethods() {
     for (MethodInvocationSite invocationSite : invocationAdapterSites.adapterReplacements()) {
       MethodInvocationSite adapterSite =
@@ -177,6 +179,7 @@ public final class ShadowedApiAdaptersGenerator {
     return this;
   }
 
+  @CanIgnoreReturnValue
   private ShadowedApiAdaptersGenerator closeClassWriters() {
     typeAdapters.values().forEach(ClassVisitor::visitEnd);
     return this;

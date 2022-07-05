@@ -25,14 +25,13 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import java.util.Collection;
 
 /**
  * Event indicating that a failure is related to a given external repository; this is in particular
  * the case, if fetching that repository failed.
  */
-public class RepositoryFailedEvent implements ProgressLike, BuildEvent {
+public final class RepositoryFailedEvent implements BuildEvent {
   private final RepositoryName repo;
   private final String message;
 
@@ -61,7 +60,7 @@ public class RepositoryFailedEvent implements ProgressLike, BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
+    return ImmutableList.of();
   }
 
   @Override

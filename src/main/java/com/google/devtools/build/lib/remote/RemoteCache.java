@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
 import io.reactivex.rxjava3.core.Completable;
@@ -392,6 +393,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public RemoteCache retain() {
     super.retain();

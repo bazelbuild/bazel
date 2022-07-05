@@ -17,13 +17,14 @@ package com.google.devtools.build.lib.rules.proto;
 /** Constants used in Proto rules. */
 public final class ProtoConstants {
   /** Default label for proto compiler. */
-  static final String DEFAULT_PROTOC_LABEL =  "@com_google_protobuf//:protoc";
+  static final String DEFAULT_PROTOC_LABEL =  "@bazel_tools//tools/proto:protoc";
 
   /** Default label for java proto toolchains. */
-  static final String DEFAULT_JAVA_PROTO_LABEL = "@com_google_protobuf//:java_toolchain";
+  static final String DEFAULT_JAVA_PROTO_LABEL = "@bazel_tools//tools/proto:java_toolchain";
 
   /** Default label for java lite proto toolchains. */
-  static final String DEFAULT_JAVA_LITE_PROTO_LABEL = "@com_google_protobuf//:javalite_toolchain";
+  static final String DEFAULT_JAVA_LITE_PROTO_LABEL =
+      "@bazel_tools//tools/proto:javalite_toolchain";
 
   /**
    * This constant is used in ProtoCompileActionBuilder to generate an error message that's

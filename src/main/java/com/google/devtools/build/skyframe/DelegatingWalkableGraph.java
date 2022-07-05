@@ -45,6 +45,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return entry == null ? null : entry.getValue();
   }
 
+  @Nullable
   private static SkyValue getValueFromNodeEntry(NodeEntry entry) throws InterruptedException {
     return entry.isDone() ? entry.getValue() : null;
   }

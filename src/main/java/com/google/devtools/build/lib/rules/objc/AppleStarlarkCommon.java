@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -147,11 +146,6 @@ public class AppleStarlarkCommon
   @Override
   public Provider getAppleExecutableBinaryConstructor() {
     return AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
-  public AppleStaticLibraryInfo.Provider getAppleStaticLibraryProvider() {
-    return AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
@@ -292,8 +286,12 @@ public class AppleStarlarkCommon
       return (StructImpl)
           ruleContext.callStarlarkOrThrowRuleError(
               linkMultiArchLibrary,
-              ImmutableList.of(ruleContext.getStarlarkRuleContext(), splitTargetTriplets),
-              new HashMap<>());
+              ImmutableList.of(),
+              ImmutableMap.of(
+                  "ctx",
+                  ruleContext.getStarlarkRuleContext(),
+                  "split_target_triplets",
+                  splitTargetTriplets));
     } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }

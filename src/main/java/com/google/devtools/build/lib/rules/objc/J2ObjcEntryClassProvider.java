@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * This provider is exported by j2objc_library to export entry class information necessary for
@@ -51,24 +52,26 @@ public final class J2ObjcEntryClassProvider extends NativeInfo {
     public Builder() {}
 
     /**
-     * Transitively adds the given {@link J2ObjcEntryClassProvider}
-     * and all its properties to this builder.
+     * Transitively adds the given {@link J2ObjcEntryClassProvider} and all its properties to this
+     * builder.
      *
      * @param provider the J2ObjcEntryClassProvider to add
      * @return this builder
      */
+    @CanIgnoreReturnValue
     public Builder addTransitive(J2ObjcEntryClassProvider provider) {
       entryClassesBuilder.addTransitive(provider.getEntryClasses());
       return this;
     }
 
     /**
-     * Transitively adds the given {@link J2ObjcEntryClassProvider}s
-     * and all their properties to this builder.
+     * Transitively adds the given {@link J2ObjcEntryClassProvider}s and all their properties to
+     * this builder.
      *
      * @param providers the J2ObjcEntryClassProviders to add
      * @return this builder
      */
+    @CanIgnoreReturnValue
     public Builder addTransitive(Iterable<J2ObjcEntryClassProvider> providers) {
       for (J2ObjcEntryClassProvider provider : providers) {
         addTransitive(provider);
@@ -77,12 +80,13 @@ public final class J2ObjcEntryClassProvider extends NativeInfo {
     }
 
     /**
-     * Transitively adds all the J2ObjcEntryClassProviders and all their properties
-     * that can be reached through the "deps" attribute.
+     * Transitively adds all the J2ObjcEntryClassProviders and all their properties that can be
+     * reached through the "deps" attribute.
      *
      * @param ruleContext the rule context
      * @return this builder
      */
+    @CanIgnoreReturnValue
     public Builder addTransitive(RuleContext ruleContext) {
       if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
         addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.PROVIDER));
@@ -97,6 +101,7 @@ public final class J2ObjcEntryClassProvider extends NativeInfo {
      * @param entryClasses the entry classes to add
      * @return this builder
      */
+    @CanIgnoreReturnValue
     public Builder addEntryClasses(Iterable<String> entryClasses) {
       entryClassesBuilder.addAll(entryClasses);
       return this;

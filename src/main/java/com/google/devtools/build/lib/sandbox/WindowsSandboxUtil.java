@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -116,12 +117,14 @@ public final class WindowsSandboxUtil {
     }
 
     /** Sets the working directory to use, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setWorkingDirectory(Path workingDirectory) {
       this.workingDirectory = workingDirectory;
       return this;
     }
 
     /** Sets the timeout for the command run using the {@code windows-sandbox} tool. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setTimeout(Duration timeout) {
       this.timeout = timeout;
       return this;
@@ -131,24 +134,28 @@ public final class WindowsSandboxUtil {
      * Sets the kill delay for commands run using the {@code windows-sandbox} tool that exceed their
      * timeout.
      */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setKillDelay(Duration killDelay) {
       this.killDelay = killDelay;
       return this;
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStdoutPath(Path stdoutPath) {
       this.stdoutPath = stdoutPath;
       return this;
     }
 
     /** Sets the path to use for redirecting stderr, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStderrPath(Path stderrPath) {
       this.stderrPath = stderrPath;
       return this;
     }
 
     /** Sets the files or directories to make writable for the sandboxed process, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setWritableFilesAndDirectories(
         Set<Path> writableFilesAndDirectories) {
       this.writableFilesAndDirectories = writableFilesAndDirectories;
@@ -156,6 +163,7 @@ public final class WindowsSandboxUtil {
     }
 
     /** Sets the files or directories to make readable for the sandboxed process, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setReadableFilesAndDirectories(
         Map<PathFragment, Path> readableFilesAndDirectories) {
       this.readableFilesAndDirectories = readableFilesAndDirectories;
@@ -163,12 +171,14 @@ public final class WindowsSandboxUtil {
     }
 
     /** Sets the files or directories to make inaccessible for the sandboxed process, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setInaccessiblePaths(Set<Path> inaccessiblePaths) {
       this.inaccessiblePaths = inaccessiblePaths;
       return this;
     }
 
     /** Sets whether to enable debug mode (e.g. to print debugging messages). */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setUseDebugMode(boolean useDebugMode) {
       this.useDebugMode = useDebugMode;
       return this;

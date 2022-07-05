@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /** Event for passing SpawnMetrics for the discover inputs phase. */
-public class DiscoveredInputsEvent implements ExtendedEventHandler.ProgressLike {
+public final class DiscoveredInputsEvent implements ExtendedEventHandler.Postable {
   private final SpawnMetrics metrics;
   private final Action action;
   private final long startTimeNanos;

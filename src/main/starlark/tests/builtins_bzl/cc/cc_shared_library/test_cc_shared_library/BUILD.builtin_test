@@ -1,4 +1,4 @@
-load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "debug_files_test", "linking_suffix_test", "paths_test", "runfiles_test")
+load(":starlark_tests.bzl", "additional_inputs_test", "build_failure_test", "debug_files_test", "linking_suffix_test", "paths_test", "runfiles_test", "interface_library_output_group_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -380,6 +380,14 @@ build_failure_test(
 debug_files_test(
     name = "debug_files_test",
     target_under_test = ":binary",
+)
+
+interface_library_output_group_test(
+    name = "interface_library_output_group_test",
+    target_under_test = ":foo_so",
+    is_windows = select({
+        "//src/conditions:windows": True,
+        "//conditions:default": False}),
 )
 
 runfiles_test(

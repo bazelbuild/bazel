@@ -16,6 +16,7 @@ package com.google.devtools.build.android.dexer;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.android.dex.Dex;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,9 +42,8 @@ class DexFileArchive implements Closeable {
     this.out = out;
   }
 
-  /**
-   * Adds a {@code .dex} file with the given details.
-   */
+  /** Adds a {@code .dex} file with the given details. */
+  @CanIgnoreReturnValue
   public DexFileArchive addFile(ZipEntry entry, Dex dex) throws IOException {
     checkState(inUse.compareAndSet(null, entry), "Already in use");
     entry.setSize(dex.getLength());

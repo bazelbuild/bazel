@@ -17,6 +17,7 @@ package com.google.devtools.common.options.testing;
 import com.google.common.collect.ForwardingMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 
 /**
@@ -51,6 +52,7 @@ public final class ConverterTesterMap
      * Adds a new ConverterTester, mapping it to the class of converter it tests. Only one tester
      * for each class is permitted; duplicates will cause {@link #build} to fail.
      */
+    @CanIgnoreReturnValue
     public Builder add(ConverterTester item) {
       delegate.put(item.getConverterClass(), item);
       return this;
@@ -60,6 +62,7 @@ public final class ConverterTesterMap
      * Adds the entries from the given {@link ConverterTesterMap}. Only one tester for each class is
      * permitted; duplicates will cause {@link #build} to fail.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(ConverterTesterMap map) {
       // this is safe because we know the other map was constructed the same way this one was
       delegate.putAll(map);
@@ -70,6 +73,7 @@ public final class ConverterTesterMap
      * Adds all of the ConverterTesters from the given iterable. Only one tester for each class is
      * permitted; duplicates will cause {@link #build} to fail.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(Iterable<ConverterTester> items) {
       items.forEach(this::add);
       return this;

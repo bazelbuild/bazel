@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -830,6 +830,31 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("foo/manifest.proto");
   }
 
+  @Test
+  public void buildHelperCreateJavaInfoWithModuleFlags() throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(",
+        "    name = 'my_java_lib_direct',",
+        "    srcs = ['java/A.java'],",
+        "    add_opens = ['java.base/java.lang'],",
+        ")",
+        "my_rule(",
+        "    name = 'my_starlark_rule',",
+        "    dep = [':my_java_lib_direct'],",
+        "    output_jar = 'my_starlark_rule_lib.jar',",
+        ")");
+    assertNoEvents();
+
+    JavaModuleFlagsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaModuleFlagsProvider.class);
+
+    assertThat(ruleOutputs.toFlags())
+        .containsExactly("--add-opens=java.base/java.lang=ALL-UNNAMED");
+  }
+
   private RuleBuilder ruleBuilder() {
     return new RuleBuilder();
   }
@@ -840,21 +865,25 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     private boolean neverLink = false;
     private boolean sourceFiles = false;
 
+    @CanIgnoreReturnValue
     private RuleBuilder withIJar() {
       useIJar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withStampJar() {
       stampJar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withNeverLink() {
       neverLink = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withSourceFiles() {
       sourceFiles = true;
       return this;
@@ -970,8 +999,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
     JavaInfo javaInfo = (JavaInfo) info.getValue("property");
     return javaInfo;

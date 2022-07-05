@@ -94,7 +94,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_javalite",
-        defaultValue = "@com_google_protobuf//:javalite_toolchain",
+        defaultValue = "@bazel_tools//tools/proto:javalite_toolchain",
         converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -103,7 +103,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_java",
-        defaultValue = "@com_google_protobuf//:java_toolchain",
+        defaultValue = "@bazel_tools//tools/proto:java_toolchain",
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -122,7 +122,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_cc",
-        defaultValue = "@com_google_protobuf//:cc_toolchain",
+        defaultValue = "@bazel_tools//tools/proto:cc_toolchain",
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},

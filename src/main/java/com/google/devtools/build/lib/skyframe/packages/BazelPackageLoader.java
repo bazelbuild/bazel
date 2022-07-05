@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -130,7 +130,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       isFetch,
                       ImmutableMap::of,
                       directories,
-                      ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
                       EXTERNAL_PACKAGE_HELPER))
               .build());
 
@@ -142,6 +141,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       return DEFAULT_RULE_CLASS_PROVIDER;
     }
 
+    @CanIgnoreReturnValue
     Builder setFetchForTesting() {
       this.isFetch.set(true);
       return this;

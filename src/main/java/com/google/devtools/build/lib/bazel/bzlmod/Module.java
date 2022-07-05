@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -63,7 +64,7 @@ public abstract class Module {
    */
   public abstract ModuleKey getKey();
 
-  public final String getCanonicalRepoName() {
+  public final RepositoryName getCanonicalRepoName() {
     return getKey().getCanonicalRepoName();
   }
 
@@ -106,24 +107,20 @@ public abstract class Module {
    * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
    */
   public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
     if (getKey().equals(ModuleKey.ROOT)) {
-      mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
+      mapping.put("", RepositoryName.MAIN);
     }
     // Every module should be able to reference itself as @<module name>.
     // If this is the root module, this perfectly falls into @<module name> => @
     if (!getName().isEmpty()) {
-      mapping.put(
-          RepositoryName.createUnvalidated(getName()),
-          RepositoryName.createUnvalidated(getCanonicalRepoName()));
+      mapping.put(getName(), getCanonicalRepoName());
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
-      mapping.put(
-          RepositoryName.createUnvalidated(dep.getKey()),
-          RepositoryName.createUnvalidated(dep.getValue().getCanonicalRepoName()));
+      mapping.put(dep.getKey(), dep.getValue().getCanonicalRepoName());
     }
     return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }
@@ -189,6 +186,7 @@ public abstract class Module {
 
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);
       return this;
@@ -196,6 +194,7 @@ public abstract class Module {
 
     abstract ImmutableMap.Builder<String, ModuleKey> originalDepsBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addOriginalDep(String depRepoName, ModuleKey depKey) {
       originalDepsBuilder().put(depRepoName, depKey);
       return this;
@@ -207,6 +206,7 @@ public abstract class Module {
 
     abstract ImmutableList.Builder<ModuleExtensionUsage> extensionUsagesBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addExtensionUsage(ModuleExtensionUsage value) {
       extensionUsagesBuilder().add(value);
       return this;

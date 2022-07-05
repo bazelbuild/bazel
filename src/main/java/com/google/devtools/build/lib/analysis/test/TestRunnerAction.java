@@ -878,14 +878,16 @@ public class TestRunnerAction extends AbstractAction
    * or remote execution.
    *
    * <p>Otherwise, the directory name for the given test runner action is constructed as: {@code
-   * _coverage/target_path/test_log_name} where {@code test_log_name} is usually a target name but
-   * potentially can include extra suffix, such as a shard number (if test execution was sharded).
+   * [blaze-out/.../testlogs/]_coverage/target_path/test_log_name} where {@code test_log_name} is
+   * usually a target name but potentially can include extra suffix, such as a shard number (if test
+   * execution was sharded).
    */
   public PathFragment getCoverageDirectory() {
     if (coverageDirectory != null) {
       return coverageDirectory.getExecPath();
     }
-    return COVERAGE_TMP_ROOT.getRelative(
+    PathFragment coverageRoot = getTestLog().getRoot().getExecPath().getRelative(COVERAGE_TMP_ROOT);
+    return coverageRoot.getRelative(
         FileSystemUtils.removeExtension(getTestLog().getRootRelativePath()));
   }
 

@@ -48,11 +48,13 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
@@ -440,6 +443,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.getStarlarkSemantics();
   }
 
+  private void verifyExecGroup(Object execGroupUnchecked, RuleContext ctx) throws EvalException {
+    String execGroup = (String) execGroupUnchecked;
+    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
+        || !ctx.hasToolchainContext(execGroup)) {
+      throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
+    }
+  }
+
+  private PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
+      throws EvalException {
+    if (execGroupUnchecked == Starlark.NONE) {
+      return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    } else {
+      verifyExecGroup(execGroupUnchecked, ctx);
+      return ctx.getExecutionPlatform((String) execGroupUnchecked);
+    }
+  }
+
   @Override
   public void runShell(
       Sequence<?> outputs,
@@ -464,11 +485,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     buildCommandLine(builder, arguments);
 
     if (commandUnchecked instanceof String) {
-      Map<String, String> executionInfo =
+      ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
       String command = (String) commandUnchecked;
-      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+      PathFragment shExecutable =
+          ShToolchain.getPathOrError(getExecutionPlatform(execGroupUnchecked, ruleContext));
       BashCommandConstructor constructor =
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);
@@ -662,13 +684,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    if (execGroupUnchecked != Starlark.NONE) {
-      String execGroup = (String) execGroupUnchecked;
-      if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
-          || !ruleContext.hasToolchainContext(execGroup)) {
-        throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
-      }
-      builder.setExecGroup(execGroup);
+    if (execGroupUnchecked == Starlark.NONE) {
+      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    } else {
+      verifyExecGroup(execGroupUnchecked, ruleContext);
+      builder.setExecGroup((String) execGroupUnchecked);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {
@@ -812,25 +832,43 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   @Override
   public void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      /* TemplateDict */ Object computedSubstitutions)
       throws EvalException {
     context.checkMutable("actions.expand_template");
-    ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
+    // We use a map to check for duplicate keys
+    ImmutableMap.Builder<String, Substitution> substitutionsBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
       // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.
       // In the long term, avoiding ParserInput.fromLatin would be a better approach.
-      substitutionsBuilder.add(
+      substitutionsBuilder.put(
+          substitution.getKey(),
           Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+    }
+    if (!Starlark.UNBOUND.equals(computedSubstitutions)) {
+      for (Substitution substitution : ((TemplateDict) computedSubstitutions).getAll()) {
+        substitutionsBuilder.put(substitution.getKey(), substitution);
+      }
+    }
+    ImmutableMap<String, Substitution> substitutionMap;
+    try {
+      substitutionMap = substitutionsBuilder.buildOrThrow();
+    } catch (IllegalArgumentException e) {
+      // user added duplicate keys, report the error, but the stack trace is not of use
+      throw Starlark.errorf("%s", e.getMessage());
     }
     TemplateExpansionAction action =
         new TemplateExpansionAction(
             getRuleContext().getActionOwner(),
             (Artifact) template,
             (Artifact) output,
-            substitutionsBuilder.build(),
+            substitutionMap.values().asList(),
             executable);
     registerAction(action);
   }
@@ -848,6 +886,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public Args args(StarlarkThread thread) {
     return Args.newArgs(thread.mutability(), getSemantics());
+  }
+
+  @Override
+  public TemplateDictApi templateDict() {
+    return TemplateDict.newDict();
   }
 
   @Override

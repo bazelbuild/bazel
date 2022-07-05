@@ -94,6 +94,7 @@ public abstract class CqueryThreadsafeCallback
     }
   }
 
+  @Nullable
   protected BuildConfigurationValue getConfiguration(BuildConfigurationKey configKey) {
     // Experiments querying:
     //     cquery --output=graph "deps(//src:main/java/com/google/devtools/build/lib:runtime)"

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguratio
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -40,7 +39,7 @@ import javax.annotation.Nullable;
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
-public class ActionExecutedEvent implements BuildEventWithConfiguration, ProgressLike {
+public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final PathFragment actionId;
@@ -52,7 +51,6 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
   private final Path stdout;
   private final Path stderr;
   private final ImmutableList<MetadataLog> actionMetadataLogs;
-  private final boolean isInMemoryFs;
   private final ErrorTiming timing;
 
   public ActionExecutedEvent(
@@ -65,8 +63,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       Path stdout,
       Path stderr,
       ImmutableList<MetadataLog> actionMetadataLogs,
-      ErrorTiming timing,
-      boolean isInMemoryFs) {
+      ErrorTiming timing) {
     this.actionId = actionId;
     this.action = action;
     this.exception = exception;
@@ -77,7 +74,6 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     this.stderr = stderr;
     this.timing = timing;
     this.actionMetadataLogs = actionMetadataLogs;
-    this.isInMemoryFs = isInMemoryFs;
     Preconditions.checkNotNull(this.actionMetadataLogs, this);
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
@@ -96,10 +92,6 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
 
   public ErrorTiming errorTiming() {
     return timing;
-  }
-
-  public boolean hasInMemoryFs() {
-    return isInMemoryFs;
   }
 
   public String getStdout() {
@@ -137,7 +129,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
+    return ImmutableList.of();
   }
 
   @Override
@@ -149,7 +141,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       }
       return ImmutableList.of(configuration);
     } else {
-      return ImmutableList.<BuildEvent>of();
+      return ImmutableList.of();
     }
   }
 

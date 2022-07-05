@@ -50,7 +50,7 @@ toolchains, dependencies, and `select()`s have to support the new APIs. This
 requires an *ordered migration sequence* to keep projects working correctly.
 
 For example, Bazel's
-[C++ Rules] aleady support platforms while the
+[C++ Rules] already support platforms while the
 [Android Rules] don't. *Your* C++ project may not care about Android. But others may. So
 it's not yet safe to globally enable platforms for all C++ builds.
 

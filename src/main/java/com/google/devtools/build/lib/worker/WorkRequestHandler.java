@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -288,6 +289,7 @@ public class WorkRequestHandler implements AutoCloseable {
      * Sets the minimum amount of CPU time between explicit garbage collection calls. Pass
      * Duration.ZERO to not do explicit garbage collection (the default).
      */
+    @CanIgnoreReturnValue
     public WorkRequestHandlerBuilder setCpuUsageBeforeGc(Duration cpuUsageBeforeGc) {
       this.cpuUsageBeforeGc = cpuUsageBeforeGc;
       return this;
@@ -297,6 +299,7 @@ public class WorkRequestHandler implements AutoCloseable {
      * Sets a callback will be called when a cancellation message has been received. The callback
      * will be call with the request ID and the thread executing the request.
      */
+    @CanIgnoreReturnValue
     public WorkRequestHandlerBuilder setCancelCallback(BiConsumer<Integer, Thread> cancelCallback) {
       this.cancelCallback = cancelCallback;
       return this;

@@ -254,12 +254,7 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            config,
-            outgoingLabels,
-            fromRule,
-            attributeMap,
-            toolchainContexts,
-            aspects);
+            config, outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         fullyResolveDependencies(
@@ -565,7 +560,9 @@ public abstract class DependencyResolver {
       if (type == BuildType.OUTPUT
           || type == BuildType.OUTPUT_LIST
           || type == BuildType.NODEP_LABEL
-          || type == BuildType.NODEP_LABEL_LIST) {
+          || type == BuildType.NODEP_LABEL_LIST
+          || type == BuildType.GENQUERY_SCOPE_TYPE
+          || type == BuildType.GENQUERY_SCOPE_TYPE_LIST) {
         // These types invoke visitLabels() so that they are reported in "bazel query" but do not
         // create a dependency. Maybe it's better to remove that, but then the labels() query
         // function would need to be rethought.

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -89,51 +90,61 @@ public class BuildRequest implements OptionsProvider {
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder setId(UUID id) {
       this.id = id;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setOptions(OptionsParsingResult options) {
       this.options = options;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartupOptions(OptionsParsingResult startupOptions) {
       this.startupOptions = startupOptions;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCommandName(String commandName) {
       this.commandName = commandName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setOutErr(OutErr outErr) {
       this.outErr = outErr;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTargets(List<String> targets) {
       this.targets = targets;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartTimeMillis(long startTimeMillis) {
       this.startTimeMillis = startTimeMillis;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNeedsInstrumentationFilter(boolean needsInstrumentationFilter) {
       this.needsInstrumentationFilter = needsInstrumentationFilter;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRunTests(boolean runTests) {
       this.runTests = runTests;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCheckforActionConflicts(boolean checkForActionConflicts) {
       this.checkForActionConflicts = checkForActionConflicts;
       return this;
@@ -148,6 +159,7 @@ public class BuildRequest implements OptionsProvider {
      * output) and false for queries (where users want to understand target relationships or
      * diagnose why incompatible targets are incompatible).
      */
+    @CanIgnoreReturnValue
     public Builder setReportIncompatibleTargets(boolean report) {
       this.reportIncompatibleTargets = report;
       return this;

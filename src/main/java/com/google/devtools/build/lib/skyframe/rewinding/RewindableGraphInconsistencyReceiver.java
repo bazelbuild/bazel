@@ -95,17 +95,10 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
             key, childrenAsString);
         return;
 
-      case PARENT_FORCE_REBUILD_OF_MISSING_CHILD:
-      case DIRTY_PARENT_HAD_MISSING_CHILD:
-      case ALREADY_DECLARED_CHILD_MISSING:
+      default:
         throw new IllegalStateException(
             String.format(
                 "Unexpected inconsistency %s, key = %s, otherKeys = %s ",
-                inconsistency, key, childrenAsString));
-      default: // Needed because protobuf creates additional enum values.
-        throw new IllegalStateException(
-            String.format(
-                "Unknown inconsistency %s, key = %s, otherKeys = %s ",
                 inconsistency, key, childrenAsString));
     }
   }

@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.skyframe.rewinding;
 
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * This event is fired during the build for an action that failed because of lost inputs, and that
  * will try to recover through rewinding (see {@link ActionRewindStrategy}).
  */
-public final class ActionRewoundEvent implements ProgressLike {
+public final class ActionRewoundEvent implements Postable {
 
   private final long relativeActionStartTime;
   private final Action failedRewoundAction;

@@ -35,7 +35,7 @@ public abstract class RepositoryMapping {
   // Always fallback to the requested name
   public static final RepositoryMapping ALWAYS_FALLBACK = createAllowingFallback(ImmutableMap.of());
 
-  abstract ImmutableMap<RepositoryName, RepositoryName> repositoryMapping();
+  abstract ImmutableMap<String, RepositoryName> repositoryMapping();
 
   /**
    * The owner repo of this repository mapping. It is for providing useful debug information when
@@ -43,17 +43,17 @@ public abstract class RepositoryMapping {
    * we don't fallback to the requested repo name.
    */
   @Nullable
-  abstract String ownerRepo();
+  abstract RepositoryName ownerRepo();
 
   public static RepositoryMapping create(
-      Map<RepositoryName, RepositoryName> repositoryMapping, String ownerRepo) {
+      Map<String, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
     return new AutoValue_RepositoryMapping(
         ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)),
         Preconditions.checkNotNull(ownerRepo));
   }
 
   public static RepositoryMapping createAllowingFallback(
-      Map<RepositoryName, RepositoryName> repositoryMapping) {
+      Map<String, RepositoryName> repositoryMapping) {
     return new AutoValue_RepositoryMapping(
         ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), null);
   }
@@ -62,9 +62,8 @@ public abstract class RepositoryMapping {
    * Create a new {@link RepositoryMapping} instance based on existing repo mappings and given
    * additional mappings. If there are conflicts, existing mappings will take precedence.
    */
-  public RepositoryMapping withAdditionalMappings(
-      Map<RepositoryName, RepositoryName> additionalMappings) {
-    HashMap<RepositoryName, RepositoryName> allMappings = new HashMap<>(additionalMappings);
+  public RepositoryMapping withAdditionalMappings(Map<String, RepositoryName> additionalMappings) {
+    HashMap<String, RepositoryName> allMappings = new HashMap<>(additionalMappings);
     allMappings.putAll(repositoryMapping());
     return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
   }
@@ -78,13 +77,24 @@ public abstract class RepositoryMapping {
     return withAdditionalMappings(additionalMappings.repositoryMapping());
   }
 
-  public RepositoryName get(RepositoryName repositoryName) {
-    // If the owner repo is not present, that means we should fallback to the requested repo name.
+  /**
+   * Returns the canonical repository name associated with the given apparent repo name. The
+   * provided apparent repo name is assumed to be valid.
+   */
+  public RepositoryName get(String preMappingName) {
+    if (preMappingName.startsWith("@")) {
+      // The given name is actually a canonical, post-mapping repo name already.
+      return RepositoryName.createUnvalidated(preMappingName);
+    }
+    RepositoryName canonicalRepoName = repositoryMapping().get(preMappingName);
+    if (canonicalRepoName != null) {
+      return canonicalRepoName;
+    }
+    // If the owner repo is not present, that means we should fall back to the requested repo name.
     if (ownerRepo() == null) {
-      return repositoryMapping().getOrDefault(repositoryName, repositoryName);
+      return RepositoryName.createUnvalidated(preMappingName);
     } else {
-      return repositoryMapping()
-          .getOrDefault(repositoryName, repositoryName.toNonVisible(ownerRepo()));
+      return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
     }
   }
 }

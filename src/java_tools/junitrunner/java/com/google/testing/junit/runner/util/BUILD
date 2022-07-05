@@ -9,6 +9,7 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//visibility:public"],
     deps = [
+        "//third_party:error_prone_annotations",
         "//third_party:jsr305",
         "//third_party:junit4",
     ],

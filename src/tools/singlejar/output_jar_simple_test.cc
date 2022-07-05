@@ -394,6 +394,19 @@ TEST_F(OutputJarSimpleTest, MainClass) {
       manifest);
 }
 
+// --output_jar_creator option
+TEST_F(OutputJarSimpleTest, CreatedByFieldTest) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--output_jar_creator", "SingleJarTestValue 123.456"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: SingleJarTestValue 123.456\r\n"
+      "\r\n",
+      manifest);
+}
+
 // --deploy_manifest_lines option.
 TEST_F(OutputJarSimpleTest, DeployManifestLines) {
   string out_path = OutputFilePath("out.jar");

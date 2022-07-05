@@ -461,4 +461,54 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
     assertThat(requiredFragments.getFragmentClasses()).contains(JavaConfiguration.class);
   }
+
+  @Test
+  public void aspectInErrorWithAllowAnalysisFailures() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _error_aspect_impl(target, ctx):",
+        "  fail(ctx.var['FAIL_MESSAGE'])",
+        "error_aspect = aspect(implementation = _error_aspect_impl)",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {'dep': attr.label(aspects = [error_aspect])},",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule', 'error_aspect')",
+        "my_rule(name = 'a')",
+        "my_rule(name = 'b', dep = ':a')");
+
+    useConfiguration(
+        "--allow_analysis_failures",
+        "--define=FAIL_MESSAGE=abc",
+        "--include_config_fragments_provider=direct");
+    getConfiguredTarget("//a:b");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getAspect("//a:defs.bzl%error_aspect").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getDefines()).containsExactly("FAIL_MESSAGE");
+  }
+
+  @Test
+  public void configuredTargetInErrorWithAllowAnalysisFailures() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _error_rule_impl(ctx):",
+        "  fail(ctx.var['FAIL_MESSAGE'])",
+        "error_rule = rule(implementation = _error_rule_impl)");
+    scratch.file("a/BUILD", "load(':defs.bzl', 'error_rule')", "error_rule(name = 'error')");
+
+    useConfiguration(
+        "--allow_analysis_failures",
+        "--define=FAIL_MESSAGE=abc",
+        "--include_config_fragments_provider=direct");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:error").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getDefines()).containsExactly("FAIL_MESSAGE");
+  }
 }

@@ -107,6 +107,7 @@ public class MockSubprocess {
 
         case 'X':
           System.exit(Integer.parseInt(arg.substring(1)));
+        default: // fall out
       }
     }
   }

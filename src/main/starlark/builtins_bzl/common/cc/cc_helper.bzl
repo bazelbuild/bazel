@@ -45,6 +45,20 @@ artifact_category = struct(
 
 SYSROOT_FLAG = "--sysroot="
 
+def _build_linking_context_from_libraries(ctx, libraries):
+    if len(libraries) == 0:
+        return CcInfo().linking_context
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        libraries = depset(libraries),
+    )
+
+    linking_context = cc_common.create_linking_context(
+        linker_inputs = depset([linker_input]),
+    )
+
+    return linking_context
+
 def _grep_includes_executable(grep_includes):
     if grep_includes == None:
         return None
@@ -443,7 +457,7 @@ def _get_compilation_contexts_from_deps(deps):
             compilation_contexts.append(dep[CcInfo].compilation_context)
     return compilation_contexts
 
-def _is_compiltion_outputs_empty(compilation_outputs):
+def _is_compilation_outputs_empty(compilation_outputs):
     return (len(compilation_outputs.pic_objects) == 0 and
             len(compilation_outputs.objects) == 0)
 
@@ -529,9 +543,6 @@ def _get_providers(deps, provider):
         if provider in dep:
             providers.append(dep[provider])
     return providers
-
-def _is_compilation_outputs_empty(compilation_outputs):
-    return len(compilation_outputs.pic_objects) == 0 and len(compilation_outputs.objects) == 0
 
 def _get_static_mode_params_for_dynamic_library_libraries(libs):
     linker_inputs = []
@@ -885,6 +896,22 @@ def _has_target_constraints(ctx, constraints):
             return True
     return False
 
+def _is_stamping_enabled(ctx):
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.attr, "stamp"):
+        stamp = ctx.attr.stamp
+    return stamp
+
+def _is_stamping_enabled_for_aspect(ctx):
+    if ctx.configuration.is_tool_configuration():
+        return 0
+    stamp = 0
+    if hasattr(ctx.rule.attr, "stamp"):
+        stamp = ctx.rule.attr.stamp
+    return stamp
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -926,4 +953,7 @@ cc_helper = struct(
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
     grep_includes_executable = _grep_includes_executable,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
+    build_linking_context_from_libraries = _build_linking_context_from_libraries,
+    is_stamping_enabled = _is_stamping_enabled,
+    is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
 )

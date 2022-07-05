@@ -930,13 +930,16 @@ public final class RemoteModule extends BlazeModule {
               new TempPathGenerator(tempDir));
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      actionContextProvider.setActionInputFetcher(actionInputFetcher);
     }
   }
 
   @Override
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions != null
+        && !remoteOptions.remoteOutputsMode.downloadAllOutputs()
+        && actionContextProvider.getRemoteCache() != null) {
       remoteOutputService = new RemoteOutputService();
     }
     return remoteOutputService;

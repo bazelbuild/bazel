@@ -16,10 +16,18 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -119,5 +127,103 @@ public class WorkerParserTest {
     assertThat(keyDynamicMultiplexSandboxing.isMultiplex()).isTrue();
     assertThat(keyDynamicMultiplexSandboxing.isSandboxed()).isTrue();
     assertThat(keyDynamicMultiplexSandboxing.getWorkerTypeName()).isEqualTo("multiplex-worker");
+  }
+
+  @Test
+  public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_splitsArgsBasicCase()
+      throws UserExecException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerExtraFlags = ImmutableList.of();
+    WorkerParser parser = new WorkerParser(null, options, null, null);
+
+    Spawn spawn = TestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
+    List<String> flagFiles = new ArrayList<>();
+    ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
+    assertThat(args).containsExactly("--foo", "--persistent_worker").inOrder();
+    assertThat(flagFiles).containsExactly("@bar");
+  }
+
+  @Test
+  public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_addsExtras() throws UserExecException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerExtraFlags =
+        ImmutableList.of(
+            Maps.immutableEntry("Null", "--qux"),
+            Maps.immutableEntry("Other action", "--should_not_appear"),
+            Maps.immutableEntry("Null", "--quxify"));
+    WorkerParser parser = new WorkerParser(null, options, null, null);
+    Spawn spawn = TestUtils.createSpawn(ImmutableList.of("--foo", "@bar"), ImmutableMap.of());
+
+    List<String> flagFiles = new ArrayList<>();
+    ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
+
+    assertThat(args).containsExactly("--foo", "--persistent_worker", "--qux", "--quxify").inOrder();
+    assertThat(flagFiles).containsExactly("@bar");
+  }
+
+  @Test
+  public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_addsFlagFiles() throws UserExecException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerExtraFlags = ImmutableList.of();
+    options.strictFlagfiles = false;
+    WorkerParser parser = new WorkerParser(null, options, null, null);
+    Spawn spawn =
+        TestUtils.createSpawn(
+            ImmutableList.of("--foo", "--flagfile=bar", "@@escaped", "@bar", "@bartoo", "--final"),
+            ImmutableMap.of());
+
+    List<String> flagFiles = new ArrayList<>();
+    ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
+
+    assertThat(args)
+        .containsExactly("--foo", "@@escaped", "--final", "--persistent_worker")
+        .inOrder();
+    assertThat(flagFiles).containsExactly("--flagfile=bar", "@bar", "@bartoo").inOrder();
+  }
+
+  @Test
+  public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_addsFlagFilesStrict()
+      throws UserExecException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerExtraFlags = ImmutableList.of();
+    options.strictFlagfiles = true;
+    WorkerParser parser = new WorkerParser(null, options, null, null);
+    Spawn spawn =
+        TestUtils.createSpawn(
+            ImmutableList.of("--foo", "@@escaped", "--final", "@bar"), ImmutableMap.of());
+
+    List<String> flagFiles = new ArrayList<>();
+    ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
+
+    assertThat(args)
+        .containsExactly("--foo", "@@escaped", "--final", "--persistent_worker")
+        .inOrder();
+    assertThat(flagFiles).containsExactly("@bar");
+  }
+
+  @Test
+  public void splitSpawnArgsIntoWorkerArgsAndFlagFiles_strictFlagFiles() throws UserExecException {
+    assertIllegalFlags("Must have args");
+    assertIllegalFlags("Must have a flagfile", "--foo", "--final");
+    assertIllegalFlags("Flagfile must be at the end", "@earlyFile", "--final");
+    assertIllegalFlags("Only one flagfile allowed", "@earlyFile", "--final", "@lateFile");
+    assertIllegalFlags(
+        "Only one flagfile allowed, regardless of syntax",
+        "--flagfile=foo",
+        "--final",
+        "@lateFile");
+  }
+
+  private void assertIllegalFlags(String message, String... args) {
+    WorkerOptions options = new WorkerOptions();
+    options.workerExtraFlags = ImmutableList.of();
+    options.strictFlagfiles = true;
+    WorkerParser parser = new WorkerParser(null, options, null, null);
+    Spawn spawn = TestUtils.createSpawn(ImmutableList.copyOf(args), ImmutableMap.of());
+
+    assertThrows(
+        message,
+        UserExecException.class,
+        () -> parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, new ArrayList<>()));
   }
 }

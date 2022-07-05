@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
@@ -36,7 +37,7 @@ public class BzlLoadValueCodecTest {
     module.setGlobal("c", 3);
     byte[] digest = "dummy".getBytes(ISO_8859_1);
 
-    new SerializationTester(new BzlLoadValue(module, digest))
+    new SerializationTester(new BzlLoadValue(module, digest, BzlVisibility.PUBLIC))
         .setVerificationFunction(
             (SerializationTester.VerificationFunction<BzlLoadValue>)
                 (x, y) -> {
@@ -63,6 +64,6 @@ public class BzlLoadValueCodecTest {
     module.setGlobal(name, value);
 
     byte[] digest = "dummy".getBytes(ISO_8859_1);
-    return new BzlLoadValue(module, digest);
+    return new BzlLoadValue(module, digest, BzlVisibility.PUBLIC);
   }
 }

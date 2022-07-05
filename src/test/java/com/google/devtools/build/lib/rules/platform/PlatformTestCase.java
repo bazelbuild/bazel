@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -60,12 +61,14 @@ public class PlatformTestCase extends BuildViewTestCase {
       this.label = Label.parseAbsoluteUnchecked(name);
     }
 
+    @CanIgnoreReturnValue
     public ConstraintBuilder defaultConstraintValue(String defaultConstraintValue) {
       this.defaultConstraintValue = defaultConstraintValue;
       this.constraintValues.add(defaultConstraintValue);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ConstraintBuilder addConstraintValue(String constraintValue) {
       this.constraintValues.add(constraintValue);
       return this;
@@ -111,21 +114,25 @@ public class PlatformTestCase extends BuildViewTestCase {
       this.label = Label.parseAbsoluteUnchecked(name);
     }
 
+    @CanIgnoreReturnValue
     public PlatformBuilder setParent(String parentLabel) {
       this.parentLabel = Label.parseAbsoluteUnchecked(parentLabel);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public PlatformBuilder addConstraint(String value) {
       this.constraintValues.add(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public PlatformBuilder setRemoteExecutionProperties(String value) {
       this.remoteExecutionProperties = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public PlatformBuilder setExecProperties(ImmutableMap<String, String> value) {
       this.execProperties = value;
       return this;

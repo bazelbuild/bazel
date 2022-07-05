@@ -212,6 +212,10 @@ public final class CoverageReportActionBuilder {
         reportGenerator = testParams.getCoverageReportGenerator();
       }
     }
+    // If all tests are incompatible, there's nothing to do.
+    if (reportGenerator == null) {
+      return null;
+    }
     builder.addAll(baselineCoverageArtifacts.toList());
 
     ImmutableList<Artifact> coverageArtifacts = builder.build();

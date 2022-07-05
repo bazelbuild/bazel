@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -27,14 +28,23 @@ import java.util.Map;
 @Immutable
 public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi {
 
+  // TODO(bazel-team): Find a better location for this constant.
+  public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP = "test";
+
   /** Starlark constructor and identifier for ExecutionInfo. */
   public static final BuiltinProvider<ExecutionInfo> PROVIDER =
       new BuiltinProvider<ExecutionInfo>("ExecutionInfo", ExecutionInfo.class) {};
 
   private final ImmutableMap<String, String> executionInfo;
+  private final String execGroup;
 
   public ExecutionInfo(Map<String, String> requirements) {
+    this(requirements, DEFAULT_TEST_RUNNER_EXEC_GROUP);
+  }
+
+  public ExecutionInfo(Map<String, String> requirements, String execGroup) {
     this.executionInfo = ImmutableMap.copyOf(requirements);
+    this.execGroup = Preconditions.checkNotNull(execGroup);
   }
 
   @Override
@@ -50,5 +60,11 @@ public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
+  }
+
+  /** Returns the name of the exec group that is used to execute the test. */
+  @Override
+  public String getExecGroup() {
+    return execGroup;
   }
 }

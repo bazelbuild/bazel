@@ -372,6 +372,10 @@ public class SpawnIncludeScanner {
       execInfoBuilder.put(
           ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
           outputExecPath.getPathString());
+      // grep-includes writes output file to disk. If in-memory output is requested, no-local should
+      // also be added, otherwise, grep-includes could be executed locally resulting output be
+      // written to local disk.
+      execInfoBuilder.put(ExecutionRequirements.NO_LOCAL, "");
     }
     execInfoBuilder.put(ExecutionRequirements.DO_NOT_REPORT, "");
 

@@ -300,7 +300,7 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -399,7 +399,7 @@ public class ExecutionTool {
       }
     }
 
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -726,6 +726,7 @@ public class ExecutionTool {
     // Gather configurations to consider.
     Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
+                && !analysisResult.getTargetsToBuild().isEmpty()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
@@ -780,6 +781,7 @@ public class ExecutionTool {
    * If a path is supplied, creates and installs an ExplanationHandler. Returns an instance on
    * success. Reports an error and returns null otherwise.
    */
+  @Nullable
   private ExplanationHandler installExplanationHandler(
       PathFragment explanationPath, String allOptions) {
     if (explanationPath == null) {
@@ -929,7 +931,6 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.localRamResources,
