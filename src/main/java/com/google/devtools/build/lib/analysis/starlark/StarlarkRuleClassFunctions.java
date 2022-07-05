@@ -960,8 +960,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     try {
-      return Label.parseWithRepoContext(
-          labelString, moduleContext.label().getRepository(), moduleContext.repoMapping());
+      return Label.parseWithRepoContext(labelString, moduleContext.packageContext());
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", e.getMessage());
     }

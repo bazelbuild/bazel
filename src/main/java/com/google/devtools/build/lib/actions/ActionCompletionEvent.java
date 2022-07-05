@@ -14,12 +14,10 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
-/**
- * An event that is fired after an action completes (either successfully or not).
- */
-public final class ActionCompletionEvent implements ProgressLike {
+/** An event that is fired after an action completes (either successfully or not). */
+public final class ActionCompletionEvent implements Postable {
 
   private final long relativeActionStartTime;
   private final Action action;

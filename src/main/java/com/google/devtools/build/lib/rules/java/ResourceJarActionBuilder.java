@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
 
@@ -46,37 +47,44 @@ public class ResourceJarActionBuilder {
   private JavaToolchainProvider javaToolchain;
   private NestedSet<Artifact> additionalInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setOutputJar(Artifact outputJar) {
     this.outputJar = outputJar;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setAdditionalInputs(NestedSet<Artifact> additionalInputs) {
     this.additionalInputs = additionalInputs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setClasspathResources(
       ImmutableList<Artifact> classpathResources) {
     this.classpathResources = classpathResources;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setResources(Map<PathFragment, Artifact> resources) {
     this.resources = resources;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setResourceJars(NestedSet<Artifact> resourceJars) {
     this.resourceJars = resourceJars;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setTranslations(ImmutableList<Artifact> translations) {
     this.messages = translations;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceJarActionBuilder setJavaToolchain(JavaToolchainProvider javaToolchain) {
     this.javaToolchain = javaToolchain;
     return this;

@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * A helper class for android rules.
@@ -286,6 +287,7 @@ public class AndroidCommon {
     }
   }
 
+  @Nullable
   static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
     PathFragment resourceDir = AndroidResources.findResourceDir(resource);
     if (resourceDir == null) {
@@ -424,6 +426,7 @@ public class AndroidCommon {
     javacHelper.createSourceJarAction(resourceSourceJar, null);
   }
 
+  @Nullable
   public JavaTargetAttributes init(
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,

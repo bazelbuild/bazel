@@ -54,11 +54,8 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/**
- * Shared rule classes and associated utility code for Objective-C rules.
- */
+/** Shared rule classes and associated utility code for Objective-C rules. */
 public class ObjcRuleClasses {
-  static final String LIPO = "lipo";
   static final String STRIP = "strip";
 
   private ObjcRuleClasses() {

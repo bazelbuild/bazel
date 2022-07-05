@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -208,6 +209,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     private Builder() {}
 
     /** Sets the label for the target. */
+    @CanIgnoreReturnValue
     public Builder setLabel(Label label) {
       this.label = label;
       return this;
@@ -218,6 +220,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
      *
      * <p>This sets both the label and configurationKey data.
      */
+    @CanIgnoreReturnValue
     public Builder setConfiguredTarget(ConfiguredTarget configuredTarget) {
       setLabel(configuredTarget.getOriginalLabel());
       if (this.configurationKey == null) {
@@ -232,6 +235,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     }
 
     /** Sets the configuration key for the configured target. */
+    @CanIgnoreReturnValue
     public Builder setConfigurationKey(@Nullable BuildConfigurationKey configurationKey) {
       this.configurationKey = configurationKey;
       return this;
@@ -241,6 +245,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
      * Sets the execution platform {@link Label} this configured target should use for toolchain
      * resolution. When present, this overrides the normally determined execution platform.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel) {
       this.executionPlatformLabel = executionPlatformLabel;
       return this;

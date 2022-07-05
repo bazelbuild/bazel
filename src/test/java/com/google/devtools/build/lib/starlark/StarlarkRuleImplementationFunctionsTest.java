@@ -183,8 +183,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -1369,8 +1368,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(
-                Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
+            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
   }
 
   @Test
@@ -1411,9 +1409,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
-        .isEqualTo(
-            new StarlarkProvider.Key(
-                Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "FooInfo"));
+        .isEqualTo(new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "FooInfo"));
   }
 
   @Test
@@ -1532,8 +1528,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(
-                Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
+            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
     assertThat(((StructImpl) provider).getValue("a")).isEqualTo(StarlarkInt.of(123));
   }
 
@@ -1581,8 +1576,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(
-                Label.parseAbsolute("//test:foo.bzl", ImmutableMap.of()), "foo_provider"));
+            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
   }
 
   @Test

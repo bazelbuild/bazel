@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +59,7 @@ public abstract class ConstraintCollection
     private Builder() {}
 
     /** Sets the parent {@link ConstraintCollection} of this instance. */
+    @CanIgnoreReturnValue
     public Builder parent(@Nullable ConstraintCollection parent) {
       this.parent = parent;
       return this;
@@ -74,6 +76,7 @@ public abstract class ConstraintCollection
     }
 
     /** Adds the given constraints to the current collection. */
+    @CanIgnoreReturnValue
     public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
       constraintValues.addAll(constraints);
       return this;

@@ -57,6 +57,7 @@ import com.google.devtools.build.android.ziputils.EntryHandler;
 import com.google.devtools.build.android.ziputils.LocalFileHeader;
 import com.google.devtools.build.android.ziputils.ZipIn;
 import com.google.devtools.build.android.ziputils.ZipOut;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -169,63 +170,75 @@ public class ResourceLinker {
     return new ResourceLinker(aapt2, executorService, workingDirectory);
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker includeGeneratedLocales(boolean generatePseudoLocale) {
     this.generatePseudoLocale = generatePseudoLocale;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker profileUsing(Profiler profiler) {
     this.profiler = profiler;
     return this;
   }
 
   /** Dependent static libraries to be linked to. */
+  @CanIgnoreReturnValue
   public ResourceLinker dependencies(List<StaticLibrary> libraries) {
     this.linkAgainst = libraries;
     return this;
   }
 
   /** Dependent compiled resources to be included in the binary. */
+  @CanIgnoreReturnValue
   public ResourceLinker include(List<CompiledResources> include) {
     this.include = include;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker withAssets(List<Path> assetDirs) {
     this.assetDirs = assetDirs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker buildVersion(Revision buildToolsVersion) {
     this.buildToolsVersion = buildToolsVersion;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker debug(boolean debug) {
     this.debug = debug;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker conditionalKeepRules(boolean conditionalKeepRules) {
     this.conditionalKeepRules = conditionalKeepRules;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker customPackage(String customPackage) {
     this.customPackage = customPackage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker packageId(Optional<Integer> packageId) {
     this.packageId = packageId;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker filterToDensity(List<String> densities) {
     this.densities = densities;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker outputAsProto(boolean outputAsProto) {
     this.outputAsProto = outputAsProto;
     return this;
@@ -687,16 +700,19 @@ public class ResourceLinker {
     }
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker storeUncompressed(List<String> uncompressedExtensions) {
     this.uncompressedExtensions = uncompressedExtensions;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker includeOnlyConfigs(List<String> resourceConfigs) {
     this.resourceConfigs = resourceConfigs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ResourceLinker includeProguardLocationReferences(
       boolean includeProguardLocationReferences) {
     this.includeProguardLocationReferences = includeProguardLocationReferences;

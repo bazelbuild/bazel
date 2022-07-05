@@ -22,6 +22,7 @@ import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.E
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDSUB;
 
 import com.google.common.primitives.UnsignedInts;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -565,8 +566,10 @@ public class ZipIn {
 
     /**
      * Sets the header of this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withHeader(LocalFileHeader header) {
       this.header = header;
       return this;
@@ -581,8 +584,10 @@ public class ZipIn {
 
     /**
      * Sets the data descriptor of this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withDescriptor(DataDescriptor descriptor) {
       this.descriptor = descriptor;
       return this;
@@ -597,8 +602,10 @@ public class ZipIn {
 
     /**
      * Sets the byte buffer providing access to the raw content of this zip entry.
+     *
      * @return this object
      */
+    @CanIgnoreReturnValue
     public ZipEntry withContent(ByteBuffer content) {
       this.content = content;
       return this;
@@ -613,8 +620,10 @@ public class ZipIn {
 
     /**
      * Sets the central directory entry for this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withEntry(DirectoryEntry entry) {
       this.entry = entry;
       return this;
@@ -629,8 +638,10 @@ public class ZipIn {
 
     /**
      * Sets the status code for this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withCode(Status code) {
       this.code = code;
       return this;

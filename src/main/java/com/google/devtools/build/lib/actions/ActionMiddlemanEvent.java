@@ -14,14 +14,14 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * This event is fired during the build, when a middleman action is executed. Middleman actions
  * don't usually do any computation but we need them in the critical path because they depend on
  * other actions.
  */
-public class ActionMiddlemanEvent implements ProgressLike {
+public final class ActionMiddlemanEvent implements Postable {
 
   private final Action action;
   private final long nanoTimeStart;

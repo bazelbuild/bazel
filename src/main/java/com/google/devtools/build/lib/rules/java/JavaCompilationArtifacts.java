@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -92,28 +93,33 @@ public abstract class JavaCompilationArtifacts {
           fullCompileTimeJars);
     }
 
+    @CanIgnoreReturnValue
     public Builder addRuntimeJar(Artifact jar) {
       this.runtimeJars.add(jar);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addRuntimeJars(Iterable<Artifact> jars) {
       Iterables.addAll(this.runtimeJars, jars);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addInterfaceJarWithFullJar(Artifact ijar, Artifact fullJar) {
       this.compileTimeJars.add(ijar);
       this.fullCompileTimeJars.add(fullJar);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCompileTimeJarAsFullJar(Artifact jar) {
       this.compileTimeJars.add(jar);
       this.fullCompileTimeJars.add(jar);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addInterfaceJarsWithFullJars(
         Iterable<Artifact> compileTimeJars, Iterable<Artifact> fullCompileTimeJars) {
       Iterables.addAll(this.compileTimeJars, compileTimeJars);
@@ -122,6 +128,7 @@ public abstract class JavaCompilationArtifacts {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCompileTimeDependencies(@Nullable Artifact compileTimeDependencies) {
       this.compileTimeDependencies = compileTimeDependencies;
       return this;

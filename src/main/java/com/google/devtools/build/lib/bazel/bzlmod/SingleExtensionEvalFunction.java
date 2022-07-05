@@ -85,6 +85,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     this.repositoryRemoteExecutor = repositoryRemoteExecutor;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
@@ -135,6 +136,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (bzlLoadValue == null) {
       return null;
     }
+    // TODO(wyv): Consider whether there's a need to check bzl-visibility
+    // (BzlLoadFunction#checkLoadVisibilities).
+    // TODO(wyv): Consider refactoring to use PackageFunction#loadBzlModules, or the simpler API
+    // that may be created by b/237658764.
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
@@ -161,6 +166,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     try (Mutability mu =
         Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       ModuleExtensionContext moduleContext =
           createContext(env, usagesValue, starlarkSemantics, extension);
       threadContext.storeInThread(thread);

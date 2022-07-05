@@ -20,14 +20,14 @@ import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.OsEven
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.SymlinkEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.TemplateEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.syntax.Location;
 
 /** An event to record events happening during workspace rule resolution */
-public final class WorkspaceRuleEvent implements ProgressLike {
+public final class WorkspaceRuleEvent implements Postable {
   WorkspaceLogProtos.WorkspaceEvent event;
 
   public WorkspaceLogProtos.WorkspaceEvent getLogEvent() {

@@ -174,9 +174,9 @@ public final class SkyframeActionExecutor {
   private ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap;
 
   // We also keep track of actions which were reset this build from a previously-completed state.
-  // When re-evaluated, these actions should not emit ProgressLike events, in order to not confuse
-  // the downstream consumers of action-related event streams, which may (reasonably) have expected
-  // an action to be executed at most once per build.
+  // When re-evaluated, these actions should not emit progress events, in order to not confuse the
+  // downstream consumers of action-related event streams, which may (reasonably) have expected an
+  // action to be executed at most once per build.
   //
   // Note: actions which fail due to lost inputs, and get rewound, will not have any events
   // suppressed during their second evaluation. Consumers of events which get emitted before
@@ -604,7 +604,8 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      isRemoteCacheEnabled =
+          (remoteOptions != null && remoteOptions.isRemoteCacheEnabled()) || outputService != null;
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -962,11 +963,11 @@ public final class SkyframeActionExecutor {
       //   env.getListener
       // Apparently, one isn't enough.
       //
-      // At this time, ProgressLike events that are generated in this class should be posted to
-      // env.getListener, while ProgressLike events that are generated in the Action implementation
-      // are posted to actionExecutionContext.getEventHandler. The reason for this seems to be
-      // action rewinding, which suppresses progress on actionExecutionContext.getEventHandler, for
-      // undocumented reasons.
+      // Progress events that are generated in this class should be posted to env.getListener, while
+      // progress events that are generated in the Action implementation are posted to
+      // actionExecutionContext.getEventHandler. The reason for this is action rewinding, in which
+      // case env.getListener may be a ProgressSuppressingEventHandler. See shouldEmitProgressEvents
+      // and completedAndResetActions.
       //
       // It is also unclear why we are posting anything directly to reporter. That probably
       // shouldn't happen.

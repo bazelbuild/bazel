@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 
@@ -108,31 +109,37 @@ public final class ChainedFunction implements SkyFunction {
     private boolean waitForException;
     private Iterable<SkyKey> deps = ImmutableList.of();
 
+    @CanIgnoreReturnValue
     public Builder setValue(SkyValue value) {
       this.value = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNotifyStart(Runnable notifyStart) {
       this.notifyStart = notifyStart;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWaitToFinish(CountDownLatch waitToFinish) {
       this.waitToFinish = waitToFinish;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNotifyFinish(Runnable notifyFinish) {
       this.notifyFinish = notifyFinish;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWaitForException(boolean waitForException) {
       this.waitForException = waitForException;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDeps(Iterable<SkyKey> deps) {
       this.deps = Preconditions.checkNotNull(deps);
       return this;

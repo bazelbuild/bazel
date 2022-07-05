@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
 import org.objectweb.asm.Opcodes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.objectweb.asm.AnnotationVisitor;
@@ -233,6 +234,7 @@ public class DepsCheckerClassVisitor extends ClassVisitor {
       super(Opcodes.ASM9);
     }
 
+    @CanIgnoreReturnValue
     @Override
     public AnnotationVisitor visitAnnotation(String name, String desc) {
       checkDescriptor(desc);

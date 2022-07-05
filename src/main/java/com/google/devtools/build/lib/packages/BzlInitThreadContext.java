@@ -29,11 +29,14 @@ import net.starlark.java.eval.StarlarkThread;
  */
 public final class BzlInitThreadContext extends BazelStarlarkContext {
 
+  private final Label bzlFile;
+
   // For storing the result of calling `visibility()`.
   @Nullable private BzlVisibility bzlVisibility;
 
   // TODO(b/236456122): Are all these arguments needed for .bzl initialization?
   public BzlInitThreadContext(
+      Label bzlFile,
       @Nullable RepositoryName toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
       SymbolGenerator<?> symbolGenerator,
@@ -45,6 +48,7 @@ public final class BzlInitThreadContext extends BazelStarlarkContext {
         symbolGenerator,
         /*analysisRuleLabel=*/ null,
         networkAllowlistForTests);
+    this.bzlFile = bzlFile;
   }
 
   /**
@@ -71,6 +75,17 @@ public final class BzlInitThreadContext extends BazelStarlarkContext {
           "'%s' can only be called during .bzl initialization (top-level evaluation)", function);
     }
     return (BzlInitThreadContext) ctx;
+  }
+
+  /**
+   * Returns the label of the .bzl module being initialized.
+   *
+   * <p>Note that this is not necessarily the same as the module of the innermost stack frame (i.e.,
+   * {@code BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label()}),
+   * since the module may call helper functions loaded from elsewhere.
+   */
+  public Label getBzlFile() {
+    return bzlFile;
   }
 
   /**

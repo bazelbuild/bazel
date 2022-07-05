@@ -637,7 +637,13 @@ public class ParallelEvaluatorTest {
   @Test
   public void postableFromDoneChildRecorded() throws Exception {
     graph = new InMemoryGraphImpl();
-    Postable post = new Postable() {};
+    Postable post =
+        new Postable() {
+          @Override
+          public boolean storeForReplay() {
+            return true;
+          }
+        };
     set("a", "a").setPostable(post);
     SkyKey a = GraphTester.toSkyKey("a");
     SkyKey top = GraphTester.toSkyKey("top");

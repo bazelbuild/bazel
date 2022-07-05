@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -34,8 +33,7 @@ public class NoSuchTargetExceptionCodecTest {
   public void smoke() throws Exception {
     new SerializationTester(
             new NoSuchTargetException("sup"),
-            new NoSuchTargetException(
-                Label.parseAbsolute("//foo:bar", ImmutableMap.of()), "busted"),
+            new NoSuchTargetException(Label.parseCanonical("//foo:bar"), "busted"),
             new NoSuchTargetException(mockTarget("//broken:target")))
         .makeMemoizing()
         .setVerificationFunction(verifyDeserialization)
@@ -44,7 +42,7 @@ public class NoSuchTargetExceptionCodecTest {
 
   private static Target mockTarget(String label) throws LabelSyntaxException {
     Target mockTarget = mock(Target.class);
-    when(mockTarget.getLabel()).thenReturn(Label.parseAbsolute(label, ImmutableMap.of()));
+    when(mockTarget.getLabel()).thenReturn(Label.parseCanonical(label));
     return mockTarget;
   }
 

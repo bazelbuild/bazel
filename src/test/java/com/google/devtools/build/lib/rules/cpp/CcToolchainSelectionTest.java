@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -55,7 +54,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     ToolchainInfo toolchainInfo =
         getRuleContext(target)
             .getToolchainContext()
-            .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
+            .forToolchainType(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
     CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
@@ -73,7 +72,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     ToolchainInfo toolchainInfo =
         getRuleContext(target)
             .getToolchainContext()
-            .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
+            .forToolchainType(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
     CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }

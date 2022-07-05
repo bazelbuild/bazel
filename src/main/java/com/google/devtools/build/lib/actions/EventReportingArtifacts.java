@@ -21,7 +21,7 @@ import java.util.Collection;
 /** Interface for {@link BuildEvent}s reporting artifacts as named sets */
 public interface EventReportingArtifacts extends BuildEvent {
 
-  /** Pair of artifacts and a @{link CompletionContext}. */
+  /** Pair of artifacts and a {@link CompletionContext}. */
   class ReportedArtifacts {
     public final Collection<NestedSet<Artifact>> artifacts;
     public final CompletionContext completionContext;

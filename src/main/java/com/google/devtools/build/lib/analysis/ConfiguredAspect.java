@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
@@ -129,6 +130,7 @@ public final class ConfiguredAspect implements ProviderCollection {
       this.ruleContext = ruleContext;
     }
 
+    @CanIgnoreReturnValue
     public <T extends TransitiveInfoProvider> Builder addProvider(
         Class<? extends T> providerClass, T provider) {
       Preconditions.checkNotNull(provider);
@@ -138,6 +140,7 @@ public final class ConfiguredAspect implements ProviderCollection {
     }
 
     /** Adds a provider to the aspect. */
+    @CanIgnoreReturnValue
     public Builder addProvider(TransitiveInfoProvider provider) {
       Preconditions.checkNotNull(provider);
       addProvider(TransitiveInfoProviderEffectiveClassHelper.get(provider), provider);
@@ -149,6 +152,7 @@ public final class ConfiguredAspect implements ProviderCollection {
     }
 
     /** Adds providers to the aspect. */
+    @CanIgnoreReturnValue
     public Builder addProviders(TransitiveInfoProviderMap providers) {
       this.providers.addAll(providers);
       return this;
@@ -160,6 +164,7 @@ public final class ConfiguredAspect implements ProviderCollection {
     }
 
     /** Adds providers to the aspect. */
+    @CanIgnoreReturnValue
     public Builder addProviders(Iterable<TransitiveInfoProvider> providers) {
       for (TransitiveInfoProvider provider : providers) {
         addProvider(provider);
@@ -167,9 +172,8 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    /**
-     * Adds a set of files to an output group.
-     */
+    /** Adds a set of files to an output group. */
+    @CanIgnoreReturnValue
     public Builder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
       outputGroupBuilders
           .computeIfAbsent(name, k -> NestedSetBuilder.stableOrder())
@@ -177,11 +181,13 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkTransitiveInfo(String name, Object value) {
       providers.put(name, value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkDeclaredProvider(Info declaredProvider) throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
@@ -198,6 +204,7 @@ public final class ConfiguredAspect implements ProviderCollection {
       providers.put(declaredProvider);
     }
 
+    @CanIgnoreReturnValue
     public Builder addNativeDeclaredProvider(Info declaredProvider) {
       Provider constructor = declaredProvider.getProvider();
       Preconditions.checkState(constructor.isExported());

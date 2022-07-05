@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
 /**
@@ -73,21 +74,25 @@ public class TestExecutorBuilder {
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setReporter(Reporter reporter) {
     this.reporter = reporter;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setOptionsParser(OptionsParser optionsParser) {
     this.optionsParser = optionsParser;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder parseOptions(String... options) throws OptionsParsingException {
     this.optionsParser.parse(options);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder parseOptions(List<String> options) throws OptionsParsingException {
     this.optionsParser.parse(options);
     return this;
@@ -99,6 +104,7 @@ public class TestExecutorBuilder {
    * <p>If two action contexts are registered with the same identifying type and commandline
    * identifier the last registered will take precedence.
    */
+  @CanIgnoreReturnValue
   public <T extends ActionContext> TestExecutorBuilder addContext(
       Class<T> identifyingType, T context, String... commandlineIdentifiers) {
     actionContextRegistryBuilder.register(identifyingType, context, commandlineIdentifiers);
@@ -106,6 +112,7 @@ public class TestExecutorBuilder {
   }
 
   /** Makes the given strategy available in the execution phase. */
+  @CanIgnoreReturnValue
   public TestExecutorBuilder addStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
     strategyRegistryBuilder.registerStrategy(strategy, commandlineIdentifiers);
     return this;
@@ -116,11 +123,13 @@ public class TestExecutorBuilder {
    *
    * <p>Replaces any previously set default strategies.
    */
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setDefaultStrategies(String... strategies) {
     strategyRegistryBuilder.setDefaultStrategies(ImmutableList.copyOf(strategies));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setExecution(String mnemonic, String strategy) {
     strategyRegistryBuilder.addMnemonicFilter(mnemonic, ImmutableList.of(strategy));
     return this;

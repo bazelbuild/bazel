@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -533,26 +534,31 @@ public final class JavaInfo extends NativeInfo
           .setLocation(javaInfo.getCreationLocation());
     }
 
+    @CanIgnoreReturnValue
     public Builder setRuntimeJars(ImmutableList<Artifact> runtimeJars) {
       this.runtimeJars = runtimeJars;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNeverlink(boolean neverlink) {
       this.neverlink = neverlink;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setJavaConstraints(ImmutableList<String> javaConstraints) {
       this.javaConstraints = javaConstraints;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setLocation(Location location) {
       this.creationLocation = location;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public <P extends TransitiveInfoProvider> Builder addProvider(
         Class<P> providerClass, TransitiveInfoProvider provider) {
       Preconditions.checkArgument(ALLOWED_PROVIDERS.contains(providerClass));
@@ -560,6 +566,7 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder javaPluginInfo(JavaPluginInfo javaPluginInfo) {
       providerMap.put(javaPluginInfo);
       return this;

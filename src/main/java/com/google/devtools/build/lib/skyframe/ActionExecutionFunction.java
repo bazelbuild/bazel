@@ -216,8 +216,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     ActionExecutionState previousExecution = skyframeActionExecutor.probeActionExecution(action);
 
     // If this action was previously completed this build, then this evaluation must be happening
-    // because of rewinding. Prevent any ProgressLike events from being published a second time for
-    // this action; downstream consumers of action events reasonably don't expect them.
+    // because of rewinding. Prevent any progress events from being published a second time for this
+    // action; downstream consumers of action events reasonably don't expect them.
     if (!skyframeActionExecutor.shouldEmitProgressEvents(action)) {
       env = new ProgressEventSuppressingEnvironment(env);
     }

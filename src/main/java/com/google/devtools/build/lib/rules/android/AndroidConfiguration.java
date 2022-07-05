@@ -174,6 +174,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       return "auto";
     }
 
+    @Nullable
     public static AndroidManifestMerger fromString(String value) {
       for (AndroidManifestMerger merger : AndroidManifestMerger.values()) {
         if (merger.name().equalsIgnoreCase(value)) {

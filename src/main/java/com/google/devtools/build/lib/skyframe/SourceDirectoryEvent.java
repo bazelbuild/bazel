@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Event issued when a source directory is encountered in {@link ArtifactFunction}. */
 @AutoValue
-public abstract class SourceDirectoryEvent implements ProgressLike {
+public abstract class SourceDirectoryEvent implements Postable {
   public abstract PathFragment execPath();
 
   public static SourceDirectoryEvent create(PathFragment execPath) {

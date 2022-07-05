@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IllegalFormatException;
@@ -487,56 +488,67 @@ public class StarlarkCustomCommandLine extends CommandLine {
         this.nestedSet = nestedSet;
       }
 
+      @CanIgnoreReturnValue
       Builder setLocation(Location location) {
         this.location = location;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setArgName(String argName) {
         this.argName = argName;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setExpandDirectories(boolean expandDirectories) {
         this.expandDirectories = expandDirectories;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setMapEach(StarlarkCallable mapEach) {
         this.mapEach = mapEach;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setFormatEach(String format) {
         this.formatEach = format;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setBeforeEach(String beforeEach) {
         this.beforeEach = beforeEach;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setJoinWith(String joinWith) {
         this.joinWith = joinWith;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setFormatJoined(String formatJoined) {
         this.formatJoined = formatJoined;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder omitIfEmpty(boolean omitIfEmpty) {
         this.omitIfEmpty = omitIfEmpty;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder uniquify(boolean uniquify) {
         this.uniquify = uniquify;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setTerminateWith(String terminateWith) {
         this.terminateWith = terminateWith;
         return this;
@@ -619,6 +631,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         this.object = object;
       }
 
+      @CanIgnoreReturnValue
       Builder setFormat(String format) {
         this.format = format;
         return this;
@@ -653,21 +666,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.starlarkSemantics = starlarkSemantics;
     }
 
+    @CanIgnoreReturnValue
     Builder recordArgStart() {
       argStartIndexes.add(arguments.size());
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder add(Object object) {
       arguments.add(object);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder add(VectorArg.Builder vectorArg) {
       VectorArg.push(arguments, vectorArg, starlarkSemantics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder add(ScalarArg.Builder scalarArg) {
       ScalarArg.push(arguments, scalarArg);
       return this;

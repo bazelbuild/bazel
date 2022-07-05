@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @Immutable
-public class TestResult implements ExtendedEventHandler.ProgressLike {
+public class TestResult implements ExtendedEventHandler.Postable {
 
   private final TestRunnerAction testAction;
   private final TestResultData data;

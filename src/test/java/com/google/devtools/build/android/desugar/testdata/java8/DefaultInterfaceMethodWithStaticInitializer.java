@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar.testdata.java8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,7 @@ public class DefaultInterfaceMethodWithStaticInitializer {
 
   final List<String> initializationOrder = new ArrayList<>();
 
+  @CanIgnoreReturnValue
   DefaultInterfaceMethodWithStaticInitializer register(Class<?> enclosingInterfaceClass) {
     initializationOrder.add(enclosingInterfaceClass.getSimpleName());
     return this;

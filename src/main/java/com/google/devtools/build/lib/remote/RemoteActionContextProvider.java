@@ -49,6 +49,7 @@ final class RemoteActionContextProvider {
   @Nullable private final Path logDir;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
   private RemoteExecutionService remoteExecutionService;
+  @Nullable private RemoteActionInputFetcher actionInputFetcher;
 
   private RemoteActionContextProvider(
       Executor executor,
@@ -123,6 +124,10 @@ final class RemoteActionContextProvider {
       remotePathResolver = new DefaultRemotePathResolver(execRoot);
     }
     return remotePathResolver;
+  }
+
+  public void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
+    this.actionInputFetcher = actionInputFetcher;
   }
 
   private RemoteExecutionService getRemoteExecutionService() {
@@ -211,9 +216,10 @@ final class RemoteActionContextProvider {
   }
 
   public void afterCommand() {
+    BlockWaitingModule blockWaitingModule =
+        checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
+
     if (remoteExecutionService != null) {
-      BlockWaitingModule blockWaitingModule =
-          checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
       blockWaitingModule.submit(() -> remoteExecutionService.shutdown());
     } else {
       if (remoteCache != null) {
@@ -222,6 +228,10 @@ final class RemoteActionContextProvider {
       if (remoteExecutor != null) {
         remoteExecutor.close();
       }
+    }
+
+    if (actionInputFetcher != null) {
+      blockWaitingModule.submit(() -> actionInputFetcher.shutdown());
     }
   }
 }

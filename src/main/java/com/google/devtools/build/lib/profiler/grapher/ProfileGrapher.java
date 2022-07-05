@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.zip.GZIPInputStream;
+import javax.annotation.Nullable;
 
 /**
  * An experimental tool to turn Json profiles into graphs. Do not depend on the continuing existence
@@ -173,6 +174,7 @@ public class ProfileGrapher {
    * Decodes the start time and duration from the data, adds it to the given series and returns the
    * end time in milliseconds if it was possible to decode the data, otherwise null.
    */
+  @Nullable
   private static Long decodeAndAdd(TimeSeries series, Map<String, Object> data) {
     Double ts = (Double) data.get("ts");
     Double dur = (Double) data.get("dur");

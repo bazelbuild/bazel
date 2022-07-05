@@ -59,7 +59,7 @@ public class CcBootstrap implements Bootstrap {
   private final DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
-  private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
+  private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
   private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
   private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
@@ -98,7 +98,7 @@ public class CcBootstrap implements Bootstrap {
       DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
       CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
-      GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,
+      GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,
       PyWrapCcInfoApi.Provider pyWrapCcInfoProvider,
       PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
     this.ccModule = ccModule;

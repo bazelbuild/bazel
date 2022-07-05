@@ -20,20 +20,33 @@ package com.google.devtools.build.lib.events;
  */
 public interface ExtendedEventHandler extends EventHandler {
 
-  /** Interface for declaring events that can be posted via the extended event handler */
-  interface Postable {}
+  /** An event that can be posted via the extended event handler. */
+  interface Postable {
 
-  /** Post an postable object with more refined information about an important build event */
+    /**
+     * If this post originated from {@link
+     * com.google.devtools.build.skyframe.SkyFunction.Environment#getListener}, whether it should be
+     * stored in the corresponding Skyframe node to be replayed on incremental builds when the node
+     * is deemed up-to-date.
+     *
+     * <p>Posts which are crucial to the correctness of the evaluation should return {@code true} so
+     * that they are replayed when the {@link com.google.devtools.build.skyframe.SkyFunction}
+     * invocation is cached. On the other hand, posts that are merely informational (such as a
+     * progress update) should return {@code false} to avoid taking up memory.
+     *
+     * <p>This method is not relevant for posts which do not originate from {@link
+     * com.google.devtools.build.skyframe.SkyFunction} evaluation.
+     */
+    default boolean storeForReplay() {
+      return false;
+    }
+  }
+
+  /** Posts a {@link Postable} object about an important build event. */
   void post(Postable obj);
 
-  /**
-   * Interface for declaring postable events that report about progress (as opposed to success or
-   * failure) and hence should not be stored and replayed.
-   */
-  interface ProgressLike extends Postable {}
-
-  /** Interface for progress events that report about fetching from a remote site */
-  interface FetchProgress extends ProgressLike {
+  /** A progress event that reports about fetching from a remote site. */
+  interface FetchProgress extends Postable {
 
     /**
      * The resource that was originally requested and uniquely determines the fetch source. The

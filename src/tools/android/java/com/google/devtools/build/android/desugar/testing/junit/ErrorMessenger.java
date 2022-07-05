@@ -16,6 +16,7 @@
 
 package com.google.devtools.build.android.desugar.testing.junit;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ class ErrorMessenger {
 
   private final List<String> errorMessages = new ArrayList<>();
 
+  @CanIgnoreReturnValue
   @FormatMethod
   ErrorMessenger addError(String recipe, Object... args) {
     errorMessages.add(String.format(recipe, args));

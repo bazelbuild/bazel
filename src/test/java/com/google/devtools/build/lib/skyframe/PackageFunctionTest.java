@@ -620,8 +620,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackageWithoutErrors(skyKey);
     assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
-            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
-            Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
+            Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//baz:ext.bzl"));
 
     scratch.overwriteFile("bar/ext.bzl", "load('//qux:ext.bzl', 'c')", "a = c");
     getSkyframeExecutor()
@@ -633,8 +632,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackageWithoutErrors(skyKey);
     assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
-            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
-            Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));
+            Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//qux:ext.bzl"));
   }
 
   @Test
@@ -767,6 +765,76 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey key = PackageValue.key(PackageIdentifier.createInMainRepo("p"));
     SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
     assertContainsEvent("The label must reference a file with extension '.bzl'");
+  }
+
+  @Test
+  public void testBzlVisibilityViolation() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=b");
+
+    scratch.file(
+        "a/BUILD", //
+        "load(\"//b:foo.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/foo.bzl", //
+        "visibility(\"private\")",
+        "x = 1");
+
+    reporter.removeHandler(failFastHandler);
+    Exception ex = evaluatePackageToException("a");
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "error loading package 'a': file //a:BUILD contains .bzl load-visibility violations");
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
+    assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
+  }
+
+  @Test
+  public void testVisibilityCallableNotAvailableInBUILD() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file(
+        "a/BUILD", //
+        "visibility(\"public\")");
+
+    reporter.removeHandler(failFastHandler);
+    // The evaluation result ends up being null, probably due to the test framework swallowing
+    // exceptions (similar to b/26382502). So let's just look for the error event instead of
+    // asserting on the exception.
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(),
+        PackageValue.key(PackageIdentifier.createInMainRepo("a")),
+        /*keepGoing=*/ false,
+        reporter);
+    assertContainsEvent("name 'visibility' is not defined");
+  }
+
+  @Test
+  public void testVisibilityCallableErroneouslyInvokedInBUILD() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true", "--experimental_bzl_visibility_allowlist=a");
+
+    scratch.file(
+        "a/BUILD", //
+        "load(\":helper.bzl\", \"helper\")",
+        "helper()");
+    scratch.file(
+        "a/helper.bzl", //
+        "def helper():",
+        "    visibility(\"public\")");
+
+    reporter.removeHandler(failFastHandler);
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(),
+        PackageValue.key(PackageIdentifier.createInMainRepo("a")),
+        /*keepGoing=*/ false,
+        reporter);
+    assertContainsEvent(
+        "'visibility' can only be called during .bzl initialization (top-level evaluation)");
   }
 
   @Test

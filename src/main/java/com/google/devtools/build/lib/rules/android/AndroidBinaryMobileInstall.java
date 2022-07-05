@@ -324,6 +324,7 @@ public final class AndroidBinaryMobileInstall {
         .addOutputGroup("android_incremental_deploy_info", incrementalDeployInfo);
   }
 
+  @Nullable
   private static Artifact getStubDex(
       RuleContext ruleContext, JavaSemantics javaSemantics, boolean split)
       throws InterruptedException {
