@@ -937,7 +937,9 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions != null
+        && !remoteOptions.remoteOutputsMode.downloadAllOutputs()
+        && actionContextProvider.getRemoteCache() != null) {
       remoteOutputService = new RemoteOutputService();
     }
     return remoteOutputService;
