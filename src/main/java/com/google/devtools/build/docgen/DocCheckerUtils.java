@@ -15,11 +15,11 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableSet;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * A utility class to check the generated documentations.
@@ -55,6 +55,7 @@ public class DocCheckerUtils {
   }
 
   // TODO(bazel-team): run this on the Starlark docs too.
+  @Nullable
   private static String getFirstUnclosedTag(String src, boolean printHelp) {
     Matcher commentMatcher = COMMENT_PATTERN.matcher(src);
     src = commentMatcher.replaceAll("");
