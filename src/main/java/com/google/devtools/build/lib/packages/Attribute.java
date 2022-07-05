@@ -620,15 +620,13 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * See value(TYPE) above. This method is only meant for Starlark usage.
      *
-     * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
-     * case, {@code context} must point to the parent Label in order to be able to convert the
-     * default value string to a proper Label.
+     * <p>The parameter {@code labelConverter} is relevant iff the default value is a Label string.
      *
      * @param parameterName The name of the attribute to use in error messages
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> defaultValue(
-        Object defaultValue, Object context, @Nullable String parameterName)
+        Object defaultValue, LabelConverter labelConverter, @Nullable String parameterName)
         throws ConversionException {
       Preconditions.checkState(!valueSet, "the default value is already set");
       value =
@@ -636,7 +634,7 @@ public final class Attribute implements Comparable<Attribute> {
               defaultValue,
               ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
                   + String.format("attribute '%s'", name),
-              context);
+              labelConverter);
       valueSet = true;
       return this;
     }

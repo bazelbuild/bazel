@@ -1164,7 +1164,7 @@ public class Package {
       return this;
     }
 
-    LabelConverter getLabelConverter() {
+    public LabelConverter getLabelConverter() {
       return labelConverter;
     }
 
