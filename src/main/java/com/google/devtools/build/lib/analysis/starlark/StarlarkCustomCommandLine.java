@@ -1027,6 +1027,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         "\n", FIELD_JOINER.join(location, message), getCauseMessage(cause, message));
   }
 
+  @Nullable
   private static String getCauseMessage(@Nullable Throwable cause, String message) {
     if (cause == null) {
       return null;
