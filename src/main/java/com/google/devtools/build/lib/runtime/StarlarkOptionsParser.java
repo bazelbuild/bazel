@@ -131,24 +131,18 @@ public class StarlarkOptionsParser {
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting
   public void parse(ExtendedEventHandler eventHandler) throws OptionsParsingException {
-    ImmutableList.Builder<String> residue = new ImmutableList.Builder<>();
+    parseGivenArgs(eventHandler, nativeOptionsParser.getSkippedArgs());
+  }
+
+  @VisibleForTesting
+  public void parseGivenArgs(ExtendedEventHandler eventHandler, List<String> args)
+      throws OptionsParsingException {
     // Map of <option name (label), <unparsed option value, loaded option>>.
     Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
 
-    // sort the old residue into starlark flags and legitimate residue
-    for (String arg : nativeOptionsParser.getPreDoubleDashResidue()) {
-      // TODO(bazel-team): support single dash options?
-      if (!arg.startsWith("--")) {
-        residue.add(arg);
-        continue;
-      }
-
+    for (String arg : args) {
       parseArg(arg, unparsedOptions, eventHandler);
     }
-
-    List<String> postDoubleDashResidue = nativeOptionsParser.getPostDoubleDashResidue();
-    residue.addAll(postDoubleDashResidue);
-    nativeOptionsParser.setResidue(residue.build(), postDoubleDashResidue);
 
     if (unparsedOptions.isEmpty()) {
       return;
@@ -236,6 +230,9 @@ public class StarlarkOptionsParser {
       Multimap<String, Pair<String, Target>> unparsedOptions,
       ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
+    if (!arg.startsWith("--")) {
+      throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
+    }
     int equalsAt = arg.indexOf('=');
     String name = equalsAt == -1 ? arg.substring(2) : arg.substring(2, equalsAt);
     if (name.trim().isEmpty()) {
@@ -361,11 +358,6 @@ public class StarlarkOptionsParser {
       OptionsParser nativeOptionsParser) {
     return new StarlarkOptionsParser(
         skyframeExecutor, relativeWorkingDirectory, reporter, nativeOptionsParser);
-  }
-
-  @VisibleForTesting
-  public void setResidueForTesting(List<String> residue) {
-    nativeOptionsParser.setResidue(residue, ImmutableList.of());
   }
 
   @VisibleForTesting

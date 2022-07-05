@@ -160,10 +160,10 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testSingleDash_notAllowed() throws Exception {
     writeBasicIntFlag();
 
-    OptionsParsingResult result = parseStarlarkOptions("-//test:my_int_setting=666");
-
-    assertThat(result.getStarlarkOptions()).isEmpty();
-    assertThat(result.getResidue()).containsExactly("-//test:my_int_setting=666");
+    OptionsParsingException e = assertThrows(OptionsParsingException.class,
+        () -> parseStarlarkOptions("-//test:my_int_setting=666"));
+    assertThat(e).hasMessageThat()
+        .isEqualTo("Invalid options syntax: -//test:my_int_setting=666");
   }
 
   // test --non_flag_setting=value
