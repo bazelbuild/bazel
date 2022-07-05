@@ -263,7 +263,7 @@ of basic ways that the rules can be used.
 All rules available as a [Bazel module](https://bazel.build/docs/bzlmod#modules)
 from the [Bazel Central Registry (BCR)](https://github.com/bazelbuild/bazel-central-registry)
 should provide a Bazel test module under `tests/bcr/` that references the main
-module and exercises some basic functionality of the rules. This test should be
+module and exercises some basic functionality of the rules. This test must be
 included in source archives and is used by the BCR to determine compatibility of
 the rules with different Bazel and dependency versions.
 See [bazel-central-registry#1302](https://github.com/bazelbuild/continuous-integration/issues/1302)
