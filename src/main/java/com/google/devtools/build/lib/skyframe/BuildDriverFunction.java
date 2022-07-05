@@ -218,6 +218,7 @@ public class BuildDriverFunction implements SkyFunction {
    *
    * @return null if a value is missing in the environment.
    */
+  @Nullable
   private Boolean isConfiguredTargetCompatible(
       Environment env,
       State state,
@@ -271,6 +272,7 @@ public class BuildDriverFunction implements SkyFunction {
             .build());
   }
 
+  @Nullable
   private static Target getTarget(Environment env, Label label)
       throws InterruptedException, NoSuchTargetException {
     PackageValue packageValue =
