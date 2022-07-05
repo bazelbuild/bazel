@@ -87,6 +87,7 @@ public class SimpleCycleDetector implements CycleDetector {
    * continue. Once all of a node's children are done, we construct an error value for it, based on
    * those children. Finally, when the original root's node is constructed, we return its ErrorInfo.
    */
+  @Nullable
   private static ErrorInfo checkForCycles(SkyKey root, ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     // The number of cycles found. Do not keep on searching for more cycles after this many were

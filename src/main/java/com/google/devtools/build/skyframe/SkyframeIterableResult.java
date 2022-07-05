@@ -94,6 +94,7 @@ public final class SkyframeIterableResult {
     return nextOrThrow(exceptionClass1, exceptionClass2, exceptionClass3, null);
   }
 
+  @Nullable
   public <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
       SkyValue nextOrThrow(
           @Nullable Class<E1> exceptionClass1,
