@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -295,6 +296,7 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+    env.getListener().post(TopLevelTargetExecutionStartedEvent.create());
     if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
           env,
@@ -335,6 +337,7 @@ public class BuildDriverFunction implements SkyFunction {
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
 
+    env.getListener().post(TopLevelTargetExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
     for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
