@@ -82,7 +82,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   private static final LabelLateBoundDefault<?> PROTO_TOOLCHAIN_LABEL =
       LabelLateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,
-          Label.parseAbsoluteUnchecked("@com_google_protobuf//:cc_toolchain"),
+          Label.parseAbsoluteUnchecked("@bazel_tools//tools/proto:cc_toolchain"),
           (rule, attributes, protoConfig) -> protoConfig.protoToolchainForCc());
 
   private final CppSemantics cppSemantics;

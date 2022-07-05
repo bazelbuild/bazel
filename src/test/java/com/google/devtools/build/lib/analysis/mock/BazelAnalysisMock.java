@@ -316,6 +316,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "package_group(name='config_feature_flag_Setter', packages=['//...'])");
 
     config.create(
+        "embedded_tools/tools/proto/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "alias(name='protoc',actual='@com_google_protobuf//:protoc')",
+        "alias(name='javalite_toolchain',actual='@com_google_protobuf//:javalite_toolchain')",
+        "alias(name='java_toolchain',actual='@com_google_protobuf//:java_toolchain')",
+        "alias(name='cc_toolchain',actual='@com_google_protobuf//:cc_toolchain')");
+
+    config.create(
         "embedded_tools/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",

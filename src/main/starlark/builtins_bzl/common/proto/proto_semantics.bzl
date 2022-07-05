@@ -20,7 +20,7 @@ def _preprocess(ctx):
     pass
 
 semantics = struct(
-    PROTO_COMPILER_LABEL = "@com_google_protobuf//:protoc",
+    PROTO_COMPILER_LABEL = "@bazel_tools//tools/proto:protoc",
     EXTRA_ATTRIBUTES = {
         "import_prefix": attr.string(),
     },

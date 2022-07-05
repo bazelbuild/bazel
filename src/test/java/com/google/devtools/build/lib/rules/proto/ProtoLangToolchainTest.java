@@ -21,9 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -42,12 +39,6 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     invalidatePackages();
   }
 
-  Provider.Key getStarlarkProtoLangToolchainInfoKey() throws LabelSyntaxException {
-    return new StarlarkProvider.Key(
-        Label.parseCanonical("@_builtins//:common/proto/proto_common.bzl"),
-        "ProtoLangToolchainInfo");
-  }
-
   private void validateProtoLangToolchain(ProtoLangToolchainProvider toolchain) throws Exception {
     assertThat(toolchain.outReplacementFormatFlag()).isEqualTo("cmd-line:%s");
     assertThat(toolchain.pluginFormatFlag()).isEqualTo("--plugin=%s");
@@ -63,9 +54,11 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.mnemonic()).isEqualTo("MyMnemonic");
   }
 
-  private void validateProtoCompiler(ProtoLangToolchainProvider toolchain, Label protoCompiler) {
+  private void validateProtoCompiler(ProtoLangToolchainProvider toolchain, String protocLabel)
+      throws Exception {
+    Label actualProtocLabel = getConfiguredTarget(protocLabel).getActual().getLabel();
     assertThat(toolchain.protoc().getExecutable().prettyPrint())
-        .isEqualTo(protoCompiler.toPathFragment().getPathString());
+        .isEqualTo(actualProtocLabel.toPathFragment().getPathString());
   }
 
   @Test
@@ -96,10 +89,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
-    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, protoc);
+    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
   }
 
   @Test
@@ -131,10 +123,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
-    Label protoc = Label.parseAbsoluteUnchecked("//third_party/x:compiler");
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, protoc);
+    validateProtoCompiler(toolchain, "//third_party/x:compiler");
   }
 
   @Test
@@ -164,10 +155,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
-    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, protoc);
+    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
   }
 
   @Test
@@ -197,10 +187,9 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
-    Label protoc = Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, protoc);
+    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
   }
 
   @Test
