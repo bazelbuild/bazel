@@ -453,6 +453,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCache);
           }
 
+          @Nullable
           @Override
           public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
             Path buildFileForPackage = getBuildFileForPackage(packageName);
