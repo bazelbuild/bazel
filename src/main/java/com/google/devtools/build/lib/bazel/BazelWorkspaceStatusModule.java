@@ -336,6 +336,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return ImmutableMap.copyOf(env.getClientEnv());
     }
 
+    @Nullable
     @Override
     public com.google.devtools.build.lib.shell.Command getCommand() {
       WorkspaceStatusAction.Options options =
