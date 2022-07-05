@@ -1,13 +1,3 @@
-commit bb0d04663c7dc6c0096f8717cb4ec26330a5ae40
-Author: Yun Peng <pcloudy@google.com>
-Date:   Wed Jun 3 15:35:31 2020 +0200
-
-    Patch grpc v1.26.0 for Bazel build
-
-    - Avoid loading dependencies that're not needed for the gRPC C++
-    libraries
-    - Redirect zlib to @//third_party/zlib
-
 diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
 index 7bb6b8bdb9..7644107b70 100644
 --- a/bazel/grpc_build_system.bzl
@@ -56,9 +46,7 @@ index 7bb6b8bdb9..7644107b70 100644
 +    )
 diff --git a/bazel/grpc_deps.bzl b/bazel/grpc_deps.bzl
 index 09fcad95a2..9b737e5deb 100644
---- a/bazel/grpc_deps.bzl
-+++ b/bazel/grpc_deps.bzl
-@@ -33,7 +33,7 @@ def grpc_deps():
+@@ -82,7 +82,7 @@
 
      native.bind(
          name = "madler_zlib",
@@ -71,14 +59,14 @@ diff --git a/bazel/grpc_extra_deps.bzl b/bazel/grpc_extra_deps.bzl
 index 09fcad95a2..9b737e5deb 100644
 --- a/bazel/grpc_extra_deps.bzl
 +++ b/bazel/grpc_extra_deps.bzl
-@@ -13,14 +13,8 @@
+@@ -13,14 +13,9 @@
  # limitations under the License.
  """Loads the dependencies necessary for the external repositories defined in grpc_deps.bzl."""
 
 -load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 -load("@build_bazel_apple_support//lib:repositories.bzl", "apple_support_dependencies")
 -load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
--load("@com_envoyproxy_protoc_gen_validate//:dependencies.bzl", "go_third_party")
+ load("@com_envoyproxy_protoc_gen_validate//:dependencies.bzl", "go_third_party")
  load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
  load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 -load("@envoy_api//bazel:repositories.bzl", "api_dependencies")
@@ -86,7 +74,7 @@ index 09fcad95a2..9b737e5deb 100644
  load("@upb//bazel:workspace_deps.bzl", "upb_deps")
 
  def grpc_extra_deps(ignore_version_differences = False):
-@@ -50,20 +44,6 @@
+@@ -50,20 +45,6 @@
 
      upb_deps()
 
