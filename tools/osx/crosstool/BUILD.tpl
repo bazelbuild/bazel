@@ -80,6 +80,14 @@ cc_toolchain_suite(
     for arch in OSX_TOOLS_ARCHS
 ]
 
+# When xcode_locator fails and causes cc_autoconf_toolchains to fall back
+# to the non-Xcode C++ toolchain, it uses the legacy cpu value to refer to
+# the toolchain, which is "darwin" for x86_64 macOS.
+alias(
+    name = "cc-compiler-darwin",
+    actual = ":cc-compiler-darwin_x86_64",
+)
+
 [
     cc_toolchain_config(
         name = arch,

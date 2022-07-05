@@ -351,7 +351,7 @@ def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
             libs_message.append(str(unaccounted_lib))
 
     if len(unaccounted_for_libs) > 10:
-        libs_message = "(and " + str(len(unaccounted_for_libs) - 10) + " others)\n"
+        libs_message.append("(and " + str(len(unaccounted_for_libs) - 10) + " others)\n")
 
     static_deps_message = []
     for repo in different_repos:
@@ -480,6 +480,11 @@ def _cc_shared_library_impl(ctx):
     runfiles_files = []
     if linking_outputs.library_to_link.resolved_symlink_dynamic_library != None:
         runfiles_files.append(linking_outputs.library_to_link.resolved_symlink_dynamic_library)
+
+    # This is different to cc_binary(linkshared=1). Bazel never handles the
+    # linking implicitly for a cc_binary(linkshared=1) but it does so for a cc_shared_library,
+    # for which it will use the symlink in the solib directory. If we don't add it, a dependent
+    # linked against it would fail.
     runfiles_files.append(linking_outputs.library_to_link.dynamic_library)
     runfiles = ctx.runfiles(
         files = runfiles_files,
@@ -488,6 +493,15 @@ def _cc_shared_library_impl(ctx):
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
         transitive_debug_files.append(dep[OutputGroupInfo].rule_impl_debug_files)
+
+    precompiled_only_dynamic_libraries_runfiles = []
+    for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
+        # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
+        # an interface library which is valid if the actual library is obtained from the system.
+        if precompiled_dynamic_library.dynamic_library != None:
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+
+    runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
@@ -511,6 +525,13 @@ def _cc_shared_library_impl(ctx):
             precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
+    interface_library = []
+    if linking_outputs.library_to_link.resolved_symlink_interface_library != None:
+        interface_library.append(linking_outputs.library_to_link.resolved_symlink_interface_library)
+    elif linking_outputs.library_to_link.interface_library != None:
+        interface_library.append(linking_outputs.library_to_link.interface_library)
+    else:
+        interface_library = library
 
     return [
         DefaultInfo(
@@ -519,6 +540,7 @@ def _cc_shared_library_impl(ctx):
         ),
         OutputGroupInfo(
             main_shared_library_output = depset(library),
+            interface_library = depset(interface_library),
             rule_impl_debug_files = depset(direct = debug_files, transitive = transitive_debug_files),
         ),
         CcSharedLibraryInfo(
