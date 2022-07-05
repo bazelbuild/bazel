@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -1736,31 +1737,37 @@ public final class RuleContext extends TargetContext
       }
     }
 
+    @CanIgnoreReturnValue
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setHostConfiguration(BuildConfigurationValue hostConfiguration) {
       this.hostConfiguration = hostConfiguration;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setConfigurationFragmentPolicy(ConfigurationFragmentPolicy policy) {
       this.configurationFragmentPolicy = policy;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
       this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setMutability(Mutability mutability) {
       this.mutability = mutability;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
       this.visibility = visibility;
       return this;
@@ -1770,6 +1777,7 @@ public final class RuleContext extends TargetContext
      * Sets the prerequisites and checks their visibility. It also generates appropriate error or
      * warning messages and sets the error flag as appropriate.
      */
+    @CanIgnoreReturnValue
     public Builder setPrerequisites(
         OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
@@ -1777,6 +1785,7 @@ public final class RuleContext extends TargetContext
     }
 
     /** Adds attributes which are defined by an Aspect (and not by RuleClass). */
+    @CanIgnoreReturnValue
     public Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
       this.aspectAttributes = ImmutableMap.copyOf(aspectAttributes);
       return this;
@@ -1786,12 +1795,14 @@ public final class RuleContext extends TargetContext
      * Sets the configuration conditions needed to determine which paths to follow for this rule's
      * configurable attributes.
      */
+    @CanIgnoreReturnValue
     public Builder setConfigConditions(ConfigConditions configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
       return this;
     }
 
     /** Sets the collection of {@link ResolvedToolchainContext}s available to this rule. */
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setToolchainContexts(
         ToolchainCollection<ResolvedToolchainContext> toolchainContexts) {
@@ -1802,6 +1813,7 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecGroupCollectionBuilder(
         ExecGroupCollection.Builder execGroupCollectionBuilder) {
       this.execGroupCollectionBuilder = execGroupCollectionBuilder;
@@ -1812,11 +1824,13 @@ public final class RuleContext extends TargetContext
      * Warning: if you set the exec properties using this method any exec_properties attribute value
      * will be ignored in favor of this value.
      */
+    @CanIgnoreReturnValue
     public Builder setExecProperties(ImmutableMap<String, String> execProperties) {
       this.rawExecProperties = execProperties;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRequiredConfigFragments(
         @Nullable RequiredConfigFragmentsProvider requiredConfigFragments) {
       this.requiredConfigFragments = requiredConfigFragments;

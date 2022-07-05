@@ -16,6 +16,7 @@ package com.google.devtools.build.android.ziputils;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -120,6 +121,7 @@ public class DirectoryEntry extends View<DirectoryEntry> {
     return view;
   }
 
+  @CanIgnoreReturnValue
   private DirectoryEntry init(byte[] name, byte[] extra, byte[] comment, int size) {
     buffer.putInt(0, SIGNATURE);
     set(CENNAM, name.length);

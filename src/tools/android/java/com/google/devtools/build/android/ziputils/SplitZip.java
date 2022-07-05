@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -81,17 +82,20 @@ public class SplitZip implements EntryHandler {
   }
 
   /**
-   * Configures a resource file. By default, resources are output in the initial shard.
-   * If a resource file is specified, resources are written to this instead.
+   * Configures a resource file. By default, resources are output in the initial shard. If a
+   * resource file is specified, resources are written to this instead.
+   *
    * @param resourceFile in not {@code null}, the name of a file in which to output resources.
    * @return this object.
    */
+  @CanIgnoreReturnValue
   public SplitZip setResourceFile(String resourceFile) {
     this.resourceFile = resourceFile;
     return this;
   }
 
   // Package private for testing with mock file
+  @CanIgnoreReturnValue
   SplitZip setResourceFile(ZipOut resOut) {
     resourceOut = resOut;
     return this;
@@ -112,12 +116,14 @@ public class SplitZip implements EntryHandler {
    * @param clFile path of class file list.
    * @return this object
    */
+  @CanIgnoreReturnValue
   public SplitZip setMainClassListFile(String clFile) {
     filterFile = clFile;
     return this;
   }
 
   // Package private for testing with mock file
+  @CanIgnoreReturnValue
   SplitZip setMainClassListStreamForTesting(InputStream clInputStream) {
     filterInputStream = clInputStream;
     return this;
@@ -137,6 +143,7 @@ public class SplitZip implements EntryHandler {
    * @param flag set to {@code true} to turn on verbose mode.
    * @return this object
    */
+  @CanIgnoreReturnValue
   public SplitZip setVerbose(boolean flag) {
     verbose = flag;
     return this;
@@ -155,6 +162,7 @@ public class SplitZip implements EntryHandler {
    *
    * @param flag {@code true} will split .dex files; {@code false} treats them as resources
    */
+  @CanIgnoreReturnValue
   public SplitZip setSplitDexedClasses(boolean flag) {
     splitDexFiles = flag;
     return this;
@@ -167,6 +175,7 @@ public class SplitZip implements EntryHandler {
    * @param date modified date and time to set for entries in output.
    * @return this object.
    */
+  @CanIgnoreReturnValue
   public SplitZip setEntryDate(Date date) {
     this.date = date;
     this.dosTime = date == null ? null : new DosTime(date);
@@ -178,6 +187,7 @@ public class SplitZip implements EntryHandler {
    *
    * @return this object.
    */
+  @CanIgnoreReturnValue
   public SplitZip useDefaultEntryDate() {
     this.date = DosTime.DOS_EPOCHISH;
     this.dosTime = DosTime.EPOCHISH;
@@ -198,6 +208,7 @@ public class SplitZip implements EntryHandler {
    * @return this object
    * @throws java.io.IOException
    */
+  @CanIgnoreReturnValue
   public SplitZip addInputs(Iterable<String> inputs) throws IOException {
     for (String i : inputs) {
       addInput(i);
@@ -212,6 +223,7 @@ public class SplitZip implements EntryHandler {
    * @return this object
    * @throws java.io.IOException
    */
+  @CanIgnoreReturnValue
   public SplitZip addInput(String filename) throws IOException {
     if (filename != null) {
       inputs.add(new ZipIn(new FileInputStream(filename).getChannel(), filename));
@@ -220,6 +232,7 @@ public class SplitZip implements EntryHandler {
   }
 
   // Package private, for testing using mock file system.
+  @CanIgnoreReturnValue
   SplitZip addInput(ZipIn in) throws IOException {
     Preconditions.checkNotNull(in);
     inputs.add(in);
@@ -233,6 +246,7 @@ public class SplitZip implements EntryHandler {
    * @return this object
    * @throws java.io.IOException
    */
+  @CanIgnoreReturnValue
   public SplitZip addOutputs(Iterable<String> outputs) throws IOException {
     for (String o : outputs) {
       addOutput(o);
@@ -247,6 +261,7 @@ public class SplitZip implements EntryHandler {
    * @return this object
    * @throws java.io.IOException
    */
+  @CanIgnoreReturnValue
   public SplitZip addOutput(String output) throws IOException {
     Preconditions.checkNotNull(output);
     outputs.add(new ZipOut(new FileOutputStream(output, false).getChannel(), output));
@@ -254,6 +269,7 @@ public class SplitZip implements EntryHandler {
   }
 
   // Package private for testing with mock file
+  @CanIgnoreReturnValue
   SplitZip addOutput(ZipOut output) throws IOException {
     Preconditions.checkNotNull(output);
     outputs.add(output);
@@ -261,10 +277,11 @@ public class SplitZip implements EntryHandler {
   }
 
   /**
-   * Set a predicate to only include files with matching filenames in any of the outputs.  <b>Other
+   * Set a predicate to only include files with matching filenames in any of the outputs. <b>Other
    * zip entries are dropped</b>, regardless of whether they're classes or resources and regardless
    * of whether they're listed in {@link #setMainClassListFile}.
    */
+  @CanIgnoreReturnValue
   public SplitZip setInputFilter(Predicate<String> inputFilter) {
     this.inputFilter = Preconditions.checkNotNull(inputFilter);
     return this;
@@ -277,6 +294,7 @@ public class SplitZip implements EntryHandler {
    * @return this object
    * @throws java.io.IOException
    */
+  @CanIgnoreReturnValue
   public SplitZip run() throws IOException {
     verbose("SplitZip: Splitting in: " + outputs.size());
     verbose("SplitZip: with filter: " + filterFile);
