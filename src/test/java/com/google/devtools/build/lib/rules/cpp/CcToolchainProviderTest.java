@@ -78,9 +78,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "my_rule(name = 'target')");
 
     ConfiguredTarget ct = getConfiguredTarget("//test:target");
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "MyInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:rule.bzl"), "MyInfo");
     StructImpl info = (StructImpl) ct.get(key);
 
     assertThat((String) info.getValue("ar_executable")).endsWith("/usr/bin/mock-ar");

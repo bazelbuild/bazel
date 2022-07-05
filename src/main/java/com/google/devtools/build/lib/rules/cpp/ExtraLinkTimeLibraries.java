@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.ExtraLinkTimeLibrary.BuildLibraryOutput;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -93,9 +94,8 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
       return new ExtraLinkTimeLibraries(extraLibraries);
     }
 
-    /**
-     * Add a transitive dependency.
-     */
+    /** Add a transitive dependency. */
+    @CanIgnoreReturnValue
     public final Builder addTransitive(ExtraLinkTimeLibraries dep) {
       for (ExtraLinkTimeLibrary depLibrary : dep.getExtraLibraries()) {
         Class<? extends ExtraLinkTimeLibrary> c = depLibrary.getClass();
@@ -105,9 +105,8 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
       return this;
     }
 
-    /**
-     * Add a single library to build.
-     */
+    /** Add a single library to build. */
+    @CanIgnoreReturnValue
     public final Builder add(ExtraLinkTimeLibrary b) {
       Class<? extends ExtraLinkTimeLibrary> c = b.getClass();
       libraries.computeIfAbsent(c, k -> b.getBuilder());

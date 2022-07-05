@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.unix.ProcMeminfoParser;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
@@ -163,11 +161,9 @@ public class ResourceManager {
 
   private WorkerPool workerPool;
 
-  // The total amount of resources on the local host. Must be set by
+  // The total amount of available for Bazel resources on the local host. Must be set by
   // an explicit call to setAvailableResources(), often using
   // LocalHostCapacity.getLocalHostCapacity() as an argument.
-  private ResourceSet staticResources = null;
-
   @VisibleForTesting public ResourceSet availableResources = null;
 
   private ImmutableMap<String, ResourceSet> mnemonicResourceOverride = ImmutableMap.of();
@@ -183,9 +179,6 @@ public class ResourceManager {
 
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
-
-  // Determines if local memory estimates are used.
-  private boolean localMemoryEstimate = false;
 
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
@@ -218,7 +211,6 @@ public class ResourceManager {
     localRequests.clear();
     dynamicWorkerRequests.clear();
     dynamicStandaloneRequests.clear();
-    staticResources = null;
   }
 
   /**
@@ -229,32 +221,7 @@ public class ResourceManager {
   public synchronized void setAvailableResources(ResourceSet resources) {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
-    staticResources = resources;
-    availableResources =
-        ResourceSet.create(
-            staticResources.getMemoryMb(),
-            staticResources.getCpuUsage(),
-            staticResources.getLocalTestCount());
-  }
-
-  public void setMnemonicResourceOverride(List<Map.Entry<String, String>> mnemonic_resource_override)
-          throws NumberFormatException {
-    if (mnemonic_resource_override == null){
-      return;
-    }
-    ImmutableMap.Builder<String, ResourceSet> buildData = ImmutableMap.builder();
-    for (Map.Entry<String,String> keyValue : mnemonic_resource_override){
-      String[] values = keyValue.getValue().split(",");
-
-      try {
-        double memory = Double.valueOf(values[0]);
-        double cpu = Double.valueOf(values[1]);
-        buildData.put(keyValue.getKey(), ResourceSet.createWithRamCpu(memory, cpu));
-      } catch (NumberFormatException e) {
-        throw new NumberFormatException("mnemonic_resource_override does not have 2 integer values.");
-      }
-    }
-    this.mnemonicResourceOverride = buildData.build();
+    availableResources = resources
   }
 
   public void setMnemonicResourceOverride(List<Map.Entry<String, String>> mnemonic_resource_override)
@@ -284,7 +251,7 @@ public class ResourceManager {
   public void setUseLocalMemoryEstimate(boolean value) {
     localMemoryEstimate = value;
   }
-
+  
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
   public void setWorkerPool(WorkerPool workerPool) {
     this.workerPool = workerPool;
@@ -588,23 +555,6 @@ public class ResourceManager {
     int availableLocalTestCount = availableResources.getLocalTestCount();
 
     double remainingRam = availableRam - usedRam;
-
-    if (localMemoryEstimate && OS.getCurrent() == OS.LINUX) {
-      try {
-        ProcMeminfoParser memInfo = new ProcMeminfoParser();
-        double totalFreeRam = memInfo.getFreeRamKb() / 1024.0;
-        double reserveMemory = staticResources.getMemoryMb();
-        remainingRam = totalFreeRam - reserveMemory;
-      } catch (IOException e) {
-        // If we get an error trying to determine the currently free system memory for any reason,
-        // just continue on.  It is not terribly clear what could cause this, aside from an
-        // unexpected ABI breakage in the linux kernel or an OS-level misconfiguration such as not
-        // having permissions to read /proc/meminfo.
-        //
-        // remainingRam is initialized to a value that results in behavior as if localMemoryEstimate
-        // was disabled.
-      }
-    }
 
     WorkerKey workerKey = resources.getWorkerKey();
     int availableWorkers = 0;

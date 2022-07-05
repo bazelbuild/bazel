@@ -112,7 +112,7 @@ public final class BuildType {
         }
 
         @Override
-        public DistributionType convert(Object x, Object what, Object context) {
+        public DistributionType convert(Object x, Object what, LabelConverter labelConverter) {
           throw new UnsupportedOperationException();
         }
 
@@ -207,30 +207,19 @@ public final class BuildType {
     }
 
     @Override
-    public Label convert(Object x, Object what, Object context) throws ConversionException {
+    public Label convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof Label) {
         return (Label) x;
       }
+      if (!(x instanceof String)) {
+        throw new ConversionException(Type.STRING, x, what);
+      }
       try {
-        if (!(x instanceof String)) {
-          throw new ConversionException(Type.STRING, x, what);
+        if (labelConverter == null) {
+          return Label.parseCanonical((String) x);
         }
-        // This String here is about to be parsed into a Label. We do not use STRING.convert since
-        // there is absolutely no motivation to intern the String; the Label we create will be
-        // storing a reference to different string (a substring in fact).
-        String str = (String) x;
-        // TODO(b/110101445): check if context is ever actually null
-        if (context == null) {
-          return Label.parseAbsolute(str, /* repositoryMapping= */ ImmutableMap.of());
-          // TODO(b/110308446): remove instances of context being a Label
-        } else if (context instanceof Label) {
-          return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
-        } else if (context instanceof LabelConverter) {
-          LabelConverter labelConverter = (LabelConverter) context;
-          return labelConverter.convert(str);
-        } else {
-          throw new ConversionException("invalid context '" + context + "' in " + what);
-        }
+        return labelConverter.convert((String) x);
       } catch (LabelSyntaxException e) {
         throw new ConversionException(
             "invalid label '" + x + "' in " + what + ": " + e.getMessage());
@@ -256,9 +245,9 @@ public final class BuildType {
     }
 
     @Override
-    public Map<Label, ValueT> convert(Object x, Object what, Object context)
+    public Map<Label, ValueT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
-      Map<Label, ValueT> result = super.convert(x, what, context);
+      Map<Label, ValueT> result = super.convert(x, what, labelConverter);
       // The input is known to be a map because super.convert succeeded; otherwise, a
       // ConversionException would have been thrown.
       Map<?, ?> input = (Map<?, ?>) x;
@@ -270,7 +259,7 @@ public final class BuildType {
       // Look for collisions in order to produce a nicer error message.
       Map<Label, List<Object>> convertedFrom = new LinkedHashMap<>();
       for (Object original : input.keySet()) {
-        Label label = LABEL.convert(original, what, context);
+        Label label = LABEL.convert(original, what, labelConverter);
         convertedFrom.computeIfAbsent(label, k -> new ArrayList<>()).add(original);
       }
       Printer errorMessage = new Printer();
@@ -310,7 +299,8 @@ public final class BuildType {
     }
 
     @Override
-    public License convert(Object x, Object what, Object context) throws ConversionException {
+    public License convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       try {
         List<String> licenseStrings = STRING_LIST.convert(x, what);
         return License.parseLicense(licenseStrings);
@@ -346,7 +336,7 @@ public final class BuildType {
     }
 
     @Override
-    public Set<DistributionType> convert(Object x, Object what, Object context)
+    public Set<DistributionType> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       try {
         List<String> distribStrings = STRING_LIST.convert(x, what);
@@ -403,30 +393,13 @@ public final class BuildType {
     }
 
     @Override
-    public Label convert(Object x, Object what, Object context) throws ConversionException {
-
-      String value;
-      try {
-        value = STRING.convert(x, what, context);
-      } catch (ConversionException e) {
-        throw new ConversionException(this, x, what);
+    public Label convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
+      Label result = LABEL.convert(x, what, labelConverter);
+      if (!result.getPackageIdentifier().equals(labelConverter.getBasePackage())) {
+        throw new ConversionException("label '" + x + "' is not in the current package");
       }
-      try {
-        // Enforce value is relative to the context.
-        if (!(context instanceof LabelConverter)) {
-          throw new ConversionException("invalid context '" + context + "' in " + what);
-        }
-
-        LabelConverter converter = (LabelConverter) context;
-        Label result = converter.convert(value);
-        if (!result.getPackageIdentifier().equals(converter.getBasePackage())) {
-          throw new ConversionException("label '" + value + "' is not in the current package");
-        }
-        return result;
-      } catch (LabelSyntaxException e) {
-        throw new ConversionException(
-            "illegal output file name '" + value + "': " + e.getMessage());
-      }
+      return result;
     }
   }
 
@@ -698,7 +671,8 @@ public final class BuildType {
     }
 
     @Override
-    public TriState convert(Object x, Object what, Object context) throws ConversionException {
+    public TriState convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof TriState) {
         return (TriState) x;
       }
@@ -710,7 +684,7 @@ public final class BuildType {
         //       + "instead, use 0 or 1, or None for the default)");
         return ((Boolean) x) ? TriState.YES : TriState.NO;
       }
-      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
+      int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
       if (xAsInteger == -1) {
         return TriState.AUTO;
       } else if (xAsInteger == 1) {

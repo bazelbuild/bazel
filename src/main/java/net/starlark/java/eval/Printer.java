@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.IllegalFormatException;
 import java.util.List;
@@ -47,30 +48,35 @@ public class Printer {
   }
 
   /** Appends a char to the printer's buffer */
+  @CanIgnoreReturnValue
   public final Printer append(char c) {
     buffer.append(c);
     return this;
   }
 
   /** Appends a char sequence to the printer's buffer */
+  @CanIgnoreReturnValue
   public final Printer append(CharSequence s) {
     buffer.append(s);
     return this;
   }
 
   /** Appends a char subsequence to the printer's buffer */
+  @CanIgnoreReturnValue
   public final Printer append(CharSequence s, int start, int end) {
     buffer.append(s, start, end);
     return this;
   }
 
   /** Appends an integer to the printer's buffer */
+  @CanIgnoreReturnValue
   public final Printer append(int i) {
     buffer.append(i);
     return this;
   }
 
   /** Appends a long integer to the printer's buffer */
+  @CanIgnoreReturnValue
   public final Printer append(long l) {
     buffer.append(l);
     return this;

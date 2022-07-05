@@ -420,7 +420,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     UiStateTracker stateTracker = new UiStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label labelA = Label.parseCanonical("//foo/bar:baz");
     ConfiguredTarget targetA = mock(ConfiguredTarget.class);
     when(targetA.getLabel()).thenReturn(labelA);
     ConfiguredTarget targetB = mock(ConfiguredTarget.class);
@@ -453,7 +453,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     UiStateTracker stateTracker = new UiStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label labelA = Label.parseCanonical("//foo/bar:baz");
     ConfiguredTarget targetA = mock(ConfiguredTarget.class);
     when(targetA.getLabel()).thenReturn(labelA);
     ConfiguredTarget targetB = mock(ConfiguredTarget.class);
@@ -484,7 +484,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     UiStateTracker stateTracker = new UiStateTracker(clock);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
-    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label labelA = Label.parseCanonical("//foo/bar:baz");
     ConfiguredTarget targetA = mock(ConfiguredTarget.class);
     when(targetA.getLabel()).thenReturn(labelA);
     ConfiguredTarget targetB = mock(ConfiguredTarget.class);
@@ -521,8 +521,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
                 + " files)",
             "some/very/very/long/path/for/some/library/directory/foo.jar");
     Label label =
-        Label.parseAbsolute(
-            "//some/very/very/long/path/for/some/library/directory:libfoo", ImmutableMap.of());
+        Label.parseCanonical("//some/very/very/long/path/for/some/library/directory:libfoo");
     ActionOwner owner =
         ActionOwner.create(
             label,
@@ -774,9 +773,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
             "src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar");
 
     Label bartestLabel =
-        Label.parseAbsolute(
-            "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest",
-            ImmutableMap.of());
+        Label.parseCanonical(
+            "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest");
     ConfiguredTarget bartestTarget = mock(ConfiguredTarget.class);
     when(bartestTarget.getLabel()).thenReturn(bartestLabel);
 
@@ -1039,7 +1037,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
     UiStateTracker stateTracker = new UiStateTracker(clock, 80);
 
-    Label labelFooTest = Label.parseAbsolute("//foo/bar:footest", ImmutableMap.of());
+    Label labelFooTest = Label.parseCanonical("//foo/bar:footest");
     ConfiguredTarget targetFooTest = mock(ConfiguredTarget.class);
     when(targetFooTest.getLabel()).thenReturn(labelFooTest);
     ActionOwner fooOwner =
@@ -1057,7 +1055,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             ImmutableMap.of(),
             null);
 
-    Label labelBarTest = Label.parseAbsolute("//baz:bartest", ImmutableMap.of());
+    Label labelBarTest = Label.parseCanonical("//baz:bartest");
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);

@@ -34,6 +34,12 @@ android/ @ahumesky @ted-xie
 /src/test/shell/bazel/apple @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl @bazelbuild/rules_apple-team
 /tools/osx @bazelbuild/rules_apple-team
 
+# Bzlmod
+
+/src/main/java/com/google/devtools/build/lib/bazel/bzlmod @Wyverald @meteorcloudy
+/src/test/java/com/google/devtools/build/lib/bazel/bzlmod @Wyverald @meteorcloudy
+/src/test/py/bazel/bzlmod @Wyverald @meteorcloudy
+
 # Documentation
 
 /site @gregestren @philomathing @fweikert

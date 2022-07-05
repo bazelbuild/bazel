@@ -1580,7 +1580,10 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getOrderedValuesAndExceptions(ImmutableList.of(topKey, depKey));
+                // Order depKey first - makeGraphDeterministic() only makes the batch maps returned
+                // by the graph deterministic, not the order of temporary direct deps. This makes
+                // the order of deps match (alphabetized by the string representation).
+                env.getOrderedValuesAndExceptions(ImmutableList.of(depKey, topKey));
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }

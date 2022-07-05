@@ -15,14 +15,18 @@
 #include "tools/cpp/build_info_translation_helper.h"
 
 #include <fstream>
+#include <utility>
 #include <vector>
 
+#include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace bazel {
 namespace tools {
 namespace cpp {
 namespace {
+using ::testing::UnorderedElementsAre;
+
 static const char kTestFilePrefix[] = "";
 
 class BuildInfoTranslationHelperTest : public testing::Test {};
@@ -77,18 +81,22 @@ TEST_F(BuildInfoTranslationHelperTest, DuplicatedKey) {
 
 TEST_F(BuildInfoTranslationHelperTest, MissingSeparator) {
   BuildInfoTranslationHelper helper(
-      "", absl::StrCat(kTestFilePrefix,
-                       "bazel/tools/cpp/test_data/no_separator.txt"));
-  absl::Status expected_version_status =
-      absl::Status(absl::StatusCode::kFailedPrecondition,
-                   "key2value3 does not contain a key value delimiter.");
+      absl::StrCat(kTestFilePrefix,
+                   "bazel/tools/cpp/test_data/no_separator.txt"),
+      "");
 
-  std::unordered_map<std::string, std::string> actual_version_file_map =
-      std::unordered_map<std::string, std::string>();
-  absl::Status actual_version_status =
-      helper.ParseVersionFile(actual_version_file_map);
+  std::unordered_map<std::string, std::string> expected_info_file_map(
+      {{"key1", "value1"}, {"key2", "value2"}, {"key2value3", ""}});
+  absl::Status expected_info_status = absl::OkStatus();
 
-  ASSERT_EQ(actual_version_status, expected_version_status);
+  std::unordered_map<std::string, std::string> actual_info_file_map;
+  absl::Status actual_info_status = helper.ParseInfoFile(actual_info_file_map);
+
+  EXPECT_EQ(actual_info_status, expected_info_status);
+  EXPECT_THAT(actual_info_file_map,
+              UnorderedElementsAre(std::make_pair("key1", "value1"),
+                                   std::make_pair("key2", "value2"),
+                                   std::make_pair("key2value3", "")));
 }
 
 TEST_F(BuildInfoTranslationHelperTest, WriteFileWorksCorrectly) {

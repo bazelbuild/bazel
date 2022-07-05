@@ -25,6 +25,7 @@ import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCLEN;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCSIZ;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -44,11 +45,13 @@ class ZipFileBuilder {
     input = new ArrayList<>();
   }
 
+  @CanIgnoreReturnValue
   public ZipFileBuilder add(String filename, String content) {
     input.add(new FileInfo(filename, content.getBytes(Charset.defaultCharset())));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ZipFileBuilder add(FileInfo fileInfo) {
     input.add(fileInfo);
     return this;

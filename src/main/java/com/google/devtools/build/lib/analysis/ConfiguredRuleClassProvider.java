@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -178,22 +179,26 @@ public /*final*/ class ConfiguredRuleClassProvider
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
 
+    @CanIgnoreReturnValue
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addWorkspaceFileSuffix(String contents) {
       defaultWorkspaceFileSuffix.append(contents);
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder clearWorkspaceFileSuffixForTesting() {
       defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
       try {
         this.preludeLabel = Label.parseAbsolute(preludeLabelString, ImmutableMap.of());
@@ -205,11 +210,13 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRunfilesPrefix(String runfilesPrefix) {
       this.runfilesPrefix = runfilesPrefix;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setToolsRepository(RepositoryName toolsRepository) {
       this.toolsRepository = toolsRepository;
       return this;
@@ -224,6 +231,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * #useDummyBuiltinsBzl} if they do not rely on any native rules that may be migratable to
      * Starlark.
      */
+    @CanIgnoreReturnValue
     public Builder setBuiltinsBzlZipResource(String name) {
       this.builtinsBzlZipResource = name;
       this.useDummyBuiltinsBzlInsteadOfResource = false;
@@ -239,6 +247,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * this method, but not tests that use AnalysisMock. Otherwise the test may break when a native
      * rule is migrated to Starlark via builtins injection.
      */
+    @CanIgnoreReturnValue
     public Builder useDummyBuiltinsBzl() {
       this.builtinsBzlZipResource = null;
       this.useDummyBuiltinsBzlInsteadOfResource = true;
@@ -251,21 +260,25 @@ public /*final*/ class ConfiguredRuleClassProvider
      * <p>This is required if the rule class provider will be used with {@code
      * --experimental_builtins_bzl_path=%workspace%}, but can be skipped in unit tests.
      */
+    @CanIgnoreReturnValue
     public Builder setBuiltinsBzlPackagePathInSource(String path) {
       this.builtinsBzlPackagePathInSource = path;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPrerequisiteValidator(PrerequisiteValidator prerequisiteValidator) {
       this.prerequisiteValidator = prerequisiteValidator;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addBuildInfoFactory(BuildInfoFactory factory) {
       buildInfoFactories.add(factory);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addRuleDefinition(RuleDefinition ruleDefinition) {
       Class<? extends RuleDefinition> ruleDefinitionClass = ruleDefinition.getClass();
       ruleDefinitionMap.put(ruleDefinitionClass.getName(), ruleDefinition);
@@ -277,6 +290,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNativeAspectClass(NativeAspectClass aspectFactoryClass) {
       nativeAspectClassMap.put(aspectFactoryClass.getName(), aspectFactoryClass);
       return this;
@@ -288,6 +302,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * <p>Note that configuration fragments annotated with a Starlark name must have a unique name;
      * no two different configuration fragments can share the same name.
      */
+    @CanIgnoreReturnValue
     public Builder addConfigurationFragment(Class<? extends Fragment> fragmentClass) {
       configurationFragmentClasses.add(fragmentClass);
       return this;
@@ -299,42 +314,50 @@ public /*final*/ class ConfiguredRuleClassProvider
      * <p>If {@link #addConfigurationFragment} adds a fragment that also requires these options,
      * this method is redundant.
      */
+    @CanIgnoreReturnValue
     public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
       this.configurationOptions.add(configurationOptions);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
       addConfigurationFragment(fragment);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
       this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkBuiltinsInternal(String name, Object object) {
       this.starlarkBuiltinsInternals.put(name, object);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addSymlinkDefinition(SymlinkDefinition symlinkDefinition) {
       this.symlinkDefinitions.add(symlinkDefinition);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addReservedActionMnemonic(String mnemonic) {
       this.reservedActionMnemonics.add(mnemonic);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionEnvironmentProvider(
         Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
@@ -346,6 +369,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * don't depend on rules that aren't compatible with the same environments. Defaults to {@link
      * ConstraintSemantics}. See {@link ConstraintSemantics} for more details.
      */
+    @CanIgnoreReturnValue
     public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
@@ -355,6 +379,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * Sets the policy for checking if third_party rules declare <code>licenses()</code>. See {@link
      * #thirdPartyLicenseExistencePolicy} for the default value.
      */
+    @CanIgnoreReturnValue
     public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
       this.thirdPartyLicenseExistencePolicy = policy;
       return this;
@@ -370,6 +395,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * feature flags, and support for this transition factory will likely be removed at some point
      * in the future (whenever automatic trimming is sufficiently workable).
      */
+    @CanIgnoreReturnValue
     public Builder addTrimmingTransitionFactory(TransitionFactory<RuleTransitionData> factory) {
       Preconditions.checkNotNull(factory);
       Preconditions.checkArgument(!factory.isSplit());
@@ -383,6 +409,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     /** Sets the transition manual feature flag trimming should apply to toolchain deps. */
+    @CanIgnoreReturnValue
     public Builder setToolchainTaggedTrimmingTransition(PatchTransition transition) {
       Preconditions.checkNotNull(transition);
       Preconditions.checkState(toolchainTaggedTrimmingTransition == null);
@@ -406,6 +433,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * Sets the predicate which determines whether the analysis cache should be invalidated for the
      * given options diff.
      */
+    @CanIgnoreReturnValue
     public Builder setShouldInvalidateCacheForOptionDiff(
         OptionsDiffPredicate shouldInvalidateCacheForOptionDiff) {
       Preconditions.checkState(
@@ -584,6 +612,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       return Optional.ofNullable(networkAllowlistForTests);
     }
 
+    @CanIgnoreReturnValue
     public Builder setNetworkAllowlistForTests(Label allowlist) {
       networkAllowlistForTests = allowlist;
       return this;

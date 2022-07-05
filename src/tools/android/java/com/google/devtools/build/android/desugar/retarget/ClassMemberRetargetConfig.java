@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
 import java.io.IOError;
@@ -117,21 +118,25 @@ public abstract class ClassMemberRetargetConfig {
     public abstract ImmutableSet.Builder<ReplacementRange>
         enabledInvocationReplacementRangesBuilder();
 
+    @CanIgnoreReturnValue
     public Builder addInvocationReplacementConfigUrl(URL value) {
       invocationReplacementConfigUrlsBuilder().add(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addInProcessReplacement(MethodInvocationReplacement value) {
       inProcessReplacementsBuilder().add(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addEnabledInvocationReplacementRange(ReplacementRange value) {
       enabledInvocationReplacementRangesBuilder().add(value);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addAllEnabledInvocationReplacementRange(Collection<ReplacementRange> value) {
       enabledInvocationReplacementRangesBuilder().addAll(value);
       return this;

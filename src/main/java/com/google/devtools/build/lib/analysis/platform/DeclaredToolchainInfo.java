@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -56,12 +57,14 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
     private Label toolchainLabel;
 
     /** Sets the type of the toolchain being declared. */
+    @CanIgnoreReturnValue
     public Builder toolchainType(ToolchainTypeInfo toolchainType) {
       this.toolchainType = toolchainType;
       return this;
     }
 
     /** Adds constraints describing the execution environment. */
+    @CanIgnoreReturnValue
     public Builder addExecConstraints(Iterable<ConstraintValueInfo> constraints) {
       this.execConstraints.addConstraints(constraints);
       return this;
@@ -73,6 +76,7 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
     }
 
     /** Adds constraints describing the target environment. */
+    @CanIgnoreReturnValue
     public Builder addTargetConstraints(Iterable<ConstraintValueInfo> constraints) {
       this.targetConstraints.addConstraints(constraints);
       return this;
@@ -83,12 +87,14 @@ public abstract class DeclaredToolchainInfo implements TransitiveInfoProvider {
       return addTargetConstraints(ImmutableList.copyOf(constraints));
     }
 
+    @CanIgnoreReturnValue
     public Builder addTargetSettings(Iterable<ConfigMatchingProvider> targetSettings) {
       this.targetSettings.addAll(targetSettings);
       return this;
     }
 
     /** Sets the label of the toolchain to resolve for use in toolchain-aware rules. */
+    @CanIgnoreReturnValue
     public Builder toolchainLabel(Label toolchainLabel) {
       this.toolchainLabel = toolchainLabel;
       return this;

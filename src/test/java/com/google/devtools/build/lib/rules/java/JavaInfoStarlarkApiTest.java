@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -865,21 +865,25 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     private boolean neverLink = false;
     private boolean sourceFiles = false;
 
+    @CanIgnoreReturnValue
     private RuleBuilder withIJar() {
       useIJar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withStampJar() {
       stampJar = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withNeverLink() {
       neverLink = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     private RuleBuilder withSourceFiles() {
       sourceFiles = true;
       return this;
@@ -995,8 +999,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
     JavaInfo javaInfo = (JavaInfo) info.getValue("property");
     return javaInfo;

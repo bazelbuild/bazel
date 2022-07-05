@@ -98,15 +98,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  public void finalizeBuild() {
-    Path tempDir = tempPathGenerator.getTempDir();
-    try {
-      tempDir.deleteTree();
-    } catch (IOException ignored) {
-      // Intentionally left empty.
-    }
-  }
-
   protected abstract boolean shouldDownloadFile(Path path, FileArtifactValue metadata);
 
   /**
@@ -357,5 +348,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @VisibleForTesting
   public AsyncTaskCache.NoResult<Path> getDownloadCache() {
     return downloadCache;
+  }
+
+  public void shutdown() {
+    downloadCache.shutdown();
+    while (true) {
+      try {
+        downloadCache.awaitTermination();
+        break;
+      } catch (InterruptedException ignored) {
+        downloadCache.shutdownNow();
+      }
+    }
+
+    Path tempDir = tempPathGenerator.getTempDir();
+    try {
+      tempDir.deleteTree();
+    } catch (IOException ignored) {
+      // Intentionally ignored.
+    }
   }
 }

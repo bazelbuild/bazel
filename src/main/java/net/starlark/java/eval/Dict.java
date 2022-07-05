@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -487,6 +488,7 @@ public class Dict<K, V>
     private final ArrayList<Object> items = new ArrayList<>(); // [k, v, ... k, v]
 
     /** Adds an entry (k, v) to the builder, overwriting any previous entry with the same key . */
+    @CanIgnoreReturnValue
     public Builder<K, V> put(K k, V v) {
       items.add(Starlark.checkValid(k));
       items.add(Starlark.checkValid(v));
@@ -494,6 +496,7 @@ public class Dict<K, V>
     }
 
     /** Adds all the map's entries to the builder. */
+    @CanIgnoreReturnValue
     public Builder<K, V> putAll(Map<? extends K, ? extends V> map) {
       items.ensureCapacity(items.size() + 2 * map.size());
       for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
@@ -700,6 +703,7 @@ public class Dict<K, V>
     return Collections.unmodifiableMap(contents).entrySet();
   }
 
+  @Nullable
   @Override
   public V get(Object key) {
     return contents.get(key);
@@ -737,6 +741,7 @@ public class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Deprecated // use putEntry
   @Override
   public V put(K key, V value) {
@@ -749,6 +754,7 @@ public class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Deprecated // use removeEntry
   @Override
   public V remove(Object key) {
@@ -783,6 +789,7 @@ public class Dict<K, V>
       return false;
     }
 
+    @Nullable
     @Override
     @SuppressWarnings("unchecked") // Present keys must be of type K.
     public V get(Object key) {

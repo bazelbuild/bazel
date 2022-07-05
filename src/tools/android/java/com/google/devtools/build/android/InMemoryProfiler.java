@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,6 +37,7 @@ public class InMemoryProfiler implements Profiler {
     return profiler.startTask(taskName);
   }
 
+  @CanIgnoreReturnValue
   @Override
   public InMemoryProfiler startTask(String taskName) {
     Preconditions.checkArgument(!tasks.containsKey(taskName));
@@ -43,6 +45,7 @@ public class InMemoryProfiler implements Profiler {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public InMemoryProfiler recordEndOf(String taskName) {
     Preconditions.checkArgument(tasks.containsKey(taskName));

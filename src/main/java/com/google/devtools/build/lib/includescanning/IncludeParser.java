@@ -752,6 +752,7 @@ class IncludeParser {
    * @param lineEnd the position of the character after the last
    * @return the inclusion object if possible, null if none
    */
+  @Nullable
   private Inclusion extractInclusion(byte[] chars, int lineBegin, int lineEnd) {
     // expect WS#WS(include|include_next|__has_include\(_next\)?)WS\(?("name"|<name>|<name>)\)?
     IncludesKeywordData data = expectIncludeKeyword(chars, lineBegin, lineEnd);

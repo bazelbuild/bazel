@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -73,89 +74,85 @@ final class CompilationAttributes implements StarlarkValue {
       return builder;
     }
 
-    /**
-     * Adds headers to be made available for dependents.
-     */
+    /** Adds headers to be made available for dependents. */
+    @CanIgnoreReturnValue
     public Builder addHdrs(NestedSet<Artifact> hdrs) {
       this.hdrs.addTransitive(hdrs);
       return this;
     }
 
-    /**
-     * Adds headers that cannot be compiled individually.
-     */
+    /** Adds headers that cannot be compiled individually. */
+    @CanIgnoreReturnValue
     public Builder addTextualHdrs(NestedSet<Artifact> textualHdrs) {
       this.textualHdrs.addTransitive(textualHdrs);
       return this;
     }
 
-    /**
-     * Adds include paths to be made available for compilation.
-     */
+    /** Adds include paths to be made available for compilation. */
+    @CanIgnoreReturnValue
     public Builder addIncludes(NestedSet<PathFragment> includes) {
       this.includes.addTransitive(includes);
       return this;
     }
 
-    /**
-     * Adds paths for SDK includes.
-     */
+    /** Adds paths for SDK includes. */
+    @CanIgnoreReturnValue
     public Builder addSdkIncludes(NestedSet<PathFragment> sdkIncludes) {
       this.sdkIncludes.addTransitive(sdkIncludes);
       return this;
     }
 
-    /**
-     * Adds compile-time options.
-     */
+    /** Adds compile-time options. */
+    @CanIgnoreReturnValue
     public Builder addCopts(Iterable<String> copts) {
       this.copts.addAll(copts);
       return this;
     }
 
-    /**
-     * Adds link-time options.
-     */
+    /** Adds link-time options. */
+    @CanIgnoreReturnValue
     public Builder addLinkopts(Iterable<String> linkopts) {
       this.linkopts.addAll(linkopts);
       return this;
     }
 
     /** Adds additional linker inputs. */
+    @CanIgnoreReturnValue
     public Builder addLinkInputs(Iterable<Artifact> linkInputs) {
       this.linkInputs.addAll(linkInputs);
       return this;
     }
 
     /** Adds defines. */
+    @CanIgnoreReturnValue
     public Builder addDefines(Iterable<String> defines) {
       this.defines.addAll(defines);
       return this;
     }
 
     /** Adds SDK frameworks to link against. */
+    @CanIgnoreReturnValue
     public Builder addSdkFrameworks(NestedSet<String> sdkFrameworks) {
       this.sdkFrameworks.addTransitive(sdkFrameworks);
       return this;
     }
 
     /** Adds SDK frameworks to be linked weakly. */
+    @CanIgnoreReturnValue
     public Builder addWeakSdkFrameworks(NestedSet<String> weakSdkFrameworks) {
       this.weakSdkFrameworks.addTransitive(weakSdkFrameworks);
       return this;
     }
 
-    /**
-     * Adds SDK Dylibs to link against.
-     */
+    /** Adds SDK Dylibs to link against. */
+    @CanIgnoreReturnValue
     public Builder addSdkDylibs(NestedSet<String> sdkDylibs) {
       this.sdkDylibs.addTransitive(sdkDylibs);
       return this;
     }
 
-    /**
-     * Sets the package path from which to base the header search paths.
-     */
+    /** Sets the package path from which to base the header search paths. */
+    @CanIgnoreReturnValue
     public Builder setPackageFragment(PathFragment packageFragment) {
       Preconditions.checkState(
           !this.packageFragment.isPresent(),
@@ -165,9 +162,8 @@ final class CompilationAttributes implements StarlarkValue {
       return this;
     }
 
-    /**
-     * Enables the usage of clang modules maps during compilation.
-     */
+    /** Enables the usage of clang modules maps during compilation. */
+    @CanIgnoreReturnValue
     public Builder enableModules() {
       this.enableModules = true;
       return this;

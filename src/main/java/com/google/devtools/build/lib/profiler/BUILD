@@ -81,5 +81,6 @@ java_binary(
         ":profiler",
         "//third_party:gson",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

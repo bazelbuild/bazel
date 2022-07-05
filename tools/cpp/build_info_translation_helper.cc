@@ -45,9 +45,7 @@ const absl::Status BuildInfoTranslationHelper::ParseFile(
       }
       file_map.insert({key_and_value[0], key_and_value[1]});
     } else {
-      return absl::Status(
-          absl::StatusCode::kFailedPrecondition,
-          absl::StrCat(line, " does not contain a key value delimiter."));
+      file_map.insert({line, ""});
     }
   }
 

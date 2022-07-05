@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * This provider is exported by java_library rules and proto_library rules via the j2objc aspect.
@@ -127,6 +128,7 @@ public final class J2ObjcMappingFileProvider extends NativeInfo {
     private final NestedSetBuilder<Artifact> archiveSourceMappingFiles =
         NestedSetBuilder.stableOrder();
 
+    @CanIgnoreReturnValue
     public Builder addTransitive(J2ObjcMappingFileProvider provider) {
       headerMappingFiles.addTransitive(provider.getHeaderMappingFiles());
       classMappingFiles.addTransitive(provider.getClassMappingFiles());

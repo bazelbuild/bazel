@@ -252,19 +252,22 @@ public final class ResourceManagerTest {
   }
 
   @Test
-  public void testMnemonicResourceOverrideEstimate() throws Exception {
+  public void testMnemonicResourceOverrideEstimateRam() throws Exception {
+    int maxMemory = 1000;
+    int maxCpu = 4;
     rm.setAvailableResources(
-            ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
-    
-    int memory = 100;
+            ResourceSet.create(/*memoryMb=*/ maxMemory, /*cpuUsage=*/ maxCpu, /* localTestCount= */ 2));
+
+    int standardMemoryRequest = 100;
+    int standardCPURequest = 100;
+    int largeMemoryRequest = 2000;
+    int largeCPURequest = 100;
     String mnemonicLargeMemory = "largeMemory";
-    String largeRequestMemory = "2000,1";
+    String largeRequestMemory = largeMemoryRequest+",1";
     String mnemonicLargeCPU = "largeCPU";
-    String largeRequestCPU = "1,100";
-    
-    assertThat(rm.inUse()).isFalse();
-    
-    // Given test count is partially acquired:
+    String largeRequestCPU = "1,"+largeCPURequest;
+
+    // Populate our estimations
     List<Map.Entry<String, String>> mnemonic_resource_override
             = ImmutableList.of(
             new AbstractMap.SimpleEntry<String, String>(mnemonicLargeMemory,
@@ -272,33 +275,39 @@ public final class ResourceManagerTest {
             new AbstractMap.SimpleEntry<String, String>(mnemonicLargeCPU,
                     largeRequestCPU)
     );
-    
+
     rm.setMnemonicResourceOverride(mnemonic_resource_override);
-    
+
     // Try to acquire an action that is not registered
     assertThat(rm.inUse()).isFalse();
-    acquire(memory, 1, 0);
+    acquire(standardMemoryRequest, 1, 0);
     assertThat(rm.inUse()).isTrue();
-    release(memory, 1, 0);
-    
-    // Try to acquire an action where the override estiamtes that it consumes a lot of memory
-    acquire(memory, 1, 0, largeRequestMemory);
-    
-    // Try a parallel action. This should fail because the resource manager gave all its resources
-    // to a large request
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(100, 1, 0)).isNull());
+    release(standardMemoryRequest, 1, 0);
+
+    // Given RAM is partially acquired:
+    acquire(1, 0, 0);
+
+    // Try to acquire an action where the override estimates that it consumes a lot of memory
+    TestThread thread1 = new TestThread(() -> acquire(standardMemoryRequest, 0, 0, mnemonicLargeMemory));
     thread1.start();
-    thread1.joinAndAssertState(10000);
-    
-    release(2000, 1, 0);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
+    thread1.interrupt();
+    thread1.join(1000);
+
+    // Cleanup for both the partial acquition and the large memory
+    release(1, 0, 0);
     assertThat(rm.inUse()).isFalse();
-    
+
     // Ditto for CPU
-    acquire(memory, 1, 0, largeRequestMemory);
-    
-    TestThread thread2 = new TestThread(() -> assertThat(acquireNonblocking(100, 1, 0)).isNull());
+    // Given CPU is partially acquired:
+    acquire(0, 1, 0);
+
+    // Try to acquire an action where the override estimates that it consumes a lot of memory
+    TestThread thread2 = new TestThread(() -> acquire(0, standardCPURequest, 0, mnemonicLargeCPU));
     thread2.start();
-    thread2.joinAndAssertState(10000);
+    AssertionError e2 = assertThrows(AssertionError.class, () -> thread2.joinAndAssertState(1000));
+    assertThat(e2).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test

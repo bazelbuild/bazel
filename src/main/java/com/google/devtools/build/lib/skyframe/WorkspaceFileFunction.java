@@ -302,7 +302,14 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       loadedModules =
           PackageFunction.loadBzlModules(
-              env, rootPackage, programLoads, keys.build(), bzlLoadFunctionForInlining);
+              env,
+              rootPackage,
+              // In error messages, attribute the blame to "WORKSPACE content" since we're not sure
+              // at this point what the actual source of the content was.
+              "WORKSPACE content",
+              programLoads,
+              keys.build(),
+              bzlLoadFunctionForInlining);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }

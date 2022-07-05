@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -77,6 +78,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -594,17 +596,47 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Loads the .bzl modules whose names and load-locations are {@code programLoads} and whose
-   * corresponding Skyframe keys are {@code keys}. Returns a map from module name to module, or null
-   * for a Skyframe restart. The {@code packageId} is used only for error reporting.
+   * Loads the .bzl modules whose names and load-locations are {@code programLoads}, and whose
+   * corresponding Skyframe keys are {@code keys}.
+   *
+   * <p>Validates bzl-visibility of loaded modules.
+   *
+   * <p>Returns a map from module name to module, or null for a Skyframe restart.
+   *
+   * <p>The {@code packageId} is used only for error reporting.
    *
    * <p>This function is called for load statements in BUILD and WORKSPACE files. For loads in .bzl
    * files, see {@link BzlLoadFunction}.
+   */
+  /*
+   * TODO(b/237658764): This logic has several problems:
+   *
+   * - It is partly duplicated by loadPrelude() below.
+   * - The meaty computeBzlLoads* helpers are almost copies of BzlLoadFunction#computeBzlLoads*.
+   * - This function is called from WorkspaceFileFunction and BzlmodRepoRuleFunction (and morally
+   *   probably should be called by SingleExtensionEvalFunction rather than requesting a BzlLoadKey
+   *   directly). But the API is awkward for these callers.
+   * - InliningState is not shared across all callers within a BUILD file; see the comment in
+   *   computeBzlLoadsWithInlining.
+   *
+   * To address these issues, we can instead make public the two BzlLoadFunction#computeBzlLoads*
+   * methods. Their programLoads parameter is only used for wrapping exceptions in
+   * BzlLoadFailedException#whileLoadingDep, but we can probably push that wrapping to the caller.
+   * If we fix PackageFunction to use a shared InliningState, then our computeBzlLoadsWithInlining
+   * method will take it as a param and its signature will then basically match the one in
+   * BzlLoadFunction.
+   *
+   * At that point we can eliminate our own computeBzlLoads* methods in favor of the BzlLoadFunction
+   * ones. We could factor out the piece of loadBzlModules that dispatches to computeBzlLoads* and
+   * translates the possible exception, and push the visibility checking and loadedModules map
+   * construction to the caller, so that loadPrelude can become just a call to the factored-out
+   * code.
    */
   @Nullable
   static ImmutableMap<String, Module> loadBzlModules(
       Environment env,
       PackageIdentifier packageId,
+      String requestingFileDescription,
       List<Pair<String, Location>> programLoads,
       List<BzlLoadValue.Key> keys,
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
@@ -615,6 +647,13 @@ public class PackageFunction implements SkyFunction {
           bzlLoadFunctionForInlining == null
               ? computeBzlLoadsNoInlining(env, keys)
               : computeBzlLoadsWithInlining(env, keys, bzlLoadFunctionForInlining);
+      if (bzlLoads == null) {
+        return null; // Skyframe deps unavailable
+      }
+      // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
+      // bzl-visibility.
+      BzlLoadFunction.checkLoadVisibilities(
+          packageId, requestingFileDescription, bzlLoads, keys, programLoads, env.getListener());
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       throw PackageFunctionException.builder()
@@ -624,9 +663,6 @@ public class PackageFunction implements SkyFunction {
           .setMessage(e.getMessage())
           .setPackageLoadingCode(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR)
           .buildCause();
-    }
-    if (bzlLoads == null) {
-      return null; // Skyframe deps unavailable
     }
 
     // Build map of loaded modules.
@@ -654,6 +690,7 @@ public class PackageFunction implements SkyFunction {
       if (loads == null) {
         return null; // skyframe restart
       }
+      // No need to validate visibility since we're processing an internal load on behalf of Bazel.
       return loads.get(0).getModule();
 
     } catch (BzlLoadFailedException e) {
@@ -1261,10 +1298,24 @@ public class PackageFunction implements SkyFunction {
         }
 
         // Load .bzl modules in parallel.
+        Label buildFileLabel;
+        try {
+          buildFileLabel =
+              Label.create(
+                  packageId,
+                  packageLookupValue.getBuildFileName().getFilenameFragment().getPathString());
+        } catch (LabelSyntaxException e) {
+          throw new IllegalStateException("Failed to construct label representing BUILD file", e);
+        }
         try {
           loadedModules =
               loadBzlModules(
-                  env, packageId, programLoads, keys.build(), bzlLoadFunctionForInlining);
+                  env,
+                  packageId,
+                  "file " + buildFileLabel.getCanonicalForm(),
+                  programLoads,
+                  keys.build(),
+                  bzlLoadFunctionForInlining);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
         }
@@ -1584,31 +1635,37 @@ public class PackageFunction implements SkyFunction {
       private String message;
       private PackageLoading.Code packageLoadingCode;
 
+      @CanIgnoreReturnValue
       Builder setType(Type exceptionType) {
         this.exceptionType = exceptionType;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setPackageIdentifier(PackageIdentifier packageIdentifier) {
         this.packageIdentifier = packageIdentifier;
         return this;
       }
 
+      @CanIgnoreReturnValue
       private Builder setTransience(Transience transience) {
         this.transience = transience;
         return this;
       }
 
+      @CanIgnoreReturnValue
       private Builder setException(Exception exception) {
         this.exception = exception;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setMessage(String message) {
         this.message = message;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setPackageLoadingCode(PackageLoading.Code packageLoadingCode) {
         this.packageLoadingCode = packageLoadingCode;
         return this;

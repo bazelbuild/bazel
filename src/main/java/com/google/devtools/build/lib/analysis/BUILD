@@ -1630,6 +1630,7 @@ java_library(
         ":config/fragment",
         ":config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:error_prone_annotations",
     ],
 )
 
@@ -2209,9 +2210,12 @@ java_library(
     srcs = ["starlark/BazelBuildApiGlobals.java"],
     deps = [
         ":starlark/starlark_late_bound_default",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 

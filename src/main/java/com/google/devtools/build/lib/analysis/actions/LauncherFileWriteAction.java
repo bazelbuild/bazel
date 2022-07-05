@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -246,6 +247,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
        *       "foo=\0"
        * </ul>
        */
+      @CanIgnoreReturnValue
       public Builder addKeyValuePair(String key, @Nullable String value) {
         Preconditions.checkNotNull(key);
         if (!key.isEmpty()) {
@@ -266,6 +268,7 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
        *       empty, the written value is "foo=\0"
        * </ul>
        */
+      @CanIgnoreReturnValue
       public Builder addJoinedValues(
           String key, String delimiter, @Nullable Iterable<String> values) {
         Preconditions.checkNotNull(key);

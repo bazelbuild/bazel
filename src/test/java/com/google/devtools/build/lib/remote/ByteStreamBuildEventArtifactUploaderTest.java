@@ -292,10 +292,13 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
             StreamObserver<WriteRequest> delegate = super.write(response);
             return new StreamObserver<WriteRequest>() {
+              private boolean failed;
+
               @Override
               public void onNext(WriteRequest value) {
                 if (value.getResourceName().contains(hashOfBlobThatShouldFail)) {
                   response.onError(Status.CANCELLED.asException());
+                  failed = true;
                 } else {
                   delegate.onNext(value);
                 }
@@ -308,6 +311,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
               @Override
               public void onCompleted() {
+                if (failed) {
+                  return;
+                }
                 delegate.onCompleted();
               }
             };

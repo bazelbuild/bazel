@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.stream.Collectors;
 
 /** Utility for generating a call to the import_deps_checker. */
@@ -46,18 +47,21 @@ public final class ImportDepsCheckActionBuilder {
 
   private ImportDepsCheckActionBuilder() {}
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder checkJars(NestedSet<Artifact> jarsToCheck) {
     checkState(this.jarsToCheck == null);
     this.jarsToCheck = checkNotNull(jarsToCheck);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder ruleLabel(Label ruleLabel) {
     checkState(this.ruleLabel == null);
     this.ruleLabel = checkNotNull(ruleLabel);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder importDepsCheckingLevel(
       ImportDepsCheckingLevel importDepsCheckingLevel) {
     checkState(this.importDepsCheckingLevel == null);
@@ -65,30 +69,35 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder bootclasspath(NestedSet<Artifact> bootclasspath) {
     checkState(this.bootclasspath == null);
     this.bootclasspath = checkNotNull(bootclasspath);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder jdepsOutputArtifact(Artifact jdepsArtifact) {
     checkState(this.jdepsArtifact == null);
     this.jdepsArtifact = checkNotNull(jdepsArtifact);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder declareDeps(NestedSet<Artifact> declaredDeps) {
     checkState(this.declaredDeps == null);
     this.declaredDeps = checkNotNull(declaredDeps);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder transitiveDeps(NestedSet<Artifact> transitiveDeps) {
     checkState(this.transitiveDeps == null);
     this.transitiveDeps = checkNotNull(transitiveDeps);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder importDepsChecker(Artifact importDepsChecker) {
     checkState(this.importDepsChecker == null);
     this.importDepsChecker = checkNotNull(importDepsChecker);

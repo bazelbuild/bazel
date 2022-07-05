@@ -784,6 +784,7 @@ public class ExecutionTool {
    * If a path is supplied, creates and installs an ExplanationHandler. Returns an instance on
    * success. Reports an error and returns null otherwise.
    */
+  @Nullable
   private ExplanationHandler installExplanationHandler(
       PathFragment explanationPath, String allOptions) {
     if (explanationPath == null) {
@@ -933,8 +934,7 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request)  throws AbruptExitException {
 
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
+    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions
     try {
       resourceMgr.setMnemonicResourceOverride(options.mnemonic_resource_override);
     } catch (NumberFormatException e) {

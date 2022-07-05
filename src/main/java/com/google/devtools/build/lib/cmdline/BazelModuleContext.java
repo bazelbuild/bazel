@@ -80,4 +80,8 @@ public abstract class BazelModuleContext {
     return new AutoValue_BazelModuleContext(
         label, repoMapping, filename, loads, bzlTransitiveDigest);
   }
+
+  public final Label.PackageContext packageContext() {
+    return Label.PackageContext.of(label().getPackageIdentifier(), repoMapping());
+  }
 }

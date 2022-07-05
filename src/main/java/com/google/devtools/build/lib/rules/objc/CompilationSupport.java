@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -234,7 +235,6 @@ public class CompilationSupport implements StarlarkValue {
 
   private final RuleContext ruleContext;
   private final BuildConfigurationValue buildConfiguration;
-  private final ObjcConfiguration objcConfiguration;
   private final AppleConfiguration appleConfiguration;
   private final CppSemantics cppSemantics;
   private final CompilationAttributes attributes;
@@ -271,7 +271,6 @@ public class CompilationSupport implements StarlarkValue {
       throws RuleErrorException {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
-    this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
     this.cppSemantics = cppSemantics;
     this.attributes = compilationAttributes;
@@ -307,18 +306,21 @@ public class CompilationSupport implements StarlarkValue {
     }
 
     /** Sets the {@link BuildConfigurationValue} for the calling target. */
+    @CanIgnoreReturnValue
     public Builder setConfig(BuildConfigurationValue buildConfiguration) {
       this.buildConfiguration = buildConfiguration;
       return this;
     }
 
     /** Sets {@link IntermediateArtifacts} for deriving artifact paths. */
+    @CanIgnoreReturnValue
     public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
     }
 
     /** Sets {@link CompilationAttributes} for the calling target. */
+    @CanIgnoreReturnValue
     public Builder setCompilationAttributes(CompilationAttributes compilationAttributes) {
       this.compilationAttributes = compilationAttributes;
       return this;
@@ -330,6 +332,7 @@ public class CompilationSupport implements StarlarkValue {
      * <p>This is needed if it can't correctly be inferred directly from the rule context. Setting
      * to null causes the default to be used as if this was never called.
      */
+    @CanIgnoreReturnValue
     public Builder setToolchainProvider(CcToolchainProvider toolchain) {
       this.toolchain = toolchain;
       return this;
@@ -394,6 +397,7 @@ public class CompilationSupport implements StarlarkValue {
    * @return this compilation support
    * @throws RuleErrorException if there are attribute errors
    */
+  @CanIgnoreReturnValue
   CompilationSupport validateAttributes() throws RuleErrorException {
     for (PathFragment absoluteInclude :
         Iterables.filter(attributes.includes().toList(), PathFragment::isAbsolute)) {
@@ -449,7 +453,7 @@ public class CompilationSupport implements StarlarkValue {
    * Registers any actions necessary to link this rule and its dependencies. Automatically infers
    * the toolchain from the configuration of this CompilationSupport.
    *
-   * <p>Dsym bundle is generated if {@link ObjcConfiguration#generateDsym()} is set.
+   * <p>Dsym bundle is generated if {@link CppConfiguration#appleGenerateDsym()} is set.
    *
    * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
    * are specified, additional optimizations will be performed on the linked binary: all-symbol
@@ -464,6 +468,7 @@ public class CompilationSupport implements StarlarkValue {
    * @param extraLinkInputs any additional input artifacts to pass to the link action
    * @return this compilation support
    */
+  @CanIgnoreReturnValue
   CompilationSupport registerLinkActions(
       ObjcProvider objcProvider,
       Iterable<CcLinkingContext> ccLinkingContexts,
@@ -575,7 +580,7 @@ public class CompilationSupport implements StarlarkValue {
 
     if (cppConfiguration.appleGenerateDsym()) {
       Artifact dsymSymbol =
-          objcConfiguration.shouldStripBinary()
+          cppConfiguration.objcShouldStripBinary()
               ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
               : intermediateArtifacts.dsymSymbolForStrippedBinary();
       extensionBuilder
@@ -584,7 +589,7 @@ public class CompilationSupport implements StarlarkValue {
       linkerOutputs.add(dsymSymbol);
     }
 
-    if (objcConfiguration.generateLinkmap()) {
+    if (cppConfiguration.objcGenerateLinkmap()) {
       Artifact linkmap = intermediateArtifacts.linkmap();
       extensionBuilder.setLinkmap(linkmap).addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
       linkerOutputs.add(linkmap);
@@ -627,19 +632,19 @@ public class CompilationSupport implements StarlarkValue {
         ImmutableSet.<Artifact>builder().addAll(objFiles).addAll(linkstampValues).build(),
         inputFileList);
 
-    if (objcConfiguration.shouldStripBinary()) {
+    if (cppConfiguration.objcShouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
     }
 
     return this;
   }
 
-
   /**
    * Registers an action that writes given set of object files to the given objList. This objList is
    * suitable to signal symbols to archive in a libtool archiving invocation.
    */
   // TODO(ulfjack): Use NestedSet for objFiles.
+  @CanIgnoreReturnValue
   private CompilationSupport registerObjFilelistAction(
       ImmutableSet<Artifact> objFiles, Artifact objList) {
     CustomCommandLine.Builder objFilesToLinkParam = new CustomCommandLine.Builder();
@@ -669,8 +674,7 @@ public class CompilationSupport implements StarlarkValue {
   /**
    * Returns all framework names to pass to the linker using {@code -framework} flags. For a
    * framework in the directory foo/bar.framework, the name is "bar". Each framework is found
-   * without using the full path by means of the framework search paths. Search paths are added by
-   * {@link#commonLinkAndCompileFlagsForClang(ObjcProvider, ObjcConfiguration, AppleConfiguration)})
+   * without using the full path by means of the framework search paths.
    *
    * <p>It's awful that we can't pass the full path to the framework and avoid framework search
    * paths, but this is imposed on us by clang. clang does not support passing the full path to the
@@ -833,7 +837,8 @@ public class CompilationSupport implements StarlarkValue {
     // symbols for dead-code removal. The binary is also used to generate dSYM bundle if
     // --apple_generate_dsym is specified. A symbol strip action is later registered to strip
     // the symbol table from the unstripped binary.
-    return objcConfiguration.shouldStripBinary()
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
+    return cppConfiguration.objcShouldStripBinary()
         ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
         : intermediateArtifacts.strippedSingleArchitectureBinary();
   }

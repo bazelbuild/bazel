@@ -389,7 +389,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 spawn.getLocalResources().getLocalTestCount(),
                 key);
         // Worker doesn't automatically return to pool after closing of the handle.
-
         ResourceHandle handle = null;
         try {
           handle =
@@ -398,7 +397,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   spawn.getMnemonic(),
                   resourceSet,
                   context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
-
           workerOwner.setWorker(handle.getWorker());
           workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
           request =

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -135,56 +136,65 @@ public final class FakeZipFile {
 
   private final List<FakeZipEntry> entries = new ArrayList<>();
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, String content) {
     entries.add(new FakeZipEntry(name, null, content, null, EntryMode.DONT_CARE));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, String content, boolean compressed) {
     entries.add(new FakeZipEntry(name, null, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, Date date, String content) {
     entries.add(new FakeZipEntry(name, date, content, null, EntryMode.DONT_CARE));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, Date date, String content, boolean compressed) {
     entries.add(new FakeZipEntry(name, date, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, ByteValidator content) {
     entries.add(new FakeZipEntry(name, null, content, null, EntryMode.DONT_CARE));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, ByteValidator content, boolean compressed) {
     entries.add(new FakeZipEntry(name, null, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, Date date, ByteValidator content) {
     entries.add(new FakeZipEntry(name, date, content, null, EntryMode.DONT_CARE));
     return this;
   }
 
-  public FakeZipFile addEntry(String name, Date date, ByteValidator content,
-      boolean compressed) {
+  @CanIgnoreReturnValue
+  public FakeZipFile addEntry(String name, Date date, ByteValidator content, boolean compressed) {
     entries.add(new FakeZipEntry(name, date, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, byte[] extra) {
     entries.add(new FakeZipEntry(name, null, (String) null, extra, EntryMode.DONT_CARE));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, byte[] extra, boolean compressed) {
     entries.add(new FakeZipEntry(name, null, (String) null, extra,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
@@ -193,6 +203,7 @@ public final class FakeZipFile {
 
   private byte[] preamble = null;
 
+  @CanIgnoreReturnValue
   public FakeZipFile addPreamble(byte[] contents) {
     preamble = Arrays.copyOf(contents, contents.length);
     return this;

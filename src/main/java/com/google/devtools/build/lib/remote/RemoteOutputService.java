@@ -86,9 +86,7 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void finalizeBuild(boolean buildSuccessful) {
-    if (actionInputFetcher != null) {
-      actionInputFetcher.finalizeBuild();
-    }
+    // Intentionally left empty.
   }
 
   @Override

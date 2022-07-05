@@ -30,6 +30,7 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -197,26 +198,31 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder setPath(Path path) {
       this.path = path;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFetchingDelayed() {
       this.fetchingDelayed = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDigest(byte[] digest) {
       this.digest = digest;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSourceDir(DirectoryListingValue sourceDir) {
       this.sourceDir = sourceDir;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFileValues(Map<SkyKey, SkyValue> fileValues) {
       this.fileValues = fileValues;
       return this;

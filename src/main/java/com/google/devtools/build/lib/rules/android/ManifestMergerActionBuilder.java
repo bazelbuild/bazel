@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Builder for creating manifest merger actions. */
 public class ManifestMergerActionBuilder {
@@ -116,6 +117,7 @@ public class ManifestMergerActionBuilder {
     return mapToDictionaryString(map, Functions.toStringFunction(), Functions.toStringFunction());
   }
 
+  @Nullable
   private <K, V> String mapToDictionaryString(
       Map<K, V> map,
       Function<? super K, String> keyConverter,

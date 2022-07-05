@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collections;
@@ -110,27 +111,32 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the output jdeps file. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setOutputDepsProto(Artifact outputDepsProto) {
     this.outputDepsProto = checkNotNull(outputDepsProto);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setManifestOutput(@Nullable Artifact manifestOutput) {
     this.manifestOutput = manifestOutput;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setGensrcOutputJar(@Nullable Artifact gensrcOutputJar) {
     this.gensrcOutputJar = gensrcOutputJar;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setResourceOutputJar(@Nullable Artifact resourceOutputJar) {
     this.resourceOutputJar = resourceOutputJar;
     return this;
   }
 
   /** Sets the direct dependency artifacts. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setDirectJars(NestedSet<Artifact> directJars) {
     checkNotNull(directJars, "directJars must not be null");
     this.directJars = directJars;
@@ -138,6 +144,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the .jdeps artifacts for direct dependencies. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setCompileTimeDependencyArtifacts(
       NestedSet<Artifact> dependencyArtifacts) {
     checkNotNull(dependencyArtifacts, "dependencyArtifacts must not be null");
@@ -146,24 +153,28 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Adds Java compiler flags. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder addAllJavacOpts(Iterable<String> javacOpts) {
     this.javacOptsBuilder.addAll(javacOpts);
     return this;
   }
 
   /** Adds a Java compiler flag. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder addJavacOpt(String javacOpt) {
     this.javacOptsBuilder.add(javacOpt);
     return this;
   }
 
   /** Sets the output jar. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setOutputJar(Artifact outputJar) {
     checkNotNull(outputJar, "outputJar must not be null");
     this.outputJar = outputJar;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setAdditionalOutputs(ImmutableSet<Artifact> outputs) {
     checkNotNull(outputs, "outputs must not be null");
     this.additionalOutputs = outputs;
@@ -171,6 +182,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Adds Java source files to compile. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setSourceFiles(ImmutableSet<Artifact> sourceFiles) {
     checkNotNull(sourceFiles, "sourceFiles must not be null");
     this.sourceFiles = sourceFiles;
@@ -178,6 +190,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Adds a jar archive of Java sources to compile. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setSourceJars(ImmutableList<Artifact> sourceJars) {
     checkNotNull(sourceJars, "sourceJars must not be null");
     this.sourceJars = sourceJars;
@@ -185,6 +198,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the compilation classpath entries. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setClasspathEntries(NestedSet<Artifact> classpathEntries) {
     checkNotNull(classpathEntries, "classpathEntries must not be null");
     this.classpathEntries = classpathEntries;
@@ -192,6 +206,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the compilation bootclasspath entries. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setBootclasspathEntries(
       NestedSet<Artifact> bootclasspathEntries) {
     checkNotNull(bootclasspathEntries, "bootclasspathEntries must not be null");
@@ -200,6 +215,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the annotation processors classpath entries. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setPlugins(JavaPluginData plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
@@ -208,18 +224,21 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the label of the target being compiled. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setTargetLabel(@Nullable Label targetLabel) {
     this.targetLabel = targetLabel;
     return this;
   }
 
   /** Sets the injecting rule kind of the target being compiled. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setInjectingRuleKind(@Nullable String injectingRuleKind) {
     this.injectingRuleKind = injectingRuleKind;
     return this;
   }
 
   /** Sets the Strict Java Deps mode. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictJavaDeps) {
     checkNotNull(strictJavaDeps, "strictJavaDeps must not be null");
     this.strictJavaDeps = strictJavaDeps;
@@ -227,6 +246,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets additional inputs, e.g. for databinding support. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setAdditionalInputs(
       ImmutableList<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
@@ -235,18 +255,21 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the tools jars. */
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder setToolsJars(NestedSet<Artifact> toolsJars) {
     checkNotNull(toolsJars, "toolsJars must not be null");
     this.toolsJars = toolsJars;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder enableHeaderCompilerDirect(
       boolean enableHeaderCompilerDirect) {
     this.enableHeaderCompilerDirect = enableHeaderCompilerDirect;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaHeaderCompileActionBuilder enableDirectClasspath(boolean enableDirectClasspath) {
     this.enableDirectClasspath = enableDirectClasspath;
     return this;

@@ -188,6 +188,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     return value;
   }
 
+  @Nullable
   @Override
   public SkyValue toValue() {
     if (isDone()) {
@@ -459,6 +460,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   private static final GroupedList<SkyKey> EMPTY_LIST = new GroupedList<>();
 
+  @Nullable
   @Override
   public synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
     if (!DirtyType.FORCE_REBUILD.equals(dirtyType)) {

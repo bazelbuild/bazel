@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
@@ -41,12 +40,9 @@ public final class DependencyTest extends AnalysisTestCase {
   @Test
   public void withNullConfiguration_BasicAccessors() throws Exception {
     Dependency nullDep =
-        Dependency.builder()
-            .withNullConfiguration()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
-            .build();
+        Dependency.builder().withNullConfiguration().setLabel(Label.parseCanonical("//a")).build();
 
-    assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
+    assertThat(nullDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
     assertThat(nullDep.getConfiguration()).isNull();
     assertThat(nullDep.getAspects().getUsedAspects()).isEmpty();
   }
@@ -56,11 +52,11 @@ public final class DependencyTest extends AnalysisTestCase {
     update();
     Dependency targetDep =
         Dependency.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setConfiguration(getTargetConfiguration())
             .build();
 
-    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
+    assertThat(targetDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getUsedAspects()).isEmpty();
   }
@@ -74,12 +70,12 @@ public final class DependencyTest extends AnalysisTestCase {
         ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency targetDep =
         Dependency.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setConfiguration(getTargetConfiguration())
             .setAspects(twoAspects)
             .build();
 
-    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
+    assertThat(targetDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
   }
@@ -94,7 +90,7 @@ public final class DependencyTest extends AnalysisTestCase {
         IllegalStateException.class,
         () ->
             Dependency.builder()
-                .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+                .setLabel(Label.parseCanonical("//a"))
                 .setConfiguration(null)
                 .setAspects(twoAspects)
                 .build());
@@ -105,7 +101,7 @@ public final class DependencyTest extends AnalysisTestCase {
     update();
     Dependency dep =
         Dependency.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setConfiguration(getTargetConfiguration())
             .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
@@ -121,12 +117,12 @@ public final class DependencyTest extends AnalysisTestCase {
         AspectCollection.createForTests(ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency targetDep =
         Dependency.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setConfiguration(getTargetConfiguration())
             .setAspects(aspects)
             .build();
 
-    assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
+    assertThat(targetDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(Iterables.transform(targetDep.getAspects().getUsedAspects(), AspectDeps::getAspect))
         .containsExactly(simpleAspect, attributeAspect);
@@ -137,7 +133,7 @@ public final class DependencyTest extends AnalysisTestCase {
     update();
     Dependency dep =
         Dependency.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setConfiguration(getTargetConfiguration())
             .setAspects(AspectCollection.EMPTY)
             .build();
@@ -149,9 +145,9 @@ public final class DependencyTest extends AnalysisTestCase {
   public void equalsPassesEqualsTester() throws Exception {
     update();
 
-    Label a = Label.parseAbsolute("//a", ImmutableMap.of());
-    Label aExplicit = Label.parseAbsolute("//a:a", ImmutableMap.of());
-    Label b = Label.parseAbsolute("//b", ImmutableMap.of());
+    Label a = Label.parseCanonical("//a");
+    Label aExplicit = Label.parseCanonical("//a:a");
+    Label b = Label.parseCanonical("//b");
 
     BuildConfigurationValue host = getHostConfiguration();
     BuildConfigurationValue target = getTargetConfiguration();

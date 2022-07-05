@@ -92,6 +92,7 @@ java_library(
         ":action_template_expansion_function",
         ":action_template_expansion_value",
         ":action_utils",
+        ":analysis_cache_clear_event",
         ":artifact_conflict_finder",
         ":artifact_function",
         ":artifact_nested_set_function",
@@ -529,6 +530,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "analysis_cache_clear_event",
+    srcs = ["AnalysisCacheClearEvent.java"],
 )
 
 java_library(

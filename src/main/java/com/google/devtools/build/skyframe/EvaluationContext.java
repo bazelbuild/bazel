@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -165,6 +166,7 @@ public class EvaluationContext {
 
     protected Builder() {}
 
+    @CanIgnoreReturnValue
     protected Builder copyFrom(EvaluationContext evaluationContext) {
       this.numThreads = evaluationContext.numThreads;
       this.executorServiceSupplier = evaluationContext.executorServiceSupplier;
@@ -179,46 +181,55 @@ public class EvaluationContext {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumThreads(int numThreads) {
       this.numThreads = numThreads;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutorServiceSupplier(Supplier<ExecutorService> executorServiceSupplier) {
       this.executorServiceSupplier = executorServiceSupplier;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setKeepGoing(boolean keepGoing) {
       this.keepGoing = keepGoing;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setEventHandler(ExtendedEventHandler eventHandler) {
       this.eventHandler = eventHandler;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setUseForkJoinPool(boolean useForkJoinPool) {
       this.useForkJoinPool = useForkJoinPool;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCPUHeavySkyKeysThreadPoolSize(int cpuHeavySkyKeysThreadPoolSize) {
       this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutionPhaseThreadPoolSize(int executionJobsThreadPoolSize) {
       this.executionJobsThreadPoolSize = executionJobsThreadPoolSize;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutionPhase() {
       this.isExecutionPhase = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setUnnecessaryTemporaryStateDropperReceiver(
         UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
       this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;

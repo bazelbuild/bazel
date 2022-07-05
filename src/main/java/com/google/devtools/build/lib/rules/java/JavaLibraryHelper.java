@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -77,11 +78,13 @@ public final class JavaLibraryHelper {
     this.classpathMode = ruleContext.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setNeverlink(boolean neverlink) {
     this.neverlink = neverlink;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper enableDirectClasspath(boolean enableDirectClasspath) {
     this.enableDirectClasspath = enableDirectClasspath;
     return this;
@@ -92,12 +95,14 @@ public final class JavaLibraryHelper {
    * IllegalStateException}. Note that this class may generate not just the output itself, but also
    * a number of additional intermediate files and outputs.
    */
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setOutput(Artifact output) {
     this.output = output;
     return this;
   }
 
   /** Adds the given source jars. Any .java files in these jars will be compiled. */
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addSourceJars(Iterable<Artifact> sourceJars) {
     Iterables.addAll(this.sourceJars, sourceJars);
     return this;
@@ -108,22 +113,26 @@ public final class JavaLibraryHelper {
     return this.addSourceJars(Arrays.asList(sourceJars));
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addResources(Iterable<Artifact> resources) {
     Iterables.addAll(this.resources, resources);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addClasspathResources(Iterable<Artifact> resources) {
     Iterables.addAll(this.classpathResources, resources);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
     checkNotNull(provider);
     this.deps.add(provider);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addRuntimeDep(JavaCompilationArgsProvider provider) {
     checkNotNull(provider);
     this.runtimeDeps.add(provider);
@@ -131,21 +140,25 @@ public final class JavaLibraryHelper {
   }
 
   /** Adds the given source files to be compiled. */
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addSourceFiles(Iterable<Artifact> sourceFiles) {
     Iterables.addAll(this.sourceFiles, sourceFiles);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addExport(JavaCompilationArgsProvider provider) {
     exports.add(provider);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper addAdditionalOutputs(Iterable<Artifact> outputs) {
     Iterables.addAll(additionalOutputs, outputs);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setPlugins(JavaPluginInfo plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
@@ -154,21 +167,25 @@ public final class JavaLibraryHelper {
   }
 
   /** Sets the compiler options. */
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setJavacOpts(ImmutableList<String> javacOpts) {
     this.javacOpts = Preconditions.checkNotNull(javacOpts);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper enableJspecify(boolean enableJspecify) {
     this.enableJspecify = enableJspecify;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
     this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setInjectingRuleKind(String injectingRuleKind) {
     this.injectingRuleKind = injectingRuleKind;
     return this;
@@ -187,6 +204,7 @@ public final class JavaLibraryHelper {
    *
    * <p>Defaults to {@link StrictDepsMode#ERROR}.
    */
+  @CanIgnoreReturnValue
   public JavaLibraryHelper setCompilationStrictDepsMode(StrictDepsMode strictDepsMode) {
     this.strictDepsMode = strictDepsMode;
     return this;

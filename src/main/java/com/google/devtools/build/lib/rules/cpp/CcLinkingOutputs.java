@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -126,16 +127,19 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
       return new CcLinkingOutputs(libraryToLink, executable, allLtoArtifacts.build());
     }
 
+    @CanIgnoreReturnValue
     public Builder setLibraryToLink(LibraryToLink libraryToLink) {
       this.libraryToLink = libraryToLink;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutable(Artifact executable) {
       this.executable = executable;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addAllLtoArtifacts(Iterable<LtoBackendArtifacts> allLtoArtifacts) {
       this.allLtoArtifacts.addAll(allLtoArtifacts);
       return this;

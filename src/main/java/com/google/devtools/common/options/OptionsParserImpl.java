@@ -27,6 +27,7 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,24 +58,28 @@ class OptionsParserImpl {
     private final Map<String, String> aliases = new HashMap<>();
 
     /** Set the {@link OptionsData} to be used in this instance. */
+    @CanIgnoreReturnValue
     public Builder optionsData(OptionsData optionsData) {
       this.optionsData = optionsData;
       return this;
     }
 
     /** Sets the {@link ArgsPreProcessor} to use during processing. */
+    @CanIgnoreReturnValue
     public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
       this.argsPreProcessor = preProcessor;
       return this;
     }
 
     /** Any flags with this prefix will be skipped during processing. */
+    @CanIgnoreReturnValue
     public Builder skippedPrefix(String skippedPrefix) {
       this.skippedPrefixes.add(skippedPrefix);
       return this;
     }
 
     /** Sets whether the parser should ignore internal-only options. */
+    @CanIgnoreReturnValue
     public Builder ignoreInternalOptions(boolean ignoreInternalOptions) {
       this.ignoreInternalOptions = ignoreInternalOptions;
       return this;
@@ -84,6 +89,7 @@ class OptionsParserImpl {
      * Sets what flag the parser should use for flag aliasing. Defaults to null if not set,
      * effectively disabling the aliasing functionality.
      */
+    @CanIgnoreReturnValue
     public Builder withAliasFlag(@Nullable String aliasFlag) {
       if (aliasFlag != null) {
         this.aliasFlag = "--" + aliasFlag;
@@ -95,6 +101,7 @@ class OptionsParserImpl {
      * Adds a map of flag aliases where the keys are the flags' alias names and the values are their
      * actual names.
      */
+    @CanIgnoreReturnValue
     public Builder withAliases(Map<String, String> aliases) {
       this.aliases.putAll(aliases);
       return this;
