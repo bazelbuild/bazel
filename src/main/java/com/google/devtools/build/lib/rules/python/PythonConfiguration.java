@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -95,6 +96,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   }
 
   @Override
+  @Nullable
   public String getOutputDirectoryName() {
     Preconditions.checkState(version.isTargetValue());
     // The only possible Python target version values are PY2 and PY3. Historically, PY3 targets got

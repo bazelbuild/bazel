@@ -20,6 +20,7 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 /** A {@link BlockingQueue} with LIFO (last-in-first-out) ordering. */
 public class BlockingStack<E> extends AbstractQueue<E> implements BlockingQueue<E> {
@@ -66,6 +67,7 @@ public class BlockingStack<E> extends AbstractQueue<E> implements BlockingQueue<
   }
 
   @Override
+  @Nullable
   public E poll() {
     return deque.pollFirst();
   }
@@ -86,6 +88,7 @@ public class BlockingStack<E> extends AbstractQueue<E> implements BlockingQueue<
   }
 
   @Override
+  @Nullable
   public E peek() {
     return deque.peekFirst();
   }

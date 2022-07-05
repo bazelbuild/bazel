@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -88,6 +89,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
     this.javaToolchainAttribute = JavaSemantics.javaToolchainAttribute(env);
   }
 
+  @Nullable
   protected ConfiguredAspect createWithProtocOpts(
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,

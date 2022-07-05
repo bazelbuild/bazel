@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /** Options common to all commands. */
 public class CommonCommandOptions extends OptionsBase {
@@ -120,6 +121,7 @@ public class CommonCommandOptions extends OptionsBase {
   public static class UUIDConverter implements Converter<UUID> {
 
     @Override
+    @Nullable
     public UUID convert(String input) throws OptionsParsingException {
       if (isNullOrEmpty(input)) {
         return null;
@@ -145,6 +147,7 @@ public class CommonCommandOptions extends OptionsBase {
   public static class PrefixedUUIDConverter implements Converter<String> {
 
     @Override
+    @Nullable
     public String convert(String input) throws OptionsParsingException {
       if (isNullOrEmpty(input)) {
         return null;

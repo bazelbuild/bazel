@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * An interface for a remote caching protocol.
@@ -68,6 +69,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    */
   @AutoValue
   abstract class CachedActionResult {
+    @Nullable
     public static CachedActionResult remote(ActionResult actionResult) {
       if (actionResult == null) {
         return null;
@@ -75,6 +77,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
       return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "remote");
     }
 
+    @Nullable
     public static CachedActionResult disk(ActionResult actionResult) {
       if (actionResult == null) {
         return null;

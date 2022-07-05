@@ -127,6 +127,7 @@ public class CommandEnvironment {
   private MetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
+    @Nullable
     @Override
     public Path getFileFromWorkspace(Label label) {
       Path buildFile = getPackageManager().getBuildFileForPackage(label.getPackageIdentifier());
