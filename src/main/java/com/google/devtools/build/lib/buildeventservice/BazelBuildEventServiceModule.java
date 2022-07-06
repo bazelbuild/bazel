@@ -84,6 +84,7 @@ public class BazelBuildEventServiceModule
     return client;
   }
 
+  @Nullable
   private static ClientInterceptor makeGrpcInterceptor(BackendConfig config) {
     if (config.besHeaders().isEmpty()) {
       return null;
