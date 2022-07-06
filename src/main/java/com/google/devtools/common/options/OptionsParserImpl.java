@@ -294,6 +294,7 @@ class OptionsParserImpl {
     return optionValues.get(optionDefinition);
   }
 
+  @Nullable
   OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     OptionDefinition optionDefinition = optionsData.getOptionDefinitionFromName(name);
     if (optionDefinition == null) {

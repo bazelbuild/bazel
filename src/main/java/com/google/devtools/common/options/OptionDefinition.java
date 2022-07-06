@@ -26,6 +26,7 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Everything the {@link OptionsParser} needs to know about how an option is defined.
@@ -256,6 +257,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   /** Returns the evaluated default value for this option & memoizes the result. */
+  @Nullable
   public Object getDefaultValue() {
     if (defaultValue != null) {
       return defaultValue;
