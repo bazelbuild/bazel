@@ -650,6 +650,7 @@ public final class Resolver extends NodeVisitor {
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
+  @Nullable
   private Binding use(Identifier id) {
     String name = id.getName();
 
