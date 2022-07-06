@@ -1021,6 +1021,7 @@ public final class RemoteModule extends BlazeModule {
       this.delegate = null;
     }
 
+    @Nullable
     @Override
     public RepositoryRemoteExecutor create() {
       RepositoryRemoteExecutorFactory delegate = this.delegate;
@@ -1053,6 +1054,7 @@ public final class RemoteModule extends BlazeModule {
    * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
    * @throws IOException in case the credentials can't be constructed.
    */
+  @Nullable
   @VisibleForTesting
   static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
       throws IOException {

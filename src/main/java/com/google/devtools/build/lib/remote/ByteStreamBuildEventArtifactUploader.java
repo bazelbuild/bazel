@@ -52,6 +52,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** A {@link BuildEventArtifactUploader} backed by {@link RemoteCache}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
@@ -356,6 +357,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     }
 
     @Override
+    @Nullable
     public String apply(Path path) {
       Preconditions.checkNotNull(path);
 
