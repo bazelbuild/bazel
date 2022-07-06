@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -432,6 +433,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     UNRELATED_TO
   }
 
+  @Nullable
   private Relation findRelationWithGenerics(TypeMirror type1, TypeMirror type2) {
     if (type1.getKind() == TypeKind.TYPEVAR
         || type1.getKind() == TypeKind.WILDCARD
