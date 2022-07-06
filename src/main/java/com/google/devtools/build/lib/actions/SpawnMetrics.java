@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -359,117 +360,140 @@ public final class SpawnMetrics {
       return new SpawnMetrics(this);
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecKind(ExecKind execKind) {
       this.execKind = execKind;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTotalTime(Duration totalTime) {
       this.totalTime = totalTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setParseTime(Duration parseTime) {
       this.parseTime = parseTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNetworkTime(Duration networkTime) {
       this.networkTime = networkTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFetchTime(Duration fetchTime) {
       this.fetchTime = fetchTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setQueueTime(Duration queueTime) {
       this.queueTime = queueTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSetupTime(Duration setupTime) {
       this.setupTime = setupTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addSetupTime(Duration setupTime) {
       this.setupTime = this.setupTime.plus(setupTime);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setUploadTime(Duration uploadTime) {
       this.uploadTime = uploadTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutionWallTime(Duration executionWallTime) {
       this.executionWallTime = executionWallTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addRetryTime(int errorCode, Duration retryTime) {
       Duration d = this.retryTime.getOrDefault(errorCode, Duration.ZERO);
       this.retryTime.put(errorCode, d.plus(retryTime));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRetryTime(Map<Integer, Duration> retryTime) {
       this.retryTime = new HashMap<>(retryTime);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setProcessOutputsTime(Duration processOutputsTime) {
       this.processOutputsTime = processOutputsTime;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInputBytes(long inputBytes) {
       this.inputBytes = inputBytes;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInputFiles(long inputFiles) {
       this.inputFiles = inputFiles;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setMemoryEstimateBytes(long memoryEstimateBytes) {
       this.memoryEstimateBytes = memoryEstimateBytes;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInputBytesLimit(long inputBytesLimit) {
       this.inputBytesLimit = inputBytesLimit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInputFilesLimit(long inputFilesLimit) {
       this.inputFilesLimit = inputFilesLimit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setOutputBytesLimit(long outputBytesLimit) {
       this.outputBytesLimit = outputBytesLimit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setOutputFilesLimit(long outputFilesLimit) {
       this.outputFilesLimit = outputFilesLimit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setMemoryBytesLimit(long memoryBytesLimit) {
       this.memoryBytesLimit = memoryBytesLimit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTimeLimit(Duration timeLimit) {
       this.timeLimit = timeLimit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDurations(SpawnMetrics metric) {
       totalTime = totalTime.plus(metric.totalTime());
       parseTime = parseTime.plus(metric.parseTime());
@@ -486,6 +510,7 @@ public final class SpawnMetrics {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNonDurations(SpawnMetrics metric) {
       inputFiles += metric.inputFiles();
       inputBytes += metric.inputBytes();
@@ -499,6 +524,7 @@ public final class SpawnMetrics {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder maxNonDurations(SpawnMetrics metric) {
       inputFiles = Long.max(inputFiles, metric.inputFiles());
       inputBytes = Long.max(inputBytes, metric.inputBytes());
