@@ -94,7 +94,10 @@ public class BaseSpawn implements Spawn {
     }
   }
 
-  /** @return the runfiles directory if there is only one, otherwise null */
+  /**
+   * @return the runfiles directory if there is only one, otherwise null
+   */
+  @Nullable
   private PathFragment getRunfilesRoot() {
     Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
     if (runfilesSupplierRoots.size() == 1) {
