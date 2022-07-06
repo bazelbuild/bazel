@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.FilesetEntryKey;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
+import com.google.devtools.build.lib.skyframe.TraversalRequest;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -42,7 +42,7 @@ public final class RewindingInconsistencyUtils {
         || key instanceof ArtifactNestedSetKey
         || key instanceof Artifact
         || key instanceof FilesetEntryKey
-        || key instanceof RecursiveFilesystemTraversalValue.TraversalRequest;
+        || key instanceof TraversalRequest;
   }
 
   /**
@@ -59,7 +59,7 @@ public final class RewindingInconsistencyUtils {
         || key instanceof TargetCompletionKey
         || key instanceof TestCompletionKey
         || key instanceof AspectCompletionKey
-        || key instanceof RecursiveFilesystemTraversalValue.TraversalRequest
+        || key instanceof TraversalRequest
         || key instanceof FilesetEntryKey;
   }
 }
