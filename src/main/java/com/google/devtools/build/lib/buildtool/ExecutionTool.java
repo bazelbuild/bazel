@@ -500,17 +500,7 @@ public class ExecutionTool {
     } catch (Error | RuntimeException e) {
       catastrophe = e;
     } finally {
-      // These may flush logs, which may help if there is a catastrophic failure.
-      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
-        executorLifecycleListener.executionPhaseEnding();
-      }
-
-      // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
-      // a catastrophic failure. Posting these is consistent with other behavior.
-      env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
-
-      env.getEventBus()
-          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+      unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
 
       if (catastrophe != null) {
         Throwables.throwIfUnchecked(catastrophe);
@@ -576,6 +566,25 @@ public class ExecutionTool {
         env.getOutputService().finalizeBuild(isBuildSuccessful);
       }
     }
+  }
+
+  /**
+   * These steps get performed after the end of execution, regardless of whether there's a
+   * catastrophe or not.
+   */
+  void unconditionalExecutionPhaseFinalizations(
+      Stopwatch timer, SkyframeExecutor skyframeExecutor) {
+    // These may flush logs, which may help if there is a catastrophic failure.
+    for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+      executorLifecycleListener.executionPhaseEnding();
+    }
+
+    // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
+    // a catastrophic failure. Posting these is consistent with other behavior.
+    env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
+
+    env.getEventBus()
+        .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
