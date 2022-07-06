@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -37,12 +35,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** SkyFunction for {@link FilesetEntryValue}. */
 public final class FilesetEntryFunction implements SkyFunction {
-
-  private static final class MissingDepException extends Exception {}
 
   private static final class FilesetEntryFunctionException extends SkyFunctionException {
     FilesetEntryFunctionException(RecursiveFilesystemTraversalException e) {
@@ -66,16 +63,25 @@ public final class FilesetEntryFunction implements SkyFunction {
       return null;
     }
 
-    FilesetTraversalParams params = (FilesetTraversalParams) key.argument();
-    Preconditions.checkState(
-        params.getDirectTraversal().isPresent() && params.getNestedArtifact() == null,
-        "FilesetEntry does not support nested traversal: %s",
-        params);
+    FilesetTraversalParams params = checkParams((FilesetEntryKey) key);
 
-    // The map of output symlinks. Each key is the path of a output symlink that the Fileset must
-    // create, relative to the Fileset.out directory, and each value specifies extra information
-    // about the link (its target, associated metadata and again its name).
-    Map<PathFragment, FilesetOutputSymlink> outputSymlinks = new LinkedHashMap<>();
+    RecursiveFilesystemTraversalValue traversalValue =
+        (RecursiveFilesystemTraversalValue) env.getValue(FilesetTraversalRequest.create(params));
+    if (traversalValue == null) {
+      return null;
+    }
+
+    // The root can only be absent for the EMPTY RecursiveFilesystemTraversalValue instance.
+    if (traversalValue.getResolvedRoot().isEmpty()) {
+      return FilesetEntryValue.EMPTY;
+    }
+
+    ResolvedFile resolvedRoot = traversalValue.getResolvedRoot().get();
+
+    // Handle dangling symlinks gracefully be returning empty results.
+    if (!resolvedRoot.getType().exists()) {
+      return FilesetEntryValue.EMPTY;
+    }
 
     // The "direct" traversal params are present, which is the case when the FilesetEntry
     // specifies a package's BUILD file, a directory or a list of files.
@@ -95,26 +101,6 @@ public final class FilesetEntryFunction implements SkyFunction {
     // the root will be srcdir itself.
     DirectTraversal direct = params.getDirectTraversal().get();
 
-    RecursiveFilesystemTraversalValue rftv;
-    try {
-      // Traverse the filesystem to establish skyframe dependencies.
-      rftv = traverse(env, params, direct);
-    } catch (MissingDepException e) {
-      return null;
-    }
-
-    // The root can only be absent for the EMPTY rftv instance.
-    if (!rftv.getResolvedRoot().isPresent()) {
-      return FilesetEntryValue.EMPTY;
-    }
-
-    ResolvedFile resolvedRoot = rftv.getResolvedRoot().get();
-
-    // Handle dangling symlinks gracefully be returning empty results.
-    if (!resolvedRoot.getType().exists()) {
-      return FilesetEntryValue.EMPTY;
-    }
-
     // The prefix to remove is the entire path of the root. This is OK:
     // - when the root is a file, this removes the entire path, but the traversal's destination
     //   path is actually the name of the output symlink, so this works out correctly
@@ -123,8 +109,7 @@ public final class FilesetEntryFunction implements SkyFunction {
     //   before making them relative to the destination path
     PathFragment prefixToRemove = direct.getRoot().getRelativePart();
 
-    Iterable<ResolvedFile> results = null;
-
+    Iterable<ResolvedFile> results;
     if (direct.isRecursive()
         || (resolvedRoot.getType().isDirectory() && !resolvedRoot.getType().isSymlink())) {
       // The traversal is recursive (requested for an entire FilesetEntry.srcdir) or it was
@@ -138,7 +123,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       // the parent. Finding and discarding the children is easy if we traverse the tree from
       // root to leaf.
       DirectoryTree root = new DirectoryTree();
-      for (ResolvedFile f : rftv.getTransitiveFiles().toList()) {
+      for (ResolvedFile f : traversalValue.getTransitiveFiles().toList()) {
         PathFragment path = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
         if (!path.isEmpty()) {
           path = params.getDestPath().getRelative(path);
@@ -158,6 +143,11 @@ public final class FilesetEntryFunction implements SkyFunction {
       // or a symlink to a directory), meaning we'll have only one output symlink.
       results = ImmutableList.of(resolvedRoot);
     }
+
+    // The map of output symlinks. Each key is the path of an output symlink that the Fileset must
+    // create, relative to the Fileset.out directory, and each value specifies extra information
+    // about the link (its target, associated metadata, and again its name).
+    Map<PathFragment, FilesetOutputSymlink> outputSymlinks = new LinkedHashMap<>();
 
     // Create one output symlink for each entry in the results.
     for (ResolvedFile f : results) {
@@ -195,7 +185,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   }
 
   /** Stores an output symlink unless it would overwrite an existing one. */
-  private void maybeStoreSymlink(
+  private static void maybeStoreSymlink(
       PathFragment linkName,
       PathFragment linkTarget,
       HasDigest metadata,
@@ -217,56 +207,24 @@ public final class FilesetEntryFunction implements SkyFunction {
    * filesetEntryKey}. Should only be called to determine which nodes need to be rewound, and only
    * when {@code filesetEntryKey.isGenerated()}.
    */
-  public static TraversalRequest getDependencyForRewinding(FilesetEntryKey filesetEntryKey) {
-    FilesetTraversalParams params = filesetEntryKey.argument();
-    Preconditions.checkState(
-        params.getDirectTraversal().isPresent() && params.getNestedArtifact() == null,
-        "FilesetEntry does not support nested traversal: %s",
-        params);
-    Preconditions.checkState(
+  public static TraversalRequest getDependencyForRewinding(FilesetEntryKey key) {
+    FilesetTraversalParams params = checkParams(key);
+    checkState(
         params.getDirectTraversal().get().isGenerated(),
         "Rewinding is only supported for outputs: %s",
         params);
     // Traversals in the output tree inline any recursive TraversalRequest evaluations, i.e. there
     // won't be any transitively depended-on TraversalRequests.
-    return createTraversalRequestKey(params, params.getDirectTraversal().get());
+    return FilesetTraversalRequest.create(params);
   }
 
-  public static TraversalRequest createTraversalRequestKey(
-      FilesetTraversalParams params, DirectTraversal traversal) {
-    return TraversalRequest.create(
-        traversal.getRoot(),
-        traversal.isGenerated(),
-        traversal.getPackageBoundaryMode(),
-        traversal.isStrictFilesetOutput(),
-        traversal.isPackage(),
-        createErrorInfo(params));
-  }
-
-  private static RecursiveFilesystemTraversalValue traverse(
-      Environment env, FilesetTraversalParams params, DirectTraversal traversal)
-      throws MissingDepException, InterruptedException {
-    RecursiveFilesystemTraversalValue v =
-        (RecursiveFilesystemTraversalValue)
-            env.getValue(createTraversalRequestKey(params, traversal));
-    if (env.valuesMissing()) {
-      throw new MissingDepException();
-    }
-    return v;
-  }
-
-  private static String createErrorInfo(FilesetTraversalParams t) {
-    if (t.getDirectTraversal().isPresent()) {
-      DirectTraversal direct = t.getDirectTraversal().get();
-      return String.format(
-          "Fileset '%s' traversing %s '%s'",
-          t.getOwnerLabelForErrorMessages(),
-          direct.isPackage() ? "package" : "file (or directory)",
-          direct.getRoot().getRelativePart().getPathString());
-    } else {
-      return String.format(
-          "Fileset '%s' traversing another Fileset", t.getOwnerLabelForErrorMessages());
-    }
+  private static FilesetTraversalParams checkParams(FilesetEntryKey key) {
+    FilesetTraversalParams params = key.argument();
+    checkState(
+        params.getDirectTraversal().isPresent() && params.getNestedArtifact() == null,
+        "FilesetEntry does not support nested traversal: %s",
+        params);
+    return params;
   }
 
   /**
@@ -321,24 +279,12 @@ public final class FilesetEntryFunction implements SkyFunction {
       // as normal files so their parent directory (the symlink) would show up in the dirs map
       // (as a directory) as well as in the files map (as a symlink to a directory).
       final Set<String> fileNames = files.keySet();
-      Iterable<Map.Entry<String, DirectoryTree>> noDirSymlinkes = Iterables.filter(dirs.entrySet(),
-          new Predicate<Map.Entry<String, DirectoryTree>>() {
-            @Override
-            public boolean apply(Map.Entry<String, DirectoryTree> input) {
-              return !fileNames.contains(input.getKey());
-            }
-          });
+      Iterable<Map.Entry<String, DirectoryTree>> noDirSymlinkes =
+          Iterables.filter(dirs.entrySet(), input -> !fileNames.contains(input.getKey()));
 
       // 2. Extract the iterables of the true subdirectories.
       Iterable<Iterable<ResolvedFile>> subdirIters =
-          Iterables.transform(
-              noDirSymlinkes,
-              new Function<Map.Entry<String, DirectoryTree>, Iterable<ResolvedFile>>() {
-                @Override
-                public Iterable<ResolvedFile> apply(Map.Entry<String, DirectoryTree> input) {
-                  return input.getValue().iterateFiles();
-                }
-              });
+          Iterables.transform(noDirSymlinkes, input -> input.getValue().iterateFiles());
 
       // 3. Just concat all subdirectory iterations for one, seamless iteration.
       Iterable<ResolvedFile> dirsIter = Iterables.concat(subdirIters);

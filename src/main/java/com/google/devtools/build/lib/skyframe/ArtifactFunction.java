@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.actions.MiddlemanType.RUNFILES_MIDDL
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraver
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -42,7 +44,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
@@ -304,13 +305,8 @@ public final class ArtifactFunction implements SkyFunction {
     // In the future, we need to make this result the source of truth for the files available to
     // the action so that we at least have consistency.
     TraversalRequest request =
-        TraversalRequest.create(
-            DirectTraversalRoot.forRootedPath(path),
-            /*isRootGenerated=*/ false,
-            PackageBoundaryMode.CROSS,
-            /*strictOutputFiles=*/ true,
-            /*skipTestingForSubpackage=*/ true,
-            /*errorInfo=*/ "Directory artifact " + artifact.prettyPrint());
+        DirectoryArtifactTraversalRequest.create(
+            DirectTraversalRoot.forRootedPath(path), /*skipTestingForSubpackage=*/ true, artifact);
     RecursiveFilesystemTraversalValue value;
     try {
       value =
@@ -590,6 +586,84 @@ public final class ArtifactFunction implements SkyFunction {
     @Override
     public DetailedExitCode getDetailedExitCode() {
       return detailedExitCode;
+    }
+  }
+
+  private static final class DirectoryArtifactTraversalRequest extends TraversalRequest {
+
+    private static final Interner<DirectoryArtifactTraversalRequest> interner =
+        BlazeInterners.newWeakInterner();
+
+    static DirectoryArtifactTraversalRequest create(
+        DirectTraversalRoot root, boolean skipTestingForSubpackage, Artifact artifact) {
+      return interner.intern(
+          new DirectoryArtifactTraversalRequest(root, skipTestingForSubpackage, artifact));
+    }
+
+    private final DirectTraversalRoot root;
+    private final boolean skipTestingForSubpackage;
+    private final Artifact artifact;
+
+    private DirectoryArtifactTraversalRequest(
+        DirectTraversalRoot root, boolean skipTestingForSubpackage, Artifact artifact) {
+      this.root = root;
+      this.skipTestingForSubpackage = skipTestingForSubpackage;
+      this.artifact = artifact;
+    }
+
+    @Override
+    public DirectTraversalRoot root() {
+      return root;
+    }
+
+    @Override
+    protected boolean isRootGenerated() {
+      return false;
+    }
+
+    @Override
+    protected PackageBoundaryMode crossPkgBoundaries() {
+      return PackageBoundaryMode.CROSS;
+    }
+
+    @Override
+    protected boolean strictOutputFiles() {
+      return true;
+    }
+
+    @Override
+    protected boolean skipTestingForSubpackage() {
+      return skipTestingForSubpackage;
+    }
+
+    @Override
+    protected String errorInfo() {
+      return "Directory artifact " + artifact.prettyPrint();
+    }
+
+    @Override
+    protected TraversalRequest duplicateWithOverrides(
+        DirectTraversalRoot newRoot, boolean newSkipTestingForSubpackage) {
+      return create(newRoot, newSkipTestingForSubpackage, artifact);
+    }
+
+    @Override
+    public int hashCode() {
+      // Artifact is only for error info and not considered in hash code or equality.
+      return root.hashCode() * 31 + Boolean.hashCode(skipTestingForSubpackage);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof DirectoryArtifactTraversalRequest)) {
+        return false;
+      }
+      // Artifact is only for error info and not considered in hash code or equality.
+      DirectoryArtifactTraversalRequest other = (DirectoryArtifactTraversalRequest) o;
+      return root.equals(other.root) && skipTestingForSubpackage == other.skipTestingForSubpackage;
     }
   }
 }

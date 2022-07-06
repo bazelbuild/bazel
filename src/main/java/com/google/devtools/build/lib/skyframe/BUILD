@@ -627,6 +627,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -1326,6 +1327,7 @@ java_library(
     deps = [
         ":fileset_entry_key",
         ":fileset_entry_value",
+        ":fileset_traversal_request",
         ":recursive_filesystem_traversal",
         ":workspace_name_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1336,6 +1338,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "fileset_traversal_request",
+    srcs = ["FilesetTraversalRequest.java"],
+    deps = [
+        ":recursive_filesystem_traversal",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//third_party:guava",
     ],
 )
 
@@ -1989,6 +2002,7 @@ java_library(
     srcs = [
         "RecursiveFilesystemTraversalFunction.java",
         "RecursiveFilesystemTraversalValue.java",
+        "TraversalRequest.java",
     ],
     deps = [
         ":action_execution_value",
@@ -2002,7 +2016,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
