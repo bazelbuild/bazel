@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Symbolic labels of test timeout. Borrows heavily from {@link TestSize}.
@@ -118,6 +119,7 @@ public enum TestTimeout {
    * Returns the enum associated with a test's timeout or null if the tag is not lower case or an
    * unknown size.
    */
+  @Nullable
   public static TestTimeout getTestTimeout(String attr) {
     if (!attr.equals(attr.toLowerCase())) {
       return null;
@@ -133,6 +135,7 @@ public enum TestTimeout {
    * Returns test timeout of the given test target using explicitly specified timeout or default
    * through to the size label's associated default.
    */
+  @Nullable
   public static TestTimeout getTestTimeout(Rule testTarget) {
     String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
     if (!attr.equals(attr.toLowerCase())) {

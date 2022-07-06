@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -77,6 +78,7 @@ public class ConstantRuleVisibility implements RuleVisibility {
    * @param labels the list of labels to parse
    * @return The resulting visibility object, or null if the list of labels could not be parsed.
    */
+  @Nullable
   public static ConstantRuleVisibility tryParse(List<Label> labels) throws EvalException {
     if (labels.size() == 1) {
       return tryParse(labels.get(0));
@@ -93,6 +95,7 @@ public class ConstantRuleVisibility implements RuleVisibility {
     return null;
   }
 
+  @Nullable
   private static ConstantRuleVisibility tryParse(Label label) {
     if (PUBLIC_LABEL.equals(label)) {
       return PUBLIC;
