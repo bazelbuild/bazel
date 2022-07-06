@@ -1670,6 +1670,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1835,6 +1836,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
