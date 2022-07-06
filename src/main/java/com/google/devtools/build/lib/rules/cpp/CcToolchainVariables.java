@@ -332,6 +332,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
    *     reason why variable was not found)
    */
+  @Nullable
   private VariableValue lookupVariable(
       String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
       throws ExpansionException {
@@ -384,6 +385,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     return null;
   }
 
+  @Nullable
   private VariableValue getStructureVariable(
       String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
       throws ExpansionException {
@@ -526,6 +528,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
           variableName, field, /* expander= */ null, /* throwOnMissingVariable= */ true);
     }
 
+    @Nullable
     @Override
     public VariableValue getFieldValue(
         String variableName,
@@ -702,6 +705,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
           : new ForObjectFileGroup(objects);
     }
 
+    @Nullable
     public VariableValue getFieldValue(
         String variableName,
         String field,
@@ -870,6 +874,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         this.objectFiles = objectFiles;
       }
 
+      @Nullable
       @Override
       public VariableValue getFieldValue(
           String variableName,
@@ -1105,6 +1110,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       this.value = value;
     }
 
+    @Nullable
     @Override
     public VariableValue getFieldValue(
         String variableName,
@@ -1459,6 +1465,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       }
     }
 
+    @Nullable
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (keyToIndex.containsKey(name)) {
@@ -1541,6 +1548,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       variablesMap.put(name, variableValue);
     }
 
+    @Nullable
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (this.name.equals(name)) {

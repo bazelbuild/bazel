@@ -1294,6 +1294,7 @@ public abstract class CcModule
     }
   }
 
+  @Nullable
   private static Object getValueOrNull(Structure x, String name) {
     try {
       return x.getValue(name);
