@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Part of the implementation of cc_proto_library. */
 public abstract class CcProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -96,6 +97,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   }
 
   @Override
+  @Nullable
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
