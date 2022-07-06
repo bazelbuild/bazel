@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map;
 import java.util.Properties;
+import javax.annotation.Nullable;
 
 /** The generic implementation of {@link BuildInfoPropertiesTranslator} */
 public class GenericBuildInfoPropertiesTranslator implements BuildInfoPropertiesTranslator {
@@ -56,6 +57,7 @@ public class GenericBuildInfoPropertiesTranslator implements BuildInfoProperties
     }
   }
 
+  @Nullable
   private String translateValue(String valueDescription, Map<String, String> buildInfo) {
     String[] split = valueDescription.split("%");
     StringBuilder result = new StringBuilder();

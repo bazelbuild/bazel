@@ -621,6 +621,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return env.getFixedEnv();
   }
 
+  @Nullable
   @Override
   public NestedSet<Artifact> getPossibleInputsForTesting() {
     return null;
