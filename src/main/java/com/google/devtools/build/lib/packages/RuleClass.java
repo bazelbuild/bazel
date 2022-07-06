@@ -2228,7 +2228,7 @@ public class RuleClass {
         @SuppressWarnings("unchecked")
         List<Label> vis = (List<Label>) nativeAttributeValue;
         try {
-          rule.setVisibility(PackageUtils.getVisibility(rule.getLabel(), vis));
+          rule.setVisibility(PackageUtils.getVisibility(vis));
         } catch (EvalException e) {
           rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
         }
