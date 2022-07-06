@@ -174,6 +174,7 @@ public abstract class OptionValueDescription {
     }
 
     // Warnings should not end with a '.' because the internal reporter adds one automatically.
+    @Nullable
     @Override
     ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
@@ -299,6 +300,7 @@ public abstract class OptionValueDescription {
           .collect(ImmutableList.toImmutableList());
     }
 
+    @Nullable
     @Override
     ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {

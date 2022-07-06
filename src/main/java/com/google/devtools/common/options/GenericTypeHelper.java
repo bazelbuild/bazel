@@ -16,11 +16,11 @@ package com.google.devtools.common.options;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Primitives;
 import com.google.common.reflect.TypeToken;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import javax.annotation.Nullable;
 
 /**
  * A helper class for {@link OptionsParserImpl} to help checking the return type
@@ -49,10 +49,11 @@ class GenericTypeHelper {
   }
 
   /**
-   * If type is a parameterized type, searches the given type variable in the list
-   * of declared type variables, and then returns the corresponding actual type.
-   * Returns null if the type variable is not defined by type.
+   * If type is a parameterized type, searches the given type variable in the list of declared type
+   * variables, and then returns the corresponding actual type. Returns null if the type variable is
+   * not defined by type.
    */
+  @Nullable
   private static Type matchTypeVariable(Type type, TypeVariable<?> variable) {
     if (type instanceof ParameterizedType) {
       Class<?> rawInterfaceType = getRawType(type);

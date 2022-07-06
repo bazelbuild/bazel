@@ -442,6 +442,7 @@ public final class InvocationPolicyEnforcer {
    * For an expansion flag in an invocation policy, each flag it expands to must be given a
    * corresponding policy.
    */
+  @Nullable
   private static FlagPolicyWithContext getSingleValueSubflagAsPolicy(
       OptionDescription subflagContext,
       ParsedOptionDescription currentSubflag,
