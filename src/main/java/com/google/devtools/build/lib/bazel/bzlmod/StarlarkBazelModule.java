@@ -44,6 +44,7 @@ public class StarlarkBazelModule implements StarlarkValue {
   private final String name;
   private final String version;
   private final Tags tags;
+  private final boolean isRootModule;
 
   @StarlarkBuiltin(
       name = "bazel_module_tags",
@@ -82,10 +83,11 @@ public class StarlarkBazelModule implements StarlarkValue {
     }
   }
 
-  private StarlarkBazelModule(String name, String version, Tags tags) {
+  private StarlarkBazelModule(String name, String version, Tags tags, boolean isRootModule) {
     this.name = name;
     this.version = version;
     this.tags = tags;
+    this.isRootModule = isRootModule;
   }
 
   /**
@@ -143,7 +145,8 @@ public class StarlarkBazelModule implements StarlarkValue {
     return new StarlarkBazelModule(
         module.getName(),
         module.getVersion().getOriginal(),
-        new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)));
+        new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)),
+        module.getKey().equals(ModuleKey.ROOT));
   }
 
   @Override
@@ -167,5 +170,13 @@ public class StarlarkBazelModule implements StarlarkValue {
       doc = "The tags in the module related to the module extension currently being processed.")
   public Tags getTags() {
     return tags;
+  }
+
+  @StarlarkMethod(
+      name = "is_root",
+      structField = true,
+      doc = "Whether this module is the root module.")
+  public boolean isRoot() {
+    return isRootModule;
   }
 }
