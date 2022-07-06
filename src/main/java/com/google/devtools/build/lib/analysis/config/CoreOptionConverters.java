@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -117,6 +118,7 @@ public class CoreOptionConverters {
    */
   public static class EmptyToNullLabelConverter implements Converter<Label> {
     @Override
+    @Nullable
     public Label convert(String input) throws OptionsParsingException {
       return input.isEmpty() ? null : convertOptionsLabel(input);
     }

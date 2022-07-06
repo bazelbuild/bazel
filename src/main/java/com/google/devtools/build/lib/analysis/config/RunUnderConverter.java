@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * --run_under options converter.
@@ -77,6 +78,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     }
 
     @Override
+    @Nullable
     public String getCommand() {
       return null;
     }
@@ -128,6 +130,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     }
 
     @Override
+    @Nullable
     public Label getLabel() {
       return null;
     }
