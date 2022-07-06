@@ -58,6 +58,7 @@ public interface DependencyKind {
       this.name = name;
     }
 
+    @Nullable
     @Override
     public Attribute getAttribute() {
       return null;

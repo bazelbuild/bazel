@@ -150,6 +150,7 @@ public final class ConfiguredTargetFactory {
     }
   }
 
+  @Nullable
   private static TransitiveInfoCollection findVisibilityPrerequisite(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
     for (ConfiguredTargetAndData prerequisite :

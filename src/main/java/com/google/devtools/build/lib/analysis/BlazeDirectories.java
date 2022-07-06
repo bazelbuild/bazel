@@ -135,6 +135,7 @@ public final class BlazeDirectories {
    * <p>It may effectively differ from the working directory. Please use {@link
    * #getWorkingDirectory()} for writes within the working directory.
    */
+  @Nullable
   public Path getWorkspace() {
     // Make sure to use the same file system as exec root.
     return workspace != null
