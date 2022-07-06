@@ -34,6 +34,10 @@ public interface ExtendedEventHandler extends EventHandler {
      * invocation is cached. On the other hand, posts that are merely informational (such as a
      * progress update) should return {@code false} to avoid taking up memory.
      *
+     * <p>Note that evaluations may choose not to store any posts at all by returning {@code false}
+     * from {@link com.google.devtools.build.skyframe.EventFilter#storeEventsAndPosts}, in which
+     * case this method is not relevant.
+     *
      * <p>This method is not relevant for posts which do not originate from {@link
      * com.google.devtools.build.skyframe.SkyFunction} evaluation.
      */
