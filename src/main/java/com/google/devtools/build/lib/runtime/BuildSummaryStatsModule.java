@@ -215,6 +215,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
         criticalPathComputer = null;
       }
       profilePath = null;
+      criticalPath = null;
     }
   }
 }
