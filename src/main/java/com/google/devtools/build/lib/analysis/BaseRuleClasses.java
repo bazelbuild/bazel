@@ -139,6 +139,15 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_SUPPORT_CONFIGURATION_RESOLVER);
   }
 
+  public static LabelLateBoundDefault<TestConfiguration> collectCoverageWrapper(
+      Label defaultValue) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        TestConfiguration.class,
+        defaultValue,
+        (rule, attributes, configuration) -> configuration.getCollectCoverageWrapper()
+    );
+  }
+
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
@@ -235,10 +244,10 @@ public class BaseRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_xml_generator")))
           .add(
-              attr("$collect_coverage_script", LABEL)
+              attr(":collect_coverage_script", LABEL)
                   .cfg(ExecutionTransitionFactory.create())
                   .singleArtifact()
-                  .value(env.getToolsLabel("//tools/test:collect_coverage")))
+                  .value(collectCoverageWrapper(env.getToolsLabel("//tools/test:collect_coverage"))))
           // Input files for test actions collecting code coverage
           .add(
               attr(":coverage_support", LABEL)

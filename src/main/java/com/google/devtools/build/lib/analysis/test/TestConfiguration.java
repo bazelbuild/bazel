@@ -241,6 +241,22 @@ public class TestConfiguration extends Fragment {
     public Label coverageSupport;
 
     @Option(
+        name = "collect_coverage_wrapper",
+        converter = LabelConverter.class,
+        defaultValue = "@bazel_tools//tools/test:collect_coverage",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+            OptionEffectTag.CHANGES_INPUTS,
+            OptionEffectTag.AFFECTS_OUTPUTS,
+            OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help =
+            "Location of a wrapper used to collect coverage (with `bazel coverage` command). "
+                + "Defaults to '//tools/test:collect_coverage'."
+    )
+    public Label collectCoverageWrapper;
+
+    @Option(
         name = "coverage_report_generator",
         converter = LabelConverter.class,
         defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
@@ -357,6 +373,10 @@ public class TestConfiguration extends Fragment {
 
   public Label getCoverageSupport() {
     return options.coverageSupport;
+  }
+
+  public Label getCollectCoverageWrapper() {
+    return options.collectCoverageWrapper;
   }
 
   public Label getCoverageReportGenerator() {

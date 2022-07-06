@@ -236,7 +236,7 @@ public final class TestActionBuilder {
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
-      collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
+      collectCoverageScript = ruleContext.getHostPrerequisiteArtifact(":collect_coverage_script");
       inputsBuilder.add(collectCoverageScript);
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
