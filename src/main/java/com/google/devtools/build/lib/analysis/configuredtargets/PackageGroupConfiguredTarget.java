@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -125,6 +126,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
+  @Nullable
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     if (providerKey.equals(PROVIDER.getKey())) {
       return this;

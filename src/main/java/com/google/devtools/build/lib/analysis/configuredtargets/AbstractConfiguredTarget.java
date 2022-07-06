@@ -136,6 +136,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     return getValue(name);
   }
 
+  @Nullable
   @Override
   public Object getValue(String name) {
     switch (name) {
