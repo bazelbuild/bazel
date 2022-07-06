@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
   private final SkyframePackageLoader packageLoader;
@@ -86,6 +87,7 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
 
   @ThreadSafe
   @Override
+  @Nullable
   public Path getBuildFileForPackage(PackageIdentifier packageName) {
     // Note that this method needs to be thread-safe, as it is currently used concurrently by
     // legacy blaze code.

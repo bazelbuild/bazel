@@ -61,6 +61,7 @@ public final class GlobFunction implements SkyFunction {
     this.regexPatternCache = new ConcurrentHashMap<>();
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws GlobFunctionException, InterruptedException {
@@ -404,6 +405,7 @@ public final class GlobFunction implements SkyFunction {
    * to {@code matches}, or {@code null} if no additional value is needed. The returned value should
    * be opaquely passed to {@link #getSubdirMatchesFromSkyValue}.
    */
+  @Nullable
   private static SkyKey getSkyKeyForSubdir(
       String fileName, GlobDescriptor glob, String subdirPattern) {
     if (subdirPattern == null) {

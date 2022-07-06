@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /** Creates the workspace status artifacts and action. */
 public class WorkspaceStatusFunction implements SkyFunction {
@@ -33,6 +34,7 @@ public class WorkspaceStatusFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
         WorkspaceStatusValue.BUILD_INFO_KEY.equals(skyKey), WorkspaceStatusValue.BUILD_INFO_KEY);

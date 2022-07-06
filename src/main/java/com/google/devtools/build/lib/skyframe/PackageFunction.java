@@ -316,6 +316,7 @@ public class PackageFunction implements SkyFunction {
    * @throws PackageFunctionException if there is an error computing the workspace file or adding
    *     its rules to the //external package.
    */
+  @Nullable
   private SkyValue getExternalPackage(Environment env)
       throws PackageFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -385,6 +386,7 @@ public class PackageFunction implements SkyFunction {
     @Nullable private LoadedPackage loadedPackage;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws PackageFunctionException, InterruptedException {
@@ -576,6 +578,7 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
+  @Nullable
   private static FileValue getBuildFileValue(Environment env, RootedPath buildFileRootedPath)
       throws InterruptedException {
     FileValue buildFileValue;

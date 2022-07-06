@@ -80,6 +80,7 @@ public class PackageLookupFunction implements SkyFunction {
     private int buildFileNamePos = 0;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
@@ -234,6 +235,7 @@ public class PackageLookupFunction implements SkyFunction {
     return fileValue;
   }
 
+  @Nullable
   private PackageLookupValue getPackageLookupValue(
       Environment env,
       Root packagePathEntry,
@@ -318,6 +320,7 @@ public class PackageLookupFunction implements SkyFunction {
     return false;
   }
 
+  @Nullable
   private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
       throws InterruptedException {
     RootedPath workspaceFile = externalPackageHelper.findWorkspaceFile(env);
@@ -349,6 +352,7 @@ public class PackageLookupFunction implements SkyFunction {
    * <p>To do this, it looks up the "external" package and finds a path mapping for the repository
    * name.
    */
+  @Nullable
   private PackageLookupValue computeExternalPackageLookupValue(
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException, InterruptedException {

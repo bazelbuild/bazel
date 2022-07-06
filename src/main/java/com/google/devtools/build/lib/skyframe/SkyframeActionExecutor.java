@@ -897,6 +897,7 @@ public final class SkyframeActionExecutor {
   private static ActionContinuationOrResult begin(
       Action action, ActionExecutionContext actionExecutionContext) {
     return new ActionContinuationOrResult() {
+      @Nullable
       @Override
       public ListenableFuture<?> getFuture() {
         return null;
@@ -914,6 +915,7 @@ public final class SkyframeActionExecutor {
   private static ActionContinuationOrResult runFully(
       Action action, ActionExecutionContext actionExecutionContext) {
     return new ActionContinuationOrResult() {
+      @Nullable
       @Override
       public ListenableFuture<?> getFuture() {
         return null;

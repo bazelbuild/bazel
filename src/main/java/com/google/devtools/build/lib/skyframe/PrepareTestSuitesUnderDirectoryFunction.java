@@ -24,6 +24,7 @@ import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * {@link SkyFunction} to recursively traverse a directory and ensure {@link
@@ -37,6 +38,7 @@ public class PrepareTestSuitesUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     Key argument = (Key) skyKey.argument();

@@ -118,6 +118,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
     return (Collection<Dirent>) result; // unchecked cast
   }
 
+  @Nullable
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
     // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
@@ -137,6 +138,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
     return (status == NO_STATUS) ? null : status;
   }
 
+  @Nullable
   @Override
   @SuppressWarnings("unchecked")
   public DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException {

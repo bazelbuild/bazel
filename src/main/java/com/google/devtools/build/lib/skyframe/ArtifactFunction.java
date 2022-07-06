@@ -106,6 +106,7 @@ public final class ArtifactFunction implements SkyFunction {
     this.xattrProvider = xattrProvider;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
@@ -183,6 +184,7 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
+  @Nullable
   private static TreeArtifactValue createTreeArtifactValueFromActionKey(
       ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {
     // Request the list of expanded action keys from the ActionTemplate.
@@ -254,6 +256,7 @@ public final class ArtifactFunction implements SkyFunction {
     return tree;
   }
 
+  @Nullable
   private SkyValue createSourceValue(Artifact artifact, Environment env)
       throws InterruptedException, ArtifactFunctionException {
     RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
