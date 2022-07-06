@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -416,16 +417,19 @@ public class CommandLines {
       commandLines = new ArrayList<>(other.commandLines);
     }
 
+    @CanIgnoreReturnValue
     public Builder addSingleArgument(Object argument) {
       commandLines.add(argument);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine) {
       commandLines.add(commandLine);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine, ParamFileInfo paramFileInfo) {
       if (paramFileInfo == null) {
         commandLines.add(commandLine);
@@ -435,6 +439,7 @@ public class CommandLines {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLineAndParamFileInfo pair) {
       if (pair.paramFileInfo == null) {
         commandLines.add(pair.commandLine);

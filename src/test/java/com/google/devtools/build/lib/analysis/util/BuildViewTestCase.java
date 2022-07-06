@@ -184,6 +184,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -2503,17 +2504,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     private ArtifactExpander artifactExpander = null;
     private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
+    @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setMetadataProvider(
         MetadataProvider actionInputFileCache) {
       this.actionInputFileCache = actionInputFileCache;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setArtifactExpander(ArtifactExpander artifactExpander) {
       this.artifactExpander = artifactExpander;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setExecutor(Executor executor) {
       this.executor = executor;
       return this;

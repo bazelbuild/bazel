@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
@@ -130,11 +131,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public static final class FlagBuilder {
     private final Set<Flag> flags = EnumSet.noneOf(Flag.class);
 
+    @CanIgnoreReturnValue
     public FlagBuilder with(Flag flag) {
       flags.add(flag);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public FlagBuilder without(Flag flag) {
       flags.remove(flag);
       return this;
