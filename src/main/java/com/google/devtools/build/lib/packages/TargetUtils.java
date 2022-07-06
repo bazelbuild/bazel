@@ -371,9 +371,8 @@ public final class TargetUtils {
     };
   }
 
-  /**
-   * Return {@link Location} for {@link Target} target, if it should not be null.
-   */
+  /** Return {@link Location} for {@link Target} target, if it should not be null. */
+  @Nullable
   public static Location getLocationMaybe(Target target) {
     return (target instanceof Rule) || (target instanceof InputFile) ? target.getLocation() : null;
   }

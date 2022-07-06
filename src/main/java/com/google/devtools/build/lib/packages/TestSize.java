@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Possible test sizes.
@@ -77,6 +78,7 @@ public enum TestSize {
    *
    * @param timeout The timeout associated with the desired TestSize.
    */
+  @Nullable
   public static TestSize getTestSize(TestTimeout timeout) {
     for (TestSize size : TestSize.values()) {
       if (size.timeout == timeout) {
@@ -90,6 +92,7 @@ public enum TestSize {
    * Returns the enum associated with a test's size or null if the tag is not lower case or an
    * unknown size.
    */
+  @Nullable
   public static TestSize getTestSize(String attr) {
     if (!attr.equals(attr.toLowerCase())) {
       return null;

@@ -1336,6 +1336,7 @@ public final class Attribute implements Comparable<Attribute> {
       final AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
       ComputationStrategy<InterruptedException> strategy =
           new ComputationStrategy<InterruptedException>() {
+            @Nullable
             @Override
             public Object compute(AttributeMap map) throws InterruptedException {
               try {
@@ -2069,6 +2070,7 @@ public final class Attribute implements Comparable<Attribute> {
    * @param rule the rule to which this attribute belongs; non-null if {@code hasComputedDefault()};
    *     ignored otherwise.
    */
+  @Nullable
   public Object getDefaultValue(Rule rule) {
     if (!getCondition().apply(rule == null ? null : NonconfigurableAttributeMapper.of(rule))) {
       return null;

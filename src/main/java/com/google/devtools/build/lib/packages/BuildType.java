@@ -116,6 +116,7 @@ public final class BuildType {
           throw new UnsupportedOperationException();
         }
 
+        @Nullable
         @Override
         public DistributionType getDefaultValue() {
           return null;
@@ -372,6 +373,7 @@ public final class BuildType {
       return (Label) value;
     }
 
+    @Nullable
     @Override
     public Label getDefaultValue() {
       return null;

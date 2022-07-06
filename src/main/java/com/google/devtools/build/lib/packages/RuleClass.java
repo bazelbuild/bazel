@@ -1999,6 +1999,7 @@ public class RuleClass {
   }
 
   /** Returns the attribute whose name is {@code attrName}, or null if not found. */
+  @Nullable
   public Attribute getAttributeByNameMaybe(String attrName) {
     Integer i = getAttributeIndex(attrName);
     return i == null ? null : attributes.get(i);
