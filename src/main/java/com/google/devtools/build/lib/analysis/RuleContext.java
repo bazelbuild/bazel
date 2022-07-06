@@ -1361,6 +1361,7 @@ public final class RuleContext extends TargetContext
     return getPrerequisiteArtifact(attributeName);
   }
 
+  @Nullable
   private Artifact transitiveInfoCollectionToArtifact(
       String attributeName, TransitiveInfoCollection target) {
     if (target != null) {
@@ -1378,6 +1379,7 @@ public final class RuleContext extends TargetContext
    * Returns the sole file in the "srcs" attribute. Reports an error and (possibly) returns null if
    * "srcs" does not identify a single file of the expected type.
    */
+  @Nullable
   public Artifact getSingleSource(String fileTypeName) {
     List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs").list();
     switch (srcs.size()) {
@@ -1453,6 +1455,7 @@ public final class RuleContext extends TargetContext
    * that it is a valid label, and that it is referring to a local target. Reports a warning
    * otherwise.
    */
+  @Nullable
   public Label getLocalNodepLabelAttribute(String attrName) {
     Label label = attributes().get(attrName, BuildType.NODEP_LABEL);
     if (label == null) {
@@ -1545,6 +1548,7 @@ public final class RuleContext extends TargetContext
    * @return null if the output list is empty, the artifact for the first item of the output list
    *     otherwise
    */
+  @Nullable
   public Artifact getOutputArtifact() {
     List<Artifact> outs = getOutputArtifacts();
     if (outs.size() != 1) {
