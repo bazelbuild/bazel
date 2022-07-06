@@ -68,6 +68,7 @@ def basic_java_library(
         exports = [],
         exported_plugins = [],
         resources = [],
+        resource_jars = [],
         classpath_resources = [],
         javacopts = [],
         neverlink = False,
@@ -96,6 +97,8 @@ def basic_java_library(
       exported_plugins: (list[Target]) The list of `java_plugin`s (e.g. annotation
         processors) to export to libraries that directly depend on this library.
       resources: (list[File]) A list of data files to include in a Java jar.
+      resource_jars: (list[File]) A list of jar files to unpack and include in a
+        Java jar.
       classpath_resources: (list[File])
       javacopts: (list[str])
       neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
@@ -136,6 +139,7 @@ def basic_java_library(
         _collect_deps(exports),
         _collect_plugins(exported_plugins),
         resources,
+        resource_jars,
         classpath_resources,
         _collect_native_libraries(deps, runtime_deps, exports),
         javacopts,
