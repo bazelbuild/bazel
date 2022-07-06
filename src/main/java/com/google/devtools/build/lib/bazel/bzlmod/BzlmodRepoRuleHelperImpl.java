@@ -24,11 +24,13 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** A helper class to get {@link RepoSpec} for Bzlmod generated repositories. */
 public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
 
   @Override
+  @Nullable
   public Optional<RepoSpec> getRepoSpec(Environment env, RepositoryName repositoryName)
       throws InterruptedException, IOException {
 
