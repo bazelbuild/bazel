@@ -138,6 +138,7 @@ public abstract class ProtoLangToolchainProvider {
     return result.build();
   }
 
+  @Nullable
   public static ProtoLangToolchainProvider get(RuleContext ruleContext, String attributeName) {
     return getToolchains(ruleContext, attributeName).stream().findFirst().orElse(null);
   }
@@ -147,6 +148,7 @@ public abstract class ProtoLangToolchainProvider {
     return wrapStarlarkProviderWithNativeProvider(provider);
   }
 
+  @Nullable
   public static StarlarkInfo getStarlarkProvider(RuleContext ruleContext, String attributeName) {
     for (TransitiveInfoCollection prerequisite : ruleContext.getPrerequisites(attributeName)) {
       StarlarkInfo provider = (StarlarkInfo) prerequisite.get(starlarkProtoLangToolchainKey);
@@ -161,6 +163,7 @@ public abstract class ProtoLangToolchainProvider {
     return (StarlarkInfo) prerequisite.get(starlarkProtoLangToolchainKey);
   }
 
+  @Nullable
   @SuppressWarnings("unchecked")
   private static ProtoLangToolchainProvider wrapStarlarkProviderWithNativeProvider(
       StarlarkInfo provider) {
