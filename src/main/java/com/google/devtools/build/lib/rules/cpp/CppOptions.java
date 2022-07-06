@@ -83,6 +83,7 @@ public class CppOptions extends FragmentOptions {
    * Converts a String, which is a package label into a label that can be used for a LibcTop object.
    */
   public static class LibcTopLabelConverter implements Converter<Label> {
+    @Nullable
     @Override
     public Label convert(String input) throws OptionsParsingException {
       if (input.equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
