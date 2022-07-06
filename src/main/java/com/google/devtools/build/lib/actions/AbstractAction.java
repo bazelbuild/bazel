@@ -358,6 +358,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return false;
   }
 
+  @Nullable
   @Override
   public final String getProgressMessage() {
     String message = getRawProgressMessage();

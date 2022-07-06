@@ -483,6 +483,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       return symlinkTarget.hashCode();
     }
 
+    @Nullable
     @Override
     public FileContentsProxy getContentsProxy() {
       return null;

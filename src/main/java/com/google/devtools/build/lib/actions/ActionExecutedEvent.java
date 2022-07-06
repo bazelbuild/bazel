@@ -94,6 +94,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     return timing;
   }
 
+  @Nullable
   public String getStdout() {
     if (stdout == null) {
       return null;
@@ -101,6 +102,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     return stdout.toString();
   }
 
+  @Nullable
   public String getStderr() {
     if (stderr == null) {
       return null;

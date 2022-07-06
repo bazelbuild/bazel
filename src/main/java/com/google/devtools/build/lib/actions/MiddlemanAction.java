@@ -73,6 +73,7 @@ public final class MiddlemanAction extends AbstractAction {
     return middlemanType;
   }
 
+  @Nullable
   @Override
   protected String getRawProgressMessage() {
     return null; // users don't really want to know about Middlemen.

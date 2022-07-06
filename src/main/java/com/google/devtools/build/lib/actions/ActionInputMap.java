@@ -233,6 +233,7 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
     return getMetadataFromTreeArtifacts(execPath);
   }
 
+  @Nullable
   private FileArtifactValue getMetadataFromTreeArtifacts(PathFragment execPath) {
     TreeArtifactValue tree = treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
     if (tree == null) {
