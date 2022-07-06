@@ -1226,11 +1226,7 @@ public class PackageFunction implements SkyFunction {
     Label preludeLabel = null;
     // Can be null in tests.
     if (packageFactory != null) {
-      // Load the prelude from the same repository as the package being loaded.  Can't use
-      // Label.resolveRepositoryRelative because rawPreludeLabel is in the main repository, not the
-      // default one, so it is resolved to itself.
-      // TODO(brandjon): Why can't we just replace the use of the main repository with the default
-      // repository in the prelude label?
+      // Load the prelude from the same repository as the package being loaded.
       Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
       if (rawPreludeLabel != null) {
         PackageIdentifier preludePackage =
