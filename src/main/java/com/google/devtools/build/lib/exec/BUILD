@@ -450,6 +450,7 @@ java_library(
         ":test_xml_output_parser_exception",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
 )
