@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
-
 import java.io.IOException;
 import java.util.Deque;
 import java.util.Iterator;
