@@ -177,6 +177,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
    * we keep stashed sandboxes separated by mnemonic. May return null if there are errors, in which
    * case sandbox reuse also gets turned of.
    */
+  @Nullable
   private Path getSandboxStashDir() {
     Path stashDir = sandboxBase.getChild("sandbox_stash");
     try {
