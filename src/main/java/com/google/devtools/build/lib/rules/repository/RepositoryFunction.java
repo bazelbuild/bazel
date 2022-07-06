@@ -289,6 +289,7 @@ public abstract class RepositoryFunction {
    * environment variable on which the function depends, or null if the skyframe function needs to
    * be restarted.
    */
+  @Nullable
   protected Map<String, String> declareEnvironmentDependencies(
       Map<String, String> markerData, Environment env, Iterable<String> keys)
       throws InterruptedException {

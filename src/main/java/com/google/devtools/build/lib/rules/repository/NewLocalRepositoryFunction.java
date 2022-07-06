@@ -37,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.io.IOException;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -50,6 +51,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
+  @Nullable
   public RepositoryDirectoryValue.Builder fetch(
       Rule rule,
       Path outputDirectory,

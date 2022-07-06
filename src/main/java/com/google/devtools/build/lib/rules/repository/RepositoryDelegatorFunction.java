@@ -121,6 +121,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     this.externalPackageHelper = externalPackageHelper;
   }
 
+  @Nullable
   public static RepositoryDirectoryValue.Builder symlinkRepoRoot(
       BlazeDirectories directories,
       Path source,
@@ -231,6 +232,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
@@ -388,6 +390,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return handler;
   }
 
+  @Nullable
   private RepositoryDirectoryValue.Builder fetchRepository(
       SkyKey skyKey,
       Path repoRoot,
@@ -450,11 +453,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   /** Marker exception for the case where a repository is not defined. */
   private static final class NoSuchRepositoryException extends Exception {}
 
+  @Nullable
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
   }
 
+  @Nullable
   private RepositoryDirectoryValue setupOverride(
       PathFragment sourcePath, Environment env, Path repoRoot, String pathAttr)
       throws RepositoryFunctionException, InterruptedException {
@@ -480,6 +485,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   // Unescape a value from the marker file
+  @Nullable
   @VisibleForTesting
   static String unescape(String str) {
     if (str.equals("\\0")) {
@@ -551,6 +557,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
      * because it's possible that we eventually create that directory in which case the FileValue
      * and the state of the file system would be inconsistent.
      */
+    @Nullable
     byte[] areRepositoryAndMarkerFileConsistent(RepositoryFunction handler, Environment env)
         throws RepositoryFunctionException, InterruptedException {
       if (!markerPath.exists()) {
