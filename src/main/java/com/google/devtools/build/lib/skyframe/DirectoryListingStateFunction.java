@@ -21,6 +21,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
@@ -46,6 +47,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public DirectoryListingStateValue compute(SkyKey skyKey, Environment env)
       throws DirectoryListingStateFunctionException, InterruptedException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();

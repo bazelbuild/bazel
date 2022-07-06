@@ -243,6 +243,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     @Nullable private StoredEventHandler storedEventHandlerFromResolveConfigurations;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws ReportedException, UnreportedException, InterruptedException {

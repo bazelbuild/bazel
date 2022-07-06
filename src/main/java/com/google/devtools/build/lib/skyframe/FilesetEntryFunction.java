@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** SkyFunction for {@link FilesetEntryValue}. */
 public final class FilesetEntryFunction implements SkyFunction {
@@ -56,6 +57,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey key, Environment env)
       throws FilesetEntryFunctionException, InterruptedException {
     WorkspaceNameValue workspaceNameValue =

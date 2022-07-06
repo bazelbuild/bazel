@@ -89,6 +89,7 @@ public class FileFunction implements SkyFunction {
     private SymlinkResolutionState() {}
   }
 
+  @Nullable
   @Override
   public FileValue compute(SkyKey skyKey, Environment env)
       throws FileFunctionException, InterruptedException {

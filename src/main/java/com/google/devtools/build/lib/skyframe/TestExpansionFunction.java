@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * TestExpansionFunction takes a single test_suite target and expands all of the tests it contains,
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 // TODO(ulfjack): What about test_suite rules that include each other.
 final class TestExpansionFunction implements SkyFunction {
   @Override
+  @Nullable
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestExpansionKey expansion = (TestExpansionKey) key.argument();
     SkyKey packageKey = PackageValue.key(expansion.getLabel().getPackageIdentifier());

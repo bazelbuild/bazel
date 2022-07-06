@@ -68,6 +68,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     this.bugReporter = bugReporter;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionTemplateExpansionFunctionException, InterruptedException {

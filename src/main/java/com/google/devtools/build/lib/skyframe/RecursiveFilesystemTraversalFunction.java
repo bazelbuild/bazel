@@ -513,6 +513,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
    *     {@link FileInfo} so the caller should use these instead of the old ones (this happens when
    *     a package is found, but under a different root than expected)
    */
+  @Nullable
   private static PkgLookupResult checkIfPackage(
       Environment env, TraversalRequest traversal, FileInfo rootInfo, SyscallCache syscallCache)
       throws IOException, InterruptedException, BuildFileNotFoundException {

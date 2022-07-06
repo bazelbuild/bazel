@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Creates a {@link BuildInfoCollectionValue}. Only depends on the unique {@link
@@ -56,6 +57,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     final BuildInfoKeyAndConfig keyAndConfig = (BuildInfoKeyAndConfig) skyKey.argument();
     ImmutableSet<SkyKey> keysToRequest =

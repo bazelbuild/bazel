@@ -215,16 +215,18 @@ public class FilesystemValueChecker {
     // Initialized lazily through a supplier because it is only used to check modified
     // TreeArtifacts, which are not frequently used in builds.
     Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles =
-      Suppliers.memoize(new Supplier<NavigableSet<PathFragment>>() {
-        @Override
-        public NavigableSet<PathFragment> get() {
-          if (knownModifiedOutputFiles == null) {
-            return null;
-          } else {
-            return ImmutableSortedSet.copyOf(knownModifiedOutputFiles);
-          }
-        }
-      });
+        Suppliers.memoize(
+            new Supplier<NavigableSet<PathFragment>>() {
+              @Nullable
+              @Override
+              public NavigableSet<PathFragment> get() {
+                if (knownModifiedOutputFiles == null) {
+                  return null;
+                } else {
+                  return ImmutableSortedSet.copyOf(knownModifiedOutputFiles);
+                }
+              }
+            });
 
     boolean interrupted;
     try (SilentCloseable c = Profiler.instance().profile("getDirtyActionValues.stat_files")) {

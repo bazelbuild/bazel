@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Static utilities for working with action inputs. */
 final class ActionInputMapHelper {
@@ -138,6 +139,7 @@ final class ActionInputMapHelper {
     }
   }
 
+  @Nullable
   static ImmutableList<FilesetOutputSymlink> getFilesets(
       Environment env, SpecialArtifact actionInput) throws InterruptedException {
     Preconditions.checkState(actionInput.isFileset(), actionInput);

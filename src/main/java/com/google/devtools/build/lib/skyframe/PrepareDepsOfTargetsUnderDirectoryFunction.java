@@ -26,6 +26,7 @@ import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * Ensures the graph contains the targets in the directory's package, if any, and in the
@@ -40,6 +41,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     PrepareDepsOfTargetsUnderDirectoryKey argument =

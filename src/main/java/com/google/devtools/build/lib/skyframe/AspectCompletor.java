@@ -108,6 +108,7 @@ class AspectCompletor
     }
   }
 
+  @Nullable
   @Override
   public AspectCompleteEvent createSucceeded(
       AspectCompletionKey skyKey,

@@ -167,6 +167,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
   }
 
+  @Nullable
   private SkyValue computeInternal(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
     ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
@@ -631,6 +632,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       this.env = env;
     }
 
+    @Nullable
     @Override
     public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
         throws PackageRootException, InterruptedException {
@@ -691,6 +693,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
   }
 
+  @Nullable
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
       Action action,
       InputDiscoveryState state,
@@ -974,6 +977,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     return env.valuesMissing() ? DiscoveredState.VALUES_MISSING : DiscoveredState.DISCOVERED_DATA;
   }
 
+  @Nullable
   private static <E extends Exception> Object establishSkyframeDependencies(
       Environment env, Action action) throws ActionExecutionException, InterruptedException {
     // Before we may safely establish Skyframe dependencies, we must build all action inputs by

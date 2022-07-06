@@ -1851,6 +1851,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         getConfigurations(eventHandler, ImmutableList.of(options), options, keepGoing));
   }
 
+  @Nullable
   public BuildConfigurationValue getConfiguration(
       ExtendedEventHandler eventHandler, BuildConfigurationKey configurationKey) {
     if (configurationKey == null) {
@@ -2459,6 +2460,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Returns the generating action of a given artifact ({@code null} if it's a source artifact). */
+  @Nullable
   private ActionAnalysisMetadata getGeneratingAction(
       ExtendedEventHandler eventHandler, Artifact artifact) throws InterruptedException {
     if (artifact.isSourceArtifact()) {
