@@ -245,7 +245,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   }
 
   /** Converter for {@code --embed_label} which rejects strings that span multiple lines. */
-  public static final class OneLineStringConverter implements Converter<String> {
+  public static final class OneLineStringConverter extends Converter.Contextless<String> {
 
     @Override
     public String convert(String input) throws OptionsParsingException {

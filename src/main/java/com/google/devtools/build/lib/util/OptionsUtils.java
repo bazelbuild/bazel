@@ -95,7 +95,7 @@ public final class OptionsUtils {
   }
 
   /** Converter from String to PathFragment. */
-  public static class PathFragmentConverter implements Converter<PathFragment> {
+  public static class PathFragmentConverter extends Converter.Contextless<PathFragment> {
 
     @Override
     public PathFragment convert(String input) {
@@ -109,7 +109,7 @@ public final class OptionsUtils {
   }
 
   /** Converter from String to PathFragment requiring the provided path to be absolute. */
-  public static class AbsolutePathFragmentConverter implements Converter<PathFragment> {
+  public static class AbsolutePathFragmentConverter extends Converter.Contextless<PathFragment> {
 
     @Override
     public PathFragment convert(String input) throws OptionsParsingException {
@@ -127,7 +127,8 @@ public final class OptionsUtils {
   }
 
   /** Converter from String to PathFragment. If the input is empty returns {@code null} instead. */
-  public static class EmptyToNullRelativePathFragmentConverter implements Converter<PathFragment> {
+  public static class EmptyToNullRelativePathFragmentConverter
+      extends Converter.Contextless<PathFragment> {
 
     @Override
     public PathFragment convert(String input) throws OptionsParsingException {
@@ -151,7 +152,8 @@ public final class OptionsUtils {
   }
 
   /** Converts from a colon-separated list of strings into a list of PathFragment instances. */
-  public static class PathFragmentListConverter implements Converter<ImmutableList<PathFragment>> {
+  public static class PathFragmentListConverter
+      extends Converter.Contextless<ImmutableList<PathFragment>> {
 
     @Override
     public ImmutableList<PathFragment> convert(String input) {

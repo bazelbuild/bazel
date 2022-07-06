@@ -63,7 +63,7 @@ public class CoreOptionConverters {
           .buildOrThrow();
 
   /** A converter from strings to Starlark int values. */
-  private static class StarlarkIntConverter implements Converter<StarlarkInt> {
+  private static class StarlarkIntConverter extends Converter.Contextless<StarlarkInt> {
     @Override
     public StarlarkInt convert(String input) throws OptionsParsingException {
       // Note that Starlark rule attribute values are currently restricted
@@ -85,8 +85,8 @@ public class CoreOptionConverters {
   /** A converter from strings to Labels. */
   public static class LabelConverter implements Converter<Label> {
     @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return convertOptionsLabel(input);
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      return convertOptionsLabel(input, conversionContext);
     }
 
     @Override
@@ -98,10 +98,11 @@ public class CoreOptionConverters {
   /** A converter from comma-separated strings to Label lists. */
   public static class LabelListConverter implements Converter<List<Label>> {
     @Override
-    public List<Label> convert(String input) throws OptionsParsingException {
+    public List<Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
       ImmutableList.Builder<Label> result = ImmutableList.builder();
       for (String label : Splitter.on(",").omitEmptyStrings().split(input)) {
-        result.add(convertOptionsLabel(label));
+        result.add(convertOptionsLabel(label, conversionContext));
       }
       return result.build();
     }
@@ -119,8 +120,8 @@ public class CoreOptionConverters {
   public static class EmptyToNullLabelConverter implements Converter<Label> {
     @Override
     @Nullable
-    public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? null : convertOptionsLabel(input);
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      return input.isEmpty() ? null : convertOptionsLabel(input, conversionContext);
     }
 
     @Override
@@ -139,8 +140,8 @@ public class CoreOptionConverters {
     }
 
     @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? defaultValue : convertOptionsLabel(input);
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      return input.isEmpty() ? defaultValue : convertOptionsLabel(input, conversionContext);
     }
 
     @Override
@@ -152,7 +153,8 @@ public class CoreOptionConverters {
   /** Flag converter for a map of unique keys with optional labels as values. */
   public static class LabelMapConverter implements Converter<Map<String, Label>> {
     @Override
-    public Map<String, Label> convert(String input) throws OptionsParsingException {
+    public Map<String, Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
       // Use LinkedHashMap so we can report duplicate keys more easily while preserving order
       Map<String, Label> result = new LinkedHashMap<>();
       for (String entry : Splitter.on(",").omitEmptyStrings().trimResults().split(input)) {
@@ -165,7 +167,7 @@ public class CoreOptionConverters {
         } else {
           key = entry.substring(0, sepIndex);
           String value = entry.substring(sepIndex + 1);
-          label = value.isEmpty() ? null : convertOptionsLabel(value);
+          label = value.isEmpty() ? null : convertOptionsLabel(value, conversionContext);
         }
         if (result.containsKey(key)) {
           throw new OptionsParsingException("Key '" + key + "' appears twice");
@@ -202,7 +204,8 @@ public class CoreOptionConverters {
     }
   }
 
-  private static final Label convertOptionsLabel(String input) throws OptionsParsingException {
+  private static Label convertOptionsLabel(String input, @Nullable Object conversionContext)
+      throws OptionsParsingException {
     try {
       // Check if the input starts with '/'. We don't check for "//" so that
       // we get a better error message if the user accidentally tries to use

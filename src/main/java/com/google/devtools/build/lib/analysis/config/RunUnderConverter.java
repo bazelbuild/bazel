@@ -26,12 +26,11 @@ import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/**
- * --run_under options converter.
- */
+/** --run_under options converter. */
 public class RunUnderConverter implements Converter<RunUnder> {
   @Override
-  public RunUnder convert(final String input) throws OptionsParsingException {
+  public RunUnder convert(final String input, Object conversionContext)
+      throws OptionsParsingException {
     final List<String> runUnderList = new ArrayList<>();
     try {
       ShellUtils.tokenize(runUnderList, input);

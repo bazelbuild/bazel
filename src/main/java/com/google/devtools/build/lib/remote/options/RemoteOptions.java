@@ -218,7 +218,7 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteBytestreamUriPrefix;
 
   /** Returns the specified duration. Assumes seconds if unitless. */
-  public static class RemoteTimeoutConverter implements Converter<Duration> {
+  public static class RemoteTimeoutConverter extends Converter.Contextless<Duration> {
     private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
 
     @Override
@@ -226,7 +226,7 @@ public final class RemoteOptions extends OptionsBase {
       if (UNITLESS_REGEX.matcher(input).matches()) {
         input += "s";
       }
-      return new Converters.DurationConverter().convert(input);
+      return new Converters.DurationConverter().convert(input, /*conversionContext=*/ null);
     }
 
     @Override

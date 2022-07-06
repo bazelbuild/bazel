@@ -479,8 +479,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                   : provider.getDefaultValue();
           Object convertedSpecifiedValue;
           try {
+            // We don't need to supply a base package or repo mapping for the conversion here,
+            // because `specifiedValue` is already canonicalized.
             convertedSpecifiedValue =
-                BUILD_SETTING_CONVERTERS.get(provider.getType()).convert(specifiedValue);
+                BUILD_SETTING_CONVERTERS
+                    .get(provider.getType())
+                    .convert(specifiedValue, /*conversionContext=*/ null);
           } catch (OptionsParsingException e) {
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,

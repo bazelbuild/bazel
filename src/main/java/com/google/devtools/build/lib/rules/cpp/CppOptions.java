@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 /** Command-line options for C++. */
 public class CppOptions extends FragmentOptions {
   /** Converts a comma-separated list of compilation mode settings to a properly typed List. */
-  public static class FissionOptionConverter implements Converter<List<CompilationMode>> {
+  public static class FissionOptionConverter extends Converter.Contextless<List<CompilationMode>> {
     @Override
     public List<CompilationMode> convert(String input) throws OptionsParsingException {
       ImmutableSet.Builder<CompilationMode> modes = ImmutableSet.builder();
@@ -51,7 +51,7 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.equals("no")) { // "no" is another special case that disables all modes.
         CompilationMode.Converter modeConverter = new CompilationMode.Converter();
         for (String mode : Splitter.on(',').split(input)) {
-          modes.add(modeConverter.convert(mode));
+          modes.add(modeConverter.convert(mode, /*conversionContext=*/ null));
         }
       }
       return modes.build().asList();
@@ -82,7 +82,7 @@ public class CppOptions extends FragmentOptions {
   /**
    * Converts a String, which is a package label into a label that can be used for a LibcTop object.
    */
-  public static class LibcTopLabelConverter implements Converter<Label> {
+  public static class LibcTopLabelConverter extends Converter.Contextless<Label> {
     @Nullable
     @Override
     public Label convert(String input) throws OptionsParsingException {

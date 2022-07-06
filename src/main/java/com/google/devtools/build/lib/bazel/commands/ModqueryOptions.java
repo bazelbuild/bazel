@@ -218,7 +218,7 @@ public class ModqueryOptions extends OptionsBase {
   }
 
   /** Converts a module target argument string to a properly typed {@link TargetModule} */
-  static class TargetModuleConverter implements Converter<TargetModule> {
+  static class TargetModuleConverter extends Converter.Contextless<TargetModule> {
 
     @Override
     public TargetModule convert(String input) throws OptionsParsingException {
@@ -260,17 +260,19 @@ public class ModqueryOptions extends OptionsBase {
   }
 
   /** Converts a comma-separated module list argument (i.e. A@1.0,B@2.0) */
-  public static class TargetModuleListConverter implements Converter<ImmutableList<TargetModule>> {
+  public static class TargetModuleListConverter
+      extends Converter.Contextless<ImmutableList<TargetModule>> {
 
     @Override
     public ImmutableList<TargetModule> convert(String input) throws OptionsParsingException {
       CommaSeparatedNonEmptyOptionListConverter listConverter =
           new CommaSeparatedNonEmptyOptionListConverter();
       TargetModuleConverter targetModuleConverter = new TargetModuleConverter();
-      ImmutableList<String> targetStrings = listConverter.convert(input);
+      ImmutableList<String> targetStrings =
+          listConverter.convert(input, /*conversionContext=*/ null);
       ImmutableList.Builder<TargetModule> targetModules = new ImmutableList.Builder<>();
       for (String targetInput : targetStrings) {
-        targetModules.add(targetModuleConverter.convert(targetInput));
+        targetModules.add(targetModuleConverter.convert(targetInput, /*conversionContext=*/ null));
       }
       return targetModules.build();
     }
