@@ -456,6 +456,7 @@ public final class JavaCompilationHelper {
    *
    * <p>Returns {@code null} if {@code compileJar} should not be instrumented.
    */
+  @Nullable
   private Artifact maybeCreateCoverageArtifact(Artifact compileJar) {
     if (!shouldInstrumentJar()) {
       return null;
