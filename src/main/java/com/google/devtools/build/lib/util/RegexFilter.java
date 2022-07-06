@@ -48,7 +48,7 @@ public final class RegexFilter implements Predicate<String> {
    * <p>Order of expressions is not important. Empty entries are ignored. '-' marks an excluded
    * expression.
    */
-  public static class RegexFilterConverter implements Converter<RegexFilter> {
+  public static class RegexFilterConverter extends Converter.Contextless<RegexFilter> {
 
     @Override
     public RegexFilter convert(String input) throws OptionsParsingException {

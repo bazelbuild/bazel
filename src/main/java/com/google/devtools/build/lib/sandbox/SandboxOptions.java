@@ -45,7 +45,7 @@ public class SandboxOptions extends OptionsBase {
    * invocation. Pairs are expected to have the form 'source:target'.
    */
   public static final class MountPairConverter
-      implements Converter<ImmutableMap.Entry<String, String>> {
+      extends Converter.Contextless<ImmutableMap.Entry<String, String>> {
 
     @Override
     public ImmutableMap.Entry<String, String> convert(String input) throws OptionsParsingException {

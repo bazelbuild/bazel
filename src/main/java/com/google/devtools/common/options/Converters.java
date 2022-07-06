@@ -29,6 +29,7 @@ import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import javax.annotation.Nullable;
 
 /** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
@@ -46,7 +47,7 @@ public final class Converters {
       ImmutableList.of("false", "0", "no", "f", "n");
 
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
-  public static class BooleanConverter implements Converter<Boolean> {
+  public static class BooleanConverter extends Converter.Contextless<Boolean> {
     @Override
     public Boolean convert(String input) throws OptionsParsingException {
       if (input == null) {
@@ -69,7 +70,7 @@ public final class Converters {
   }
 
   /** Standard converter for Strings. */
-  public static class StringConverter implements Converter<String> {
+  public static class StringConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) {
       return input;
@@ -82,7 +83,7 @@ public final class Converters {
   }
 
   /** Standard converter for integers. */
-  public static class IntegerConverter implements Converter<Integer> {
+  public static class IntegerConverter extends Converter.Contextless<Integer> {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       try {
@@ -99,7 +100,7 @@ public final class Converters {
   }
 
   /** Standard converter for longs. */
-  public static class LongConverter implements Converter<Long> {
+  public static class LongConverter extends Converter.Contextless<Long> {
     @Override
     public Long convert(String input) throws OptionsParsingException {
       try {
@@ -116,7 +117,7 @@ public final class Converters {
   }
 
   /** Standard converter for doubles. */
-  public static class DoubleConverter implements Converter<Double> {
+  public static class DoubleConverter extends Converter.Contextless<Double> {
     @Override
     public Double convert(String input) throws OptionsParsingException {
       try {
@@ -133,7 +134,7 @@ public final class Converters {
   }
 
   /** Standard converter for TriState values. */
-  public static class TriStateConverter implements Converter<TriState> {
+  public static class TriStateConverter extends Converter.Contextless<TriState> {
     @Override
     public TriState convert(String input) throws OptionsParsingException {
       if (input == null) {
@@ -162,7 +163,7 @@ public final class Converters {
    * Standard "converter" for Void. Should not actually be invoked. For instance, expansion flags
    * are usually Void-typed and do not invoke the converter.
    */
-  public static class VoidConverter implements Converter<Void> {
+  public static class VoidConverter extends Converter.Contextless<Void> {
     @Override
     public Void convert(String input) throws OptionsParsingException {
       if (input == null || input.equals("null")) {
@@ -178,7 +179,7 @@ public final class Converters {
   }
 
   /** Standard converter for the {@link java.time.Duration} type. */
-  public static class DurationConverter implements Converter<Duration> {
+  public static class DurationConverter extends Converter.Contextless<Duration> {
     private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
 
     @Override
@@ -251,7 +252,8 @@ public final class Converters {
   }
 
   /** Converter for a list of options, separated by some separator character. */
-  public static class SeparatedOptionListConverter implements Converter<ImmutableList<String>> {
+  public static class SeparatedOptionListConverter
+      extends Converter.Contextless<ImmutableList<String>> {
     private final String separatorDescription;
     private final Splitter splitter;
     private final boolean allowEmptyValues;
@@ -305,7 +307,8 @@ public final class Converters {
     }
   }
 
-  public static class LogLevelConverter implements Converter<Level> {
+  /** Converter for {@link Level}. */
+  public static class LogLevelConverter extends Converter.Contextless<Level> {
 
     static final ImmutableList<Level> LEVELS =
         ImmutableList.of(
@@ -334,7 +337,7 @@ public final class Converters {
   }
 
   /** Checks whether a string is part of a set of strings. */
-  public static class StringSetConverter implements Converter<String> {
+  public static class StringSetConverter extends Converter.Contextless<String> {
 
     // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
     // here.
@@ -360,7 +363,7 @@ public final class Converters {
   }
 
   /** Checks whether a string is a valid regex pattern and compiles it. */
-  public static class RegexPatternConverter implements Converter<RegexPatternOption> {
+  public static class RegexPatternConverter extends Converter.Contextless<RegexPatternOption> {
 
     @Override
     public RegexPatternOption convert(String input) throws OptionsParsingException {
@@ -378,7 +381,7 @@ public final class Converters {
   }
 
   /** Limits the length of a string argument. */
-  public static class LengthLimitingConverter implements Converter<String> {
+  public static class LengthLimitingConverter extends Converter.Contextless<String> {
     private final int maxSize;
 
     public LengthLimitingConverter(int maxSize) {
@@ -400,7 +403,7 @@ public final class Converters {
   }
 
   /** Checks whether an integer is in the given range. */
-  public static class RangeConverter implements Converter<Integer> {
+  public static class RangeConverter extends Converter.Contextless<Integer> {
     final int minValue;
     final int maxValue;
 
@@ -449,7 +452,7 @@ public final class Converters {
    * Assignments are expected to have the form "name=value", where names and values are defined to
    * be as permissive as possible.
    */
-  public static class AssignmentConverter implements Converter<Map.Entry<String, String>> {
+  public static class AssignmentConverter extends Converter.Contextless<Map.Entry<String, String>> {
 
     @Override
     public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
@@ -536,7 +539,8 @@ public final class Converters {
     }
 
     @Override
-    public Map.Entry<K, List<V>> convert(String input) throws OptionsParsingException {
+    public Map.Entry<K, List<V>> convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
       int pos = input.indexOf("=");
       if (allowEmptyKeys == AllowEmptyKeys.NO && pos <= 0) {
         throw new OptionsParsingException(
@@ -557,9 +561,10 @@ public final class Converters {
       }
       ImmutableList.Builder<V> convertedValues = ImmutableList.builder();
       for (String value : values) {
-        convertedValues.add(valueConverter.convert(value));
+        convertedValues.add(valueConverter.convert(value, conversionContext));
       }
-      return Maps.immutableEntry(keyConverter.convert(key), convertedValues.build());
+      return Maps.immutableEntry(
+          keyConverter.convert(key, conversionContext), convertedValues.build());
     }
   }
 
@@ -575,6 +580,10 @@ public final class Converters {
       super(new StringConverter(), new StringConverter(), AllowEmptyKeys.YES);
     }
 
+    public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
+      return convert(input, /*conversionContext=*/ null);
+    }
+
     @Override
     public String getTypeDescription() {
       return "a '[name=]value1[,..,valueN]' assignment";
@@ -587,7 +596,8 @@ public final class Converters {
    * be as permissive as possible and value part can be optional (in which case it is considered to
    * be null).
    */
-  public static class OptionalAssignmentConverter implements Converter<Map.Entry<String, String>> {
+  public static class OptionalAssignmentConverter
+      extends Converter.Contextless<Map.Entry<String, String>> {
 
     @Override
     public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
@@ -613,7 +623,8 @@ public final class Converters {
    * A converter for named integers of the form "[name=]value". When no name is specified, an empty
    * string is used for the key.
    */
-  public static class NamedIntegersConverter implements Converter<Map.Entry<String, Integer>> {
+  public static class NamedIntegersConverter
+      extends Converter.Contextless<Map.Entry<String, Integer>> {
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
@@ -662,7 +673,7 @@ public final class Converters {
    * A {@link Converter} for {@link com.github.benmanes.caffeine.cache.CaffeineSpec}. The spec may
    * be empty, in which case this converter returns null.
    */
-  public static final class CaffeineSpecConverter implements Converter<CaffeineSpec> {
+  public static final class CaffeineSpecConverter extends Converter.Contextless<CaffeineSpec> {
     @Override
     public CaffeineSpec convert(String spec) throws OptionsParsingException {
       try {

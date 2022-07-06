@@ -118,7 +118,7 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean alwaysProfileSlowOperations;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
-  public static class UUIDConverter implements Converter<UUID> {
+  public static class UUIDConverter extends Converter.Contextless<UUID> {
 
     @Override
     @Nullable
@@ -144,7 +144,7 @@ public class CommonCommandOptions extends OptionsBase {
    * Converter for options (--build_request_id) that accept prefixed UUIDs. Since we do not care
    * about the structure of this value after validation, we store it as a string.
    */
-  public static class PrefixedUUIDConverter implements Converter<String> {
+  public static class PrefixedUUIDConverter extends Converter.Contextless<String> {
 
     @Override
     @Nullable

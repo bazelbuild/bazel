@@ -262,7 +262,8 @@ public class BlazeRuntimeWrapper {
 
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
-        new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy(), Level.FINE);
+        new InvocationPolicyEnforcer(
+            runtime.getModuleInvocationPolicy(), Level.FINE, /*conversionContext=*/ null);
     try {
       optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
     } catch (OptionsParsingException e) {

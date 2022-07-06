@@ -42,10 +42,8 @@ class Dexing {
 
   static final PrintStream nullout = new PrintStream(ByteStreams.nullOutputStream());
 
-  /**
-   * Parser for positions options based on the integer field names in {@link PositionList}.
-   */
-  public static class PositionGranularityConverter implements Converter<Integer> {
+  /** Parser for positions options based on the integer field names in {@link PositionList}. */
+  public static class PositionGranularityConverter extends Converter.Contextless<Integer> {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       for (Field field : PositionList.class.getFields()) {

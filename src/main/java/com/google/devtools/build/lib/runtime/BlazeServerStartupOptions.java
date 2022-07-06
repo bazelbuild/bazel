@@ -45,7 +45,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * "option_name1:source1:option_name2:source2:.." and converts it into an option name to source
    * map.
    */
-  public static class OptionSourcesConverter implements Converter<Map<String, String>> {
+  public static class OptionSourcesConverter extends Converter.Contextless<Map<String, String>> {
     private String unescape(String input) {
       return input.replace("_C", ":").replace("_U", "_");
     }

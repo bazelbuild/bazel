@@ -190,10 +190,9 @@ public enum TestTimeout {
     return SUGGESTED_TIMEOUT.get(timeInSeconds);
   }
 
-  /**
-   * Converter for the --test_timeout option.
-   */
-  public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Duration>> {
+  /** Converter for the --test_timeout option. */
+  public static class TestTimeoutConverter
+      extends Converter.Contextless<Map<TestTimeout, Duration>> {
     public TestTimeoutConverter() {}
 
     @Override
@@ -250,9 +249,9 @@ public enum TestTimeout {
     /**
      * {@inheritDoc}
      *
-     * <p>This override is necessary to prevent OptionsData
-     * from throwing a "must be assignable from the converter return type" exception.
-     * OptionsData doesn't recognize the generic type and actual type are the same.
+     * <p>This override is necessary to prevent OptionsData from throwing a "must be assignable from
+     * the converter return type" exception. OptionsData doesn't recognize the generic type and
+     * actual type are the same.
      */
     @Override
     public final Set<TestTimeout> convert(String input) throws OptionsParsingException {

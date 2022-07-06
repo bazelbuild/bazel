@@ -144,8 +144,12 @@ public class OptionsParser implements OptionsParsingResult {
 
   /** A helper class to create new instances of {@link OptionsParser}. */
   public static final class Builder {
-    private final OptionsParserImpl.Builder implBuilder = OptionsParserImpl.builder();
+    private final OptionsParserImpl.Builder implBuilder;
     private boolean allowResidue = true;
+
+    private Builder(OptionsParserImpl.Builder implBuilder) {
+      this.implBuilder = implBuilder;
+    }
 
     /** Directly sets the {@link OptionsData} used by this parser. */
     @CanIgnoreReturnValue
@@ -237,6 +241,11 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
+    public Builder withConversionContext(Object conversionContext) {
+      this.implBuilder.withConversionContext(conversionContext);
+      return this;
+    }
+
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
       return new OptionsParser(implBuilder.build(), allowResidue);
@@ -245,7 +254,11 @@ public class OptionsParser implements OptionsParsingResult {
 
   /** Returns a new {@link Builder} to create {@link OptionsParser} instances. */
   public static Builder builder() {
-    return new Builder();
+    return new Builder(OptionsParserImpl.builder());
+  }
+
+  public Builder toBuilder() {
+    return new Builder(impl.toBuilder()).allowResidue(allowResidue);
   }
 
   private final OptionsParserImpl impl;
@@ -258,6 +271,10 @@ public class OptionsParser implements OptionsParsingResult {
   private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
     this.impl = impl;
     this.allowResidue = allowResidue;
+  }
+
+  public Object getConversionContext() {
+    return impl.getConversionContext();
   }
 
   @Override

@@ -171,6 +171,7 @@ public final class BlazeOptionHandler {
    * <p>For each command, the options are parsed in rc order. This uses the primary rc file first,
    * and follows import statements. This is the order in which they were passed by the client.
    */
+  @VisibleForTesting
   void parseRcOptions(
       EventHandler eventHandler, ListMultimap<String, RcChunkOfArgs> commandToRcArgs)
       throws OptionsParsingException {
@@ -325,7 +326,8 @@ public final class BlazeOptionHandler {
               .mergeFrom(invocationPolicy)
               .build();
       InvocationPolicyEnforcer optionsPolicyEnforcer =
-          new InvocationPolicyEnforcer(combinedPolicy, Level.INFO);
+          new InvocationPolicyEnforcer(
+              combinedPolicy, Level.INFO, optionsParser.getConversionContext());
       // Enforce the invocation policy. It is intentional that this is the last step in preparing
       // the options. The invocation policy is used in security-critical contexts, and may be used
       // as a last resort to override flags. That means that the policy can override flags set in
@@ -363,6 +365,7 @@ public final class BlazeOptionHandler {
    * Expand the values of --config according to the definitions provided in the rc files and the
    * applicable command.
    */
+  @VisibleForTesting
   void expandConfigOptions(
       EventHandler eventHandler, ListMultimap<String, RcChunkOfArgs> commandToRcArgs)
       throws OptionsParsingException {
