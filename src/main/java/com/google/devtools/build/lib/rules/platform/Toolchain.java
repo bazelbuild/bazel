@@ -32,11 +32,13 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import javax.annotation.Nullable;
 
 /** Defines a toolchain that can be used by rules. */
 public class Toolchain implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
