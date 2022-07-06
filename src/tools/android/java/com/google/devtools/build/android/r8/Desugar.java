@@ -27,11 +27,14 @@ import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -622,9 +625,6 @@ public class Desugar {
     if (!options.desugarIndifyStringConcat) {
       throw new AssertionError("--desugar_indy_string_concat must be enabled");
     }
-    if (options.persistentWorker) {
-      throw new AssertionError("--persistent_worker is not supported");
-    }
 
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
@@ -635,10 +635,40 @@ public class Desugar {
         options.outputJars.size());
   }
 
-  public static void main(String[] args) throws Exception {
-    DesugarOptions options = parseCommandLineOptions(args);
-    validateOptions(options);
+  private static void runPersistentWorker() throws IOException {
+    while (true) {
+      WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+      if (request == null) {
+        // Does not return a WorkResponse
+        break;
+      }
 
-    new Desugar(options).desugar();
+      String[] argList = new String[request.getArgumentsCount()];
+      argList = request.getArgumentsList().toArray(argList);
+      DesugarOptions options = parseCommandLineOptions(argList);
+      WorkResponse wr;
+      try {
+        validateOptions(options);
+        new Desugar(options).desugar();
+        wr = WorkResponse.newBuilder().setExitCode(0).build();
+      } catch (Exception e) {
+        wr =
+            WorkResponse.newBuilder()
+                .setExitCode(1)
+                .setOutput(Throwables.getStackTraceAsString(e))
+                .build();
+      }
+      wr.writeDelimitedTo(System.out);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    if (args.length > 0 && args[0].equals("--persistent_worker")) {
+      runPersistentWorker();
+    } else {
+      DesugarOptions options = parseCommandLineOptions(args);
+      validateOptions(options);
+      new Desugar(options).desugar();
+    }
   }
 }
