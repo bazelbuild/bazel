@@ -200,8 +200,14 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
+      Preconditions.checkArgument(
+          preludeLabelString.startsWith("//"),
+          "Prelude label '%s' must start with '//'",
+          preludeLabelString);
       try {
-        this.preludeLabel = Label.parseAbsolute(preludeLabelString, ImmutableMap.of());
+        // We're parsing this label as if it's in the main repository but it will actually get
+        // massaged into a label in the repository where the package being loaded resides.
+        this.preludeLabel = Label.parseCanonical(preludeLabelString);
       } catch (LabelSyntaxException e) {
         String errorMsg =
             String.format("Prelude label '%s' is invalid: %s", preludeLabelString, e.getMessage());
