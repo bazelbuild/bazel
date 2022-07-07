@@ -312,7 +312,7 @@ public final class ConfiguredTargetFactory {
                     rule,
                     configuration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     prerequisiteMap.values()))
             .build();
 
@@ -520,7 +520,7 @@ public final class ConfiguredTargetFactory {
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
