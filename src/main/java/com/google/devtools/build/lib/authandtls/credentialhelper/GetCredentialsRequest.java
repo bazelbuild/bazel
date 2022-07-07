@@ -3,12 +3,15 @@ package com.google.devtools.build.lib.authandtls.credentialhelper;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.Immutable;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Locale;
 
 /**
  * Request for the {@code get} command of the <a
@@ -54,11 +57,21 @@ public abstract class GetCredentialsRequest {
       Preconditions.checkNotNull(reader);
 
       Builder request = newBuilder();
+
+      if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+        throw new JsonSyntaxException(
+            String.format(Locale.US, "Expected object, got %s", reader.peek()));
+      }
       reader.beginObject();
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
           case "uri":
+            if (reader.peek() != JsonToken.STRING) {
+              throw new JsonSyntaxException(
+                  String.format(
+                      Locale.US, "Expected value of 'url' to be a string, got %s", reader.peek()));
+            }
             request.setUri(URI.create(reader.nextString()));
             break;
 

@@ -53,6 +53,13 @@ public class GetCredentialsRequestTest {
 
   @Test
   public void parseNonStringUri() {
+    assertThrows(JsonSyntaxException.class, () -> GSON.fromJson("[]", GetCredentialsRequest.class));
+    assertThrows(
+        JsonSyntaxException.class, () -> GSON.fromJson("\"foo\"", GetCredentialsRequest.class));
+    assertThrows(JsonSyntaxException.class, () -> GSON.fromJson("1", GetCredentialsRequest.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"uri\": 1}", GetCredentialsRequest.class));
     assertThrows(
         JsonSyntaxException.class,
         () -> GSON.fromJson("{\"uri\": {}}", GetCredentialsRequest.class));

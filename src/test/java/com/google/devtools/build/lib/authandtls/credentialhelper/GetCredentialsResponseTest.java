@@ -1,9 +1,11 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,6 +54,74 @@ public class GetCredentialsResponseTest {
                     + " \"bar\": 123}",
                 GetCredentialsResponse.class))
         .isEqualTo(expectedResponse);
+  }
+
+  @Test
+  public void parseInvalid() {
+    assertThrows(
+        JsonSyntaxException.class, () -> GSON.fromJson("[]", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class, () -> GSON.fromJson("\"foo\"", GetCredentialsResponse.class));
+    assertThrows(JsonSyntaxException.class, () -> GSON.fromJson("1", GetCredentialsResponse.class));
+  }
+
+  @Test
+  public void parseInvalidHeadersEnvelope() {
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": null}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": \"foo\"}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": []}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": 1}", GetCredentialsResponse.class));
+  }
+
+  @Test
+  public void parseInvalidHeadersValue() {
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": null}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": 1}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": {}}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": \"a\"}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [null]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [\"a\", null]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [null, \"a\"]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [\"a\", 1]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [1, \"a\"]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [\"a\", []]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [[], \"a\"]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [\"a\", {}]}}", GetCredentialsResponse.class));
+    assertThrows(
+        JsonSyntaxException.class,
+        () -> GSON.fromJson("{\"headers\": {\"a\": [{}, \"a\"]}}", GetCredentialsResponse.class));
   }
 
   @Test

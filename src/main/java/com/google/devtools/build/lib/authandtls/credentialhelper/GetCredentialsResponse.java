@@ -6,12 +6,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
 import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -74,16 +77,57 @@ public abstract class GetCredentialsResponse {
       Preconditions.checkNotNull(reader);
 
       GetCredentialsResponse.Builder response = newBuilder();
+
+      if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+        throw new JsonSyntaxException(
+            String.format(Locale.US, "Expected object, got %s", reader.peek()));
+      }
       reader.beginObject();
+
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
           case "headers":
-            for (Map.Entry<String, List<String>> header : readHeaders(reader).entrySet()) {
-              response
-                  .headersBuilder()
-                  .put(header.getKey(), ImmutableList.copyOf(header.getValue()));
+            if (reader.peek() != JsonToken.BEGIN_OBJECT) {
+              throw new JsonSyntaxException(
+                  String.format(
+                      Locale.US,
+                      "Expected value of 'headers' to be an object, got %s",
+                      reader.peek()));
             }
+            reader.beginObject();
+
+            while (reader.hasNext()) {
+              String headerName = reader.nextName();
+              ImmutableList.Builder<String> headerValues = ImmutableList.builder();
+
+              if (reader.peek() != JsonToken.BEGIN_ARRAY) {
+                throw new JsonSyntaxException(
+                    String.format(
+                        Locale.US,
+                        "Expected value of '%s' header to be an array of strings, got %s",
+                        headerName,
+                        reader.peek()));
+              }
+              reader.beginArray();
+              for (int i = 0; reader.hasNext(); i++) {
+                if (reader.peek() != JsonToken.STRING) {
+                  throw new JsonSyntaxException(
+                      String.format(
+                          Locale.US,
+                          "Expected value %s of '%s' header to be a string, got %s",
+                          i,
+                          headerName,
+                          reader.peek()));
+                }
+                headerValues.add(reader.nextString());
+              }
+              reader.endArray();
+
+              response.headersBuilder().put(headerName, headerValues.build());
+            }
+
+            reader.endObject();
             break;
 
           default:
