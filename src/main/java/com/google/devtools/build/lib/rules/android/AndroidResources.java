@@ -265,6 +265,7 @@ public class AndroidResources {
    * directory from the end. Filesets are expect to have the last directory as the resource
    * directory.
    */
+  @Nullable
   public static PathFragment findResourceDir(Artifact artifact) {
     PathFragment fragment = artifact.getExecPath();
     int segmentCount = fragment.segmentCount();

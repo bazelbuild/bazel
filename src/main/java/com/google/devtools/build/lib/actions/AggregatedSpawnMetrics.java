@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
@@ -172,31 +173,37 @@ public final class AggregatedSpawnMetrics {
       return new AggregatedSpawnMetrics(Maps.immutableEnumMap(map));
     }
 
+    @CanIgnoreReturnValue
     public Builder addDurations(SpawnMetrics metrics) {
       getBuilder(metrics.execKind()).addDurations(metrics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDurations(AggregatedSpawnMetrics aggregated) {
       aggregated.getAllMetrics().forEach(this::addDurations);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNonDurations(SpawnMetrics metrics) {
       getBuilder(metrics.execKind()).addNonDurations(metrics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNonDurations(AggregatedSpawnMetrics aggregated) {
       aggregated.getAllMetrics().forEach(this::addNonDurations);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder maxNonDurations(SpawnMetrics metrics) {
       getBuilder(metrics.execKind()).maxNonDurations(metrics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder maxNonDurations(AggregatedSpawnMetrics aggregated) {
       aggregated.getAllMetrics().forEach(this::maxNonDurations);
       return this;

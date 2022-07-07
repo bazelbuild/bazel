@@ -144,6 +144,7 @@ public abstract class TraceEvent {
     return builder.build();
   }
 
+  @Nullable
   private static Object parseSingleValueRecursively(JsonReader reader) throws IOException {
     JsonToken nextToken = reader.peek();
     switch (nextToken) {

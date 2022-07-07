@@ -639,8 +639,7 @@ public abstract class BuildIntegrationTestCase {
   protected ConfiguredTarget getConfiguredTarget(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
-    getPackageManager()
-        .getTarget(events.reporter(), Label.parseAbsolute(target, ImmutableMap.of()));
+    getPackageManager().getTarget(events.reporter(), Label.parseCanonical(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
   }
@@ -719,7 +718,7 @@ public abstract class BuildIntegrationTestCase {
 
   /** Utility function: parse a string as a label. */
   protected static Label label(String labelString) throws LabelSyntaxException {
-    return Label.parseAbsolute(labelString, ImmutableMap.of());
+    return Label.parseCanonical(labelString);
   }
 
   protected String run(Artifact executable, String... arguments) throws Exception {

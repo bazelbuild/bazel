@@ -145,7 +145,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throws EvalException, InterruptedException {
     Label nameLabel;
     try {
-      nameLabel = Label.parseAbsolute("//external:" + name, ImmutableMap.of());
+      nameLabel = Label.parseCanonical("//external:" + name);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
@@ -156,7 +156,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
           builder,
           ruleClass,
           nameLabel,
-          actual == NONE ? null : Label.parseAbsolute((String) actual, ImmutableMap.of()),
+          actual == NONE ? null : Label.parseCanonical((String) actual),
           thread.getSemantics(),
           thread.getCallStack());
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {

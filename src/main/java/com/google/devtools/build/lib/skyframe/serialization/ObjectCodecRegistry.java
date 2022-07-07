@@ -449,6 +449,7 @@ public class ObjectCodecRegistry {
   }
 
   /** For enums, this method must only be called for the declaring class. */
+  @Nullable
   private static CodecDescriptor createDynamicCodecDescriptor(int tag, String className) {
     try {
       Class<?> type = Class.forName(className);

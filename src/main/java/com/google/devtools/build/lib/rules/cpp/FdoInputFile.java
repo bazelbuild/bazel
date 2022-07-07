@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.FileType.HasFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** Value object reused by fdo configurations that may be either an artifact or a path. */
 @Immutable
@@ -75,6 +76,7 @@ public final class FdoInputFile implements HasFileType {
     return new FdoInputFile(artifact, null);
   }
 
+  @Nullable
   public static FdoInputFile fromProfileRule(RuleContext ruleContext) {
 
     boolean isLabel = ruleContext.attributes().isAttributeValueExplicitlySpecified("profile");

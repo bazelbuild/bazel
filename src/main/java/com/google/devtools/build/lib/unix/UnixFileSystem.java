@@ -37,10 +37,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
-/**
- * This class implements the FileSystem interface using direct calls to the UNIX filesystem.
- */
+/** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   protected final String hashAttributeName;
@@ -65,10 +64,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   /**
-   * Eager implementation of FileStatus for file systems that have an atomic
-   * stat(2) syscall. A proxy for {@link com.google.devtools.build.lib.unix.FileStatus}.
-   * Note that isFile and getLastModifiedTime have slightly different meanings
-   * between UNIX and VFS.
+   * Eager implementation of FileStatus for file systems that have an atomic stat(2) syscall. A
+   * proxy for {@link com.google.devtools.build.lib.unix.FileStatus}. Note that isFile and
+   * getLastModifiedTime have slightly different meanings between UNIX and VFS.
    */
   @VisibleForTesting
   protected static class UnixFileStatus implements FileStatus {
@@ -80,19 +78,29 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
-    public boolean isFile() { return !isDirectory() && !isSymbolicLink(); }
+    public boolean isFile() {
+      return !isDirectory() && !isSymbolicLink();
+    }
 
     @Override
-    public boolean isDirectory() { return status.isDirectory(); }
+    public boolean isDirectory() {
+      return status.isDirectory();
+    }
 
     @Override
-    public boolean isSymbolicLink() { return status.isSymbolicLink(); }
+    public boolean isSymbolicLink() {
+      return status.isSymbolicLink();
+    }
 
     @Override
-    public boolean isSpecialFile() { return isFile() && !status.isRegularFile(); }
+    public boolean isSpecialFile() {
+      return isFile() && !status.isRegularFile();
+    }
 
     @Override
-    public long getSize() { return status.getSize(); }
+    public long getSize() {
+      return status.getSize();
+    }
 
     @Override
     public long getLastModifiedTime() {
@@ -102,8 +110,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
     @Override
     public long getLastChangeTime() {
-      return (status.getLastChangeTime() * 1000)
-          + (status.getFractionalLastChangeTime() / 1000000);
+      return (status.getLastChangeTime() * 1000) + (status.getFractionalLastChangeTime() / 1000000);
     }
 
     @Override
@@ -113,10 +120,14 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       return status.getInodeNumber();
     }
 
-    int getPermissions() { return status.getPermissions(); }
+    int getPermissions() {
+      return status.getPermissions();
+    }
 
     @Override
-    public String toString() { return status.toString(); }
+    public String toString() {
+      return status.toString();
+    }
   }
 
   @Override
@@ -137,12 +148,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  @Nullable
   protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
     // FileSystem.resolveOneLink().
-    return stat(path, false).isSymbolicLink()
-        ? readSymbolicLink(path)
-        : null;
+    return stat(path, false).isSymbolicLink() ? readSymbolicLink(path) : null;
   }
 
   /**
@@ -170,13 +180,13 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      Dirents unixDirents = NativePosixFiles.readdir(name,
-          followSymlinks ? ReadTypes.FOLLOW : ReadTypes.NOFOLLOW);
+      Dirents unixDirents =
+          NativePosixFiles.readdir(name, followSymlinks ? ReadTypes.FOLLOW : ReadTypes.NOFOLLOW);
       Preconditions.checkState(unixDirents.hasTypes());
       List<Dirent> dirents = Lists.newArrayListWithCapacity(unixDirents.size());
       for (int i = 0; i < unixDirents.size(); i++) {
-        dirents.add(new Dirent(unixDirents.getName(i),
-            convertToDirentType(unixDirents.getType(i))));
+        dirents.add(
+            new Dirent(unixDirents.getName(i), convertToDirentType(unixDirents.getType(i))));
       }
       return dirents;
     } finally {
@@ -195,9 +205,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return new UnixFileStatus(followSymlinks
-                                      ? NativePosixFiles.stat(name)
-                                      : NativePosixFiles.lstat(name));
+      return new UnixFileStatus(
+          followSymlinks ? NativePosixFiles.stat(name) : NativePosixFiles.lstat(name));
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
     }
@@ -207,13 +216,13 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   // This is a performance optimization in the case where clients
   // catch and don't re-throw.
   @Override
+  @Nullable
   protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      ErrnoFileStatus stat = followSymlinks
-          ? NativePosixFiles.errnoStat(name)
-          : NativePosixFiles.errnoLstat(name);
+      ErrnoFileStatus stat =
+          followSymlinks ? NativePosixFiles.errnoStat(name) : NativePosixFiles.errnoLstat(name);
       return stat.hasError() ? null : new UnixFileStatus(stat);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
@@ -230,13 +239,13 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
    * ENOTDIR} error.
    */
   @Override
+  @Nullable
   protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     String name = path.getPathString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      ErrnoFileStatus stat = followSymlinks
-          ? NativePosixFiles.errnoStat(name)
-          : NativePosixFiles.errnoLstat(name);
+      ErrnoFileStatus stat =
+          followSymlinks ? NativePosixFiles.errnoStat(name) : NativePosixFiles.errnoLstat(name);
       if (!stat.hasError()) {
         return new UnixFileStatus(stat);
       }
@@ -409,6 +418,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  @Nullable
   public byte[] getxattr(PathFragment path, String name, boolean followSymlinks)
       throws IOException {
     String pathName = path.toString();
@@ -427,6 +437,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  @Nullable
   protected byte[] getFastDigest(PathFragment path) throws IOException {
     // Attempt to obtain the digest from an extended attribute attached to the file. This is much
     // faster than reading and digesting the file's contents on the fly, especially for large files.

@@ -1196,6 +1196,8 @@ public class RemoteExecutionService {
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
 
+    action.getRemoteActionExecutionContext().setStep(Step.UPLOAD_OUTPUTS);
+
     if (remoteOptions.remoteCacheAsync) {
       Single.using(
               remoteCache::retain,

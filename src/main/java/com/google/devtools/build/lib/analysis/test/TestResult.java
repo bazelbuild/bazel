@@ -126,6 +126,7 @@ public class TestResult implements ExtendedEventHandler.Postable {
   }
 
   /** Returns the coverage data artifact, if available, and null otherwise. */
+  @Nullable
   public Path getCoverageData() {
     if (data.getHasCoverage()) {
       return testAction.getCoverageData().getPath();

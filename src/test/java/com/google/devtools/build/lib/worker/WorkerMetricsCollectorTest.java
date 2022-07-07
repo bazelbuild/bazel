@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.OS;
@@ -57,37 +58,52 @@ public class WorkerMetricsCollectorTest {
     WorkerMetricsCollector spyCollector = spy(collector);
 
     String psOutput = "    PID  \t  RSS\n   1  3216 \t\n  \t 2 \t 4096 \t";
+    ImmutableMap<Long, Long> subprocessesMap =
+        ImmutableMap.of(
+            1L, 1L,
+            2L, 2L);
     List<Long> pids = Arrays.asList(1L, 2L);
     InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
     Process process = mock(Process.class);
 
-    when(spyCollector.buildPsProcess(pids)).thenReturn(process);
+    when(spyCollector.getSubprocesses(pids)).thenReturn(subprocessesMap);
+    when(spyCollector.buildPsProcess(subprocessesMap.keySet())).thenReturn(process);
     when(process.getInputStream()).thenReturn(psStream);
 
     Map<Long, WorkerMetric.WorkerStat> pidResults = spyCollector.collectStats(OS.LINUX, pids);
 
     assertThat(pidResults).hasSize(2);
-    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3);
-    assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4);
+    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3216);
+    assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4096);
   }
 
   @Test
-  public void testCollectStats_filterInvalidPids() throws Exception {
+  public void testCollectStats_mutipleSubprocesses() throws Exception {
     WorkerMetricsCollector collector = new WorkerMetricsCollector(reporter, eventBus);
     WorkerMetricsCollector spyCollector = spy(collector);
 
-    String psOutput = "PID  RSS  \n 1  3216";
-    List<Long> pids = Arrays.asList(1L, 0L);
-
+    String psOutput = "PID  RSS  \n 1  3216\n 2  4232\n 3 1234 \n 4 1001 \n 5 40000";
+    ImmutableMap<Long, Long> subprocessesMap =
+        ImmutableMap.of(
+            1L, 1L,
+            2L, 2L,
+            3L, 1L,
+            4L, 2L,
+            5L, 5L,
+            6L, 1L);
+    List<Long> pids = Arrays.asList(1L, 2L, 5L);
     InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
     Process process = mock(Process.class);
 
-    when(spyCollector.buildPsProcess(pids)).thenReturn(process);
+    when(spyCollector.getSubprocesses(pids)).thenReturn(subprocessesMap);
+    when(spyCollector.buildPsProcess(subprocessesMap.keySet())).thenReturn(process);
     when(process.getInputStream()).thenReturn(psStream);
 
     Map<Long, WorkerMetric.WorkerStat> pidResults = spyCollector.collectStats(OS.LINUX, pids);
 
-    assertThat(pidResults).hasSize(1);
-    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3);
+    assertThat(pidResults).hasSize(3);
+    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3216 + 1234);
+    assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4232 + 1001);
+    assertThat(pidResults.get(5L).getUsedMemoryInKB()).isEqualTo(40000);
   }
 }

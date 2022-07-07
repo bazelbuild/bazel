@@ -270,6 +270,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
     return true;
   }
 
+  @Nullable
   @Override
   public Object getValue(String name) {
     int n = table.length / 2;
@@ -334,6 +335,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
     return new StarlarkInfo(provider, toTable(values), Location.BUILTIN, unknownFieldError);
   }
 
+  @Nullable
   @Override
   public StarlarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
     if (op == TokenKind.PLUS && that instanceof StarlarkInfo) {

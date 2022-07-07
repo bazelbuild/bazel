@@ -39,11 +39,13 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import javax.annotation.Nullable;
 
 /** Implementation of the java_lite_proto_library rule. */
 public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 

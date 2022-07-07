@@ -101,6 +101,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   }
 
   /** Returns the xcode version, or null if the xcode version is unknown. */
+  @Nullable
   @Override
   public String getXcodeVersionString() {
     if (xcodeVersion.isPresent()) {
@@ -110,24 +111,28 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
   }
 
   /** Returns the default ios sdk version to use if this xcode version is in use. */
+  @Nullable
   @Override
   public String getDefaultIosSdkVersionString() {
     return defaultIosSdkVersion != null ? defaultIosSdkVersion.toString() : null;
   }
 
   /** Returns the default watchos sdk version to use if this xcode version is in use. */
+  @Nullable
   @Override
   public String getDefaultWatchosSdkVersionString() {
     return defaultWatchosSdkVersion != null ? defaultWatchosSdkVersion.toString() : null;
   }
 
   /** Returns the default tvos sdk version to use if this xcode version is in use. */
+  @Nullable
   @Override
   public String getDefaultTvosSdkVersionString() {
     return defaultTvosSdkVersion != null ? defaultTvosSdkVersion.toString() : null;
   }
 
   /** Returns the default macosx sdk version to use if this xcode version is in use. */
+  @Nullable
   @Override
   public String getDefaultMacosSdkVersionString() {
     return defaultMacosSdkVersion != null ? defaultMacosSdkVersion.toString() : null;

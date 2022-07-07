@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code java_runtime} rule. */
 public class JavaRuntime implements RuleConfiguredTargetFactory {
@@ -42,6 +43,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
   private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();

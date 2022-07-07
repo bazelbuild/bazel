@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * ConfiguredTarget for "filegroup".
@@ -111,6 +112,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   /**
    * Returns the single Artifact from filesToBuild or {@code null} if there are multiple elements.
    */
+  @Nullable
   private Artifact getExecutable(NestedSet<Artifact> filesToBuild) {
     return filesToBuild.isSingleton() ? filesToBuild.getSingleton() : null;
   }

@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.outputfilter.AutoOutputFilter.SUBPAC
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -102,14 +101,14 @@ public class AutoOutputFilterTest {
     // Sort targets by package
     ListMultimap<String, String> targetsPerPackage = ArrayListMultimap.create();
     for (String targetName : targetLabels) {
-      Label label = Label.parseAbsolute(targetName, ImmutableMap.of());
+      Label label = Label.parseCanonical(targetName);
       targetsPerPackage.put(label.getPackageName(), label.getName());
     }
 
     // Collect targets
     ImmutableList.Builder<Label> targets = ImmutableList.builder();
     for (String targetName : targetLabels) {
-      targets.add(Label.parseAbsolute(targetName, ImmutableMap.of()));
+      targets.add(Label.parseCanonical(targetName));
     }
     return targets.build();
   }

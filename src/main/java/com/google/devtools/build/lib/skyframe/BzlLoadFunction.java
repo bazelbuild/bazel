@@ -842,6 +842,7 @@ public class BzlLoadFunction implements SkyFunction {
     return new BzlLoadValue(module, transitiveDigest, bzlVisibility);
   }
 
+  @Nullable
   private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
       throws InterruptedException {
     if (key.isBuiltins() && !RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {

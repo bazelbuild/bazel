@@ -53,6 +53,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Blaze internal profiler. Provides facility to report various Blaze tasks and store them
@@ -335,6 +336,7 @@ public final class Profiler {
   }
 
   // Returns the elapsed wall clock time since the profile has been started or null if inactive.
+  @Nullable
   public static Duration elapsedTimeMaybe() {
     if (instance.isActive()) {
       return Duration.ofNanos(instance.clock.nanoTime())
@@ -350,6 +352,7 @@ public final class Profiler {
   }
 
   // Returns the CPU time since the profile has been started or null if inactive.
+  @Nullable
   public static Duration getProcessCpuTimeMaybe() {
     if (instance().isActive()) {
       return getProcessCpuTime().minus(instance().profileCpuStartTime);
@@ -900,6 +903,7 @@ public final class Profiler {
        * If not mergeable, returns the TaskData of the previously merged events and clears the
        * internal data structures.
        */
+      @Nullable
       TaskData maybeMerge(TaskData data) {
         long startTimeNanos = data.startTimeNanos;
         long endTimeNanos = startTimeNanos + data.duration;

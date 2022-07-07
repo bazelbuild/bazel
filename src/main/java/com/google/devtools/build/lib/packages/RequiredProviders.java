@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -361,6 +362,7 @@ public final class RequiredProviders {
      * <p>If all of these providers are present in the dependency, the dependency satisfies {@link
      * RequiredProviders}.
      */
+    @CanIgnoreReturnValue
     public Builder addStarlarkSet(ImmutableSet<StarlarkProviderIdentifier> starlarkProviderSet) {
       constraint = Constraint.RESTRICTED;
       Preconditions.checkState(!starlarkProviderSet.isEmpty());
@@ -374,6 +376,7 @@ public final class RequiredProviders {
      * <p>If all of these providers are present in the dependency, the dependency satisfies {@link
      * RequiredProviders}.
      */
+    @CanIgnoreReturnValue
     public Builder addBuiltinSet(
         ImmutableSet<Class<? extends TransitiveInfoProvider>> builtinProviderSet) {
       constraint = Constraint.RESTRICTED;

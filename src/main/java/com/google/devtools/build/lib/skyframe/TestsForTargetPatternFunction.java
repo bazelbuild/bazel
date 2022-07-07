@@ -33,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Returns all tests that need to be run when testing is requested for a given set of targets.
@@ -41,6 +42,7 @@ import java.util.Set;
  */
 final class TestsForTargetPatternFunction implements SkyFunction {
   @Override
+  @Nullable
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestsForTargetPatternKey expansion = (TestsForTargetPatternKey) key.argument();
     ResolvedTargets<Target> targets = labelsToTargets(env, expansion.getTargets(), false);
@@ -76,6 +78,7 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     return new TestsForTargetPatternValue(new ResolvedTargets<>(result, hasError));
   }
 
+  @Nullable
   static ResolvedTargets<Target> labelsToTargets(
       Environment env, ImmutableSet<Label> labels, boolean hasError) throws InterruptedException {
     Set<PackageIdentifier> pkgIdentifiers = new LinkedHashSet<>();

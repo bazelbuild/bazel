@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -42,9 +41,9 @@ public final class AspectValueTest extends AnalysisTestCase {
     update();
     BuildConfigurationValue c1 = getTargetConfiguration();
     BuildConfigurationValue c2 = getHostConfiguration();
-    Label l1 = Label.parseAbsolute("//a:l1", ImmutableMap.of());
-    Label l1b = Label.parseAbsolute("//a:l1", ImmutableMap.of());
-    Label l2 = Label.parseAbsolute("//a:l2", ImmutableMap.of());
+    Label l1 = Label.parseCanonical("//a:l1");
+    Label l1b = Label.parseCanonical("//a:l1");
+    Label l2 = Label.parseCanonical("//a:l2");
     AspectParameters i1 = new AspectParameters.Builder()
         .addAttribute("foo", "bar")
         .build();

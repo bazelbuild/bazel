@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Helper class to create a dynamic library for rules which support integration with native code.
@@ -117,6 +118,7 @@ public abstract class NativeDepsHelper {
    * @return the native deps library, or null if there was no code which needed to be linked in the
    *     transitive closure.
    */
+  @Nullable
   public static Artifact linkAndroidNativeDepsIfPresent(
       final RuleContext ruleContext,
       CcInfo ccInfo,

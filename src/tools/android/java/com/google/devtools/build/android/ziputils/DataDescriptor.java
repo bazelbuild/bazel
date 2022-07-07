@@ -15,6 +15,7 @@ package com.google.devtools.build.android.ziputils;
 
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /**
@@ -84,6 +85,7 @@ public class DataDescriptor extends View<DataDescriptor> {
     return view;
   }
 
+  @CanIgnoreReturnValue
   private DataDescriptor init() {
     buffer.putInt(0, SIGNATURE);
     hasMarker = true;

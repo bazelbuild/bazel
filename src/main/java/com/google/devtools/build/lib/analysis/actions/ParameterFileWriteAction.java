@@ -120,6 +120,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     return new String(out.toByteArray(), ISO_8859_1);
   }
 
+  @Nullable
   @Override
   public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     if (hasInputArtifactToExpand) {

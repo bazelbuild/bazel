@@ -26,7 +26,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Action;
@@ -823,7 +822,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected Action actionProducingArtifact(String targetLabel, String artifactSuffix)
       throws Exception {
     ConfiguredTarget libraryTarget = getConfiguredTarget(targetLabel);
-    Label parsedLabel = Label.parseAbsolute(targetLabel, ImmutableMap.of());
+    Label parsedLabel = Label.parseCanonical(targetLabel);
     Artifact linkedLibrary = getBinArtifact(parsedLabel.getName() + artifactSuffix, libraryTarget);
     return getGeneratingAction(linkedLibrary);
   }

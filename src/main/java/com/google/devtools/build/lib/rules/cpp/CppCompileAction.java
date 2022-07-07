@@ -615,6 +615,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         .build();
   }
 
+  @Nullable
   private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
       ActionExecutionContext actionExecutionContext) {
     if (getDotdFile() != null) {
@@ -1505,6 +1506,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         spawnContinuation);
   }
 
+  @Nullable
   protected byte[] getDotDContents(SpawnResult spawnResult) throws EnvironmentalExecException {
     if (getDotdFile() != null) {
       InputStream in = spawnResult.getInMemoryOutput(getDotdFile());

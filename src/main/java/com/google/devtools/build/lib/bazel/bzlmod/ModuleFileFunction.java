@@ -84,6 +84,7 @@ public class ModuleFileFunction implements SkyFunction {
     this.builtinModules = builtinModules;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
@@ -137,6 +138,7 @@ public class ModuleFileFunction implements SkyFunction {
     return NonRootModuleFileValue.create(module);
   }
 
+  @Nullable
   private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootedPath moduleFilePath =

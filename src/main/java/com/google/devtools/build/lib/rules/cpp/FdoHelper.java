@@ -33,10 +33,12 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 
 /** Helper responsible for creating {@link FdoContext} */
 public class FdoHelper {
 
+  @Nullable
   public static FdoContext getFdoContext(
       RuleContext ruleContext,
       CcToolchainAttributesProvider attributes,
@@ -247,6 +249,7 @@ public class FdoHelper {
     }
   }
 
+  @Nullable
   private static Artifact getPrefetchHintsArtifact(
       FdoInputFile prefetchHintsFile, RuleContext ruleContext) {
     if (prefetchHintsFile == null) {
@@ -333,6 +336,7 @@ public class FdoHelper {
    * This function checks the format of the input profile data and converts it to
    * the indexed format (.profdata) if necessary.
    */
+  @Nullable
   private static Artifact convertLLVMRawProfileToIndexed(
       CcToolchainAttributesProvider attributes,
       FdoInputFile fdoProfile,
@@ -465,6 +469,7 @@ public class FdoHelper {
     return profileArtifact;
   }
 
+  @Nullable
   static Pair<FdoInputFile, Artifact> getFdoInputs(
       RuleContext ruleContext, FdoProfileProvider fdoProfileProvider) {
     if (fdoProfileProvider == null) {
@@ -474,6 +479,7 @@ public class FdoHelper {
     return Pair.of(fdoProfileProvider.getInputFile(), fdoProfileProvider.getProtoProfileArtifact());
   }
 
+  @Nullable
   private static FdoInputFile fdoInputFileFromArtifacts(
       RuleContext ruleContext, CcToolchainAttributesProvider attributes) {
     ImmutableList<Artifact> fdoArtifacts = attributes.getFdoOptimizeArtifacts();

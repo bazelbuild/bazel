@@ -511,4 +511,24 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
 
     assertThat(requiredFragments.getDefines()).containsExactly("FAIL_MESSAGE");
   }
+
+  @Test
+  public void aliasWithSelectResolvesToConfigSetting() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "config_setting(name = 'define_x', define_values = {'x': '1'})",
+        "config_setting(name = 'k8', values = {'cpu': 'k8'})",
+        "alias(name = 'alias_to_setting', actual = select({':define_x': ':k8'}))",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['gen.out'],",
+        "  cmd = select({':alias_to_setting': 'touch $@'}),",
+        ")");
+
+    useConfiguration("--define=x=1", "--cpu=k8", "--include_config_fragments_provider=transitive");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:gen").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getDefines()).containsExactly("x");
+  }
 }

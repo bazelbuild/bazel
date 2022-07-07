@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
@@ -52,7 +54,7 @@ public final class BzlmodRepoRuleCreator {
       String callStackEntry,
       RuleClass ruleClass,
       Map<String, Object> attributes)
-      throws InterruptedException, InvalidRuleException, NoSuchPackageException {
+      throws InterruptedException, InvalidRuleException, NoSuchPackageException, EvalException {
     // TODO(bazel-team): Don't use the {@link Rule} class for repository rule.
     // Currently, the repository rule is represented with the {@link Rule} class that's designed
     // for build rules. Therefore, we have to create a package instance for it, which doesn't make
@@ -78,6 +80,10 @@ public final class BzlmodRepoRuleCreator {
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
+    }
+    if (rule.containsErrors()) {
+      throw Starlark.errorf(
+          "failed to instantiate '%s' from this module extension", ruleClass.getName());
     }
     packageBuilder.build();
     return rule;

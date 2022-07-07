@@ -158,15 +158,12 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   @Test
   public void testTargetEnvironment() throws Exception {
     BuildConfigurationValue oneEnvConfig = create("--target_environment=//foo");
-    assertThat(oneEnvConfig.getTargetEnvironments())
-        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
+    assertThat(oneEnvConfig.getTargetEnvironments()).containsExactly(Label.parseCanonical("//foo"));
 
     BuildConfigurationValue twoEnvsConfig =
         create("--target_environment=//foo", "--target_environment=//bar");
     assertThat(twoEnvsConfig.getTargetEnvironments())
-        .containsExactly(
-            Label.parseAbsolute("//foo", ImmutableMap.of()),
-            Label.parseAbsolute("//bar", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//foo"), Label.parseCanonical("//bar"));
 
     BuildConfigurationValue noEnvsConfig = create();
     assertThat(noEnvsConfig.getTargetEnvironments()).isEmpty();

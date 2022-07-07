@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -35,7 +33,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -85,7 +82,7 @@ public final class RequiredFragmentsUtil {
       Rule target,
       BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
     IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
     if (mode == IncludeConfigFragmentsEnum.OFF) {
@@ -93,14 +90,14 @@ public final class RequiredFragmentsUtil {
     }
     RuleClass ruleClass = target.getRuleClassObject();
     ConfiguredAttributeMapper attributes =
-        ConfiguredAttributeMapper.of(target, configConditions, configuration);
+        ConfiguredAttributeMapper.of(target, configConditions.asProviders(), configuration);
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         getRequiredFragments(
             mode,
             configuration,
             universallyRequiredFragments,
             ruleClass.getConfigurationFragmentPolicy(),
-            configConditions.values(),
+            configConditions,
             prerequisites);
     if (!ruleClass.isStarlark()) {
       ruleClass
@@ -139,7 +136,7 @@ public final class RequiredFragmentsUtil {
       Rule associatedTarget,
       BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
     IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
     if (mode == IncludeConfigFragmentsEnum.OFF) {
@@ -151,13 +148,14 @@ public final class RequiredFragmentsUtil {
             configuration,
             universallyRequiredFragments,
             aspect.getDefinition().getConfigurationFragmentPolicy(),
-            configConditions.values(),
+            configConditions,
             prerequisites);
     aspectFactory.addAspectImplSpecificRequiredConfigFragments(requiredFragments);
     addRequiredFragmentsFromAspectTransitions(
         requiredFragments,
         aspect,
-        ConfiguredAttributeMapper.of(associatedTarget, configConditions, configuration),
+        ConfiguredAttributeMapper.of(
+            associatedTarget, configConditions.asProviders(), configuration),
         configuration.getBuildOptionDetails());
     return requiredFragments.build();
   }
@@ -168,7 +166,7 @@ public final class RequiredFragmentsUtil {
       BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
-      Collection<ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
@@ -195,10 +193,18 @@ public final class RequiredFragmentsUtil {
                 Objects::nonNull))
         // Fragments universally required by everything:
         .addFragmentClasses(universallyRequiredFragments);
-    // Fragments required by attached select()s.
-    configConditions.forEach(
-        configCondition -> requiredFragments.merge(configCondition.requiredFragmentOptions()));
-
+    // Fragments required by attached select()s. Propagating fragments from the config conditions as
+    // configured targets is necessary in case of a dependency on an alias that resolves to a config
+    // setting. The providers only contain the resolved settings, which won't include fragments
+    // required to resolve a select within the alias rule.
+    // TODO(jhorvitz): Are the CTs themselves sufficient? Tests pass without the providers.
+    for (ConfigMatchingProvider provider : configConditions.asProviders().values()) {
+      requiredFragments.merge(provider.requiredFragmentOptions());
+    }
+    for (ConfiguredTargetAndData targetAndData : configConditions.asConfiguredTargets().values()) {
+      requiredFragments.merge(
+          targetAndData.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class));
+    }
     return requiredFragments;
   }
 

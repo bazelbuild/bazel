@@ -24,6 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link FileStateValue}s.
@@ -51,6 +52,7 @@ public class FileStateFunction implements SkyFunction {
   // deciding which overload of FileStateFunctionException() to call.
   @SuppressWarnings("UseMultiCatch")
   @Override
+  @Nullable
   public FileStateValue compute(SkyKey skyKey, Environment env)
       throws FileStateFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();

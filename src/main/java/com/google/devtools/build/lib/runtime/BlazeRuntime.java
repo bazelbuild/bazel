@@ -116,6 +116,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -1573,46 +1574,55 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return runtime;
     }
 
+    @CanIgnoreReturnValue
     public Builder setProductName(String productName) {
       this.productName = productName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFileSystem(FileSystem fileSystem) {
       this.fileSystem = fileSystem;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setServerDirectories(ServerDirectories serverDirectories) {
       this.serverDirectories = serverDirectories;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setClock(Clock clock) {
       this.clock = clock;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setAbruptShutdownHandler(Runnable handler) {
       this.abruptShutdownHandler = handler;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartupOptionsProvider(OptionsParsingResult startupOptionsProvider) {
       this.startupOptionsProvider = startupOptionsProvider;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addBlazeModule(BlazeModule blazeModule) {
       blazeModules.add(blazeModule);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInstanceId(UUID id) {
       instanceId = id;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setEventBusExceptionHandler(
         SubscriberExceptionHandler eventBusExceptionHandler) {
@@ -1620,12 +1630,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
       this.actionKeyContext = actionKeyContext;
       return this;

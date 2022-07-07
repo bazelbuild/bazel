@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Starlark;
 
@@ -263,6 +264,7 @@ public final class BazelStarlarkEnvironment {
   }
 
   /** Given a string prefixed with + or -, returns that prefix character, or null otherwise. */
+  @Nullable
   private static Character getKeyPrefix(String key) {
     if (key.isEmpty()) {
       return null;

@@ -20,6 +20,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingValue}s.
@@ -27,6 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 public final class DirectoryListingFunction implements SkyFunction {
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws DirectoryListingFunctionException, InterruptedException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();

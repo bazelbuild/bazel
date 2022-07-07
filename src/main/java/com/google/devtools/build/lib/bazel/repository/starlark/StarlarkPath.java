@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -54,7 +55,7 @@ final class StarlarkPath implements StarlarkValue {
 
   @Override
   public boolean equals(Object obj) {
-    return (obj instanceof StarlarkPath) &&  path.equals(((StarlarkPath) obj).path);
+    return (obj instanceof StarlarkPath) && path.equals(((StarlarkPath) obj).path);
   }
 
   @Override
@@ -85,7 +86,9 @@ final class StarlarkPath implements StarlarkValue {
   @StarlarkMethod(
       name = "dirname",
       structField = true,
+      allowReturnNones = true,
       doc = "The parent directory of this file, or None if this file does not have a parent.")
+  @Nullable
   public StarlarkPath getDirname() {
     Path parentPath = path.getParentDirectory();
     return parentPath == null ? null : new StarlarkPath(parentPath);

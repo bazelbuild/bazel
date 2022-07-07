@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -89,8 +88,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 

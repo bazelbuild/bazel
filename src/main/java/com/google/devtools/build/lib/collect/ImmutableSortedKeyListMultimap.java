@@ -149,6 +149,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
       return ImmutableSortedKeyListMultimap.this.containsKey(key);
     }
 
+    @Nullable
     @Override
     public Collection<V> get(Object key) {
       int index = Arrays.binarySearch(sortedKeys, key);
@@ -156,6 +157,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
       return index >= 0 ? values[index] : null;
     }
 
+    @Nullable
     @Override
     public Collection<V> remove(Object key) {
       throw new UnsupportedOperationException();

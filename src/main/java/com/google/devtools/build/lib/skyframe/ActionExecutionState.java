@@ -79,6 +79,7 @@ final class ActionExecutionState {
     this.state = Preconditions.checkNotNull(state);
   }
 
+  @Nullable
   ActionExecutionValue getResultOrDependOnFuture(
       SkyFunction.Environment env,
       ActionLookupData actionLookupData,
@@ -133,6 +134,7 @@ final class ActionExecutionState {
     dummyFuture.set(null);
   }
 
+  @Nullable
   private ActionExecutionValue runStateMachine(SkyFunction.Environment env)
       throws ActionExecutionException, InterruptedException {
     ActionStepOrResult original;

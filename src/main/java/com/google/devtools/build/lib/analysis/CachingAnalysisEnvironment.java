@@ -322,6 +322,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.actions.add(Preconditions.checkNotNull(action, owner));
   }
 
+  @Nullable
   @Override
   public ActionAnalysisMetadata getLocalGeneratingAction(Artifact artifact) {
     for (ActionAnalysisMetadata action : actions) {

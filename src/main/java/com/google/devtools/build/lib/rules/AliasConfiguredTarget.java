@@ -176,6 +176,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
     return actual.getFieldNames();
   }
 
+  @Nullable
   @Override
   public String getErrorMessageForUnknownField(String name) {
     // Use the default error message.

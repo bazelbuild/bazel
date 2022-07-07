@@ -316,6 +316,7 @@ public class PackageFunction implements SkyFunction {
    * @throws PackageFunctionException if there is an error computing the workspace file or adding
    *     its rules to the //external package.
    */
+  @Nullable
   private SkyValue getExternalPackage(Environment env)
       throws PackageFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -385,6 +386,7 @@ public class PackageFunction implements SkyFunction {
     @Nullable private LoadedPackage loadedPackage;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws PackageFunctionException, InterruptedException {
@@ -576,6 +578,7 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
+  @Nullable
   private static FileValue getBuildFileValue(Environment env, RootedPath buildFileRootedPath)
       throws InterruptedException {
     FileValue buildFileValue;
@@ -1223,11 +1226,7 @@ public class PackageFunction implements SkyFunction {
     Label preludeLabel = null;
     // Can be null in tests.
     if (packageFactory != null) {
-      // Load the prelude from the same repository as the package being loaded.  Can't use
-      // Label.resolveRepositoryRelative because rawPreludeLabel is in the main repository, not the
-      // default one, so it is resolved to itself.
-      // TODO(brandjon): Why can't we just replace the use of the main repository with the default
-      // repository in the prelude label?
+      // Load the prelude from the same repository as the package being loaded.
       Label rawPreludeLabel = packageFactory.getRuleClassProvider().getPreludeLabel();
       if (rawPreludeLabel != null) {
         PackageIdentifier preludePackage =

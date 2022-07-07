@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -97,7 +96,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         "sh_library(name = 'x')");
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
-    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isFalse();
+    assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isFalse();
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
         "sh_library(name = 'x')");
@@ -105,7 +104,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isTrue();
+    assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isTrue();
     assertNoEvents();
   }
 
@@ -119,7 +118,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         "sh_library(name = 'x')");
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
-    assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isFalse();
+    assertThat(visitTransitively(Label.parseCanonical("//top:top"))).isFalse();
     assertContainsEvent("no such package 'pkg'");
     assertContainsEvent("custom crash");
     assertThat(eventCollector).hasSize(1);
@@ -129,7 +128,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isTrue();
+    assertThat(visitTransitively(Label.parseCanonical("//top:top"))).isTrue();
     assertNoEvents();
   }
 
@@ -141,6 +140,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     buildPath.getParentDirectory().getRelative("pkg").createDirectory();
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
-    assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x", ImmutableMap.of()))).isFalse();
+    assertThat(visitTransitively(Label.parseCanonical("//top/pkg:x"))).isFalse();
   }
 }

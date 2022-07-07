@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase.AnalysisFailureRecorder;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
@@ -784,8 +783,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     assertThat(analysisFailureRecorder.causes).hasSize(1);
     AnalysisRootCauseEvent rootCause = analysisFailureRecorder.causes.get(0);
     assertThat(rootCause.getLabel())
-        .isEqualTo(
-            Label.parseAbsolute("//java/hello:hello_default_no_match_error", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//java/hello:hello_default_no_match_error"));
 
     eventBus.unregister(analysisFailureRecorder);
     analysisFailureRecorder = new AnalysisFailureRecorder();
@@ -800,8 +798,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     assertThat(analysisFailureRecorder.causes).hasSize(1);
     rootCause = analysisFailureRecorder.causes.get(0);
     assertThat(rootCause.getLabel())
-        .isEqualTo(
-            Label.parseAbsolute("//java/hello:hello_custom_no_match_error", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//java/hello:hello_custom_no_match_error"));
   }
 
   @Test
@@ -1131,7 +1128,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(attributes.get("dep", BuildType.LABEL))
-        .isEqualTo(Label.parseAbsolute("//foo:default", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//foo:default"));
   }
 
   @Test

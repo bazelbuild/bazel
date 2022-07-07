@@ -171,7 +171,7 @@ public class StarlarkOptionsParser {
       Converter<?> converter = BUILD_SETTING_CONVERTERS.get(type);
       Object value;
       try {
-        value = converter.convert(unparsedValue);
+        value = converter.convert(unparsedValue, nativeOptionsParser.getConversionContext());
       } catch (OptionsParsingException e) {
         throw new OptionsParsingException(
             String.format(

@@ -257,7 +257,8 @@ public class RepositoryOptions extends OptionsBase {
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */
-  public static class RepositoryOverrideConverter implements Converter<RepositoryOverride> {
+  public static class RepositoryOverrideConverter
+      extends Converter.Contextless<RepositoryOverride> {
 
     @Override
     public RepositoryOverride convert(String input) throws OptionsParsingException {

@@ -60,6 +60,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import javax.annotation.Nullable;
 
 /** A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}. */
 @ThreadCompatible
@@ -108,6 +109,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
+  @Nullable
   public Target getTargetOrNull(Label label)
       throws InterruptedException, InconsistentFilesystemException {
     try {

@@ -508,6 +508,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -554,6 +555,7 @@ java_library(
     deps = [
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1670,6 +1672,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1835,6 +1838,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

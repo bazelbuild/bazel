@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -141,22 +142,26 @@ public final class PackageFactory {
 
     protected boolean doChecksForTesting = true;
 
+    @CanIgnoreReturnValue
     public BuilderForTesting setEnvironmentExtensions(
         Iterable<EnvironmentExtension> environmentExtensions) {
       this.environmentExtensions = environmentExtensions;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuilderForTesting disableChecks() {
       this.doChecksForTesting = false;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuilderForTesting setPackageValidator(PackageValidator packageValidator) {
       this.packageValidator = packageValidator;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuilderForTesting setPackageOverheadEstimator(
         PackageOverheadEstimator packageOverheadEstimator) {
       this.packageOverheadEstimator = packageOverheadEstimator;

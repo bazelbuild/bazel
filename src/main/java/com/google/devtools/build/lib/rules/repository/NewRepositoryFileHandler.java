@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -193,6 +194,7 @@ public class NewRepositoryFileHandler {
       return label;
     }
 
+    @Nullable
     private FileValue getFileValue(Rule rule, Environment env)
         throws RepositoryFunctionException, InterruptedException {
       String fileAttribute = getFileAttributeValue(rule);

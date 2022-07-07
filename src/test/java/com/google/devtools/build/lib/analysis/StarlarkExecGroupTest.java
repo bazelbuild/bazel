@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -140,9 +139,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "simple_rule(name = 'other-child')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "MyInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
     BuildConfigurationValue dep =
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
     BuildConfigurationValue execGroupDep =

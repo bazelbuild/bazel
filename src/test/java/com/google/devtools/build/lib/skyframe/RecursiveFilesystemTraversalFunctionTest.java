@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversa
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -63,7 +64,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -303,14 +303,14 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     return path;
   }
 
-  private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode,
-      boolean strictOutput) {
-    return TraversalRequest.create(
+  private static TraversalRequest fileLikeRoot(
+      Artifact file, PackageBoundaryMode pkgBoundaryMode, boolean strictOutput) {
+    return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
         DirectTraversalRoot.forFileOrDirectory(file),
-        !file.isSourceArtifact(),
+        /*isRootGenerated=*/ !file.isSourceArtifact(),
         pkgBoundaryMode,
-        strictOutput, false,
-        null);
+        strictOutput,
+        /*skipTestingForSubpackage=*/ false);
   }
 
   private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
@@ -319,9 +319,32 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private static TraversalRequest pkgRoot(
       RootedPath pkgDirectory, PackageBoundaryMode pkgBoundaryMode) {
-    return TraversalRequest.create(
-        DirectTraversalRoot.forRootedPath(pkgDirectory), false, pkgBoundaryMode,
-        false, true, null);
+    return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
+        DirectTraversalRoot.forRootedPath(pkgDirectory),
+        /*isRootGenerated=*/ false,
+        pkgBoundaryMode,
+        /*strictOutputFiles=*/ false,
+        /*skipTestingForSubpackage=*/ true);
+  }
+
+  @AutoValue
+  abstract static class BasicTraversalRequest extends TraversalRequest {
+
+    @Override
+    protected final String errorInfo() {
+      return "";
+    }
+
+    @Override
+    protected final TraversalRequest duplicateWithOverrides(
+        DirectTraversalRoot root, boolean skipTestingForSubpackage) {
+      return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
+          root,
+          isRootGenerated(),
+          crossPkgBoundaries(),
+          strictOutputFiles(),
+          skipTestingForSubpackage);
+    }
   }
 
   private <T extends SkyValue> EvaluationResult<T> eval(SkyKey key) throws Exception {
@@ -664,8 +687,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   // Note that in actual Bazel derived artifact directories are not checked for modifications on
-  // incremental builds, so this test is testing a feature that Bazel does not have. It's included
-  // aspirationally.
+  // incremental builds by default. See TrackSourceDirectoriesFlag.
   @Test
   public void testTraversalOfGeneratedDirectory() throws Exception {
     assertTraversalOfDirectory(derivedArtifact("dir"));

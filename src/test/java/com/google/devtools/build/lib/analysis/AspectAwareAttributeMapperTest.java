@@ -80,7 +80,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void getRuleAttributeValue() throws Exception {
     assertThat(mapper.get("srcs", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsolute("//foo:a.cc", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//foo:a.cc"));
   }
 
   @Test

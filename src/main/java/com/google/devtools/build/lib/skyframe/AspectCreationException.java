@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 
 /** An exception indicating that there was a problem creating an aspect. */
 public final class AspectCreationException extends Exception implements SaneAnalysisException {
+  @Nullable
   private static ConfigurationId toId(BuildConfigurationValue config) {
     return config == null ? null : config.getEventId().getConfiguration();
   }

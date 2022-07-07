@@ -784,9 +784,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   protected final void init() {
     progressReceiver = newSkyframeProgressReceiver();
-    memoizingEvaluator =
-        createEvaluator(
-            skyFunctions(), progressReceiver, DEFAULT_FILTER_WITH_ACTIONS, emittedEventState);
+    memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
     skyframeExecutorConsumerOnInit.accept(this);
 
     // Initialize the various conflict-finding states. This is unconditionally created but only used
@@ -804,7 +802,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected abstract MemoizingEvaluator createEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
-      EventFilter eventFilter,
       EmittedEventState emittedEventState);
 
   /**
@@ -814,7 +811,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * that if a node depends on an action lookup node and is not itself an action lookup node, then
    * it is an execution-phase node: the action lookup nodes are terminal in the analysis phase.
    */
-  private static final EventFilter DEFAULT_FILTER_WITH_ACTIONS =
+  protected static final EventFilter DEFAULT_EVENT_FILTER_WITH_ACTIONS =
       new EventFilter() {
         @Override
         public boolean storeEventsAndPosts() {
@@ -1851,6 +1848,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         getConfigurations(eventHandler, ImmutableList.of(options), options, keepGoing));
   }
 
+  @Nullable
   public BuildConfigurationValue getConfiguration(
       ExtendedEventHandler eventHandler, BuildConfigurationKey configurationKey) {
     if (configurationKey == null) {
@@ -2459,6 +2457,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Returns the generating action of a given artifact ({@code null} if it's a source artifact). */
+  @Nullable
   private ActionAnalysisMetadata getGeneratingAction(
       ExtendedEventHandler eventHandler, Artifact artifact) throws InterruptedException {
     if (artifact.isSourceArtifact()) {

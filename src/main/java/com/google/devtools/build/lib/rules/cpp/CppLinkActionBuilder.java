@@ -545,6 +545,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Builds the Action as configured and returns it. */
+  @Nullable
   public CppLinkAction build() throws InterruptedException, RuleErrorException {
     NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 

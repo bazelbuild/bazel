@@ -204,6 +204,12 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
         @Param(
+            name = "resource_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]"),
+        @Param(
             name = "classpath_resources",
             positional = false,
             named = true,
@@ -289,6 +295,7 @@ public interface JavaCommonApi<
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
+      Sequence<?> resourceJars, // <FileT> expected.
       Sequence<?> classpathResources, // <FileT> expected.
       Boolean neverlink,
       Boolean enableAnnotationProcessing,

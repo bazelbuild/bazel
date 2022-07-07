@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 
 /**
@@ -99,6 +100,7 @@ public final class ServerBuilder {
    * police the same options, so it's probably a good idea to not have too many modules that call
    * this.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addInvocationPolicy(InvocationPolicy policy) {
     invocationPolicyBuilder.mergeFrom(Preconditions.checkNotNull(policy));
     return this;
@@ -110,6 +112,7 @@ public final class ServerBuilder {
    * only one factory per server is allowed. If none is set, the server uses the default
    * implementation.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder setQueryEnvironmentFactory(QueryEnvironmentFactory queryEnvironmentFactory) {
     Preconditions.checkState(
         this.queryEnvironmentFactory == null,
@@ -124,12 +127,14 @@ public final class ServerBuilder {
    * Adds the given command to the server. This overload only exists to avoid array object creation
    * in the common case.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addCommands(BlazeCommand command) {
     this.commands.add(Preconditions.checkNotNull(command));
     return this;
   }
 
   /** Adds the given commands to the server. */
+  @CanIgnoreReturnValue
   public ServerBuilder addCommands(BlazeCommand... commands) {
     this.commands.add(commands);
     return this;
@@ -140,6 +145,7 @@ public final class ServerBuilder {
    * the same name to the same builder, regardless of whether that happens within the same module or
    * across modules.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addInfoItems(InfoItem... infoItems) {
     for (InfoItem item : infoItems) {
       this.infoItems.put(item.getName(), item);
@@ -147,38 +153,45 @@ public final class ServerBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addQueryFunctions(QueryFunction... functions) {
     this.queryFunctions.add(functions);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addQueryOutputFormatters(OutputFormatter... formatters) {
     this.queryOutputFormatters.add(formatters);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addQueryOutputFormatters(Iterable<OutputFormatter> formatters) {
     this.queryOutputFormatters.addAll(formatters);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addEnvironmentExtension(PackageFactory.EnvironmentExtension extension) {
     this.environmentExtensions.add(extension);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addBuildEventArtifactUploaderFactory(
       BuildEventArtifactUploaderFactory uploaderFactory, String name) {
     buildEventArtifactUploaderFactories.add(name, uploaderFactory);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder setRepositoryRemoteExecutorFactory(
       RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder setDownloaderSupplier(Supplier<Downloader> downloaderSupplier) {
     this.downloaderSupplier = downloaderSupplier;
     return this;
@@ -188,6 +201,7 @@ public final class ServerBuilder {
    * Register a provider of authentication headers that blaze modules can use. See {@link
    * AuthHeadersProvider} for more details.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addAuthHeadersProvider(
       String name, AuthHeadersProvider authHeadersProvider) {
     authHeadersProvidersMap.put(name, authHeadersProvider);

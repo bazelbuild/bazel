@@ -604,7 +604,8 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      isRemoteCacheEnabled =
+          (remoteOptions != null && remoteOptions.isRemoteCacheEnabled()) || outputService != null;
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -896,6 +897,7 @@ public final class SkyframeActionExecutor {
   private static ActionContinuationOrResult begin(
       Action action, ActionExecutionContext actionExecutionContext) {
     return new ActionContinuationOrResult() {
+      @Nullable
       @Override
       public ListenableFuture<?> getFuture() {
         return null;
@@ -913,6 +915,7 @@ public final class SkyframeActionExecutor {
   private static ActionContinuationOrResult runFully(
       Action action, ActionExecutionContext actionExecutionContext) {
     return new ActionContinuationOrResult() {
+      @Nullable
       @Override
       public ListenableFuture<?> getFuture() {
         return null;

@@ -126,6 +126,14 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
         PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
+  public static Label parseCanonicalUnchecked(String raw) {
+    try {
+      return parseCanonical(raw);
+    } catch (LabelSyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
   /** Computes the repo name for the label, within the context of a current repo. */
   private static RepositoryName computeRepoNameWithRepoContext(
       Parts parts, RepoContext repoContext) {

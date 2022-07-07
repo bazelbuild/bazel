@@ -138,6 +138,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -212,6 +213,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -244,6 +246,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -283,6 +286,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -332,6 +336,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -364,6 +369,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -501,6 +507,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:jsr305",
     ],
 )
 

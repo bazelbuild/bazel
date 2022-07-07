@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 
 /**
@@ -81,6 +82,7 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
+  @Nullable
   public TargetLicense getOutputLicenses() {
     return null;
   }
