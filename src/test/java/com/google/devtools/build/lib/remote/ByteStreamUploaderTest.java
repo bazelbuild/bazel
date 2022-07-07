@@ -451,7 +451,7 @@ public class ByteStreamUploaderTest {
           }
         });
 
-    uploader.uploadBlob(context, digest, chunker, true);
+    uploader.uploadBlob(context, hash, chunker, true);
     byte[] decompressed = Zstd.decompress(output.toByteArray(), blob.length - skipSize);
     assertThat(Arrays.equals(decompressed, 0, decompressed.length, blob, skipSize, blob.length))
         .isTrue();
