@@ -47,7 +47,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
         "//third_party:guava",
