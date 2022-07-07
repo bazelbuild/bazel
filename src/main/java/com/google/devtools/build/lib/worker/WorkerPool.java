@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.worker.WorkerOptions.MultiResourceConverter;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,15 +63,14 @@ public final class WorkerPool {
     highPriorityWorkerMnemonics =
         ImmutableSet.copyOf((Iterable<String>) workerPoolConfig.getHighPriorityWorkers());
 
-    Map<String, Integer> config = createConfigFromOptions(workerPoolConfig.getWorkerMaxInstances());
-    Map<String, Integer> multiplexConfig =
-        createConfigFromOptions(workerPoolConfig.getWorkerMaxMultiplexInstances());
+    ImmutableMap<String, Integer> config =
+        createConfigFromOptions(workerPoolConfig.getWorkerMaxInstances(), DEFAULT_MAX_WORKERS);
+    ImmutableMap<String, Integer> multiplexConfig =
+        createConfigFromOptions(
+            workerPoolConfig.getWorkerMaxMultiplexInstances(), DEFAULT_MAX_MULTIPLEX_WORKERS);
 
-    workerPools =
-        createWorkerPools(workerPoolConfig.getWorkerFactory(), config, DEFAULT_MAX_WORKERS);
-    multiplexPools =
-        createWorkerPools(
-            workerPoolConfig.getWorkerFactory(), multiplexConfig, DEFAULT_MAX_MULTIPLEX_WORKERS);
+    workerPools = createWorkerPools(workerPoolConfig.getWorkerFactory(), config);
+    multiplexPools = createWorkerPools(workerPoolConfig.getWorkerFactory(), multiplexConfig);
   }
 
   public WorkerPoolConfig getWorkerPoolConfig() {
@@ -85,29 +83,28 @@ public final class WorkerPool {
    */
   @Nonnull
   private static ImmutableMap<String, Integer> createConfigFromOptions(
-      List<Entry<String, Integer>> options) {
+      List<Entry<String, Integer>> options, int defaultMaxWorkers) {
     LinkedHashMap<String, Integer> newConfigBuilder = new LinkedHashMap<>();
     for (Map.Entry<String, Integer> entry : options) {
-      newConfigBuilder.put(entry.getKey(), entry.getValue());
+      if (entry.getValue() != null) {
+        newConfigBuilder.put(entry.getKey(), entry.getValue());
+      } else if (entry.getKey() != null) {
+        newConfigBuilder.put(entry.getKey(), defaultMaxWorkers);
+      }
     }
-
     if (!newConfigBuilder.containsKey("")) {
       // Empty string gives the number of workers for any type of worker not explicitly specified.
-      // If no value is given, use the default, 2.
-      newConfigBuilder.put("", MultiResourceConverter.DEFAULT_VALUE);
+      // If no value is given, use the default.
+      newConfigBuilder.put("", defaultMaxWorkers);
     }
-
     return ImmutableMap.copyOf(newConfigBuilder);
   }
 
   private static ImmutableMap<String, SimpleWorkerPool> createWorkerPools(
-      WorkerFactory factory, Map<String, Integer> config, int defaultMaxWorkers) {
+      WorkerFactory factory, Map<String, Integer> config) {
     ImmutableMap.Builder<String, SimpleWorkerPool> workerPoolsBuilder = ImmutableMap.builder();
     config.forEach(
         (key, value) -> workerPoolsBuilder.put(key, new SimpleWorkerPool(factory, value)));
-    if (!config.containsKey("")) {
-      workerPoolsBuilder.put("", new SimpleWorkerPool(factory, defaultMaxWorkers));
-    }
     return workerPoolsBuilder.build();
   }
 

@@ -49,21 +49,19 @@ public class WorkerOptions extends OptionsBase {
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
-   * the empty string is used as the key. The default value for unspecified mnemonics is {@value
-   * DEFAULT_VALUE}. "auto" currently returns the default.
+   * the empty string is used as the key. The default value for unspecified mnemonics is defined in
+   * {@link WorkerPool.createWorkerPools}. "auto" currently returns the default.
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
-    public static final int DEFAULT_VALUE = 4;
-
-    static ResourceConverter valueConverter =
-        new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
+    static final ResourceConverter valueConverter =
+        new ResourceConverter(() -> 0, 0, Integer.MAX_VALUE);
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
       // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
-      if (input == null || "null".equals(input)) {
-        input = "auto";
+      if (input == null || "null".equals(input) || "auto".equals(input)) {
+        return Maps.immutableEntry(null, null);
       }
       int pos = input.indexOf('=');
       if (pos < 0) {
@@ -71,6 +69,10 @@ public class WorkerOptions extends OptionsBase {
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
+      if ("auto".equals(value)) {
+        return Maps.immutableEntry(name, null);
+      }
+
       return Maps.immutableEntry(name, valueConverter.convert(value, /*conversionContext=*/ null));
     }
 
