@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
+import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
@@ -346,6 +347,7 @@ public class BazelRuleClassProvider {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(BazelAndroidConfiguration.class);
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
