@@ -24,6 +24,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Blaze-specific option utilities. */
 public final class OptionsUtils {
@@ -131,6 +132,7 @@ public final class OptionsUtils {
       extends Converter.Contextless<PathFragment> {
 
     @Override
+    @Nullable
     public PathFragment convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
         return null;

@@ -50,6 +50,7 @@ import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -165,9 +166,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
   private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
       ImmutableList.of(
-          "extras/android/m2repository",
-          "extras/google/m2repository",
-          "extras/m2repository");
+          "extras/android/m2repository", "extras/google/m2repository", "extras/m2repository");
 
   @Override
   public boolean isLocal(Rule rule) {
@@ -185,6 +184,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
+  @Nullable
   public RepositoryDirectoryValue.Builder fetch(
       Rule rule,
       final Path outputDirectory,
@@ -316,13 +316,14 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
 
     String template = getStringResource("android_sdk_repository_template.txt");
 
-    String buildFile = template
-        .replace("%repository_name%", rule.getName())
-        .replace("%build_tools_version%", buildToolsVersion)
-        .replace("%build_tools_directory%", buildToolsDirectory)
-        .replace("%api_levels%", Iterables.toString(apiLevels))
-        .replace("%default_api_level%", String.valueOf(defaultApiLevel))
-        .replace("%system_image_dirs%", systemImageDirsList);
+    String buildFile =
+        template
+            .replace("%repository_name%", rule.getName())
+            .replace("%build_tools_version%", buildToolsVersion)
+            .replace("%build_tools_directory%", buildToolsDirectory)
+            .replace("%api_levels%", Iterables.toString(apiLevels))
+            .replace("%default_api_level%", String.valueOf(defaultApiLevel))
+            .replace("%system_image_dirs%", systemImageDirsList);
 
     // All local maven repositories that are shipped in the Android SDK.
     // TODO(ajmichael): Create SkyKeys so that if the SDK changes, this function will get rerun.
@@ -332,8 +333,9 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       SdkMavenRepository sdkExtrasRepository =
           SdkMavenRepository.create(Iterables.filter(localMavenRepositories, Path::isDirectory));
       sdkExtrasRepository.writeBuildFiles(outputDirectory);
-      buildFile = buildFile.replace(
-          "%exported_files%", sdkExtrasRepository.getExportsFiles(outputDirectory));
+      buildFile =
+          buildFile.replace(
+              "%exported_files%", sdkExtrasRepository.getExportsFiles(outputDirectory));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -354,8 +356,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
 
   private static String getStringResource(String name) {
     try {
-      return ResourceFileLoader.loadResource(
-          AndroidSdkRepositoryFunction.class, name);
+      return ResourceFileLoader.loadResource(AndroidSdkRepositoryFunction.class, name);
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -401,8 +402,8 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       Path directory, String buildToolsDirectory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
 
-    Path sourcePropertiesFilePath = directory.getRelative(
-        "build-tools/" + buildToolsDirectory + "/source.properties");
+    Path sourcePropertiesFilePath =
+        directory.getRelative("build-tools/" + buildToolsDirectory + "/source.properties");
 
     SkyKey releaseFileKey =
         FileValue.key(RootedPath.toRootedPath(Root.fromPath(directory), sourcePropertiesFilePath));
@@ -416,8 +417,9 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       }
       return properties;
     } catch (IOException e) {
-      String error = String.format(
-          "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());
+      String error =
+          String.format(
+              "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());
       throw new RepositoryFunctionException(new IOException(error), Transience.PERSISTENT);
     }
   }
@@ -443,6 +445,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
    *
    * <p>If the sdk/system-images directory does not exist, an empty set is returned.
    */
+  @Nullable
   private ImmutableSortedSet<PathFragment> getAndroidDeviceSystemImageDirs(
       Path androidSdkPath, Environment env)
       throws RepositoryFunctionException, InterruptedException {
@@ -484,6 +487,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
    *
    * <p>Ignores all non-directory files.
    */
+  @Nullable
   private static ImmutableMap<PathFragment, DirectoryListingValue> getSubdirectoryListingValues(
       final Path root, final PathFragment path, DirectoryListingValue directory, Environment env)
       throws RepositoryFunctionException, InterruptedException {

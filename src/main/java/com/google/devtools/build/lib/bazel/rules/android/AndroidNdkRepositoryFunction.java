@@ -59,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -265,6 +266,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
+  @Nullable
   public RepositoryDirectoryValue.Builder fetch(
       Rule rule,
       Path outputDirectory,

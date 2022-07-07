@@ -69,8 +69,8 @@ public final class RegexFilter implements Predicate<String> {
       try {
         return new RegexFilter(inclusionList, exclusionList);
       } catch (PatternSyntaxException e) {
-        throw new OptionsParsingException("Failed to build valid regular expression: "
-            + e.getMessage());
+        throw new OptionsParsingException(
+            "Failed to build valid regular expression: " + e.getMessage());
       }
     }
 
@@ -105,6 +105,7 @@ public final class RegexFilter implements Predicate<String> {
    * Converts a list of regex expressions into a single regex representing its union or null when
    * the list is empty.
    */
+  @Nullable
   private static Pattern takeUnionOfRegexes(List<String> regexList) {
     if (regexList.isEmpty()) {
       return null;
