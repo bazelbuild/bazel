@@ -3,9 +3,15 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,28 +25,75 @@ import java.util.regex.Pattern;
 public final class CommandLinePathFactory {
   private static final Pattern REPLACEMENT_PATTERN = Pattern.compile("^(%([a-z_]+)%/)?([^%].*)$");
 
-  private final ImmutableMap<String, PathFragment> roots;
+  private final FileSystem fileSystem;
+  private final ImmutableMap<String, Path> roots;
 
-  public CommandLinePathFactory(ImmutableMap<String, PathFragment> roots) {
+  public CommandLinePathFactory(FileSystem fileSystem, ImmutableMap<String, Path> roots) {
+    this.fileSystem = Preconditions.checkNotNull(fileSystem);
     this.roots = Preconditions.checkNotNull(roots);
   }
 
   /** Creates a {@link Path}. */
-  public PathFragment create(String value) {
+  public Path create(Map<String, String> env, String value) throws IOException {
+    Preconditions.checkNotNull(env);
     Preconditions.checkNotNull(value);
 
     Matcher matcher = REPLACEMENT_PATTERN.matcher(value);
     Preconditions.checkArgument(matcher.matches());
 
     String rootName = matcher.group(2);
-    String path = matcher.group(3);
+    PathFragment path = PathFragment.create(matcher.group(3));
+    if (path.containsUplevelReferences()) {
+      throw new IllegalArgumentException(
+          String.format(
+              Locale.US, "Path must not contain any uplevel references ('..'), got '%s'", value));
+    }
+
+    // Case 1: `path` is relative to a well-known root.
     if (!Strings.isNullOrEmpty(rootName)) {
-      PathFragment root = roots.get(rootName);
+      // The regex above cannot check that `value` is not of form `%foo%//abc` (group 2 will be
+      // `foo` and group 3 will be `/abc`).
+      Preconditions.checkArgument(!path.isAbsolute());
+
+      Path root = roots.get(rootName);
       if (root == null) {
         throw new IllegalArgumentException(String.format(Locale.US, "Unknown root %s", rootName));
       }
       return root.getRelative(path);
     }
-    return PathFragment.create(path);
+
+    // Case 2: `value` is an absolute path.
+    if (path.isAbsolute()) {
+      return fileSystem.getPath(path);
+    }
+
+    // Case 3: `value` is a relative path.
+    //
+    // Since relative paths from the command-line are ambiguous to where they are relative to (i.e.,
+    // relative to the workspace?, the directory Bazel is running in? relative to the `.bazelrc` the
+    // flag is from?), we only allow relative paths with a single segment (i.e., no `/`) and treat
+    // it as relative to the user's `PATH`.
+    if (path.segmentCount() > 1) {
+      throw new IllegalArgumentException("ABC");
+    }
+
+    String pathVariable = env.getOrDefault("PATH", "");
+    if (!Strings.isNullOrEmpty(pathVariable)) {
+      for (String lookupPath : pathVariable.split(File.pathSeparator)) {
+        Path maybePath = fileSystem.getPath(lookupPath).getRelative(path);
+        if (maybePath.exists(Symlinks.FOLLOW)
+            && maybePath.isFile(Symlinks.FOLLOW)
+            && maybePath.isExecutable()) {
+          return maybePath;
+        }
+      }
+    }
+
+    throw new FileNotFoundException(
+        String.format(
+            Locale.US,
+            "Could not find file with name '%s' on PATH '%s'",
+            path,
+            env.getOrDefault("PATH", "")));
   }
 }
