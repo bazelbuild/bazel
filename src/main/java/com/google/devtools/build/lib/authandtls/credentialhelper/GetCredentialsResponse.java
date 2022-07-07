@@ -13,7 +13,6 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -138,12 +137,6 @@ public abstract class GetCredentialsResponse {
       }
       reader.endObject();
       return response.build();
-    }
-
-    private Map<String, List<String>> readHeaders(JsonReader reader) throws IOException {
-      Preconditions.checkNotNull(reader);
-
-      return GSON.getAdapter(Map.class).read(reader);
     }
   }
 }
