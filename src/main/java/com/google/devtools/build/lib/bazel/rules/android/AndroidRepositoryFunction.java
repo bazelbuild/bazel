@@ -29,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** This class contains the common logic between Android NDK and SDK repository functions. */
 abstract class AndroidRepositoryFunction extends RepositoryFunction {
@@ -48,6 +49,7 @@ abstract class AndroidRepositoryFunction extends RepositoryFunction {
    * <p>First, we get a {@link FileValue} to check the {@code dirPath} exists and is a directory. If
    * not, we throw an exception.
    */
+  @Nullable
   final DirectoryListingValue getDirectoryListing(Path root, PathFragment dirPath, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), dirPath);

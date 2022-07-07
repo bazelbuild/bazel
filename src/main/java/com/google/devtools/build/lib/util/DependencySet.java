@@ -26,16 +26,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
- * Representation of a set of file dependencies for a given output file. There
- * are generally one input dependency and a bunch of include dependencies. The
- * files are stored as {@code Path}s and may be relative or absolute.
- * <p>
- * The serialized format read and written is equivalent and compatible with the
- * ".d" file produced by the -MM for a given out (.o) file.
- * <p>
- * The file format looks like:
+ * Representation of a set of file dependencies for a given output file. There are generally one
+ * input dependency and a bunch of include dependencies. The files are stored as {@code Path}s and
+ * may be relative or absolute.
+ *
+ * <p>The serialized format read and written is equivalent and compatible with the ".d" file
+ * produced by the -MM for a given out (.o) file.
+ *
+ * <p>The file format looks like:
  *
  * <pre>
  * {outfile}:  \
@@ -50,18 +51,15 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class DependencySet {
 
   /**
-   * The set of dependent files that this DependencySet embodies. They are all
-   * Path with the same FileSystem  A tree set is used to ensure that we
-   * write them out in a consistent order.
+   * The set of dependent files that this DependencySet embodies. They are all Path with the same
+   * FileSystem A tree set is used to ensure that we write them out in a consistent order.
    */
   private final Collection<Path> dependencies = new ArrayList<>();
 
   private final Path root;
   private String outputFileName;
 
-  /**
-   * Get output file name for which dependencies are included in this DependencySet.
-   */
+  /** Get output file name for which dependencies are included in this DependencySet. */
   public String getOutputFileName() {
     return outputFileName;
   }
@@ -70,24 +68,22 @@ public final class DependencySet {
     this.outputFileName = outputFileName;
   }
 
-  /**
-   * Constructs a new empty DependencySet instance.
-   */
+  /** Constructs a new empty DependencySet instance. */
   public DependencySet(Path root) {
     this.root = root;
   }
 
   /**
-   * Gets an unmodifiable view of the set of dependencies in {@link Path} form
-   * from this DependencySet instance.
+   * Gets an unmodifiable view of the set of dependencies in {@link Path} form from this
+   * DependencySet instance.
    */
   public Collection<Path> getDependencies() {
     return Collections.unmodifiableCollection(dependencies);
   }
 
   /**
-   * Adds a given collection of dependencies in Path form to this DependencySet
-   * instance. Paths are converted to root-relative
+   * Adds a given collection of dependencies in Path form to this DependencySet instance. Paths are
+   * converted to root-relative
    */
   @VisibleForTesting // only called from DependencySetTest
   public void addDependencies(Collection<Path> deps) {
@@ -97,9 +93,7 @@ public final class DependencySet {
     }
   }
 
-  /**
-   * Adds a given dependency to this DependencySet instance.
-   */
+  /** Adds a given dependency to this DependencySet instance. */
   private void addDependency(String dep) {
     dep = translatePath(dep);
     Path depPath = root.getRelative(dep);
@@ -113,9 +107,7 @@ public final class DependencySet {
     return WindowsPath.translateWindowsPath(path);
   }
 
-  /**
-   * Reads a dotd file into this DependencySet instance.
-   */
+  /** Reads a dotd file into this DependencySet instance. */
   public DependencySet read(Path dotdFile) throws IOException {
     byte[] content = FileSystemUtils.readContent(dotdFile);
     try {
@@ -147,7 +139,6 @@ public final class DependencySet {
     for (int r = 0; r < n; ) {
       final byte c = content[r++];
       switch (c) {
-
         case ' ':
           // If we haven't yet seen the colon delimiting the target name,
           // keep scanning.  We do this to cope with "foo.o : \" which is
@@ -170,7 +161,7 @@ public final class DependencySet {
             addDependency(new String(content, 0, w, StandardCharsets.UTF_8));
           }
           w = 0;
-          sawTarget = false;  // reset for new line
+          sawTarget = false; // reset for new line
           continue;
 
         case ':':
@@ -187,21 +178,21 @@ public final class DependencySet {
               }
               continue;
             default:
-              content[w++] = c;  // copy a colon to filename
+              content[w++] = c; // copy a colon to filename
               continue;
           }
 
         case '\\':
           // Peek ahead at the next character.
           switch (content[r]) {
-            // Backslashes are taken literally except when followed by whitespace.
-            // See the Windows tests for some of the nonsense we have to tolerate.
+              // Backslashes are taken literally except when followed by whitespace.
+              // See the Windows tests for some of the nonsense we have to tolerate.
             case ' ':
-              content[w++] = ' ';  // copy a space to the filename
-              ++r;  // skip over the space
+              content[w++] = ' '; // copy a space to the filename
+              ++r; // skip over the space
               continue;
             case '\n':
-              ++r;  // skip over the newline
+              ++r; // skip over the newline
               continue;
             case '\r':
               // One backslash can escape \r\n, so peek one more character.
@@ -210,7 +201,7 @@ public final class DependencySet {
               }
               continue;
             default:
-              content[w++] = c;  // copy a backlash to the filename
+              content[w++] = c; // copy a backlash to the filename
               continue;
           }
 
@@ -224,15 +215,14 @@ public final class DependencySet {
 
         default:
           content[w++] = c;
-
       }
     }
     return this;
   }
 
   /**
-   * Writes this DependencySet object for a specified output file under the root
-   * dir, and with a given suffix.
+   * Writes this DependencySet object for a specified output file under the root dir, and with a
+   * given suffix.
    */
   public void write(Path outFile, String suffix) throws IOException {
     Path dotdFile =
@@ -241,7 +231,7 @@ public final class DependencySet {
     try (PrintStream out = new PrintStream(dotdFile.getOutputStream())) {
       out.print(outFile.relativeTo(root) + ": ");
       for (Path d : dependencies) {
-        out.print(" \\\n  " + d.getPathString());  // should already be root relative
+        out.print(" \\\n  " + d.getPathString()); // should already be root relative
       }
       out.println();
     }
@@ -304,6 +294,7 @@ public final class DependencySet {
       return value;
     }
 
+    @Nullable
     private static String determineUnixRoot(String jvmArgName) {
       // Get the path from a JVM flag, if specified.
       String path = System.getProperty(jvmArgName);
