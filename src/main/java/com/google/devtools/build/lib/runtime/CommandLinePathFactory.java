@@ -74,7 +74,8 @@ public final class CommandLinePathFactory {
     // flag is from?), we only allow relative paths with a single segment (i.e., no `/`) and treat
     // it as relative to the user's `PATH`.
     if (path.segmentCount() > 1) {
-      throw new IllegalArgumentException("ABC");
+      throw new IllegalArgumentException(
+          "Path must either be absolute or not contain any path separators");
     }
 
     String pathVariable = env.getOrDefault("PATH", "");
