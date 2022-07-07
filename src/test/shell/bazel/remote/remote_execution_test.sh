@@ -1583,6 +1583,33 @@ EOF
   rm -rf $cache
 }
 
+function test_combined_cache_upload() {
+  mkdir -p a
+  echo 'bar' > a/bar
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [":bar"],
+  outs = ["foo.txt"],
+  cmd = """
+    echo $(location :bar) > "$@"
+  """,
+)
+EOF
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build \
+    --disk_cache=$CACHEDIR \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  remote_ac_files="$(count_remote_ac_files)"
+  [[ "$remote_ac_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_ac_files"
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
+}
+
 function test_combined_cache_with_no_remote_cache_tag_remote_cache() {
   # Test that actions with no-remote-cache tag can hit disk cache of a combined cache but
   # remote cache is disabled.
