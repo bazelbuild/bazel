@@ -54,6 +54,8 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Desugar compatible wrapper based on D8 desugaring engine */
 public class Desugar {
@@ -61,6 +63,7 @@ public class Desugar {
   public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
   // We shard the compilation if we have more than this number of entries to avoid timing out.
   private static final int NUMBER_OF_ENTRIES_PER_SHARD = 100000;
+  private static final Logger logger = Logger.getLogger(Desugar.class.getName());
 
   /** Commandline options for {@link com.google.devtools.build.android.r8.Desugar}. */
   public static class DesugarOptions extends OptionsBase {
@@ -648,7 +651,7 @@ public class Desugar {
       validateOptions(options);
       new Desugar(options).desugar();
     } catch (Exception e) {
-      // There should be a logger call here.
+      logger.log(Level.SEVERE, "Error during desugaring", e);
       throw e;
     }
     return 0;
@@ -694,7 +697,7 @@ public class Desugar {
               .build();
       workerHandler.processRequests();
     } catch (IOException e) {
-      //logger.severe(e.getMessage());
+      logger.severe(e.getMessage());
       e.printStackTrace(realStdErr);
       return 1;
     } finally {
