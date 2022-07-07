@@ -15,6 +15,7 @@ package com.google.devtools.build.android.r8;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
@@ -33,8 +34,8 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -42,10 +43,16 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 
 /** Desugar compatible wrapper based on D8 desugaring engine */
@@ -635,40 +642,73 @@ public class Desugar {
         options.outputJars.size());
   }
 
-  private static void runPersistentWorker() throws IOException {
-    while (true) {
-      WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
-      if (request == null) {
-        // Does not return a WorkResponse
-        break;
-      }
-
-      String[] argList = new String[request.getArgumentsCount()];
-      argList = request.getArgumentsList().toArray(argList);
-      DesugarOptions options = parseCommandLineOptions(argList);
-      WorkResponse wr;
-      try {
-        validateOptions(options);
-        new Desugar(options).desugar();
-        wr = WorkResponse.newBuilder().setExitCode(0).build();
-      } catch (Exception e) {
-        wr =
-            WorkResponse.newBuilder()
-                .setExitCode(1)
-                .setOutput(Throwables.getStackTraceAsString(e))
-                .build();
-      }
-      wr.writeDelimitedTo(System.out);
+  private static int processRequest(List<String> args) throws Exception {
+    try {
+      DesugarOptions options = parseCommandLineOptions(args.toArray(new String[0]));
+      validateOptions(options);
+      new Desugar(options).desugar();
+    } catch (Exception e) {
+      // There should be a logger call here.
+      throw e;
     }
+    return 0;
+  }
+
+  private static int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+    int exitCode;
+    try {
+      // Process the actual request and grab the exit code
+      exitCode = processRequest(args);
+    } catch (Exception e) {
+      e.printStackTrace(pw);
+      exitCode = 1;
+    } finally {
+      // Write the captured buffer to the work response. We synchronize to avoid race conditions
+      // while reading from and calling reset on the shared ByteArrayOutputStream.
+      synchronized (buf) {
+        String captured = buf.toString(UTF_8).trim();
+        buf.reset();
+        pw.print(captured);
+      }
+    }
+    return exitCode;
+  }
+
+  private static int runPersistentWorker() throws Exception {
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    PrintStream ps = new PrintStream(buf, true);
+    PrintStream realStdOut = System.out;
+    PrintStream realStdErr = System.err;
+
+    // Redirect all stdout and stderr output for logging.
+    System.setOut(ps);
+    System.setErr(ps);
+    try {
+      WorkRequestHandler workerHandler =
+          new WorkRequestHandler.WorkRequestHandlerBuilder(
+                  new WorkRequestHandler.WorkRequestCallback(
+                      (request, pw) -> processRequest(request.getArgumentsList(), pw, buf)),
+                  realStdErr,
+                  new ProtoWorkerMessageProcessor(System.in, realStdOut))
+              .setCpuUsageBeforeGc(Duration.ofSeconds(10))
+              .build();
+      workerHandler.processRequests();
+    } catch (IOException e) {
+      //logger.severe(e.getMessage());
+      e.printStackTrace(realStdErr);
+      return 1;
+    } finally {
+      System.setOut(realStdOut);
+      System.setErr(realStdErr);
+    }
+    return 0;
   }
 
   public static void main(String[] args) throws Exception {
     if (args.length > 0 && args[0].equals("--persistent_worker")) {
-      runPersistentWorker();
+      System.exit(runPersistentWorker());
     } else {
-      DesugarOptions options = parseCommandLineOptions(args);
-      validateOptions(options);
-      new Desugar(options).desugar();
+      System.exit(processRequest(Arrays.asList(args)));
     }
   }
 }
