@@ -16,9 +16,9 @@
 Common code for reuse across java_* rules
 """
 
-load(":common/rule_util.bzl", "create_composite_dep", "merge_attrs")
+load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
-load(":common/java/compile_action.bzl", "COMPILE_ACTION", "COMPILE_ACTION_IMPLICIT_ATTRS", "compile_action")
+load(":common/java/compile_action.bzl", "COMPILE_ACTION_IMPLICIT_ATTRS", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 
@@ -273,10 +273,4 @@ BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
 BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS = merge_attrs(
     BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
     VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
-)
-
-# TODO(b/213551463) remove once unused
-JAVA_COMMON_DEP = create_composite_dep(
-    basic_java_library,
-    COMPILE_ACTION,
 )
