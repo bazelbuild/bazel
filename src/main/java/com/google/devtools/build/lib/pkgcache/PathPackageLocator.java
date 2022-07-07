@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * A mapping from the name of a package to the location of its BUILD file. The implementation
@@ -70,6 +71,7 @@ public final class PathPackageLocator {
    * @param syscallCache a filesystem-level cache of stat() calls.
    * @return the {@link Path} to the correct build file, or {@code null} if none was found
    */
+  @Nullable
   public Path getPackageBuildFileNullable(
       PackageIdentifier packageIdentifier, SyscallCache syscallCache) {
     if (packageIdentifier.getRepository().isMain()) {
@@ -233,6 +235,7 @@ public final class PathPackageLocator {
     return getFilePath(LabelConstants.WORKSPACE_FILE_NAME, syscallCache);
   }
 
+  @Nullable
   private Path getFilePath(PathFragment suffix, SyscallCache cache) {
     for (Root pathEntry : pathEntries) {
       Path buildFile = pathEntry.getRelative(suffix);

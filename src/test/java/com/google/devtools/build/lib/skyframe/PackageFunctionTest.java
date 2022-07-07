@@ -620,8 +620,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackageWithoutErrors(skyKey);
     assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
-            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
-            Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
+            Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//baz:ext.bzl"));
 
     scratch.overwriteFile("bar/ext.bzl", "load('//qux:ext.bzl', 'c')", "a = c");
     getSkyframeExecutor()
@@ -633,8 +632,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackageWithoutErrors(skyKey);
     assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
-            Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
-            Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));
+            Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//qux:ext.bzl"));
   }
 
   @Test

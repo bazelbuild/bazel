@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -455,14 +454,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x:c", ImmutableMap.of()),
-                Label.parseAbsolute("//x:j", ImmutableMap.of())));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x:c", ImmutableMap.of()),
-                Label.parseAbsolute("//x:j", ImmutableMap.of())));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
     assertThat(attributes(pkg.getRule("t4")).get("$implicit_tests", BuildType.LABEL_LIST))
@@ -510,14 +505,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertThat(yesFiles)
         .containsExactly(
-            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()));
+            Label.parseCanonical("@//fruit:data/apple"),
+            Label.parseCanonical("@//fruit:data/pear"));
 
     assertThat(noFiles)
         .containsExactly(
-            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/berry", ImmutableMap.of()));
+            Label.parseCanonical("@//fruit:data/apple"),
+            Label.parseCanonical("@//fruit:data/pear"),
+            Label.parseCanonical("@//fruit:data/berry"));
   }
 
   // TODO(bazel-team): This is really a test for GlobCache.
@@ -933,7 +928,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
     List<?> globList = (List) pkg.getRule("e").getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:BUILD", ImmutableMap.of()));
+    assertThat(globList).containsExactly(Label.parseCanonical("//e:BUILD"));
   }
 
   @Test
@@ -1113,10 +1108,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "    default_compatible_with=['//foo'],",
             "    default_restricted_to=['//bar'],",
             ")");
-    assertThat(pkg.getDefaultCompatibleWith())
-        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
-    assertThat(pkg.getDefaultRestrictedTo())
-        .containsExactly(Label.parseAbsolute("//bar", ImmutableMap.of()));
+    assertThat(pkg.getDefaultCompatibleWith()).containsExactly(Label.parseCanonical("//foo"));
+    assertThat(pkg.getDefaultRestrictedTo()).containsExactly(Label.parseCanonical("//bar"));
   }
 
   @Test

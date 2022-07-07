@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -175,7 +176,7 @@ public final class OptionsParserTest {
     public String privateString;
   }
 
-  public static class StringConverter implements Converter<String> {
+  public static class StringConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) {
       return input;
@@ -544,6 +545,46 @@ public final class OptionsParserTest {
   public void defaultNullStringGivesNull() throws Exception {
     NullTestOptions options = Options.parse(NullTestOptions.class).getOptions();
     assertThat(options.simple).isNull();
+  }
+
+  public static class ConverterWithContextTestOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        converter = ConverterWithContext.class,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "bar")
+    public String foo;
+
+    public static class ConverterWithContext implements Converter<String> {
+
+      @Override
+      public String convert(String input, @Nullable Object conversionContext)
+          throws OptionsParsingException {
+        if (conversionContext != null) {
+          return conversionContext + input;
+        }
+        return input;
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "a funky string";
+      }
+    }
+  }
+
+  @Test
+  public void convertWithContext() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ConverterWithContextTestOptions.class)
+            .withConversionContext("bleh ")
+            .build();
+    parser.parse("--foo", "quux");
+    ConverterWithContextTestOptions options =
+        parser.getOptions(ConverterWithContextTestOptions.class);
+    assertThat(options.foo).isEqualTo("bleh quux");
   }
 
   public static class ImplicitDependencyOptions extends OptionsBase {
@@ -1898,7 +1939,7 @@ public final class OptionsParserTest {
     }
 
     /** Converter for Foo. */
-    public static class FooConverter implements Converter<Foo> {
+    public static class FooConverter extends Converter.Contextless<Foo> {
       @Override
       public Foo convert(String input) throws OptionsParsingException {
         Foo foo = new Foo();
@@ -2142,7 +2183,8 @@ public final class OptionsParserTest {
         ParsedOptionDescription.newDummyInstance(
             OptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
-            createInvocationPolicyOrigin());
+            createInvocationPolicyOrigin(),
+            /*conversionContext=*/ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ first, /*expandedFrom=*/ null);
 
@@ -2170,7 +2212,8 @@ public final class OptionsParserTest {
         ParsedOptionDescription.newDummyInstance(
             OptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
-            createInvocationPolicyOrigin());
+            createInvocationPolicyOrigin(),
+            /*conversionContext=*/ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ first);
 

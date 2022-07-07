@@ -648,6 +648,7 @@ public abstract class PathFragment
    * corresponding to {@code newName} will be returned. This behavior is consistent with the
    * behavior of {@link #getRelative(String)}.
    */
+  @Nullable
   public PathFragment replaceName(String newName) {
     PathFragment parent = getParentDirectory();
     return parent != null ? parent.getRelative(newName) : null;

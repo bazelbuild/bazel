@@ -620,6 +620,7 @@ public class CppHelper {
   }
 
   /** Returns the FDO build subtype. */
+  @Nullable
   public static String getFdoBuildStamp(
       CppConfiguration cppConfiguration,
       FdoContext fdoContext,
@@ -1031,6 +1032,7 @@ public class CppHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
+  @Nullable
   public static Artifact getGrepIncludes(RuleContext ruleContext) {
     return ruleContext.attributes().has("$grep_includes")
         ? ruleContext.getPrerequisiteArtifact("$grep_includes")

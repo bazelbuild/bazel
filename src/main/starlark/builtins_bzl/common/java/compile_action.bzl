@@ -54,6 +54,7 @@ def compile_action(
         exports = [],
         exported_plugins = [],
         resources = [],
+        resource_jars = [],
         classpath_resources = [],
         native_libraries = [],
         javacopts = [],
@@ -104,6 +105,7 @@ def compile_action(
       exports: (list[JavaInfo]) A list of exports.
       exported_plugins: (list[JavaInfo]) A list of exported plugins.
       resources: (list[File]) A list of resources.
+      resource_jars: (list[File]) A list of jars to unpack.
       classpath_resources: (list[File]) A list of classpath resources.
       native_libraries: (list[CcInfo]) C++ native library dependencies that are
         needed for this library.
@@ -139,6 +141,7 @@ def compile_action(
         source_files = source_files,
         source_jars = source_jars,
         resources = resources,
+        resource_jars = resource_jars,
         classpath_resources = classpath_resources,
         plugins = plugins,
         deps = deps,

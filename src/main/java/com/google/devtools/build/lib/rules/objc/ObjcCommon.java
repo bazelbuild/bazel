@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -134,6 +135,7 @@ public final class ObjcCommon implements StarlarkValue {
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
     }
 
+    @CanIgnoreReturnValue
     public Builder setCompilationAttributes(CompilationAttributes baseCompilationAttributes) {
       Preconditions.checkState(
           !this.compilationAttributes.isPresent(),
@@ -143,6 +145,7 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setCompilationArtifacts(CompilationArtifacts compilationArtifacts) {
       Preconditions.checkState(
           !this.compilationArtifacts.isPresent(),
@@ -159,6 +162,7 @@ public final class ObjcCommon implements StarlarkValue {
           .collect(ImmutableList.toImmutableList());
     }
 
+    @CanIgnoreReturnValue
     Builder addDirectCcCompilationContexts(Iterable<CcInfo> ccInfos) {
       // TODO(waltl): Support direct CcCompilationContexts in CcCompilationHelper.
       Preconditions.checkState(
@@ -169,12 +173,14 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addCcCompilationContexts(Iterable<CcInfo> ccInfos) {
       this.ccCompilationContexts =
           Iterables.concat(this.ccCompilationContexts, getCcCompilationContexts(ccInfos));
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
@@ -230,12 +236,14 @@ public final class ObjcCommon implements StarlarkValue {
      * Add providers which will be exposed both to the declaring rule and to any dependers on the
      * declaring rule.
      */
+    @CanIgnoreReturnValue
     Builder addObjcProviders(Iterable<ObjcProvider> objcProviders) {
       this.objcProviders = Iterables.concat(this.objcProviders, objcProviders);
       return this;
     }
 
     /** Adds includes to be passed into compile actions with {@code -I}. */
+    @CanIgnoreReturnValue
     public Builder addIncludes(NestedSet<PathFragment> includes) {
       // The includes are copied to a new list in the .build() method, so flattening here should be
       // benign.
@@ -244,16 +252,19 @@ public final class ObjcCommon implements StarlarkValue {
     }
 
     /** Adds includes to be passed into compile actions with {@code -I}. */
+    @CanIgnoreReturnValue
     public Builder addIncludes(Iterable<PathFragment> includes) {
       this.includes = Iterables.concat(this.includes, includes);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       this.intermediateArtifacts = intermediateArtifacts;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setAlwayslink(boolean alwayslink) {
       this.alwayslink = alwayslink;
       return this;
@@ -261,10 +272,11 @@ public final class ObjcCommon implements StarlarkValue {
 
     /**
      * Specifies that this target has a clang module map. This should be called if this target
-     * compiles sources or exposes headers for other targets to use. Note that this does not add
-     * the action to generate the module map. It simply indicates that it should be added to the
+     * compiles sources or exposes headers for other targets to use. Note that this does not add the
+     * action to generate the module map. It simply indicates that it should be added to the
      * provider.
      */
+    @CanIgnoreReturnValue
     Builder setHasModuleMap() {
       this.hasModuleMap = true;
       return this;

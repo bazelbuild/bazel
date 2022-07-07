@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -594,6 +595,7 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /** Set whether we should warn about conflicting symlink entries. */
+  @CanIgnoreReturnValue
   public Runfiles setConflictPolicy(ConflictPolicy conflictPolicy) {
     this.conflictPolicy = conflictPolicy;
     return this;
@@ -742,9 +744,8 @@ public final class Runfiles implements RunfilesApi {
           legacyExternalRunfiles);
     }
 
-    /**
-     * Adds an artifact to the internal collection of artifacts.
-     */
+    /** Adds an artifact to the internal collection of artifacts. */
+    @CanIgnoreReturnValue
     public Builder addArtifact(Artifact artifact) {
       Preconditions.checkNotNull(artifact);
       Preconditions.checkArgument(
@@ -753,9 +754,8 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Adds several artifacts to the internal collection.
-     */
+    /** Adds several artifacts to the internal collection. */
+    @CanIgnoreReturnValue
     public Builder addArtifacts(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
         addArtifact(artifact);
@@ -763,9 +763,8 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Adds a nested set to the internal collection.
-     */
+    /** Adds a nested set to the internal collection. */
+    @CanIgnoreReturnValue
     public Builder addTransitiveArtifacts(NestedSet<Artifact> artifacts) {
       artifactsBuilder.addTransitive(artifacts);
       return this;
@@ -778,6 +777,7 @@ public final class Runfiles implements RunfilesApi {
      * artifacts will not have conflicting root relative paths, or the wrong artifact will end up in
      * the runfiles tree.
      */
+    @CanIgnoreReturnValue
     public Builder addTransitiveArtifactsWrappedInStableOrder(NestedSet<Artifact> artifacts) {
       NestedSet<Artifact> wrappedArtifacts =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(artifacts).build();
@@ -785,15 +785,15 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Adds a symlink.
-     */
+    /** Adds a symlink. */
+    @CanIgnoreReturnValue
     public Builder addSymlink(PathFragment link, Artifact target) {
       symlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
     /** Adds several symlinks. Neither keys nor values may be null. */
+    @CanIgnoreReturnValue
     public Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         symlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
@@ -801,23 +801,22 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Adds several symlinks as a NestedSet.
-     */
+    /** Adds several symlinks as a NestedSet. */
+    @CanIgnoreReturnValue
     public Builder addSymlinks(NestedSet<SymlinkEntry> symlinks) {
       symlinksBuilder.addTransitive(symlinks);
       return this;
     }
 
-    /**
-     * Adds a root symlink.
-     */
+    /** Adds a root symlink. */
+    @CanIgnoreReturnValue
     public Builder addRootSymlink(PathFragment link, Artifact target) {
       rootSymlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
     /** Adds several root symlinks. Neither keys nor values may be null. */
+    @CanIgnoreReturnValue
     public Builder addRootSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         rootSymlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
@@ -825,9 +824,8 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Adds several root symlinks as a NestedSet.
-     */
+    /** Adds several root symlinks as a NestedSet. */
+    @CanIgnoreReturnValue
     public Builder addRootSymlinks(NestedSet<SymlinkEntry> symlinks) {
       rootSymlinksBuilder.addTransitive(symlinks);
       return this;
@@ -836,6 +834,7 @@ public final class Runfiles implements RunfilesApi {
      * Specify a function that can create additional manifest entries based on the input entries,
      * see {@link EmptyFilesSupplier} for more details.
      */
+    @CanIgnoreReturnValue
     public Builder setEmptyFilesSupplier(EmptyFilesSupplier supplier) {
       emptyFilesSupplier = Preconditions.checkNotNull(supplier);
       return this;
@@ -846,6 +845,7 @@ public final class Runfiles implements RunfilesApi {
      *
      * @param runfilesSupport the runfiles support to be merged in
      */
+    @CanIgnoreReturnValue
     public Builder merge(@Nullable RunfilesSupport runfilesSupport) {
       if (runfilesSupport == null) {
         return this;
@@ -860,6 +860,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     /** Add the other {@link Runfiles} object transitively. */
+    @CanIgnoreReturnValue
     private Builder merge(Runfiles runfiles, boolean includeArtifacts) {
       // Propagate the most strict conflict checking from merged-in runfiles
       if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
@@ -890,11 +891,12 @@ public final class Runfiles implements RunfilesApi {
     }
 
     /**
-     * Adds the runfiles for a particular target and visits the transitive closure of "srcs",
-     * "deps" and "data", collecting all of their respective runfiles.
+     * Adds the runfiles for a particular target and visits the transitive closure of "srcs", "deps"
+     * and "data", collecting all of their respective runfiles.
      */
-    public Builder addRunfiles(RuleContext ruleContext,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
+    @CanIgnoreReturnValue
+    public Builder addRunfiles(
+        RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(mapping);
       Preconditions.checkNotNull(ruleContext);
       addDataDeps(ruleContext);
@@ -907,8 +909,9 @@ public final class Runfiles implements RunfilesApi {
      *
      * <p>Dependencies in {@code srcs} and {@code deps} are considered.
      */
-    public Builder add(RuleContext ruleContext,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
+    @CanIgnoreReturnValue
+    public Builder add(
+        RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
       Preconditions.checkNotNull(ruleContext);
       Preconditions.checkNotNull(mapping);
       for (TransitiveInfoCollection dep : getNonDataDeps(ruleContext)) {
@@ -921,26 +924,26 @@ public final class Runfiles implements RunfilesApi {
       return this;
     }
 
-    /**
-     * Collects runfiles from data dependencies of a target.
-     */
+    /** Collects runfiles from data dependencies of a target. */
+    @CanIgnoreReturnValue
     public Builder addDataDeps(RuleContext ruleContext) {
       addTargets(getPrerequisites(ruleContext, "data"), RunfilesProvider.DATA_RUNFILES);
       return this;
     }
 
-    /**
-     * Collects runfiles from "srcs" and "deps" of a target.
-     */
-    public Builder addNonDataDeps(RuleContext ruleContext,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
+    /** Collects runfiles from "srcs" and "deps" of a target. */
+    @CanIgnoreReturnValue
+    public Builder addNonDataDeps(
+        RuleContext ruleContext, Function<TransitiveInfoCollection, Runfiles> mapping) {
       for (TransitiveInfoCollection target : getNonDataDeps(ruleContext)) {
         addTargetExceptFileTargets(target, mapping);
       }
       return this;
     }
 
-    public Builder addTargets(Iterable<? extends TransitiveInfoCollection> targets,
+    @CanIgnoreReturnValue
+    public Builder addTargets(
+        Iterable<? extends TransitiveInfoCollection> targets,
         Function<TransitiveInfoCollection, Runfiles> mapping) {
       for (TransitiveInfoCollection target : targets) {
         addTarget(target, mapping);
@@ -953,8 +956,9 @@ public final class Runfiles implements RunfilesApi {
       return addTargetIncludingFileTargets(target, mapping);
     }
 
-    private Builder addTargetExceptFileTargets(TransitiveInfoCollection target,
-        Function<TransitiveInfoCollection, Runfiles> mapping) {
+    @CanIgnoreReturnValue
+    private Builder addTargetExceptFileTargets(
+        TransitiveInfoCollection target, Function<TransitiveInfoCollection, Runfiles> mapping) {
       Runfiles runfiles = mapping.apply(target);
       if (runfiles != null) {
         merge(runfiles);
@@ -987,6 +991,7 @@ public final class Runfiles implements RunfilesApi {
     }
 
     /** Adds symlinks to given artifacts at their exec paths. */
+    @CanIgnoreReturnValue
     public Builder addSymlinksToArtifacts(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
         addSymlink(artifact.getExecPath(), artifact);
@@ -999,6 +1004,7 @@ public final class Runfiles implements RunfilesApi {
      * method exists solely to support the unfortunate legacy behavior of some rules; new uses
      * should not be added.
      */
+    @CanIgnoreReturnValue
     public Builder addLegacyExtraMiddleman(Artifact middleman) {
       Preconditions.checkArgument(middleman.isMiddlemanArtifact(), middleman);
       extraMiddlemenBuilder.add(middleman);
@@ -1053,6 +1059,7 @@ public final class Runfiles implements RunfilesApi {
    * @return this object, in the fluent style
    * @throws EvalException if a nested set in the Runfiles object exceeds the depth limit
    */
+  @CanIgnoreReturnValue
   private Runfiles verifyNestedSetDepthLimit(StarlarkSemantics semantics) throws EvalException {
     int limit = semantics.get(BuildLanguageOptions.NESTED_SET_DEPTH_LIMIT);
     verifyNestedSetDepthLimitHelper(artifacts, "artifacts", limit);

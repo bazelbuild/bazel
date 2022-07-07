@@ -135,7 +135,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     scratch.file("bad_out_name/BUILD", "genrule(name='a', cmd='ls', outs=['!@#:'])");
     reporter.removeHandler(failFastHandler);
     getTarget("//bad_out_name:BUILD");
-    assertContainsEvent("illegal output file name '!@#:'");
+    assertContainsEvent("invalid label '!@#:'");
   }
 
   @Test

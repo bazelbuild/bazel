@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -218,6 +219,7 @@ public class BuildDriverFunction implements SkyFunction {
    *
    * @return null if a value is missing in the environment.
    */
+  @Nullable
   private Boolean isConfiguredTargetCompatible(
       Environment env,
       State state,
@@ -271,6 +273,7 @@ public class BuildDriverFunction implements SkyFunction {
             .build());
   }
 
+  @Nullable
   private static Target getTarget(Environment env, Label label)
       throws InterruptedException, NoSuchTargetException {
     PackageValue packageValue =
@@ -293,6 +296,7 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+    env.getListener().post(TopLevelTargetExecutionStartedEvent.create());
     if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
           env,
@@ -333,6 +337,7 @@ public class BuildDriverFunction implements SkyFunction {
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
 
+    env.getListener().post(TopLevelTargetExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
     for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {

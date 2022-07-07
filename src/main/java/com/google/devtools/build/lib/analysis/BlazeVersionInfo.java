@@ -20,6 +20,7 @@ import com.google.common.flogger.GoogleLogger;
 import java.util.Date;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Determines the version information of the current process.
@@ -87,9 +88,10 @@ public class BlazeVersionInfo {
   }
 
   /**
-   * Returns the summary which gets displayed in the 'version' command.
-   * The summary is a list of formatted key / value pairs.
+   * Returns the summary which gets displayed in the 'version' command. The summary is a list of
+   * formatted key / value pairs.
    */
+  @Nullable
   public String getSummary() {
     if (buildData.isEmpty()) {
       return null;

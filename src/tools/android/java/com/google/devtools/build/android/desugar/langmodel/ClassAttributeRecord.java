@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 
 /** Tracks {@link ClassAttributes} for all classes under investigation. */
@@ -79,6 +80,7 @@ public abstract class ClassAttributeRecord implements TypeMappable<ClassAttribut
 
     abstract ClassAttributeRecordBuilder setRecord(ImmutableMap<ClassName, ClassAttributes> record);
 
+    @CanIgnoreReturnValue
     public final ClassAttributeRecordBuilder addClassAttributes(ClassAttributes classAttributes) {
       recordBuilder().put(classAttributes.classBinaryName(), classAttributes);
       return this;

@@ -429,7 +429,10 @@ public final class ProguardHelper {
       initialAction.addCommandLine(initialCommandLine.build());
       ruleContext.registerAction(initialAction.build(ruleContext));
       for (int i = 1; i <= optimizationPasses; i++) {
-        if (javaConfiguration.splitBytecodeOptimizationPass()) {
+        if (javaConfiguration.splitBytecodeOptimizationPass()
+            // TODO(b/237004872) Remove this comparison when possible.
+            && javaConfiguration.bytecodeOptimizationPassActions() < 2) {
+          // Use legacy names in this case.
           lastStageOutput =
               createSingleOptimizationAction(
                   "_INITIAL",
@@ -459,20 +462,23 @@ public final class ProguardHelper {
                   output,
                   lastStageOutput);
         } else {
-          lastStageOutput =
-              createSingleOptimizationAction(
-                  /* runtypeSuffix */ "",
-                  ruleContext,
-                  mnemonic,
-                  i,
-                  executable,
-                  programJar,
-                  proguardSpecs,
-                  proguardMapping,
-                  proguardDictionary,
-                  libraryJars,
-                  output,
-                  lastStageOutput);
+          int totalActions = javaConfiguration.bytecodeOptimizationPassActions();
+          for (int action = 1; action <= totalActions; action++) {
+            lastStageOutput =
+                createSingleOptimizationAction(
+                    "_ACTION_" + action + "_OF_" + totalActions,
+                    ruleContext,
+                    mnemonic,
+                    i,
+                    executable,
+                    programJar,
+                    proguardSpecs,
+                    proguardMapping,
+                    proguardDictionary,
+                    libraryJars,
+                    output,
+                    lastStageOutput);
+          }
         }
       }
 

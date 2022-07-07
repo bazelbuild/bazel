@@ -38,10 +38,8 @@ import java.util.List;
 /** Options for configuring Packages -- loading and default behaviors. */
 public class PackageOptions extends OptionsBase {
 
-  /**
-   * Converter for the {@code --default_visibility} option.
-   */
-  public static class DefaultVisibilityConverter implements Converter<RuleVisibility> {
+  /** Converter for the {@code --default_visibility} option. */
+  public static class DefaultVisibilityConverter extends Converter.Contextless<RuleVisibility> {
     @Override
     public RuleVisibility convert(String input) throws OptionsParsingException {
       if (input.equals("public")) {
@@ -194,11 +192,9 @@ public class PackageOptions extends OptionsBase {
               + "previous run's cache.")
   public boolean checkOutputFiles;
 
-  /**
-   * A converter from strings containing comma-separated names of packages to lists of strings.
-   */
+  /** A converter from strings containing comma-separated names of packages to lists of strings. */
   public static class CommaSeparatedPackageNameListConverter
-      implements Converter<List<PackageIdentifier>> {
+      extends Converter.Contextless<List<PackageIdentifier>> {
 
     private static final Splitter COMMA_SPLITTER = Splitter.on(',');
 

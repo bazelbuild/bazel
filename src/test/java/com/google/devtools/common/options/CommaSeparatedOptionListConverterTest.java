@@ -23,7 +23,7 @@ import org.junit.runners.JUnit4;
 /** A test for {@link Converters.CommaSeparatedOptionListConverter}. */
 @RunWith(JUnit4.class)
 public class CommaSeparatedOptionListConverterTest {
-  private final Converter<ImmutableList<String>> converter =
+  private final Converter.Contextless<ImmutableList<String>> converter =
       new Converters.CommaSeparatedOptionListConverter();
 
   @Test

@@ -44,6 +44,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
@@ -117,6 +118,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
   }
 
+  @Nullable
   private BzlmodRepoRuleValue createRuleFromSpec(
       RepoSpec repoSpec, StarlarkSemantics starlarkSemantics, Environment env)
       throws BzlmodRepoRuleFunctionException, InterruptedException {
@@ -151,6 +153,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     } catch (NoSuchPackageException e) {
+      throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
+    } catch (EvalException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
   }
@@ -217,6 +221,10 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
 
     BzlmodRepoRuleFunctionException(IOException e, Transience transience) {
+      super(e, transience);
+    }
+
+    BzlmodRepoRuleFunctionException(EvalException e, Transience transience) {
       super(e, transience);
     }
   }

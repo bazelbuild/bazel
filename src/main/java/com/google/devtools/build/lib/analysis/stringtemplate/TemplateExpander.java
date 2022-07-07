@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.stringtemplate;
 
 import com.google.common.collect.ImmutableSet;
+import javax.annotation.Nullable;
 
 /**
  * Simple string template expansion. String templates consist of text interspersed with
@@ -35,6 +36,7 @@ public final class TemplateExpander {
    * If the string contains a single variable, return the expansion of that variable. Otherwise,
    * return null.
    */
+  @Nullable
   public static String expandSingleVariable(String expression, TemplateContext context)
       throws ExpansionException {
     String var = new TemplateExpander(expression).getSingleVariable();
@@ -168,9 +170,10 @@ public final class TemplateExpander {
 
   /**
    * @return the variable name if the variable spans from offset to the end of the buffer, otherwise
-   *         null
+   *     null
    * @throws ExpansionException if the variable reference was ill-formed
    */
+  @Nullable
   private String getSingleVariable() throws ExpansionException {
     if (buffer[offset] == '$') {
       offset++;

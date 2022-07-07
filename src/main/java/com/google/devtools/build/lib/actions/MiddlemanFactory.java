@@ -113,6 +113,7 @@ public final class MiddlemanFactory {
    * @return null iff {@code inputs} is null or empty; the middleman file and the middleman action
    *     otherwise
    */
+  @Nullable
   private Pair<Artifact, Action> createMiddleman(
       ActionOwner owner,
       String middlemanName,

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -124,6 +125,7 @@ public final class InputFile extends FileTarget {
   }
 
   @Override
+  @Nullable
   public Rule getAssociatedRule() {
     return null;
   }

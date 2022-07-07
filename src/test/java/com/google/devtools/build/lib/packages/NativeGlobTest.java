@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -135,7 +134,7 @@ public class NativeGlobTest extends BuildViewTestCase {
 
   private Label makeLabel(String label) {
     try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
+      return Label.parseCanonical(label);
     } catch (Exception e) {
       // Always fails the test.
       assertThat(e).isNull();

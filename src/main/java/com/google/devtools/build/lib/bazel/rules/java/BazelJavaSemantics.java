@@ -465,6 +465,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.
+  @Nullable
   private String getPrimaryClassLegacy(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
     if (!createExecutable) {
@@ -473,6 +474,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     return getMainClassInternal(ruleContext, sources);
   }
 
+  @Nullable
   private String getPrimaryClassNew(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
 

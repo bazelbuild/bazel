@@ -703,6 +703,7 @@ public class Dict<K, V>
     return Collections.unmodifiableMap(contents).entrySet();
   }
 
+  @Nullable
   @Override
   public V get(Object key) {
     return contents.get(key);
@@ -740,6 +741,7 @@ public class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Deprecated // use putEntry
   @Override
   public V put(K key, V value) {
@@ -752,6 +754,7 @@ public class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Deprecated // use removeEntry
   @Override
   public V remove(Object key) {
@@ -786,6 +789,7 @@ public class Dict<K, V>
       return false;
     }
 
+    @Nullable
     @Override
     @SuppressWarnings("unchecked") // Present keys must be of type K.
     public V get(Object key) {

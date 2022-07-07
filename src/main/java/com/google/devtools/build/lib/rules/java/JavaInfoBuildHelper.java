@@ -267,6 +267,7 @@ final class JavaInfoBuildHelper {
       JavaToolchainProvider javaToolchain,
       ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
+      List<Artifact> resourceJars,
       List<Artifact> classpathResources,
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
@@ -288,6 +289,7 @@ final class JavaInfoBuildHelper {
             .addSourceJars(sourceJars)
             .addSourceFiles(sourceFiles)
             .addResources(resources)
+            .addResourceJars(resourceJars)
             .addClasspathResources(classpathResources)
             .setSourcePathEntries(sourcepathEntries)
             .addAdditionalOutputs(annotationProcessorAdditionalOutputs)

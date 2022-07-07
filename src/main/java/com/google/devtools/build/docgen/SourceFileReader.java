@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
+import javax.annotation.Nullable;
 
 /**
  * A helper class to read and process documentations for rule classes and attributes
@@ -337,6 +338,7 @@ public class SourceFileReader {
     return line;
   }
 
+  @Nullable
   private static BufferedReader createReader(String filePath) throws IOException {
     File file = new File(filePath);
     if (file.exists()) {

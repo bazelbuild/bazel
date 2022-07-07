@@ -44,6 +44,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** A builder for {@link BuildConfigurationValue} instances. */
@@ -64,6 +65,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BuildConfigurationFunctionException {
     WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env

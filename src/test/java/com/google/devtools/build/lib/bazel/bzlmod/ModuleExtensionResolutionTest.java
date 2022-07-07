@@ -309,6 +309,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   public void multipleModules() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='root',version='1.0')",
         "bazel_dep(name='ext',version='1.0')",
         "bazel_dep(name='foo',version='1.0')",
         "bazel_dep(name='bar',version='2.0')",
@@ -358,10 +359,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         modulesRoot.getRelative("@ext.1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
-        "  data_str = 'modules:'",
+        "  data_str = ''",
         "  for mod in ctx.modules:",
+        "    data_str += mod.name + '@' + mod.version + (' (root): ' if mod.is_root else ': ')",
         "    for tag in mod.tags.tag:",
-        "      data_str += ' ' + tag.data",
+        "      data_str += tag.data",
+        "    data_str += '\\n'",
         "  data_repo(name='ext_repo',data=data_str)",
         "tag=tag_class(attrs={'data':attr.string()})",
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
@@ -373,7 +376,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
-        .isEqualTo("modules: root foo@1.0 bar@2.0 quux@2.0");
+        .isEqualTo(
+            "root@1.0 (root): root\nfoo@1.0: foo@1.0\nbar@2.0: bar@2.0\nquux@2.0: quux@2.0\n");
   }
 
   @Test

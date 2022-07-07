@@ -41,6 +41,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Runs Bazel module resolution. This function produces the dependency graph containing all Bazel
@@ -53,6 +54,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       new Precomputed<>("check_direct_dependency");
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootModuleFileValue root =

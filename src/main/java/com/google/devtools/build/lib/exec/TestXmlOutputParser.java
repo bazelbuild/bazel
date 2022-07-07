@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.protobuf.UninitializedMessageException;
 import java.io.InputStream;
+import javax.annotation.Nullable;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -46,6 +47,7 @@ public final class TestXmlOutputParser {
    *     the file.
    * @throws TestXmlOutputParserException when the XML file cannot be parsed
    */
+  @Nullable
   private TestCase parseXmlToTree(InputStream xmlStream) throws TestXmlOutputParserException {
     XMLStreamReader parser = null;
 

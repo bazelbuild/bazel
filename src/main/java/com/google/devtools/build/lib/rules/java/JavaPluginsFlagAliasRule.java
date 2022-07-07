@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
+import javax.annotation.Nullable;
 
 /**
  * Rule definition for 'java_plugins_flag_alias' rule. It is only to be used by the Starlark
@@ -67,6 +68,7 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
    */
   public static class JavaPluginsFlagAlias implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException,
             MutableActionGraph.ActionConflictException {

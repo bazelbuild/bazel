@@ -523,13 +523,12 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Finds the shortest directed path from "fromNode" to "toNode".  The path is
-   * returned as an ordered list of nodes, including both endpoints.  Returns
-   * null if there is no path.  Uses breadth-first search.  Running time is
-   * O(n).
+   * Finds the shortest directed path from "fromNode" to "toNode". The path is returned as an
+   * ordered list of nodes, including both endpoints. Returns null if there is no path. Uses
+   * breadth-first search. Running time is O(n).
    */
-  public List<Node<T>> getShortestPath(Node<T> fromNode,
-                                           Node<T> toNode) {
+  @Nullable
+  public List<Node<T>> getShortestPath(Node<T> fromNode, Node<T> toNode) {
     checkNode(fromNode);
     checkNode(toNode);
 

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
@@ -42,12 +41,12 @@ public class DependencyKeyTest extends AnalysisTestCase {
         AspectCollection.createForTests(ImmutableSet.of(simpleAspect, attributeAspect));
     DependencyKey hostDep =
         DependencyKey.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setTransition(HostTransition.INSTANCE)
             .setAspects(twoAspects)
             .build();
 
-    assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a", ImmutableMap.of()));
+    assertThat(hostDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
     assertThat(Iterables.transform(hostDep.getAspects().getUsedAspects(), AspectDeps::getAspect))
         .containsExactlyElementsIn(
             Iterables.transform(twoAspects.getUsedAspects(), AspectDeps::getAspect));
@@ -59,7 +58,7 @@ public class DependencyKeyTest extends AnalysisTestCase {
     update();
     DependencyKey dep =
         DependencyKey.builder()
-            .setLabel(Label.parseAbsolute("//a", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//a"))
             .setTransition(HostTransition.INSTANCE)
             .setAspects(AspectCollection.EMPTY)
             .build();
@@ -71,9 +70,9 @@ public class DependencyKeyTest extends AnalysisTestCase {
   public void equalsPassesEqualsTester() throws Exception {
     update();
 
-    Label a = Label.parseAbsolute("//a", ImmutableMap.of());
-    Label aExplicit = Label.parseAbsolute("//a:a", ImmutableMap.of());
-    Label b = Label.parseAbsolute("//b", ImmutableMap.of());
+    Label a = Label.parseCanonical("//a");
+    Label aExplicit = Label.parseCanonical("//a:a");
+    Label b = Label.parseCanonical("//b");
 
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);

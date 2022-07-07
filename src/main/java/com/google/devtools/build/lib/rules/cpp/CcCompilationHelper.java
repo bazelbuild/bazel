@@ -1782,6 +1782,7 @@ public final class CcCompilationHelper {
     return buildVariables.build();
   }
 
+  @Nullable
   private static String toPathString(Artifact a) {
     return a == null ? null : a.getExecPathString();
   }
@@ -2153,6 +2154,7 @@ public final class CcCompilationHelper {
         outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ".dwo");
   }
 
+  @Nullable
   private Artifact getLtoIndexingFile(Artifact outputFile) {
     if (featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
       return null;

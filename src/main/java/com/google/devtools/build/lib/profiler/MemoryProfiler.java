@@ -140,7 +140,8 @@ public final class MemoryProfiler {
 
     /** Converter for {@code MemoryProfileStableHeapParameters} option. */
     public static class Converter
-        implements com.google.devtools.common.options.Converter<MemoryProfileStableHeapParameters> {
+        extends com.google.devtools.common.options.Converter.Contextless<
+            MemoryProfileStableHeapParameters> {
       private static final Splitter SPLITTER = Splitter.on(',');
 
       @Override

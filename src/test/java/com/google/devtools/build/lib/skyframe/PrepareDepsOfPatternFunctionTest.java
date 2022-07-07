@@ -18,7 +18,6 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -107,26 +106,25 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
     Preconditions.checkNotNull(evaluationResult.get(key));
 
     // And the TransitiveTraversalValue for "a:a" is evaluated,
-    SkyKey aaKey = TransitiveTraversalValue.key(Label.parseAbsolute("@//a:a", ImmutableMap.of()));
+    SkyKey aaKey = TransitiveTraversalValue.key(Label.parseCanonical("@//a:a"));
     assertThat(exists(aaKey, graph)).isTrue();
 
     // And that TransitiveTraversalValue depends on "b:b.txt".
     Iterable<SkyKey> depsOfAa =
         Iterables.getOnlyElement(graph.getDirectDeps(ImmutableList.of(aaKey)).values());
-    SkyKey bTxtKey =
-        TransitiveTraversalValue.key(Label.parseAbsolute("@//b:b.txt", ImmutableMap.of()));
+    SkyKey bTxtKey = TransitiveTraversalValue.key(Label.parseCanonical("@//b:b.txt"));
     assertThat(depsOfAa).contains(bTxtKey);
 
     // And the TransitiveTraversalValue for "b:b.txt" is evaluated.
     assertThat(exists(bTxtKey, graph)).isTrue();
 
     // And the TransitiveTraversalValue for "c:c" is NOT evaluated.
-    SkyKey ccKey = TransitiveTraversalValue.key(Label.parseAbsolute("@//c:c", ImmutableMap.of()));
+    SkyKey ccKey = TransitiveTraversalValue.key(Label.parseCanonical("@//c:c"));
     assertThat(exists(ccKey, graph)).isFalse();
 
     // And the TransitiveTraversalValue for "a/d:d" is or is not evaluated depending on the provided
     // expectation.
-    SkyKey adKey = TransitiveTraversalValue.key(Label.parseAbsolute("@//a/d:d", ImmutableMap.of()));
+    SkyKey adKey = TransitiveTraversalValue.key(Label.parseCanonical("@//a/d:d"));
     assertThat(exists(adKey, graph)).isEqualTo(adExists);
   }
 

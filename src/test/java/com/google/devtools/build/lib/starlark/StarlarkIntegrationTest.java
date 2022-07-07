@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -93,8 +92,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -1999,8 +1997,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     );
 
     StarlarkProvider.Key pInfoKey =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "PInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//test:rule.bzl"), "PInfo");
 
     ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
     StructImpl structXXX = (StructImpl) targetXXX.get(pInfoKey);
@@ -2233,11 +2230,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "outer_rule_test(name = 'r', dep = ':inner')");
 
     StarlarkProvider.Key myInfoKey =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//test:extension.bzl"), "MyInfo");
     StarlarkProvider.Key myDepKey =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:extension.bzl", ImmutableMap.of()), "MyDep");
+        new StarlarkProvider.Key(Label.parseCanonical("//test:extension.bzl"), "MyDep");
 
     ConfiguredTarget outerTarget = getConfiguredTarget("//test:r");
     StructImpl outerInfo = (StructImpl) outerTarget.get(myInfoKey);

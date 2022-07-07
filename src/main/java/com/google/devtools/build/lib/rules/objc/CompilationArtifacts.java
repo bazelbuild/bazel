@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -42,11 +43,13 @@ final class CompilationArtifacts implements StarlarkValue {
     private Iterable<Artifact> precompiledSrcs = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
 
+    @CanIgnoreReturnValue
     Builder addSrcs(Iterable<Artifact> srcs) {
       this.srcs = Iterables.concat(this.srcs, srcs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addNonArcSrcs(Iterable<Artifact> nonArcSrcs) {
       this.nonArcSrcs = Iterables.concat(this.nonArcSrcs, nonArcSrcs);
       return this;
@@ -56,6 +59,7 @@ final class CompilationArtifacts implements StarlarkValue {
      * Adds header artifacts that should be directly accessible to dependers, but aren't specified
      * in the hdrs attribute. Note that the underlying infrastructure may flatten the nested set.
      */
+    @CanIgnoreReturnValue
     Builder addAdditionalHdrs(NestedSet<Artifact> additionalHdrs) {
       this.additionalHdrs.addTransitive(additionalHdrs);
       return this;
@@ -65,29 +69,31 @@ final class CompilationArtifacts implements StarlarkValue {
      * Adds header artifacts that should be directly accessible to dependers, but aren't specified
      * in the hdrs attribute.
      */
+    @CanIgnoreReturnValue
     Builder addAdditionalHdrs(Iterable<Artifact> additionalHdrs) {
       this.additionalHdrs.addAll(additionalHdrs);
       return this;
     }
 
     /**
-     * Adds header artifacts that should not be directly accessible to dependers.
-     * {@code privateHdrs} should not be a {@link NestedSet}, as it will be flattened when added.
+     * Adds header artifacts that should not be directly accessible to dependers. {@code
+     * privateHdrs} should not be a {@link NestedSet}, as it will be flattened when added.
      */
+    @CanIgnoreReturnValue
     Builder addPrivateHdrs(Iterable<Artifact> privateHdrs) {
       this.privateHdrs = Iterables.concat(this.privateHdrs, privateHdrs);
       return this;
     }
 
-    /**
-     * Adds precompiled sources (.o files).
-     */
+    /** Adds precompiled sources (.o files). */
+    @CanIgnoreReturnValue
     Builder addPrecompiledSrcs(Iterable<Artifact> precompiledSrcs) {
       // TODO(ulfjack): These are ignored *except* for a check below whether they are empty.
       this.precompiledSrcs = Iterables.concat(this.precompiledSrcs, precompiledSrcs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
       Preconditions.checkState(this.intermediateArtifacts == null,
           "intermediateArtifacts is already set to: %s", this.intermediateArtifacts);

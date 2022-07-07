@@ -636,6 +636,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new UnsupportedOperationException();
     }
 
+    @Nullable
     @Override
     public Path getBuildFileForPackage(PackageIdentifier packageId) {
       Package pkg = pkgMap.get(packageId);
@@ -645,6 +646,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return pkg.getBuildFile().getPath();
     }
 
+    @Nullable
     @Override
     public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
       // TODO(b/123795023): we should have the data here but we don't have all packages for Starlark

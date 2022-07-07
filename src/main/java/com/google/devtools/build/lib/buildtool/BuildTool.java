@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
@@ -203,6 +204,8 @@ public class BuildTool {
 
         if (request.getBuildOptions().performAnalysisPhase) {
           executionTool = new ExecutionTool(env, request);
+          // This timer measures time for loading + analysis + execution.
+          Stopwatch timer = Stopwatch.createStarted();
           Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
           Set<AspectKey> builtAspects = new HashSet<>();
 
@@ -229,6 +232,9 @@ public class BuildTool {
             buildCompleted = true;
             throw e;
           } finally {
+            executionTool.unconditionalExecutionPhaseFinalizations(
+                timer, env.getSkyframeExecutor());
+
             BuildResultListener buildResultListener =
                 Preconditions.checkNotNull(env.getBuildResultListener());
             result.setActualTargets(buildResultListener.getAnalyzedTargets());

@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Creates a symlink forest based on a package path map. */
 public class SymlinkForest {
@@ -80,6 +81,7 @@ public class SymlinkForest {
    * @param prefixes
    */
   @VisibleForTesting
+  @Nullable
   static PackageIdentifier longestPathPrefix(
       PackageIdentifier path, Set<PackageIdentifier> prefixes) {
     for (int i = path.getPackageFragment().segmentCount(); i >= 0; i--) {

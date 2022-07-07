@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Modifier;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -36,19 +37,20 @@ public final class TestSuiteBuilder {
   private Predicate<Class<?>> matchClassPredicate = Predicates.alwaysTrue();
 
   /**
-   * Adds the tests found (directly) in class {@code c} to the set of tests
-   * this builder will search.
+   * Adds the tests found (directly) in class {@code c} to the set of tests this builder will
+   * search.
    */
+  @CanIgnoreReturnValue
   public TestSuiteBuilder addTestClass(Class<?> c) {
     testClasses.add(c);
     return this;
   }
 
   /**
-   * Adds all the test classes (top-level or nested) found in package
-   * {@code pkgName} or its subpackages to the set of tests this builder will
-   * search.
+   * Adds all the test classes (top-level or nested) found in package {@code pkgName} or its
+   * subpackages to the set of tests this builder will search.
    */
+  @CanIgnoreReturnValue
   public TestSuiteBuilder addPackageRecursive(String pkgName) {
     for (Class<?> c : getClassesRecursive(pkgName)) {
       addTestClass(c);
@@ -70,9 +72,8 @@ public final class TestSuiteBuilder {
     return result;
   }
 
-  /**
-   * Specifies a predicate returns false for classes we want to exclude.
-   */
+  /** Specifies a predicate returns false for classes we want to exclude. */
+  @CanIgnoreReturnValue
   public TestSuiteBuilder matchClasses(Predicate<Class<?>> predicate) {
     matchClassPredicate = predicate;
     return this;

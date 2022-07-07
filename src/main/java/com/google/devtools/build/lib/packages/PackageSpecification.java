@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * Represents one of the following:
@@ -144,6 +145,7 @@ public abstract class PackageSpecification {
    * <p>Note that there is no {@link Label} associated with the {@link RepositoryName}-agnostic "all
    * packages" specification (corresponding to {@code #fromString(null, "//...")}).
    */
+  @Nullable
   static PackageSpecification fromLabel(Label label) {
     if (label.getName().equals(PACKAGE_LABEL)) {
       return new SinglePackage(label.getPackageIdentifier());

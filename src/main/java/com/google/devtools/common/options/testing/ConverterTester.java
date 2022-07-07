@@ -32,14 +32,16 @@ public final class ConverterTester {
 
   private final Converter<?> converter;
   private final Class<? extends Converter<?>> converterClass;
+  private final Object conversionContext;
   private final EqualsTester tester = new EqualsTester();
   private final LinkedHashSet<String> testedInputs = new LinkedHashSet<>();
   private final ArrayList<ImmutableList<String>> inputLists = new ArrayList<>();
 
   /** Creates a new ConverterTester which will test the given Converter class. */
-  public ConverterTester(Class<? extends Converter<?>> converterClass) {
+  public ConverterTester(Class<? extends Converter<?>> converterClass, Object conversionContext) {
     this.converterClass = converterClass;
     this.converter = createConverter();
+    this.conversionContext = conversionContext;
   }
 
   private Converter<?> createConverter() {
@@ -96,7 +98,7 @@ public final class ConverterTester {
     for (String input : inputList) {
       testedInputs.add(input);
       try {
-        wrapped.add(new WrappedItem(input, converter.convert(input)));
+        wrapped.add(new WrappedItem(input, converter.convert(input, conversionContext)));
       } catch (OptionsParsingException ex) {
         throw new AssertionError("Failed to parse input: \"" + input + "\"", ex);
       }
@@ -129,9 +131,9 @@ public final class ConverterTester {
         Object convertedAgain;
         Object convertedDifferentConverterInstance;
         try {
-          converted = converter.convert(input);
-          convertedAgain = converter.convert(input);
-          convertedDifferentConverterInstance = converter2.convert(input);
+          converted = converter.convert(input, conversionContext);
+          convertedAgain = converter.convert(input, conversionContext);
+          convertedDifferentConverterInstance = converter2.convert(input, conversionContext);
         } catch (OptionsParsingException ex) {
           throw new AssertionError("Failed to parse input: \"" + input + "\"", ex);
         }

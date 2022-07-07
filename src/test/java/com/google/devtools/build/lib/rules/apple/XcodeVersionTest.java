@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -79,8 +78,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
     RuleConfiguredTarget starlarkTarget =
         (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_starlark:my_target");
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//examples/rule:apple_rules.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//examples/rule:apple_rules.bzl"), "MyInfo");
     StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat((String) myInfo.getValue("xcode_version")).isEqualTo("8");
     assertThat((String) myInfo.getValue("ios_version")).isEqualTo("9.0");

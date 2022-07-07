@@ -254,7 +254,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean enableAspectHints;
 
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
-  public static class EmptyListConverter implements Converter<List<String>> {
+  public static class EmptyListConverter extends Converter.Contextless<List<String>> {
     @Override
     public List<String> convert(String input) throws OptionsParsingException {
       return ImmutableList.of();

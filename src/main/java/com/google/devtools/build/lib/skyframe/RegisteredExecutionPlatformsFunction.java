@@ -183,6 +183,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     return executionPlatforms.build();
   }
 
+  @Nullable
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {

@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 
 /**
@@ -169,6 +170,7 @@ public class WorkspaceFileValue implements SkyValue {
    * Get the key for the next WorkspaceFileValue or null if this value is the last part of the
    * workspace file.
    */
+  @Nullable
   public SkyKey next() {
     if (hasNext) {
       return key(path, idx + 1);

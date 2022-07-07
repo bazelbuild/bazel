@@ -53,6 +53,14 @@ public final class TopLevelStatusEvents {
     }
   }
 
+  /** An event that marks the start of execution of a top-level target, including tests. */
+  @AutoValue
+  public abstract static class TopLevelTargetExecutionStartedEvent implements Postable {
+
+    public static TopLevelTargetExecutionStartedEvent create() {
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetExecutionStartedEvent();
+    }
+  }
   /** An event that marks the successful build of a top-level target, including tests. */
   @AutoValue
   public abstract static class TopLevelTargetBuiltEvent implements Postable {

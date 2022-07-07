@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -47,6 +49,7 @@ public final class JavaLibraryHelper {
   private final List<Artifact> sourceJars = new ArrayList<>();
   private final List<Artifact> sourceFiles = new ArrayList<>();
   private final List<Artifact> resources = new ArrayList<>();
+  private final List<Artifact> resourceJars = new ArrayList<>();
   private final List<Artifact> classpathResources = new ArrayList<>();
 
   /**
@@ -116,6 +119,12 @@ public final class JavaLibraryHelper {
   @CanIgnoreReturnValue
   public JavaLibraryHelper addResources(Iterable<Artifact> resources) {
     Iterables.addAll(this.resources, resources);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaLibraryHelper addResourceJars(Iterable<Artifact> resourceJars) {
+    Iterables.addAll(this.resourceJars, resourceJars);
     return this;
   }
 
@@ -273,6 +282,8 @@ public final class JavaLibraryHelper {
       attributes.addResource(
           JavaHelper.getJavaResourcePath(semantics, ruleContext, resource), resource);
     }
+
+    attributes.addResourceJars(NestedSetBuilder.wrap(Order.STABLE_ORDER, resourceJars));
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
       JavaCompilationHelper.addDependencyArtifactsToAttributes(attributes, deps);

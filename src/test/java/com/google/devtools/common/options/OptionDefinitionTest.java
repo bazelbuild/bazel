@@ -57,7 +57,7 @@ public class OptionDefinitionTest {
         assertThrows(
             "Incorrect default should have caused getDefaultValue to fail.",
             ConstructionException.class,
-            () -> optionDef.getDefaultValue());
+            () -> optionDef.getDefaultValue(/*conversionContext=*/ null));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -123,14 +123,14 @@ public class OptionDefinitionTest {
     Converter<?> converter = mockOptionDef.getConverter();
     assertThat(converter).isInstanceOf(IntegerConverter.class);
 
-    int value = (int) mockOptionDef.getDefaultValue();
+    int value = (int) mockOptionDef.getDefaultValue(/*conversionContext=*/ null);
     assertThat(value).isEqualTo(42);
 
     // Expect reference equality, since we didn't recompute the value
     Converter<?> secondConverter = mockOptionDef.getConverter();
     assertThat(secondConverter).isSameInstanceAs(converter);
 
-    mockOptionDef.getDefaultValue();
+    mockOptionDef.getDefaultValue(/*conversionContext=*/ null);
 
     // Verify that we didn't re-calculate the converter from the provided class object.
     verify(mockOptionDef, times(1)).getProvidedConverter();
@@ -159,14 +159,14 @@ public class OptionDefinitionTest {
     Converter<?> converter = mockOptionDef.getConverter();
     assertThat(converter).isInstanceOf(StringConverter.class);
 
-    String value = (String) mockOptionDef.getDefaultValue();
+    String value = (String) mockOptionDef.getDefaultValue(/*conversionContext=*/ null);
     assertThat(value).isEqualTo("strings");
 
     // Expect reference equality, since we didn't recompute the value
     Converter<?> secondConverter = mockOptionDef.getConverter();
     assertThat(secondConverter).isSameInstanceAs(converter);
 
-    mockOptionDef.getDefaultValue();
+    mockOptionDef.getDefaultValue(/*conversionContext=*/ null);
 
     // Verify that we didn't re-calculate the converter from the provided class object.
     verify(mockOptionDef, times(1)).getProvidedConverter();
@@ -218,7 +218,7 @@ public class OptionDefinitionTest {
             DefaultValueTestOptions.class.getField("nullNonMultipleOption"));
 
     // act
-    Object result = optionDef.getDefaultValue();
+    Object result = optionDef.getDefaultValue(/*conversionContext=*/ null);
 
     // assert
     assertThat(result).isNull();
@@ -233,7 +233,7 @@ public class OptionDefinitionTest {
             DefaultValueTestOptions.class.getField("nullMultipleOption"));
 
     // act
-    List<String> result = (List<String>) optionDef.getDefaultValue();
+    List<String> result = (List<String>) optionDef.getDefaultValue(/*conversionContext=*/ null);
 
     // assert
     assertThat(result).isEmpty();
@@ -248,7 +248,7 @@ public class OptionDefinitionTest {
             DefaultValueTestOptions.class.getField("emptyStringMultipleOption"));
 
     // act
-    List<String> result = (List<String>) optionDef.getDefaultValue();
+    List<String> result = (List<String>) optionDef.getDefaultValue(/*conversionContext=*/ null);
 
     // assert
     assertThat(result).containsExactly("");
@@ -263,7 +263,7 @@ public class OptionDefinitionTest {
             DefaultValueTestOptions.class.getField("nonEmptyStringMultipleOption"));
 
     // act
-    List<String> result = (List<String>) optionDef.getDefaultValue();
+    List<String> result = (List<String>) optionDef.getDefaultValue(/*conversionContext=*/ null);
 
     // assert
     assertThat(result).containsExactly("text");

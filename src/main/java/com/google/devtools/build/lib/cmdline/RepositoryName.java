@@ -84,6 +84,7 @@ public final class RepositoryName {
    *     "external/"-prefix and repository name, or null if none was found or the repository name
    *     was invalid.
    */
+  @Nullable
   public static Pair<RepositoryName, PathFragment> fromPathFragment(
       PathFragment path, boolean siblingRepositoryLayout) {
     if (!path.isMultiSegment()) {

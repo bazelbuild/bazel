@@ -100,46 +100,46 @@ public abstract class Type<T> {
    * @param what An object whose toString method returns a description of the purpose of x.
    *     Typically it is the name of a function parameter or struct field. The method is called only
    *     in case of error.
-   * @param context the label of the current BUILD rule; must be non-null if resolution of
-   *     package-relative label strings is required
+   * @param labelConverter the converter to use to convert label literals to Label objects; must be
+   *     non-null if parsing non-canonical label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    * @throws NullPointerException if x is null.
    */
-  public abstract T convert(Object x, Object what, @Nullable Object context)
+  public abstract T convert(Object x, Object what, @Nullable LabelConverter labelConverter)
       throws ConversionException;
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
 
   /**
-   * Equivalent to {@link #convert(Object, Object, Object)} where the label is {@code null}. Useful
-   * for converting values to types that do not involve the type {@code LABEL} and hence do not
-   * require the label of the current package.
+   * Equivalent to {@link #convert(Object, Object, LabelConverter)} where the label is {@code null}.
+   * Useful for converting values to types that do not involve the type {@code LABEL}.
    */
   public final T convert(Object x, Object what) throws ConversionException {
     return convert(x, what, null);
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to given
-   * {@code defaultValue}.
+   * Like {@link #convert(Object, Object, LabelConverter)}, but converts Starlark {@code None} to
+   * given {@code defaultValue}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
+  public final T convertOptional(
+      Object x, String what, @Nullable LabelConverter labelConverter, T defaultValue)
       throws ConversionException {
     if (Starlark.isNullOrNone(x)) {
       return defaultValue;
     }
-    return convert(x, what, context);
+    return convert(x, what, labelConverter);
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to java
-   * {@code null}.
+   * Like {@link #convert(Object, Object, LabelConverter)}, but converts Starlark {@code None} to
+   * java {@code null}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable Object context)
+  public final T convertOptional(Object x, String what, @Nullable LabelConverter labelConverter)
       throws ConversionException {
-    return convertOptional(x, what, context, null);
+    return convertOptional(x, what, labelConverter, null);
   }
 
   /**
@@ -325,7 +325,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Object convert(Object x, Object what, Object context) {
+    public Object convert(Object x, Object what, LabelConverter labelConverter) {
       return Preconditions.checkNotNull(x);
     }
   }
@@ -353,7 +353,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public StarlarkInt convert(Object x, Object what, Object context) throws ConversionException {
+    public StarlarkInt convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof StarlarkInt) {
         StarlarkInt i = (StarlarkInt) x;
         try {
@@ -407,11 +408,12 @@ public abstract class Type<T> {
 
     // Conversion to boolean must also tolerate integers of 0 and 1 only.
     @Override
-    public Boolean convert(Object x, Object what, Object context) throws ConversionException {
+    public Boolean convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
-      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
+      int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
       if (xAsInteger == 0) {
         return false;
       } else if (xAsInteger == 1) {
@@ -452,7 +454,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public String convert(Object x, Object what, Object context) throws ConversionException {
+    public String convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (!(x instanceof String)) {
         throw new ConversionException(this, x, what);
       }
@@ -547,7 +550,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Map<KeyT, ValueT> convert(Object x, Object what, Object context)
+    public Map<KeyT, ValueT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       if (!(x instanceof Map)) {
         throw new ConversionException(this, x, what);
@@ -558,8 +561,8 @@ public abstract class Type<T> {
       LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
       for (Map.Entry<?, ?> elem : o.entrySet()) {
         result.put(
-            keyType.convert(elem.getKey(), "dict key element", context),
-            valueType.convert(elem.getValue(), "dict value element", context));
+            keyType.convert(elem.getKey(), "dict key element", labelConverter),
+            valueType.convert(elem.getValue(), "dict value element", labelConverter));
       }
       return ImmutableMap.copyOf(result);
     }
@@ -631,7 +634,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, Object what, Object context) throws ConversionException {
+    public List<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       Iterable<?> iterable;
 
       if (x instanceof Iterable) {
@@ -647,13 +651,19 @@ public abstract class Type<T> {
       ListConversionContext conversionContext = new ListConversionContext(what);
       for (Object elem : iterable) {
         conversionContext.update(index);
-        ElemT converted = elemType.convert(elem, conversionContext, context);
+        ElemT converted = elemType.convert(elem, conversionContext, labelConverter);
         if (converted != null) {
           result.add(converted);
         } else {
           // shouldn't happen but it does, rarely
-          String message = "Converting a list with a null element: "
-              + "element " + index + " of " + what + " in " + context;
+          String message =
+              "Converting a list with a null element: "
+                  + "element "
+                  + index
+                  + " of "
+                  + what
+                  + " in "
+                  + labelConverter;
           LoggingUtil.logToRemote(Level.WARNING, message,
               new ConversionException(message));
         }
@@ -725,7 +735,8 @@ public abstract class Type<T> {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, Object what, Object context) throws ConversionException {
+    public List<Object> convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
         return ((Sequence<Object>) x).getImmutableList();

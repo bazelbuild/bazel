@@ -296,16 +296,14 @@ public class TestConfiguration extends Fragment {
 
     @Override
     public FragmentOptions getHost() {
-      TestOptions hostOptions = (TestOptions) getDefault();
-      // These fields are used in late-bound attributes, which must not be null in the host
-      // configuration.
-      hostOptions.coverageSupport = this.coverageSupport;
-      hostOptions.coverageReportGenerator = this.coverageReportGenerator;
-      // trimTestConfiguration is a global analysis option and should be platform-agnostic
-      hostOptions.trimTestConfiguration = this.trimTestConfiguration;
-      hostOptions.experimentalRetainTestConfigurationAcrossTestonly =
-          this.experimentalRetainTestConfigurationAcrossTestonly;
-      return hostOptions;
+      // Options here are either:
+      // 1. Applicable only for the test actions, which are relevant only for the top-level targets
+      //    before host or exec transitions can apply.
+      // 2. Supposed to be build-universal and thus non-transitionable anyways
+      //    (e.g. trim_test_configuration)
+      // And thus the options should just be copied and not reset by the exec transition (as
+      // resetting them has incremental performance drawbacks when these options change).
+      return clone();
     }
   }
 

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import javax.annotation.Nullable;
 
 /**
  * Rule class definitions for Java rules.
@@ -352,6 +353,7 @@ public class BazelJavaRuleClasses {
                   .value(
                       new Attribute.ComputedDefault("use_testrunner") {
                         @Override
+                        @Nullable
                         public Object getDefault(AttributeMap rule) {
                           return rule.get("use_testrunner", Type.BOOLEAN)
                               ? env.getToolsLabel(JUNIT_TESTRUNNER)

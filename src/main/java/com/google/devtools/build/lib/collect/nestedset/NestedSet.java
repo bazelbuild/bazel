@@ -628,6 +628,7 @@ public final class NestedSet<E> {
    * {@link #walk}. Otherwise returns null, in which case some other thread must have completely
    * populated memo; the caller should use {@link #replay} instead.
    */
+  @Nullable
   private synchronized CompactHashSet<E> lockedExpand(Object[] children) {
     // Precondition: this is a non-leaf node with non-leaf successors (depth > 2).
     // Postcondition: memo is completely populated.

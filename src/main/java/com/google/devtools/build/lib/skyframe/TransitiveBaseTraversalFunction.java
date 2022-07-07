@@ -92,6 +92,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
 
   abstract Label argumentFromKey(SkyKey key);
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws TransitiveBaseTraversalFunctionException, InterruptedException {
