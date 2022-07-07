@@ -92,9 +92,6 @@ public final class CommandLinePathFactory {
 
     throw new FileNotFoundException(
         String.format(
-            Locale.US,
-            "Could not find file with name '%s' on PATH '%s'",
-            path,
-            env.getOrDefault("PATH", "")));
+            Locale.US, "Could not find file with name '%s' on PATH '%s'", path, pathVariable));
   }
 }
