@@ -365,7 +365,7 @@ public class ByteStreamUploaderTest {
 
     Chunker chunker =
         Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(chunkSize).build();
-    Digest digest = DIGEST_UTIL.compute(blob);
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     serviceRegistry.addService(
