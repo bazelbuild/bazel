@@ -53,12 +53,29 @@ public final class TopLevelStatusEvents {
     }
   }
 
-  /** An event that marks the start of execution of a top-level target, including tests. */
+  /**
+   * An event that marks that a top-level target won't be skipped and is pending execution,
+   * including test targets.
+   */
   @AutoValue
-  public abstract static class TopLevelTargetExecutionStartedEvent implements Postable {
+  public abstract static class TopLevelTargetPendingExecutionEvent implements Postable {
+    public abstract ConfiguredTarget configuredTarget();
 
-    public static TopLevelTargetExecutionStartedEvent create() {
-      return new AutoValue_TopLevelStatusEvents_TopLevelTargetExecutionStartedEvent();
+    public abstract boolean isTest();
+
+    public static TopLevelTargetPendingExecutionEvent create(
+        ConfiguredTarget configuredTarget, boolean isTest) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelTargetPendingExecutionEvent(
+          configuredTarget, isTest);
+    }
+  }
+
+  /** An event that denotes that some execution has started in this build. */
+  @AutoValue
+  public abstract static class SomeExecutionStartedEvent implements Postable {
+
+    public static SomeExecutionStartedEvent create() {
+      return new AutoValue_TopLevelStatusEvents_SomeExecutionStartedEvent();
     }
   }
   /** An event that marks the successful build of a top-level target, including tests. */
