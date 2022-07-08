@@ -1067,13 +1067,23 @@ public class RemoteExecutionService {
     }
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
-    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = forcedDownloadsBuilder.build();
-
-    try {
-      waitForDownloads(forcedDownloads, result, tmpOutErr, "Remote.download");
-      waitForDownloads(forcedDownloads, result, tmpOutErr, "Remote.forcedDownload");
-    } catch (BulkTransferException | InterruptedException | ExecException e) {
+    try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
+      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (Exception e) {
       // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just rethrowing
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(result, tmpOutErr, e);
+      throw e;
+    }
+
+    ImmutableList<ListenableFuture<FileMetadata>> forcedDownloads = forcedDownloadsBuilder.build();
+    // TODO(bazel-team): Unify this block with the equivalent block above.
+    try (SilentCloseable c = Profiler.instance().profile("Remote.forcedDownload")) {
+      waitForBulkTransfer(forcedDownloads, /* cancelRemainingOnInterrupt= */ true);
+    } catch (Exception e) {
+      // TODO(bazel-team): Consider adding better case-by-case exception handling instead of just rethrowing
+      captureCorruptedOutputs(e);
+      deletePartialDownloadedOutputs(result, tmpOutErr, e);
       throw e;
     }
 
@@ -1087,13 +1097,6 @@ public class RemoteExecutionService {
     // Will these be properly garbage-collected if the above throws an exception?
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
-
-    // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of 2022-07-05,
-    //  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes which is necessary for using
-    //  remoteDownloadRegex.
-    if (!forcedDownloads.isEmpty()) {
-      moveOutputsToFinalLocation(forcedDownloads);
-    }
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);
@@ -1112,6 +1115,13 @@ public class RemoteExecutionService {
       // might not be supported on all platforms
       createSymlinks(symlinks);
     } else {
+      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of 2022-07-05,
+      //  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes which is necessary for using
+      //  remoteDownloadRegex.
+      if (!forcedDownloads.isEmpty()) {
+        moveOutputsToFinalLocation(forcedDownloads);
+      }
+
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
@@ -1149,17 +1159,17 @@ public class RemoteExecutionService {
     return null;
   }
 
-  private void waitForDownloads(ImmutableList<ListenableFuture<FileMetadata>> downloads,
-                   RemoteActionResult result, FileOutErr tmpOutErr, String profileDescriptor)
-          throws BulkTransferException, InterruptedException, ExecException {
-    try (SilentCloseable c = Profiler.instance().profile(profileDescriptor)) {
-      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-    } catch (BulkTransferException | InterruptedException e) {
-      captureCorruptedOutputs(e);
-      deletePartialDownloadedOutputs(result, tmpOutErr, e);
-      throw e;
-    }
-  }
+//  private void waitForDownloads(ImmutableList<ListenableFuture<FileMetadata>> downloads,
+//                   RemoteActionResult result, FileOutErr tmpOutErr, String profileDescriptor)
+//          throws Exception {
+//    try (SilentCloseable c = Profiler.instance().profile(profileDescriptor)) {
+//      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
+//    } catch (Exception e) {
+//      captureCorruptedOutputs(e);
+//      deletePartialDownloadedOutputs(result, tmpOutErr, e);
+//      throw e;
+//    }
+//  }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
           ActionResultMetadata metadata, RemoteAction action) {
