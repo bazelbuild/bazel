@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -292,7 +294,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         originalMainClass,
         filesToBuildBuilder,
         javaExecutable,
-        /* createCoverageMetadataJar= */ true);
+        /* createCoverageMetadataJar= */ false);
 
     Artifact oneVersionOutputArtifact = null;
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
@@ -363,6 +365,58 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = javaRuleOutputJarsProviderBuilder.build();
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
+
+    NestedSetBuilder<Pair<String, String>> coverageEnvironment = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> coverageSupportFiles = NestedSetBuilder.stableOrder();
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+
+      // Create an artifact that contains the runfiles relative paths of the jars on the runtime
+      // classpath. Using SourceManifestAction is the only reliable way to match the runfiles
+      // creation code.
+      Artifact runtimeClasspathArtifact =
+          ruleContext.getUniqueDirectoryArtifact(
+              "runtime_classpath_for_coverage",
+              "runtime_classpath.txt",
+              ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(
+          new SourceManifestAction(
+              SourceManifestAction.ManifestType.SOURCES_ONLY,
+              ruleContext.getActionOwner(),
+              runtimeClasspathArtifact,
+              new Runfiles.Builder(
+                      ruleContext.getWorkspaceName(),
+                      ruleContext.getConfiguration().legacyExternalRunfiles())
+                  // This matches the code below in collectDefaultRunfiles.
+                  .addTransitiveArtifactsWrappedInStableOrder(javaCommon.getRuntimeClasspath())
+                  .build(),
+              true));
+      filesToBuildBuilder.add(runtimeClasspathArtifact);
+
+      // Pass the artifact through an environment variable in the coverage environment so it
+      // can be read by the coverage collection script.
+      coverageEnvironment.add(
+          new Pair<>(
+              "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE", runtimeClasspathArtifact.getExecPathString()));
+      // Add the file to coverageSupportFiles so it ends up as an input for the test action
+      // when coverage is enabled.
+      coverageSupportFiles.add(runtimeClasspathArtifact);
+
+      // Make single jar reachable from the coverage environment because it needs to be executed
+      // by the coverage collection script.
+      Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+      coverageEnvironment.add(new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecPathString()));
+      coverageSupportFiles.add(singleJar);
+    }
+
+    javaCommon.addTransitiveInfoProviders(
+        builder,
+        javaInfoBuilder,
+        filesToBuild,
+        classJar,
+        coverageEnvironment.build(),
+        coverageSupportFiles.build());
+    javaCommon.addGenJarsProvider(
+        builder, javaInfoBuilder, outputs.genClass(), outputs.genSource());
 
     javaCommon.addTransitiveInfoProviders(builder, javaInfoBuilder, filesToBuild, classJar);
     javaCommon.addGenJarsProvider(

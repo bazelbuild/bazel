@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,6 +34,9 @@ import javax.annotation.Nullable;
 
 /** An implementation for the "android_local_test" rule. */
 public class BazelAndroidLocalTest extends AndroidLocalTestBase {
+
+  private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
+      "com.google.testing.coverage.JacocoCoverageRunner";
 
   public BazelAndroidLocalTest() {
     super(BazelAndroidSemantics.INSTANCE);
@@ -76,9 +80,14 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
       JavaTargetAttributes.Builder attributesBuilder,
       String mainClass)
       throws RuleErrorException {
-    // coverage does not yet work with android_local_test
-    ruleContext.throwWithRuleError("android_local_test does not yet support coverage");
-    return "";
+    // This method can be called only for *_binary/*_test targets.
+    Preconditions.checkNotNull(executable);
+
+    helper.addCoverageSupport();
+
+    // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
+    // script via an environment variable.
+    return JACOCO_COVERAGE_RUNNER_MAIN_CLASS;
   }
 
   @Override
