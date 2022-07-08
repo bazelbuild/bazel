@@ -1088,6 +1088,13 @@ public class RemoteExecutionService {
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
 
+    // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of 2022-07-05,
+    //  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes which is necessary for using
+    //  remoteDownloadRegex.
+    if (!forcedDownloads.isEmpty()) {
+      moveOutputsToFinalLocation(forcedDownloads);
+    }
+
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads);
 
@@ -1105,13 +1112,6 @@ public class RemoteExecutionService {
       // might not be supported on all platforms
       createSymlinks(symlinks);
     } else {
-      // TODO(bazel-team): We should unify this if-block to rely on downloadOutputs above but, as of 2022-07-05,
-      //  downloadOuputs' semantics isn't exactly the same as build-without-the-bytes which is necessary for using
-      //  remoteDownloadRegex.
-      if (!forcedDownloads.isEmpty()) {
-        moveOutputsToFinalLocation(forcedDownloads);
-      }
-
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
