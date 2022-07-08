@@ -45,16 +45,16 @@ exported_toplevels = {
 # * leading `-` means the Starlark rule exists, but is not used by default
 exported_rules = {
     "+cc_import": cc_import,
-    "+java_lite_proto_library": java_lite_proto_library,
+    "java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
-    "+proto_library": proto_library,
+    "proto_library": proto_library,
     "+cc_shared_library": cc_shared_library,
     "+cc_shared_library_permissions": cc_shared_library_permissions,
     "+cc_binary": cc_binary,
     "+cc_test": cc_test,
     "+cc_library": cc_library,
-    "+proto_lang_toolchain": proto_lang_toolchain,
+    "proto_lang_toolchain": proto_lang_toolchain,
 }
 
 # A list of Starlark functions callable from native rules implementation.

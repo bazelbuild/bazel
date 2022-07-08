@@ -25,18 +25,14 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibrary;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
-/** Declaration of the {@code java_proto_library} rule. */
+/**
+ * Declaration of the {@code java_proto_library} rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class BazelJavaProtoLibraryRule implements RuleDefinition {
-
-  private final BazelJavaProtoAspect javaProtoAspect;
-
-  public BazelJavaProtoLibraryRule(BazelJavaProtoAspect javaProtoAspect) {
-    this.javaProtoAspect = javaProtoAspect;
-  }
-
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
@@ -45,11 +41,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
         rules to generate Java code for.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
-            attr("deps", LABEL_LIST)
-                .allowedRuleClasses("proto_library")
-                .allowedFileTypes()
-                .aspect(javaProtoAspect))
+        .override(attr("deps", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
@@ -59,7 +51,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_proto_library")
-        .factoryClass(JavaProtoLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .build();
   }

@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
-import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect.DEFAULT_PROTO_TOOLCHAIN_LABEL;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.getProtoToolchainLabel;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -28,18 +25,15 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
-import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
-import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
-import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
-/** Declaration of the {@code java_lite_proto_library} rule. */
+/**
+ * Declaration of the {@code java_lite_proto_library} rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
 
-  private final BazelJavaLiteProtoAspect javaProtoAspect;
-
-  public BazelJavaLiteProtoLibraryRule(BazelJavaLiteProtoAspect javaProtoAspect) {
-    this.javaProtoAspect = javaProtoAspect;
-  }
+  public BazelJavaLiteProtoLibraryRule() {}
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -49,15 +43,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
         rules to generate Java code for.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
-            attr("deps", LABEL_LIST)
-                .allowedRuleClasses("proto_library")
-                .allowedFileTypes()
-                .aspect(javaProtoAspect))
-        .add(
-            attr(JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR, LABEL)
-                .mandatoryProviders(ProtoLangToolchainProvider.PROVIDER_ID)
-                .value(getProtoToolchainLabel(DEFAULT_PROTO_TOOLCHAIN_LABEL)))
+        .override(attr("deps", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }
@@ -66,7 +52,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_lite_proto_library")
-        .factoryClass(JavaLiteProtoLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .ancestors(BaseRuleClasses.NativeActionCreatingRule.class, JavaToolchainBaseRule.class)
         .build();
   }
