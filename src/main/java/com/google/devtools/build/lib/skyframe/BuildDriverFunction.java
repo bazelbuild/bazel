@@ -54,15 +54,15 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetExecutionStartedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
@@ -187,6 +187,10 @@ public class BuildDriverFunction implements SkyFunction {
         }
       }
 
+      env.getListener()
+          .post(
+              TopLevelTargetPendingExecutionEvent.create(
+                  configuredTarget, buildDriverKey.isTest()));
       requestConfiguredTargetExecution(
           configuredTarget,
           buildDriverKey,
@@ -296,7 +300,7 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
-    env.getListener().post(TopLevelTargetExecutionStartedEvent.create());
+    env.getListener().post(SomeExecutionStartedEvent.create());
     if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
           env,
@@ -337,7 +341,7 @@ public class BuildDriverFunction implements SkyFunction {
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
 
-    env.getListener().post(TopLevelTargetExecutionStartedEvent.create());
+    env.getListener().post(SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
     for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {

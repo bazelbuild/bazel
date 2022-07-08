@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,8 +81,6 @@ public final class TargetSummaryPublisher {
    */
   @Subscribe
   public void populateTargets(TestFilteringCompleteEvent event) {
-    int expectedCompletions = aspectCount.get() + 1; // + 1 for target itself
-    checkState(expectedCompletions > 0, "Haven't received BuildStartingEvent");
     ImmutableSet<ConfiguredTarget> testTargets =
         event.getTestTargets() != null
             ? ImmutableSet.copyOf(event.getTestTargets())
@@ -92,16 +92,48 @@ public final class TargetSummaryPublisher {
         // we'll still get (and ignore) a TestSummary event, but that event isn't published to BEP.
         continue;
       }
-      // We want target summaries for alias targets, but note they don't receive test summaries.
-      TargetSummaryAggregator aggregator =
-          new TargetSummaryAggregator(
-              target,
-              expectedCompletions,
-              !AliasProvider.isAlias(target) && testTargets.contains(target));
-      TargetSummaryAggregator oldAggregator = aggregators.put(asKey(target), aggregator);
+      TargetSummaryAggregator oldAggregator =
+          replaceAggregatorForTarget(/*isTest=*/ testTargets.contains(target), target);
       checkState(
-          oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
+          oldAggregator == null,
+          "target: %s, values: %s %s",
+          target,
+          oldAggregator,
+          aggregators.get(asKey(target)));
     }
+  }
+
+  /**
+   * Populates the aggregator for a particular top level target, including test targets.
+   *
+   * <p>Since the event is fired from within a SkyFunction, it is possible to receive duplicate
+   * events. In case of duplication, simply return without creating any new aggregator.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void populateTarget(TopLevelTargetPendingExecutionEvent event) {
+    replaceAggregatorForTarget(event.isTest(), event.configuredTarget());
+  }
+
+  /**
+   * Creates a TargetSummaryAggregator for the given target and stores it in {@link aggregators}
+   *
+   * @return the existing aggregator, if any.
+   */
+  @Nullable
+  @CanIgnoreReturnValue
+  private TargetSummaryAggregator replaceAggregatorForTarget(
+      boolean isTest, ConfiguredTarget target) {
+    if (aggregators.containsKey(asKey(target))) {
+      return null;
+    }
+    int expectedCompletions = aspectCount.get() + 1; // + 1 for target itself
+    checkState(expectedCompletions > 0, "Haven't received BuildStartingEvent");
+    // We want target summaries for alias targets, but note they don't receive test summaries.
+    TargetSummaryAggregator aggregator =
+        new TargetSummaryAggregator(
+            target, expectedCompletions, isTest && !AliasProvider.isAlias(target));
+    return aggregators.put(asKey(target), aggregator);
   }
 
   @Subscribe
