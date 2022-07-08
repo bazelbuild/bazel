@@ -15,7 +15,9 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:auto_value",
         "//third_party:error_prone_annotations",
+        "//third_party:gson",
         "//third_party:guava",
     ],
 )
