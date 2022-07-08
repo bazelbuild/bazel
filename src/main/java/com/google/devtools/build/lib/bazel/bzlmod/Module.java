@@ -144,9 +144,7 @@ public abstract class Module {
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0)
-        .setExecutionPlatformsToRegister(ImmutableList.of())
-        .setToolchainsToRegister(ImmutableList.of());
+        .setCompatibilityLevel(0);
   }
 
   /**
@@ -174,11 +172,21 @@ public abstract class Module {
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
 
-    /** Optional; defaults to an empty list. */
-    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
+    abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 
-    /** Optional; defaults to an empty list. */
-    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
+    @CanIgnoreReturnValue
+    public final Builder addExecutionPlatformsToRegister(Iterable<String> values) {
+      executionPlatformsToRegisterBuilder().addAll(values);
+      return this;
+    }
+
+    abstract ImmutableList.Builder<String> toolchainsToRegisterBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addToolchainsToRegister(Iterable<String> values) {
+      toolchainsToRegisterBuilder().addAll(values);
+      return this;
+    }
 
     public abstract Builder setOriginalDeps(ImmutableMap<String, ModuleKey> value);
 

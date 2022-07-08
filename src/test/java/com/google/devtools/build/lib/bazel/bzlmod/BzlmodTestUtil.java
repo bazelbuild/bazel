@@ -102,14 +102,14 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder setExecutionPlatformsToRegister(ImmutableList<String> value) {
-      this.builder.setExecutionPlatformsToRegister(value);
+    public ModuleBuilder addExecutionPlatformsToRegister(ImmutableList<String> value) {
+      this.builder.addExecutionPlatformsToRegister(value);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder setToolchainsToRegister(ImmutableList<String> value) {
-      this.builder.setToolchainsToRegister(value);
+    public ModuleBuilder addToolchainsToRegister(ImmutableList<String> value) {
+      this.builder.addToolchainsToRegister(value);
       return this;
     }
 
