@@ -420,8 +420,8 @@ public class ResourceManager {
       if (request.second.latch.getCount() != 0) {
         if (areResourcesAvailable(request.first)) {
           Worker worker = incrementResources(request.first);
-          request.second.latch.countDown();
           request.second.worker = worker;
+          request.second.latch.countDown();
           iterator.remove();
         }
       } else {
