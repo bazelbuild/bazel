@@ -359,12 +359,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      Rule rule = null;
-      if (target instanceof Rule) {
-        rule = (Rule) target;
-      } else if (target instanceof OutputFile) {
-        rule = ((OutputFile) target).getAssociatedRule();
-      }
+      Rule rule = target.getAssociatedRule();
 
       PlatformInfo platformInfo = unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
       Label platformLabel = platformInfo != null ? platformInfo.label() : null;
