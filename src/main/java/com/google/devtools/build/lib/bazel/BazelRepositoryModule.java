@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionFunction;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
+import com.google.devtools.build.lib.bazel.commands.ModqueryCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
@@ -59,8 +61,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -132,9 +132,6 @@ public class BazelRepositoryModule extends BlazeModule {
   private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
   private List<String> registries;
-  // We hold the precomputed value of the managed directories here, so that the dependency
-  // on WorkspaceFileValue is not registered for each FileStateValue.
-  private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
   private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
@@ -143,24 +140,6 @@ public class BazelRepositoryModule extends BlazeModule {
   public BazelRepositoryModule() {
     this.starlarkRepositoryFunction = new StarlarkRepositoryFunction(downloadManager);
     this.repositoryHandlers = repositoryRules();
-    ManagedDirectoriesListener listener =
-        repositoryNamesWithManagedDirs -> {
-          Set<String> conflicting =
-              overrides.keySet().stream()
-                  .filter(repositoryNamesWithManagedDirs::contains)
-                  .map(RepositoryName::getNameWithAt)
-                  .collect(Collectors.toSet());
-          if (!conflicting.isEmpty()) {
-            String message =
-                "Overriding repositories is not allowed"
-                    + " for the repositories with managed directories.\n"
-                    + "The following overridden external repositories have managed directories: "
-                    + String.join(", ", conflicting.toArray(new String[0]));
-            throw new AbruptExitException(
-                detailedExitCode(message, Code.OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES));
-          }
-        };
-    managedDirectoriesKnowledge = new ManagedDirectoriesKnowledgeImpl(listener);
   }
 
   private static DetailedExitCode detailedExitCode(String message, ExternalRepository.Code code) {
@@ -200,6 +179,7 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addCommands(new FetchCommand());
+    builder.addCommands(new ModqueryCommand());
     builder.addCommands(new SyncCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
@@ -211,9 +191,7 @@ public class BazelRepositoryModule extends BlazeModule {
     if ("bazel".equals(runtime.getProductName())) {
       builder.setSkyframeExecutorRepositoryHelpersHolder(
           SkyframeExecutorRepositoryHelpersHolder.create(
-              managedDirectoriesKnowledge,
-              new RepositoryDirectoryDirtinessChecker(
-                  directories.getWorkspace(), managedDirectoriesKnowledge)));
+              new RepositoryDirectoryDirtinessChecker()));
     }
 
     // Create the repository function everything flows through.
@@ -224,13 +202,11 @@ public class BazelRepositoryModule extends BlazeModule {
             isFetch,
             clientEnvironmentSupplier,
             directories,
-            managedDirectoriesKnowledge,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(new HttpDownloader(), clientEnvironmentSupplier);
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(
-            runtime.getPackageFactory(), directories, clientEnvironmentSupplier, downloadManager);
+        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
 
     ImmutableMap<String, NonRegistryOverride> builtinModules =
         ImmutableMap.of(
@@ -257,6 +233,7 @@ public class BazelRepositoryModule extends BlazeModule {
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(registryFactory, directories.getWorkspace(), builtinModules))
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+        .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .addSkyFunction(

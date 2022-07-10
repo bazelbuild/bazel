@@ -20,7 +20,7 @@ CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 apple_common = _builtins.toplevel.apple_common
 
-def _link_multi_arch_static_library(ctx, split_target_triplets = None):
+def _link_multi_arch_static_library(ctx, split_target_triplets):
     """Links a (potentially multi-architecture) static library targeting Apple platforms.
 
     Rule context is a required parameter due to usage of the cc_common.configure_features API.
@@ -30,8 +30,6 @@ def _link_multi_arch_static_library(ctx, split_target_triplets = None):
         split_target_triplets: Dict for split transition keys and target triplet struct (arch,
           platform, environment). These values come from Java (see AppleStarlarkCommon.java) and are
           in place due to no available Starlark API for these values.
-
-          Defaults to None for `apple_static_library` rule usage.
 
     Returns:
         A Starlark struct containing the following attributes:

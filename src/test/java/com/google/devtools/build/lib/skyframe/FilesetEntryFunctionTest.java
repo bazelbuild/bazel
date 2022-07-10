@@ -232,7 +232,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   }
 
   private static Label label(String label) throws Exception {
-    return Label.parseAbsolute(label, ImmutableMap.of());
+    return Label.parseCanonical(label);
   }
 
   @Test

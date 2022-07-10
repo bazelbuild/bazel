@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -185,6 +186,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         CcCommon.configureFeaturesOrThrowEvalException(
             /* requestedFeatures= */ ImmutableSet.of(),
             /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
             toolchainProvider,
             cppConfiguration);
     return CppHelper.usePicForBinaries(toolchainProvider, cppConfiguration, featureConfiguration);
@@ -407,7 +409,8 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    cmd='touch $@')");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:gen_artifact");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+    assertContainsEvent(
+        "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");
   }
 
   @Test
@@ -433,7 +436,8 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("my_profile.afdo", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_optimize points to a target that is not an input file");
+    assertContainsEvent(
+        "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");
   }
 
   @Test

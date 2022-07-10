@@ -48,7 +48,7 @@ public final class RegexFilter implements Predicate<String> {
    * <p>Order of expressions is not important. Empty entries are ignored. '-' marks an excluded
    * expression.
    */
-  public static class RegexFilterConverter implements Converter<RegexFilter> {
+  public static class RegexFilterConverter extends Converter.Contextless<RegexFilter> {
 
     @Override
     public RegexFilter convert(String input) throws OptionsParsingException {
@@ -69,8 +69,8 @@ public final class RegexFilter implements Predicate<String> {
       try {
         return new RegexFilter(inclusionList, exclusionList);
       } catch (PatternSyntaxException e) {
-        throw new OptionsParsingException("Failed to build valid regular expression: "
-            + e.getMessage());
+        throw new OptionsParsingException(
+            "Failed to build valid regular expression: " + e.getMessage());
       }
     }
 
@@ -105,6 +105,7 @@ public final class RegexFilter implements Predicate<String> {
    * Converts a list of regex expressions into a single regex representing its union or null when
    * the list is empty.
    */
+  @Nullable
   private static Pattern takeUnionOfRegexes(List<String> regexList) {
     if (regexList.isEmpty()) {
       return null;

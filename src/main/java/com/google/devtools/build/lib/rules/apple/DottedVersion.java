@@ -138,10 +138,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
   }
 
+  @Nullable
   public static DottedVersion maybeUnwrap(DottedVersion.Option option) {
     return option != null ? option.get() : null;
   }
 
+  @Nullable
   public static Option option(DottedVersion version) {
     return version == null ? null : new Option(version);
   }

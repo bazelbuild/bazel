@@ -64,6 +64,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return from(collection, null);
   }
 
+  @Nullable
   private static JavaToolchainProvider from(
       ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);

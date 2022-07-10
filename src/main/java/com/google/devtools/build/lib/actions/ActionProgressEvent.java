@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** Notifications for the progress of an in-flight action. */
 @AutoValue
-public abstract class ActionProgressEvent implements ProgressLike {
+public abstract class ActionProgressEvent implements Postable {
 
   public static ActionProgressEvent create(
       ActionExecutionMetadata action, String progressId, String progress, boolean finished) {

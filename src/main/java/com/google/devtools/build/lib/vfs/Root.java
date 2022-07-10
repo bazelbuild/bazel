@@ -213,6 +213,7 @@ public abstract class Root implements Comparable<Root> {
       return true;
     }
 
+    @Nullable
     @Override
     public Path asPath() {
       return null;

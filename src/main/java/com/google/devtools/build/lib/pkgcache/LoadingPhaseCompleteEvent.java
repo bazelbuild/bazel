@@ -52,4 +52,9 @@ public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Pos
   public ImmutableSet<Label> getFilteredLabels() {
     return filteredLabels;
   }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
+  }
 }

@@ -221,7 +221,8 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /*includeExecutionPhase=*/ false,
-        /*mergedPhasesExecutionJobsCount=*/ 0);
+        /*mergedPhasesExecutionJobsCount=*/ 0,
+        /*resourceManager=*/ null);
   }
 
   /** Sets the configurations. Not thread-safe. */

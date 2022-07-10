@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
@@ -31,6 +32,7 @@ class ClassVsInterface {
     this.classpath = classpath;
   }
 
+  @CanIgnoreReturnValue
   public ClassVsInterface addKnownClass(@Nullable String internalName) {
     if (internalName != null) {
       Boolean previous = known.put(internalName, false);
@@ -39,6 +41,7 @@ class ClassVsInterface {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ClassVsInterface addKnownInterfaces(String... internalNames) {
     for (String internalName : internalNames) {
       Boolean previous = known.put(internalName, true);

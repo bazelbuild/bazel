@@ -300,7 +300,7 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -399,7 +399,7 @@ public class ExecutionTool {
       }
     }
 
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -500,17 +500,7 @@ public class ExecutionTool {
     } catch (Error | RuntimeException e) {
       catastrophe = e;
     } finally {
-      // These may flush logs, which may help if there is a catastrophic failure.
-      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
-        executorLifecycleListener.executionPhaseEnding();
-      }
-
-      // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
-      // a catastrophic failure. Posting these is consistent with other behavior.
-      env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
-
-      env.getEventBus()
-          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+      unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
 
       if (catastrophe != null) {
         Throwables.throwIfUnchecked(catastrophe);
@@ -576,6 +566,25 @@ public class ExecutionTool {
         env.getOutputService().finalizeBuild(isBuildSuccessful);
       }
     }
+  }
+
+  /**
+   * These steps get performed after the end of execution, regardless of whether there's a
+   * catastrophe or not.
+   */
+  void unconditionalExecutionPhaseFinalizations(
+      Stopwatch timer, SkyframeExecutor skyframeExecutor) {
+    // These may flush logs, which may help if there is a catastrophic failure.
+    for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+      executorLifecycleListener.executionPhaseEnding();
+    }
+
+    // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
+    // a catastrophic failure. Posting these is consistent with other behavior.
+    env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
+
+    env.getEventBus()
+        .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
@@ -726,6 +735,7 @@ public class ExecutionTool {
     // Gather configurations to consider.
     Set<BuildConfigurationValue> targetConfigurations =
         buildRequestOptions.useTopLevelTargetsForSymlinks()
+                && !analysisResult.getTargetsToBuild().isEmpty()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
@@ -780,6 +790,7 @@ public class ExecutionTool {
    * If a path is supplied, creates and installs an ExplanationHandler. Returns an instance on
    * success. Reports an error and returns null otherwise.
    */
+  @Nullable
   private ExplanationHandler installExplanationHandler(
       PathFragment explanationPath, String allOptions) {
     if (explanationPath == null) {
@@ -929,7 +940,6 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.localRamResources,

@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -148,8 +147,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
     SingleExtensionEvalFunction singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(
-            packageFactory, directories, ImmutableMap::of, downloadManager);
+        new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager);
     StarlarkRepositoryFunction starlarkRepositoryFunction =
         new StarlarkRepositoryFunction(downloadManager);
 
@@ -226,15 +224,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
-                        packageFactory,
-                        ruleClassProvider,
-                        directories,
-                        new BzlmodRepoRuleHelperImpl()))
+                        ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
@@ -315,6 +309,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   public void multipleModules() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='root',version='1.0')",
         "bazel_dep(name='ext',version='1.0')",
         "bazel_dep(name='foo',version='1.0')",
         "bazel_dep(name='bar',version='2.0')",
@@ -364,10 +359,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         modulesRoot.getRelative("@ext.1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
-        "  data_str = 'modules:'",
+        "  data_str = ''",
         "  for mod in ctx.modules:",
+        "    data_str += mod.name + '@' + mod.version + (' (root): ' if mod.is_root else ': ')",
         "    for tag in mod.tags.tag:",
-        "      data_str += ' ' + tag.data",
+        "      data_str += tag.data",
+        "    data_str += '\\n'",
         "  data_repo(name='ext_repo',data=data_str)",
         "tag=tag_class(attrs={'data':attr.string()})",
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
@@ -379,7 +376,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
-        .isEqualTo("modules: root foo@1.0 bar@2.0 quux@2.0");
+        .isEqualTo(
+            "root@1.0 (root): root\nfoo@1.0: foo@1.0\nbar@2.0: bar@2.0\nquux@2.0: quux@2.0\n");
   }
 
   @Test
@@ -670,7 +668,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
-  public void labels_constructedInModuleExtension() throws Exception {
+  public void labels_constructedInModuleExtension_readInModuleExtension() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='ext',version='1.0')",
@@ -724,6 +722,57 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("requirements: get up at 6am. go to bed at 11pm.");
+  }
+
+  @Test
+  public void labels_constructedInModuleExtensionAsString_passedOnToRepoRule() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "use_repo(ext,'ext_repo')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("@foo.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("@foo.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("@foo.1.0/requirements.txt").getPathString(), "get up at 6am.");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("@ext.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("@ext.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("@ext.1.0/defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "  content = ctx.read(ctx.attr.file).strip()",
+        "  ctx.file('data.bzl', 'data='+json.encode(content))",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl, attrs={'file':attr.label()})",
+        "",
+        "def _ext_impl(ctx):",
+        // The label literal on the following line should be interpreted using ext.1.0's repo
+        // mapping.
+        "  data_repo(name='ext_repo',file='@foo//:requirements.txt')",
+        "ext=module_extension(implementation=_ext_impl)");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("get up at 6am.");
   }
 
   /** Tests that a complex-typed attribute (here, string_list_dict) behaves well on a tag. */
@@ -958,6 +1007,38 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .hasMessageThat()
         .contains(
             "Label '//foo/defs.bzl:defs.bzl' is invalid because 'foo/defs.bzl' is not a package");
+  }
+
+  @Test
+  public void importNonExistentRepo() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "use_repo(ext,my_repo='missing_repo')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {'name':attr.string(),'data':attr.string()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='ext',data='void')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains(
+            "module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
+                + " \"missing_repo\", yet it is imported as \"my_repo\" in the usage at"
+                + " <root>/MODULE.bazel:1:20");
   }
 
   @Test

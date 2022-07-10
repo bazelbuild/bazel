@@ -302,7 +302,10 @@ public class TopLevelConstraintSemantics {
     // TODO(austinschuh): While the first eror is helpful, reporting all the errors at once would
     // save the user bazel round trips.
     while (target != null) {
-      message += "\n    " + target.getLabel();
+      message +=
+          String.format(
+              "\n    %s (%s)",
+              target.getLabel(), target.getConfigurationChecksum().substring(0, 6));
       provider = target.get(IncompatiblePlatformProvider.PROVIDER);
       ImmutableList<ConfiguredTarget> targetList = provider.targetsResponsibleForIncompatibility();
       if (targetList == null) {

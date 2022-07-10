@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
 import org.junit.Test;
@@ -532,42 +533,50 @@ public class BazelModuleInspectorFunctionTest {
 
     private ModuleAugmentBuilder() {}
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addDep(String name, String version, ResolutionReason reason) {
       this.builder.addDep(createModuleKey(name, version), reason);
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addDep(String name, String version) {
       this.builder.addDep(createModuleKey(name, version), ResolutionReason.ORIGINAL);
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addDependant(String name, String version) {
       this.builder.addDependant(createModuleKey(name, version));
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addDependant(ModuleKey key) {
       this.builder.addDependant(key);
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addOriginalDependant(String name, String version) {
       this.builder.addOriginalDependant(createModuleKey(name, version));
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addOriginalDependant(ModuleKey key) {
       this.builder.addOriginalDependant(key);
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addStillDependant(String name, String version) {
       this.builder.addOriginalDependant(createModuleKey(name, version));
       this.builder.addDependant(createModuleKey(name, version));
       return this;
     }
 
+    @CanIgnoreReturnValue
     ModuleAugmentBuilder addStillDependant(ModuleKey key) {
       this.builder.addOriginalDependant(key);
       this.builder.addDependant(key);

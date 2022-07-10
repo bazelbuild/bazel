@@ -143,10 +143,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         //  instance to avoid adding a dependency to the C++ package.
         builder.value((NativeComputedDefaultApi) defaultValue);
       } else {
-        BazelModuleContext moduleContext =
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
         builder.defaultValue(
-            defaultValue, LabelConverter.forModuleContext(moduleContext), DEFAULT_ARG);
+            defaultValue, LabelConverter.forBzlEvaluatingThread(thread), DEFAULT_ARG);
       }
     }
 

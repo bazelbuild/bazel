@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
@@ -112,7 +113,7 @@ public final class CompletionFunction<
 
     /** Creates a succeeded completion value; returns null if skyframe found missing values. */
     @Nullable
-    ExtendedEventHandler.Postable createSucceeded(
+    EventReportingArtifacts createSucceeded(
         KeyT skyKey,
         ValueT value,
         CompletionContext completionContext,

@@ -1,10 +1,4 @@
-module(
-    name = "bazel_tools",
-    toolchains_to_register = [
-        "@local_config_cc_toolchains//:all",
-        "@local_config_sh//:local_sh_toolchain",
-    ],
-)
+module(name = "bazel_tools")
 
 bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "rules_java", version = "5.0.0")
@@ -16,6 +10,7 @@ bazel_dep(name = "protobuf", version = "3.19.0", repo_name = "com_google_protobu
 
 cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
+register_toolchains("@local_config_cc_toolchains//:all")
 
 xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
@@ -32,6 +27,7 @@ use_repo(
 
 sh_configure_extension = use_extension("//tools/sh:sh_configure.bzl", "sh_configure_extension")
 use_repo(sh_configure_extension, "local_config_sh")
+register_toolchains("@local_config_sh//:local_sh_toolchain")
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")

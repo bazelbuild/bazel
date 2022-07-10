@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelp
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -441,9 +440,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'], java_lib = ':lib')",
         "foo_rule(name = 'foo_rule', dep = 'foo_java_proto')");
     ConfiguredTarget target = getConfiguredTarget("//x:foo_rule");
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//x:aspect.bzl", ImmutableMap.of()), "MyInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//x:aspect.bzl"), "MyInfo");
     StructImpl myInfo = (StructImpl) target.get(key);
     Boolean result = (Boolean) myInfo.getValue("result");
 

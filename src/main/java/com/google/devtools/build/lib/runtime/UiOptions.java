@@ -46,7 +46,7 @@ public class UiOptions extends OptionsBase {
   }
 
   /** Converter for {@link EventKind} filters * */
-  public static class EventFiltersConverter implements Converter<List<EventKind>> {
+  public static class EventFiltersConverter extends Converter.Contextless<List<EventKind>> {
 
     /** A converter for event kinds. */
     public static class EventKindConverter extends EnumConverter<EventKind> {
@@ -69,7 +69,7 @@ public class UiOptions extends OptionsBase {
         // Empty list means that the user wants to filter all events
         return new ArrayList<>(EventKind.ALL_EVENTS);
       }
-      List<String> filters = this.delegate.convert(input);
+      List<String> filters = this.delegate.convert(input, /*conversionContext=*/ null);
       EnumConverter<EventKind> eventKindConverter = new EventKindConverter(input);
 
       HashSet<EventKind> filteredEvents = new HashSet<>();
@@ -82,11 +82,13 @@ public class UiOptions extends OptionsBase {
 
       for (String filter : filters) {
         if (filter.startsWith("+")) {
-          filteredEvents.remove(eventKindConverter.convert(filter.substring(1)));
+          filteredEvents.remove(
+              eventKindConverter.convert(filter.substring(1), /*conversionContext=*/ null));
         } else if (filter.startsWith("-")) {
-          filteredEvents.add(eventKindConverter.convert(filter.substring(1)));
+          filteredEvents.add(
+              eventKindConverter.convert(filter.substring(1), /*conversionContext=*/ null));
         } else {
-          filteredEvents.remove(eventKindConverter.convert(filter));
+          filteredEvents.remove(eventKindConverter.convert(filter, /*conversionContext=*/ null));
         }
       }
       return new ArrayList<>(filteredEvents);

@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Strings used to express requirements on action execution environments.
@@ -102,6 +103,7 @@ public class ExecutionRequirements {
      *
      * @throws ValidationException if the value parsed out of the tag doesn't pass the validator.
      */
+    @Nullable
     public String parseIfMatches(String tag) throws ValidationException {
       Matcher matcher = detectionPattern().matcher(tag);
       if (!matcher.matches()) {
@@ -175,6 +177,9 @@ public class ExecutionRequirements {
 
   public static final ImmutableMap<String, String> WORKER_MODE_ENABLED =
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
+
+  public static final ImmutableMap<String, String> WORKER_MULTIPLEX_MODE_ENABLED =
+      ImmutableMap.of(SUPPORTS_MULTIPLEX_WORKERS, "1");
 
   /**
    * Requires local execution without sandboxing for a spawn.

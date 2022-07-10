@@ -104,6 +104,7 @@ public final class SolibSymlinkAction extends AbstractAction {
     return "SolibSymlink";
   }
 
+  @Nullable
   @Override
   protected String getRawProgressMessage() {
     return null;

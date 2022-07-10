@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.v1.BuildStatus.Result;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
@@ -752,51 +753,61 @@ public final class BuildEventServiceUploader implements Runnable {
     private EventBus eventBus;
     private Timestamp commandStartTime;
 
+    @CanIgnoreReturnValue
     Builder besClient(BuildEventServiceClient value) {
       this.besClient = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder localFileUploader(BuildEventArtifactUploader value) {
       this.localFileUploader = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder besProtoUtil(BuildEventServiceProtoUtil value) {
       this.besProtoUtil = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder bepOptions(BuildEventProtocolOptions value) {
       this.bepOptions = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder publishLifecycleEvents(boolean value) {
       this.publishLifecycleEvents = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder clock(Clock value) {
       this.clock = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder sleeper(Sleeper value) {
       this.sleeper = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder artifactGroupNamer(ArtifactGroupNamer value) {
       this.artifactGroupNamer = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder eventBus(EventBus value) {
       this.eventBus = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder commandStartTime(Timestamp value) {
       this.commandStartTime = value;
       return this;

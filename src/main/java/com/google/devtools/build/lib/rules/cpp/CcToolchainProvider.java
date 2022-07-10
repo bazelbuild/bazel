@@ -392,6 +392,7 @@ public final class CcToolchainProvider extends NativeInfo
     return toolPathFragment == null ? null : toolPathFragment.getPathString();
   }
 
+  @Nullable
   @Override
   public String getToolPathStringOrNoneForStarlark(String toolString, StarlarkThread thread)
       throws EvalException {

@@ -135,6 +135,7 @@ public final class BlazeDirectories {
    * <p>It may effectively differ from the working directory. Please use {@link
    * #getWorkingDirectory()} for writes within the working directory.
    */
+  @Nullable
   public Path getWorkspace() {
     // Make sure to use the same file system as exec root.
     return workspace != null
@@ -259,10 +260,6 @@ public final class BlazeDirectories {
     return BlazeDirectories.getRelativeOutputPath(productName);
   }
 
-  public String getProductName() {
-    return productName;
-  }
-
   /**
    * Returns the directory where Bazel writes build outputs, relative to the execRoot.
    *
@@ -270,6 +267,10 @@ public final class BlazeDirectories {
    */
   public static String getRelativeOutputPath(String productName) {
     return StringCanonicalizer.intern(productName + "-out");
+  }
+
+  public String getProductName() {
+    return productName;
   }
 
   @Override

@@ -69,6 +69,7 @@ def bazel_java_plugin_rule(
         [],  # exports
         [],  # exported_plugins
         resources,
+        [],  # resource_jars
         [],  # classpath_resources
         javacopts,
         neverlink,

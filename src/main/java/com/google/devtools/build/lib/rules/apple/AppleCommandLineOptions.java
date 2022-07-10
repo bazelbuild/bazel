@@ -44,13 +44,14 @@ import net.starlark.java.eval.Printer;
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "experimental_apple_mandatory_minimum_version",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help = "Whether Apple rules must have a mandatory minimum_os_version attribute."
-  )
-  // TODO(b/37096178): This flag should be default-on and then be removed.
+      name = "experimental_apple_mandatory_minimum_version",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
+  // TODO(b/37096178): This flag should be removed.
   public boolean mandatoryMinimumVersion;
 
   @Option(

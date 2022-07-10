@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -65,6 +66,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
   }
 
   /** Returns the {@link StarlarkConfigurationField} annotation corresponding to this method. */
+  @Nullable
   private static Label getDefaultLabel(
       StarlarkConfigurationField annotation, RepositoryName toolsRepository) {
     if (annotation.defaultLabel().isEmpty()) {

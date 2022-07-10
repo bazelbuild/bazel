@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 
 /**
  * An {@link AttributeMap} that supports attribute type queries on both a rule and its aspects and
@@ -102,6 +103,7 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
+  @Nullable
   public Type<?> getAttributeType(String attrName) {
     Type<?> type = ruleAttributes.getAttributeType(attrName);
     if (type != null) {

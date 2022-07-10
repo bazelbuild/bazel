@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @Immutable
-public class TestResult implements ExtendedEventHandler.ProgressLike {
+public class TestResult implements ExtendedEventHandler.Postable {
 
   private final TestRunnerAction testAction;
   private final TestResultData data;
@@ -126,6 +126,7 @@ public class TestResult implements ExtendedEventHandler.ProgressLike {
   }
 
   /** Returns the coverage data artifact, if available, and null otherwise. */
+  @Nullable
   public Path getCoverageData() {
     if (data.getHasCoverage()) {
       return testAction.getCoverageData().getPath();

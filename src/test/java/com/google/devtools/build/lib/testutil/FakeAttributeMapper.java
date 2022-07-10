@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -159,6 +160,7 @@ public class FakeAttributeMapper implements AttributeMap {
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder withStringList(String attribute, List<String> value) {
       mapBuilder.put(attribute, FakeAttributeMapperEntry.forStringList(value));
       return this;

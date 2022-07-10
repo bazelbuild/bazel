@@ -16,6 +16,7 @@ package com.google.devtools.build.singlejar;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,21 +50,25 @@ public class ZipFactory {
     entries.add(new Entry(name, content, compressed));
   }
 
+  @CanIgnoreReturnValue
   public ZipFactory addFile(String name, String content) {
     addEntry(name, content.getBytes(ISO_8859_1), true);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ZipFactory addFile(String name, byte[] content) {
     addEntry(name, content.clone(), true);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ZipFactory addFile(String name, String content, boolean compressed) {
     addEntry(name, content.getBytes(ISO_8859_1), compressed);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ZipFactory addFile(String name, byte[] content, boolean compressed) {
     addEntry(name, content.clone(), compressed);
     return this;

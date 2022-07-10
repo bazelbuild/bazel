@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /** Counterpart to {@link ScanningActionEvent}: indicates that scanning is over. */
-public class StoppedScanningActionEvent implements ExtendedEventHandler.ProgressLike {
+public final class StoppedScanningActionEvent implements ExtendedEventHandler.Postable {
   private final Action action;
 
   public StoppedScanningActionEvent(Action action) {

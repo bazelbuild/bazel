@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.testing;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainInfoSubject.toolchainInfos;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
@@ -54,7 +53,7 @@ public class ResolvedToolchainContextSubject extends ToolchainContextSubject {
 
   public ToolchainInfoSubject forToolchainType(String toolchainTypeLabel)
       throws LabelSyntaxException {
-    return forToolchainType(Label.parseAbsolute(toolchainTypeLabel, ImmutableMap.of()));
+    return forToolchainType(Label.parseCanonical(toolchainTypeLabel));
   }
 
   public ToolchainInfoSubject forToolchainType(Label toolchainType) {

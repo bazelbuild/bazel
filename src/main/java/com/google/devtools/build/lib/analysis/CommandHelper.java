@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -77,6 +78,7 @@ public final class CommandHelper {
      * {@code ruleContext}, in HOST mode. Populates manifests, remoteRunfiles and label map where
      * required.
      */
+    @CanIgnoreReturnValue
     public Builder addHostToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
           ruleContext.getPrerequisites(toolAttributeName);
@@ -98,6 +100,7 @@ public final class CommandHelper {
      * Adds tools, as a set of executable binaries. Populates manifests, remoteRunfiles and label
      * map where required.
      */
+    @CanIgnoreReturnValue
     public Builder addToolDependencies(
         Iterable<? extends TransitiveInfoCollection> toolDependencies) {
       this.toolDependencies.add(toolDependencies);
@@ -105,6 +108,7 @@ public final class CommandHelper {
     }
 
     /** Adds files to set of known files of label. Used for resolving $(location) variables. */
+    @CanIgnoreReturnValue
     public Builder addLabelMap(Map<Label, ? extends Iterable<Artifact>> labelMap) {
       this.labelMap.putAll(labelMap);
       return this;

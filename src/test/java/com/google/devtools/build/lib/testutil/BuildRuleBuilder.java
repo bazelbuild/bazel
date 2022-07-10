@@ -23,6 +23,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -78,6 +79,7 @@ public class BuildRuleBuilder {
   }
 
   /** Sets the value of a single valued attribute */
+  @CanIgnoreReturnValue
   public BuildRuleBuilder setSingleValueAttribute(String attrName, Object value) {
     Preconditions.checkState(
         !singleValueAttributes.containsKey(attrName), "attribute '%s' already set", attrName);
@@ -85,9 +87,8 @@ public class BuildRuleBuilder {
     return this;
   }
 
-  /**
-   * Sets the value of a list type attribute
-   */
+  /** Sets the value of a list type attribute */
+  @CanIgnoreReturnValue
   public BuildRuleBuilder addMultiValueAttributes(String attrName, String... value) {
     multiValueAttributes.putAll(attrName, Lists.newArrayList(value));
     return this;

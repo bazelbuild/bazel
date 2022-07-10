@@ -166,7 +166,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Whether to run validation actions as part of the build.")
+      help =
+          "Whether to run validation actions as part of the build. See"
+              + " https://bazel.build/rules/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(
@@ -344,7 +346,7 @@ public class BuildRequestOptions extends OptionsBase {
   // To be made a no-op and deleted once new symlink behavior is battle-tested.
   @Option(
       name = "use_top_level_targets_for_symlinks",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =

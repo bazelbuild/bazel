@@ -139,6 +139,7 @@ public class ActionCacheChecker {
    * Checks whether one of existing output paths is already used as a key. If yes, returns it -
    * otherwise uses first output file as a key
    */
+  @Nullable
   private ActionCache.Entry getCacheEntry(Action action) {
     if (!cacheConfig.enabled()) {
       return null; // ignore existing cache when disabled.
@@ -408,6 +409,7 @@ public class ActionCacheChecker {
    */
   // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
+  @Nullable
   public Token getTokenIfNeedToExecute(
       Action action,
       List<Artifact> resolvedCacheArtifacts,

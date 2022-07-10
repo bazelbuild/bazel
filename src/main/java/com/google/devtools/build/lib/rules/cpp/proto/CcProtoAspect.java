@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
@@ -72,6 +73,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Part of the implementation of cc_proto_library. */
 public abstract class CcProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -81,7 +83,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   private static final LabelLateBoundDefault<?> PROTO_TOOLCHAIN_LABEL =
       LabelLateBoundDefault.fromTargetConfiguration(
           ProtoConfiguration.class,
-          Label.parseAbsoluteUnchecked("@com_google_protobuf//:cc_toolchain"),
+          Label.parseAbsoluteUnchecked("@bazel_tools//tools/proto:cc_toolchain"),
           (rule, attributes, protoConfig) -> protoConfig.protoToolchainForCc());
 
   private final CppSemantics cppSemantics;
@@ -95,6 +97,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
   }
 
   @Override
+  @Nullable
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
@@ -298,14 +301,13 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
       } else {
         unsupportedFeatures.add(CppRuleClasses.HEADER_MODULES);
       }
-      FeatureConfiguration featureConfiguration =
-          CcCommon.configureFeaturesOrReportRuleError(
-              ruleContext,
-              requestedFeatures.build(),
-              unsupportedFeatures.build(),
-              ccToolchain(ruleContext),
-              cppSemantics);
-      return featureConfiguration;
+      return CcCommon.configureFeaturesOrReportRuleError(
+          ruleContext,
+          requestedFeatures.build(),
+          unsupportedFeatures.build(),
+          Language.CPP,
+          ccToolchain(ruleContext),
+          cppSemantics);
     }
 
     private CcCompilationHelper initializeCompilationHelper(

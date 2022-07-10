@@ -87,6 +87,7 @@ public class ArtifactFactory implements ArtifactResolver {
     private int buildId = -1;
 
     /** Returns artifact if it present in the cache, otherwise null. */
+    @Nullable
     @ThreadSafe
     SourceArtifact getArtifact(PathFragment execPath) {
       Entry cacheEntry = pathToSourceArtifact.get(execPath);
@@ -100,6 +101,7 @@ public class ArtifactFactory implements ArtifactResolver {
      * {@link #findSourceRoot}) may disagree. In that case, the artifact will be valid, but unusable
      * by any action (since no action has properly declared it as an input).
      */
+    @Nullable
     @ThreadSafe
     SourceArtifact getArtifactIfValid(PathFragment execPath) {
       Entry cacheEntry = pathToSourceArtifact.get(execPath);
@@ -368,6 +370,7 @@ public class ArtifactFactory implements ArtifactResolver {
    * no matching artifact in {@link #sourceArtifactCache} initially, but when it goes to create it,
    * does find it there, but that is a benign race.
    */
+  @Nullable
   @ThreadSafe
   public SourceArtifact resolveSourceArtifactWithAncestor(
       PathFragment relativePath,
@@ -450,6 +453,7 @@ public class ArtifactFactory implements ArtifactResolver {
     return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
+  @Nullable
   @Override
   public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver)
@@ -499,6 +503,7 @@ public class ArtifactFactory implements ArtifactResolver {
     return execRoot.getRelative(execPath);
   }
 
+  @Nullable
   @ThreadSafe
   private SourceArtifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
     if (sourceRoot == null) {

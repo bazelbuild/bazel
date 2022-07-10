@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import javax.annotation.Nullable;
 
 /**
  * This class estimates the local host's resource capacity for Linux.
@@ -40,6 +41,7 @@ public class LocalHostResourceManagerLinux {
     return getMemoryInMbHelper(MEM_INFO_FILE);
   }
 
+  @Nullable
   public static ResourceSet getLocalHostResources() {
     try {
       int logicalCpuCount = getLogicalCpuCount();

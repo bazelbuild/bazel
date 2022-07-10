@@ -46,6 +46,7 @@ public final class FailAction extends AbstractAction {
             .build();
   }
 
+  @Nullable
   @Override
   public Artifact getPrimaryInput() {
     return null;

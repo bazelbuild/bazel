@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -78,18 +77,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
     manifestOutputPath = rootDirectory.getRelative("blaze-output/trivial.runfiles_manifest");
     manifestOutputFile = ActionsTestUtil.createArtifact(outputDir, manifestOutputPath);
-  }
-
-  /**
-   * Get the contents of a file internally using an in memory output stream.
-   *
-   * @return returns the file contents as a string.
-   * @throws IOException
-   */
-  public String getFileContentsAsString(SourceManifestAction manifest) throws IOException {
-    ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    manifest.writeOutputFile(stream, reporter);
-    return stream.toString();
   }
 
   private SourceManifestAction createSymlinkAction() {
@@ -150,18 +137,18 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   @Test
   public void testManifestWriterIntegration() throws Exception {
     MockManifestWriter mockWriter = new MockManifestWriter();
-    getFileContentsAsString(
-        new SourceManifestAction(
+    new SourceManifestAction(
             mockWriter,
             NULL_ACTION_OWNER,
             manifestOutputFile,
-            new Runfiles.Builder("TESTING", false).addSymlinks(fakeManifest).build()));
+            new Runfiles.Builder("TESTING", false).addSymlinks(fakeManifest).build())
+        .getFileContentsAsString(reporter);
     assertThat(mockWriter.unconsumedInputs()).isEqualTo(0);
   }
 
   @Test
   public void testSimpleFileWriting() throws Exception {
-    String manifestContents = getFileContentsAsString(createSymlinkAction());
+    String manifestContents = createSymlinkAction().getFileContentsAsString(reporter);
     assertThat(manifestContents)
         .isEqualTo(
             "TESTING/trivial/BUILD /workspace/trivial/BUILD\n"
@@ -175,7 +162,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
    */
   @Test
   public void testSourceOnlyFormatting() throws Exception {
-    String manifestContents = getFileContentsAsString(createSourceOnlyAction());
+    String manifestContents = createSourceOnlyAction().getFileContentsAsString(reporter);
     assertThat(manifestContents)
         .isEqualTo(
             "TESTING/trivial/BUILD\n"
@@ -194,7 +181,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Path swiggedFile = scratch.file("swig/fakeLib.so");
     Artifact swigDotSO = ActionsTestUtil.createArtifact(swiggedLibPath, swiggedFile);
     fakeManifest.put(swiggedFile.relativeTo(rootDirectory), swigDotSO);
-    String manifestContents = getFileContentsAsString(createSymlinkAction());
+    String manifestContents = createSymlinkAction().getFileContentsAsString(reporter);
     assertThat(manifestContents).containsMatch(".*TESTING/swig/__init__.py .*");
     assertThat(manifestContents).containsMatch("fakeLib.so");
   }
@@ -206,7 +193,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Path nonPythonFile = scratch.file("not_python/blob_of_data");
     Artifact nonPython = ActionsTestUtil.createArtifact(nonPythonPath, nonPythonFile);
     fakeManifest.put(nonPythonFile.relativeTo(rootDirectory), nonPython);
-    String manifestContents = getFileContentsAsString(createSymlinkAction());
+    String manifestContents = createSymlinkAction().getFileContentsAsString(reporter);
     assertThat(manifestContents).doesNotContain("not_python/__init__.py \n");
     assertThat(manifestContents).containsMatch("blob_of_data");
   }

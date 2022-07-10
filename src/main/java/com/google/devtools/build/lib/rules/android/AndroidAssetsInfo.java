@@ -121,11 +121,13 @@ public final class AndroidAssetsInfo extends NativeInfo
     return directParsedAssets;
   }
 
+  @Nullable
   @Override
   public ImmutableList<Artifact> getLocalAssets() {
     return getLocalParsedAndroidAssets().map(AndroidAssets::getAssets).orElse(null);
   }
 
+  @Nullable
   @Override
   public String getLocalAssetDir() {
     return getLocalParsedAndroidAssets().map(AndroidAssets::getAssetDirAsString).orElse(null);

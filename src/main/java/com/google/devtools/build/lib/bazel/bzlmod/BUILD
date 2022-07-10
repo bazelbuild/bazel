@@ -202,6 +202,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -225,15 +226,18 @@ java_library(
     srcs = [
         "BazelModuleInspectorFunction.java",
         "BazelModuleInspectorValue.java",
+        "ModqueryExecutor.java",
     ],
     deps = [
         ":common",
         ":resolution",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

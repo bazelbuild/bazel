@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** A subprocess factory that uses the Win32 API. */
 public class WindowsSubprocessFactory implements SubprocessFactory {
@@ -100,6 +101,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     return argv0fragment.isAbsolute() ? argv0fragment.getPathString().replace('/', '\\') : argv0;
   }
 
+  @Nullable
   private static String getRedirectPath(StreamAction action, File file) {
     switch (action) {
       case DISCARD:

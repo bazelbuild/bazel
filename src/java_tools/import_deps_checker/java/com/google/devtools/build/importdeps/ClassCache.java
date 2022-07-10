@@ -29,6 +29,7 @@ import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteSt
 import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
 import org.objectweb.asm.Opcodes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -412,11 +413,13 @@ public final class ClassCache implements Closeable {
       superClasses = combineWithoutNull(superName, interfaces);
     }
 
+    @CanIgnoreReturnValue
     public ClassInfoBuilder setJarPath(Path jarPath) {
       this.jarPath = jarPath;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ClassInfoBuilder setDirect(boolean direct) {
       this.directDep = direct;
       return this;

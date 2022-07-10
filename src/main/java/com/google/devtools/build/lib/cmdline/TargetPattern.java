@@ -40,6 +40,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -502,6 +503,7 @@ public abstract class TargetPattern {
      * @return the Target corresponding to the given pattern, if the pattern is absolute and there
      *     is such a target. Otherwise, return null.
      */
+    @Nullable
     private <T> ResolvedTargets<T> getWildcardConflict(TargetPatternResolver<T> resolver)
         throws InconsistentFilesystemException, InterruptedException {
       if (!wasOriginallyAbsolute) {

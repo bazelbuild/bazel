@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
@@ -31,14 +32,16 @@ public final class ConverterTester {
 
   private final Converter<?> converter;
   private final Class<? extends Converter<?>> converterClass;
+  private final Object conversionContext;
   private final EqualsTester tester = new EqualsTester();
   private final LinkedHashSet<String> testedInputs = new LinkedHashSet<>();
   private final ArrayList<ImmutableList<String>> inputLists = new ArrayList<>();
 
   /** Creates a new ConverterTester which will test the given Converter class. */
-  public ConverterTester(Class<? extends Converter<?>> converterClass) {
+  public ConverterTester(Class<? extends Converter<?>> converterClass, Object conversionContext) {
     this.converterClass = converterClass;
     this.converter = createConverter();
+    this.conversionContext = conversionContext;
   }
 
   private Converter<?> createConverter() {
@@ -69,24 +72,25 @@ public final class ConverterTester {
    * constructor of this instance; the resulting values must be equal (and have equal hashCodes):
    *
    * <ul>
-   * <li>to themselves
-   * <li>to another copy of themselves generated from the same Converter instance
-   * <li>to another copy of themselves generated from a different Converter instance
-   * <li>to the other values converted from inputs in the same addEqualityGroup call
+   *   <li>to themselves
+   *   <li>to another copy of themselves generated from the same Converter instance
+   *   <li>to another copy of themselves generated from a different Converter instance
+   *   <li>to the other values converted from inputs in the same addEqualityGroup call
    * </ul>
    *
    * <p>They must NOT be equal:
    *
    * <ul>
-   * <li>to null
-   * <li>to an instance of an arbitrary class
-   * <li>to any values converted from inputs in a different addEqualityGroup call
+   *   <li>to null
+   *   <li>to an instance of an arbitrary class
+   *   <li>to any values converted from inputs in a different addEqualityGroup call
    * </ul>
    *
-   * @throws AssertionError if an {@link OptionsParsingException} is thrown from the
-   *     {@link Converter#convert} method when converting any of the inputs.
+   * @throws AssertionError if an {@link OptionsParsingException} is thrown from the {@link
+   *     Converter#convert} method when converting any of the inputs.
    * @see EqualsTester#addEqualityGroup
    */
+  @CanIgnoreReturnValue
   public ConverterTester addEqualityGroup(String... inputs) {
     ImmutableList.Builder<WrappedItem> wrapped = ImmutableList.builder();
     ImmutableList<String> inputList = ImmutableList.copyOf(inputs);
@@ -94,7 +98,7 @@ public final class ConverterTester {
     for (String input : inputList) {
       testedInputs.add(input);
       try {
-        wrapped.add(new WrappedItem(input, converter.convert(input)));
+        wrapped.add(new WrappedItem(input, converter.convert(input, conversionContext)));
       } catch (OptionsParsingException ex) {
         throw new AssertionError("Failed to parse input: \"" + input + "\"", ex);
       }
@@ -110,6 +114,7 @@ public final class ConverterTester {
    * @throws AssertionError if one of the expected properties did not hold up
    * @see EqualsTester#testEquals
    */
+  @CanIgnoreReturnValue
   public ConverterTester testConvert() {
     tester.testEquals();
     testItems();
@@ -126,9 +131,9 @@ public final class ConverterTester {
         Object convertedAgain;
         Object convertedDifferentConverterInstance;
         try {
-          converted = converter.convert(input);
-          convertedAgain = converter.convert(input);
-          convertedDifferentConverterInstance = converter2.convert(input);
+          converted = converter.convert(input, conversionContext);
+          convertedAgain = converter.convert(input, conversionContext);
+          convertedDifferentConverterInstance = converter2.convert(input, conversionContext);
         } catch (OptionsParsingException ex) {
           throw new AssertionError("Failed to parse input: \"" + input + "\"", ex);
         }

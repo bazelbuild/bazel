@@ -156,6 +156,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
     printer.append(")");
   }
 
+  @Nullable
   private Object getValueOrNull(String name) {
     try {
       return getValue(name);

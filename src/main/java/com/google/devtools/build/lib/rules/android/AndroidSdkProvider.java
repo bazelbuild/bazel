@@ -122,6 +122,7 @@ public final class AndroidSdkProvider extends NativeInfo
    * <p>First tries to read from toolchains if
    * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
    */
+  @Nullable
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
     BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration != null

@@ -32,9 +32,11 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Collects and populates system metrics about the workers. */
@@ -53,21 +55,68 @@ class WorkerMetricsCollector {
   // Collects process stats for each worker
   @VisibleForTesting
   public Map<Long, WorkerMetric.WorkerStat> collectStats(OS os, List<Long> processIds) {
-    Map<Long, WorkerMetric.WorkerStat> pidResults = new HashMap<>();
-
     if (os != OS.LINUX && os != OS.DARWIN) {
-      return pidResults;
+      return new HashMap<>();
     }
 
+    Map<Long, Long> pidsToWorkerPid = getSubprocesses(processIds);
+    Instant now = Instant.now();
+    Map<Long, Integer> psMemory = collectDataFromPs(pidsToWorkerPid.keySet());
+
+    Map<Long, Integer> sumMemory = new HashMap<>();
+    psMemory.forEach(
+        (pid, memory) -> {
+          long parent = pidsToWorkerPid.get(pid);
+          int parentMemory = 0;
+          if (sumMemory.containsKey(parent)) {
+            parentMemory = sumMemory.get(parent);
+          }
+          sumMemory.put(parent, parentMemory + memory);
+        });
+
+    Map<Long, WorkerMetric.WorkerStat> pidResults = new HashMap<>();
+    sumMemory.forEach(
+        (parent, memory) -> pidResults.put(parent, new WorkerMetric.WorkerStat(memory, now)));
+
+    return pidResults;
+  }
+
+  /**
+   * For each parent process collects pids of all descendants. Stores them into the map, where key
+   * is the descendant pid and the value is parent pid.
+   */
+  @VisibleForTesting
+  public Map<Long, Long> getSubprocesses(List<Long> parents) {
+    Map<Long, Long> subprocessesToProcess = new HashMap<>();
+    for (Long pid : parents) {
+      Optional<ProcessHandle> processHandle = ProcessHandle.of(pid);
+
+      if (processHandle.isPresent()) {
+        processHandle
+            .get()
+            .descendants()
+            .map(p -> p.pid())
+            .forEach(p -> subprocessesToProcess.put(p, pid));
+        subprocessesToProcess.put(pid, pid);
+      }
+    }
+
+    return subprocessesToProcess;
+  }
+
+  // Collects memory usage for every process
+  private Map<Long, Integer> collectDataFromPs(Collection<Long> pids) {
     BufferedReader psOutput;
     try {
       psOutput =
           new BufferedReader(
-              new InputStreamReader(this.buildPsProcess(processIds).getInputStream(), UTF_8));
+              new InputStreamReader(this.buildPsProcess(pids).getInputStream(), UTF_8));
     } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Error while executing command for pids: %s", processIds);
-      return pidResults;
+      logger.atWarning().withCause(e).log("Error while executing command for pids: %s", pids);
+      return new HashMap<>();
     }
+
+    HashMap<Long, Integer> processMemory = new HashMap<>();
 
     try {
       // The output of the above ps command looks similar to this:
@@ -76,7 +125,6 @@ class WorkerMetricsCollector {
       // 2612333 6180
       // We skip over the first line (the header) and then parse the PID and the resident memory
       // size in kilobytes.
-      Instant now = Instant.now();
       String output = null;
       boolean isFirst = true;
       while ((output = psOutput.readLine()) != null) {
@@ -84,7 +132,6 @@ class WorkerMetricsCollector {
           isFirst = false;
           continue;
         }
-
         List<String> line = Splitter.on(" ").trimResults().omitEmptyStrings().splitToList(output);
         if (line.size() != 2) {
           logger.atWarning().log("Unexpected length of split line %s %d", output, line.size());
@@ -92,18 +139,19 @@ class WorkerMetricsCollector {
         }
 
         long pid = Long.parseLong(line.get(0));
-        int memoryInKb = Integer.parseInt(line.get(1)) / 1000;
+        int memoryInKb = Integer.parseInt(line.get(1));
 
-        pidResults.put(pid, new WorkerMetric.WorkerStat(memoryInKb, now));
+        processMemory.put(pid, memoryInKb);
       }
     } catch (IllegalArgumentException | IOException e) {
       logger.atWarning().withCause(e).log("Error while parsing psOutput: %s", psOutput);
     }
-    return pidResults;
+
+    return processMemory;
   }
 
   @VisibleForTesting
-  public Process buildPsProcess(List<Long> processIds) throws IOException {
+  public Process buildPsProcess(Collection<Long> processIds) throws IOException {
     ImmutableList<Long> filteredProcessIds =
         processIds.stream().filter(p -> p > 0).collect(toImmutableList());
     String pids = Joiner.on(",").join(filteredProcessIds);

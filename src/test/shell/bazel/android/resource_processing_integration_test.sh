@@ -107,13 +107,23 @@ function test_font_support() {
   assert_build //java/bazel:bin
 }
 
-function test_persistent_resource_processor_aapt2() {
+function test_persistent_resource_processor() {
   create_new_workspace
   setup_android_sdk_support
   create_android_binary
   setup_font_resources
 
   assert_build //java/bazel:bin --persistent_android_resource_processor
+}
+
+function test_persistent_multiplex_resource_processor() {
+  create_new_workspace
+  setup_android_sdk_support
+  create_android_binary
+  setup_font_resources
+
+  assert_build //java/bazel:bin --persistent_android_resource_processor \
+    --experimental_persistent_multiplex_busybox_tools
 }
 
 run_suite "Resource processing integration tests"

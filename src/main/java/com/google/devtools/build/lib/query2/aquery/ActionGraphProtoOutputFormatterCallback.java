@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -51,7 +52,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       AqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTargetValue> accessor,
+      TargetAccessor<KeyedConfiguredTargetValue> accessor,
       OutputType outputType,
       AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
@@ -66,7 +67,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
             options.includeParamFiles,
             options.deduplicateDepsets,
             options.includeFileWriteContents,
-            aqueryOutputHandler);
+            aqueryOutputHandler,
+            eventHandler);
   }
 
   public static AqueryOutputHandler constructAqueryOutputHandler(
@@ -89,13 +91,15 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
+      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
+        ConfiguredTargetValue configuredTargetValue =
+            keyedConfiguredTargetValue.getConfiguredTargetValue();
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
           // We have to include non-rule values in the graph to visit their dependencies, but they
           // don't have any actions to print out.
@@ -103,12 +107,12 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
         }
         actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) configuredTargetValue);
         if (options.useAspects) {
-          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
+          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
             actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
           }
         }
       }
-    } catch (CommandLineExpansionException e) {
+    } catch (CommandLineExpansionException | TemplateExpansionException e) {
       throw new IOException(e.getMessage());
     }
   }

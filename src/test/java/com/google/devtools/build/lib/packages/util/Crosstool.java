@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -126,56 +127,67 @@ public final class Crosstool {
       private ImmutableList<String> toolchainExecConstraints = ImmutableList.of();
       private ImmutableList<String> toolchainTargetConstraints = ImmutableList.of();
 
+      @CanIgnoreReturnValue
       public Builder withCpu(String cpu) {
         this.cpu = cpu;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withCompiler(String compiler) {
         this.compiler = compiler;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolchainIdentifier(String toolchainIdentifier) {
         this.toolchainIdentifier = toolchainIdentifier;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withHostSystemName(String hostSystemName) {
         this.hostSystemName = hostSystemName;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withTargetSystemName(String targetSystemName) {
         this.targetSystemName = targetSystemName;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withTargetLibc(String targetLibc) {
         this.targetLibc = targetLibc;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withAbiVersion(String abiVersion) {
         this.abiVersion = abiVersion;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withAbiLibcVersion(String abiLibcVersion) {
         this.abiLibcVersion = abiLibcVersion;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withActionConfigs(String... actionConfigs) {
         this.actionConfigs = ImmutableList.copyOf(actionConfigs);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withArtifactNamePatterns(ImmutableList<String>... artifactNamePatterns) {
         for (ImmutableList<String> pattern : artifactNamePatterns) {
           Preconditions.checkArgument(
@@ -187,36 +199,43 @@ public final class Crosstool {
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolPaths(Pair<String, String>... toolPaths) {
         this.toolPaths = ImmutableList.copyOf(toolPaths);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withSysroot(String sysroot) {
         this.builtinSysroot = sysroot;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withCcTargetOs(String ccTargetOs) {
         this.ccTargetOs = ccTargetOs;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withCxxBuiltinIncludeDirectories(String... directories) {
         this.cxxBuiltinIncludeDirectories = ImmutableList.copyOf(directories);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withMakeVariables(Pair<String, String>... makeVariables) {
         this.makeVariables = ImmutableList.copyOf(makeVariables);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolchainExecConstraints(String... execConstraints) {
         this.toolchainExecConstraints = ImmutableList.copyOf(execConstraints);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolchainTargetConstraints(String... targetConstraints) {
         this.toolchainTargetConstraints = ImmutableList.copyOf(targetConstraints);
         return this;
@@ -390,22 +409,26 @@ public final class Crosstool {
     this.archs = new ArrayList<>();
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
     this.ccToolchainConfigFileContents = ccToolchainConfigFileContents;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setSupportedArchs(ImmutableList<String> archs) {
     this.archs.clear();
     this.archs.addAll(archs);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setSupportsHeaderParsing(boolean supportsHeaderParsing) {
     this.supportsHeaderParsing = supportsHeaderParsing;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setToolchainConfigs(ImmutableList<CcToolchainConfig> ccToolchainConfigs) {
     this.ccToolchainConfigList = ccToolchainConfigs;
     return this;

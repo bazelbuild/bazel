@@ -23,7 +23,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -284,7 +283,7 @@ public final class TerminalTestResultNotifierTest {
       TestSummary testSummary = mock(TestSummary.class);
       when(testSummary.getTotalTestCases()).thenReturn(0);
 
-      Label labelA = Label.parseAbsolute("//foo/bar:baz" + i, ImmutableMap.of());
+      Label labelA = Label.parseCanonical("//foo/bar:baz" + i);
       when(testSummary.getFailedTestCases()).thenReturn(ImmutableList.of());
       when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED_TO_BUILD);
       when(testSummary.getLabel()).thenReturn(labelA);
@@ -312,7 +311,7 @@ public final class TerminalTestResultNotifierTest {
     TestCase failedTestCase = TestCase.newBuilder().setStatus(Status.FAILED).build();
     List<TestCase> failedTestCases = Collections.nCopies(numFailedTestCases, failedTestCase);
 
-    Label labelA = Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of());
+    Label labelA = Label.parseCanonical("//foo/bar:baz");
     when(testSummary.getFailedTestCases()).thenReturn(failedTestCases);
     when(testSummary.getStatus()).thenReturn(targetStatus);
     when(testSummary.getLabel()).thenReturn(labelA);

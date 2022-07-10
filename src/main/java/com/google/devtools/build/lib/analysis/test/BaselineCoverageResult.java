@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /** This event is used to notify about a successfully built baseline coverage artifact. */
-public class BaselineCoverageResult implements ExtendedEventHandler.ProgressLike {
+public final class BaselineCoverageResult implements ExtendedEventHandler.Postable {
 
   private final Artifact baselineCoverageData;
   private final String ownerString;

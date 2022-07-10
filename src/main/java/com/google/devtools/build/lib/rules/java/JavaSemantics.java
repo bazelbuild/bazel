@@ -343,8 +343,7 @@ public interface JavaSemantics {
    */
   boolean isJavaExecutableSubstitution();
 
-
-
+  @Nullable
   static TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       return null;

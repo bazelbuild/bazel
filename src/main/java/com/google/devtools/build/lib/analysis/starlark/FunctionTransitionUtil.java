@@ -308,12 +308,13 @@ public final class FunctionTransitionUtil {
             // of returning either a scalar or list.
             List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
-              convertedValue = def.getDefaultValue();
+              convertedValue = ImmutableList.of();
             } else {
               convertedValue =
                   def.getConverter()
                       .convert(
-                          optionValueAsList.stream().map(Object::toString).collect(joining(",")));
+                          optionValueAsList.stream().map(Object::toString).collect(joining(",")),
+                          /*conversionContext=*/ null);
             }
           } else if (def.getType() == List.class && optionValue == null) {
             throw ValidationException.format(
@@ -325,7 +326,8 @@ public final class FunctionTransitionUtil {
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
             convertedValue = optionValue;
           } else if (optionValue instanceof String) {
-            convertedValue = def.getConverter().convert((String) optionValue);
+            convertedValue =
+                def.getConverter().convert((String) optionValue, /*conversionContext=*/ null);
           } else {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }

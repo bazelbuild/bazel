@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * File system watcher for local filesystems. It's able to provide a list of changed files between
@@ -83,6 +84,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     }
 
     @Override
+    @Nullable
     public DiffAwareness maybeCreate(Root pathEntry) {
       com.google.devtools.build.lib.vfs.Path resolvedPathEntry;
       try {

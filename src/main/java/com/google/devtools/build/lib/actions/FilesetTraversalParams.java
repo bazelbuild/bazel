@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -101,8 +102,13 @@ public interface FilesetTraversalParams {
      */
     public abstract PathFragment getRelativePart();
 
+    /** Returns a {@link Path} composed of the root and relative parts. */
+    public final Path asPath() {
+      return getRootPart().getRelative(getRelativePart());
+    }
+
     /** Returns a {@link RootedPath} composed of the root and relative parts. */
-    public RootedPath asRootedPath() {
+    public final RootedPath asRootedPath() {
       return RootedPath.toRootedPath(getRootPart(), getRelativePart());
     }
 
@@ -139,8 +145,12 @@ public interface FilesetTraversalParams {
           fileOrDirectory.getRootRelativePath());
     }
 
-    public static DirectTraversalRoot forRootedPath(RootedPath newPath) {
-      return create(null, newPath.getRoot(), newPath.getRootRelativePath());
+    public static DirectTraversalRoot forRootedPath(RootedPath rootedPath) {
+      return forRootAndPath(rootedPath.getRoot(), rootedPath.getRootRelativePath());
+    }
+
+    public static DirectTraversalRoot forRootAndPath(Root rootPart, PathFragment relativePart) {
+      return create(/*outputArtifact=*/ null, rootPart, relativePart);
     }
 
     @Instantiator
@@ -230,7 +240,7 @@ public interface FilesetTraversalParams {
     @Memoized
     byte[] getFingerprint() {
       Fingerprint fp = new Fingerprint();
-      fp.addPath(getRoot().asRootedPath().asPath());
+      fp.addPath(getRoot().asPath());
       fp.addBoolean(isPackage());
       fp.addBoolean(isFollowingSymlinks());
       fp.addBoolean(isRecursive());

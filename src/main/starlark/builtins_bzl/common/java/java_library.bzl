@@ -74,6 +74,7 @@ def bazel_java_library_rule(
         exports,
         exported_plugins,
         resources,
+        [],  # resource_jars
         [],  # class_pathresources
         javacopts,
         neverlink,

@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -166,6 +167,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     public CcCompilationOutputs getCcCompilationOutputs(RuleContext ruleContext) {
       checkRestrictedUsage(ruleContext);
+      return ccCompilationOutputs;
+    }
+
+    @VisibleForTesting
+    public CcCompilationOutputs getCcCompilationOutputsForTesting() {
       return ccCompilationOutputs;
     }
 
@@ -399,6 +405,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             requestedFeaturesBuilder.build(),
             /* unsupportedFeatures= */ disabledFeaturesBuilder.build(),
+            Language.CPP,
             ccToolchain,
             semantics);
 
@@ -749,6 +756,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(ccLauncherInfo);
   }
 
+  @Nullable
   private static Pair<CcLinkingOutputs, CcLauncherInfo> createTransitiveLinkingActions(
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder ruleBuilder,
@@ -1260,6 +1268,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
   }
 
+  @Nullable
   private static ImmutableList<CcSharedLibraryInfo> mergeCcSharedLibraryInfos(
       RuleContext ruleContext, CppSemantics cppSemantics) {
     ImmutableList.Builder<CcSharedLibraryInfo> directMergedCcSharedLibraryInfos =
@@ -1493,6 +1502,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  @Nullable
   private static ImmutableList<CcLinkingContext.LinkerInput> getPreloadedDepsFromDynamicDeps(
       RuleContext ruleContext, CppSemantics cppSemantics) {
     ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
@@ -1544,6 +1554,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return ImmutableMap.copyOf(linkOnceStaticLibsMap);
   }
 
+  @Nullable
   private static CcLinkingContext filterLibrariesThatAreLinkedDynamically(
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder ruleBuilder,

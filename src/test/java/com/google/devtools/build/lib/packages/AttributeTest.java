@@ -129,7 +129,7 @@ public class AttributeTest {
     assertDefaultValue("foo",
                        attr("x", STRING).value("foo").build());
 
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:bar");
     assertDefaultValue(null,
                        attr("x", LABEL).legacyAllowAnyFileType().build());
     assertDefaultValue(label,
@@ -142,9 +142,7 @@ public class AttributeTest {
                        attr("x", STRING_LIST).value(slist).build());
 
     List<Label> llist =
-        Arrays.asList(
-            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-            Label.parseAbsolute("//foo:wiz", ImmutableMap.of()));
+        Arrays.asList(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//foo:wiz"));
     assertDefaultValue(Collections.emptyList(),
                        attr("x", LABEL_LIST).legacyAllowAnyFileType().build());
     assertDefaultValue(llist,
@@ -165,7 +163,7 @@ public class AttributeTest {
     assertType(STRING,
                attr("x", STRING).value("foo").build());
 
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:bar");
     assertType(LABEL,
                        attr("x", LABEL).legacyAllowAnyFileType().build());
     assertType(LABEL,
@@ -178,9 +176,7 @@ public class AttributeTest {
                attr("x", STRING_LIST).value(slist).build());
 
     List<Label> llist =
-        Arrays.asList(
-            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-            Label.parseAbsolute("//foo:wiz", ImmutableMap.of()));
+        Arrays.asList(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//foo:wiz"));
     assertType(LABEL_LIST,
                attr("x", LABEL_LIST).legacyAllowAnyFileType().build());
     assertType(LABEL_LIST,

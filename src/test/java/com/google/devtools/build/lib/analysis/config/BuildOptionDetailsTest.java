@@ -50,7 +50,7 @@ public class BuildOptionDetailsTest {
   }
 
   /** Example converter for working with options with converters. */
-  public static final class Optionalizer implements Converter<Optional<String>> {
+  public static final class Optionalizer extends Converter.Contextless<Optional<String>> {
     @Override
     public Optional<String> convert(String input) {
       if ("".equals(input)) {

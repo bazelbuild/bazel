@@ -17,6 +17,7 @@ import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -69,6 +70,7 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   }
 
   @Override
+  @Nullable
   public Artifact getUmbrellaHeaderForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     if (umbrellaHeader.isPresent()) {

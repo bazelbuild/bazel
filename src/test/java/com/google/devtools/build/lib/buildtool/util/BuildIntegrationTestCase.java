@@ -85,7 +85,13 @@ import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
+import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
+import com.google.devtools.build.lib.runtime.commands.InfoCommand;
+import com.google.devtools.build.lib.runtime.commands.QueryCommand;
+import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.sandbox.SandboxModule;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -122,6 +128,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
@@ -237,6 +244,10 @@ public abstract class BuildIntegrationTestCase {
     Thread.setDefaultUncaughtExceptionHandler(oldExceptionHandler);
   }
 
+  public final BlazeRuntimeWrapper getRuntimeWrapper() {
+    return runtimeWrapper;
+  }
+
   /**
    * Creates an uncaught exception handler to be used in {@link
    * Thread#setDefaultUncaughtExceptionHandler}.
@@ -291,8 +302,7 @@ public abstract class BuildIntegrationTestCase {
    *
    * <p>The server is reinitialized so that this change is picked up.
    */
-  protected final void setCustomBugReporterAndReinitialize(BugReporter bugReporter)
-      throws Exception {
+  public final void setCustomBugReporterAndReinitialize(BugReporter bugReporter) throws Exception {
     this.bugReporter = checkNotNull(bugReporter);
     reinitializeAndPreserveOptions();
   }
@@ -358,7 +368,7 @@ public abstract class BuildIntegrationTestCase {
    * <p>{@link BugReport} stores information about crashes in a static variable when running tests.
    * Tests which deliberately cause crashes, need to clear that flag not to taint the environment.
    */
-  protected static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
+  public static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
     assertThrows(expected, BugReport::maybePropagateUnprocessedThrowableIfInTest);
   }
 
@@ -463,7 +473,9 @@ public abstract class BuildIntegrationTestCase {
    * <p>These modules are registered <em>before</em> {@link #getStrategyModule}.
    */
   protected ImmutableList<BlazeModule> getSpawnModules() {
-    return ImmutableList.of(new StandaloneModule());
+    return AnalysisMock.get().isThisBazel()
+        ? ImmutableList.of(new StandaloneModule(), new SandboxModule())
+        : ImmutableList.of(new StandaloneModule());
   }
 
   /** Gets a module containing rules (by default, using the TestRuleClassProvider) */
@@ -516,6 +528,7 @@ public abstract class BuildIntegrationTestCase {
             .setProductName(TestConstants.PRODUCT_NAME)
             .setBugReporter(bugReporter)
             .setStartupOptionsProvider(startupOptionsParser)
+            .addBlazeModule(new BuildIntegrationTestCommandsModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(getMockBazelRepositoryModule());
     getSpawnModules().forEach(builder::addBlazeModule);
@@ -524,12 +537,11 @@ public abstract class BuildIntegrationTestCase {
         .addBlazeModule(getRulesModule())
         .addBlazeModule(getStrategyModule());
 
-    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
+    if (AnalysisMock.get().isThisBazel()) {
       // Add in modules implicitly added in internal integration test case.
       builder
           .addBlazeModule(new NoSpawnCacheModule())
           .addBlazeModule(new WorkerModule())
-          .addBlazeModule(new SandboxModule())
           .addBlazeModule(new BazelRepositoryModule());
     }
     return builder;
@@ -569,7 +581,7 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.resetOptions();
   }
 
-  protected void addOptions(String... args) {
+  public void addOptions(String... args) {
     runtimeWrapper.addOptions(args);
   }
 
@@ -579,10 +591,6 @@ public abstract class BuildIntegrationTestCase {
 
   protected void addStarlarkOption(String label, Object value) {
     runtimeWrapper.addStarlarkOption(label, value);
-  }
-
-  protected OptionsParser createOptionsParser() {
-    return runtimeWrapper.createOptionsParser();
   }
 
   protected Action getGeneratingAction(Artifact artifact) {
@@ -631,8 +639,7 @@ public abstract class BuildIntegrationTestCase {
   protected ConfiguredTarget getConfiguredTarget(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
-    getPackageManager()
-        .getTarget(events.reporter(), Label.parseAbsolute(target, ImmutableMap.of()));
+    getPackageManager().getTarget(events.reporter(), Label.parseCanonical(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
   }
@@ -709,21 +716,9 @@ public abstract class BuildIntegrationTestCase {
     return runtimeWrapper.getLastResult();
   }
 
-  /**
-   * Creates a BuildRequest for either blaze build or blaze analyze, using the currently-installed
-   * request options.
-   *
-   * @param commandName blaze build or analyze command
-   * @param targets the targets to be built
-   */
-  protected BuildRequest createNewRequest(String commandName, String... targets) throws Exception {
-    runtimeWrapper.initializeOptionsParser();
-    return runtimeWrapper.createRequest(commandName, Arrays.asList(targets));
-  }
-
   /** Utility function: parse a string as a label. */
   protected static Label label(String labelString) throws LabelSyntaxException {
-    return Label.parseAbsolute(labelString, ImmutableMap.of());
+    return Label.parseCanonical(labelString);
   }
 
   protected String run(Artifact executable, String... arguments) throws Exception {
@@ -1002,10 +997,8 @@ public abstract class BuildIntegrationTestCase {
         .collect(toImmutableList());
   }
 
-  /**
-   * Assertion-checks that the expected error was reported,
-   */
-  protected void assertContainsError(String expectedError) {
+  /** Assertion-checks that the expected error was reported, */
+  public final void assertContainsError(String expectedError) {
     for (Event error : events.errors()) {
       if (error.getMessage().contains(expectedError)) {
         return;
@@ -1060,6 +1053,24 @@ public abstract class BuildIntegrationTestCase {
 
     public synchronized void clear() {
       exceptions.clear();
+    }
+  }
+
+  /**
+   * Performs command registration to the extent that is necessary for test execution. The list of
+   * commands isn't comprehensive and a command needn't be registered to be used. The purpose of
+   * this module is to ensure that functionality that requires commands to be explicitly registered
+   * (for example, per-command invocation policies) is sufficiently configured.
+   */
+  private static class BuildIntegrationTestCommandsModule extends BlazeModule {
+    @Override
+    public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
+      builder.addCommands(
+          new BuildCommand(),
+          new QueryCommand(),
+          new CqueryCommand(),
+          new InfoCommand(),
+          new TestCommand());
     }
   }
 }

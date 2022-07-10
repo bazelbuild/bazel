@@ -37,38 +37,37 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
- * A map that is backed by persistent storage. It uses two files on disk for
- * this: The first file contains all the entries and gets written when invoking
- * the {@link #save()} method. The second file contains a journal of all entries
- * that were added to or removed from the map since constructing the instance of
- * the map or the last invocation of {@link #save()} and gets written after each
- * update of the map although sub-classes are free to implement their own
- * journal update strategy.
+ * A map that is backed by persistent storage. It uses two files on disk for this: The first file
+ * contains all the entries and gets written when invoking the {@link #save()} method. The second
+ * file contains a journal of all entries that were added to or removed from the map since
+ * constructing the instance of the map or the last invocation of {@link #save()} and gets written
+ * after each update of the map although sub-classes are free to implement their own journal update
+ * strategy.
  *
- * <p><b>Ceci n'est pas un Map</b>.  Strictly speaking, the {@link Map}
- * interface doesn't permit the possibility of failure.  This class uses
- * persistence; persistence means I/O, and I/O means the possibility of
- * failure.  Therefore the semantics of this may deviate from the Map contract
- * in failure cases.  In particular, updates are not guaranteed to succeed.
- * However, I/O failures are guaranteed to be reported upon the subsequent call
- * to a method that throws {@code IOException} such as {@link #save}.
+ * <p><b>Ceci n'est pas un Map</b>. Strictly speaking, the {@link Map} interface doesn't permit the
+ * possibility of failure. This class uses persistence; persistence means I/O, and I/O means the
+ * possibility of failure. Therefore the semantics of this may deviate from the Map contract in
+ * failure cases. In particular, updates are not guaranteed to succeed. However, I/O failures are
+ * guaranteed to be reported upon the subsequent call to a method that throws {@code IOException}
+ * such as {@link #save}.
  *
- * <p>To populate the map entries using the previously persisted entries call
- * {@link #load()} prior to invoking any other map operation.
- * <p>
- * Like {@link Hashtable} but unlike {@link HashMap}, this class does
- * <em>not</em> allow <tt>null</tt> to be used as a key or a value.
- * <p>
- * IO failures during reading or writing the map entries to disk may result in
- * {@link AssertionError} getting thrown from the failing method.
- * <p>
- * The constructor allows passing in a version number that gets written to the
- * files on disk and checked before reading from disk. Files with an
- * incompatible version number will be ignored. This allows the client code to
- * change the persistence format without polluting the file system name space.
+ * <p>To populate the map entries using the previously persisted entries call {@link #load()} prior
+ * to invoking any other map operation.
+ *
+ * <p>Like {@link Hashtable} but unlike {@link HashMap}, this class does <em>not</em> allow
+ * <tt>null</tt> to be used as a key or a value.
+ *
+ * <p>IO failures during reading or writing the map entries to disk may result in {@link
+ * AssertionError} getting thrown from the failing method.
+ *
+ * <p>The constructor allows passing in a version number that gets written to the files on disk and
+ * checked before reading from disk. Files with an incompatible version number will be ignored. This
+ * allows the client code to change the persistence format without polluting the file system name
+ * space.
  */
 public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private static final int MAGIC = 0x20071105;
@@ -89,21 +88,21 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private DataOutputStream journalOut;
 
   /**
-   * 'dirty' is true when the in-memory representation of the map is more recent
-   * than the on-disk representation.
+   * 'dirty' is true when the in-memory representation of the map is more recent than the on-disk
+   * representation.
    */
   private boolean dirty;
 
   /**
-   * If non-null, contains the message from an {@code IOException} thrown by a
-   * previously failed write.  This error is deferred until the next call to a
-   * method which is able to throw an exception.
+   * If non-null, contains the message from an {@code IOException} thrown by a previously failed
+   * write. This error is deferred until the next call to a method which is able to throw an
+   * exception.
    */
   private String deferredIOFailure = null;
 
   /**
-   * 'loaded' is true when the in-memory representation is at least as recent as
-   * the on-disk representation.
+   * 'loaded' is true when the in-memory representation is at least as recent as the on-disk
+   * representation.
    */
   private boolean loaded;
 
@@ -126,7 +125,6 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     delegate = map;
   }
 
-
   @Override
   protected Map<K, V> delegate() {
     return delegate;
@@ -134,6 +132,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
 
   @ThreadSafety.ThreadSafe
   @Override
+  @Nullable
   public V put(K key, V value) {
     V previous = delegate().put(checkNotNull(key, value), checkNotNull(value, key));
     journal.add(key);
@@ -151,10 +150,10 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   }
 
   /**
-   * Determines if the journal should be updated. The default implementation
-   * always returns 'true', but subclasses are free to override this to
-   * implement their own journal updating strategy. For example it is possible
-   * to implement an update at most every five seconds using the following code:
+   * Determines if the journal should be updated. The default implementation always returns 'true',
+   * but subclasses are free to override this to implement their own journal updating strategy. For
+   * example it is possible to implement an update at most every five seconds using the following
+   * code:
    *
    * <pre>
    * private long nextUpdate;
@@ -175,6 +174,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   @ThreadSafety.ThreadSafe
   @Override
   @SuppressWarnings("unchecked")
+  @Nullable
   public V remove(Object object) {
     V previous = delegate().remove(object);
     if (previous != null) {

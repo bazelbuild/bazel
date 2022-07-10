@@ -206,7 +206,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getEventBus(),
             env.getRuntime().getBugReporter(),
             /*includeExecutionPhase=*/ true,
-            request.getBuildOptions().jobs);
+            request.getBuildOptions().jobs,
+            env.getLocalResourceManager());
   }
 
   /**

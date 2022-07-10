@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -320,7 +319,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
 
   private Label makeLabel(String label) {
     try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
+      return Label.parseCanonical(label);
     } catch (Exception e) {
       fail("Unable to construct Label from " + label);
       return null;

@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -93,6 +93,7 @@ public final class BazelEvaluationTestCase {
 
   /** Updates a global binding in the module. */
   // TODO(adonovan): rename setGlobal.
+  @CanIgnoreReturnValue
   public BazelEvaluationTestCase update(String varname, Object value) throws Exception {
     getModule().setGlobal(varname, value);
     return this;
@@ -129,7 +130,6 @@ public final class BazelEvaluationTestCase {
             BazelStarlarkContext.Phase.LOADING,
             TestConstants.TOOLS_REPOSITORY,
             /*fragmentNameToClass=*/ null,
-            /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
             /*analysisRuleLabel=*/ null,
             /*networkAllowlistForTests=*/ null) // dummy value for tests
@@ -199,11 +199,13 @@ public final class BazelEvaluationTestCase {
   }
 
   // Forward relevant methods to the EventCollectionApparatus
+  @CanIgnoreReturnValue
   public BazelEvaluationTestCase setFailFast(boolean failFast) {
     eventCollectionApparatus.setFailFast(failFast);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public BazelEvaluationTestCase assertNoWarningsOrErrors() {
     eventCollectionApparatus.assertNoWarningsOrErrors();
     return this;
@@ -225,6 +227,7 @@ public final class BazelEvaluationTestCase {
     return eventCollectionApparatus.assertContainsDebug(expectedMessage);
   }
 
+  @CanIgnoreReturnValue
   public BazelEvaluationTestCase clearEvents() {
     eventCollectionApparatus.clear();
     return this;
@@ -253,6 +256,7 @@ public final class BazelEvaluationTestCase {
     }
 
     /** Allows the execution of several statements before each following test. */
+    @CanIgnoreReturnValue
     public Scenario setUp(String... lines) {
       setup.registerExec(lines);
       return this;
@@ -265,6 +269,7 @@ public final class BazelEvaluationTestCase {
      * @param value The new value of the variable
      * @return This {@code Scenario}
      */
+    @CanIgnoreReturnValue
     public Scenario update(String name, Object value) {
       setup.registerUpdate(name, value);
       return this;
@@ -278,36 +283,42 @@ public final class BazelEvaluationTestCase {
      * @return This {@code Scenario}
      * @throws Exception
      */
+    @CanIgnoreReturnValue
     public Scenario testEval(String src, String expectedEvalString) throws Exception {
       runTest(createComparisonTestable(src, expectedEvalString, true));
       return this;
     }
 
     /** Evaluates an expression and compares its result to the expected object. */
+    @CanIgnoreReturnValue
     public Scenario testExpression(String src, Object expected) throws Exception {
       runTest(createComparisonTestable(src, expected, false));
       return this;
     }
 
     /** Evaluates an expression and compares its result to the ordered list of expected objects. */
+    @CanIgnoreReturnValue
     public Scenario testExactOrder(String src, Object... items) throws Exception {
       runTest(collectionTestable(src, items));
       return this;
     }
 
     /** Evaluates an expression and checks whether it fails with the expected error. */
+    @CanIgnoreReturnValue
     public Scenario testIfExactError(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(true, expectedError, lines));
       return this;
     }
 
     /** Evaluates the expression and checks whether it fails with the expected error. */
+    @CanIgnoreReturnValue
     public Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
       return this;
     }
 
     /** Looks up the value of the specified variable and compares it to the expected value. */
+    @CanIgnoreReturnValue
     public Scenario testLookup(String name, Object expected) throws Exception {
       runTest(createLookUpTestable(name, expected));
       return this;

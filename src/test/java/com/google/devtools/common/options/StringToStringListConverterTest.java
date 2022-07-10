@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,7 +26,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class StringToStringListConverterTest {
 
-  protected Converter<Map.Entry<String, List<String>>> converter =
+  protected Converters.StringToStringListConverter converter =
       new Converters.StringToStringListConverter();
 
   @Test

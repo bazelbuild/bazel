@@ -124,7 +124,6 @@ public class AppleBinary {
           dependencySpecificConfigurations.get(splitTransitionKey);
       BuildConfigurationValue childConfig = dependencySpecificConfiguration.config();
       CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);
-      ObjcConfiguration childObjcConfig = childConfig.getFragment(ObjcConfiguration.class);
       IntermediateArtifacts intermediateArtifacts =
           new IntermediateArtifacts(
               ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
@@ -155,14 +154,14 @@ public class AppleBinary {
       }
       if (childCppConfig.appleGenerateDsym()) {
         Artifact dsymBinary =
-            childObjcConfig.shouldStripBinary()
+            childCppConfig.objcShouldStripBinary()
                 ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
                 : intermediateArtifacts.dsymSymbolForStrippedBinary();
         outputBuilder.setDsymBinary(dsymBinary);
         legacyDebugOutputsBuilder.addOutput(
             childTriplet.architecture(), OutputType.DSYM_BINARY, dsymBinary);
       }
-      if (childObjcConfig.generateLinkmap()) {
+      if (childCppConfig.objcGenerateLinkmap()) {
         Artifact linkmap = intermediateArtifacts.linkmap();
         outputBuilder.setLinkmap(linkmap);
         legacyDebugOutputsBuilder.addOutput(

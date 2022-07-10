@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -83,18 +84,21 @@ public final class LinuxSandboxUtil {
      * Sets the sandbox path to chroot to, required for the hermetic linux sandbox to figure out
      * where the working directory is.
      */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setHermeticSandboxPath(Path sandboxPath) {
       this.hermeticSandboxPath = sandboxPath;
       return this;
     }
 
     /** Sets the working directory to use, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setWorkingDirectory(Path workingDirectory) {
       this.workingDirectory = workingDirectory;
       return this;
     }
 
     /** Sets the timeout for the command run using the {@code linux-sandbox} tool. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setTimeout(Duration timeout) {
       this.timeout = timeout;
       return this;
@@ -104,24 +108,28 @@ public final class LinuxSandboxUtil {
      * Sets the kill delay for commands run using the {@code linux-sandbox} tool that exceed their
      * timeout.
      */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setKillDelay(Duration killDelay) {
       this.killDelay = killDelay;
       return this;
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStdoutPath(Path stdoutPath) {
       this.stdoutPath = stdoutPath;
       return this;
     }
 
     /** Sets the path to use for redirecting stderr, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStderrPath(Path stderrPath) {
       this.stderrPath = stderrPath;
       return this;
     }
 
     /** Sets the files or directories to make writable for the sandboxed process, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setWritableFilesAndDirectories(
         Set<Path> writableFilesAndDirectories) {
       this.writableFilesAndDirectories = writableFilesAndDirectories;
@@ -129,6 +137,7 @@ public final class LinuxSandboxUtil {
     }
 
     /** Sets the directories where to mount an empty tmpfs, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setTmpfsDirectories(ImmutableSet<PathFragment> tmpfsDirectories) {
       this.tmpfsDirectories = tmpfsDirectories;
       return this;
@@ -138,48 +147,56 @@ public final class LinuxSandboxUtil {
      * Sets the sources and targets of files or directories to explicitly bind-mount in the sandbox,
      * if any.
      */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setBindMounts(Map<Path, Path> bindMounts) {
       this.bindMounts = bindMounts;
       return this;
     }
 
     /** Sets the path for writing execution statistics (e.g. resource usage). */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStatisticsPath(Path statisticsPath) {
       this.statisticsPath = statisticsPath;
       return this;
     }
 
     /** Sets whether to use a fake 'localhost' hostname inside the sandbox. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setUseFakeHostname(boolean useFakeHostname) {
       this.useFakeHostname = useFakeHostname;
       return this;
     }
 
     /** Sets whether to create a new network namespace. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setCreateNetworkNamespace(boolean createNetworkNamespace) {
       this.createNetworkNamespace = createNetworkNamespace;
       return this;
     }
 
     /** Sets whether to pretend to be 'root' inside the namespace. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setUseFakeRoot(boolean useFakeRoot) {
       this.useFakeRoot = useFakeRoot;
       return this;
     }
 
     /** Sets whether to use a fake 'nobody' username inside the sandbox. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setUseFakeUsername(boolean useFakeUsername) {
       this.useFakeUsername = useFakeUsername;
       return this;
     }
 
     /** Sets whether to enable debug mode (e.g. to print debugging messages). */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setUseDebugMode(boolean useDebugMode) {
       this.useDebugMode = useDebugMode;
       return this;
     }
 
     /** Incorporates settings from a spawn's execution info. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
       if (executionInfo.containsKey(ExecutionRequirements.GRACEFUL_TERMINATION)) {
         sigintSendsSigterm = true;

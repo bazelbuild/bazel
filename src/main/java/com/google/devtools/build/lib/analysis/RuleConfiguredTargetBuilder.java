@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -491,6 +492,7 @@ public final class RuleConfiguredTargetBuilder {
    * Add files required to run the target. Artifacts from {@link #setFilesToBuild} and the runfiles
    * middleman, if any, are added automatically.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addFilesToRun(NestedSet<Artifact> files) {
     filesToRunBuilder.addTransitive(files);
     return this;
@@ -507,6 +509,7 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Add a specific provider with a given value. */
+  @CanIgnoreReturnValue
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
       Class<? extends T> key, T value) {
     providersBuilder.put(key, value);
@@ -514,12 +517,14 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Adds a specific provider. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addProvider(TransitiveInfoProvider provider) {
     providersBuilder.add(provider);
     return this;
   }
 
   /** Add a collection of specific providers. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addProviders(TransitiveInfoProviderMap providers) {
     providersBuilder.addAll(providers);
     return this;
@@ -533,6 +538,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
     // Starlark providers are already exported (enforced by SRCTU.getProviderKey).
@@ -554,6 +560,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
     for (Info provider : providers) {
       addNativeDeclaredProvider(provider);
@@ -567,6 +574,7 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
     Preconditions.checkState(constructor.isExported());
@@ -591,14 +599,14 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Add a Starlark transitive info. The provider value must be safe. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(String name, Object value) {
     providersBuilder.put(name, value);
     return this;
   }
 
-  /**
-   * Set the runfiles support for executable targets.
-   */
+  /** Set the runfiles support for executable targets. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder setRunfilesSupport(
       RunfilesSupport runfilesSupport, Artifact executable) {
     this.runfilesSupport = runfilesSupport;
@@ -606,14 +614,14 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addTestActionTools(List<Artifact> tools) {
     this.additionalTestActionTools.addAll(tools);
     return this;
   }
 
-  /**
-   * Set the files to build.
-   */
+  /** Set the files to build. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
     return this;
@@ -630,25 +638,22 @@ public final class RuleConfiguredTargetBuilder {
     return result;
   }
 
-  /**
-   * Adds a set of files to an output group.
-   */
+  /** Adds a set of files to an output group. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
     getOutputGroupBuilder(name).addTransitive(artifacts);
     return this;
   }
 
-  /**
-   * Adds a file to an output group.
-   */
+  /** Adds a file to an output group. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addOutputGroup(String name, Artifact artifact) {
     getOutputGroupBuilder(name).add(artifact);
     return this;
   }
 
-  /**
-   * Adds multiple output groups.
-   */
+  /** Adds multiple output groups. */
+  @CanIgnoreReturnValue
   public RuleConfiguredTargetBuilder addOutputGroups(Map<String, NestedSet<Artifact>> groups) {
     for (Map.Entry<String, NestedSet<Artifact>> group : groups.entrySet()) {
       getOutputGroupBuilder(group.getKey()).addTransitive(group.getValue());

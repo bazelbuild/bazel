@@ -233,6 +233,74 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcSourceContainsObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.m");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.m']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).contains("--xyzzy");
+  }
+
+  @Test
+  public void testObjcppSourceContainsObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.mm");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.mm']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).contains("--xyzzy");
+  }
+
+  @Test
+  public void testCSourceDoesNotContainObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.c");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.c']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testCppSourceDoesNotContainObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.cc");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.cc']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testCppHeaderDoesNotContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/x.h.processed", x).getArguments())
+        .doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testObjcHeaderContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/x.h.processed", x).getArguments())
+        .contains("--xyzzy");
+  }
+
+  @Test
   public void testCompilationModeDbg() throws Exception {
     useConfiguration(
         "--cpu=ios_i386",

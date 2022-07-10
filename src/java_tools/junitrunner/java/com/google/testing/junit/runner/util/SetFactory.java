@@ -17,6 +17,7 @@ package com.google.testing.junit.runner.util;
 import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableSet;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -72,6 +73,7 @@ public final class SetFactory<T> implements Factory<Set<T>> {
       collectionSuppliers = presizedList(collectionSupplierSize);
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public Builder<T> addSupplier(Supplier<? extends T> individualSupplier) {
       assert individualSupplier != null : "Codegen error? Null provider";
@@ -80,6 +82,7 @@ public final class SetFactory<T> implements Factory<Set<T>> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public Builder<T> addCollectionSupplier(
         Supplier<? extends Collection<? extends T>> collectionSupplier) {

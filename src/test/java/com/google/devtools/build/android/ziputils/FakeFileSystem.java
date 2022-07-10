@@ -15,6 +15,7 @@ package com.google.devtools.build.android.ziputils;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -147,6 +148,7 @@ class FakeFileSystem extends FileSystem  {
       return position;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public FileChannel position(long newPosition) throws IOException {
       position = (int) newPosition;

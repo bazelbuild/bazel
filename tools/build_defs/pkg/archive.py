@@ -25,6 +25,8 @@ import tarfile
 # See: https://github.com/bazelbuild/bazel/issues/1299
 PORTABLE_MTIME = 946684800  # 2000-01-01 00:00:00.000 UTC
 
+DEFAULT_MTIME = 0  # The posix beginning of time
+
 
 class TarFileWriter(object):
   """A wrapper to write tar files."""
@@ -36,7 +38,6 @@ class TarFileWriter(object):
                name,
                compression='',
                root_directory='./',
-               default_mtime=None,
                preserve_tar_mtimes=False):
     """TarFileWriter wraps tarfile.open().
 
@@ -44,9 +45,6 @@ class TarFileWriter(object):
       name: the tar file name.
       compression: compression type: bzip2, bz2, gz, tgz.
       root_directory: virtual root to prepend to elements in the archive.
-      default_mtime: default mtime to use for elements in the archive.
-          May be an integer or the value 'portable' to use the date
-          2000-01-01, which is compatible with non *nix OSes'.
       preserve_tar_mtimes: if true, keep file mtimes from input tar file.
     """
     if compression in ['bzip2', 'bz2']:
@@ -59,19 +57,12 @@ class TarFileWriter(object):
 
     self.preserve_mtime = preserve_tar_mtimes
 
-    if default_mtime is None:
-      self.default_mtime = 0
-    elif default_mtime == 'portable':
-      self.default_mtime = PORTABLE_MTIME
-    else:
-      self.default_mtime = int(default_mtime)
-
     self.fileobj = None
     if self.gz:
       # The Tarfile class doesn't allow us to specify gzip's mtime attribute.
       # Instead, we manually re-implement gzopen from tarfile.py and set mtime.
       self.fileobj = gzip.GzipFile(
-          filename=name, mode='w', compresslevel=9, mtime=self.default_mtime)
+          filename=name, mode='w', compresslevel=9, mtime=DEFAULT_MTIME)
     self.tar = tarfile.open(name=name, mode=mode, fileobj=self.fileobj)
     self.members = set([])
     self.directories = set([])
@@ -114,7 +105,7 @@ class TarFileWriter(object):
             or name.startswith(self.root_directory + '/')):
       name = os.path.join(self.root_directory, name)
     if mtime is None:
-      mtime = self.default_mtime
+      mtime = DEFAULT_MTIME
     if os.path.isdir(path):
       # Remove trailing '/' (index -1 => last character)
       if name[-1] == '/':
@@ -203,7 +194,7 @@ class TarFileWriter(object):
       if name in self.directories:
         return
     if mtime is None:
-      mtime = self.default_mtime
+      mtime = DEFAULT_MTIME
 
     components = name.rsplit('/', 1)
     if len(components) > 1:
@@ -278,7 +269,7 @@ class TarFileWriter(object):
     intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if not self.preserve_mtime:
-        tarinfo.mtime = self.default_mtime
+        tarinfo.mtime = DEFAULT_MTIME
       if rootuid is not None and tarinfo.uid == rootuid:
         tarinfo.uid = 0
         tarinfo.uname = 'root'

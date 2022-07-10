@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberTrackReason.ClassMemberTrackReasonBuilder;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -129,6 +130,7 @@ public abstract class ClassMemberRecord implements TypeMappable<ClassMemberRecor
     }
 
     /** Merges an another member record into this record builder. */
+    @CanIgnoreReturnValue
     public final ClassMemberRecordBuilder mergeFrom(ClassMemberRecord otherClassMemberRecord) {
       otherClassMemberRecord
           .reasons()

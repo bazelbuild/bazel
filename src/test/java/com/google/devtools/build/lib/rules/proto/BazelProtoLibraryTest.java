@@ -532,19 +532,19 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "    exports=['//a:a'],",
         "    deps=['//b:b'])");
 
-    ConfiguredTarget c = getConfiguredTarget("//c:c");
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
     // exported proto source roots should be the source root of the rule and the direct source roots
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(
             Iterables.transform(
-                c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(),
+                a.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getSourceRoot().getSafePathString()))
         .containsExactly(genfiles + "/a/_virtual_imports/a");
     assertThat(
             Iterables.transform(
-                c.get(ProtoInfo.PROVIDER).getPublicImportSources().toList(),
+                a.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getImportPath().getSafePathString()))
         .containsExactly("a.proto");
   }
@@ -574,21 +574,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  visibility = ['//visibility:public'],",
         ")");
 
-    scratch.file(
-        "main.proto", "syntax = 'proto3'';", "import 'bazel.build/yolo/yolo_pkg/yolo.proto';");
-    scratch.file(
-        "BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "proto_library(",
-        "  name = 'main_proto',",
-        "  srcs = ['main.proto'],",
-        "  deps = ['@yolo_repo//yolo_pkg:yolo_proto'],",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    ConfiguredTarget target = getConfiguredTarget("@yolo_repo//yolo_pkg:yolo_proto");
     assertThat(
             Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getImportPath().getPathString()))
         .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
   }
@@ -629,21 +618,11 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  visibility = ['//visibility:public'],",
         ")");
 
-    scratch.file(
-        "main.proto", "syntax = 'proto3'';", "import 'bazel.build/yolo/yolo_pkg/yolo.proto';");
-    scratch.file(
-        "BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "proto_library(",
-        "  name = 'main_proto',",
-        "  srcs = ['main.proto'],",
-        "  deps = ['@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto'],",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    ConfiguredTarget target =
+        getConfiguredTarget("@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
     assertThat(
             Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getImportPath().getPathString()))
         .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
   }
@@ -683,20 +662,11 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  visibility = ['//visibility:public'],",
         ")");
 
-    scratch.file("main.proto", "syntax = 'proto3'';", "import 'yolo_pkg/yolo.proto';");
-    scratch.file(
-        "BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "proto_library(",
-        "  name = 'main_proto',",
-        "  srcs = ['main.proto'],",
-        "  deps = ['@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto'],",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    ConfiguredTarget target =
+        getConfiguredTarget("@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
     assertThat(
             Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getImportPath().getPathString()))
         .contains("yolo_pkg/yolo.proto");
   }
@@ -737,20 +707,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  visibility = ['//visibility:public'],",
         ")");
 
-    scratch.file("main.proto", "syntax = 'proto3'';", "import 'yolo_pkg/yolo.proto';");
-    scratch.file(
-        "BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "proto_library(",
-        "  name = 'main_proto',",
-        "  srcs = ['main.proto'],",
-        "  deps = ['@yolo_repo//:yolo_proto'],",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//:main_proto");
+    ConfiguredTarget target = getConfiguredTarget("@yolo_repo//:yolo_proto");
     assertThat(
             Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getStrictImportableSources().toList(),
+                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getImportPath().getPathString()))
         .contains("yolo_pkg/yolo.proto");
   }

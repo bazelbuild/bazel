@@ -118,6 +118,7 @@ public interface SyscallCache extends XattrProvider {
     }
   }
 
+  @Nullable
   static Dirent.Type statusToDirentType(FileStatus status) {
     if (status == null) {
       return null;

@@ -8,6 +8,7 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+# Do not depend on this target when making a worker. To use WorkRequestHandler, depend on :work_request_handlers.
 java_library(
     name = "worker",
     srcs = glob(
@@ -76,6 +77,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/events",

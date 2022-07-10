@@ -94,6 +94,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean runLocalJavaOptimizations;
   private final ImmutableList<Label> localJavaOptimizationConfiguration;
   private final boolean splitBytecodeOptimizationPass;
+  private final int bytecodeOptimizationPassActions;
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
   private final boolean limitAndroidLintToAndroidCompatible;
@@ -131,6 +132,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.localJavaOptimizationConfiguration =
         ImmutableList.copyOf(javaOptions.localJavaOptimizationConfiguration);
     this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
+    this.bytecodeOptimizationPassActions = javaOptions.bytecodeOptimizationPassActions;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
@@ -298,11 +300,20 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /**
-   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
+   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across two
    * actions.
    */
   public boolean splitBytecodeOptimizationPass() {
     return splitBytecodeOptimizationPass;
+  }
+
+  /**
+   * This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer
+   * into. Note that if split_bytecode_optimization_pass is set, this will only change behavior if
+   * it is > 2.
+   */
+  public int bytecodeOptimizationPassActions() {
+    return bytecodeOptimizationPassActions;
   }
 
   /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */

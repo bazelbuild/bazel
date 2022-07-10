@@ -220,7 +220,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     try {
       InvocationPolicyEnforcer invocationPolicyEnforcer =
-          new InvocationPolicyEnforcer(policy, Level.INFO);
+          new InvocationPolicyEnforcer(policy, Level.INFO, /*conversionContext=*/ null);
       invocationPolicyEnforcer.enforce(parser, commandName);
 
       if (canonicalizeOptions.showWarnings) {

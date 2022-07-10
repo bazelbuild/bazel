@@ -938,4 +938,44 @@ EOF
   expect_log "extra from use, toolchain says bar"
 }
 
+function test_override_exec_group_of_test() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  if "$is_windows"; then
+    script_name="test_script.bat"
+    script_content="@echo off\necho hello\n"
+  else
+    script_name="test_script.sh"
+    script_content="#!/bin/bash\necho hello\n"
+  fi
+  cat > ${pkg}/rules.bzl <<EOF
+def _impl(ctx):
+  script = ctx.actions.declare_file("${script_name}")
+  ctx.actions.write(script, "${script_content}", is_executable = True)
+  return [
+    DefaultInfo(executable = script),
+    testing.ExecutionInfo({}, exec_group = "foo"),
+  ]
+
+my_rule_test = rule(
+  implementation = _impl,
+  exec_groups = {"foo": exec_group()},
+  test = True,
+)
+EOF
+  cat > ${pkg}/BUILD << EOF
+load("//${pkg}:rules.bzl", "my_rule_test")
+
+my_rule_test(
+    name = "a_test",
+    exec_properties = {"foo.testkey": "testvalue"},
+)
+EOF
+
+  bazel test ${pkg}:a_test --execution_log_json_file out.txt &> $TEST_log || fail "Test execution failed"
+  grep "testkey" out.txt || fail "Did not find the platform key"
+  grep "testvalue" out.txt || fail "Did not find the platform value"
+}
+
 run_suite "exec group test"
