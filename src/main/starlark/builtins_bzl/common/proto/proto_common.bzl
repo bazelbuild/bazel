@@ -120,8 +120,7 @@ def _compile(
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"
 
-def _experimental_filter_sources(proto_library_target, proto_lang_toolchain_info):
-    proto_info = proto_library_target[_builtins.toplevel.ProtoInfo]
+def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
     if not proto_info.direct_sources:
         return [], []
 
@@ -151,9 +150,10 @@ def _experimental_filter_sources(proto_library_target, proto_lang_toolchain_info
     return included, excluded
 
 def _experimental_should_generate_code(
-        proto_library_target,
+        proto_info,
         proto_lang_toolchain_info,
-        rule_name):
+        rule_name,
+        target_label):
     """Checks if the code should be generated for the given proto_library.
 
     The code shouldn't be generated only when the toolchain already provides it
@@ -163,26 +163,26 @@ def _experimental_should_generate_code(
     shouldn't generate code.
 
     Args:
-      proto_library_target: (Target) The proto_library to generate the sources for.
-        Obtained as the `target` parameter from an aspect's implementation.
+      proto_info: (ProtoInfo) The ProtoInfo from proto_library to check the generation for.
       proto_lang_toolchain_info: (ProtoLangToolchainInfo) The proto lang toolchain info.
         Obtained from a `proto_lang_toolchain` target or constructed ad-hoc.
       rule_name: (str) Name of the rule used in the failure message.
+      target_label: (Label) The label of the target used in the failure message.
 
     Returns:
       (bool) True when the code should be generated.
     """
-    included, excluded = _experimental_filter_sources(proto_library_target, proto_lang_toolchain_info)
+    included, excluded = _experimental_filter_sources(proto_info, proto_lang_toolchain_info)
 
     if included and excluded:
         fail(("The 'srcs' attribute of '%s' contains protos for which '%s' " +
               "shouldn't generate code (%s), in addition to protos for which it should (%s).\n" +
               "Separate '%s' into 2 proto_library rules.") % (
-            proto_library_target.label,
+            target_label,
             rule_name,
             ", ".join([f.short_path for f in excluded]),
             ", ".join([f.short_path for f in included]),
-            proto_library_target.label,
+            target_label,
         ))
 
     return bool(included)
