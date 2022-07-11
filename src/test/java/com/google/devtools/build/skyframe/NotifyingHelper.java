@@ -20,6 +20,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -41,52 +42,36 @@ public class NotifyingHelper {
       }
 
       @Override
-      public QueryableGraph transform(QueryableGraph graph) {
-        return new NotifyingQueryableGraph(graph, listener);
-      }
-
-      @Override
       public ProcessableGraph transform(ProcessableGraph graph) {
         return new NotifyingProcessableGraph(graph, listener);
       }
     };
   }
 
-  protected final Listener graphListener;
+  final Listener graphListener;
 
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
   }
 
-  /** Subclasses should override if they wish to subclass NotifyingNodeEntry. */
+  /** Subclasses should override if they wish to subclass {@link NotifyingNodeEntry}. */
   @Nullable
-  protected NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
+  @ForOverride
+  NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
     return entry == null ? null : new NotifyingNodeEntry(key, entry);
   }
 
-  static class NotifyingQueryableGraph implements QueryableGraph {
-    private final QueryableGraph delegate;
-    protected final NotifyingHelper notifyingHelper;
+  static class NotifyingProcessableGraph implements ProcessableGraph {
+    final ProcessableGraph delegate;
+    final NotifyingHelper notifyingHelper;
 
-    NotifyingQueryableGraph(QueryableGraph delegate, Listener graphListener) {
-      this.notifyingHelper = new NotifyingHelper(graphListener);
-      this.delegate = delegate;
+    NotifyingProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
+      this(delegate, new NotifyingHelper(graphListener));
     }
 
-    NotifyingQueryableGraph(QueryableGraph delegate, NotifyingHelper helper) {
-      this.notifyingHelper = helper;
+    NotifyingProcessableGraph(ProcessableGraph delegate, NotifyingHelper notifyingHelper) {
       this.delegate = delegate;
-    }
-
-    @Override
-    public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-        throws InterruptedException {
-      for (SkyKey key : keys) {
-        notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
-      }
-      return Maps.transformEntries(
-          delegate.getBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
+      this.notifyingHelper = notifyingHelper;
     }
 
     @Nullable
@@ -94,21 +79,6 @@ public class NotifyingHelper {
     public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
         throws InterruptedException {
       return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
-    }
-
-  }
-
-  static class NotifyingProcessableGraph
-      extends NotifyingQueryableGraph implements ProcessableGraph {
-    protected final ProcessableGraph delegate;
-
-    NotifyingProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
-      this(delegate, new NotifyingHelper(graphListener));
-    }
-
-    NotifyingProcessableGraph(ProcessableGraph delegate, NotifyingHelper helper) {
-      super(delegate, helper);
-      this.delegate = delegate;
     }
 
     @Override
@@ -134,7 +104,8 @@ public class NotifyingHelper {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
       }
-      return super.getBatch(requestor, reason, keys);
+      return Maps.transformEntries(
+          delegate.getBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Override
@@ -211,11 +182,11 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  protected class NotifyingNodeEntry extends DelegatingNodeEntry implements TestOnlyNodeEntry {
+  class NotifyingNodeEntry extends DelegatingNodeEntry {
     private final SkyKey myKey;
     private final ThinNodeEntry delegate;
 
-    protected NotifyingNodeEntry(SkyKey key, ThinNodeEntry delegate) {
+    NotifyingNodeEntry(SkyKey key, ThinNodeEntry delegate) {
       myKey = key;
       this.delegate = delegate;
     }
