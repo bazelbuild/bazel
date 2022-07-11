@@ -910,6 +910,25 @@ EOF
   expect_log 'Target //target_skipping:some_library up-to-date'
 }
 
+function test_incompatible_with_aliased_target() {
+  cat >> target_skipping/BUILD <<EOF
+alias(
+    name = "also_some_foo3_target",
+    actual = ":some_foo3_target",
+)
+EOF
+
+  # Try with :foo1. This should fail.
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:also_some_foo3_target  &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR: Target //target_skipping:also_some_foo3_target is incompatible and cannot be built, but was explicitly requested'
+  expect_log 'FAILED: Build did NOT complete successfully'
+}
+
 # Validate that an incompatible target with a toolchain not available for the
 # current platform will not cause an analysis error. This is a regression test
 # for https://github.com/bazelbuild/bazel/issues/12897.
