@@ -44,7 +44,7 @@ def _aspect_impl(target, ctx):
     proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
     source_jar = None
 
-    if proto_common.experimental_should_generate_code(target, proto_toolchain_info, "java_lite_proto_library"):
+    if proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain_info, "java_lite_proto_library", target.label):
         source_jar = ctx.actions.declare_file(ctx.label.name + "-lite-src.jar")
         proto_common.compile(
             ctx.actions,

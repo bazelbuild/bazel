@@ -49,7 +49,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
 
     proto_toolchain_info = ctx.attr._aspect_java_proto_toolchain[ProtoLangToolchainInfo]
     source_jar = None
-    if proto_common.experimental_should_generate_code(target, proto_toolchain_info, "java_proto_library"):
+    if proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain_info, "java_proto_library", target.label):
         # Generate source jar using proto compiler.
         source_jar = ctx.actions.declare_file(ctx.label.name + "-speed-src.jar")
         proto_common.compile(
