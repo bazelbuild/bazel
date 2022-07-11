@@ -2258,8 +2258,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   EvaluationResult<BuildDriverValue> evaluateBuildDriverKeys(
       ExtendedEventHandler eventHandler,
-      List<BuildDriverKey> buildDriverCTKeys,
-      List<BuildDriverKey> buildDriverAspectKeys,
+      Set<BuildDriverKey> buildDriverCTKeys,
+      Set<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
       int numThreads,
       int cpuHeavySkyKeysThreadPoolSize,
