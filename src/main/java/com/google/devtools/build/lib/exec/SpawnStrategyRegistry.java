@@ -250,18 +250,21 @@ public final class SpawnStrategyRegistry
    */
   public static final class Builder {
 
-    private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
-    // TODO(schmitt): Using a list and autovalue so as to be able to reverse order while legacy sort
-    //  is supported. Can be converted to same as mnemonics once legacy behavior is removed.
-    private final List<FilterAndIdentifiers> filterAndIdentifiers = new ArrayList<>();
     private final HashMap<String, SpawnStrategy> identifierToStrategy = new HashMap<>();
     private final ArrayList<SpawnStrategy> strategiesInRegistrationOrder = new ArrayList<>();
 
+    private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
+
+    // TODO(schmitt): Using a list and autovalue so as to be able to reverse order while legacy sort
+    //  is supported. Can be converted to same as mnemonics once legacy behavior is removed.
+    private final List<FilterAndIdentifiers> filterAndIdentifiers = new ArrayList<>();
     // Using List values here rather than multimaps as there is no need for the latter's
     // functionality: The values are always replaced as a whole, no adding/creation required.
     private final HashMap<String, List<String>> mnemonicToIdentifiers = new HashMap<>();
-    private final HashMap<String, List<String>> mnemonicToRemoteIdentifiers = new HashMap<>();
-    private final HashMap<String, List<String>> mnemonicToLocalIdentifiers = new HashMap<>();
+    private final HashMap<String, List<String>> mnemonicToRemoteDynamicIdentifiers =
+        new HashMap<>();
+    private final HashMap<String, List<String>> mnemonicToLocalDynamicIdentifiers = new HashMap<>();
+
     @Nullable private String remoteLocalFallbackStrategyIdentifier;
 
     /**
@@ -306,18 +309,14 @@ public final class SpawnStrategyRegistry
      * so registered will take precedence.
      */
     @CanIgnoreReturnValue
-    public Builder registerStrategy(SpawnStrategy strategy, List<String> commandlineIdentifiers) {
+    public Builder registerStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
       Preconditions.checkArgument(
-          commandlineIdentifiers.size() >= 1, "At least one commandLineIdentifier must be given");
+          commandlineIdentifiers.length >= 1, "At least one commandLineIdentifier must be given");
       for (String identifier : commandlineIdentifiers) {
         identifierToStrategy.put(identifier, strategy);
       }
       strategiesInRegistrationOrder.add(strategy);
       return this;
-    }
-
-    public Builder registerStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
-      return registerStrategy(strategy, ImmutableList.copyOf(commandlineIdentifiers));
     }
 
     /**
@@ -357,7 +356,7 @@ public final class SpawnStrategyRegistry
      */
     @CanIgnoreReturnValue
     public Builder addDynamicRemoteStrategies(Map<String, List<String>> strategies) {
-      mnemonicToRemoteIdentifiers.putAll(strategies);
+      mnemonicToRemoteDynamicIdentifiers.putAll(strategies);
       return this;
     }
 
@@ -371,7 +370,7 @@ public final class SpawnStrategyRegistry
      */
     @CanIgnoreReturnValue
     public Builder addDynamicLocalStrategies(Map<String, List<String>> strategies) {
-      mnemonicToLocalIdentifiers.putAll(strategies);
+      mnemonicToLocalDynamicIdentifiers.putAll(strategies);
       return this;
     }
 
@@ -417,7 +416,7 @@ public final class SpawnStrategyRegistry
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToLocalStrategies =
           new ImmutableListMultimap.Builder<>();
-      for (Map.Entry<String, List<String>> entry : mnemonicToLocalIdentifiers.entrySet()) {
+      for (Map.Entry<String, List<String>> entry : mnemonicToLocalDynamicIdentifiers.entrySet()) {
         mnemonicToLocalStrategies.putAll(
             entry.getKey(),
             toSandboxedStrategies(entry.getValue(), "local mnemonic " + entry.getKey()));
@@ -425,7 +424,7 @@ public final class SpawnStrategyRegistry
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToRemoteStrategies =
           new ImmutableListMultimap.Builder<>();
-      for (Map.Entry<String, List<String>> entry : mnemonicToRemoteIdentifiers.entrySet()) {
+      for (Map.Entry<String, List<String>> entry : mnemonicToRemoteDynamicIdentifiers.entrySet()) {
         mnemonicToRemoteStrategies.putAll(
             entry.getKey(),
             toSandboxedStrategies(entry.getValue(), "remote mnemonic " + entry.getKey()));
