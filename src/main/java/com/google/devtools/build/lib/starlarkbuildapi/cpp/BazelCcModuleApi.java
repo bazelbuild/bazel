@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -351,6 +352,13 @@ public interface BazelCcModuleApi<
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "unbound"),
+        @Param(
+            name = "non_compilation_additional_inputs",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)},
+            documented = false,
+            defaultValue = "unbound"),
       })
   Tuple compile(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -389,6 +397,7 @@ public interface BazelCcModuleApi<
       Object grepIncludes,
       Object coptsFilter,
       Object separateModuleHeaders,
+      Object nonCompilationAdditionalInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
