@@ -252,6 +252,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_object_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/rule_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",

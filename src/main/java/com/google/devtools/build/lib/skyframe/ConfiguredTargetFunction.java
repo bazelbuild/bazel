@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.RuleConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -360,7 +361,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       Rule rule = target.getAssociatedRule();
-
       PlatformInfo platformInfo = unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
       Label platformLabel = platformInfo != null ? platformInfo.label() : null;
       BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
@@ -398,7 +398,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     .collect(ImmutableList.toImmutableList());
 
             if (!invalidConstraintValues.isEmpty()) {
-              return createIncompatibleRuleConfiguredTarget(
+              return RuleConstraintSemantics.createIncompatibleRuleConfiguredTarget(
                   target,
                   configuration,
                   configConditions,
@@ -454,7 +454,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           .collect(ImmutableList.toImmutableList());
 
         if (!incompatibleDeps.isEmpty()) {
-          return createIncompatibleRuleConfiguredTarget(
+          return RuleConstraintSemantics.createIncompatibleRuleConfiguredTarget(
               target,
               configuration,
               configConditions,
@@ -559,62 +559,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } finally {
       maybeReleaseSemaphore();
     }
-  }
-
-  // Taken from ConfiguredTargetFactory.convertVisibility().
-  // TODO(phil): Figure out how to de-duplicate somehow.
-  private NestedSet<PackageGroupContents> convertVisibility(Target target) {
-    RuleVisibility ruleVisibility = target.getVisibility();
-    if (ruleVisibility instanceof ConstantRuleVisibility) {
-      return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? NestedSetBuilder.create(
-              Order.STABLE_ORDER,
-              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
-          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-      throw new IllegalStateException("unsupported PackageGroupsRuleVisibility");
-    } else {
-      throw new IllegalStateException("unknown visibility");
-    }
-  }
-
-  private RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
-      Target target,
-      BuildConfigurationValue configuration,
-      ConfigConditions configConditions,
-      IncompatiblePlatformProvider incompatiblePlatformProvider,
-      String ruleClassString,
-      NestedSetBuilder<Package> transitivePackagesForPackageRootResolution
-      ) {
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    FileProvider fileProvider = new FileProvider(filesToBuild);
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
-
-    TransitiveInfoProviderMapBuilder providerBuilder =
-        new TransitiveInfoProviderMapBuilder()
-            .put(incompatiblePlatformProvider)
-            .add(RunfilesProvider.simple(Runfiles.EMPTY))
-            .add(fileProvider)
-            .add(filesToRunProvider);
-    if (configuration.hasFragment(TestConfiguration.class)) {
-      // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
-      // though this test will never execute, some code still expects the provider.
-      TestProvider.TestParams testParams = TestActionBuilder.createEmptyTestParams();
-      providerBuilder.put(TestProvider.class, new TestProvider(testParams));
-    }
-
-    RuleConfiguredTarget configuredTarget = new RuleConfiguredTarget(
-        target.getLabel(),
-        configuration.getKey(),
-        convertVisibility(target),
-        providerBuilder.build(),
-        configConditions.asProviders(),
-        ruleClassString);
-    return new RuleConfiguredTargetValue(
-        configuredTarget,
-        transitivePackagesForPackageRootResolution == null
-            ? null
-            : transitivePackagesForPackageRootResolution.build());
   }
 
   @Nullable

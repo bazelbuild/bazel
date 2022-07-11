@@ -49,7 +49,8 @@ public final class RuleConfiguredTargetValue
     this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
   }
 
-  RuleConfiguredTargetValue(
+  // TODO(phil): Revert this back to non-public.
+  public RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget,
       @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);

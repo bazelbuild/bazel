@@ -2178,6 +2178,25 @@ java_library(
     ],
 )
 
+java_library(
+    name = "constraints/rule_constraint_semantics",
+    srcs = ["constraints/RuleConstraintSemantics.java"],
+    deps = [
+        ":incompatible_platform_provider",
+        ":file_provider",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        ":test/test_configuration",
+        ":transitive_info_provider_map_builder",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
+        ":analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//third_party:guava",
+    ],
+)
+
 # TODO(b/144899336): This should be analysis/starlark/BUILD
 java_library(
     name = "starlark/args",
