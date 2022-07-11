@@ -82,11 +82,6 @@ public interface QueryableGraph {
     return null;
   }
 
-  /** Checks whether this graph stores reverse dependencies. */
-  default boolean storesReverseDeps() {
-    return true;
-  }
-
   default ImmutableSet<SkyKey> getAllKeysForTesting() {
     throw new UnsupportedOperationException();
   }
