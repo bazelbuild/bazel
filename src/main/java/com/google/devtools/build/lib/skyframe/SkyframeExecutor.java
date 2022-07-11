@@ -113,6 +113,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -2946,6 +2948,41 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       traverseException = (Exception) traverseException.getCause();
     }
     return detailedExitCode;
+  }
+
+  public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
+      throws InterruptedException, AbruptExitException {
+    SkyKey mainRepoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
+    EvaluationResult<RepositoryMappingValue> evalResult =
+        evaluate(
+            ImmutableList.of(mainRepoMappingKey),
+            /*keepGoing=*/ false,
+            DEFAULT_THREAD_COUNT,
+            eventHandler);
+    if (evalResult.hasError()) {
+      ErrorInfo errorInfo = evalResult.getError(mainRepoMappingKey);
+      Exception e = errorInfo.getException();
+      if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
+        cyclesReporter.reportCycles(errorInfo.getCycleInfo(), mainRepoMappingKey, eventHandler);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
+                    .setMessage("cycles detected during computation of main repo mapping")
+                    .build()));
+      }
+      if (e instanceof DetailedException) {
+        throw new AbruptExitException(((DetailedException) e).getDetailedExitCode(), e);
+      }
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
+                  .setMessage("unknown error during computation of main repo mapping")
+                  .build()),
+          e);
+    }
+    return evalResult.get(mainRepoMappingKey).getRepositoryMapping();
   }
 
   public PrepareAnalysisPhaseValue prepareAnalysisPhase(

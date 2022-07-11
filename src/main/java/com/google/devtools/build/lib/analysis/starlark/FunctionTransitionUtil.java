@@ -44,6 +44,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -267,10 +268,10 @@ public final class FunctionTransitionUtil {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         // The transition changes a Starlark option.
         Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
+        // TODO(#15728): `optionValue` needs to go through repo mapping, if it's a string and the
+        // option is label-typed.
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
-        if ((oldValue == null && optionValue != null)
-            || (oldValue != null && optionValue == null)
-            || (oldValue != null && !oldValue.equals(optionValue))) {
+        if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);
           convertedAffectedOptions.add(optionLabel.toString());
         }
@@ -313,8 +314,14 @@ public final class FunctionTransitionUtil {
               convertedValue =
                   def.getConverter()
                       .convert(
-                          optionValueAsList.stream().map(Object::toString).collect(joining(",")),
-                          /*conversionContext=*/ null);
+                          optionValueAsList.stream()
+                              .map(
+                                  element ->
+                                      element instanceof Label
+                                          ? ((Label) element).getUnambiguousCanonicalForm()
+                                          : element.toString())
+                              .collect(joining(",")),
+                          starlarkTransition.getPackageContext());
             }
           } else if (def.getType() == List.class && optionValue == null) {
             throw ValidationException.format(
@@ -327,15 +334,14 @@ public final class FunctionTransitionUtil {
             convertedValue = optionValue;
           } else if (optionValue instanceof String) {
             convertedValue =
-                def.getConverter().convert((String) optionValue, /*conversionContext=*/ null);
+                def.getConverter()
+                    .convert((String) optionValue, starlarkTransition.getPackageContext());
           } else {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
           Object oldValue = field.get(fromOptions.get(optionInfo.getOptionClass()));
-          if ((oldValue == null && convertedValue != null)
-              || (oldValue != null && convertedValue == null)
-              || (oldValue != null && !oldValue.equals(convertedValue))) {
+          if (!Objects.equals(oldValue, convertedValue)) {
             if (toOptions == null) {
               toOptions = fromOptions.clone();
             }

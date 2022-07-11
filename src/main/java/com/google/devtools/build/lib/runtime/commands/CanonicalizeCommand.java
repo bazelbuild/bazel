@@ -17,6 +17,7 @@ import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -166,8 +167,10 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .build();
 
     // set up the command environment for starlark options parsing
+    RepositoryMapping mainRepoMapping;
     try {
       env.syncPackageLoading(options);
+      mainRepoMapping = env.getSkyframeExecutor().getMainRepoMapping(env.getReporter());
     } catch (InterruptedException e) {
       String message = "canonicalization interrupted";
       env.getReporter().handle(Event.error(message));
@@ -185,6 +188,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
             .allowResidue(true)
             .withAliasFlag(BLAZE_ALIASING_FLAG)
             .withAliases(options.getAliases())
+            .withConversionContext(mainRepoMapping)
             .build();
 
     try {
@@ -220,7 +224,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
     try {
       InvocationPolicyEnforcer invocationPolicyEnforcer =
-          new InvocationPolicyEnforcer(policy, Level.INFO, /*conversionContext=*/ null);
+          new InvocationPolicyEnforcer(policy, Level.INFO, mainRepoMapping);
       invocationPolicyEnforcer.enforce(parser, commandName);
 
       if (canonicalizeOptions.showWarnings) {
