@@ -51,8 +51,8 @@ class WorkerParser {
   private static final String REASON_NO_FINAL_FLAGFILE =
       "because the command-line arguments does not end with a @flagfile or --flagfile= argument";
 
-  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
-  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@[^@]|--?flagfile=.)(.*)");
+  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes. */
+  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   /** The global execRoot. */
   private final Path execRoot;
@@ -147,6 +147,10 @@ class WorkerParser {
         protocolFormat);
   }
 
+  private static boolean isFlagFileArg(String arg) {
+    return FLAG_FILE_PATTERN.matcher(arg).matches() && !arg.startsWith("@@");
+  }
+
   /**
    * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
    * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
@@ -161,12 +165,12 @@ class WorkerParser {
       if (args.isEmpty()) {
         throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
       }
-      if (!FLAG_FILE_PATTERN.matcher(Iterables.getLast(args)).matches()) {
+      if (!isFlagFileArg(Iterables.getLast(args))) {
         throwFlagFileFailure(REASON_NO_FINAL_FLAGFILE, spawn);
       }
       flagFiles.add(Iterables.getLast(args));
       for (int i = 0; i < args.size() - 1; i++) {
-        if (FLAG_FILE_PATTERN.matcher(args.get(i)).matches()) {
+        if (isFlagFileArg(args.get(i))) {
           throwFlagFileFailure(REASON_EXCESS_FLAGFILE, spawn);
         } else {
           workerArgs.add(args.get(i));
@@ -174,7 +178,7 @@ class WorkerParser {
       }
     } else {
       for (String arg : spawn.getArguments()) {
-        if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
+        if (isFlagFileArg(arg)) {
           flagFiles.add(arg);
         } else {
           workerArgs.add(arg);
