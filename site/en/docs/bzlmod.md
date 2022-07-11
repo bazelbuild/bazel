@@ -252,7 +252,7 @@ An index registry must follow the format below:
 ### Bazel Central Registry {:#bazel-central-registry}
 
 Bazel Central Registry (BCR) is an index registry located at
-[registry.bazel.build](https://registry.bazel.build){: .external}. Its contents
+[bcr.bazel.build](https://bcr.bazel.build){: .external}. Its contents
 are backed by the GitHub repo
 [`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry){: .external}.
 
