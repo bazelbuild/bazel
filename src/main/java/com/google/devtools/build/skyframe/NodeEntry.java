@@ -33,8 +33,8 @@ import javax.annotation.Nullable;
  */
 public interface NodeEntry extends ThinNodeEntry {
   /**
-   * Return code for {@link #addReverseDepAndCheckIfDone} and
-   * {@link #checkIfDoneForDirtyReverseDep}.
+   * Return code for {@link #addReverseDepAndCheckIfDone} and {@link
+   * #checkIfDoneForDirtyReverseDep}.
    */
   enum DependencyState {
     /** The node is done. */
@@ -54,18 +54,16 @@ public interface NodeEntry extends ThinNodeEntry {
     ALREADY_EVALUATING
   }
 
-  /**
-   * Return code for {@link #getDirtyState}.
-   */
+  /** Return code for {@link #getDirtyState}. */
   enum DirtyState {
     /**
-     * The node's dependencies need to be checked to see if it needs to be rebuilt. The
-     * dependencies must be obtained through calls to {@link #getNextDirtyDirectDeps} and checked.
+     * The node's dependencies need to be checked to see if it needs to be rebuilt. The dependencies
+     * must be obtained through calls to {@link #getNextDirtyDirectDeps} and checked.
      */
     CHECK_DEPENDENCIES,
     /**
-     * All of the node's dependencies are unchanged, and the value itself was not marked changed,
-     * so its current value is still valid -- it need not be rebuilt.
+     * All of the node's dependencies are unchanged, and the value itself was not marked changed, so
+     * its current value is still valid -- it need not be rebuilt.
      */
     VERIFIED_CLEAN,
     /**
@@ -152,10 +150,9 @@ public interface NodeEntry extends ThinNodeEntry {
    * Returns raw {@link SkyValue} stored in this entry, which may include metadata associated with
    * it (like events and errors).
    *
-   * <p>This method returns {@code null} if the evaluation of this node is not complete, i.e.,
-   * after node creation or dirtying and before {@link #setValue} has been called. Callers should
-   * assert that the returned value is not {@code null} whenever they expect the node should be
-   * done.
+   * <p>This method returns {@code null} if the evaluation of this node is not complete, i.e., after
+   * node creation or dirtying and before {@link #setValue} has been called. Callers should assert
+   * that the returned value is not {@code null} whenever they expect the node should be done.
    *
    * <p>Use the static methods of {@link ValueWithMetadata} to extract metadata if necessary.
    */
@@ -308,8 +305,8 @@ public interface NodeEntry extends ThinNodeEntry {
    * changed.
    *
    * <p>Used when an external caller has reason to believe that re-evaluating may yield a new
-   * result. This method should not be used if one of the normal deps of this node has changed,
-   * the usual change-pruning process should work in that case.
+   * result. This method should not be used if one of the normal deps of this node has changed, the
+   * usual change-pruning process should work in that case.
    */
   @ThreadSafe
   void forceRebuild();
@@ -417,11 +414,11 @@ public interface NodeEntry extends ThinNodeEntry {
   boolean noDepsLastBuild();
 
   /**
-   * Remove dep from direct deps. This should only be called if this entry is about to be
-   * committed as a cycle node, but some of its children were not checked for cycles, either
-   * because the cycle was discovered before some children were checked; some children didn't have a
-   * chance to finish before the evaluator aborted; or too many cycles were found when it came time
-   * to check the children.
+   * Remove dep from direct deps. This should only be called if this entry is about to be committed
+   * as a cycle node, but some of its children were not checked for cycles, either because the cycle
+   * was discovered before some children were checked; some children didn't have a chance to finish
+   * before the evaluator aborted; or too many cycles were found when it came time to check the
+   * children.
    */
   @ThreadSafe
   void removeUnfinishedDeps(Set<SkyKey> unfinishedDeps);
@@ -460,17 +457,4 @@ public interface NodeEntry extends ThinNodeEntry {
    */
   @ThreadSafe
   boolean isReady();
-
-  /** Which edges a done NodeEntry stores (dependencies and/or reverse dependencies. */
-  enum KeepEdgesPolicy {
-    /** Both deps and rdeps are stored. Incremental builds and checking are possible. */
-    ALL,
-    /**
-     * Only deps are stored. Incremental builds may be possible with a "top-down" evaluation
-     * framework. Checking of reverse deps is not possible.
-     */
-    JUST_DEPS,
-    /** Neither deps nor rdeps are stored. Incremental builds and checking are disabled. */
-    NONE
-  }
 }
