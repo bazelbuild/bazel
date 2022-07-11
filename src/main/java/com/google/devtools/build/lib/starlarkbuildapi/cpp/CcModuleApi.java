@@ -1259,6 +1259,13 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "test_only_target",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -1278,6 +1285,7 @@ public interface CcModuleApi<
       Object stamp,
       Object linkedDllNameSuffix,
       Object winDefFile,
+      Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
