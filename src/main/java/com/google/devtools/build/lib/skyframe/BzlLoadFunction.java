@@ -34,9 +34,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -70,6 +69,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -508,7 +508,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     /** Records exit from a {@code load()}. */
-    private void finishLoad(BzlLoadValue.Key key) throws BzlLoadFailedException {
+    private void finishLoad(BzlLoadValue.Key key) {
       Preconditions.checkState(loadStack.remove(key), key);
     }
 
@@ -554,7 +554,7 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
 
-    BzlLoadValue result = null;
+    BzlLoadValue result;
     // Release the compiled bzl iff the value gets completely evaluated (to either error or non-null
     // result).
     boolean completed = true;
@@ -1144,8 +1144,7 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
-      BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp)
-      throws BzlLoadFailedException, InterruptedException {
+      BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
     BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
     if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
@@ -1169,7 +1168,7 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /** Executes the compiled .bzl file defining the module to be loaded. */
-  private void executeBzlFile(
+  private static void executeBzlFile(
       Program prog,
       Label label,
       Module module,
@@ -1181,17 +1180,21 @@ public class BzlLoadFunction implements SkyFunction {
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setLoader(loadedModules::get);
-      StoredEventHandler starlarkEventHandler = new StoredEventHandler();
+
+      // Wrap the skyframe event handler to listen for starlark errors.
+      AtomicBoolean sawStarlarkError = new AtomicBoolean(false);
+      EventHandler starlarkEventHandler =
+          event -> {
+            if (event.getKind() == EventKind.ERROR) {
+              sawStarlarkError.set(true);
+            }
+            skyframeEventHandler.handle(event);
+          };
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
       context.storeInThread(thread);
 
       execAndExport(prog, label, starlarkEventHandler, module, thread);
-
-      Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());
-      for (Postable post : starlarkEventHandler.getPosts()) {
-        skyframeEventHandler.post(post);
-      }
-      if (starlarkEventHandler.hasErrors()) {
+      if (sawStarlarkError.get()) {
         throw BzlLoadFailedException.executionFailed(label);
       }
     }
