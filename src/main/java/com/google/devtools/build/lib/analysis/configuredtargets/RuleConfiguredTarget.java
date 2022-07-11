@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
-import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -155,9 +155,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
-  /**
-   * Use this constructor for creating incompatible ConfiguredTarget instances.
-   */
+  /** Use this constructor for creating incompatible ConfiguredTarget instances. */
   public RuleConfiguredTarget(
       Label label,
       BuildConfigurationKey configurationKey,
@@ -178,7 +176,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
     Preconditions.checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, label);
   }
-
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
   @Override

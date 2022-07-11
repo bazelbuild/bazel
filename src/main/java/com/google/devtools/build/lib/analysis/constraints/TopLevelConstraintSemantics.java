@@ -328,7 +328,9 @@ public class TopLevelConstraintSemantics {
     // Print out a sorted list to make the output reproducible.
     boolean first = true;
     for (ConstraintValueInfo constraintValueInfo :
-        ImmutableList.sortedCopyOf((ConstraintValueInfo a, ConstraintValueInfo b) -> b.label().compareTo(a.label()), provider.constraintsResponsibleForIncompatibility())) {
+        ImmutableList.sortedCopyOf(
+            (ConstraintValueInfo a, ConstraintValueInfo b) -> b.label().compareTo(a.label()),
+            provider.constraintsResponsibleForIncompatibility())) {
       if (first) {
         first = false;
       } else {
