@@ -239,9 +239,10 @@ public class ProtoCommon {
         ruleContext.callStarlarkOrThrowRuleError(
             shouldGenerateCode,
             ImmutableList.of(
-                /* proto_library_target */ protoTarget,
+                /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
                 /* proto_lang_toolchain_info */ protoLangToolchainInfo,
-                /* rule_name */ ruleName),
+                /* rule_name */ ruleName,
+                /* target_label */ protoTarget.getLabel()),
             ImmutableMap.of());
   }
 
@@ -258,7 +259,7 @@ public class ProtoCommon {
                   ruleContext.callStarlarkOrThrowRuleError(
                       filterSources,
                       ImmutableList.of(
-                          /* proto_library_target */ protoTarget,
+                          /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
                           /* proto_lang_toolchain_info */ protoLangToolchainInfo),
                       ImmutableMap.of()))
               .get(0),
