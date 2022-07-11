@@ -42,7 +42,7 @@ class BazelModuleTest(test_base.TestBase):
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'build --registry=https://registry.bazel.build',
+            'build --registry=https://bcr.bazel.build',
             'build --verbose_failures',
         ])
     self.ScratchFile('WORKSPACE')
