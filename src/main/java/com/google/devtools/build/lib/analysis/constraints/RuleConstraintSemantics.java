@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -57,12 +57,12 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
 
 public class RuleConstraintSemantics {
   @AutoValue
@@ -108,10 +108,16 @@ public class RuleConstraintSemantics {
 
     // Resolve the constraint labels.
     List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
-    ImmutableList<SkyKey> constraintKeys = labels.stream()
-        .map(label -> Dependency.builder().setLabel(label)
-          .setConfiguration(configuration).build().getConfiguredTargetKey())
-        .collect(toImmutableList());
+    ImmutableList<SkyKey> constraintKeys =
+        labels.stream()
+            .map(
+                label ->
+                    Dependency.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build()
+                        .getConfiguredTargetKey())
+            .collect(toImmutableList());
 
     SkyframeLookupResult constraintValues = env.getValuesAndExceptions(constraintKeys);
     if (env.valuesMissing()) {
@@ -119,11 +125,12 @@ public class RuleConstraintSemantics {
     }
 
     // Find the constraints that don't satisfy the target platform.
-    ImmutableList<ConstraintValueInfo> invalidConstraintValues = constraintKeys.stream()
-        .map(key -> (ConfiguredTargetValue)constraintValues.get(key))
-        .map(ctv -> PlatformProviderUtils.constraintValue(ctv.getConfiguredTarget()))
-        .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
-        .collect(toImmutableList());
+    ImmutableList<ConstraintValueInfo> invalidConstraintValues =
+        constraintKeys.stream()
+            .map(key -> (ConfiguredTargetValue) constraintValues.get(key))
+            .map(ctv -> PlatformProviderUtils.constraintValue(ctv.getConfiguredTarget()))
+            .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
+            .collect(toImmutableList());
     if (invalidConstraintValues.isEmpty()) {
       return IncompatibleTargetCreationResult.create(false, null);
     }
@@ -161,8 +168,7 @@ public class RuleConstraintSemantics {
         depValueMap.values().stream()
             .map(ConfiguredTargetAndData::getConfiguredTarget)
             .filter(
-                dep ->
-                    RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
+                dep -> RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
             .collect(toImmutableList());
     if (incompatibleDeps.isEmpty()) {
       return null;
