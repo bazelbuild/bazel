@@ -15,11 +15,21 @@
 package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import java.io.IOException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,6 +37,33 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link LabelBuildSettings} rules. */
 @RunWith(JUnit4.class)
 public class LabelBuildSettingTest extends BuildViewTestCase {
+  private FakeRegistry registry;
+
+  @Override
+  protected boolean enableBzlmod() {
+    return true;
+  }
+
+  @Override
+  protected ImmutableList<Injected> extraPrecomputedValues() {
+    try {
+      registry =
+          FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(scratch.dir("modules").getPathString());
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
+  }
+
+  @Before
+  public void setUpForBzlmod() throws Exception {
+    scratch.file("MODULE.bazel");
+  }
 
   private void writeRulesBzl(String type) throws Exception {
     scratch.file(
@@ -194,7 +231,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void transitionTypeParsing() throws Exception {
+  public void transitionOutput_samePackage() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -209,15 +246,19 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "def _transition_impl(settings, attr):",
         "    return {",
         "        '//test:my_flag1': Label('//test:other_rule'),",
-        "        '//test:my_flag2': '//test:other_rule'",
-        "}",
+        "        '//test:my_flag2': '//test:other_rule',",
+        "        '//test:my_flag3': ':other_rule',",
+        "    }",
         "_my_transition = transition(",
         "    implementation = _transition_impl,",
         "    inputs = [],",
-        "    outputs = ['//test:my_flag1', '//test:my_flag2'],",
+        "    outputs = ['//test:my_flag1', '//test:my_flag2', '//test:my_flag3'],",
         ")",
         "def _rule_impl(ctx):",
-        "    pass",
+        "    target = Label('//test:other_rule')",
+        "    if target != ctx.attr._flag1.label: fail('flag1 is ' + str(ctx.attr._flag1.label))",
+        "    if target != ctx.attr._flag2.label: fail('flag2 is ' + str(ctx.attr._flag2.label))",
+        "    if target != ctx.attr._flag3.label: fail('flag3 is ' + str(ctx.attr._flag3.label))",
         "rule_with_transition = rule(",
         "    implementation = _rule_impl,",
         "    cfg = _my_transition,",
@@ -225,6 +266,9 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "        '_allowlist_function_transition': attr.label(",
         "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
+        "        '_flag1': attr.label(default=':my_flag1'),",
+        "        '_flag2': attr.label(default=':my_flag2'),",
+        "        '_flag3': attr.label(default=':my_flag3'),",
         "    }",
         ")");
 
@@ -233,14 +277,21 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'rule_with_transition')",
         "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
         "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
-        "rule_with_transition(name = 'first_rule')",
+        "label_flag(name = 'my_flag3', build_setting_default = ':first_rule')",
+        "filegroup(name = 'first_rule')",
+        "filegroup(name = 'other_rule')",
         "rule_with_transition(name = 'buildme')");
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
     assertNoEvents();
   }
 
   @Test
-  public void transitionsDontAllowRelativeLabels() throws Exception {
+  public void transitionOutput_otherRepo() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+    scratch.file("modules/@foo.1.0/WORKSPACE");
+    scratch.file("modules/@foo.1.0/BUILD", "filegroup(name='other_rule')");
+
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -254,15 +305,18 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "test/rules.bzl",
         "def _transition_impl(settings, attr):",
         "    return {",
-        "        '//test:my_flag': ':other_rule'",
-        "}",
+        "        '//test:my_flag1': Label('@foo//:other_rule'),",
+        "        '//test:my_flag2': '@foo//:other_rule',",
+        "    }",
         "_my_transition = transition(",
         "    implementation = _transition_impl,",
         "    inputs = [],",
-        "    outputs = ['//test:my_flag'],",
+        "    outputs = ['//test:my_flag1', '//test:my_flag2'],",
         ")",
         "def _rule_impl(ctx):",
-        "    pass",
+        "    target = Label('@foo//:other_rule')",
+        "    if target != ctx.attr._flag1.label: fail('flag1 is ' + str(ctx.attr._flag1.label))",
+        "    if target != ctx.attr._flag2.label: fail('flag2 is ' + str(ctx.attr._flag2.label))",
         "rule_with_transition = rule(",
         "    implementation = _rule_impl,",
         "    cfg = _my_transition,",
@@ -270,17 +324,20 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "        '_allowlist_function_transition': attr.label(",
         "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
+        "        '_flag1': attr.label(default=':my_flag1'),",
+        "        '_flag2': attr.label(default=':my_flag2'),",
         "    }",
         ")");
 
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'rule_with_transition')",
-        "label_flag(name = 'my_flag', build_setting_default = ':first_rule')",
-        "rule_with_transition(name = 'first_rule')",
+        "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
+        "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
+        "label_flag(name = 'my_flag3', build_setting_default = ':first_rule')",
+        "filegroup(name = 'first_rule')",
         "rule_with_transition(name = 'buildme')");
-    reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//test:buildme")).isNull();
-    assertContainsEvent("invalid label ':other_rule': absolute label must begin with '@' or '//'");
+    assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
+    assertNoEvents();
   }
 }

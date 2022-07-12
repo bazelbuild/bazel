@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -268,9 +269,25 @@ public final class FunctionTransitionUtil {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         // The transition changes a Starlark option.
         Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
-        // TODO(#15728): `optionValue` needs to go through repo mapping, if it's a string and the
-        // option is label-typed.
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
+        if (oldValue instanceof Label) {
+          // If this is a label-typed build setting, we need to convert the provided new value into
+          // a Label object.
+          if (optionValue instanceof String) {
+            try {
+              optionValue =
+                  Label.parseWithPackageContext(
+                      (String) optionValue, starlarkTransition.getPackageContext());
+            } catch (LabelSyntaxException e) {
+              throw ValidationException.format(
+                  "Error parsing value for option '%s': %s", optionKey, e.getMessage());
+            }
+          } else if (!(optionValue instanceof Label)) {
+            throw ValidationException.format(
+                "Invalid value type for option '%s': want label, got %s",
+                optionKey, Starlark.type(optionValue));
+          }
+        }
         if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);
           convertedAffectedOptions.add(optionLabel.toString());
