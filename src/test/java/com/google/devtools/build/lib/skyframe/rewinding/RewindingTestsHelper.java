@@ -67,13 +67,12 @@ import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ThinNodeEntry;
-import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
@@ -240,7 +239,7 @@ public class RewindingTestsHelper {
         NotifyingHelper.MarkDirtyAfterContext markDirtyAfterContext =
             (NotifyingHelper.MarkDirtyAfterContext) context;
         checkState(
-            markDirtyAfterContext.dirtyType().equals(ThinNodeEntry.DirtyType.FORCE_REBUILD),
+            markDirtyAfterContext.dirtyType().equals(DirtyType.FORCE_REBUILD),
             "Unexpected DirtyType %s for key %s",
             context,
             key);
@@ -1391,7 +1390,7 @@ public class RewindingTestsHelper {
             NotifyingHelper.MarkDirtyAfterContext markDirtyAfterContext =
                 (NotifyingHelper.MarkDirtyAfterContext) context;
             checkState(
-                markDirtyAfterContext.dirtyType().equals(ThinNodeEntry.DirtyType.FORCE_REBUILD),
+                markDirtyAfterContext.dirtyType().equals(DirtyType.FORCE_REBUILD),
                 "Unexpected DirtyType %s for key %s",
                 context,
                 key);
