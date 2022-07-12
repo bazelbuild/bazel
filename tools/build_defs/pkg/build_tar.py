@@ -104,21 +104,6 @@ class TarFile(object):
         uname=names[0],
         gname=names[1])
 
-  def add_tar(self, tar):
-    """Merge a tar file into the destination tar file.
-
-    All files presents in that tar will be added to the output file
-    under self.directory/path. No user name nor group name will be
-    added to the output.
-
-    Args:
-      tar: the tar file to add
-    """
-    root = None
-    if self.directory and self.directory != '/':
-      root = self.directory
-    self.tarfile.add_tar(tar, numeric=True, root=root)
-
 
 def unquote_and_split(arg, c):
   """Split a string at the first unquoted occurrence of a character.
@@ -187,8 +172,6 @@ def main(unused_argv):
     for f in FLAGS.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, **file_attributes(tof))
-    for tar in FLAGS.tar:
-      output.add_tar(tar)
 
 
 if __name__ == '__main__':

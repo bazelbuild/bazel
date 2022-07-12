@@ -23,7 +23,6 @@ import tarfile
 import unittest
 
 from tools.build_defs.pkg import archive
-from tools.build_defs.pkg import testenv
 
 
 class TarFileWriterTest(unittest.TestCase):
@@ -76,22 +75,6 @@ class TarFileWriterTest(unittest.TestCase):
       pass
     self.assertTarFileContent(self.tempfile, [])
 
-  def testPreserveTarMtimesTrue(self):
-    with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=True) as f:
-      input_tar_path = os.path.join(testenv.TESTDATA_PATH, "tar_test.tar")
-      f.add_tar(input_tar_path)
-      input_tar = tarfile.open(input_tar_path, "r")
-      for file_name in f.members:
-        input_file = input_tar.getmember(file_name)
-        output_file = f.tar.getmember(file_name)
-        self.assertEqual(input_file.mtime, output_file.mtime)
-
-  def testPreserveTarMtimesFalse(self):
-    with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=False) as f:
-      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"))
-      for output_file in f.tar:
-        self.assertEqual(output_file.mtime, 0)
-
   def testDottedFiles(self):
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_file("a")
@@ -126,54 +109,6 @@ class TarFileWriterTest(unittest.TestCase):
           f.write(c["data"])
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_dir("./", tempdir, mode=0o644)
-    self.assertTarFileContent(self.tempfile, content)
-
-  def testMergeTar(self):
-    content = [
-        {
-            "name": "./a",
-            "data": b"a"
-        },
-        {
-            "name": "./b",
-            "data": b"b"
-        },
-        {
-            "name": "./ab",
-            "data": b"ab"
-        },
-    ]
-    for ext in ["", ".gz", ".bz2"]:
-      with archive.TarFileWriter(self.tempfile) as f:
-        f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext))
-      self.assertTarFileContent(self.tempfile, content)
-
-  def testMergeTarRelocated(self):
-    content = [
-        {
-            "name": ".",
-            "mode": 0o755
-        },
-        {
-            "name": "./foo",
-            "mode": 0o755
-        },
-        {
-            "name": "./foo/a",
-            "data": b"a"
-        },
-        {
-            "name": "./foo/b",
-            "data": b"b"
-        },
-        {
-            "name": "./foo/ab",
-            "data": b"ab"
-        },
-    ]
-    with archive.TarFileWriter(self.tempfile) as f:
-      f.add_tar(
-          os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"), root="/foo")
     self.assertTarFileContent(self.tempfile, content)
 
   def testAddingDirectoriesForFile(self):

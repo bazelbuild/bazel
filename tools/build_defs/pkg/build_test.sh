@@ -81,10 +81,6 @@ function test_tar() {
 ./usr/titi"
   for i in "" ".gz" ".bz2"; do
     assert_content "test-tar-${i:1}.tar$i"
-    # Test merging tar files
-    # We pass a second argument to not test for user and group
-    # names because tar merging ask for numeric owners.
-    assert_content "test-tar-inclusion-${i:1}.tar" "true"
   done;
 
   check_eq "./
