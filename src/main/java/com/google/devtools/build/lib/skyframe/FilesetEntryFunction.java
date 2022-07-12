@@ -99,7 +99,7 @@ public final class FilesetEntryFunction implements SkyFunction {
     // If FilesetEntry.files is not specified, then srcdir refers to either a BUILD file or a
     // directory. For the former, the root will be the parent of the BUILD file. For the latter,
     // the root will be srcdir itself.
-    DirectTraversal direct = params.getDirectTraversal().get();
+    DirectTraversal direct = params.getDirectTraversal();
 
     // The prefix to remove is the entire path of the root. This is OK:
     // - when the root is a file, this removes the entire path, but the traversal's destination
@@ -210,7 +210,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   public static TraversalRequest getDependencyForRewinding(FilesetEntryKey key) {
     FilesetTraversalParams params = checkParams(key);
     checkState(
-        params.getDirectTraversal().get().isGenerated(),
+        params.getDirectTraversal().isGenerated(),
         "Rewinding is only supported for outputs: %s",
         params);
     // Traversals in the output tree inline any recursive TraversalRequest evaluations, i.e. there
@@ -221,7 +221,7 @@ public final class FilesetEntryFunction implements SkyFunction {
   private static FilesetTraversalParams checkParams(FilesetEntryKey key) {
     FilesetTraversalParams params = key.argument();
     checkState(
-        params.getDirectTraversal().isPresent() && params.getNestedArtifact() == null,
+        params.getDirectTraversal() != null && params.getNestedArtifact() == null,
         "FilesetEntry does not support nested traversal: %s",
         params);
     return params;
