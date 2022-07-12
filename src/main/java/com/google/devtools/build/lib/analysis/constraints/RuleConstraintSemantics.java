@@ -81,6 +81,7 @@ public class RuleConstraintSemantics {
 
   // Check if the specified target is directly incompatible. In other words, check if it's
   // incompatible because of its "target_compatible_with" value.
+  // TODO(phil): Document everything.
   public static IncompatibleTargetCreationResult createDirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
       ConfigConditions configConditions,
@@ -92,22 +93,21 @@ public class RuleConstraintSemantics {
     Rule rule = target.getAssociatedRule();
     PlatformInfo platformInfo =
         unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
-    Label platformLabel = platformInfo != null ? platformInfo.label() : null;
-    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
 
     if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
       return IncompatibleTargetCreationResult.create(false, null);
     }
 
+    // Retrieve the label list for the target_compatible_with attribute.
+    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
     ConfiguredAttributeMapper attrs =
         ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
     if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
       return IncompatibleTargetCreationResult.create(false, null);
     }
 
-    List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
-
     // Resolve the constraint labels.
+    List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
     ImmutableList<SkyKey> constraintKeys = labels.stream()
         .map(label -> Dependency.builder().setLabel(label)
           .setConfiguration(configuration).build().getConfiguredTargetKey())
@@ -118,53 +118,31 @@ public class RuleConstraintSemantics {
       return IncompatibleTargetCreationResult.create(true, null);
     }
 
+    // Find the constraints that don't satisfy the target platform.
     ImmutableList<ConstraintValueInfo> invalidConstraintValues = constraintKeys.stream()
         .map(key -> (ConfiguredTargetValue)constraintValues.get(key))
         .map(ctv -> PlatformProviderUtils.constraintValue(ctv.getConfiguredTarget()))
         .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
         .collect(toImmutableList());
-
-    //ImmutableList.Builder<TransitiveInfoCollection> constraintProvidersBuilder =
-    //    ImmutableList.builder();
-    //
-    //for (Label constraintLabel : labels) {
-    //  Dependency constraintDep =
-    //      Dependency.builder()
-    //          .setLabel(constraintLabel)
-    //          .setConfiguration(configuration)
-    //          .build();
-    //  ConfiguredTargetValue ctv =
-    //      (ConfiguredTargetValue) env.getValue(constraintDep.getConfiguredTargetKey());
-    //  if (ctv == null) {
-    //    return IncompatibleTargetCreationResult.create(true, null);
-    //  }
-    //  constraintProvidersBuilder.add(ctv.getConfiguredTarget());
-    //}
-    //ImmutableList<TransitiveInfoCollection> constraintProviders =
-    //    constraintProvidersBuilder.build();
-
-    //// Find the constraints that don't satisfy the target platform.
-    //ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-    //    PlatformProviderUtils.constraintValues(constraintProviders).stream()
-    //        .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
-    //        .collect(ImmutableList.toImmutableList());
-
-    if (!invalidConstraintValues.isEmpty()) {
-      return IncompatibleTargetCreationResult.create(
-          false,
-          createIncompatibleRuleConfiguredTarget(
-              target,
-              configuration,
-              configConditions,
-              IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                  platformLabel, invalidConstraintValues),
-              rule.getRuleClass(),
-              transitivePackagesForPackageRootResolution));
+    if (invalidConstraintValues.isEmpty()) {
+      return IncompatibleTargetCreationResult.create(false, null);
     }
 
-    return IncompatibleTargetCreationResult.create(false, null);
+    return IncompatibleTargetCreationResult.create(
+        false,
+        createIncompatibleRuleConfiguredTarget(
+            target,
+            configuration,
+            configConditions,
+            IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                platformInfo.label(), invalidConstraintValues),
+            rule.getRuleClass(),
+            transitivePackagesForPackageRootResolution));
   }
 
+  // Check if any dependencies are incompatible. If any are, then this target is also
+  // incompatible.
+  // TODO(phil): Document everything.
   @Nullable
   public static RuleConfiguredTargetValue createIndirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
@@ -175,33 +153,32 @@ public class RuleConstraintSemantics {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
-    // Check if any dependencies are incompatible. If any are, then this target is also
-    // incompatible.
-    if (rule != null && !rule.getRuleClass().equals("toolchain")) {
-      ImmutableList<ConfiguredTarget> incompatibleDeps =
-          depValueMap.values().stream()
-              .map(ConfiguredTargetAndData::getConfiguredTarget)
-              .filter(
-                  dep ->
-                      RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
-              .collect(toImmutableList());
-
-      BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
-      PlatformInfo platformInfo =
-          unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
-      Label platformLabel = platformInfo != null ? platformInfo.label() : null;
-
-      if (!incompatibleDeps.isEmpty()) {
-        return createIncompatibleRuleConfiguredTarget(
-            target,
-            configuration,
-            configConditions,
-            IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
-            rule.getRuleClass(),
-            transitivePackagesForPackageRootResolution);
-      }
+    if (rule == null || rule.getRuleClass().equals("toolchain")) {
+      return null;
     }
-    return null;
+
+    ImmutableList<ConfiguredTarget> incompatibleDeps =
+        depValueMap.values().stream()
+            .map(ConfiguredTargetAndData::getConfiguredTarget)
+            .filter(
+                dep ->
+                    RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
+            .collect(toImmutableList());
+    if (incompatibleDeps.isEmpty()) {
+      return null;
+    }
+
+    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
+    PlatformInfo platformInfo =
+        unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
+    Label platformLabel = platformInfo != null ? platformInfo.label() : null;
+    return createIncompatibleRuleConfiguredTarget(
+        target,
+        configuration,
+        configConditions,
+        IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
+        rule.getRuleClass(),
+        transitivePackagesForPackageRootResolution);
   }
 
   private static RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
