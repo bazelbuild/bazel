@@ -76,6 +76,6 @@ public abstract class ModuleKey {
       return RepositoryName.MAIN;
     }
     return RepositoryName.createUnvalidated(
-        String.format("@%s.%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
+        String.format("@%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
   }
 }

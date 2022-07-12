@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -158,7 +157,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     ModuleExtension extension = ((ModuleExtension.InStarlark) exported).get();
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
-            usagesValue.getExtensionUniqueName() + ".",
+            usagesValue.getExtensionUniqueName() + "~",
             extensionId.getBzlFileLabel().getPackageIdentifier(),
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             directories,
@@ -170,8 +169,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ModuleExtensionContext moduleContext =
           createContext(env, usagesValue, starlarkSemantics, extension);
       threadContext.storeInThread(thread);
-      // TODO(wyv): support native.register_toolchains
-      // TODO(wyv): make sure the Label constructor works
       try {
         Starlark.fastcall(
             thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);
