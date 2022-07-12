@@ -84,14 +84,14 @@ landing_page:
       path: https://github.com/bazelbuild/bazel/releases/latest
       classname: button
     items:
-    - heading: Build basics
-      path: /basics/
+    - heading: Community updates
+      path: /community/update
       description: >
-        Learn some history of building and build systems, including design decisions that went into making Bazel.
-    - heading: Bzlmod user guide
-      path: /docs/bzlmod
+        Tune in for our new monthly community update livestream.
+    - heading: IntelliJ IDEA Bazel Plugin
+      path: https://blog.bazel.build/2022/07/11/Bazel-IntelliJ-Update.html
       description: >
-        Bzlmod is the codename of the new external dependency system introduced in Bazel 5.0.
+        Announcing Bazel & JetBrains co-maintenance of IntelliJ IDEA Bazel Plugin.
     - heading: SIGs
       path: /contribute/sig
       description: >
