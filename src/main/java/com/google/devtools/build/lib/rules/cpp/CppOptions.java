@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelC
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
@@ -77,15 +75,15 @@ public class CppOptions extends FragmentOptions {
     }
   }
 
-  private static final String LIBC_RELATIVE_LABEL = ":everything";
-
   /**
    * Converts a String, which is a package label into a label that can be used for a LibcTop object.
    */
-  public static class LibcTopLabelConverter extends Converter.Contextless<Label> {
+  public static class LibcTopLabelConverter implements Converter<Label> {
+    private static final LabelConverter LABEL_CONVERTER = new LabelConverter();
+
     @Nullable
     @Override
-    public Label convert(String input) throws OptionsParsingException {
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
       if (input.equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
         return Label.createUnvalidated(
             PackageIdentifier.EMPTY_PACKAGE_ID, TARGET_LIBC_TOP_NOT_YET_SET);
@@ -98,12 +96,8 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.startsWith("//")) {
         throw new OptionsParsingException("Not a label");
       }
-      try {
-        return Label.parseAbsolute(input, ImmutableMap.of())
-            .getRelativeWithRemapping(LIBC_RELATIVE_LABEL, ImmutableMap.of());
-      } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException(e.getMessage());
-      }
+      return Label.createUnvalidated(
+          LABEL_CONVERTER.convert(input, conversionContext).getPackageIdentifier(), "everything");
     }
 
     @Override

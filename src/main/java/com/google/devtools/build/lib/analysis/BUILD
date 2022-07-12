@@ -1833,6 +1833,7 @@ java_library(
     name = "config/run_under_converter",
     srcs = ["config/RunUnderConverter.java"],
     deps = [
+        ":config/core_option_converters",
         ":config/run_under",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",

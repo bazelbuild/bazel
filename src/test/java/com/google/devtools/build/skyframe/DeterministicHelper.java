@@ -27,22 +27,17 @@ import javax.annotation.Nullable;
  * {@link NotifyingHelper} that returns reverse deps, temporary direct deps, and the results of
  * batch requests ordered alphabetically by sky key string representation.
  */
-public class DeterministicHelper extends NotifyingHelper {
+public final class DeterministicHelper extends NotifyingHelper {
   public static final MemoizingEvaluator.GraphTransformerForTesting MAKE_DETERMINISTIC =
       makeTransformer(Listener.NULL_LISTENER, /*deterministic=*/ true);
 
   public static MemoizingEvaluator.GraphTransformerForTesting makeTransformer(
-      final Listener listener, boolean deterministic) {
+      Listener listener, boolean deterministic) {
     if (deterministic) {
       return new MemoizingEvaluator.GraphTransformerForTesting() {
         @Override
         public InMemoryGraph transform(InMemoryGraph graph) {
           return new DeterministicInMemoryGraph(graph, listener);
-        }
-
-        @Override
-        public QueryableGraph transform(QueryableGraph graph) {
-          return new DeterministicQueryableGraph(graph, listener);
         }
 
         @Override
@@ -60,17 +55,13 @@ public class DeterministicHelper extends NotifyingHelper {
       Comparator.<SkyKey, String>comparing(key -> key.argument().toString())
           .thenComparing(key -> key.functionName().toString());
 
-  DeterministicHelper(Listener listener) {
+  private DeterministicHelper(Listener listener) {
     super(listener);
-  }
-
-  DeterministicHelper() {
-    super(NotifyingHelper.Listener.NULL_LISTENER);
   }
 
   @Nullable
   @Override
-  protected DeterministicNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
+  DeterministicNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
     return entry == null ? null : new DeterministicNodeEntry(key, entry);
   }
 
@@ -86,19 +77,6 @@ public class DeterministicHelper extends NotifyingHelper {
     return result;
   }
 
-  private static class DeterministicQueryableGraph extends NotifyingQueryableGraph {
-    DeterministicQueryableGraph(QueryableGraph delegate, Listener graphListener) {
-      super(delegate, new DeterministicHelper(graphListener));
-    }
-
-    @Override
-    public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-            throws InterruptedException {
-      return makeDeterministic(super.getBatch(requestor, reason, keys));
-    }
-  }
-
   static class DeterministicProcessableGraph extends NotifyingProcessableGraph {
     DeterministicProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
       super(delegate, new DeterministicHelper(graphListener));
@@ -106,11 +84,6 @@ public class DeterministicHelper extends NotifyingHelper {
 
     DeterministicProcessableGraph(ProcessableGraph delegate) {
       this(delegate, Listener.NULL_LISTENER);
-    }
-
-    @Override
-    public void remove(SkyKey key) {
-      delegate.remove(key);
     }
 
     @Override
@@ -123,7 +96,7 @@ public class DeterministicHelper extends NotifyingHelper {
     @Override
     public Map<SkyKey, ? extends NodeEntry> getBatch(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-            throws InterruptedException {
+        throws InterruptedException {
       return makeDeterministic(super.getBatch(requestor, reason, keys));
     }
   }

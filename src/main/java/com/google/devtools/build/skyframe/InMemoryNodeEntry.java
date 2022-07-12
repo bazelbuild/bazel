@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -141,13 +143,9 @@ public class InMemoryNodeEntry implements NodeEntry {
   /** Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations. */
   public InMemoryNodeEntry() {}
 
-  // Public only for use in alternate graph implementations.
-  public KeepEdgesPolicy keepEdges() {
-    return KeepEdgesPolicy.ALL;
-  }
-
-  private boolean keepReverseDeps() {
-    return keepEdges() == KeepEdgesPolicy.ALL;
+  /** Whether this node stores edges (deps and rdeps). */
+  boolean keepsEdges() {
+    return true;
   }
 
   private boolean isEvaluating() {
@@ -161,8 +159,8 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized boolean isReady() {
-    Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
-    Preconditions.checkState(isEvaluating(), this);
+    checkState(!isDone(), "can't be ready if done: %s", this);
+    checkState(isEvaluating(), this);
     return dirtyBuildingState.isReady(getNumTemporaryDirectDeps());
   }
 
@@ -178,7 +176,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public SkyValue getValue() {
-    Preconditions.checkState(isDone(), "no value until done. ValueEntry: %s", this);
+    checkState(isDone(), "no value until done. ValueEntry: %s", this);
     return ValueWithMetadata.justValue(value);
   }
 
@@ -219,9 +217,9 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /** Returns the compressed {@link GroupedList} of direct deps. Can only be called when done. */
   public final synchronized @GroupedList.Compressed Object getCompressedDirectDepsForDoneEntry() {
-    assertKeepDeps();
-    Preconditions.checkState(isDone(), "no deps until done. NodeEntry: %s", this);
-    Preconditions.checkNotNull(directDeps, "deps can't be null: %s", this);
+    assertKeepEdges();
+    checkState(isDone(), "no deps until done. NodeEntry: %s", this);
+    checkNotNull(directDeps, "deps can't be null: %s", this);
     return GroupedList.castAsCompressed(directDeps);
   }
 
@@ -232,7 +230,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   @Nullable
   public synchronized ErrorInfo getErrorInfo() {
-    Preconditions.checkState(isDone(), "no errors until done. NodeEntry: %s", this);
+    checkState(isDone(), "no errors until done. NodeEntry: %s", this);
     return ValueWithMetadata.getMaybeErrorInfo(value);
   }
 
@@ -246,20 +244,20 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void addExternalDep() {
-    Preconditions.checkNotNull(dirtyBuildingState, this);
+    checkNotNull(dirtyBuildingState, this);
     dirtyBuildingState.addExternalDep();
   }
 
   protected final synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
     Set<SkyKey> reverseDepsToSignal = ReverseDepsUtility.consolidateDataAndReturnNewElements(this);
-    directDeps = keepEdges() == KeepEdgesPolicy.NONE ? null : getTemporaryDirectDeps().compress();
+    directDeps = keepsEdges() ? getTemporaryDirectDeps().compress() : null;
     markDone();
     return reverseDepsToSignal;
   }
 
   @Override
   public synchronized Set<SkyKey> getInProgressReverseDeps() {
-    Preconditions.checkState(!isDone(), this);
+    checkState(!isDone(), this);
     return ReverseDepsUtility.returnNewElements(this);
   }
 
@@ -274,8 +272,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> setValue(
       SkyValue value, Version graphVersion, @Nullable Version maxTransitiveSourceVersion)
       throws InterruptedException {
-    Preconditions.checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
-    Preconditions.checkState(
+    checkState(isReady(), "Not ready (this=%s, value=%s)", this, value);
+    checkState(
         this.lastChangedVersion.atMost(graphVersion)
             && this.lastEvaluatedVersion.atMost(graphVersion),
         "Bad version (this=%s, version=%s, value=%s)",
@@ -299,7 +297,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
-    if ((reverseDep == null || !keepReverseDeps()) && isDone()) {
+    if ((reverseDep == null || !keepsEdges()) && isDone()) {
       return DependencyState.DONE;
     }
 
@@ -310,7 +308,7 @@ public class InMemoryNodeEntry implements NodeEntry {
       }
       if (reverseDep != null) {
         if (done) {
-          if (keepReverseDeps()) {
+          if (keepsEdges()) {
             ReverseDepsUtility.addReverseDep(this, reverseDep);
           }
         } else {
@@ -353,25 +351,18 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   private synchronized void appendToReverseDepOperations(SkyKey reverseDep, Op op) {
-    Preconditions.checkState(!isDone(), "Don't append to done %s %s %s", this, reverseDep, op);
+    checkState(!isDone(), "Don't append to done %s %s %s", this, reverseDep, op);
     if (reverseDepsDataToConsolidate == null) {
       reverseDepsDataToConsolidate = new ArrayList<>();
     }
-    Preconditions.checkState(
-        isDirty() || op != Op.CHECK, "Not dirty check %s %s", this, reverseDep);
+    checkState(isDirty() || op != Op.CHECK, "Not dirty check %s %s", this, reverseDep);
     reverseDepsDataToConsolidate.add(KeyToConsolidate.create(reverseDep, op, this));
   }
 
   @Override
   public synchronized DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) {
-    Preconditions.checkNotNull(reverseDep, this);
-    // Note that implementations of InMemoryNodeEntry that have
-    // #keepEdges == KeepEdgesPolicy.JUST_DEPS may override this entire method.
-    Preconditions.checkState(
-        keepEdges() == KeepEdgesPolicy.ALL,
-        "Incremental means keeping edges %s %s",
-        reverseDep,
-        this);
+    checkNotNull(reverseDep, this);
+    checkState(keepsEdges(), "Incremental means keeping edges %s %s", reverseDep, this);
     if (isDone()) {
       ReverseDepsUtility.checkReverseDep(this, reverseDep);
     } else {
@@ -382,7 +373,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void removeReverseDep(SkyKey reverseDep) {
-    if (!keepReverseDeps()) {
+    if (!keepsEdges()) {
       return;
     }
     if (isDone()) {
@@ -396,8 +387,8 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
-    assertKeepRdeps();
-    Preconditions.checkState(isDone(), this);
+    assertKeepEdges();
+    checkState(isDone(), this);
     ReverseDepsUtility.removeReverseDepsMatching(this, deletedKeys);
   }
 
@@ -408,14 +399,14 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized Collection<SkyKey> getReverseDepsForDoneEntry() {
-    assertKeepRdeps();
-    Preconditions.checkState(isDone(), "Called on not done %s", this);
+    assertKeepEdges();
+    checkState(isDone(), "Called on not done %s", this);
     return ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true);
   }
 
   @Override
   public synchronized Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
-    assertKeepRdeps();
+    assertKeepEdges();
     if (!isDone()) {
       // This consolidation loses information about pending reverse deps to signal, but that is
       // unimportant since this node is being deleted.
@@ -426,10 +417,10 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized boolean signalDep(Version childVersion, @Nullable SkyKey childForDebugging) {
-    Preconditions.checkState(
+    checkState(
         !isDone(), "Value must not be done in signalDep %s child=%s", this, childForDebugging);
-    Preconditions.checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
-    Preconditions.checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
+    checkNotNull(dirtyBuildingState, "%s %s", this, childForDebugging);
+    checkState(dirtyBuildingState.isEvaluating(), "%s %s", this, childForDebugging);
     dirtyBuildingState.signalDep();
 
     // childVersion > lastEvaluatedVersion means the child has changed since the last evaluation.
@@ -439,13 +430,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   /** Checks that a caller is not trying to access not-stored graph edges. */
-  private void assertKeepDeps() {
-    Preconditions.checkState(keepEdges() != KeepEdgesPolicy.NONE, "Not keeping deps: %s", this);
-  }
-
-  /** Checks that a caller is not trying to access not-stored graph edges. */
-  private void assertKeepRdeps() {
-    Preconditions.checkState(keepEdges() == KeepEdgesPolicy.ALL, "Not keeping rdeps: %s", this);
+  private void assertKeepEdges() {
+    checkState(keepsEdges(), "Not keeping edges: %s", this);
   }
 
   /**
@@ -465,18 +451,16 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
     if (!DirtyType.FORCE_REBUILD.equals(dirtyType)) {
       // A node can't be found to be dirty without deps unless it's force-rebuilt.
-      assertKeepDeps();
+      assertKeepEdges();
     }
     if (isDone()) {
       GroupedList<SkyKey> directDeps =
-          KeepEdgesPolicy.NONE.equals(keepEdges())
-              ? EMPTY_LIST
-              : GroupedList.create(getCompressedDirectDepsForDoneEntry());
+          keepsEdges() ? GroupedList.create(getCompressedDirectDepsForDoneEntry()) : EMPTY_LIST;
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
       return new MarkedDirtyResult(
-          KeepEdgesPolicy.ALL.equals(keepEdges())
+          keepsEdges()
               ? ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true)
               : ImmutableList.of());
     }
@@ -490,13 +474,13 @@ public class InMemoryNodeEntry implements NodeEntry {
     // thread may have lost the race, but it is the caller's responsibility not to try to mark
     // this node changed twice. The end result of racing markers must be a changed node, since one
     // of the markers is trying to mark the node changed.
-    Preconditions.checkState(
+    checkState(
         dirtyType.equals(DirtyType.CHANGE) != isChanged(),
         "Cannot mark node dirty twice or changed twice: %s",
         this);
-    Preconditions.checkState(value == null, "Value should have been reset already %s", this);
+    checkState(value == null, "Value should have been reset already %s", this);
     if (dirtyType.equals(DirtyType.CHANGE)) {
-      Preconditions.checkNotNull(dirtyBuildingState);
+      checkNotNull(dirtyBuildingState, this);
       // If the changed marker lost the race, we just need to mark changed in this method -- all
       // other work was done by the dirty marker.
       dirtyBuildingState.markChanged();
@@ -506,23 +490,23 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized NodeValueAndRdepsToSignal markClean() throws InterruptedException {
-    Preconditions.checkNotNull(dirtyBuildingState, this);
-    this.value = Preconditions.checkNotNull(dirtyBuildingState.getLastBuildValue());
-    Preconditions.checkState(isReady(), "Should be ready when clean: %s", this);
-    Preconditions.checkState(
+    checkNotNull(dirtyBuildingState, this);
+    this.value = checkNotNull(dirtyBuildingState.getLastBuildValue());
+    checkState(isReady(), "Should be ready when clean: %s", this);
+    checkState(
         dirtyBuildingState.depsUnchangedFromLastBuild(getTemporaryDirectDeps()),
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
         this);
-    Preconditions.checkState(isDirty(), this);
-    Preconditions.checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
+    checkState(isDirty(), this);
+    checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
     Set<SkyKey> rDepsToSignal = setStateFinishedAndReturnReverseDepsToSignal();
     return new NodeValueAndRdepsToSignal(this.value, rDepsToSignal);
   }
 
   @Override
   public synchronized void forceRebuild() {
-    Preconditions.checkNotNull(dirtyBuildingState, this);
-    Preconditions.checkState(isEvaluating(), this);
+    checkNotNull(dirtyBuildingState, this);
+    checkState(isEvaluating(), this);
     dirtyBuildingState.forceRebuild(getNumTemporaryDirectDeps());
   }
 
@@ -533,24 +517,23 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized NodeEntry.DirtyState getDirtyState() {
-    Preconditions.checkNotNull(dirtyBuildingState, this);
+    checkNotNull(dirtyBuildingState, this);
     return dirtyBuildingState.getDirtyState();
   }
 
   /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
   @Override
   public synchronized List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
-    Preconditions.checkState(isReady(), this);
-    Preconditions.checkNotNull(dirtyBuildingState, this);
-    Preconditions.checkState(
-        dirtyBuildingState.isEvaluating(), "Not evaluating during getNextDirty? %s", this);
+    checkState(isReady(), this);
+    checkNotNull(dirtyBuildingState, this);
+    checkState(dirtyBuildingState.isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return dirtyBuildingState.getNextDirtyDirectDeps();
   }
 
   @Override
   public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode()
       throws InterruptedException {
-    Preconditions.checkState(!isDone(), this);
+    checkState(!isDone(), this);
     if (!isDirty()) {
       return getTemporaryDirectDeps().getAllElementsAsIterable();
     } else {
@@ -567,12 +550,11 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized ImmutableSet<SkyKey> getAllRemainingDirtyDirectDeps()
       throws InterruptedException {
-    Preconditions.checkNotNull(dirtyBuildingState, this);
-    Preconditions.checkState(
-        dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
+    checkNotNull(dirtyBuildingState, this);
+    checkState(dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
       DirtyState dirtyState = dirtyBuildingState.getDirtyState();
-      Preconditions.checkState(
+      checkState(
           dirtyState == DirtyState.REBUILDING || dirtyState == DirtyState.FORCED_REBUILDING, this);
       return dirtyBuildingState.getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
     } else {
@@ -582,13 +564,13 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void markRebuilding() {
-    Preconditions.checkNotNull(dirtyBuildingState, this).markRebuilding();
+    checkNotNull(dirtyBuildingState, this).markRebuilding();
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public synchronized GroupedList<SkyKey> getTemporaryDirectDeps() {
-    Preconditions.checkState(!isDone(), "temporary shouldn't be done: %s", this);
+    checkState(!isDone(), "temporary shouldn't be done: %s", this);
     if (directDeps == null) {
       // Initialize lazily, to save a little bit of memory.
       directDeps = new GroupedList<>();
@@ -602,7 +584,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized boolean noDepsLastBuild() {
-    Preconditions.checkState(isEvaluating(), this);
+    checkState(isEvaluating(), this);
     return dirtyBuildingState.noDepsLastBuild();
   }
 
@@ -620,20 +602,20 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized void resetForRestartFromScratch() {
-    Preconditions.checkState(isReady(), this);
+    checkState(isReady(), this);
     directDeps = null;
     dirtyBuildingState.resetForRestartFromScratch();
   }
 
   @Override
   public synchronized Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
-    Preconditions.checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
+    checkState(!isDone(), "add temp shouldn't be done: %s %s", helper, this);
     return getTemporaryDirectDeps().append(helper);
   }
 
   @Override
   public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(List<SkyKey> group) {
-    Preconditions.checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
+    checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
     getTemporaryDirectDeps().appendGroup(group);
   }
 
@@ -645,7 +627,7 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add("lastEvaluatedVersion", lastEvaluatedVersion)
         .add(
             "directDeps",
-            isDone() && keepEdges() != KeepEdgesPolicy.NONE
+            isDone() && keepsEdges()
                 ? GroupedList.create(getCompressedDirectDepsForDoneEntry())
                 : directDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
@@ -659,7 +641,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   // Only used for testing hooks.
   protected synchronized InMemoryNodeEntry cloneNodeEntry(InMemoryNodeEntry newEntry) {
-    Preconditions.checkState(isDone(), "Only done nodes can be copied: %s", this);
+    checkState(isDone(), "Only done nodes can be copied: %s", this);
     newEntry.value = value;
     newEntry.lastChangedVersion = this.lastChangedVersion;
     newEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;

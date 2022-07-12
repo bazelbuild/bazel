@@ -585,13 +585,9 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     if (!BuildType.isLabelType(flagTarget.getProvider(BuildSettingProvider.class).getType())) {
       return expectedValue;
     }
-    if (!expectedValue.startsWith(":")) {
-      return expectedValue;
-    }
     try {
-      return Label.create(
-              ruleContext.getRule().getPackage().getPackageIdentifier(), expectedValue.substring(1))
-          .getCanonicalForm();
+      return Label.parseWithPackageContext(expectedValue, ruleContext.getPackageContext())
+          .getUnambiguousCanonicalForm();
     } catch (LabelSyntaxException e) {
       // Swallow this: the subsequent type conversion already checks for this.
       return expectedValue;

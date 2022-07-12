@@ -90,6 +90,11 @@ public class TargetContext {
     return target.getLabel();
   }
 
+  public Label.PackageContext getPackageContext() {
+    return Label.PackageContext.of(
+        getLabel().getPackageIdentifier(), target.getPackage().getRepositoryMapping());
+  }
+
   /**
    * Returns the configuration for this target. This may return null if the target is supposed to be
    * configuration-independent (like an input file, or a visibility rule). However, this is

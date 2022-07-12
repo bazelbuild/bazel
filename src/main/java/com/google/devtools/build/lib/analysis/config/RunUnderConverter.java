@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.common.options.Converter;
@@ -28,6 +27,8 @@ import javax.annotation.Nullable;
 
 /** --run_under options converter. */
 public class RunUnderConverter implements Converter<RunUnder> {
+  private static final LabelConverter LABEL_CONVERTER = new LabelConverter();
+
   @Override
   public RunUnder convert(final String input, Object conversionContext)
       throws OptionsParsingException {
@@ -45,9 +46,9 @@ public class RunUnderConverter implements Converter<RunUnder> {
         ImmutableList.copyOf(runUnderList.subList(1, runUnderList.size()));
     if (runUnderCommand.startsWith("//") || runUnderCommand.startsWith("@")) {
       try {
-        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand, ImmutableMap.of());
+        final Label runUnderLabel = LABEL_CONVERTER.convert(runUnderCommand, conversionContext);
         return new RunUnderLabel(input, runUnderLabel, runUnderSuffix);
-      } catch (LabelSyntaxException e) {
+      } catch (OptionsParsingException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());
       }
     } else {

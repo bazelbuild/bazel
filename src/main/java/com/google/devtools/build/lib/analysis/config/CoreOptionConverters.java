@@ -22,11 +22,14 @@ import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
@@ -207,13 +210,30 @@ public class CoreOptionConverters {
   private static Label convertOptionsLabel(String input, @Nullable Object conversionContext)
       throws OptionsParsingException {
     try {
+      if (conversionContext instanceof Label.PackageContext) {
+        // This can happen if this converter is being used to convert flag values specified in
+        // Starlark, for example in a transition implementation function.
+        return Label.parseWithPackageContext(input, (Label.PackageContext) conversionContext);
+      }
       // Check if the input starts with '/'. We don't check for "//" so that
       // we get a better error message if the user accidentally tries to use
       // an absolute path (starting with '/') for a label.
       if (!input.startsWith("/") && !input.startsWith("@")) {
         input = "//" + input;
       }
-      return Label.parseAbsolute(input, ImmutableMap.of());
+      if (conversionContext == null) {
+        // This can happen in the first round of option parsing, before repo mappings are
+        // calculated. In this case, it actually doesn't matter how we parse label-typed flags, as
+        // they shouldn't be used anywhere anyway.
+        return Label.parseCanonical(input);
+      }
+      Preconditions.checkArgument(
+          conversionContext instanceof RepositoryMapping,
+          "bad conversion context type: %s",
+          conversionContext.getClass().getName());
+      // This can happen in the second round of option parsing.
+      return Label.parseWithRepoContext(
+          input, Label.RepoContext.of(RepositoryName.MAIN, (RepositoryMapping) conversionContext));
     } catch (LabelSyntaxException e) {
       throw new OptionsParsingException(e.getMessage());
     }

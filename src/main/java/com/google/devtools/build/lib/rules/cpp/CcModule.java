@@ -1804,9 +1804,10 @@ public abstract class CcModule
       Object stamp,
       Object linkedDllNameSuffix,
       Object winDefFileObject,
+      Object testOnlyTargetObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject)) {
+    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject, testOnlyTargetObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -1875,6 +1876,7 @@ public abstract class CcModule
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
             .setDefFile(winDefFile)
             .setIsStampingEnabled(isStampingEnabled)
+            .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
@@ -2017,6 +2019,7 @@ public abstract class CcModule
       Object purposeObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
+      Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -2031,7 +2034,8 @@ public abstract class CcModule
         implementationCcCompilationContextsObject,
         coptsFilterObject,
         starlarkLooseIncludes,
-        separateModuleHeadersObject)) {
+        separateModuleHeadersObject,
+        nonCompilationAdditionalInputsObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -2055,6 +2059,8 @@ public abstract class CcModule
 
     ImmutableList<String> additionalExportedHeaders =
         asClassImmutableList(additionalExportedHeadersObject);
+    ImmutableList<Artifact> nonCompilationAdditionalInputs =
+        asClassImmutableList(nonCompilationAdditionalInputsObject);
     boolean propagateModuleMapToCompileAction =
         convertFromNoneable(propagateModuleMapToCompileActionObject, /* defaultValue= */ true);
     boolean doNotGenerateModuleMap =
@@ -2161,6 +2167,7 @@ public abstract class CcModule
         .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
         .addAdditionalCompilationInputs(
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+        .addAdditionalInputs(nonCompilationAdditionalInputs)
         .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
         .setPurpose(common.getPurpose(getSemantics(language)))
         .addAdditionalExportedHeaders(

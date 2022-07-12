@@ -118,6 +118,7 @@ public class BazelCcModule extends CcModule
       Object grepIncludes,
       Object coptsFilter,
       Object separateModuleHeaders,
+      Object nonCompilationAdditionalInputs,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -159,6 +160,7 @@ public class BazelCcModule extends CcModule
         purpose,
         coptsFilter,
         separateModuleHeaders,
+        nonCompilationAdditionalInputs,
         thread);
   }
 

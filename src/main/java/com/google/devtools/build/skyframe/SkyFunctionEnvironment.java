@@ -800,7 +800,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
               value, errorInfo, eventsAndPostables.first, eventsAndPostables.second);
     }
     GroupedList<SkyKey> temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
-    if (evaluatorContext.getGraph().storesReverseDeps() && !oldDeps.isEmpty()) {
+    if (!oldDeps.isEmpty()) {
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
       Set<SkyKey> depsToRemove = Sets.difference(oldDeps, temporaryDirectDeps.toSet());
       Collection<? extends NodeEntry> oldDepEntries =

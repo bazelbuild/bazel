@@ -13,5 +13,7 @@ exports_files(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//visibility:private"],
+    visibility = [
+        "//:__pkg__",  # Scheuklappen: keep
+    ],
 )

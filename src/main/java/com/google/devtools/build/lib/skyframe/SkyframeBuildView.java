@@ -109,7 +109,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -646,23 +645,23 @@ public final class SkyframeBuildView {
       largestTopLevelKeySetCheckedForConflicts = newKeys;
     }
 
-    List<BuildDriverKey> buildDriverCTKeys = new ArrayList<>(/*initialCapacity=*/ ctKeys.size());
+    ImmutableSet<BuildDriverKey> buildDriverCTKeys =
+        ctKeys.stream()
+            .map(
+                ctKey ->
+                    BuildDriverKey.ofConfiguredTarget(
+                        ctKey,
+                        topLevelArtifactContext,
+                        strictConflictCheck,
+                        /*explicitlyRequested=*/ explicitTargetPatterns.contains(ctKey.getLabel()),
+                        determineTestType(
+                            testsToRun,
+                            labelTargetMap,
+                            ctKey.getLabel(),
+                            topLevelArtifactContext.runTestsExclusively())))
+            .collect(ImmutableSet.toImmutableSet());
 
-    for (ConfiguredTargetKey ctKey : ctKeys) {
-      buildDriverCTKeys.add(
-          BuildDriverKey.ofConfiguredTarget(
-              ctKey,
-              topLevelArtifactContext,
-              strictConflictCheck,
-              /*explicitlyRequested=*/ explicitTargetPatterns.contains(ctKey.getLabel()),
-              determineTestType(
-                  testsToRun,
-                  labelTargetMap,
-                  ctKey.getLabel(),
-                  topLevelArtifactContext.runTestsExclusively())));
-    }
-
-    List<BuildDriverKey> buildDriverAspectKeys =
+    ImmutableSet<BuildDriverKey> buildDriverAspectKeys =
         topLevelAspectsKeys.stream()
             .map(
                 k ->
@@ -671,7 +670,7 @@ public final class SkyframeBuildView {
                         topLevelArtifactContext,
                         strictConflictCheck,
                         /*explicitlyRequested=*/ explicitTargetPatterns.contains(k.getLabel())))
-            .collect(Collectors.toList());
+            .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
 
     try {
@@ -967,7 +966,7 @@ public final class SkyframeBuildView {
   private static ImmutableSet<ConfiguredTarget> getSuccessfulConfiguredTargets(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
-      List<BuildDriverKey> buildDriverCTKeys,
+      Set<BuildDriverKey> buildDriverCTKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
     ImmutableSet.Builder<ConfiguredTarget> cts = ImmutableSet.builderWithExpectedSize(expectedSize);
     for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
@@ -989,7 +988,7 @@ public final class SkyframeBuildView {
   private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
-      List<BuildDriverKey> buildDriverAspectKeys,
+      Set<BuildDriverKey> buildDriverAspectKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
     // There can't be duplicate Aspects after resolving --aspects, so this is safe.
     ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects =
