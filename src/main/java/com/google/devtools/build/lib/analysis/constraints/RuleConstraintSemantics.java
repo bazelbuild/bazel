@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -56,10 +57,12 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.List;
 import javax.annotation.Nullable;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 
 public class RuleConstraintSemantics {
   @AutoValue
@@ -76,7 +79,8 @@ public class RuleConstraintSemantics {
     public abstract RuleConfiguredTargetValue incompatibleTarget();
   }
 
-  @Nullable
+  // Check if the specified target is directly incompatible. In other words, check if it's
+  // incompatible because of its "target_compatible_with" value.
   public static IncompatibleTargetCreationResult createDirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
       ConfigConditions configConditions,
@@ -91,55 +95,73 @@ public class RuleConstraintSemantics {
     Label platformLabel = platformInfo != null ? platformInfo.label() : null;
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
 
-    // Check if this target is directly incompatible. In other words, check if it's incompatible
-    // because of its "target_compatible_with" value.
-    if (rule != null && !rule.getRuleClass().equals("toolchain")) {
-      if (platformInfo != null) {
-        ConfiguredAttributeMapper attrs =
-            ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
-        if (attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-          List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
-
-          // Resolve the constraint labels.
-          ImmutableList.Builder<TransitiveInfoCollection> constraintProvidersBuilder =
-              ImmutableList.builder();
-          for (Label constraintLabel : labels) {
-            Dependency constraintDep =
-                Dependency.builder()
-                    .setLabel(constraintLabel)
-                    .setConfiguration(configuration)
-                    .build();
-            ConfiguredTargetValue ctv =
-                (ConfiguredTargetValue) env.getValue(constraintDep.getConfiguredTargetKey());
-            if (ctv == null) {
-              return IncompatibleTargetCreationResult.create(true, null);
-            }
-            constraintProvidersBuilder.add(ctv.getConfiguredTarget());
-          }
-          ImmutableList<TransitiveInfoCollection> constraintProviders =
-              constraintProvidersBuilder.build();
-
-          // Find the constraints that don't satisfy the target platform.
-          ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-              PlatformProviderUtils.constraintValues(constraintProviders).stream()
-                  .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
-                  .collect(ImmutableList.toImmutableList());
-
-          if (!invalidConstraintValues.isEmpty()) {
-            return IncompatibleTargetCreationResult.create(
-                false,
-                createIncompatibleRuleConfiguredTarget(
-                    target,
-                    configuration,
-                    configConditions,
-                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                        platformLabel, invalidConstraintValues),
-                    rule.getRuleClass(),
-                    transitivePackagesForPackageRootResolution));
-          }
-        }
-      }
+    if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
+      return IncompatibleTargetCreationResult.create(false, null);
     }
+
+    ConfiguredAttributeMapper attrs =
+        ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
+    if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
+      return IncompatibleTargetCreationResult.create(false, null);
+    }
+
+    List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
+
+    // Resolve the constraint labels.
+    ImmutableList<SkyKey> constraintKeys = labels.stream()
+        .map(label -> Dependency.builder().setLabel(label)
+          .setConfiguration(configuration).build().getConfiguredTargetKey())
+        .collect(toImmutableList());
+
+    SkyframeLookupResult constraintValues = env.getValuesAndExceptions(constraintKeys);
+    if (env.valuesMissing()) {
+      return IncompatibleTargetCreationResult.create(true, null);
+    }
+
+    ImmutableList<ConstraintValueInfo> invalidConstraintValues = constraintKeys.stream()
+        .map(key -> (ConfiguredTargetValue)constraintValues.get(key))
+        .map(ctv -> PlatformProviderUtils.constraintValue(ctv.getConfiguredTarget()))
+        .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
+        .collect(toImmutableList());
+
+    //ImmutableList.Builder<TransitiveInfoCollection> constraintProvidersBuilder =
+    //    ImmutableList.builder();
+    //
+    //for (Label constraintLabel : labels) {
+    //  Dependency constraintDep =
+    //      Dependency.builder()
+    //          .setLabel(constraintLabel)
+    //          .setConfiguration(configuration)
+    //          .build();
+    //  ConfiguredTargetValue ctv =
+    //      (ConfiguredTargetValue) env.getValue(constraintDep.getConfiguredTargetKey());
+    //  if (ctv == null) {
+    //    return IncompatibleTargetCreationResult.create(true, null);
+    //  }
+    //  constraintProvidersBuilder.add(ctv.getConfiguredTarget());
+    //}
+    //ImmutableList<TransitiveInfoCollection> constraintProviders =
+    //    constraintProvidersBuilder.build();
+
+    //// Find the constraints that don't satisfy the target platform.
+    //ImmutableList<ConstraintValueInfo> invalidConstraintValues =
+    //    PlatformProviderUtils.constraintValues(constraintProviders).stream()
+    //        .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
+    //        .collect(ImmutableList.toImmutableList());
+
+    if (!invalidConstraintValues.isEmpty()) {
+      return IncompatibleTargetCreationResult.create(
+          false,
+          createIncompatibleRuleConfiguredTarget(
+              target,
+              configuration,
+              configConditions,
+              IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                  platformLabel, invalidConstraintValues),
+              rule.getRuleClass(),
+              transitivePackagesForPackageRootResolution));
+    }
+
     return IncompatibleTargetCreationResult.create(false, null);
   }
 
@@ -162,7 +184,7 @@ public class RuleConstraintSemantics {
               .filter(
                   dep ->
                       RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
-              .collect(ImmutableList.toImmutableList());
+              .collect(toImmutableList());
 
       BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
       PlatformInfo platformInfo =
