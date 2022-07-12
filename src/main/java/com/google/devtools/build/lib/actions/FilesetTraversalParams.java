@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -285,10 +284,11 @@ public interface FilesetTraversalParams {
    * directory (when FilesetEntry.srcdir is specified) or traversal of a single file (when
    * FilesetEntry.files is specified). See {@link DirectTraversal} for more detail.
    *
-   * <p>The value is present if and only if {@link #getNestedArtifact} is null and
-   * {@link #additionalLinks} is null.
+   * <p>The returned value is non-null if and only if {@link #getNestedArtifact} is null and {@link
+   * #additionalLinks} is null.
    */
-  Optional<DirectTraversal> getDirectTraversal();
+  @Nullable
+  DirectTraversal getDirectTraversal();
 
   /**
    * Returns the Fileset Artifact of the nested traversal request, if any.

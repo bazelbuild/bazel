@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
@@ -29,7 +29,7 @@ public class FilesetTraversalRequest extends TraversalRequest {
       BlazeInterners.newWeakInterner();
 
   public static FilesetTraversalRequest create(FilesetTraversalParams params) {
-    checkArgument(params.getDirectTraversal().isPresent(), params);
+    checkNotNull(params.getDirectTraversal(), params);
     return interner.intern(new FilesetTraversalRequest(params));
   }
 
@@ -81,7 +81,7 @@ public class FilesetTraversalRequest extends TraversalRequest {
   }
 
   private DirectTraversal directTraversal() {
-    return params.getDirectTraversal().get();
+    return params.getDirectTraversal();
   }
 
   @Override
