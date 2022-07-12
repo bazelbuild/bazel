@@ -263,12 +263,12 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
     )
     proto_common.compile(
         ctx.actions,
+        proto_info,
         proto_lang_toolchain_info,
         generated_files = [descriptor_set],
         plugin_output = descriptor_set,
         additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
-        proto_info = proto_info,
     )
 
 proto_library = rule(
