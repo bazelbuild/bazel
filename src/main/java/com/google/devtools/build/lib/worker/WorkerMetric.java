@@ -13,111 +13,86 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Contains data about worker statistics during execution. This class contains data for {@link
  * com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics}
  */
-public final class WorkerMetric {
-  private final int workerId;
-  private final long processId;
-  private final String mnemonic;
-  private final boolean isMultiplex;
-  private final boolean isSandboxed;
-  private boolean isMeasurable;
+@AutoValue
+public abstract class WorkerMetric {
 
-  private List<WorkerStat> workerStats;
+  public abstract WorkerProperties getWorkerProperties();
+
+  @Nullable
+  public abstract WorkerStat getWorkerStat();
+
+  public abstract boolean isMeasurable();
+
+  public static WorkerMetric create(
+      WorkerProperties workerProperties, @Nullable WorkerStat workerStat, boolean isMeasurable) {
+    return new AutoValue_WorkerMetric(workerProperties, workerStat, isMeasurable);
+  }
 
   /** Worker measurement of used memory. */
-  public static class WorkerStat {
-    private final int usedMemoryInKB;
-    private final Instant timestamp;
+  @AutoValue
+  public abstract static class WorkerStat {
+    public abstract int getUsedMemoryInKB();
 
-    public WorkerStat(int usedMemoryInKB, Instant timestamp) {
-      this.usedMemoryInKB = usedMemoryInKB;
-      this.timestamp = timestamp;
-    }
+    public abstract Instant getTimestamp();
 
-    public int getUsedMemoryInKB() {
-      return usedMemoryInKB;
-    }
-
-    public Instant getTimestamp() {
-      return timestamp;
+    public static WorkerStat create(int usedMemoryInKB, Instant timestamp) {
+      return new AutoValue_WorkerMetric_WorkerStat(usedMemoryInKB, timestamp);
     }
   }
 
-  public WorkerMetric(
-      int workerId, long processId, String mnemonic, boolean isMultiplex, boolean isSandboxed) {
-    this.workerId = workerId;
-    this.processId = processId;
-    this.mnemonic = mnemonic;
-    this.isMultiplex = isMultiplex;
-    this.isSandboxed = isSandboxed;
-    this.workerStats = new ArrayList<>();
-    this.isMeasurable = true;
-  }
+  /** Worker properties */
+  @AutoValue
+  public abstract static class WorkerProperties {
+    public abstract int getWorkerId();
 
-  public void addWorkerStat(WorkerStat workerStat) {
-    this.workerStats.add(workerStat);
-  }
+    public abstract long getProcessId();
 
-  public void setIsMeasurable(boolean isMeasurable) {
-    this.isMeasurable = isMeasurable;
-  }
+    public abstract String getMnemonic();
 
-  public void clear() {
-    this.workerStats.clear();
-  }
+    public abstract boolean isMultiplex();
 
-  public int getWorkerId() {
-    return workerId;
-  }
+    public abstract boolean isSandboxed();
 
-  public long getProcessId() {
-    return processId;
-  }
-
-  public String getMnemonic() {
-    return mnemonic;
-  }
-
-  public boolean getIsMultiplex() {
-    return isMultiplex;
-  }
-
-  public boolean getIsSandboxed() {
-    return isSandboxed;
-  }
-
-  public List<WorkerStat> getWorkerStats() {
-    return workerStats;
-  }
-
-  public boolean getIsMeasurable() {
-    return isMeasurable;
+    public static WorkerProperties create(
+        int workerId, long processId, String mnemonic, boolean isMultiplex, boolean isSandboxed) {
+      return new AutoValue_WorkerMetric_WorkerProperties(
+          workerId, processId, mnemonic, isMultiplex, isSandboxed);
+    }
   }
 
   public WorkerMetrics toProto() {
-    WorkerMetrics.Builder builder = WorkerMetrics.newBuilder();
-    builder.setWorkerId(workerId);
-    builder.setProcessId((int) processId);
-    builder.setIsMeasurable(isMeasurable);
-    builder.setMnemonic(mnemonic);
-    builder.setIsSandbox(isSandboxed);
-    builder.setIsMultiplex(isMultiplex);
+    WorkerProperties workerProperties = getWorkerProperties();
+    WorkerStat workerStat = getWorkerStat();
 
-    WorkerMetrics.WorkerStats.Builder statsBuilder = WorkerMetrics.WorkerStats.newBuilder();
-    for (WorkerStat workerStat : workerStats) {
-      statsBuilder.setCollectTimeInMs(workerStat.timestamp.toEpochMilli());
-      statsBuilder.setWorkerMemoryInKb(workerStat.usedMemoryInKB);
-      builder.addWorkerStats(statsBuilder.build());
+    WorkerMetrics.Builder builder =
+        WorkerMetrics.newBuilder()
+            .setWorkerId(workerProperties.getWorkerId())
+            .setProcessId((int) workerProperties.getProcessId())
+            .setMnemonic(workerProperties.getMnemonic())
+            .setIsSandbox(workerProperties.isSandboxed())
+            .setIsMultiplex(workerProperties.isMultiplex())
+            .setIsMeasurable(isMeasurable());
+
+    if (workerStat != null) {
+      WorkerStats stats =
+          WorkerMetrics.WorkerStats.newBuilder()
+              .setCollectTimeInMs(workerStat.getTimestamp().toEpochMilli())
+              .setWorkerMemoryInKb(workerStat.getUsedMemoryInKB())
+              .build();
+      builder.addWorkerStats(stats);
     }
 
     return builder.build();
   }
+
 }
