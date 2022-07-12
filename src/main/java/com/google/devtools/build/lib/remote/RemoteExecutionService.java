@@ -1159,18 +1159,6 @@ public class RemoteExecutionService {
     return null;
   }
 
-//  private void waitForDownloads(ImmutableList<ListenableFuture<FileMetadata>> downloads,
-//                   RemoteActionResult result, FileOutErr tmpOutErr, String profileDescriptor)
-//          throws Exception {
-//    try (SilentCloseable c = Profiler.instance().profile(profileDescriptor)) {
-//      waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt= */ true);
-//    } catch (Exception e) {
-//      captureCorruptedOutputs(e);
-//      deletePartialDownloadedOutputs(result, tmpOutErr, e);
-//      throw e;
-//    }
-//  }
-
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
           ActionResultMetadata metadata, RemoteAction action) {
     Predicate<String> alwaysTrue = unused -> true;
