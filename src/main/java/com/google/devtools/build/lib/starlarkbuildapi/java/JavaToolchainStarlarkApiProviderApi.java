@@ -58,7 +58,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       doc = "The artifact that enforces One-Version compliance of java binaries.",
       structField = true,
       allowReturnNones = true)
-  FileApi getOneVersionBinary();
+  FilesToRunProviderApi<? extends FileApi> getOneVersionBinary();
 
   @StarlarkMethod(
       name = "one_version_allowlist",
