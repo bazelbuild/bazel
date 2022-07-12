@@ -80,7 +80,7 @@ public interface EvaluationProgressReceiver {
    * <p>May be called concurrently from multiple threads.
    *
    * <p>If {@code state} is {@link InvalidationState#DIRTY}, should only be called after a
-   * successful {@link ThinNodeEntry#markDirty} call: a call that returns a non-null value.
+   * successful {@link NodeEntry#markDirty} call: a call that returns a non-null value.
    */
   default void invalidated(SkyKey skyKey, InvalidationState state) {}
 

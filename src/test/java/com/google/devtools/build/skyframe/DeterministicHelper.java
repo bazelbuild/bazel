@@ -61,7 +61,7 @@ public final class DeterministicHelper extends NotifyingHelper {
 
   @Nullable
   @Override
-  DeterministicNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
+  DeterministicNodeEntry wrapEntry(SkyKey key, @Nullable NodeEntry entry) {
     return entry == null ? null : new DeterministicNodeEntry(key, entry);
   }
 
@@ -106,7 +106,7 @@ public final class DeterministicHelper extends NotifyingHelper {
    * lexicographically sorted.
    */
   private class DeterministicNodeEntry extends NotifyingNodeEntry {
-    private DeterministicNodeEntry(SkyKey myKey, ThinNodeEntry delegate) {
+    private DeterministicNodeEntry(SkyKey myKey, NodeEntry delegate) {
       super(myKey, delegate);
     }
 
