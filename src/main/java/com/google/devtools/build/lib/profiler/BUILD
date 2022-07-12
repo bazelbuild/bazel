@@ -32,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",

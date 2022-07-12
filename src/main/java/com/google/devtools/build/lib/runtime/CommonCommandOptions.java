@@ -309,6 +309,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean recordFullProfilerData;
 
   @Option(
+      name = "experimental_collect_worker_data_in_profiler",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, profiler collects worker's aggregated resource data.")
+  public boolean collectWorkerDataInProfiler;
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

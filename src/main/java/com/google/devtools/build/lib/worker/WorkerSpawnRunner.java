@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -111,7 +111,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       ResourceManager resourceManager,
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
-      EventBus eventBus,
+      WorkerMetricsCollector workerMetricsCollector,
       XattrProvider xattrProvider) {
     this.helpers = helpers;
     this.execRoot = execRoot;
@@ -124,7 +124,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
-    this.metricsCollector = new WorkerMetricsCollector(reporter, eventBus);
+    this.metricsCollector = workerMetricsCollector;
   }
 
   @Override
@@ -555,7 +555,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       // We consider `prepareExecution` to be also part of setup.
       Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
       worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
-      this.metricsCollector.initializeMetricsSet(key, worker);
+      initializeMetrics(key, worker);
       spawnMetrics.addSetupTime(prepareExecutionStopwatch.elapsed());
     } catch (IOException e) {
       restoreInterrupt(e);
@@ -633,6 +633,17 @@ final class WorkerSpawnRunner implements SpawnRunner {
     spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
 
     return response;
+  }
+
+  private void initializeMetrics(WorkerKey workerKey, Worker worker) {
+    WorkerMetric.WorkerProperties properties =
+        WorkerMetric.WorkerProperties.create(
+            worker.getWorkerId(),
+            worker.getProcessId(),
+            workerKey.getMnemonic(),
+            workerKey.isMultiplex(),
+            workerKey.isSandboxed());
+    this.metricsCollector.registerWorker(properties);
   }
 
   /**

@@ -28,7 +28,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -85,13 +84,13 @@ public class WorkerSpawnRunnerTest {
   @Mock MetadataProvider inputFileCache;
   @Mock Worker worker;
   @Mock WorkerOptions options;
-  @Mock EventBus eventBus;
+  @Mock WorkerMetricsCollector metricsCollector;
 
   @Before
   public void setUp() {
     when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
     when(context.getArtifactExpander()).thenReturn((artifact, output) -> {});
-    doNothing().when(eventBus).register(any());
+    doNothing().when(metricsCollector).registerWorker(any());
   }
 
   private WorkerPool createWorkerPool() {
@@ -126,7 +125,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -165,7 +164,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -211,7 +210,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilesTreeUpdater=*/ null,
             new WorkerOptions(),
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -255,7 +254,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -313,7 +312,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -358,7 +357,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilestTreeUpdater */ null,
             workerOptions,
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     // This worker key just so happens to be multiplex and require sandboxing.
     WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
@@ -398,7 +397,7 @@ public class WorkerSpawnRunnerTest {
             resourceManager,
             /* runfilestTreeUpdater */ null,
             new WorkerOptions(),
-            eventBus,
+            metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");

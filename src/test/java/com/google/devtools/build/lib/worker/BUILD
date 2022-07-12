@@ -102,6 +102,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_files_hash",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/main/java/com/google/devtools/common/options",
