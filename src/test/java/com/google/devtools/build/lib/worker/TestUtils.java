@@ -265,7 +265,7 @@ class TestUtils {
     }
 
     @Override
-    public boolean destroy() {
+    public synchronized boolean destroy() {
       for (Closeable stream : new Closeable[] {inputStream, outputStream, errStream}) {
         try {
           stream.close();
@@ -304,7 +304,7 @@ class TestUtils {
     }
 
     @Override
-    public boolean isAlive() {
+    public synchronized boolean isAlive() {
       return !wasDestroyed;
     }
 
