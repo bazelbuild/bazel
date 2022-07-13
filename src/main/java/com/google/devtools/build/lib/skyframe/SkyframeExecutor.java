@@ -1050,57 +1050,71 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           continue;
         }
         SkyKey key = keyAndEntry.getKey();
-        SkyFunctionName functionName = key.functionName();
-        if (discardType.discardsLoading()) {
-          // Keep packages for top-level targets and aspects in memory to get the target from later.
-          if (functionName.equals(SkyFunctions.PACKAGE)
-              && topLevelPackages.contains(key.argument())) {
-            continue;
-          }
-          if (LOADING_TYPES.contains(functionName)) {
-            it.remove();
-            continue;
-          }
-        }
-        if (discardType.discardsAnalysis()) {
-          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-            ConfiguredTargetValue ctValue;
-            try {
-              ctValue = (ConfiguredTargetValue) entry.getValue();
-            } catch (InterruptedException e) {
-              throw new IllegalStateException(
-                  "No interruption in in-memory retrieval: " + entry, e);
-            }
-            // ctValue may be null if target was not successfully analyzed.
-            if (ctValue != null) {
-              if (!(ctValue instanceof ActionLookupValue)
-                  && discardType.discardsLoading()
-                  && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
-                // If loading is already being deleted, deleting these nodes doesn't hurt. Morally
-                // we should always be able to delete these, since they're not used for execution,
-                // but it leaves the graph inconsistent, and the --discard_analysis_cache with
-                // --track_incremental_state case isn't worth optimizing for.
-                it.remove();
-              } else {
-                ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
-              }
-            }
-          } else if (functionName.equals(SkyFunctions.ASPECT)) {
-            AspectValue aspectValue;
-            try {
-              aspectValue = (AspectValue) entry.getValue();
-            } catch (InterruptedException e) {
-              throw new IllegalStateException(
-                  "No interruption in in-memory retrieval: " + entry, e);
-            }
-            // value may be null if target was not successfully analyzed.
-            if (aspectValue != null) {
-              aspectValue.clear(!topLevelAspects.contains(key));
-            }
-          }
+        boolean removeNode =
+            processDiscardAndDetermineRemoval(
+                key, entry, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
+        if (removeNode) {
+          it.remove();
         }
       }
     }
+  }
+
+  /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
+  @ForOverride
+  protected boolean processDiscardAndDetermineRemoval(
+      SkyKey key,
+      NodeEntry entry,
+      DiscardType discardType,
+      ImmutableSet<PackageIdentifier> topLevelPackages,
+      Collection<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<AspectKey> topLevelAspects) {
+    SkyFunctionName functionName = key.functionName();
+    if (discardType.discardsLoading()) {
+      // Keep packages for top-level targets and aspects in memory to get the target from later.
+      if (functionName.equals(SkyFunctions.PACKAGE) && topLevelPackages.contains(key.argument())) {
+        return false;
+      }
+      if (LOADING_TYPES.contains(functionName)) {
+        return true;
+      }
+    }
+    if (discardType.discardsAnalysis()) {
+      if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+        ConfiguredTargetValue ctValue;
+        try {
+          ctValue = (ConfiguredTargetValue) entry.getValue();
+        } catch (InterruptedException e) {
+          throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
+        }
+        // ctValue may be null if target was not successfully analyzed.
+        if (ctValue != null) {
+          if (!(ctValue instanceof ActionLookupValue)
+              && discardType.discardsLoading()
+              && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+            // If loading nodes are already being removed, removing these nodes doesn't hurt.
+            // Morally we should always be able to remove these, since they're not used for
+            // execution, but it leaves the graph inconsistent, and the --discard_analysis_cache
+            // with --track_incremental_state case isn't worth optimizing for.
+            return true;
+          } else {
+            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+          }
+        }
+      } else if (functionName.equals(SkyFunctions.ASPECT)) {
+        AspectValue aspectValue;
+        try {
+          aspectValue = (AspectValue) entry.getValue();
+        } catch (InterruptedException e) {
+          throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
+        }
+        // aspectValue may be null if target was not successfully analyzed.
+        if (aspectValue != null) {
+          aspectValue.clear(!topLevelAspects.contains(key));
+        }
+      }
+    }
+    return false;
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
