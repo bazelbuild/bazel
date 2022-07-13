@@ -299,7 +299,7 @@ java_library(
     name = "snakeyaml",
     srcs = glob(["src/main/**/*.java"]),
     visibility = [
-        "@io_bazel//src/main/java/com/google/devtools/build/docgen:__pkg__",
+        "@io_bazel//src/main/java/com/google/devtools/build/docgen/release:__pkg__",
         "@com_google_testparameterinjector//:__pkg__",
     ],
 )
