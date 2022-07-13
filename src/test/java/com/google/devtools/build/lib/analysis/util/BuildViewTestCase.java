@@ -128,7 +128,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -1623,7 +1622,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Artifact.
    */
   protected Artifact getGenfilesArtifact(
-      String packageRelativePath, ConfiguredTarget owner, NativeAspectClass creatingAspectFactory) {
+      String packageRelativePath, ConfiguredTarget owner, AspectClass creatingAspectFactory) {
     return getGenfilesArtifact(
         packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
   }
@@ -1631,7 +1630,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifact(
       String packageRelativePath,
       ConfiguredTarget owner,
-      NativeAspectClass creatingAspectFactory,
+      AspectClass creatingAspectFactory,
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
@@ -1652,7 +1651,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected AspectKey getOwnerForAspect(
-      ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
+      ConfiguredTarget owner, AspectClass creatingAspectFactory, AspectParameters params) {
     return AspectKeyCreator.createAspectKey(
         new AspectDescriptor(creatingAspectFactory, params),
         ConfiguredTargetKey.builder()

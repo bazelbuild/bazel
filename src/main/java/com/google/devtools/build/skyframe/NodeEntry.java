@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -31,7 +32,8 @@ import javax.annotation.Nullable;
  * <p>Certain graph implementations' node entries can throw {@link InterruptedException} on various
  * accesses. Such exceptions should not be caught locally -- they should be allowed to propagate up.
  */
-public interface NodeEntry extends ThinNodeEntry {
+public interface NodeEntry {
+
   /**
    * Return code for {@link #addReverseDepAndCheckIfDone} and {@link
    * #checkIfDoneForDirtyReverseDep}.
@@ -84,6 +86,98 @@ public interface NodeEntry extends ThinNodeEntry {
      * #REBUILDING} is only needed for internal checks.
      */
     FORCED_REBUILDING
+  }
+
+  /** Ways that a node may be dirtied. */
+  enum DirtyType {
+    /**
+     * A node P dirtied with DIRTY is re-evaluated during the evaluation phase if it's requested and
+     * directly depends on some node C whose value changed since the last evaluation of P. If it's
+     * requested and there is no such node C, P is marked clean.
+     */
+    DIRTY(DirtyState.CHECK_DEPENDENCIES),
+
+    /**
+     * A node dirtied with CHANGE is re-evaluated during the evaluation phase if it's requested
+     * (regardless of the state of its dependencies). Such a node is expected to evaluate to the
+     * same value if evaluated at the same graph version.
+     */
+    CHANGE(DirtyState.NEEDS_REBUILDING),
+
+    /**
+     * A node dirtied with FORCE_REBUILD behaves like a {@link #CHANGE}d node, except that it may
+     * evaluate to a different value even if evaluated at the same graph version.
+     */
+    FORCE_REBUILD(DirtyState.NEEDS_FORCED_REBUILDING);
+
+    private final DirtyState initialDirtyState;
+
+    DirtyType(DirtyState initialDirtyState) {
+      this.initialDirtyState = initialDirtyState;
+    }
+
+    DirtyState getInitialDirtyState() {
+      return initialDirtyState;
+    }
+  }
+
+  /** Returns whether the entry has been built and is finished evaluating. */
+  @ThreadSafe
+  boolean isDone();
+
+  /**
+   * Returns true if the entry is new or marked as dirty. This includes the case where its deps are
+   * still being checked for up-to-dateness.
+   */
+  @ThreadSafe
+  boolean isDirty();
+
+  /**
+   * Returns true if the entry is marked changed, meaning that it must be re-evaluated even if its
+   * dependencies' values have not changed.
+   */
+  @ThreadSafe
+  boolean isChanged();
+
+  /**
+   * Marks this node dirty as specified by the provided {@link DirtyType}.
+   *
+   * <p>{@code markDirty(DirtyType.DIRTY)} may only be called on a node P for which {@code
+   * P.isDone() || P.isChanged()} (the latter is permitted but has no effect). Similarly, {@code
+   * markDirty(DirtyType.CHANGE)} may only be called on a node P for which {@code P.isDone() ||
+   * !P.isChanged()}. Otherwise, this will throw {@link IllegalStateException}.
+   *
+   * <p>{@code markDirty(DirtyType.FORCE_REBUILD)} may be called multiple times; only the first has
+   * any effect.
+   *
+   * @return if the node was done, a {@link MarkedDirtyResult} which may include the node's reverse
+   *     deps; otherwise {@code null}
+   */
+  @Nullable
+  @ThreadSafe
+  MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException;
+
+  /**
+   * Returned by {@link #markDirty} if that call changed the node from done to dirty. Contains an
+   * iterable of the node's reverse deps for efficiency, because an important use case for {@link
+   * #markDirty} is during invalidation, and the invalidator must immediately afterwards schedule
+   * the invalidation of a node's reverse deps if the invalidator successfully dirties that node.
+   *
+   * <p>Warning: {@link #getReverseDepsUnsafe()} may return a live view of the reverse deps
+   * collection of the marked-dirty node. The consumer of this data must be careful only to iterate
+   * over and consume its values while that collection is guaranteed not to change. This is true
+   * during invalidation, because reverse deps don't change during invalidation.
+   */
+  final class MarkedDirtyResult {
+    private final Iterable<SkyKey> reverseDepsUnsafe;
+
+    public MarkedDirtyResult(Iterable<SkyKey> reverseDepsUnsafe) {
+      this.reverseDepsUnsafe = Preconditions.checkNotNull(reverseDepsUnsafe);
+    }
+
+    public Iterable<SkyKey> getReverseDepsUnsafe() {
+      return reverseDepsUnsafe;
+    }
   }
 
   /**

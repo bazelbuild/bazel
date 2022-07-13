@@ -354,6 +354,8 @@ upper_tabs:
       - title: Support policy
         path: /contribute/support
       - heading: Community support
+      - title: Community updates
+        path: /community/update
       - title: Community experts
         path: /community/experts/
       - title: Bazel users

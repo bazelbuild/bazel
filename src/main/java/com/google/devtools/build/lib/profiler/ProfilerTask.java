@@ -69,6 +69,7 @@ public enum ProfilerTask {
   SYSTEM_CPU_USAGE("CPU usage (total)"),
   LOCAL_MEMORY_USAGE("Memory usage (Bazel)"),
   SYSTEM_MEMORY_USAGE("Memory usage (total)"),
+  WORKERS_MEMORY_USAGE("Workers memory usage"),
   STARLARK_PARSER("Starlark Parser", Threshold.FIFTY_MILLIS),
   STARLARK_USER_FN("Starlark user function call", Threshold.FIFTY_MILLIS),
   STARLARK_BUILTIN_FN("Starlark builtin function call", Threshold.FIFTY_MILLIS),

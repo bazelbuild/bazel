@@ -20,6 +20,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Map;
@@ -57,7 +58,7 @@ public class NotifyingHelper {
   /** Subclasses should override if they wish to subclass {@link NotifyingNodeEntry}. */
   @Nullable
   @ForOverride
-  NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
+  NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable NodeEntry entry) {
     return entry == null ? null : new NotifyingNodeEntry(key, entry);
   }
 
@@ -184,20 +185,15 @@ public class NotifyingHelper {
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
   class NotifyingNodeEntry extends DelegatingNodeEntry {
     private final SkyKey myKey;
-    private final ThinNodeEntry delegate;
+    private final NodeEntry delegate;
 
-    NotifyingNodeEntry(SkyKey key, ThinNodeEntry delegate) {
+    NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
       myKey = key;
       this.delegate = delegate;
     }
 
     @Override
     public NodeEntry getDelegate() {
-      return (NodeEntry) delegate;
-    }
-
-    @Override
-    protected ThinNodeEntry getThinDelegate() {
       return delegate;
     }
 
@@ -325,7 +321,7 @@ public class NotifyingHelper {
 
     @Override
     public void resetForRestartFromScratch() {
-      getDelegate().resetForRestartFromScratch();
+      delegate.resetForRestartFromScratch();
       graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 
@@ -336,18 +332,17 @@ public class NotifyingHelper {
   }
 
   /**
-   * A pair of {@link ThinNodeEntry.DirtyType} and a bit saying whether the dirtying was successful,
-   * emitted to the graph listener as the context {@link Order#AFTER} a call to {@link
-   * EventType#MARK_DIRTY} a node.
+   * A pair of {@link DirtyType} and a bit saying whether the dirtying was successful, emitted to
+   * the graph listener as the context {@link Order#AFTER} a call to {@link EventType#MARK_DIRTY} a
+   * node.
    */
   @AutoValue
   public abstract static class MarkDirtyAfterContext {
-    public abstract ThinNodeEntry.DirtyType dirtyType();
+    public abstract DirtyType dirtyType();
 
     public abstract boolean actuallyDirtied();
 
-    static MarkDirtyAfterContext create(
-        ThinNodeEntry.DirtyType dirtyType, boolean actuallyDirtied) {
+    static MarkDirtyAfterContext create(DirtyType dirtyType, boolean actuallyDirtied) {
       return new AutoValue_NotifyingHelper_MarkDirtyAfterContext(dirtyType, actuallyDirtied);
     }
   }

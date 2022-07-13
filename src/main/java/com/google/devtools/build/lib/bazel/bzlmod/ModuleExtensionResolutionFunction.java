@@ -77,7 +77,7 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
       ImmutableMap<String, Package> generatedRepos =
           ((SingleExtensionEvalValue) value).getGeneratedRepos();
       String repoPrefix =
-          bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '.';
+          bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '~';
       for (Map.Entry<String, Package> entry : generatedRepos.entrySet()) {
         RepositoryName canonicalRepoName =
             RepositoryName.createUnvalidated(repoPrefix + entry.getKey());

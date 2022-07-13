@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
@@ -197,7 +196,7 @@ public final class FilesetTraversalParamsFactory {
       if (!getExcludedFiles().isEmpty()) {
         fp.addStrings(getExcludedFiles());
       }
-      fp.addBytes(getDirectTraversal().get().getFingerprint());
+      fp.addBytes(getDirectTraversal().getFingerprint());
       return fp.digestAndReset();
     }
 
@@ -221,18 +220,15 @@ public final class FilesetTraversalParamsFactory {
           symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, strictFilesetOutput,
           isRecursive, isGenerated);
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
-          ownerLabelForErrorMessages,
-          destPath,
-          getOrderedExcludes(excludes),
-          Optional.of(traversal));
+          ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), traversal);
     }
   }
 
   @AutoValue
   abstract static class NestedTraversalParams implements FilesetTraversalParams {
     @Override
-    public Optional<DirectTraversal> getDirectTraversal() {
-      return Optional.absent();
+    public DirectTraversal getDirectTraversal() {
+      return null;
     }
 
     @Override
@@ -273,8 +269,8 @@ public final class FilesetTraversalParamsFactory {
   @AutoValue
   abstract static class KnownLinksTraversalParams implements FilesetTraversalParams {
     @Override
-    public Optional<DirectTraversal> getDirectTraversal() {
-      return Optional.absent();
+    public DirectTraversal getDirectTraversal() {
+      return null;
     }
 
     @Override

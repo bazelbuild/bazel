@@ -20,6 +20,7 @@ CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
+config_common = _builtins.toplevel.config_common
 platform_common = _builtins.toplevel.platform_common
 
 artifact_category = struct(
@@ -189,6 +190,9 @@ def _find_cpp_toolchain(ctx):
         if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
             fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
         toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
+        if toolchain_info == None:
+            # No cpp toolchain was found, so report an error.
+            fail("Unable to find a CC toolchain using toolchain resolution. Did you properly set --platforms?")
         if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
             return toolchain_info.cc
         return toolchain_info
@@ -200,8 +204,7 @@ def _find_cpp_toolchain(ctx):
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
 
-# buildifier: disable=unused-variable
-def _use_cpp_toolchain(mandatory = True):
+def _use_cpp_toolchain(mandatory = False):
     """
     Helper to depend on the c++ toolchain.
 
@@ -219,7 +222,7 @@ def _use_cpp_toolchain(mandatory = True):
     Returns:
       A list that can be used as the value for `rule.toolchains`.
     """
-    return [_CPP_TOOLCHAIN_TYPE]
+    return [config_common.toolchain_type(_CPP_TOOLCHAIN_TYPE, mandatory = mandatory)]
 
 def _collect_compilation_prerequisites(ctx, compilation_context):
     direct = []
