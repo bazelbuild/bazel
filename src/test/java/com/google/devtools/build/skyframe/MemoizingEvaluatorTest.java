@@ -2632,7 +2632,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   protected void deleteKeyFromGraph(SkyKey key) throws Exception {
-    Iterables.removeIf(tester.evaluator.getGraphEntries(), entry -> entry.getKey().equals(key));
+    tester.evaluator.getAllValuesMutable().remove(key);
   }
 
   @Test

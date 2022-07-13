@@ -24,13 +24,10 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.NodeEntry;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
-import java.util.Map;
 import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Test;
@@ -136,15 +133,17 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
     write("cc/BUILD", "cc_library(name = 'cc', srcs = ['//tree:lib'])");
     buildTarget("//cc:cc");
     events.assertContainsEvent(EventKind.WARNING, "This is a warning");
-    Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> nodes =
-        getSkyframeExecutor().getEvaluator().getGraphEntries();
-    for (Map.Entry<SkyKey, ? extends NodeEntry> node : nodes) {
-      if (node.getKey() instanceof ActionLookupData) {
-        assertWithMessage("Node " + node.getKey() + " warnings")
-            .that(ValueWithMetadata.getEvents(node.getValue().getValueMaybeWithMetadata()).toList())
-            .isEmpty();
-      }
-    }
+    getSkyframeExecutor()
+        .getEvaluator()
+        .getDoneValues()
+        .forEach(
+            (k, v) -> {
+              if (k instanceof ActionLookupData) {
+                assertWithMessage("Node " + k + " warnings")
+                    .that(ValueWithMetadata.getEvents(v).toList())
+                    .isEmpty();
+              }
+            });
 
     // Warning is shown on a no-op incremental build.
     events.clear();
