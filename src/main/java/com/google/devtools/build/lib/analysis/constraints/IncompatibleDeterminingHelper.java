@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -66,7 +64,8 @@ import javax.annotation.Nullable;
 /**
  * Helpers for creating configured targets that are incompatible.
  *
- * A target is considered incompatible if any of the following applies:
+ * <p>A target is considered incompatible if any of the following applies:
+ *
  * <ol>
  *   <li>The target's <code>target_compatible_with</code> attribute specifies a constraint that is
  *       not present in the target platform.
@@ -77,21 +76,21 @@ import javax.annotation.Nullable;
  * Doing this as early as possible allows us to skip analysing unused dependencies and ignore unused
  * toolchains.
  *
- * See https://bazel.build/docs/platforms#skipping-incompatible-targets for more information on
+ * <p>See https://bazel.build/docs/platforms#skipping-incompatible-targets for more information on
  * incompatible target skipping.
  */
 public class IncompatibleDeterminingHelper {
   /**
    * Creates an incompatible configured target if it is "directly incompatible".
    *
-   * In other words, this function checks if a target is incompatible because of its
+   * <p>In other words, this function checks if a target is incompatible because of its
    * "target_compatible_with" attribute.
    *
-   * After this function returns, the caller must immediatly check if "env.valuesMissing()" returns
-   * true. If that check succeeds, the return value of this function is guaranteed to be null. The
-   * caller must request a skyframe restart. If the check fails, then the return value is either
-   * null or an incompatible configured target. If null is returned, the target is not directly
-   * incompatible and analysis of this target should proceed.
+   * <p>After this function returns, the caller must immediatly check if "env.valuesMissing()"
+   * returns true. If that check succeeds, the return value of this function is guaranteed to be
+   * null. The caller must request a skyframe restart. If the check fails, then the return value is
+   * either null or an incompatible configured target. If null is returned, the target is not
+   * directly incompatible and analysis of this target should proceed.
    */
   @Nullable
   public static RuleConfiguredTargetValue createDirectlyIncompatibleTarget(
@@ -145,22 +144,22 @@ public class IncompatibleDeterminingHelper {
     }
 
     return createIncompatibleRuleConfiguredTarget(
-            target,
-            configuration,
-            configConditions,
-            IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                platformInfo.label(), invalidConstraintValues),
-            rule.getRuleClass(),
-            transitivePackagesForPackageRootResolution);
+        target,
+        configuration,
+        configConditions,
+        IncompatiblePlatformProvider.incompatibleDueToConstraints(
+            platformInfo.label(), invalidConstraintValues),
+        rule.getRuleClass(),
+        transitivePackagesForPackageRootResolution);
   }
 
   /**
    * Creates an incompatible target if it is "indirectly incompatible".
    *
-   * In other words, this function checks if a target is incompatible because of one of its
+   * <p>In other words, this function checks if a target is incompatible because of one of its
    * dependencies. If a dependency is incompatible, then this target is also incompatible.
    *
-   * This function returns either null or an incompatible configured target. If null is returned,
+   * <p>This function returns either null or an incompatible configured target. If null is returned,
    * the target is not indirectly incompatible and analysis of this target should proceed.
    */
   @Nullable
@@ -199,9 +198,7 @@ public class IncompatibleDeterminingHelper {
         transitivePackagesForPackageRootResolution);
   }
 
-  /**
-   * Creates an incompatible target.
-   */
+  /** Creates an incompatible target. */
   private static RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
       Target target,
       BuildConfigurationValue configuration,
