@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Info object propagating information about protocol buffer sources. */
 @StarlarkBuiltin(
@@ -105,4 +107,10 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
               + " as a source, that source file would be imported as 'import c/d.proto'",
       structField = true)
   String getDirectProtoSourceRoot();
+
+  @StarlarkMethod(name = "strict_importable_sources", documented = false, useStarlarkThread = true)
+  Depset getStrictImportableSourcesForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "transitive_proto_sources", documented = false, useStarlarkThread = true)
+  Depset getTransitiveSourcesForStarlark(StarlarkThread thread) throws EvalException;
 }
