@@ -122,7 +122,10 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory.newExternalPackageBuilder(
-            RootedPath.toRootedPath(root, myPkgPath), "TESTING", StarlarkSemantics.DEFAULT);
+            RootedPath.toRootedPath(root, myPkgPath),
+            "TESTING",
+            RepositoryMapping.ALWAYS_FALLBACK,
+            StarlarkSemantics.DEFAULT);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");

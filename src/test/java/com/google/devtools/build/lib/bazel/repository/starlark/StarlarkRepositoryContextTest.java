@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
@@ -139,6 +140,7 @@ public final class StarlarkRepositoryContextTest {
             DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles",
+            RepositoryMapping.ALWAYS_FALLBACK,
             starlarkSemantics);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
