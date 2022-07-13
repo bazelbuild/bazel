@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Data for a single cycle in the graph, together with the path to the cycle. For any value, the
@@ -79,6 +80,7 @@ public class CycleInfo {
 
   // Given a cycle and a value, if the value is part of the cycle, shift the cycle. Otherwise,
   // prepend the value to the head of pathToCycle.
+  @Nullable
   private static CycleInfo normalizeCycle(final SkyKey value, CycleInfo cycle) {
     int index = cycle.cycle.indexOf(value);
     if (index > -1) {
@@ -111,17 +113,21 @@ public class CycleInfo {
    */
   static Iterable<CycleInfo> prepareCycles(final SkyKey value, Iterable<CycleInfo> cycles) {
     final Set<ImmutableList<SkyKey>> alreadyDoneCycles = new HashSet<>();
-    return Iterables.filter(Iterables.transform(cycles,
-        new Function<CycleInfo, CycleInfo>() {
-          @Override
-          public CycleInfo apply(CycleInfo input) {
-            CycleInfo normalized = normalizeCycle(value, input);
-            if (normalized != null && alreadyDoneCycles.add(normalized.cycle)) {
-              return normalized;
-            }
-            return null;
-          }
-    }), Predicates.notNull());
+    return Iterables.filter(
+        Iterables.transform(
+            cycles,
+            new Function<CycleInfo, CycleInfo>() {
+              @Override
+              @Nullable
+              public CycleInfo apply(CycleInfo input) {
+                CycleInfo normalized = normalizeCycle(value, input);
+                if (normalized != null && alreadyDoneCycles.add(normalized.cycle)) {
+                  return normalized;
+                }
+                return null;
+              }
+            }),
+        Predicates.notNull());
   }
 
   @Override

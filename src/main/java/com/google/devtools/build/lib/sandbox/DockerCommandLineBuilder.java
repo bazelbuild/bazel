@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -41,72 +42,86 @@ final class DockerCommandLineBuilder {
   private boolean privileged;
   private List<Map.Entry<String, String>> additionalMounts;
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setProcessWrapper(ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setDockerClient(Path dockerClient) {
     this.dockerClient = dockerClient;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setImageName(String imageName) {
     this.imageName = imageName;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setCommandArguments(List<String> commandArguments) {
     this.commandArguments = commandArguments;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setSandboxExecRoot(Path sandboxExecRoot) {
     this.sandboxExecRoot = sandboxExecRoot;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setEnvironmentVariables(
       Map<String, String> environmentVariables) {
     this.environmentVariables = environmentVariables;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setTimeout(Duration timeout) {
     this.timeout = timeout;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setCreateNetworkNamespace(boolean createNetworkNamespace) {
     this.createNetworkNamespace = createNetworkNamespace;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setUuid(UUID uuid) {
     this.uuid = uuid;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setUid(int uid) {
     this.uid = uid;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setGid(int gid) {
     this.gid = gid;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setCommandId(String commandId) {
     this.commandId = commandId;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setPrivileged(boolean privileged) {
     this.privileged = privileged;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DockerCommandLineBuilder setAdditionalMounts(
       List<Map.Entry<String, String>> additionalMounts) {
     this.additionalMounts = additionalMounts;

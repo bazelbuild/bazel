@@ -20,6 +20,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /** Builder for creating $android_resource_parser action. */
@@ -40,39 +41,46 @@ public class AndroidResourceParsingActionBuilder {
   @Nullable private Artifact dataBindingInfoZip;
 
   /** Set the artifact location for the output protobuf. */
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setOutput(Artifact output) {
     this.output = output;
     return this;
   }
 
   /** Sets the manifest. Will be ignored except when parsing resources with data binding. */
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setManifest(@Nullable Artifact manifest) {
     this.manifest = manifest;
     return this;
   }
 
   /** Sets the Java package. Will be ignored except when parsing resources with data binding. */
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setJavaPackage(@Nullable String javaPackage) {
     this.javaPackage = javaPackage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setResources(AndroidResources resources) {
     this.resources = resources;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setAssets(AndroidAssets assets) {
     this.assets = assets;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setCompiledSymbolsOutput(
       @Nullable Artifact compiledSymbols) {
     this.compiledSymbols = compiledSymbols;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceParsingActionBuilder setDataBindingInfoZip(Artifact dataBindingInfoZip) {
     this.dataBindingInfoZip = dataBindingInfoZip;
     return this;

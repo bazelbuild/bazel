@@ -62,6 +62,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Takes a list of target patterns corresponding to a command line and turns it into a set of
@@ -71,6 +72,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   public TargetPatternPhaseFunction() {}
 
   @Override
+  @Nullable
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
     WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
@@ -338,6 +340,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   }
 
   /** Merges expansions from all patterns into a single {@link ResolvedTargets} instance. */
+  @Nullable
   private static ResolvedTargets<Target> mergeAll(
       List<ExpandedPattern> expandedPatterns,
       boolean hasError,
@@ -390,6 +393,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * @param repoMapping the repository mapping to apply to repos in the patterns
    * @param testFilter the test filter
    */
+  @Nullable
   private static ResolvedTargets<Target> determineTests(
       Environment env,
       List<String> targetPatterns,

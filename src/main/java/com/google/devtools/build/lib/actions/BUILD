@@ -14,6 +14,7 @@ java_library(
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -370,6 +371,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

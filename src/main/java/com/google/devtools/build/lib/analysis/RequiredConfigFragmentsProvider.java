@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.ClassName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -118,41 +119,49 @@ public abstract class RequiredConfigFragmentsProvider implements TransitiveInfoP
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder addOptionsClass(Class<? extends FragmentOptions> optionsClass) {
       optionsClasses = append(optionsClasses, optionsClass);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addOptionsClasses(Collection<Class<? extends FragmentOptions>> optionsClasses) {
       this.optionsClasses = appendAll(this.optionsClasses, optionsClasses);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addFragmentClasses(Collection<Class<? extends Fragment>> fragmentClasses) {
       this.fragmentClasses = appendAll(this.fragmentClasses, fragmentClasses);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDefine(String define) {
       defines = append(defines, define);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDefines(Collection<String> defines) {
       this.defines = appendAll(this.defines, defines);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkOption(Label starlarkOption) {
       starlarkOptions = append(starlarkOptions, starlarkOption);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkOptions(Collection<Label> starlarkOptions) {
       this.starlarkOptions = appendAll(this.starlarkOptions, starlarkOptions);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder merge(RequiredConfigFragmentsProvider provider) {
       optionsClasses = appendAll(optionsClasses, provider.getOptionsClasses());
       fragmentClasses = appendAll(fragmentClasses, provider.getFragmentClasses());

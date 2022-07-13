@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.Picness;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -175,6 +175,7 @@ public final class CcLinkingHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
+  @CanIgnoreReturnValue
   public CcLinkingHelper fromCommon(RuleContext ruleContext, CcCommon common) {
     addCcLinkingContexts(
         CppHelper.getLinkingContextsFromDeps(
@@ -183,16 +184,19 @@ public final class CcLinkingHelper {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setNativeDeps(boolean nativeDeps) {
     this.nativeDeps = nativeDeps;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setWholeArchive(boolean wholeArchive) {
     this.wholeArchive = wholeArchive;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper addAdditionalLinkstampDefines(List<String> additionalLinkstampDefines) {
     this.additionalLinkstampDefines.addAll(additionalLinkstampDefines);
     return this;
@@ -205,11 +209,13 @@ public final class CcLinkingHelper {
    * inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
    * totally fine for nonCodeLinkerInputs to contains precompiled libraries.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addNonCodeLinkerInputs(List<Artifact> nonCodeLinkerInputs) {
     this.additionalLinkerInputsBuilder.addAll(nonCodeLinkerInputs);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper addTransitiveAdditionalLinkerInputs(
       NestedSet<Artifact> additionalLinkerInputs) {
     this.additionalLinkerInputsBuilder.addTransitive(additionalLinkerInputs);
@@ -217,12 +223,14 @@ public final class CcLinkingHelper {
   }
 
   /** TODO(bazel-team): Add to Starlark API */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addLinkerOutputs(List<Artifact> linkerOutputs) {
     this.linkerOutputs.addAll(linkerOutputs);
     return this;
   }
 
   /** Adds the given options as linker options to the link command. */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addLinkopts(Iterable<String> linkopts) {
     Iterables.addAll(this.linkopts, linkopts);
     return this;
@@ -232,6 +240,7 @@ public final class CcLinkingHelper {
    * Adds additional {@link CcLinkingContext} that will be used everywhere where CcLinkingInfos were
    * obtained from deps.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addCcLinkingContexts(Iterable<CcLinkingContext> ccLinkingContexts) {
     Iterables.addAll(this.ccLinkingContexts, ccLinkingContexts);
     return this;
@@ -241,6 +250,7 @@ public final class CcLinkingHelper {
    * Adds the given linkstamps. Note that linkstamps are usually not compiled at the library level,
    * but only in the dependent binary rules.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addLinkstamps(Iterable<? extends TransitiveInfoCollection> linkstamps) {
     for (TransitiveInfoCollection linkstamp : linkstamps) {
       this.linkstamps.addTransitive(linkstamp.getProvider(FileProvider.class).getFilesToBuild());
@@ -249,6 +259,7 @@ public final class CcLinkingHelper {
   }
 
   /** Adds the given artifact to the input of any generated link actions. */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addLinkActionInput(Artifact input) {
     Preconditions.checkNotNull(input);
     this.linkActionInputs.add(input);
@@ -256,6 +267,7 @@ public final class CcLinkingHelper {
   }
 
   /** Adds a variableExtension to template the crosstool. */
+  @CanIgnoreReturnValue
   public CcLinkingHelper addVariableExtension(VariablesExtension variableExtension) {
     Preconditions.checkNotNull(variableExtension);
     this.variablesExtensions.add(variableExtension);
@@ -267,6 +279,7 @@ public final class CcLinkingHelper {
    * dynamic library is an implicit or explicit output of the rule, i.e., if it is accessible by
    * name from other rules in the same package. Set to {@code null} to use the default computation.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setLinkerOutputArtifact(@Nullable Artifact linkerOutputArtifact) {
     this.linkerOutputArtifact = linkerOutputArtifact;
     return this;
@@ -288,6 +301,7 @@ public final class CcLinkingHelper {
    *     removed when we no longer use *.lo for always to link static libraries in native
    *     cc_library.
    */
+  @CanIgnoreReturnValue
   @Deprecated
   public CcLinkingHelper setAlwayslink(boolean alwayslink) {
     staticLinkType =
@@ -300,6 +314,7 @@ public final class CcLinkingHelper {
    * anything other than a static link causes this class to skip the link action creation. This
    * exists only for Objective-C.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setStaticLinkType(LinkTargetType linkType) {
     Preconditions.checkNotNull(linkType);
     Preconditions.checkState(linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER);
@@ -311,6 +326,7 @@ public final class CcLinkingHelper {
    * Marks the resulting code as neverlink, i.e., the code will not be linked into dependent
    * libraries or binaries - the header files are still available.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setNeverLink(boolean neverlink) {
     this.neverlink = neverlink;
     return this;
@@ -323,6 +339,7 @@ public final class CcLinkingHelper {
    * provides a way to avoid this artifact conflict by allowing different callers acting on the same
    * rule to provide a suffix that will be used to scope their own linked artifacts.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setLinkedArtifactNameSuffix(String suffix) {
     this.linkedArtifactNameSuffix = Preconditions.checkNotNull(suffix);
     return this;
@@ -335,6 +352,7 @@ public final class CcLinkingHelper {
    * link against the renamed DLL. If not, CppLinkAction will link against the DLL whose name is the
    * same as the name of cc_library.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setLinkedDLLNameSuffix(String suffix) {
     this.linkedDLLNameSuffix = Preconditions.checkNotNull(suffix);
     return this;
@@ -345,6 +363,7 @@ public final class CcLinkingHelper {
    * linker generates a dynamic library, and only if the crosstool supports it. The default is not
    * to generate interface dynamic libraries.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper emitInterfaceSharedLibraries(boolean emitInterfaceSharedLibraries) {
     this.emitInterfaceSharedLibraries = emitInterfaceSharedLibraries;
     return this;
@@ -355,6 +374,7 @@ public final class CcLinkingHelper {
    * generate a dynamic library. Note that the selection between dynamic or static linking is
    * performed at the binary rule level.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setShouldCreateDynamicLibrary(boolean emitDynamicLibrary) {
     this.shouldCreateDynamicLibrary = emitDynamicLibrary;
     return this;
@@ -363,6 +383,7 @@ public final class CcLinkingHelper {
   /**
    * When shouldCreateStaticLibraries is true, there are no actions created for static libraries.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setShouldCreateStaticLibraries(boolean emitStaticLibraries) {
     this.shouldCreateStaticLibraries = emitStaticLibraries;
     return this;
@@ -499,18 +520,21 @@ public final class CcLinkingHelper {
     return ccLinkingOutputsBuilder.build();
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setWillOnlyBeLinkedIntoDynamicLibraries(
       boolean willOnlyBeLinkedIntoDynamicLibraries) {
     this.willOnlyBeLinkedIntoDynamicLibraries = willOnlyBeLinkedIntoDynamicLibraries;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setUseTestOnlyFlags(boolean useTestOnlyFlags) {
     this.useTestOnlyFlags = useTestOnlyFlags;
     return this;
   }
 
   /** Used to set the runfiles path for test rules' dynamic libraries. */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setTestOrTestOnlyTarget(boolean isTestOrTestOnlyTarget) {
     this.isTestOrTestOnlyTarget = isTestOrTestOnlyTarget;
     return this;
@@ -519,38 +543,45 @@ public final class CcLinkingHelper {
   /**
    * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
    */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setGrepIncludes(Artifact grepIncludes) {
     this.grepIncludes = grepIncludes;
     return this;
   }
 
   /** Whether linkstamping is enabled. */
+  @CanIgnoreReturnValue
   public CcLinkingHelper setIsStampingEnabled(boolean isStampingEnabled) {
     this.isStampingEnabled = isStampingEnabled;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setLinkingMode(LinkingMode linkingMode) {
     this.linkingMode = linkingMode;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setDynamicLinkType(LinkTargetType dynamicLinkType) {
     this.dynamicLinkType = dynamicLinkType;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setPdbFile(Artifact pdbFile) {
     this.pdbFile = pdbFile;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CcLinkingHelper setDefFile(Artifact defFile) {
     this.defFile = defFile;
     return this;
   }
 
   /** Needed for NativeDepsHelper. It is unclear whether native deps will be in the Starlark API. */
+  @CanIgnoreReturnValue
   @Deprecated
   public CcLinkingHelper setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
     this.linkArtifactFactory = linkArtifactFactory;

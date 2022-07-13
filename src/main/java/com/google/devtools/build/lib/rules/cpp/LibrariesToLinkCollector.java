@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Class that goes over linker inputs and produces {@link LibraryToLinkValue}s */
 public class LibrariesToLinkCollector {
@@ -532,6 +533,7 @@ public class LibrariesToLinkCollector {
                 PathFragment.create(CppLinkActionBuilder.SHARED_NONLTO_BACKEND_ROOT_PREFIX));
   }
 
+  @Nullable
   private Map<Artifact, Artifact> generateLtoMap() {
     if (isLtoIndexing || allLtoArtifacts == null) {
       return null;

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -54,8 +53,7 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
 
     Label hostPlatform = (Label) info.getValue("host_platform");
     assertThat(hostPlatform).isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));
@@ -86,8 +84,7 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
 
     Label targetPlatform = (Label) info.getValue("target_platform");
     assertThat(targetPlatform).isEqualTo(Label.parseAbsoluteUnchecked("//platforms:test_platform"));

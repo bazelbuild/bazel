@@ -67,11 +67,11 @@ def _build_common_variables(
         ctx,
         toolchain,
         use_pch = False,
-        disable_layering_check = False,
-        disable_parse_hdrs = False,
         empty_compilation_artifacts = False,
         deps = [],
         runtime_deps = [],
+        extra_disabled_features = [],
+        extra_enabled_features = [],
         extra_import_libraries = [],
         linkopts = [],
         alwayslink = False,
@@ -101,58 +101,42 @@ def _build_common_variables(
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
+        extra_disabled_features = extra_disabled_features,
+        extra_enabled_features = extra_enabled_features,
         objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = use_pch,
-        disable_layering_check = disable_layering_check,
-        disable_parse_headers = disable_parse_hdrs,
         objc_config = ctx.fragments.objc,
         objc_provider = objc_provider,
     )
 
 def _build_feature_configuration(common_variables, for_swift_module_map, support_parse_headers):
-    activated_crosstool_selectables = []
     ctx = common_variables.ctx
-    OBJC_ACTIONS = [
-        "objc-compile",
-        "objc++-compile",
-        "objc-archive",
-        "objc-fully-link",
-        "objc-executable",
-        "objc++-executable",
-    ]
-    activated_crosstool_selectables.extend(ctx.features)
-    activated_crosstool_selectables.extend(OBJC_ACTIONS)
-    activated_crosstool_selectables.append("lang_objc")
-    if common_variables.objc_config.should_strip_binary:
-        activated_crosstool_selectables.append("dead_strip")
 
-    if common_variables.objc_config.generate_linkmap:
-        activated_crosstool_selectables.append("generate_linkmap")
+    enabled_features = []
+    enabled_features.extend(ctx.features)
+    enabled_features.extend(common_variables.extra_enabled_features)
 
     disabled_features = []
     disabled_features.extend(ctx.disabled_features)
-    if common_variables.disable_parse_headers:
-        disabled_features.append("parse_headers")
-
-    if common_variables.disable_layering_check:
-        disabled_features.append("layering_check")
+    disabled_features.extend(common_variables.extra_disabled_features)
 
     if not support_parse_headers:
         disabled_features.append("parse_headers")
 
     if for_swift_module_map:
-        activated_crosstool_selectables.append("module_maps")
-        activated_crosstool_selectables.append("compile_all_modules")
-        activated_crosstool_selectables.append("only_doth_headers_in_module_maps")
-        activated_crosstool_selectables.append("exclude_private_headers_in_module_maps")
-        activated_crosstool_selectables.append("module_map_without_extern_module")
+        enabled_features.append("module_maps")
+        enabled_features.append("compile_all_modules")
+        enabled_features.append("only_doth_headers_in_module_maps")
+        enabled_features.append("exclude_private_headers_in_module_maps")
+        enabled_features.append("module_map_without_extern_module")
         disabled_features.append("generate_submodules")
 
     return cc_common.configure_features(
         ctx = common_variables.ctx,
         cc_toolchain = common_variables.toolchain,
-        requested_features = activated_crosstool_selectables,
+        language = "objc",
+        requested_features = enabled_features,
         unsupported_features = disabled_features,
     )
 
@@ -242,7 +226,6 @@ def _validate_attributes(common_variables):
 def _get_compile_rule_copts(common_variables):
     attributes = common_variables.compilation_attributes
     copts = []
-    copts.extend(common_variables.objc_config.copts)
     copts.extend(attributes.copts)
 
     if attributes.enable_modules and common_variables.ctx.attr.module_map == None:
@@ -285,11 +268,11 @@ def _register_compile_and_archive_actions_for_j2objc(
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
+        extra_enabled_features = ["j2objc_transpiled"],
+        extra_disabled_features = ["layering_check", "parse_headers"],
         objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = False,
-        disable_layering_check = True,
-        disable_parse_headers = True,
         objc_config = ctx.fragments.objc,
         objc_provider = None,
     )

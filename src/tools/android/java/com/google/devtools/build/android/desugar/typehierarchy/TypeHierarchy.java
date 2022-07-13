@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -107,18 +108,21 @@ public abstract class TypeHierarchy {
 
     abstract ImmutableMap.Builder<HierarchicalMethodKey, MethodDeclInfo> methodMetadataBuilder();
 
+    @CanIgnoreReturnValue
     final TypeHierarchyBuilder putDirectSuperClass(
         HierarchicalTypeKey declaredType, HierarchicalTypeKey superclass) {
       directSuperClassByTypeBuilder().put(declaredType, superclass);
       return this;
     }
 
+    @CanIgnoreReturnValue
     final TypeHierarchyBuilder putDirectInterfaces(
         HierarchicalTypeKey declaredType, ImmutableSet<HierarchicalTypeKey> directInterfaces) {
       directInterfacesByTypeBuilder().putAll(declaredType, directInterfaces);
       return this;
     }
 
+    @CanIgnoreReturnValue
     final TypeHierarchyBuilder putMethod(MethodDeclInfo methodDecl) {
       checkState(!methodDecl.isPrivateAccess());
       HierarchicalTypeKey typeKey = HierarchicalTypeKey.create(methodDecl.owner());

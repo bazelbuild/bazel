@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -35,6 +36,11 @@ public final class MockCppSemantics implements CppSemantics {
   @SerializationConstant public static final MockCppSemantics INSTANCE = new MockCppSemantics();
 
   private MockCppSemantics() {}
+
+  @Override
+  public Language language() {
+    return Language.CPP;
+  }
 
   @Override
   public void finalizeCompileActionBuilder(

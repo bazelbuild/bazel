@@ -39,6 +39,9 @@ def find_cpp_toolchain(ctx):
         if not CPP_TOOLCHAIN_TYPE in ctx.toolchains:
             fail("In order to use find_cpp_toolchain, you must include the '%s' in the toolchains argument to your rule." % CPP_TOOLCHAIN_TYPE)
         toolchain_info = ctx.toolchains[CPP_TOOLCHAIN_TYPE]
+        if toolchain_info == None:
+            # No cpp toolchain was found, so report an error.
+            fail("Unable to find a CC toolchain using toolchain resolution. Did you properly set --platforms?")
         if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
             return toolchain_info.cc
         return toolchain_info
@@ -50,8 +53,7 @@ def find_cpp_toolchain(ctx):
     # We didn't find anything.
     fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
 
-# buildifier: disable=unused-variable
-def use_cpp_toolchain(mandatory = True):
+def use_cpp_toolchain(mandatory = False):
     """
     Helper to depend on the c++ toolchain.
 
@@ -69,4 +71,4 @@ def use_cpp_toolchain(mandatory = True):
     Returns:
       A list that can be used as the value for `rule.toolchains`.
     """
-    return [CPP_TOOLCHAIN_TYPE]
+    return [config_common.toolchain_type(CPP_TOOLCHAIN_TYPE, mandatory = mandatory)]

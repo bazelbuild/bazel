@@ -128,7 +128,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -146,7 +145,6 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -156,14 +154,12 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -187,6 +183,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -325,14 +322,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories);
-    ManagedDirectoriesKnowledge managedDirectoriesKnowledge = getManagedDirectoriesKnowledge();
-    if (managedDirectoriesKnowledge != null) {
-      builder.setRepositoryHelpersHolder(
-          SkyframeExecutorRepositoryHelpersHolder.create(
-              managedDirectoriesKnowledge,
-              new RepositoryDirectoryDirtinessChecker(
-                  directories.getWorkspace(), managedDirectoriesKnowledge)));
-    }
     skyframeExecutor = builder.build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory, directories);
@@ -425,10 +414,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ruleClassProvider;
   }
 
-  protected ManagedDirectoriesKnowledge getManagedDirectoriesKnowledge() {
-    return null;
-  }
-
   protected final PackageFactory getPackageFactory() {
     return pkgFactory;
   }
@@ -488,7 +473,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException, LabelSyntaxException,
           InterruptedException {
-    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
+    return getTarget(Label.parseCanonical(label));
   }
 
   protected Target getTarget(Label label)
@@ -719,7 +704,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
       throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
+    Label candidateLabel = Label.parseCanonical(label);
     Optional<ConfiguredTarget> prereq =
         getDirectPrerequisites(target).stream()
             .filter(candidate -> candidate.getOriginalLabel().equals(candidateLabel))
@@ -729,7 +714,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
       ConfiguredTargetAndData ctad, String label) throws Exception {
-    Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
+    Label candidateLabel = Label.parseCanonical(label);
     for (ConfiguredTargetAndData candidate :
         view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
             reporter, ctad.getConfiguredTarget(), masterConfig)) {
@@ -1034,7 +1019,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfigurationValue config)
       throws LabelSyntaxException {
-    return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
+    return getConfiguredTarget(Label.parseCanonical(label), config);
   }
 
   /**
@@ -1080,7 +1065,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public ConfiguredTargetAndData getConfiguredTargetAndData(String label)
       throws LabelSyntaxException, StarlarkTransition.TransitionException,
           InvalidConfigurationException, InterruptedException {
-    return getConfiguredTargetAndData(Label.parseAbsolute(label, ImmutableMap.of()), targetConfig);
+    return getConfiguredTargetAndData(Label.parseCanonical(label), targetConfig);
   }
 
   /**
@@ -1139,7 +1124,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Returns the {@link ConfiguredAspect} with the given label. For example: {@code
-   * //my:base_target%my_aspect}.
+   * //my:defs.bzl%my_aspect}.
    *
    * <p>Assumes only one configured aspect exists for this label. If this isn't true, or you need
    * finer grained selection for different configurations, you'll need to expand this method.
@@ -1637,7 +1622,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Artifact.
    */
   protected Artifact getGenfilesArtifact(
-      String packageRelativePath, ConfiguredTarget owner, NativeAspectClass creatingAspectFactory) {
+      String packageRelativePath, ConfiguredTarget owner, AspectClass creatingAspectFactory) {
     return getGenfilesArtifact(
         packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
   }
@@ -1645,7 +1630,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifact(
       String packageRelativePath,
       ConfiguredTarget owner,
-      NativeAspectClass creatingAspectFactory,
+      AspectClass creatingAspectFactory,
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
@@ -1666,7 +1651,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected AspectKey getOwnerForAspect(
-      ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
+      ConfiguredTarget owner, AspectClass creatingAspectFactory, AspectParameters params) {
     return AspectKeyCreator.createAspectKey(
         new AspectDescriptor(creatingAspectFactory, params),
         ConfiguredTargetKey.builder()
@@ -2134,7 +2119,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
-      result.add(Label.parseAbsolute(s, ImmutableMap.of()));
+      result.add(Label.parseCanonical(s));
     }
     return result;
   }
@@ -2518,17 +2503,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     private ArtifactExpander artifactExpander = null;
     private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
+    @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setMetadataProvider(
         MetadataProvider actionInputFileCache) {
       this.actionInputFileCache = actionInputFileCache;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setArtifactExpander(ArtifactExpander artifactExpander) {
       this.artifactExpander = artifactExpander;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setExecutor(Executor executor) {
       this.executor = executor;
       return this;

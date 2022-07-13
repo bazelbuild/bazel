@@ -170,6 +170,8 @@ def _create_context_and_provider(
             if compilation_artifacts.archive != None:
                 direct.append(compilation_artifacts.archive)
 
+        direct.extend(extra_import_libraries)
+
         objc_provider_kwargs["force_load_library"] = [
             depset(
                 direct = direct,

@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -42,19 +43,20 @@ public abstract class AbstractConstraintsTest extends BuildViewTestCase {
       this.name = name;
     }
 
+    @CanIgnoreReturnValue
     public EnvironmentGroupMaker setEnvironments(String... environments) {
       this.environments = ImmutableSet.copyOf(environments);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public EnvironmentGroupMaker setDefaults(String... environments) {
       this.defaults = ImmutableSet.copyOf(environments);
       return this;
     }
 
-    /**
-     * Declares that env1 fulfills env2.
-     */
+    /** Declares that env1 fulfills env2. */
+    @CanIgnoreReturnValue
     public EnvironmentGroupMaker setFulfills(String env1, String env2) {
       fulfillsMap.put(env1, env2);
       return this;

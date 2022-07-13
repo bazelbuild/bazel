@@ -15,9 +15,6 @@
 
 load(":path.bzl", "compute_data_path", "dest_path")
 
-# Filetype to restrict inputs
-tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.bz2"]
-
 def _remap(remap_paths, path):
     """If path starts with a key in remap_paths, rewrite it."""
     for prefix, replacement in remap_paths.items():
@@ -46,12 +43,6 @@ def _pkg_tar_impl(ctx):
         "--owner=" + ctx.attr.owner,
         "--owner_name=" + ctx.attr.ownername,
     ]
-    if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
-        if ctx.attr.portable_mtime:
-            fail("You may not set both mtime and portable_mtime")
-        args.append("--mtime=%d" % ctx.attr.mtime)
-    if ctx.attr.portable_mtime:
-        args.append("--mtime=portable")
 
     # Add runfiles if requested
     file_inputs = []
@@ -84,12 +75,11 @@ def _pkg_tar_impl(ctx):
             args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
         elif ctx.attr.extension == "tgz":
             args += ["--compression=gz"]
-    args += ["--tar=" + f.path for f in ctx.files.deps]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
 
     ctx.actions.run(
-        inputs = file_inputs + ctx.files.deps + [arg_file],
+        inputs = file_inputs + [arg_file],
         executable = ctx.executable.build_tar,
         arguments = ["--flagfile", arg_file.path],
         outputs = [ctx.outputs.out],
@@ -103,12 +93,9 @@ _real_pkg_tar = rule(
     attrs = {
         "strip_prefix": attr.string(),
         "package_dir": attr.string(default = "/"),
-        "deps": attr.label_list(allow_files = tar_filetype),
         "srcs": attr.label_list(allow_files = True),
         "files": attr.label_keyed_string_dict(allow_files = True),
         "mode": attr.string(default = "0555"),
-        "mtime": attr.int(default = -1),
-        "portable_mtime": attr.bool(default = True),
         "out": attr.output(),
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),

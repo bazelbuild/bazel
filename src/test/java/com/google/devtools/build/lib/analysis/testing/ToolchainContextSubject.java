@@ -59,7 +59,7 @@ public class ToolchainContextSubject extends Subject {
   }
 
   public void hasExecutionPlatform(String platformLabel) throws LabelSyntaxException {
-    hasExecutionPlatform(Label.parseAbsolute(platformLabel, ImmutableMap.of()));
+    hasExecutionPlatform(Label.parseCanonical(platformLabel));
   }
 
   public void hasExecutionPlatform(Label platform) {
@@ -68,7 +68,7 @@ public class ToolchainContextSubject extends Subject {
   }
 
   public void hasTargetPlatform(String platformLabel) throws LabelSyntaxException {
-    hasTargetPlatform(Label.parseAbsolute(platformLabel, ImmutableMap.of()));
+    hasTargetPlatform(Label.parseCanonical(platformLabel));
   }
 
   public void hasTargetPlatform(Label platform) {
@@ -99,7 +99,7 @@ public class ToolchainContextSubject extends Subject {
   }
 
   public void hasResolvedToolchain(String resolvedToolchainLabel) throws LabelSyntaxException {
-    hasResolvedToolchain(Label.parseAbsolute(resolvedToolchainLabel, ImmutableMap.of()));
+    hasResolvedToolchain(Label.parseCanonical(resolvedToolchainLabel));
   }
 
   public void hasResolvedToolchain(Label resolvedToolchain) {

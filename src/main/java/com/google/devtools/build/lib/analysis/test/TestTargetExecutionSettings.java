@@ -81,6 +81,7 @@ public final class TestTargetExecutionSettings {
     this.instrumentedFileManifest = instrumentedFileManifest;
   }
 
+  @Nullable
   private static Artifact getRunUnderExecutable(RuleContext ruleContext) {
     TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
     return runUnderTarget == null

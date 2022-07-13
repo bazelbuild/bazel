@@ -83,10 +83,18 @@ py_binary(name = "main3",
 )
 EOF
 
-  bazel run //test:main2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-  bazel run //test:main3 \
+  # Google builds don't support Python 2
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    bazel run //test:main2 \
+        &> $TEST_log || fail "bazel run failed"
+    expect_log "I am Python 2"
+  fi
+
+  # Stamping is disabled so that the invocation doesn't time out. What
+  # happens is Google has stamping enabled by default, which causes the
+  # Starlark rule implementation to run an action, which then tries to run
+  # remotely, but network access is disabled by default, so it times out.
+  bazel run --nostamp //test:main3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
 }
@@ -117,6 +125,10 @@ EOF
 # to a value different from the top-level configuration, and then changing it
 # back again, is able to reuse the top-level configuration.
 function test_no_action_conflicts_from_version_transition() {
+  # Requires Python 2 support, which doesn't work for Google-internal builds
+  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
+    return 0
+  fi
   mkdir -p test
 
   # To repro, we need to build a C++ target in two different ways in the same

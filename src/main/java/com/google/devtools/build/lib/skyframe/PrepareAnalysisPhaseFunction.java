@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Prepares for analysis - creates the top-level configurations and evaluates the transitions needed
@@ -68,6 +69,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public PrepareAnalysisPhaseValue compute(SkyKey key, Environment env)
       throws InterruptedException, PrepareAnalysisPhaseFunctionException {
     PrepareAnalysisPhaseKey options = (PrepareAnalysisPhaseKey) key.argument();
@@ -200,6 +202,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
   // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
   // never make it through analysis (and especially not seed ConfiguredTargetValues)
   // Keep this in sync with {@link ConfigurationResolver#getConfigurationsFromExecutor}.
+  @Nullable
   private LinkedHashSet<TargetAndConfiguration> resolveConfigurations(
       SkyFunction.Environment env,
       Iterable<TargetAndConfiguration> nodes,
@@ -243,6 +246,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
 
   // Keep in sync with {@link SkyframeExecutor#getConfigurations}.
   // Note: this implementation runs inside Skyframe, so it has access to SkyFunction.Environment.
+  @Nullable
   private Multimap<DependencyKey, BuildConfigurationValue> getConfigurations(
       SkyFunction.Environment env, BuildOptions fromOptions, Iterable<DependencyKey> keys)
       throws InterruptedException, TransitionException, OptionsParsingException {

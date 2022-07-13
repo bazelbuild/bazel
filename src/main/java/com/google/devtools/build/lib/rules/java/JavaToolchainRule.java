@@ -244,7 +244,6 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("oneversion", LABEL)
-                .singleArtifact()
                 // This needs to be in the execution configuration.
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)

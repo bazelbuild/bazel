@@ -20,15 +20,14 @@ import java.util.Arrays;
 /**
  * A converter superclass for converters that parse enums.
  *
- * <p>Just subclass this class, creating a zero argument constructor that
- * calls {@link #EnumConverter(Class, String)}.
+ * <p>Just subclass this class, creating a zero argument constructor that calls {@link
+ * #EnumConverter(Class, String)}.
  *
- * <p>This class compares the input string to the string returned by the toString()
- * method of each enum member in a case-insensitive way. Usually, this is the
- * name of the symbol, but beware if you override toString()!
+ * <p>This class compares the input string to the string returned by the toString() method of each
+ * enum member in a case-insensitive way. Usually, this is the name of the symbol, but beware if you
+ * override toString()!
  */
-public abstract class EnumConverter<T extends Enum<T>>
-    implements Converter<T> {
+public abstract class EnumConverter<T extends Enum<T>> extends Converter.Contextless<T> {
 
   private final Class<T> enumType;
   private final String typeName;
@@ -48,9 +47,7 @@ public abstract class EnumConverter<T extends Enum<T>>
     this.typeName = typeName;
   }
 
-  /**
-   * Implements {@link #convert(String)}.
-   */
+  /** Implements {@link Converter#convert(String, Object)}. */
   @Override
   public T convert(String input) throws OptionsParsingException {
     for (T value : enumType.getEnumConstants()) {

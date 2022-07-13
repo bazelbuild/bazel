@@ -125,6 +125,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return getMustKeepDebug();
   }
 
+  @Nullable
   @Override
   public final Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
@@ -145,6 +146,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return ctx == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(ctx.getBitcodeFiles());
   }
 
+  @Nullable
   @Override
   public final Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
@@ -243,6 +245,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     printer.append(")>");
   }
 
+  @Nullable
   private static String mapEntry(String keyName, @Nullable Object value) {
     return value == null ? null : keyName + "=" + value;
   }

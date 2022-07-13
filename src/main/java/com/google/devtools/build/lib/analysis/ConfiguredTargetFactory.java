@@ -150,6 +150,7 @@ public final class ConfiguredTargetFactory {
     }
   }
 
+  @Nullable
   private static TransitiveInfoCollection findVisibilityPrerequisite(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
     for (ConfiguredTargetAndData prerequisite :
@@ -311,7 +312,7 @@ public final class ConfiguredTargetFactory {
                     rule,
                     configuration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     prerequisiteMap.values()))
             .build();
 
@@ -519,7 +520,7 @@ public final class ConfiguredTargetFactory {
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
@@ -544,11 +545,11 @@ public final class ConfiguredTargetFactory {
               ruleContext,
               aspect.getParameters(),
               ruleClassProvider.getToolsRepository());
+      if (configuredAspect == null) {
+        return erroredConfiguredAspect(ruleContext);
+      }
     } finally {
       ruleContext.close();
-    }
-    if (configuredAspect == null) {
-      return erroredConfiguredAspect(ruleContext);
     }
 
     validateAdvertisedProviders(

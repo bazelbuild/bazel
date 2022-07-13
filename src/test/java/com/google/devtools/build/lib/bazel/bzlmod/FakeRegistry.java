@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -42,6 +43,7 @@ public class FakeRegistry implements Registry {
     this.rootPath = rootPath;
   }
 
+  @CanIgnoreReturnValue
   public FakeRegistry addModule(ModuleKey key, String... moduleFileLines) {
     modules.put(key, JOINER.join(moduleFileLines));
     return this;

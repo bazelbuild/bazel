@@ -80,6 +80,20 @@ java_library(
 )
 
 java_library(
+    name = "action_event_recorder",
+    srcs = ["ActionEventRecorder.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
     name = "BazelPackageBuilderHelperForTesting",
     testonly = 0,
     srcs = ["BazelPackageLoadingListenerForTesting.java"],
@@ -121,6 +135,19 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "spawn_input_utils",
+    srcs = ["SpawnInputUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )
 

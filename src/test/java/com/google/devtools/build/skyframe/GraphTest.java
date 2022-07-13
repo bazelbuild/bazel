@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -202,7 +202,7 @@ public abstract class GraphTest {
                 for (int k = chunkSize; k <= numIterations; k++) {
                   entry.removeReverseDep(key("rdep" + j));
                   entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-                  if (graph.storesReverseDeps()) {
+                  if (shouldTestIncrementality()) {
                     entry.getReverseDepsForDoneEntry();
                   }
                 }
@@ -221,14 +221,13 @@ public abstract class GraphTest {
     wrapper.waitForTasksAndMaybeThrow();
     assertThat(ExecutorUtil.interruptibleShutdown(pool)).isFalse();
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo1"));
-    if (graph.storesReverseDeps()) {
-      assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
-          .hasSize(numKeys + 1);
-    }
 
     if (!shouldTestIncrementality()) {
       return;
     }
+
+    assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
+        .hasSize(numKeys + 1);
 
     graph = getGraph(getNextVersion(startingVersion));
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(null, Reason.OTHER, key));
@@ -238,10 +237,8 @@ public abstract class GraphTest {
     sameEntry.markRebuilding();
     sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion), null);
     assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo2"));
-    if (graph.storesReverseDeps()) {
-      assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
-          .hasSize(numKeys + 1);
-    }
+    assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
+        .hasSize(numKeys + 1);
   }
 
   // Tests adding inflight nodes with a given key while an existing node with the same key
@@ -471,14 +468,8 @@ public abstract class GraphTest {
       NodeEntry entry = graph.get(null, Reason.OTHER, key("foo" + i));
       assertThat(entry.getValue()).isEqualTo(new StringValue("bar" + i));
       assertThat(entry.getVersion()).isEqualTo(getNextVersion(startingVersion));
-      if (graph.storesReverseDeps()) {
-        for (SkyKey key : entry.getReverseDepsForDoneEntry()) {
-          assertThat(key).isEqualTo(key("rdep"));
-        }
-      }
-      for (SkyKey key : entry.getDirectDeps()) {
-        assertThat(key).isEqualTo(dep);
-      }
+      assertThat(entry.getReverseDepsForDoneEntry()).containsExactly(key("rdep"));
+      assertThat(entry.getDirectDeps()).containsExactly(dep);
     }
   }
 

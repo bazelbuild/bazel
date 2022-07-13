@@ -31,27 +31,35 @@ public final class ParsedOptionDescription {
   @Nullable private final String commandLineForm;
   @Nullable private final String unconvertedValue;
   private final OptionInstanceOrigin origin;
+  @Nullable private final Object conversionContext;
 
   private ParsedOptionDescription(
       OptionDefinition optionDefinition,
       @Nullable String commandLineForm,
       @Nullable String unconvertedValue,
-      OptionInstanceOrigin origin) {
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext) {
     this.optionDefinition = Preconditions.checkNotNull(optionDefinition);
     this.commandLineForm = commandLineForm;
     this.unconvertedValue = unconvertedValue;
     this.origin = Preconditions.checkNotNull(origin);
+    this.conversionContext = conversionContext;
   }
 
   static ParsedOptionDescription newParsedOptionDescription(
       OptionDefinition optionDefinition,
       String commandLineForm,
       @Nullable String unconvertedValue,
-      OptionInstanceOrigin origin) {
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext) {
     // An actual ParsedOptionDescription should always have a form in which it was parsed, but some
     // options, such as expansion options, legitimately have no value.
     return new ParsedOptionDescription(
-        optionDefinition, Preconditions.checkNotNull(commandLineForm), unconvertedValue, origin);
+        optionDefinition,
+        Preconditions.checkNotNull(commandLineForm),
+        unconvertedValue,
+        origin,
+        conversionContext);
   }
 
   /**
@@ -59,8 +67,10 @@ public final class ParsedOptionDescription {
    * not have an original value or form that the option took.
    */
   static ParsedOptionDescription newDummyInstance(
-      OptionDefinition optionDefinition, OptionInstanceOrigin origin) {
-    return new ParsedOptionDescription(optionDefinition, null, null, origin);
+      OptionDefinition optionDefinition,
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext) {
+    return new ParsedOptionDescription(optionDefinition, null, null, origin, conversionContext);
   }
 
   public OptionDefinition getOptionDefinition() {
@@ -168,7 +178,7 @@ public final class ParsedOptionDescription {
   public Object getConvertedValue() throws OptionsParsingException {
     Converter<?> converter = optionDefinition.getConverter();
     try {
-      return converter.convert(unconvertedValue);
+      return converter.convert(unconvertedValue, conversionContext);
     } catch (OptionsParsingException e) {
       // The converter doesn't know the option name, so we supply it here by re-throwing:
       throw new OptionsParsingException(

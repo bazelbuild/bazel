@@ -30,6 +30,7 @@ import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.hash.HashCode;
@@ -68,6 +69,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +79,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -373,23 +374,18 @@ public class ByteStreamUploaderTest {
             retrier,
             /*maximumOpenFiles=*/ -1);
 
-    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    int chunkSize = 1024;
+    int skipSize = chunkSize + 1;
+    byte[] blob = new byte[chunkSize * 2 + 1];
     new Random().nextBytes(blob);
 
     Chunker chunker =
-        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(chunkSize).build();
     Digest digest = DIGEST_UTIL.compute(blob);
 
-    while (chunker.hasNext()) {
-      chunker.next();
-    }
-    long expectedSize = chunker.getOffset();
-    chunker.reset();
-
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
     serviceRegistry.addService(
         new ByteStreamImplBase() {
-
-          byte[] receivedData = new byte[(int) expectedSize];
           String receivedResourceName = null;
           boolean receivedComplete = false;
           long nextOffset = 0;
@@ -414,21 +410,21 @@ public class ByteStreamUploaderTest {
                   assertThat(resourceName).isEmpty();
                 }
 
-                assertThat(writeRequest.getWriteOffset()).isEqualTo(nextOffset);
-
-                ByteString data = writeRequest.getData();
-
-                System.arraycopy(
-                    data.toByteArray(), 0, receivedData, (int) nextOffset, data.size());
-
-                nextOffset += data.size();
-                receivedComplete = expectedSize == nextOffset;
-                assertThat(writeRequest.getFinishWrite()).isEqualTo(receivedComplete);
-
                 if (initialOffset == 0) {
                   streamObserver.onError(Status.DEADLINE_EXCEEDED.asException());
                   mustQueryWriteStatus = true;
-                  initialOffset = nextOffset;
+                  initialOffset = skipSize;
+                  nextOffset = initialOffset;
+                } else {
+                  ByteString data = writeRequest.getData();
+                  try {
+                    data.writeTo(output);
+                  } catch (IOException e) {
+                    streamObserver.onError(e);
+                    return;
+                  }
+                  nextOffset += data.size();
+                  receivedComplete = writeRequest.getFinishWrite();
                 }
               }
 
@@ -439,10 +435,6 @@ public class ByteStreamUploaderTest {
 
               @Override
               public void onCompleted() {
-                assertThat(nextOffset).isEqualTo(expectedSize);
-                byte[] decompressed = Zstd.decompress(receivedData, blob.length);
-                assertThat(decompressed).isEqualTo(blob);
-
                 WriteResponse response =
                     WriteResponse.newBuilder().setCommittedSize(nextOffset).build();
                 streamObserver.onNext(response);
@@ -460,7 +452,7 @@ public class ByteStreamUploaderTest {
             if (receivedResourceName != null && receivedResourceName.equals(resourceName)) {
               assertThat(mustQueryWriteStatus).isTrue();
               mustQueryWriteStatus = false;
-              committedSize = nextOffset;
+              committedSize = receivedComplete ? blob.length : skipSize;
               complete = receivedComplete;
             } else {
               committedSize = 0;
@@ -476,6 +468,9 @@ public class ByteStreamUploaderTest {
         });
 
     uploader.uploadBlob(context, digest, chunker);
+    byte[] decompressed = Zstd.decompress(output.toByteArray(), blob.length - skipSize);
+    assertThat(Arrays.equals(decompressed, 0, decompressed.length, blob, skipSize, blob.length))
+        .isTrue();
 
     // This test triggers one retry.
     Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
@@ -782,23 +777,18 @@ public class ByteStreamUploaderTest {
     byte[] blob = new byte[CHUNK_SIZE];
     Chunker chunker = Mockito.mock(Chunker.class);
     Digest digest = DIGEST_UTIL.compute(blob);
-    AtomicLong committedOffset = new AtomicLong(0);
-    Mockito.doThrow(new IOException("Too many open files"))
-        .when(chunker)
-        .seek(committedOffset.get());
+    Mockito.doThrow(new IOException("Too many open files")).when(chunker).seek(0);
     Mockito.when(chunker.getSize()).thenReturn(digest.getSizeBytes());
+    serviceRegistry.addService(new MaybeFailOnceUploadService(ImmutableMap.of()));
 
-    try {
-      uploader.uploadBlob(context, digest, chunker);
-      fail("Should have thrown an exception.");
-    } catch (IOException e) {
-      String newMessage =
-          "An IOException was thrown because the process opened too many files. We recommend"
-              + " setting --bep_maximum_open_remote_upload_files flag to a number lower than your"
-              + " system default (run 'ulimit -a' for *nix-based operating systems). Original error"
-              + " message: Too many open files";
-      assertThat(newMessage).isEqualTo(e.getMessage());
-    }
+    String newMessage =
+        "An IOException was thrown because the process opened too many files. We recommend setting"
+            + " --bep_maximum_open_remote_upload_files flag to a number lower than your system"
+            + " default (run 'ulimit -a' for *nix-based operating systems). Original error message:"
+            + " Too many open files";
+    assertThat(assertThrows(IOException.class, () -> uploader.uploadBlob(context, digest, chunker)))
+        .hasMessageThat()
+        .isEqualTo(newMessage);
   }
 
   @Test
@@ -1574,6 +1564,7 @@ public class ByteStreamUploaderTest {
         private HashCode digestHash;
         private byte[] receivedData;
         private long nextOffset;
+        private boolean failed;
 
         @Override
         public void onNext(WriteRequest writeRequest) {
@@ -1594,6 +1585,7 @@ public class ByteStreamUploaderTest {
           if (shouldFail) {
             uploadsFailedOnce.add(digestHash);
             response.onError(Status.INTERNAL.asException());
+            failed = true;
             return;
           }
 
@@ -1612,6 +1604,9 @@ public class ByteStreamUploaderTest {
 
         @Override
         public void onCompleted() {
+          if (failed) {
+            return;
+          }
           byte[] expectedBlob = blobsByHash.get(digestHash);
           assertThat(receivedData).isEqualTo(expectedBlob);
 

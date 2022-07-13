@@ -177,6 +177,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         : new TargetParsingException(message, exception, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
   }
 
+  @Nullable
   private PatternLookup createPatternLookup(
       PathFragment offset,
       ExtendedEventHandler eventHandler,

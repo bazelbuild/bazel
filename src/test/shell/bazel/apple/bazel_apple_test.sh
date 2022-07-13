@@ -506,14 +506,22 @@ EOF
       || fail "should build starlark_apple_binary with dSYMs"
 }
 
+
 function test_apple_static_library() {
   rm -rf package
   mkdir -p package
+  make_starlark_apple_static_library_rule_in package
+
   cat > package/BUILD <<EOF
-apple_static_library(
+load(
+    "//package:starlark_apple_static_library.bzl",
+    "starlark_apple_static_library",
+)
+starlark_apple_static_library(
     name = "static_lib",
     deps = [":dummy_lib"],
     platform_type = "ios",
+    minimum_os_version = "10.0",
 )
 objc_library(
     name = "dummy_lib",
@@ -528,7 +536,7 @@ EOF
       --ios_multi_cpus=i386,x86_64 \
       --ios_minimum_os=8.0 \
       --xcode_version=$XCODE_VERSION \
-      || fail "should build apple_static_library"
+      || fail "should build starlark_apple_static_library"
 }
 
 run_suite "apple_tests"

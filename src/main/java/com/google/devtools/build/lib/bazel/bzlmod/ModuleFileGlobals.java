@@ -187,14 +187,16 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in module()", e);
     }
+    // TODO(wyv): migrate users of execution_platforms_to_register and toolchains_to_register to
+    // register_execution_platforms and register_toolchains, and remove the former two attributes.
     module
         .setName(name)
         .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
-        .setExecutionPlatformsToRegister(
+        .addExecutionPlatformsToRegister(
             checkAllAbsolutePatterns(
                 executionPlatformsToRegister, "execution_platforms_to_register"))
-        .setToolchainsToRegister(
+        .addToolchainsToRegister(
             checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
     addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
   }
@@ -265,6 +267,40 @@ public class ModuleFileGlobals {
     }
 
     addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
+  }
+
+  @StarlarkMethod(
+      name = "register_execution_platforms",
+      doc =
+          "Specifies already-defined execution platforms to be registered when this module is"
+              + " selected. Should be absolute target patterns (ie. beginning with either"
+              + " <code>@</code> or <code>//</code>). See <a href=\"${link toolchains}\">toolchain"
+              + " resolution</a> for more information.",
+      extraPositionals =
+          @Param(
+              name = "platform_labels",
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+              doc = "The labels of the platforms to register."))
+  public void registerExecutionPlatforms(Sequence<?> platformLabels) throws EvalException {
+    module.addExecutionPlatformsToRegister(
+        checkAllAbsolutePatterns(platformLabels, "register_execution_platforms"));
+  }
+
+  @StarlarkMethod(
+      name = "register_toolchains",
+      doc =
+          "Specifies already-defined toolchains to be registered when this module is selected."
+              + " Should be absolute target patterns (ie. beginning with either <code>@</code> or"
+              + " <code>//</code>). See <a href=\"${link toolchains}\">toolchain resolution</a> for"
+              + " more information.",
+      extraPositionals =
+          @Param(
+              name = "toolchain_labels",
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+              doc = "The labels of the toolchains to register."))
+  public void registerToolchains(Sequence<?> toolchainLabels) throws EvalException {
+    module.addToolchainsToRegister(
+        checkAllAbsolutePatterns(toolchainLabels, "register_toolchains"));
   }
 
   @StarlarkMethod(

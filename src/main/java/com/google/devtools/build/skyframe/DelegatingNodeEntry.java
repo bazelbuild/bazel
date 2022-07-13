@@ -24,10 +24,6 @@ import javax.annotation.Nullable;
 public abstract class DelegatingNodeEntry implements NodeEntry {
   protected abstract NodeEntry getDelegate();
 
-  protected ThinNodeEntry getThinDelegate() {
-    return getDelegate();
-  }
-
   @Override
   public SkyValue getValue() throws InterruptedException {
     return getDelegate().getValue();
@@ -160,7 +156,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
 
   @Override
   public boolean isDone() {
-    return getThinDelegate().isDone();
+    return getDelegate().isDone();
   }
 
   @Override
@@ -195,18 +191,18 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
 
   @Override
   public boolean isDirty() {
-    return getThinDelegate().isDirty();
+    return getDelegate().isDirty();
   }
 
   @Override
   public boolean isChanged() {
-    return getThinDelegate().isChanged();
+    return getDelegate().isChanged();
   }
 
   @Override
   @Nullable
   public MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException {
-    return getThinDelegate().markDirty(dirtyType);
+    return getDelegate().markDirty(dirtyType);
   }
 
   @Override

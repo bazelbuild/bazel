@@ -28,7 +28,7 @@ import java.util.Map;
  * platform type and the bitcode mode to apply to builds targeting that platform.
  */
 public final class AppleBitcodeConverter
-    implements Converter<List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>>> {
+    extends Converter.Contextless<List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>>> {
   /** Used to convert Bitcode mode strings to their enum value. */
   private static final AppleBitcodeMode.Converter MODE_CONVERTER = new AppleBitcodeMode.Converter();
 
@@ -83,7 +83,7 @@ public final class AppleBitcodeConverter
   private static AppleBitcodeMode convertAppleBitcodeMode(String input)
       throws OptionsParsingException {
     try {
-      return MODE_CONVERTER.convert(input);
+      return MODE_CONVERTER.convert(input, /*conversionContext=*/ null);
     } catch (OptionsParsingException e) {
       throw new OptionsParsingException(INVALID_APPLE_BITCODE_OPTION_FORMAT, e);
     }
@@ -97,7 +97,7 @@ public final class AppleBitcodeConverter
   private static ApplePlatform.PlatformType convertPlatformType(String input)
       throws OptionsParsingException {
     try {
-      return PLATFORM_TYPE_CONVERTER.convert(input);
+      return PLATFORM_TYPE_CONVERTER.convert(input, /*conversionContext=*/ null);
     } catch (OptionsParsingException e) {
       throw new OptionsParsingException(INVALID_APPLE_BITCODE_OPTION_FORMAT, e);
     }

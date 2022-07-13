@@ -115,6 +115,7 @@ public final class CreateIncSymlinkAction extends AbstractAction {
     }
   }
 
+  @Nullable
   @Override
   protected String getRawProgressMessage() {
     return null; // users don't really want to know about inc symlinks.

@@ -105,8 +105,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values")
             .create(RuleTransitionData.create(rule));
-    Map<Label, String> originalFlagMap =
-        ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "value");
+    Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseCanonical("//a:flag"), "value");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
     BuildOptions converted =
@@ -135,10 +134,8 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     PatchTransition transition =
         new ConfigFeatureFlagTransitionFactory("flag_values")
             .create(RuleTransitionData.create(rule));
-    Map<Label, String> originalFlagMap =
-        ImmutableMap.of(Label.parseAbsolute("//a:old", ImmutableMap.of()), "value");
-    Map<Label, String> expectedFlagMap =
-        ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "a");
+    Map<Label, String> originalFlagMap = ImmutableMap.of(Label.parseCanonical("//a:old"), "value");
+    Map<Label, String> expectedFlagMap = ImmutableMap.of(Label.parseCanonical("//a:flag"), "a");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
     BuildOptions converted =

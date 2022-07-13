@@ -124,19 +124,19 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.24.0.tar.gz",
+        "android_tools_pkg-0.26.0.tar.gz",
         # for android_gmaven_r8
         "r8-3.3.28.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.24.0.tar.gz": "5aba10f2381bd4699313879336e038f9fa09e8180cd5a98d3c0ae40a13082549",
+        "android_tools_pkg-0.26.0.tar.gz": "a86d205da8bd08515d18bb4b98e4b66b8805e57008ec55118ff5ce038c57a5f1",
         "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
     },
     urls = {
-        "android_tools_pkg-0.24.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.24.0.tar.gz",
+        "android_tools_pkg-0.26.0.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.26.0.tar.gz",
         ],
         "r8-3.3.28.jar": [
             "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
@@ -297,9 +297,11 @@ http_archive(
     build_file_content = """
 java_library(
     name = "snakeyaml",
-    testonly = True,
     srcs = glob(["src/main/**/*.java"]),
-    visibility = ["@com_google_testparameterinjector//:__pkg__"],
+    visibility = [
+        "@io_bazel//src/main/java/com/google/devtools/build/docgen/release:__pkg__",
+        "@com_google_testparameterinjector//:__pkg__",
+    ],
 )
 """,
     sha256 = "fd0e0cc6c5974fc8f08be3a15fb4a59954c7dd958b5b68186a803de6420b6e40",
@@ -357,18 +359,18 @@ dist_http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "android_tools_pkg-0.24.0.tar.gz",
+        "android_tools_pkg-0.26.0.tar.gz",
         "r8-3.3.28.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.24.0.tar.gz": "5aba10f2381bd4699313879336e038f9fa09e8180cd5a98d3c0ae40a13082549",
+        "android_tools_pkg-0.26.0.tar.gz": "a86d205da8bd08515d18bb4b98e4b66b8805e57008ec55118ff5ce038c57a5f1",
         "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
     },
     urls = {
-        "android_tools_pkg-0.24.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.24.0.tar.gz",
+        "android_tools_pkg-0.26.0.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.26.0.tar.gz",
         ],
         "r8-3.3.28.jar": [
             "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
@@ -390,6 +392,10 @@ dist_http_archive(
 )
 
 dist_http_archive(
+    name = "rules_nodejs",
+)
+
+dist_http_archive(
     name = "build_bazel_rules_nodejs",
 )
 
@@ -402,8 +408,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "5aba10f2381bd4699313879336e038f9fa09e8180cd5a98d3c0ae40a13082549",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.24.0.tar.gz",
+    sha256 = "a86d205da8bd08515d18bb4b98e4b66b8805e57008ec55118ff5ce038c57a5f1",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.26.0.tar.gz",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
@@ -606,6 +612,10 @@ stardoc_repositories()
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
 rules_sass_dependencies()
+
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
+build_bazel_rules_nodejs_dependencies()
 
 load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
 

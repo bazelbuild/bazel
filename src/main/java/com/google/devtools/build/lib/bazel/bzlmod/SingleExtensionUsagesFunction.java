@@ -23,6 +23,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * A simple SkyFunction that takes the information needed by a {@link SingleExtensionEvalFunction}
@@ -40,6 +41,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class SingleExtensionUsagesFunction implements SkyFunction {
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     BazelModuleResolutionValue bazelModuleResolutionValue =

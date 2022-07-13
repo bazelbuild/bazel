@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 
 /**
@@ -62,6 +63,7 @@ public class ConfigAwareAspectBuilder {
    *
    * <p>The value is inherited by subclasses.
    */
+  @CanIgnoreReturnValue
   public ConfigAwareAspectBuilder requiresHostConfigurationFragments(
       Class<? extends Fragment>... configurationFragments) {
     aspectBuilder.requiresConfigurationFragments(HostTransition.INSTANCE, configurationFragments);
@@ -80,6 +82,7 @@ public class ConfigAwareAspectBuilder {
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
    * Starlark module names of fragments instead of their classes.
    */
+  @CanIgnoreReturnValue
   public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
       Collection<String> configurationFragmentNames) {
     aspectBuilder.requiresConfigurationFragmentsByStarlarkBuiltinName(

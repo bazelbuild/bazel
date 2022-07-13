@@ -27,7 +27,6 @@ import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,12 +50,12 @@ import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.ref.WeakReference;
@@ -1581,7 +1580,10 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getOrderedValuesAndExceptions(ImmutableList.of(topKey, depKey));
+                // Order depKey first - makeGraphDeterministic() only makes the batch maps returned
+                // by the graph deterministic, not the order of temporary direct deps. This makes
+                // the order of deps match (alphabetized by the string representation).
+                env.getOrderedValuesAndExceptions(ImmutableList.of(depKey, topKey));
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }
@@ -4084,17 +4086,13 @@ public abstract class MemoizingEvaluatorTest {
           }
 
           @Override
-          public boolean apply(Event input) {
+          public boolean test(Event input) {
             return true;
           }
 
           @Override
-          public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-            if (primaryKey.equals(parent)) {
-              return includedDep::equals;
-            } else {
-              return Predicates.alwaysTrue();
-            }
+          public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+            return !primaryKey.equals(parent) || depKey.equals(includedDep);
           }
         });
     tester.initialize();

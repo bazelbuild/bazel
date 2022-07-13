@@ -19,10 +19,11 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -63,18 +64,21 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
   }
 
   private final String repoPrefix;
-  private final PackageFactory packageFactory;
+  private final PackageIdentifier basePackageId;
+  private final RepositoryMapping repoMapping;
   private final BlazeDirectories directories;
   private final ExtendedEventHandler eventHandler;
   private final Map<String, PackageAndLocation> generatedRepos = new HashMap<>();
 
   public ModuleExtensionEvalStarlarkThreadContext(
       String repoPrefix,
-      PackageFactory packageFactory,
+      PackageIdentifier basePackageId,
+      RepositoryMapping repoMapping,
       BlazeDirectories directories,
       ExtendedEventHandler eventHandler) {
     this.repoPrefix = repoPrefix;
-    this.packageFactory = packageFactory;
+    this.basePackageId = basePackageId;
+    this.repoMapping = repoMapping;
     this.directories = directories;
     this.eventHandler = eventHandler;
   }
@@ -102,7 +106,8 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
     try {
       Rule rule =
           BzlmodRepoRuleCreator.createRule(
-              packageFactory,
+              basePackageId,
+              repoMapping,
               directories,
               thread.getSemantics(),
               eventHandler,

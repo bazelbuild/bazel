@@ -618,6 +618,7 @@ public abstract class DependencyResolver {
         /*context=*/ null);
   }
 
+  @Nullable
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
   public static <FragmentT> Object resolveLateBoundDefault(
       Rule rule,

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -284,12 +285,10 @@ public abstract class Args implements CommandLineArgsApi {
       }
     }
 
+    @CanIgnoreReturnValue
     @Override
     public CommandLineArgsApi addArgument(
-        Object argNameOrValue,
-        Object value,
-        Object format,
-        StarlarkThread thread)
+        Object argNameOrValue, Object value, Object format, StarlarkThread thread)
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
@@ -313,6 +312,7 @@ public abstract class Args implements CommandLineArgsApi {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public CommandLineArgsApi addAll(
         Object argNameOrValue,
@@ -379,6 +379,7 @@ public abstract class Args implements CommandLineArgsApi {
       return (StarlarkCallable) fn;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public CommandLineArgsApi addJoined(
         Object argNameOrValue,
@@ -520,6 +521,7 @@ public abstract class Args implements CommandLineArgsApi {
       return ((object instanceof Artifact) && ((Artifact) object).isDirectory());
     }
 
+    @CanIgnoreReturnValue
     @Override
     public CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways)
         throws EvalException {
@@ -534,6 +536,7 @@ public abstract class Args implements CommandLineArgsApi {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public CommandLineArgsApi setParamFileFormat(String format) throws EvalException {
       Starlark.checkMutable(this);

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import javax.annotation.Nullable;
 
 /**
  * Abstract rule definition for j2objc_library.
@@ -107,6 +108,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
                 .validityPredicate(
                     new ValidityPredicate() {
                       @Override
+                      @Nullable
                       public String checkValid(Rule from, Rule to) {
                         if (!to.getRuleTags().contains("j2objc_jre_lib")) {
                           return "Only J2ObjC JRE libraries are allowed";

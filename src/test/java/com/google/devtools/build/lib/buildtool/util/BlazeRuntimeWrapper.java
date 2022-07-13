@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -148,49 +149,6 @@ public class BlazeRuntimeWrapper {
                 })
             .build();
     runtime.initWorkspace(directories, binTools);
-    optionsParser = createOptionsParser();
-  }
-
-  @Command(name = "build", builds = true, help = "", shortDescription = "")
-  private static class DummyBuildCommand {}
-
-  public OptionsParser createOptionsParser() {
-    Set<Class<? extends OptionsBase>> options =
-        new HashSet<>(
-            ImmutableList.of(
-                BuildRequestOptions.class,
-                BuildEventProtocolOptions.class,
-                ExecutionOptions.class,
-                LocalExecutionOptions.class,
-                CommonCommandOptions.class,
-                ClientOptions.class,
-                LoadingOptions.class,
-                AnalysisOptions.class,
-                KeepGoingOption.class,
-                LoadingPhaseThreadsOption.class,
-                PackageOptions.class,
-                BuildLanguageOptions.class,
-                UiOptions.class,
-                SandboxOptions.class));
-    options.addAll(additionalOptionsClasses);
-
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      Iterables.addAll(options, module.getCommonCommandOptions());
-      Iterables.addAll(
-          options, module.getCommandOptions(DummyBuildCommand.class.getAnnotation(Command.class)));
-    }
-    options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
-    return OptionsParser.builder().optionsClasses(options).build();
-  }
-
-  private void enforceTestInvocationPolicy(OptionsParser parser) {
-    InvocationPolicyEnforcer optionsPolicyEnforcer =
-        new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy(), Level.FINE);
-    try {
-      optionsPolicyEnforcer.enforce(parser, /*command=*/ null);
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   public final BlazeRuntime getRuntime() {
@@ -218,10 +176,15 @@ public class BlazeRuntimeWrapper {
    */
   public final CommandEnvironment newCommandWithExtensions(
       Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+    Command commandAnnotation =
+        checkNotNull(
+            command.getAnnotation(Command.class),
+            "BlazeCommand %s missing command annotation",
+            command);
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
             command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
-    initializeOptionsParser();
+    initializeOptionsParser(commandAnnotation);
     commandCreated = true;
     if (env != null) {
       runtime.afterCommand(env, BlazeCommandResult.success());
@@ -236,7 +199,7 @@ public class BlazeRuntimeWrapper {
         runtime
             .getWorkspace()
             .initCommand(
-                command.getAnnotation(Command.class),
+                commandAnnotation,
                 optionsParser,
                 new ArrayList<>(),
                 0L,
@@ -293,12 +256,48 @@ public class BlazeRuntimeWrapper {
    * Initializes a new options parser, parsing all the options set by {@link
    * #addOptions(String...)}.
    */
-  public void initializeOptionsParser() throws OptionsParsingException {
+  private void initializeOptionsParser(Command commandAnnotation) throws OptionsParsingException {
     // Create the options parser and parse all the options collected so far
-    optionsParser = createOptionsParser();
+    optionsParser = createOptionsParser(commandAnnotation);
     optionsParser.parse(optionsToParse);
+
     // Enforce the test invocation policy once the options have been added
-    enforceTestInvocationPolicy(optionsParser);
+    InvocationPolicyEnforcer optionsPolicyEnforcer =
+        new InvocationPolicyEnforcer(
+            runtime.getModuleInvocationPolicy(), Level.FINE, /*conversionContext=*/ null);
+    try {
+      optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private OptionsParser createOptionsParser(Command commandAnnotation) {
+    Set<Class<? extends OptionsBase>> options =
+        new HashSet<>(
+            ImmutableList.of(
+                BuildRequestOptions.class,
+                BuildEventProtocolOptions.class,
+                ExecutionOptions.class,
+                LocalExecutionOptions.class,
+                CommonCommandOptions.class,
+                ClientOptions.class,
+                LoadingOptions.class,
+                AnalysisOptions.class,
+                KeepGoingOption.class,
+                LoadingPhaseThreadsOption.class,
+                PackageOptions.class,
+                BuildLanguageOptions.class,
+                UiOptions.class,
+                SandboxOptions.class));
+    options.addAll(additionalOptionsClasses);
+
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      Iterables.addAll(options, module.getCommonCommandOptions());
+      Iterables.addAll(options, module.getCommandOptions(commandAnnotation));
+    }
+    options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
+    return OptionsParser.builder().optionsClasses(options).build();
   }
 
   public void executeBuild(List<String> targets) throws Exception {
@@ -324,6 +323,8 @@ public class BlazeRuntimeWrapper {
               /*includePrimaryOutput=*/ false,
               /*includeTargetLabel=*/ false,
               /*collectTaskHistograms=*/ true,
+              /*collectWorkerDataInProfiler=*/ false,
+              WorkerMetricsCollector.instance(),
               runtime.getBugReporter());
 
       StoredEventHandler storedEventHandler = new StoredEventHandler();
@@ -390,8 +391,7 @@ public class BlazeRuntimeWrapper {
         .build();
   }
 
-  BuildRequest createRequest(String commandName, List<String> targets) {
-
+  private BuildRequest createRequest(String commandName, List<String> targets) {
     BuildRequest.Builder builder =
         BuildRequest.builder()
             .setCommandName(commandName)

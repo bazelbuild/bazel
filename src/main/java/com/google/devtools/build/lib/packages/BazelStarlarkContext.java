@@ -27,39 +27,77 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
-/** Contextual information associated with each Starlark thread created by Bazel. */
-// TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
-// TODO(brandjon): Use composition rather than inheritance for RuleDefinitionEnvironment; clients
-// should retrieve the RDE (if it exists) from this class in order to access e.g. the network
-// allowlist. The toolsRepository info will be duplicated between this class and RDE but we can
-// enforce consistency with a precondition check.
-public final class BazelStarlarkContext
+/**
+ * Bazel-specific contextual information associated with a Starlark evaluation thread.
+ *
+ * <p>This is stored in the StarlarkThread object as a thread-local. A subclass of this class may be
+ * used for certain kinds of Starlark evaluations; in that case it is still keyed in the
+ * thread-locals under {@code BazelStarlarkContext.class}.
+ *
+ * <p>This object is mutable and should not be reused for more than one Starlark thread.
+ */
+// TODO(b/236456122): rename BazelThreadContext, for symmetry with BazelModuleContext.
+// TODO(b/236456122): We should break this class up into subclasses for each kind of evaluation, as
+// opposed to storing specialized fields on this class and setting them to null for inapplicable
+// environments. Subclasses should define {@code from(StarlarkThread)} and {@code
+// fromOrFailFunction(StarlarkThread, String)} methods to be used in place of the {@code
+// check*Phase} methods in this class. Kinds of evaluation include:
+//   - .bzl loading
+//   - BUILD evaluation (should absorb PackageFactory.PackageContext -- no need to store multiple
+//     thread-locals in StarlarkThread)
+//   - WORKSPACE evaluation (shares logic with BUILD)
+//   - rule and aspect analysis implementation (can/should we store the RuleContext here?)
+//   - implicit outputs
+//   - computed defaults
+//   - transition implementation
+//   - Args.map_each
+//   - probably others
+// TODO(b/236456122): The inheritance of RuleDefinitionEnvironment should be replaced by
+// composition, in an appropriate subclass of this class. Things like the tools repository, network
+// allowlist, etc. can be accessed from the RDE. (If any info needs to be duplicated between RDE and
+// here, we should assert consistency with a precondition check.)
+public class BazelStarlarkContext
     implements RuleDefinitionEnvironment, StarlarkThread.UncheckedExceptionContext {
 
   /** The phase to which this Starlark thread belongs. */
+  // TODO(b/236456122): Eliminate.
   public enum Phase {
     WORKSPACE,
     LOADING,
     ANALYSIS
   }
 
-  /** Return the Bazel information associated with the specified Starlark thread. */
+  /**
+   * Retrieves this context from a Starlark thread, or throws {@link IllegalStateException} if
+   * unavailable.
+   */
   public static BazelStarlarkContext from(StarlarkThread thread) {
-    return thread.getThreadLocal(BazelStarlarkContext.class);
+    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    // ISE rather than NPE for symmetry with subclasses.
+    Preconditions.checkState(
+        ctx != null, "Expected BazelStarlarkContext to be available in this Starlark thread");
+    return ctx;
   }
 
-  /** Save this BazelStarlarkContext in the specified Starlark thread. */
+  /**
+   * Saves this {@code BazelStarlarkContext} in the specified Starlark thread. Call only once,
+   * before evaluation begins.
+   */
   public void storeInThread(StarlarkThread thread) {
+    Preconditions.checkState(thread.getThreadLocal(BazelStarlarkContext.class) == null);
     thread.setThreadLocal(BazelStarlarkContext.class, this);
     thread.setUncheckedExceptionContext(this);
   }
 
+  // A generic counter for uniquely identifying symbols created in this Starlark evaluation.
+  private final SymbolGenerator<?> symbolGenerator;
+
+  // TODO(b/236456122): Migrate the below fields to subclasses.
   private final Phase phase;
   // Only necessary for loading phase threads.
   @Nullable private final RepositoryName toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
   @Nullable private final Label networkAllowlistForTests;
@@ -75,13 +113,6 @@ public final class BazelStarlarkContext
    *     compared using reference equality.
    * @param analysisRuleLabel is the label of the rule for an analysis phase (rule or aspect
    */
-  // TODO(adonovan): clearly demarcate which fields are defined in which kinds of threads (loading,
-  // analysis, workspace, implicit outputs, computed defaults, etc), perhaps by splitting these into
-  // separate structs, exactly one of which is populated (plus the common fields). And eliminate
-  // StarlarkUtils.Phase.
-  // TODO(adonovan): move PackageFactory.PackageContext in here, for loading-phase threads.
-  // TODO(adonovan): is there any reason not to put the entire RuleContext in this thread, for
-  // analysis threads?
   public BazelStarlarkContext(
       Phase phase,
       @Nullable RepositoryName toolsRepository,
@@ -95,6 +126,11 @@ public final class BazelStarlarkContext
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
     this.networkAllowlistForTests = networkAllowlistForTests;
+  }
+
+  /** Returns the phase associated with this context. */
+  public Phase getPhase() {
+    return phase;
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
@@ -138,6 +174,8 @@ public final class BazelStarlarkContext
    *
    * @param function name of a function that requires this check
    */
+  // TODO(b/236456122): The Phase enum is incomplete. Ex: `Args.map_each` evaluation happens at
+  // execution time. So this is a misnomer and possibly wrong in those contexts.
   public void checkLoadingOrWorkspacePhase(String function) throws EvalException {
     if (phase == Phase.ANALYSIS) {
       throw Starlark.errorf("'%s' cannot be called during the analysis phase", function);

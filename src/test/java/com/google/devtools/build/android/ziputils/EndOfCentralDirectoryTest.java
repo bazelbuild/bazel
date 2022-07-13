@@ -107,12 +107,12 @@ public class EndOfCentralDirectoryTest {
 
   @Test
   public void testWithAndGetMethods() {
-    short cdDisk = (short) 0x36c2;
-    int cdOffset = 0x924ac255;
-    int cdSize = 0x138ca234;
-    short disk = (short) 0x5c12;
-    short local = (short) 0x4ae1;
-    short total = (short) 0x63be;
+    int cdDisk = 0x36c2;
+    long cdOffset = 0x924ac255L;
+    long cdSize = 0x138ca234L;
+    int disk = 0x5c12;
+    int local = 0x4ae1;
+    int total = 0x63be;
     EndOfCentralDirectory view = EndOfCentralDirectory.allocate("Hello World!")
         .set(ENDDCD, cdDisk)
         .set(ENDOFF, cdOffset)

@@ -77,7 +77,7 @@ function create_pkg() {
   cd $pkg
 
   mkdir -p a/b c/d e/f/g x/y
-  touch py.py a/b/no_module.py c/d/one_module.py c/__init__.py e/f/g/ignored.py x/y/z.sh
+  touch py.py a/b/no_module.py c/d/one_module.py c/__init__.py e/f/g/ignored.txt x/y/z.sh
   chmod +x x/y/z.sh
 
   cd ..
@@ -99,13 +99,13 @@ function recursive_path_info() {
     if [[ -f "$path" ]]; then
       effective_type=file
     elif [[ -d "$path" ]]; then
-      effective_type=dir
+      effective_type="$actual_type dir"
     else
       # The various special file types shouldn't occur in practice, so just
       # call them unknown
       effective_type=unknown
     fi
-    echo "$path $actual_type $effective_type"
+    echo "$path $effective_type"
   done
 }
 
@@ -113,20 +113,37 @@ function recursive_path_info() {
 
 function test_hidden() {
   local -r pkg=$FUNCNAME
-  create_pkg $pkg
+
+  mkdir -p "$pkg/e/f/g"
+  touch "$pkg/e/f/g/hidden.txt"
+  cat > "$pkg/defs.bzl" << EOF
+def _obscured_impl(ctx):
+    executable = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(executable, "# nop")
+    return [DefaultInfo(
+        executable = executable,
+        runfiles = ctx.runfiles(files = ctx.files.data),
+    )]
+
+obscured = rule(
+    implementation = _obscured_impl,
+    attrs = {"data": attr.label_list(allow_files = True)},
+    # Must be executable to trigger the obscured runfile check
+    executable = True,
+)
+EOF
+
   cat > $pkg/BUILD << EOF
-py_binary(name = "py",
-          srcs = [ "py.py" ],
-          data = [ "e/f",
-                   "e/f/g/hidden.py" ])
+load(":defs.bzl", "obscured")
+obscured(name="bin", data=["e/f", "e/f/g/hidden.txt"])
 genrule(name = "hidden",
-        outs = [ "e/f/g/hidden.py" ],
+        outs = [ "e/f/g/hidden.txt" ],
         cmd = "touch \$@")
 EOF
-  bazel build $pkg:py $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
+  bazel build $pkg:bin $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
 
-  # we get a warning that hidden.py is inaccessible
-  expect_log_once "${pkg}/e/f/g/hidden.py obscured by ${pkg}/e/f "
+  # we get a warning that hidden.txt is inaccessible
+  expect_log_once "${pkg}/e/f/g/hidden.txt obscured by ${pkg}/e/f "
 }
 
 function test_foo_runfiles() {
@@ -147,7 +164,8 @@ py_binary(name = "py",
                    "a/b/no_module.py",
                    "c/d/one_module.py",
                    "c/__init__.py",
-                   "e/f/g/ignored.py" ],
+                 ],
+          data = ["e/f/g/ignored.txt"],
           deps = ["//:root"])
 EOF
   bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
@@ -174,30 +192,30 @@ EOF
   test \! -s __init__.py
   cd ..
 
-  # These are 3-tuples of (path actualFileType effectiveFileType),
+  # These are basically tuples of (path filetype)
   expected="
 . regular dir
-./__init__.py symlink file
+./__init__.py file
 ./test_foo_runfiles regular dir
-./test_foo_runfiles/__init__.py regular file
+./test_foo_runfiles/__init__.py file
 ./test_foo_runfiles/a regular dir
-./test_foo_runfiles/a/__init__.py regular file
+./test_foo_runfiles/a/__init__.py file
 ./test_foo_runfiles/a/b regular dir
-./test_foo_runfiles/a/b/__init__.py regular file
-./test_foo_runfiles/a/b/no_module.py symlink file
+./test_foo_runfiles/a/b/__init__.py file
+./test_foo_runfiles/a/b/no_module.py file
 ./test_foo_runfiles/c regular dir
-./test_foo_runfiles/c/__init__.py symlink file
+./test_foo_runfiles/c/__init__.py file
 ./test_foo_runfiles/c/d regular dir
-./test_foo_runfiles/c/d/__init__.py regular file
-./test_foo_runfiles/c/d/one_module.py symlink file
+./test_foo_runfiles/c/d/__init__.py file
+./test_foo_runfiles/c/d/one_module.py file
 ./test_foo_runfiles/e regular dir
 ./test_foo_runfiles/e/f symlink dir
-./test_foo_runfiles/foo symlink file
-./test_foo_runfiles/py symlink file
-./test_foo_runfiles/py.py symlink file
+./test_foo_runfiles/foo file
+./test_foo_runfiles/py file
+./test_foo_runfiles/py.py file
 ./test_foo_runfiles/x regular dir
 ./test_foo_runfiles/x/y regular dir
-./test_foo_runfiles/x/y/z.sh symlink file
+./test_foo_runfiles/x/y/z.sh file
 "
   expected="$expected$(get_python_runtime_runfiles)"
 
@@ -205,8 +223,8 @@ EOF
   # but on Linux we only build `bin`.
   if "$is_windows"; then
     expected="${expected}
-./test_foo_runfiles/py.exe symlink file
-./test_foo_runfiles/foo.exe symlink file
+./test_foo_runfiles/py.exe file
+./test_foo_runfiles/foo.exe file
 "
   fi
 

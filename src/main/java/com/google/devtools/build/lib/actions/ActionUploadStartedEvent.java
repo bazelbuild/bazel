@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** The event that is fired when the action is about to upload a file. */
 @AutoValue
-public abstract class ActionUploadStartedEvent implements ProgressLike {
+public abstract class ActionUploadStartedEvent implements Postable {
   public static ActionUploadStartedEvent create(ActionExecutionMetadata action, String resourceId) {
     return new AutoValue_ActionUploadStartedEvent(action, resourceId);
   }

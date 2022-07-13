@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -258,15 +259,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   // is used. This saves about 10% of the memory during execution.
   @Test
   public void testClearAnalysisCache() throws Exception {
+    skyframeExecutor.setEventBus(new EventBus());
     scratch.file(rootDirectory + "/discard/BUILD",
         "genrule(name='x', srcs=['input'], outs=['out'], cmd='false')");
     scratch.file(rootDirectory + "/discard/input", "foo");
 
     ConfiguredTarget ct =
         skyframeExecutor.getConfiguredTargetForTesting(
-            reporter,
-            Label.parseAbsolute("@//discard:x", ImmutableMap.of()),
-            getTargetConfiguration());
+            reporter, Label.parseCanonical("@//discard:x"), getTargetConfiguration());
     assertThat(ct).isNotNull();
     WeakReference<ConfiguredTarget> ref = new WeakReference<>(ct);
     ct = null;
@@ -629,7 +629,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   private void sync(String... labelStrings) throws Exception {
     Set<Label> labels = new HashSet<>();
     for (String labelString : labelStrings) {
-      labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
+      labels.add(Label.parseCanonical(labelString));
     }
     visitor.preloadTransitiveTargets(
         reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200, /*callerForError=*/ null);
@@ -667,9 +667,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     ConfiguredTargetAndData conflict =
         skyframeExecutor.getConfiguredTargetAndDataForTesting(
-            reporter,
-            Label.parseAbsolute("@//conflict:x", ImmutableMap.of()),
-            getTargetConfiguration());
+            reporter, Label.parseCanonical("@//conflict:x"), getTargetConfiguration());
     assertThat(conflict).isNotNull();
     ArtifactRoot root =
         getTargetConfiguration()
@@ -688,9 +686,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.handleAnalysisInvalidatingChange();
     ConfiguredTargetAndData objsConflict =
         skyframeExecutor.getConfiguredTargetAndDataForTesting(
-            reporter,
-            Label.parseAbsolute("@//conflict:_objs/x/foo.o", ImmutableMap.of()),
-            getTargetConfiguration());
+            reporter, Label.parseCanonical("@//conflict:_objs/x/foo.o"), getTargetConfiguration());
     assertThat(objsConflict).isNotNull();
     Action newAction =
         getGeneratingAction(
@@ -1561,6 +1557,46 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertContainsEvent(
         "Test dir/cycleOutput failed: error reading file 'cyclesource': Symlink cycle");
     assertContainsEvent("Test dir/cycleOutput failed: 1 input file(s) are in error");
+  }
+
+  @Test
+  public void noEventOrPostStorageForNonIncrementalBuild() throws Exception {
+    SkyKey skyKey = GraphTester.skyKey("key");
+    extraSkyFunctions.put(
+        skyKey.functionName(),
+        (key, env) -> {
+          env.getListener().handle(Event.warn("warning"));
+          env.getListener()
+              .post(
+                  new Postable() {
+                    @Override
+                    public boolean storeForReplay() {
+                      return true;
+                    }
+                  });
+          return new SkyValue() {};
+        });
+    initializeSkyframeExecutor();
+    skyframeExecutor.setActive(false);
+    skyframeExecutor.decideKeepIncrementalState(
+        /*batch=*/ false,
+        /*keepStateAfterBuild=*/ true,
+        /*shouldTrackIncrementalState=*/ false,
+        /*discardAnalysisCache=*/ false,
+        reporter);
+    skyframeExecutor.setActive(true);
+    syncSkyframeExecutor();
+
+    EvaluationResult<?> result = evaluate(ImmutableList.of(skyKey));
+    assertThat(result.hasError()).isFalse();
+
+    SkyValue valueWithMetadata =
+        skyframeExecutor
+            .getEvaluator()
+            .getExistingEntryAtCurrentlyEvaluatingVersion(skyKey)
+            .getValueMaybeWithMetadata();
+    assertThat(ValueWithMetadata.getEvents(valueWithMetadata).toList()).isEmpty();
+    assertThat(ValueWithMetadata.getPosts(valueWithMetadata).toList()).isEmpty();
   }
 
   /**

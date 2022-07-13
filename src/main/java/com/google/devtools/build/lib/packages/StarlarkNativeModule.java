@@ -439,7 +439,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Type.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
     List<Label> includes =
         BuildType.LABEL_LIST.convert(
-            includesO, "'package_group.includes argument'", context.pkgBuilder.getBuildFileLabel());
+            includesO, "'package_group.includes argument'", context.pkgBuilder.getLabelConverter());
 
     Location loc = thread.getCallerLocation();
     try {
@@ -464,9 +464,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Starlark.isNullOrNone(visibilityO)
             ? ConstantRuleVisibility.PUBLIC
             : PackageUtils.getVisibility(
-                pkgBuilder.getBuildFileLabel(),
                 BuildType.LABEL_LIST.convert(
-                    visibilityO, "'exports_files' operand", pkgBuilder.getBuildFileLabel()));
+                    visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");

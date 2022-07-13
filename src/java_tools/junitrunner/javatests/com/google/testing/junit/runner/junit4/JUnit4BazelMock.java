@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
 import com.google.testing.junit.runner.model.AntXmlResultWriterFactory;
 import com.google.testing.junit.runner.model.TestSuiteModel;
@@ -182,6 +183,7 @@ public final class JUnit4BazelMock {
       return new JUnit4BazelMock(this);
     }
 
+    @CanIgnoreReturnValue
     public Builder testModule(JUnit4RunnerTest.TestModule testModule) {
       if (testModule == null) {
         throw new NullPointerException();
@@ -190,6 +192,7 @@ public final class JUnit4BazelMock {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder suiteClass(JUnit4InstanceModules.SuiteClass suiteClass) {
       if (suiteClass == null) {
         throw new NullPointerException();

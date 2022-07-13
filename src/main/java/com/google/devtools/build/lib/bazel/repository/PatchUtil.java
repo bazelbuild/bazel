@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** Implementation of native patch. */
 public class PatchUtil {
@@ -142,6 +143,7 @@ public class PatchUtil {
     throw e;
   }
 
+  @Nullable
   private static PatchFailedException applyDelta(AbstractDelta<String> delta, List<String> result) {
     try {
       delta.applyTo(result);
@@ -348,6 +350,7 @@ public class PatchUtil {
    * is /dev/null, otherwise returns the extracted path if succeeded or throw an exception if
    * failed.
    */
+  @Nullable
   private static String extractPath(String line, int strip, int loc) throws PatchFailedException {
     // The line could look like:
     // --- a/foo/bar.txt   2019-05-27 17:19:37.054593200 +0200
@@ -370,6 +373,7 @@ public class PatchUtil {
             "Cannot determine file name with strip = %d at line %d:\n%s", strip, loc, line));
   }
 
+  @Nullable
   private static Path getFilePath(String path, Path outputDirectory, int loc)
       throws PatchFailedException {
     if (path == null) {

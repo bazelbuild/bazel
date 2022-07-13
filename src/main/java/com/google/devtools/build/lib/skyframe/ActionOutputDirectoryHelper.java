@@ -60,9 +60,11 @@ public final class ActionOutputDirectoryHelper {
   }
 
   /**
-   * Create output directories for an ActionFS. The action-local filesystem starts empty, so we
-   * expect the output directory creation to always succeed. There can be no interference from state
-   * left behind by prior builds or other actions intra-build.
+   * Creates output directories for an {@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#IN_MEMORY_FILE_SYSTEM}.
+   * The action-local filesystem starts empty, so we expect the output directory creation to always
+   * succeed. There can be no interference from state left behind by prior builds or other actions
+   * intra-build.
    */
   void createActionFsOutputDirectories(
       ImmutableSet<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
@@ -82,6 +84,25 @@ public final class ActionOutputDirectoryHelper {
         } catch (IOException e) {
           throw new CreateOutputDirectoryException(outputDir.asFragment(), e);
         }
+      }
+    }
+  }
+
+  /**
+   * Called to invalidate the cached creation of tree artifact directories when an action is going
+   * to be rewound.
+   *
+   * <p>We use {@link #knownDirectories} to only create an output directory once per build. With
+   * rewinding, actions that output tree artifacts need to recreate the directories because they are
+   * deleted as part of the {@link com.google.devtools.build.lib.actions.Action#prepare} step.
+   *
+   * <p>Note that this does not need to be called if using {@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#IN_MEMORY_FILE_SYSTEM}.
+   */
+  void invalidateTreeArtifactDirectoryCreation(ImmutableSet<Artifact> actionOutputs) {
+    for (Artifact output : actionOutputs) {
+      if (output.isTreeArtifact()) {
+        knownDirectories.remove(output.getPath().asFragment());
       }
     }
   }

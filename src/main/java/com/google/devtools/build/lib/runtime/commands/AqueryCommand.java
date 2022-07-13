@@ -131,7 +131,7 @@ public final class AqueryCommand implements BlazeCommand {
     }
 
     if (queryCurrentSkyframeState) {
-      return aqueryBuildTool.dumpActionGraphFromSkyframe(env, request);
+      return aqueryBuildTool.dumpActionGraphFromSkyframe(env);
     }
     try {
       return BlazeCommandResult.detailedExitCode(

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -25,10 +26,10 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Native implementation of label setting and flags.
@@ -61,20 +62,15 @@ public class LabelBuildSettings {
             }
             Object commandLineValue =
                 configuration.getOptions().getStarlarkOptions().get(rule.getLabel());
-            Label asLabel;
-            try {
-              asLabel =
-                  commandLineValue == null
-                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL)
-                      : LABEL.convert(commandLineValue, "label_flag value resolution");
-            } catch (ConversionException e) {
-              throw new IllegalStateException(
-                  "Getting here means we must have processed a transition via"
-                      + " StarlarkTransition.validate, which checks that LABEL.convert works"
-                      + " without error.",
-                  e);
+            if (commandLineValue == null) {
+              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL);
             }
-            return asLabel;
+            Preconditions.checkState(
+                commandLineValue instanceof Label,
+                "the value of %s should have been converted to a label already, but its type is %s",
+                rule.getLabel(),
+                Starlark.type(commandLineValue));
+            return (Label) commandLineValue;
           });
 
   private static RuleClass buildRuleClass(RuleClass.Builder builder, boolean flag) {

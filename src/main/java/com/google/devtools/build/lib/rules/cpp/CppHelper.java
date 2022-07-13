@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -290,7 +291,8 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext, Language.CPP, defaultToolchain, semantics);
 
     return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
   }
@@ -307,7 +309,8 @@ public class CppHelper {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, defaultToolchain, semantics);
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext, Language.CPP, defaultToolchain, semantics);
     try {
       return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
     } catch (EvalException e) {
@@ -371,6 +374,11 @@ public class CppHelper {
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
     ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    if (toolchainInfo == null) {
+      throw ruleContext.throwWithRuleError(
+          "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
+              + " --platforms?");
+    }
     try {
       return (CcToolchainProvider) toolchainInfo.getValue("cc");
     } catch (EvalException e) {
@@ -617,6 +625,7 @@ public class CppHelper {
   }
 
   /** Returns the FDO build subtype. */
+  @Nullable
   public static String getFdoBuildStamp(
       CppConfiguration cppConfiguration,
       FdoContext fdoContext,
@@ -1028,6 +1037,7 @@ public class CppHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
+  @Nullable
   public static Artifact getGrepIncludes(RuleContext ruleContext) {
     return ruleContext.attributes().has("$grep_includes")
         ? ruleContext.getPrerequisiteArtifact("$grep_includes")

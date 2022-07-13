@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -43,6 +44,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,

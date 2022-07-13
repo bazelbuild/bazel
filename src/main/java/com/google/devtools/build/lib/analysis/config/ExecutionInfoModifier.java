@@ -58,7 +58,7 @@ public abstract class ExecutionInfoModifier {
 
   /** Constructs an instance of ExecutionInfoModifier by parsing an option string. */
   public static class Converter
-      implements com.google.devtools.common.options.Converter<ExecutionInfoModifier> {
+      extends com.google.devtools.common.options.Converter.Contextless<ExecutionInfoModifier> {
     @Override
     public ExecutionInfoModifier convert(String input) throws OptionsParsingException {
       if (Strings.isNullOrEmpty(input)) {
@@ -77,7 +77,7 @@ public abstract class ExecutionInfoModifier {
                 // Convert to get a useful exception if it's not a valid pattern, but use the regex
                 // (see comment in Expression)
                 new RegexPatternConverter()
-                    .convert(specMatcher.group("pattern"))
+                    .convert(specMatcher.group("pattern"), /*conversionContext=*/ null)
                     .regexPattern()
                     .pattern(),
                 specMatcher.group("sign").equals("-"),

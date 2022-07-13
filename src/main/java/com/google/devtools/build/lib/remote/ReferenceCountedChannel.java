@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.Channe
 import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
 import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
 import com.google.devtools.build.lib.remote.util.RxFutures;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.Channel;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
@@ -114,24 +115,28 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     return referenceCounted.refCnt();
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCountedChannel retain() {
     referenceCounted.retain();
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCountedChannel retain(int increment) {
     referenceCounted.retain(increment);
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCounted touch() {
     referenceCounted.touch();
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ReferenceCounted touch(Object hint) {
     referenceCounted.touch(hint);

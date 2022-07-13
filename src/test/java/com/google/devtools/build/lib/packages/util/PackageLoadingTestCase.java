@@ -217,7 +217,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
       LabelSyntaxException, InterruptedException {
-    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
+    return getTarget(Label.parseCanonical(label));
   }
 
   protected Target getTarget(Label label)
@@ -299,7 +299,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
-      result.add(Label.parseAbsolute(s, ImmutableMap.of()));
+      result.add(Label.parseCanonical(s));
     }
     return result;
   }

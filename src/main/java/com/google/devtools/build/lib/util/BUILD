@@ -18,6 +18,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -235,6 +236,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -257,6 +259,7 @@ java_library(
     deps = [
         ":detailed_exit_code",
         ":exit_code",
+        "//third_party:jsr305",
     ],
 )
 

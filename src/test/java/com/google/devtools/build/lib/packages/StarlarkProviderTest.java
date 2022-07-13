@@ -58,7 +58,7 @@ public final class StarlarkProviderTest {
   @Test
   public void exportedProvider_accessors() throws Exception {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsolute("//foo:bar.bzl", ImmutableMap.of()), "prov");
+        new StarlarkProvider.Key(Label.parseCanonical("//foo:bar.bzl"), "prov");
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).setExported(key).build();
     assertThat(provider.isExported()).isTrue();
     assertThat(provider.getName()).isEqualTo("prov");
@@ -243,13 +243,13 @@ public final class StarlarkProviderTest {
   public void providerEquals() throws Exception {
     // All permutations of differing label and differing name.
     StarlarkProvider.Key keyFooA =
-        new StarlarkProvider.Key(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provA");
+        new StarlarkProvider.Key(Label.parseCanonical("//foo.bzl"), "provA");
     StarlarkProvider.Key keyFooB =
-        new StarlarkProvider.Key(Label.parseAbsolute("//foo.bzl", ImmutableMap.of()), "provB");
+        new StarlarkProvider.Key(Label.parseCanonical("//foo.bzl"), "provB");
     StarlarkProvider.Key keyBarA =
-        new StarlarkProvider.Key(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provA");
+        new StarlarkProvider.Key(Label.parseCanonical("//bar.bzl"), "provA");
     StarlarkProvider.Key keyBarB =
-        new StarlarkProvider.Key(Label.parseAbsolute("//bar.bzl", ImmutableMap.of()), "provB");
+        new StarlarkProvider.Key(Label.parseCanonical("//bar.bzl"), "provB");
 
     // 1 for each key, plus a duplicate for one of the keys, plus 2 that have no key.
     StarlarkProvider provFooA1 =

@@ -25,6 +25,7 @@ import com.google.devtools.build.android.AarGeneratorAction.AarGeneratorOptions;
 import com.google.devtools.build.zip.ZipReader;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
@@ -108,26 +109,31 @@ public class AarGeneratorActionTest {
         classes = root.resolve("fake-classes-path");
       }
 
+      @CanIgnoreReturnValue
       public Builder addResource(String path, ResourceType template, String... lines) {
         filesToWrite.put(resourceDir.resolve(path), template.create(lines));
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withEmptyResources(boolean isEmpty) {
         this.withEmptyRes = isEmpty;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addAsset(String path, String... lines) {
         filesToWrite.put(assetDir.resolve(path), Joiner.on("\n").join(lines));
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withEmptyAssets(boolean isEmpty) {
         this.withEmptyAssets = isEmpty;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder createManifest(String path, String manifestPackage, String... lines) {
         this.manifest = root.resolve(path);
         filesToWrite.put(manifest, String.format("<?xml version=\"1.0\" encoding=\"utf-8\"?>"
@@ -136,24 +142,28 @@ public class AarGeneratorActionTest {
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder createRtxt(String path, String... lines) {
         this.rtxt = root.resolve(path);
         filesToWrite.put(rtxt, String.format("%s", Joiner.on("\n").join(lines)));
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder createClassesJar(String path) {
         this.classes = root.resolve(path);
         classesToWrite.put("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n");
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addClassesFile(String filePackage, String filename, String... lines) {
         classesToWrite.put(filePackage.replace(".", "/") + "/" + filename,
             String.format("%s", Joiner.on("\n").join(lines)));
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addProguardSpec(String path, String... lines) {
         Path proguardSpecPath = root.resolve(path);
         proguardSpecs.add(proguardSpecPath);

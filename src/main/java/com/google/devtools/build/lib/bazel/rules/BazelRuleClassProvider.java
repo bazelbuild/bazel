@@ -50,9 +50,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
-import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
@@ -352,12 +350,8 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          BazelJavaProtoAspect bazelJavaProtoAspect = new BazelJavaProtoAspect(builder);
-          BazelJavaLiteProtoAspect bazelJavaLiteProtoAspect = new BazelJavaLiteProtoAspect(builder);
-          builder.addNativeAspectClass(bazelJavaProtoAspect);
-          builder.addNativeAspectClass(bazelJavaLiteProtoAspect);
-          builder.addRuleDefinition(new BazelJavaProtoLibraryRule(bazelJavaProtoAspect));
-          builder.addRuleDefinition(new BazelJavaLiteProtoLibraryRule(bazelJavaLiteProtoAspect));
+          builder.addRuleDefinition(new BazelJavaProtoLibraryRule());
+          builder.addRuleDefinition(new BazelJavaLiteProtoLibraryRule());
         }
 
         @Override

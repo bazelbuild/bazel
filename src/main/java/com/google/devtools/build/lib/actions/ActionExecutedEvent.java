@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguratio
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -40,7 +39,7 @@ import javax.annotation.Nullable;
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
-public class ActionExecutedEvent implements BuildEventWithConfiguration, ProgressLike {
+public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final PathFragment actionId;
@@ -95,6 +94,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     return timing;
   }
 
+  @Nullable
   public String getStdout() {
     if (stdout == null) {
       return null;
@@ -102,6 +102,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
     return stdout.toString();
   }
 
+  @Nullable
   public String getStderr() {
     if (stderr == null) {
       return null;
@@ -130,7 +131,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
+    return ImmutableList.of();
   }
 
   @Override
@@ -142,7 +143,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       }
       return ImmutableList.of(configuration);
     } else {
-      return ImmutableList.<BuildEvent>of();
+      return ImmutableList.of();
     }
   }
 

@@ -60,13 +60,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
   private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
   private final Artifact directDescriptorSet;
   private final NestedSet<Artifact> transitiveDescriptorSets;
-
-  // Layering checks.
-  // TODO(yannic): Consider removing some of these. It should be sufficient to do
-  // layering checks when creating the descriptor-set.
   private final NestedSet<ProtoSource> exportedSources;
-  private final NestedSet<ProtoSource> strictImportableSources;
-  private final NestedSet<ProtoSource> publicImportSources;
 
   public ProtoInfo(
       ImmutableList<ProtoSource> directSources,
@@ -78,9 +72,7 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       Artifact directDescriptorSet,
       NestedSet<Artifact> transitiveDescriptorSets,
       // Layering checks.
-      NestedSet<ProtoSource> exportedSources,
-      NestedSet<ProtoSource> strictImportableSources,
-      NestedSet<ProtoSource> publicImportSources) {
+      NestedSet<ProtoSource> exportedSources) {
     this.directSources = directSources;
     this.directProtoSources = extractProtoSources(directSources);
     this.directProtoSourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(directProtoSourceRoot);
@@ -93,8 +85,6 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
 
     // Layering checks.
     this.exportedSources = exportedSources;
-    this.strictImportableSources = strictImportableSources;
-    this.publicImportSources = publicImportSources;
   }
 
   /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
@@ -228,33 +218,5 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   public NestedSet<ProtoSource> getExportedSources() {
     return exportedSources;
-  }
-
-  /**
-   * Returns a set of {@code .proto} sources that may be imported by this {@code proto_library}
-   * target.
-   */
-  public NestedSet<ProtoSource> getStrictImportableSources() {
-    return strictImportableSources;
-  }
-
-  @Override
-  public Depset getStrictImportableSourcesForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(ProtoSource.TYPE, strictImportableSources);
-  }
-
-  @Override
-  public Depset getPublicImportSourcesForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(ProtoSource.TYPE, publicImportSources);
-  }
-
-  /**
-   * Returns a set of {@code .proto} sources that may be re-exported by this {@code proto_library}'s
-   * direct sources.
-   */
-  NestedSet<ProtoSource> getPublicImportSources() {
-    return publicImportSources;
   }
 }

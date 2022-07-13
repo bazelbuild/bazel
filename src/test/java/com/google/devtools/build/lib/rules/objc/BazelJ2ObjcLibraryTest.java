@@ -398,7 +398,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       String objFileName,
       Iterable<String> compilationInputExecPaths)
       throws Exception {
-    String labelName = Label.parseAbsolute(targetLabel, ImmutableMap.of()).getName();
+    String labelName = Label.parseCanonical(targetLabel).getName();
     CommandAction linkAction =
         (CommandAction)
             getGeneratingAction(

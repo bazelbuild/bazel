@@ -370,7 +370,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "This arg will not be added if <code>omit_if_empty</code> is true "
                     + "(the default) and there are no strings derived from <code>values</code> "
                     + "to join together (which can happen if <code>values</code> is empty "
-                    + "or all of its items are filtered)."
+                    + "or all of its items are filtered). "
                     + "If only one positional parameter is passed, it is interpreted as "
                     + "<code>values</code> (see below)."),
         @Param(
@@ -473,7 +473,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
           "Spills the args to a params file, replacing them with a pointer to the param file. "
               + "Use when your args may be too large for the system's command length limits."
               + "<p>Bazel may choose to elide writing the params file to the output tree during "
-              + "execution for efficiency."
+              + "execution for efficiency. "
               + "If you are debugging actions and want to inspect the param file, "
               + "pass <code>--materialize_param_files</code> to your build.",
       parameters = {

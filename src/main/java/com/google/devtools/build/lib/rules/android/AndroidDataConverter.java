@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -238,6 +239,7 @@ public class AndroidDataConverter<T> extends ParametrizedMapFn<T> {
       return with(t -> joinerType.escape(labelFunction.apply(t).toString()));
     }
 
+    @CanIgnoreReturnValue
     Builder<T> with(Function<T, String> stringFunction) {
       inner.add(stringFunction);
       return this;

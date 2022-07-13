@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -156,12 +157,14 @@ public class ObjectCodecTester<T> {
     }
 
     /** Add subjects to be tested for serialization/deserialization. */
+    @CanIgnoreReturnValue
     public Builder<T> addSubjects(ImmutableList<T> subjects) {
       subjectsBuilder.addAll(subjects);
       return this;
     }
 
     /** Add subjects to be tested for serialization/deserialization. */
+    @CanIgnoreReturnValue
     public final <D> Builder<T> addDependency(Class<? super D> type, D dependency) {
       dependenciesBuilder.put(type, dependency);
       return this;
@@ -171,21 +174,24 @@ public class ObjectCodecTester<T> {
      * Skip tests that check for the ability to detect bad data. This may be useful for simpler
      * codecs which don't do any error verification.
      */
+    @CanIgnoreReturnValue
     public Builder<T> skipBadDataTest() {
       this.skipBadDataTest = true;
       return this;
     }
 
     /**
-     * Sets {@link ObjectCodecTester.VerificationFunction} for verifying deserialization. Default
-     * is simple equality assertion, a custom version may be provided for more, or less, detailed
+     * Sets {@link ObjectCodecTester.VerificationFunction} for verifying deserialization. Default is
+     * simple equality assertion, a custom version may be provided for more, or less, detailed
      * checks.
      */
+    @CanIgnoreReturnValue
     public Builder<T> verificationFunction(VerificationFunction<T> verificationFunction) {
       this.verificationFunction = Preconditions.checkNotNull(verificationFunction);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> setRepetitions(int repetitions) {
       this.repetitions = repetitions;
       return this;

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -281,6 +282,7 @@ public final class BuildResult {
     private final List<LogFileEntry> localFiles = new ArrayList<>();
     private boolean frozen;
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection freeze() {
       frozen = true;
       return this;
@@ -291,18 +293,21 @@ public final class BuildResult {
       return localFiles;
     }
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection addDirectValue(String name, byte[] data) {
       Preconditions.checkState(!frozen);
       this.directValues.add(Pair.of(name, ByteString.copyFrom(data)));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection addUri(String name, String uri) {
       Preconditions.checkState(!frozen);
       this.futureUris.add(Pair.of(name, Futures.immediateFuture(uri)));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection addUriFuture(String name, ListenableFuture<String> uriFuture) {
       Preconditions.checkState(!frozen);
       this.futureUris.add(Pair.of(name, uriFuture));
@@ -313,6 +318,7 @@ public final class BuildResult {
       return addLocalFile(name, path, LocalFileType.LOG, LocalFileCompression.NONE);
     }
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection addLocalFile(
         String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
       Preconditions.checkState(!frozen);

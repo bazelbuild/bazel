@@ -95,7 +95,7 @@ public final class ConvertersTest {
     StringDictionaryConverter converter = new StringDictionaryConverter();
     expected.expect(OptionsParsingException.class);
     expected.expectMessage("Dictionary entry [] does not contain both a key and a value.");
-    converter.convert("foo:bar,,baz:bar");
+    converter.convert("foo:bar,,baz:bar", /*conversionContext=*/ null);
   }
 
   @Test
@@ -105,7 +105,7 @@ public final class ConvertersTest {
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format(
         "Dictionary entry [%s] does not contain both a key and a value.", badEntry));
-    converter.convert(badEntry);
+    converter.convert(badEntry, /*conversionContext=*/ null);
   }
 
   @Test
@@ -115,7 +115,7 @@ public final class ConvertersTest {
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format(
         "Dictionary entry [%s] contains too many fields.", badEntry));
-    converter.convert(badEntry);
+    converter.convert(badEntry, /*conversionContext=*/ null);
   }
 
   @Test
@@ -126,13 +126,14 @@ public final class ConvertersTest {
     expected.expect(OptionsParsingException.class);
     expected.expectMessage(String.format(
         "Dictionary already contains the key [%s].", key));
-    converter.convert(arg);
+    converter.convert(arg, /*conversionContext=*/ null);
   }
 
   @Test
   public void testStringDictionaryConverter() throws Exception {
     StringDictionaryConverter converter = new StringDictionaryConverter();
-    Map<String, String> result = converter.convert("foo:bar,baz:messy\\:stri\\,ng");
+    Map<String, String> result =
+        converter.convert("foo:bar,baz:messy\\:stri\\,ng", /*conversionContext=*/ null);
     assertThat(result).containsExactly("foo", "bar", "baz", "messy:stri,ng");
   }
 
@@ -140,10 +141,11 @@ public final class ConvertersTest {
   public void testExistingPathStringDictionaryConverter() throws Exception {
     Path existingFile = tmp.newFile("existing").toPath();
     ExistingPathStringDictionaryConverter converter = new ExistingPathStringDictionaryConverter();
+    // On Windows, the path starts like C:\foo\bar\..., we need to escape the colon.
     Map<Path, String> result =
-        converter
-            // On Windows, the path starts like C:\foo\bar\..., we need to escape the colon.
-            .convert(String.format("%s:string", existingFile.toString().replace(":", "\\:")));
+        converter.convert(
+            String.format("%s:string", existingFile.toString().replace(":", "\\:")),
+            /*conversionContext=*/ null);
     assertThat(result).containsExactly(existingFile, "string");
   }
 }

@@ -127,6 +127,7 @@ public class CommandEnvironment {
   private MetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
+    @Nullable
     @Override
     public Path getFileFromWorkspace(Label label) {
       Path buildFile = getPackageManager().getBuildFileForPackage(label.getPackageIdentifier());
@@ -266,8 +267,8 @@ public class CommandEnvironment {
         value = System.getenv(name);
       }
       if (value != null) {
-        repoEnv.put(entry.getKey(), entry.getValue());
-        repoEnvFromOptions.put(entry.getKey(), entry.getValue());
+        repoEnv.put(name, value);
+        repoEnvFromOptions.put(name, value);
       }
     }
     this.buildResultListener = new BuildResultListener();

@@ -37,7 +37,7 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("@?[\\w\\-.#]*");
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("@?[\\w\\-.~]*");
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
@@ -84,6 +84,7 @@ public final class RepositoryName {
    *     "external/"-prefix and repository name, or null if none was found or the repository name
    *     was invalid.
    */
+  @Nullable
   public static Pair<RepositoryName, PathFragment> fromPathFragment(
       PathFragment path, boolean siblingRepositoryLayout) {
     if (!path.isMultiSegment()) {
@@ -144,7 +145,7 @@ public final class RepositoryName {
     if (!VALID_REPO_NAME.matcher(name).matches()) {
       throw LabelParser.syntaxErrorf(
           "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
-              + " and '#'",
+              + " and '~'",
           StringUtilities.sanitizeControlChars(name));
     }
   }

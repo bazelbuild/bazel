@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * The result of running Bazel module inspection pre-processing, containing the un-pruned and
@@ -129,6 +130,7 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
 
       abstract ImmutableSet.Builder<ModuleKey> originalDependantsBuilder();
 
+      @CanIgnoreReturnValue
       public AugmentedModule.Builder addOriginalDependant(ModuleKey depKey) {
         originalDependantsBuilder().add(depKey);
         return this;
@@ -136,6 +138,7 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
 
       abstract ImmutableSet.Builder<ModuleKey> dependantsBuilder();
 
+      @CanIgnoreReturnValue
       public AugmentedModule.Builder addDependant(ModuleKey depKey) {
         dependantsBuilder().add(depKey);
         return this;
@@ -143,6 +146,7 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
 
       abstract ImmutableMap.Builder<ModuleKey, ResolutionReason> depsBuilder();
 
+      @CanIgnoreReturnValue
       public AugmentedModule.Builder addDep(ModuleKey depKey, ResolutionReason reason) {
         depsBuilder().put(depKey, reason);
         return this;

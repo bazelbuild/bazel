@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -55,8 +54,7 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_starlark:my_target");
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//examples/rule:config_test.bzl"), "MyInfo");
     StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat(((Dict) myInfo.getValue("test_env")).get("TEST_ENV_VAR")).isEqualTo("my_value");
   }

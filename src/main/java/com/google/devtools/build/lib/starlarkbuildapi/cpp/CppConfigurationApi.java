@@ -83,6 +83,14 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   ImmutableList<String> getConlyopts() throws EvalException;
 
   @StarlarkMethod(
+      name = "objccopts",
+      structField = true,
+      doc =
+          "The flags passed to Bazel by <a href=\"${link user-manual#flag--objccopt}\">"
+              + "<code>--objccopt</code></a> option.")
+  ImmutableList<String> getObjcopts() throws EvalException;
+
+  @StarlarkMethod(
       name = "linkopts",
       structField = true,
       doc =
@@ -155,6 +163,18 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       doc = "Whether to generate Apple debug symbol(.dSYM) artifacts.",
       structField = true)
   boolean appleGenerateDsym();
+
+  @StarlarkMethod(
+      name = "objc_generate_linkmap",
+      doc = "(Apple-only) Whether to generate linkmap artifacts.",
+      structField = true)
+  boolean objcGenerateLinkmap();
+
+  @StarlarkMethod(
+      name = "objc_should_strip_binary",
+      structField = true,
+      doc = "(Apple-only) whether to perform symbol and dead-code strippings on linked binaries.")
+  boolean objcShouldStripBinary();
 
   @StarlarkMethod(name = "strip_opts", documented = false, useStarlarkThread = true)
   Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException;

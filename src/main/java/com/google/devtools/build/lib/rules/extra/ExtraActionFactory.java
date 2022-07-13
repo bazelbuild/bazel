@@ -32,12 +32,14 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Factory for 'extra_action'.
  */
 public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     // This rule doesn't produce any output when listed as a build target.

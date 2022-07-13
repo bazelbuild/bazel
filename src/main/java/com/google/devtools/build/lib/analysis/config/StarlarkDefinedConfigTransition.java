@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
@@ -77,6 +78,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   private final ImmutableMap<String, String> inputsCanonicalizedToGiven;
   private final ImmutableMap<String, String> outputsCanonicalizedToGiven;
   private final Location location;
+  private final Label.PackageContext packageContext;
 
   private StarlarkDefinedConfigTransition(
       List<String> inputs,
@@ -86,11 +88,16 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       Location location)
       throws EvalException {
     this.location = location;
+    packageContext = Label.PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping);
 
     this.outputsCanonicalizedToGiven =
         getCanonicalizedSettings(repoMapping, parentLabel, outputs, Settings.OUTPUTS);
     this.inputsCanonicalizedToGiven =
         getCanonicalizedSettings(repoMapping, parentLabel, inputs, Settings.INPUTS);
+  }
+
+  public PackageContext getPackageContext() {
+    return packageContext;
   }
 
   /**
@@ -334,7 +341,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       try (Mutability mu = Mutability.create("eval_transition_function")) {
         StarlarkThread thread = new StarlarkThread(mu, semantics);
         thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
-        // TODO: If the resulting values of Starlark transitions ever evolve to be
+        // TODO(brandjon): If the resulting values of Starlark transitions ever evolve to be
         //  complex Starlark objects like structs as opposed to the ints, strings,
         //  etc they are today then we need a real symbol generator which is used
         //  to calculate equality between instances of Starlark objects. A candidate

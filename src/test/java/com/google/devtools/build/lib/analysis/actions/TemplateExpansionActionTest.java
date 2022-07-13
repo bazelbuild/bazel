@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -253,7 +254,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     executeTemplateExpansion(expected, ImmutableList.of(Substitution.of("%key%", SPECIAL_CHARS)));
   }
 
-  private String computeKey(TemplateExpansionAction action) {
+  private String computeKey(TemplateExpansionAction action) throws EvalException {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();

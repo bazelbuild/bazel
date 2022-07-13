@@ -64,7 +64,6 @@ pkg_tar(
     srcs = ["%s_md" % (name,) for name in REPO_BZL_FILES] + ["index.md"],
     strip_prefix = "/tools/build_defs/repo",
     visibility = [
-        "//site:__subpackages__",
         "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
 )

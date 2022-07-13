@@ -3,7 +3,7 @@
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
 load("@rules_license//rules:license.bzl", "license")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
@@ -35,11 +35,11 @@ filegroup(
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
-        "//site/en:srcs",
         "//src:srcs",
         "//tools:srcs",
         "//third_party:srcs",
         "//src/main/starlark/tests/builtins_bzl:srcs",
+        "//src/main/java/com/google/devtools/build/docgen/release:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],

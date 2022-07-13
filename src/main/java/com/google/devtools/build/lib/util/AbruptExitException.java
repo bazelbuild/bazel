@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import javax.annotation.Nullable;
+
 /**
  * An exception thrown by various error conditions that are severe enough to halt the command (e.g.
  * even a --keep_going build). These typically need to signal to the handling code what happened.
@@ -32,7 +34,7 @@ public class AbruptExitException extends Exception {
     this.detailedExitCode = detailedExitCode;
   }
 
-  public AbruptExitException(DetailedExitCode detailedExitCode, Throwable cause) {
+  public AbruptExitException(DetailedExitCode detailedExitCode, @Nullable Throwable cause) {
     super(detailedExitCode.getFailureDetail().getMessage(), cause);
     this.detailedExitCode = detailedExitCode;
   }

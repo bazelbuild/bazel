@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
@@ -268,6 +269,7 @@ public class CustomCommandLine extends CommandLine {
       private String joinWith;
 
       /** Each argument is formatted via {@link SingleStringArgFormatter#format}. */
+      @CanIgnoreReturnValue
       public Builder format(@CompileTimeConstant String formatEach) {
         Preconditions.checkNotNull(formatEach);
         this.formatEach = formatEach;
@@ -275,6 +277,7 @@ public class CustomCommandLine extends CommandLine {
       }
 
       /** Each argument is prepended by the beforeEach param. */
+      @CanIgnoreReturnValue
       public Builder addBefore(@CompileTimeConstant String beforeEach) {
         Preconditions.checkNotNull(beforeEach);
         this.beforeEach = beforeEach;
@@ -282,6 +285,7 @@ public class CustomCommandLine extends CommandLine {
       }
 
       /** Once all arguments have been evaluated, they are joined with this delimiter */
+      @CanIgnoreReturnValue
       public Builder join(String delimiter) {
         Preconditions.checkNotNull(delimiter);
         this.joinWith = delimiter;
@@ -752,6 +756,7 @@ public class CustomCommandLine extends CommandLine {
      *
      * @param outputRoot the output tree's root fragment (i.e. "bazel-out")
      */
+    @CanIgnoreReturnValue
     public Builder stripOutputPaths(PathFragment outputRoot) {
       Preconditions.checkArgument(!stripOutputPaths);
       Preconditions.checkArgument(this.outputRoot == null);
@@ -884,6 +889,7 @@ public class CustomCommandLine extends CommandLine {
     }
 
     /** Calls {@link String#format} at command line expansion time. */
+    @CanIgnoreReturnValue
     @FormatMethod
     public Builder addFormatted(@FormatString String formatStr, Object... args) {
       Preconditions.checkNotNull(formatStr);
@@ -1072,6 +1078,7 @@ public class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact that will be evaluated to one of its child {@link
      *     TreeFileArtifact} at execution time
      */
+    @CanIgnoreReturnValue
     public Builder addPlaceholderTreeArtifactExecPath(@Nullable Artifact treeArtifact) {
       if (treeArtifact != null) {
         Preconditions.checkState(!treeArtifactsRequested);
@@ -1090,6 +1097,7 @@ public class CustomCommandLine extends CommandLine {
      * @param treeArtifact the TreeArtifact that will be evaluated to one of its child {@link
      *     TreeFileArtifact} at execution time
      */
+    @CanIgnoreReturnValue
     public Builder addPlaceholderTreeArtifactExecPath(String arg, @Nullable Artifact treeArtifact) {
       Preconditions.checkNotNull(arg);
       if (treeArtifact != null) {
@@ -1107,6 +1115,7 @@ public class CustomCommandLine extends CommandLine {
      *
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      */
+    @CanIgnoreReturnValue
     public Builder addExpandedTreeArtifactExecPaths(Artifact treeArtifact) {
       Preconditions.checkState(!treeArtifactsRequested);
       treeArtifactInputs.add(treeArtifact);
@@ -1132,6 +1141,7 @@ public class CustomCommandLine extends CommandLine {
           : new CustomCommandLine(arguments, /*substitutionMap=*/ null);
     }
 
+    @CanIgnoreReturnValue
     private Builder addObjectInternal(@Nullable Object value) {
       if (value != null) {
         arguments.add(value);
@@ -1140,6 +1150,7 @@ public class CustomCommandLine extends CommandLine {
     }
 
     /** Adds the arg and the passed value if the value is non-null. */
+    @CanIgnoreReturnValue
     private Builder addObjectInternal(@CompileTimeConstant String arg, @Nullable Object value) {
       Preconditions.checkNotNull(arg);
       if (value != null) {
@@ -1149,6 +1160,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addPrefixedInternal(String prefix, @Nullable Object arg) {
       Preconditions.checkNotNull(prefix);
       if (arg != null) {
@@ -1157,6 +1169,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addCollectionInternal(@Nullable Collection<?> values) {
       if (values != null) {
         addVectorArgInternal(VectorArg.of(values));
@@ -1164,6 +1177,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addCollectionInternal(
         @CompileTimeConstant String arg, @Nullable Collection<?> values) {
       Preconditions.checkNotNull(arg);
@@ -1174,6 +1188,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addNestedSetInternal(@Nullable NestedSet<?> values) {
       if (values != null) {
         arguments.add(values);
@@ -1181,6 +1196,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addNestedSetInternal(
         @CompileTimeConstant String arg, @Nullable NestedSet<?> values) {
       Preconditions.checkNotNull(arg);
@@ -1191,6 +1207,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addVectorArgInternal(VectorArg<?> vectorArg) {
       if (!vectorArg.isEmpty) {
         VectorArg.push(arguments, vectorArg);
@@ -1198,6 +1215,7 @@ public class CustomCommandLine extends CommandLine {
       return this;
     }
 
+    @CanIgnoreReturnValue
     private Builder addVectorArgInternal(@CompileTimeConstant String arg, VectorArg<?> vectorArg) {
       Preconditions.checkNotNull(arg);
       if (!vectorArg.isEmpty) {

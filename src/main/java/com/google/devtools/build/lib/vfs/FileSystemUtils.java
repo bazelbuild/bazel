@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /** Helper functions that implement often-used complex operations on file systems. */
 @ConditionallyThreadSafe
@@ -168,12 +169,13 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns a new {@code PathFragment} formed by replacing the extension of the
-   * last path segment of {@code path} with {@code newExtension}. Null is
-   * returned iff {@code path} has zero segments or it doesn't end with {@code oldExtension}.
+   * Returns a new {@code PathFragment} formed by replacing the extension of the last path segment
+   * of {@code path} with {@code newExtension}. Null is returned iff {@code path} has zero segments
+   * or it doesn't end with {@code oldExtension}.
    */
-  public static PathFragment replaceExtension(PathFragment path, String newExtension,
-      String oldExtension) {
+  @Nullable
+  public static PathFragment replaceExtension(
+      PathFragment path, String newExtension, String oldExtension) {
     String base = path.getBaseName();
     if (!base.endsWith(oldExtension)) {
       return null;
@@ -183,10 +185,10 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns a new {@code Path} formed by replacing the extension of the
-   * last path segment of {@code path} with {@code newExtension}. Null is
-   * returned iff {@code path} has zero segments.
+   * Returns a new {@code Path} formed by replacing the extension of the last path segment of {@code
+   * path} with {@code newExtension}. Null is returned iff {@code path} has zero segments.
    */
+  @Nullable
   public static Path replaceExtension(Path path, String newExtension) {
     PathFragment fragment = replaceExtension(path.asFragment(), newExtension);
     return fragment == null ? null : path.getFileSystem().getPath(fragment);

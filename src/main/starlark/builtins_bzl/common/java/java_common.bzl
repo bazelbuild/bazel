@@ -16,9 +16,9 @@
 Common code for reuse across java_* rules
 """
 
-load(":common/rule_util.bzl", "create_composite_dep", "merge_attrs")
+load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
-load(":common/java/compile_action.bzl", "COMPILE_ACTION", "COMPILE_ACTION_IMPLICIT_ATTRS", "compile_action")
+load(":common/java/compile_action.bzl", "COMPILE_ACTION_IMPLICIT_ATTRS", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
 
@@ -68,6 +68,7 @@ def basic_java_library(
         exports = [],
         exported_plugins = [],
         resources = [],
+        resource_jars = [],
         classpath_resources = [],
         javacopts = [],
         neverlink = False,
@@ -96,6 +97,8 @@ def basic_java_library(
       exported_plugins: (list[Target]) The list of `java_plugin`s (e.g. annotation
         processors) to export to libraries that directly depend on this library.
       resources: (list[File]) A list of data files to include in a Java jar.
+      resource_jars: (list[File]) A list of jar files to unpack and include in a
+        Java jar.
       classpath_resources: (list[File])
       javacopts: (list[str])
       neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
@@ -136,6 +139,7 @@ def basic_java_library(
         _collect_deps(exports),
         _collect_plugins(exported_plugins),
         resources,
+        resource_jars,
         classpath_resources,
         _collect_native_libraries(deps, runtime_deps, exports),
         javacopts,
@@ -269,10 +273,4 @@ BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
 BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS = merge_attrs(
     BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
     VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
-)
-
-# TODO(b/213551463) remove once unused
-JAVA_COMMON_DEP = create_composite_dep(
-    basic_java_library,
-    COMPILE_ACTION,
 )

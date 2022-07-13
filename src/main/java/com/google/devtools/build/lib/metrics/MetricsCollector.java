@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -49,13 +52,11 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsEvent;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -79,7 +80,6 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
-  private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
   private final SpawnStats spawnStats = new SpawnStats();
 
   @CanIgnoreReturnValue
@@ -190,12 +190,10 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
-  @SuppressWarnings("unused")
-  @Subscribe
-  private void onWorkerMetricsEvent(WorkerMetricsEvent workerMetricsEvent) {
-    for (WorkerMetric workerMetric : workerMetricsEvent.getWorkerMetrics()) {
-      workerMetricsList.add(workerMetric.toProto());
-    }
+  private ImmutableList<WorkerMetrics> createWorkerMetrics() {
+    return WorkerMetricsCollector.instance().collectMetrics().stream()
+        .map(WorkerMetric::toProto)
+        .collect(toImmutableList());
   }
 
   private BuildMetrics createBuildMetrics() {
@@ -208,7 +206,7 @@ class MetricsCollector {
         .setCumulativeMetrics(createCumulativeMetrics())
         .setArtifactMetrics(artifactMetrics.build())
         .setBuildGraphMetrics(buildGraphMetrics.build())
-        .addAllWorkerMetrics(workerMetricsList)
+        .addAllWorkerMetrics(createWorkerMetrics())
         .build();
   }
 

@@ -174,9 +174,9 @@ public final class SkyframeActionExecutor {
   private ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap;
 
   // We also keep track of actions which were reset this build from a previously-completed state.
-  // When re-evaluated, these actions should not emit ProgressLike events, in order to not confuse
-  // the downstream consumers of action-related event streams, which may (reasonably) have expected
-  // an action to be executed at most once per build.
+  // When re-evaluated, these actions should not emit progress events, in order to not confuse the
+  // downstream consumers of action-related event streams, which may (reasonably) have expected an
+  // action to be executed at most once per build.
   //
   // Note: actions which fail due to lost inputs, and get rewound, will not have any events
   // suppressed during their second evaluation. Consumers of events which get emitted before
@@ -390,6 +390,9 @@ public final class SkyframeActionExecutor {
       actionExecutionState.obsolete(actionLookupData, buildActionMap, ownerlessArtifactWrapper);
     }
     completedAndResetActions.add(ownerlessArtifactWrapper);
+    if (!actionFileSystemType().inMemoryFileSystem()) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
+    }
   }
 
   @Nullable
@@ -411,6 +414,9 @@ public final class SkyframeActionExecutor {
     }
     if (!lostDiscoveredInputs.isEmpty()) {
       lostDiscoveredInputsMap.put(ownerlessArtifactWrapper, lostDiscoveredInputs);
+    }
+    if (!actionFileSystemType().inMemoryFileSystem()) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(action.getOutputs());
     }
   }
 
@@ -598,7 +604,8 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      isRemoteCacheEnabled = remoteOptions != null && remoteOptions.isRemoteCacheEnabled();
+      isRemoteCacheEnabled =
+          (remoteOptions != null && remoteOptions.isRemoteCacheEnabled()) || outputService != null;
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -890,6 +897,7 @@ public final class SkyframeActionExecutor {
   private static ActionContinuationOrResult begin(
       Action action, ActionExecutionContext actionExecutionContext) {
     return new ActionContinuationOrResult() {
+      @Nullable
       @Override
       public ListenableFuture<?> getFuture() {
         return null;
@@ -907,6 +915,7 @@ public final class SkyframeActionExecutor {
   private static ActionContinuationOrResult runFully(
       Action action, ActionExecutionContext actionExecutionContext) {
     return new ActionContinuationOrResult() {
+      @Nullable
       @Override
       public ListenableFuture<?> getFuture() {
         return null;
@@ -956,11 +965,11 @@ public final class SkyframeActionExecutor {
       //   env.getListener
       // Apparently, one isn't enough.
       //
-      // At this time, ProgressLike events that are generated in this class should be posted to
-      // env.getListener, while ProgressLike events that are generated in the Action implementation
-      // are posted to actionExecutionContext.getEventHandler. The reason for this seems to be
-      // action rewinding, which suppresses progress on actionExecutionContext.getEventHandler, for
-      // undocumented reasons.
+      // Progress events that are generated in this class should be posted to env.getListener, while
+      // progress events that are generated in the Action implementation are posted to
+      // actionExecutionContext.getEventHandler. The reason for this is action rewinding, in which
+      // case env.getListener may be a ProgressSuppressingEventHandler. See shouldEmitProgressEvents
+      // and completedAndResetActions.
       //
       // It is also unclear why we are posting anything directly to reporter. That probably
       // shouldn't happen.
@@ -991,7 +1000,7 @@ public final class SkyframeActionExecutor {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
-          if (!actionFileSystemType().inMemoryFileSystem()) {
+          if (actionFileSystemType().supportLocalActions()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
@@ -1011,12 +1020,12 @@ public final class SkyframeActionExecutor {
                   null,
                   Code.ACTION_OUTPUTS_DELETION_FAILURE);
             }
-          } else {
+          }
+
+          if (actionFileSystemType().inMemoryFileSystem()) {
             // There's nothing to delete when the action file system is used, but we must ensure
             // that the output directories for stdout and stderr exist.
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-          }
-          if (actionFileSystemType().inMemoryFileSystem()) {
             createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
           } else {
             createOutputDirectories(action);

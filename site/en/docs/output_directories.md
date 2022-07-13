@@ -35,8 +35,9 @@ The solution that's currently implemented:
   then that value overrides the default.
 * The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
   This is called the _outputUserRoot_ directory.
-* Beneath the `outputUserRoot` directory, an `installBase` directory is created
-  whose name is "install" plus the MD5 hash of the Bazel installation manifest.
+* Beneath the `outputUserRoot` directory there is an `install` directory, and in
+  it is an `installBase` directory whose name is the MD5 hash of the Bazel
+  installation manifest.
 * Beneath the `outputUserRoot` directory, an `outputBase` directory
   is also created whose name is the MD5 hash of the path name of the workspace
   directory. So, for example, if Bazel is running in the workspace directory

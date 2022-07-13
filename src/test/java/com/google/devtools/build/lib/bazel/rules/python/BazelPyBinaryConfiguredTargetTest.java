@@ -77,7 +77,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     TemplateExpansionAction templateAction = (TemplateExpansionAction) generatingAction;
     for (Substitution sub : templateAction.getSubstitutions()) {
       if (sub.getKey().equals(substitutionKey)) {
-        return sub.getValue();
+        return sub.getValueUnchecked();
       }
     }
     throw new AssertionError(

@@ -128,7 +128,7 @@ public class DigestHashFunction {
   }
 
   /** Converts a string to its registered {@link DigestHashFunction}. */
-  public static class DigestFunctionConverter implements Converter<DigestHashFunction> {
+  public static class DigestFunctionConverter extends Converter.Contextless<DigestHashFunction> {
     @Override
     public DigestHashFunction convert(String input) throws OptionsParsingException {
       for (Entry<String, DigestHashFunction> possibleFunctions : hashFunctionRegistry.entrySet()) {

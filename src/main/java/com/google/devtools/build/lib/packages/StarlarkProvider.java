@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -103,6 +104,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
      * Sets the schema (the list of allowed field names) for instances of the provider built by this
      * builder.
      */
+    @CanIgnoreReturnValue
     public Builder setSchema(Collection<String> schema) {
       this.schema = ImmutableList.sortedCopyOf(schema);
       return this;
@@ -121,12 +123,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
      *     particular, for a schemaful provider, the dict may not contain keys not listed in the
      *     schema.
      */
+    @CanIgnoreReturnValue
     public Builder setInit(StarlarkCallable init) {
       this.init = init;
       return this;
     }
 
     /** Sets the provider built by this builder to be exported with the given key. */
+    @CanIgnoreReturnValue
     public Builder setExported(Key key) {
       this.key = key;
       return this;

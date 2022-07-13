@@ -96,6 +96,16 @@ public interface CcModuleApi<
             positional = false,
             named = true),
         @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc = "The language to configure for: either c++ or objc (default c++)"),
+        @Param(
             name = "requested_features",
             doc = "List of features to be enabled.",
             positional = false,
@@ -111,6 +121,7 @@ public interface CcModuleApi<
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
       CcToolchainProviderT toolchain,
+      Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
       Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException;
@@ -1248,6 +1259,13 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "test_only_target",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -1267,6 +1285,7 @@ public interface CcModuleApi<
       Object stamp,
       Object linkedDllNameSuffix,
       Object winDefFile,
+      Object testOnlyTarget,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

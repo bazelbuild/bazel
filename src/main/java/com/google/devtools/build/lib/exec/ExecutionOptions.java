@@ -281,10 +281,12 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Specifies the desired format of the test summary. Valid values are 'short' to print "
-              + "information only about tests executed, 'terse', to print information only about "
-              + "unsuccessful tests that were run, 'detailed' to print detailed information about "
-              + "failed test cases, and 'none' to omit the summary.")
+          "Specifies the desired format of the test summary. Valid values are 'short' to print"
+              + " information only about tests executed, 'terse', to print information only about"
+              + " unsuccessful tests that were run, 'detailed' to print detailed information about"
+              + " failed test cases, 'testcase' to print summary in test case resolution, do not"
+              + " print detailed information about failed test cases and 'none' to omit the"
+              + " summary.")
   public TestSummaryFormat testSummary;
 
   @Option(
@@ -322,21 +324,6 @@ public class ExecutionOptions extends OptionsBase {
               + " the amount of RAM available and will use 67% of it.",
       converter = RamResourceConverter.class)
   public float localRamResources;
-
-  @Option(
-    name = "experimental_local_memory_estimate",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Estimate the actual memory available online. "
-            + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
-            + "that against the total available system memory, regardless of how much memory is "
-            + "actually available.  This option enables online estimation of how much memory is "
-            + "available at any given time, and thus does not require accurate estimation of how "
-            + "much memory a given action will take."
-  )
-  public boolean localMemoryEstimate;
 
   @Option(
       name = "local_test_jobs",

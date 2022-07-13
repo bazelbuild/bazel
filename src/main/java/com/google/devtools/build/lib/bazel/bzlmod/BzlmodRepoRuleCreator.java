@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
@@ -44,27 +46,28 @@ public final class BzlmodRepoRuleCreator {
 
   /** Creates a repo rule instance from the given parameters. */
   public static Rule createRule(
-      PackageFactory packageFactory,
+      PackageIdentifier basePackageId,
+      RepositoryMapping repoMapping,
       BlazeDirectories directories,
       StarlarkSemantics semantics,
       ExtendedEventHandler eventHandler,
       String callStackEntry,
       RuleClass ruleClass,
       Map<String, Object> attributes)
-      throws InterruptedException, InvalidRuleException, NoSuchPackageException {
+      throws InterruptedException, InvalidRuleException, NoSuchPackageException, EvalException {
     // TODO(bazel-team): Don't use the {@link Rule} class for repository rule.
     // Currently, the repository rule is represented with the {@link Rule} class that's designed
     // for build rules. Therefore, we have to create a package instance for it, which doesn't make
     // sense. We should migrate away from this implementation so that we don't refer to any build
     // rule specific things in repository rule.
     Package.Builder packageBuilder =
-        packageFactory.newExternalPackageBuilder(
+        Package.newExternalPackageBuilderForBzlmod(
             RootedPath.toRootedPath(
                 Root.fromPath(directories.getWorkspace()),
                 LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-            "dummy_name",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            semantics);
+            semantics,
+            basePackageId,
+            repoMapping);
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
     ImmutableList<CallStackEntry> callStack =
@@ -77,6 +80,10 @@ public final class BzlmodRepoRuleCreator {
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
+    }
+    if (rule.containsErrors()) {
+      throw Starlark.errorf(
+          "failed to instantiate '%s' from this module extension", ruleClass.getName());
     }
     packageBuilder.build();
     return rule;

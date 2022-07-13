@@ -79,7 +79,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar");
-    Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion");
+    FilesToRunProvider oneVersion = ruleContext.getExecutablePrerequisite("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
     Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");

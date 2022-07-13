@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -211,7 +212,8 @@ public class BuildView {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean includeExecutionPhase,
-      int mergedPhasesExecutionJobsCount)
+      int mergedPhasesExecutionJobsCount,
+      @Nullable ResourceManager resourceManager)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
           BuildFailedException, TestExecException {
     logger.atInfo().log("Starting analysis");
@@ -408,6 +410,9 @@ public class BuildView {
       } else {
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
+        // For the Skymeld code path, we expect action execution and hence a non-null resource
+        // manager.
+        Preconditions.checkNotNull(resourceManager);
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -420,6 +425,7 @@ public class BuildView {
                 explicitTargetPatterns,
                 eventBus,
                 bugReporter,
+                resourceManager,
                 keepGoing,
                 viewOptions.strictConflictChecks,
                 checkForActionConflicts,

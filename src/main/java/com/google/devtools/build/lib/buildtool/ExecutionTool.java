@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -91,6 +92,7 @@ import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -112,6 +114,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -300,7 +303,7 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -327,26 +330,10 @@ public class ExecutionTool {
           env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
     }
 
-    // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
-    // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
-    // TODO(leba): count test actions
-    ExecutionProgressReceiver executionProgressReceiver =
-        new ExecutionProgressReceiver(
-            Preconditions.checkNotNull(builtTargets),
-            Preconditions.checkNotNull(builtAspects),
-            /*exclusiveTestsCount=*/ 0,
-            env.getEventBus());
-    skyframeExecutor
-        .getEventBus()
-        .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
-
-    ActionExecutionStatusReporter statusReporter =
-        ActionExecutionStatusReporter.create(env.getReporter(), skyframeExecutor.getEventBus());
+    env.getEventBus()
+        .register(
+            new ExecutionProgressReceiverSetup(skyframeExecutor, env, builtTargets, builtAspects));
     // TODO(leba): Add watchdog support.
-    skyframeExecutor.setActionExecutionProgressReportingObjects(
-        executionProgressReceiver, executionProgressReceiver, statusReporter);
-    skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
-
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -399,7 +386,7 @@ public class ExecutionTool {
       }
     }
 
-    if (outputService == null || !outputService.actionFileSystemType().inMemoryFileSystem()) {
+    if (outputService == null || outputService.actionFileSystemType().supportLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -500,17 +487,7 @@ public class ExecutionTool {
     } catch (Error | RuntimeException e) {
       catastrophe = e;
     } finally {
-      // These may flush logs, which may help if there is a catastrophic failure.
-      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
-        executorLifecycleListener.executionPhaseEnding();
-      }
-
-      // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
-      // a catastrophic failure. Posting these is consistent with other behavior.
-      env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
-
-      env.getEventBus()
-          .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+      unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
 
       if (catastrophe != null) {
         Throwables.throwIfUnchecked(catastrophe);
@@ -576,6 +553,25 @@ public class ExecutionTool {
         env.getOutputService().finalizeBuild(isBuildSuccessful);
       }
     }
+  }
+
+  /**
+   * These steps get performed after the end of execution, regardless of whether there's a
+   * catastrophe or not.
+   */
+  void unconditionalExecutionPhaseFinalizations(
+      Stopwatch timer, SkyframeExecutor skyframeExecutor) {
+    // These may flush logs, which may help if there is a catastrophic failure.
+    for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+      executorLifecycleListener.executionPhaseEnding();
+    }
+
+    // Handlers process these events and others (e.g. CommandCompleteEvent), even in the event of
+    // a catastrophic failure. Posting these is consistent with other behavior.
+    env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
+
+    env.getEventBus()
+        .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
@@ -781,6 +777,7 @@ public class ExecutionTool {
    * If a path is supplied, creates and installs an ExplanationHandler. Returns an instance on
    * success. Reports an error and returns null otherwise.
    */
+  @Nullable
   private ExplanationHandler installExplanationHandler(
       PathFragment explanationPath, String allOptions) {
     if (explanationPath == null) {
@@ -930,7 +927,6 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
-    resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.localRamResources,
@@ -984,5 +980,55 @@ public class ExecutionTool {
                 .setExecution(Execution.newBuilder().setCode(detailedCode))
                 .build()),
         e);
+  }
+
+  /**
+   * A listener that prepares the ExecutionProgressReceiver upon receiving the first
+   * SomeExecutionStartedEvent. Only activated once a build.
+   */
+  private static class ExecutionProgressReceiverSetup {
+    private final SkyframeExecutor skyframeExecutor;
+    private final CommandEnvironment env;
+    private final Set<ConfiguredTargetKey> builtTargets;
+    private final Set<AspectKey> builtAspects;
+    private final AtomicBoolean activated = new AtomicBoolean(false);
+
+    ExecutionProgressReceiverSetup(
+        SkyframeExecutor skyframeExecutor,
+        CommandEnvironment env,
+        Set<ConfiguredTargetKey> builtTargets,
+        Set<AspectKey> builtAspects) {
+      this.skyframeExecutor = skyframeExecutor;
+      this.env = env;
+      // TODO(b/227138583) Remove these.
+      this.builtTargets = builtTargets;
+      this.builtAspects = builtAspects;
+    }
+
+    @Subscribe
+    public void setupExecutionProgressReceiver(SomeExecutionStartedEvent unused) {
+      if (activated.compareAndSet(false, true)) {
+        // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in
+        // a synchronized collection), so unsynchronized access to this variable is unsafe while it
+        // runs.
+        // TODO(leba): count test actions
+        ExecutionProgressReceiver executionProgressReceiver =
+            new ExecutionProgressReceiver(
+                Preconditions.checkNotNull(builtTargets),
+                Preconditions.checkNotNull(builtAspects),
+                /*exclusiveTestsCount=*/ 0,
+                env.getEventBus());
+        env.getEventBus()
+            .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
+
+        ActionExecutionStatusReporter statusReporter =
+            ActionExecutionStatusReporter.create(env.getReporter(), skyframeExecutor.getEventBus());
+        skyframeExecutor.setActionExecutionProgressReportingObjects(
+            executionProgressReceiver, executionProgressReceiver, statusReporter);
+        skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
+
+        env.getEventBus().unregister(this);
+      }
+    }
   }
 }

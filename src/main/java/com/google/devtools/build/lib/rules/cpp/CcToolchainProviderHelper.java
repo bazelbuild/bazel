@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -59,6 +60,7 @@ public class CcToolchainProviderHelper {
   private static final String PACKAGE_START = "%package(";
   private static final String PACKAGE_END = ")%";
 
+  @Nullable
   public static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext, CcToolchainAttributesProvider attributes)
       throws RuleErrorException, InterruptedException {
@@ -334,6 +336,7 @@ public class CcToolchainProviderHelper {
     return result.build();
   }
 
+  @Nullable
   private static CppModuleMap createCrosstoolModuleMap(CcToolchainAttributesProvider attributes) {
     if (attributes.getModuleMap() == null) {
       return null;

@@ -456,7 +456,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
      * form and as unstructured strings.
      */
     public static class Converter
-        implements com.google.devtools.common.options.Converter<ToolCommandLineEvent> {
+        extends com.google.devtools.common.options.Converter.Contextless<ToolCommandLineEvent> {
 
       @Override
       public ToolCommandLineEvent convert(String input) throws OptionsParsingException {

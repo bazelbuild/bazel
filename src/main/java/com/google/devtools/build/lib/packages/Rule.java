@@ -897,9 +897,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns the license of the output of the binary created by this rule, or
-   * null if it is not specified.
+   * Returns the license of the output of the binary created by this rule, or null if it is not
+   * specified.
    */
+  @Nullable
   public License getToolOutputLicense(AttributeMap attributes) {
     if (isAttrDefined("output_licenses", BuildType.LICENSE)
         && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {

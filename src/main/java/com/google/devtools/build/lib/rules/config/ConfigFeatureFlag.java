@@ -78,6 +78,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
              * necessary to declare whether it is configurable, for this context.
              */
             new ComputedDefault() {
+              @Nullable
               @Override
               public Label getDefault(AttributeMap rule) {
                 return rule.isAttributeValueExplicitlySpecified(attributeToInspect) ? label : null;

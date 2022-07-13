@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -44,6 +45,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -268,9 +270,25 @@ public final class FunctionTransitionUtil {
         // The transition changes a Starlark option.
         Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
-        if ((oldValue == null && optionValue != null)
-            || (oldValue != null && optionValue == null)
-            || (oldValue != null && !oldValue.equals(optionValue))) {
+        if (oldValue instanceof Label) {
+          // If this is a label-typed build setting, we need to convert the provided new value into
+          // a Label object.
+          if (optionValue instanceof String) {
+            try {
+              optionValue =
+                  Label.parseWithPackageContext(
+                      (String) optionValue, starlarkTransition.getPackageContext());
+            } catch (LabelSyntaxException e) {
+              throw ValidationException.format(
+                  "Error parsing value for option '%s': %s", optionKey, e.getMessage());
+            }
+          } else if (!(optionValue instanceof Label)) {
+            throw ValidationException.format(
+                "Invalid value type for option '%s': want label, got %s",
+                optionKey, Starlark.type(optionValue));
+          }
+        }
+        if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);
           convertedAffectedOptions.add(optionLabel.toString());
         }
@@ -308,12 +326,19 @@ public final class FunctionTransitionUtil {
             // of returning either a scalar or list.
             List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
-              convertedValue = def.getDefaultValue();
+              convertedValue = ImmutableList.of();
             } else {
               convertedValue =
                   def.getConverter()
                       .convert(
-                          optionValueAsList.stream().map(Object::toString).collect(joining(",")));
+                          optionValueAsList.stream()
+                              .map(
+                                  element ->
+                                      element instanceof Label
+                                          ? ((Label) element).getUnambiguousCanonicalForm()
+                                          : element.toString())
+                              .collect(joining(",")),
+                          starlarkTransition.getPackageContext());
             }
           } else if (def.getType() == List.class && optionValue == null) {
             throw ValidationException.format(
@@ -325,15 +350,15 @@ public final class FunctionTransitionUtil {
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
             convertedValue = optionValue;
           } else if (optionValue instanceof String) {
-            convertedValue = def.getConverter().convert((String) optionValue);
+            convertedValue =
+                def.getConverter()
+                    .convert((String) optionValue, starlarkTransition.getPackageContext());
           } else {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
           Object oldValue = field.get(fromOptions.get(optionInfo.getOptionClass()));
-          if ((oldValue == null && convertedValue != null)
-              || (oldValue != null && convertedValue == null)
-              || (oldValue != null && !oldValue.equals(convertedValue))) {
+          if (!Objects.equals(oldValue, convertedValue)) {
             if (toOptions == null) {
               toOptions = fromOptions.clone();
             }

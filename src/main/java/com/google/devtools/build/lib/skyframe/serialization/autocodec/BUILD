@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -109,6 +109,7 @@ java_library(
         "//third_party:auto_service",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/java/javapoet",
         "//third_party/protobuf:protobuf_java",
     ],

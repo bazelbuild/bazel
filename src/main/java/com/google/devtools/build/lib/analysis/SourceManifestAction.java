@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -136,6 +138,17 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   public void writeOutputFile(OutputStream out, EventHandler eventHandler) throws IOException {
     writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
+  }
+
+  /**
+   * Get the contents of a file internally using an in memory output stream.
+   *
+   * @return returns the file contents as a string.
+   */
+  public String getFileContentsAsString(EventHandler eventHandler) throws IOException {
+    ByteArrayOutputStream stream = new ByteArrayOutputStream();
+    writeOutputFile(stream, eventHandler);
+    return stream.toString(UTF_8);
   }
 
   @Override

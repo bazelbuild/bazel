@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.collect;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -66,6 +67,7 @@ public final class IterablesChain<T> implements Iterable<T> {
      *
      * <p>If the iterable can not be confirmed to be immutable, a runtime error is thrown.
      */
+    @CanIgnoreReturnValue
     public Builder<T> add(Iterable<? extends T> iterable) {
       CollectionUtils.checkImmutable(iterable);
       if (!Iterables.isEmpty(iterable)) {
@@ -75,6 +77,7 @@ public final class IterablesChain<T> implements Iterable<T> {
     }
 
     /** Adds a single element to the chain. */
+    @CanIgnoreReturnValue
     public Builder<T> addElement(T element) {
       iterables.add(ImmutableList.of(element));
       return this;

@@ -498,7 +498,6 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // The options from above do not get added to the initial command environment,
     // so it has to be recreated here.
-    runtimeWrapper.initializeOptionsParser();
     buildTarget("//foo:foo");
     BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
     assertThat(buildMetrics.getMemoryMetrics().getUsedHeapSizePostBuild()).isGreaterThan(0L);

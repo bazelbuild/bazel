@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -44,8 +44,8 @@ public class ConstantRuleVisibility implements RuleVisibility {
 
   static {
     try {
-      PUBLIC_LABEL = Label.parseAbsolute("//visibility:public", ImmutableMap.of());
-      PRIVATE_LABEL = Label.parseAbsolute("//visibility:private", ImmutableMap.of());
+      PUBLIC_LABEL = Label.parseCanonical("//visibility:public");
+      PRIVATE_LABEL = Label.parseCanonical("//visibility:private");
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -77,6 +77,7 @@ public class ConstantRuleVisibility implements RuleVisibility {
    * @param labels the list of labels to parse
    * @return The resulting visibility object, or null if the list of labels could not be parsed.
    */
+  @Nullable
   public static ConstantRuleVisibility tryParse(List<Label> labels) throws EvalException {
     if (labels.size() == 1) {
       return tryParse(labels.get(0));
@@ -93,6 +94,7 @@ public class ConstantRuleVisibility implements RuleVisibility {
     return null;
   }
 
+  @Nullable
   private static ConstantRuleVisibility tryParse(Label label) {
     if (PUBLIC_LABEL.equals(label)) {
       return PUBLIC;

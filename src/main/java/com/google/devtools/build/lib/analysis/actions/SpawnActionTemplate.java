@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -278,10 +279,10 @@ public final class SpawnActionTemplate extends ActionKeyCacher
       this.spawnActionBuilder = new SpawnAction.Builder();
     }
 
-
     /**
      * Sets the mnemonics for both the {@link SpawnActionTemplate} and expanded {@link SpawnAction}.
      */
+    @CanIgnoreReturnValue
     public Builder setMnemonics(String actionTemplateMnemonic, String expandedActionMnemonic) {
       this.actionTemplateMnemonic = actionTemplateMnemonic;
       spawnActionBuilder.setMnemonic(expandedActionMnemonic);
@@ -292,6 +293,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Adds common tool artifacts. All common tool artifacts will be added as tool artifacts for
      * expanded actions.
      */
+    @CanIgnoreReturnValue
     public Builder addCommonTools(Iterable<Artifact> artifacts) {
       toolsBuilder.addAll(artifacts);
       spawnActionBuilder.addTools(artifacts);
@@ -302,6 +304,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Adds common tool artifacts. All common tool artifacts will be added as input tool artifacts
      * for expanded actions.
      */
+    @CanIgnoreReturnValue
     public Builder addCommonTool(FilesToRunProvider tool) {
       toolsBuilder.addTransitive(tool.getFilesToRun());
       spawnActionBuilder.addTool(tool);
@@ -312,6 +315,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Adds common input artifacts. All common input artifacts will be added as input artifacts for
      * expanded actions.
      */
+    @CanIgnoreReturnValue
     public Builder addCommonInputs(Iterable<Artifact> artifacts) {
       inputsBuilder.addAll(artifacts);
       spawnActionBuilder.addInputs(artifacts);
@@ -322,6 +326,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Adds transitive common input artifacts. All common input artifacts will be added as input
      * artifacts for expanded actions.
      */
+    @CanIgnoreReturnValue
     public Builder addCommonTransitiveInputs(NestedSet<Artifact> artifacts) {
       inputsBuilder.addTransitive(artifacts);
       spawnActionBuilder.addTransitiveInputs(artifacts);
@@ -329,6 +334,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
     }
 
     /** Sets the map of environment variables for expanded actions. */
+    @CanIgnoreReturnValue
     @Deprecated // TODO(ulfjack): Add env variables to the common environment, rather than replacing
     // it wholesale, which ignores --action_env (unless the client code explicitly handles it).
     public Builder setEnvironment(Map<String, String> environment) {
@@ -336,9 +342,8 @@ public final class SpawnActionTemplate extends ActionKeyCacher
       return this;
     }
 
-    /**
-     * Sets the map of execution info for expanded actions.
-     */
+    /** Sets the map of execution info for expanded actions. */
+    @CanIgnoreReturnValue
     public Builder setExecutionInfo(Map<String, String> executionInfo) {
       spawnActionBuilder.setExecutionInfo(executionInfo);
       return this;
@@ -348,9 +353,10 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Sets the executable used by expanded actions as a configured target. Automatically adds the
      * files to run to the tools and uses the executable of the target as the executable.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(Artifact)} and {@link #setExecutable(PathFragment)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link
+     * #setExecutable(Artifact)} and {@link #setExecutable(PathFragment)}.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutable(FilesToRunProvider executableProvider) {
       Preconditions.checkArgument(
           executableProvider.getExecutable() != null, "The target does not have an executable");
@@ -371,6 +377,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * <p>Calling this method overrides any previous values set via calls to {@link
      * #setExecutable(Artifact)} and {@link #setExecutable(FilesToRunProvider)}.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutable(PathFragment executable) {
       spawnActionBuilder.setExecutable(executable);
       this.executable = executable;
@@ -381,9 +388,10 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Sets the executable artifact used by expanded actions. The path is interpreted relative to
      * the execution root.
      *
-     * <p>Calling this method overrides any previous values set via calls to
-     * {@link #setExecutable(FilesToRunProvider)} and {@link #setExecutable(PathFragment)}.
+     * <p>Calling this method overrides any previous values set via calls to {@link
+     * #setExecutable(FilesToRunProvider)} and {@link #setExecutable(PathFragment)}.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutable(Artifact artifact) {
       spawnActionBuilder.setExecutable(artifact);
       addCommonTools(ImmutableList.of(artifact));
@@ -391,9 +399,8 @@ public final class SpawnActionTemplate extends ActionKeyCacher
       return this;
     }
 
-    /**
-     * Sets the command line template used to expand actions.
-     */
+    /** Sets the command line template used to expand actions. */
+    @CanIgnoreReturnValue
     public Builder setCommandLineTemplate(CustomCommandLine commandLineTemplate) {
       this.commandLineTemplate = commandLineTemplate;
       return this;
@@ -403,6 +410,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * Sets the {@link OutputPathMapper} object used to get the parent-relative paths of output
      * {@link TreeFileArtifact}.
      */
+    @CanIgnoreReturnValue
     public Builder setOutputPathMapper(OutputPathMapper outputPathMapper) {
       this.outputPathMapper = outputPathMapper;
       return this;

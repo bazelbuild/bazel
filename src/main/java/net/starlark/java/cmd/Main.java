@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -61,6 +62,7 @@ class Main {
   }
 
   // Prompts the user for a chunk of input, and returns it.
+  @Nullable
   private static String prompt() {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);

@@ -384,6 +384,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
     return indexOf(key) != -1;
   }
 
+  @Nullable
   @SuppressWarnings("unchecked") // values only contains Vs
   @Override
   public V get(@Nullable Object key) {

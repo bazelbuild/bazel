@@ -720,6 +720,7 @@ final class AspectFunction implements SkyFunction {
         transitivePackagesForPackageRootResolution);
   }
 
+  @Nullable
   private static AspectValue createAliasAspect(
       Environment env,
       Target originalTarget,

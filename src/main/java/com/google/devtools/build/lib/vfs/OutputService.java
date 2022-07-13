@@ -62,10 +62,21 @@ public interface OutputService {
      * The action file system implementation is fully featured in-memory file system implementation
      * and takes full control of the output base, as used by Blaze.
      */
-    IN_MEMORY_FILE_SYSTEM;
+    IN_MEMORY_FILE_SYSTEM,
+
+    /**
+     * The action file system implementation mixes in-memory and local file system. It uses
+     * in-memory filesystem for in-process and remote actions but is also aware of outputs from
+     * local actions. It's able to stage remote outputs accessed as inputs by local actions.
+     */
+    IN_MEMORY_FILE_SYSTEM_AND_STAGE_REMOTE_FILES;
 
     public boolean inMemoryFileSystem() {
-      return this == IN_MEMORY_FILE_SYSTEM;
+      return this == IN_MEMORY_FILE_SYSTEM || this == IN_MEMORY_FILE_SYSTEM_AND_STAGE_REMOTE_FILES;
+    }
+
+    public boolean supportLocalActions() {
+      return this != IN_MEMORY_FILE_SYSTEM;
     }
 
     public boolean isEnabled() {
@@ -146,7 +157,9 @@ public interface OutputService {
   }
 
   /**
-   * @param sourceDelegate filesystem for reading source files (excludes output files)
+   * Returns an action-scoped filesystem if {@link #actionFileSystemType} is enabled.
+   *
+   * @param delegateFileSystem the actual underlying filesystem
    * @param execRootFragment absolute path fragment pointing to the execution root
    * @param relativeOutputPath execution root relative path to output
    * @param sourceRoots list of directories on the package path (from {@link
@@ -154,11 +167,10 @@ public interface OutputService {
    * @param inputArtifactData information about required inputs to the action
    * @param outputArtifacts required outputs of the action
    * @param rewindingEnabled whether to track failed remote reads to enable action rewinding
-   * @return an action-scoped filesystem if {@link #supportsActionFileSystem} is not {@code NONE}
    */
   @Nullable
   default FileSystem createActionFileSystem(
-      FileSystem sourceDelegate,
+      FileSystem delegateFileSystem,
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,

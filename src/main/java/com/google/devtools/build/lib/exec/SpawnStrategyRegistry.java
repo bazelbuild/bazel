@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -249,18 +250,21 @@ public final class SpawnStrategyRegistry
    */
   public static final class Builder {
 
-    private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
-    // TODO(schmitt): Using a list and autovalue so as to be able to reverse order while legacy sort
-    //  is supported. Can be converted to same as mnemonics once legacy behavior is removed.
-    private final List<FilterAndIdentifiers> filterAndIdentifiers = new ArrayList<>();
     private final HashMap<String, SpawnStrategy> identifierToStrategy = new HashMap<>();
     private final ArrayList<SpawnStrategy> strategiesInRegistrationOrder = new ArrayList<>();
 
+    private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
+
+    // TODO(schmitt): Using a list and autovalue so as to be able to reverse order while legacy sort
+    //  is supported. Can be converted to same as mnemonics once legacy behavior is removed.
+    private final List<FilterAndIdentifiers> filterAndIdentifiers = new ArrayList<>();
     // Using List values here rather than multimaps as there is no need for the latter's
     // functionality: The values are always replaced as a whole, no adding/creation required.
     private final HashMap<String, List<String>> mnemonicToIdentifiers = new HashMap<>();
-    private final HashMap<String, List<String>> mnemonicToRemoteIdentifiers = new HashMap<>();
-    private final HashMap<String, List<String>> mnemonicToLocalIdentifiers = new HashMap<>();
+    private final HashMap<String, List<String>> mnemonicToRemoteDynamicIdentifiers =
+        new HashMap<>();
+    private final HashMap<String, List<String>> mnemonicToLocalDynamicIdentifiers = new HashMap<>();
+
     @Nullable private String remoteLocalFallbackStrategyIdentifier;
 
     /**
@@ -272,6 +276,7 @@ public final class SpawnStrategyRegistry
      * <p>If multiple filters match the same spawn (including an identical filter) the order of last
      * applicable filter registered by this method will be used.
      */
+    @CanIgnoreReturnValue
     public Builder addDescriptionFilter(RegexFilter filter, List<String> identifiers) {
       filterAndIdentifiers.add(
           new AutoValue_SpawnStrategyRegistry_FilterAndIdentifiers(
@@ -290,6 +295,7 @@ public final class SpawnStrategyRegistry
      * filter} that filter will take precedence over any mnemonic-based filters.
      */
     // last one wins
+    @CanIgnoreReturnValue
     public Builder addMnemonicFilter(String mnemonic, List<String> identifiers) {
       mnemonicToIdentifiers.put(mnemonic, identifiers);
       return this;
@@ -302,18 +308,15 @@ public final class SpawnStrategyRegistry
      * <p>If multiple strategies are registered with the same command-line identifier the last one
      * so registered will take precedence.
      */
-    public Builder registerStrategy(SpawnStrategy strategy, List<String> commandlineIdentifiers) {
+    @CanIgnoreReturnValue
+    public Builder registerStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
       Preconditions.checkArgument(
-          commandlineIdentifiers.size() >= 1, "At least one commandLineIdentifier must be given");
+          commandlineIdentifiers.length >= 1, "At least one commandLineIdentifier must be given");
       for (String identifier : commandlineIdentifiers) {
         identifierToStrategy.put(identifier, strategy);
       }
       strategiesInRegistrationOrder.add(strategy);
       return this;
-    }
-
-    public Builder registerStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
-      return registerStrategy(strategy, ImmutableList.copyOf(commandlineIdentifiers));
     }
 
     /**
@@ -323,6 +326,7 @@ public final class SpawnStrategyRegistry
      * considered default strategies, in registration order. See also the {@linkplain Builder class
      * documentation}.
      */
+    @CanIgnoreReturnValue
     public Builder setDefaultStrategies(List<String> defaultStrategies) {
       // Ensure there are actual strategies and the contents are not empty.
       Preconditions.checkArgument(!defaultStrategies.isEmpty());
@@ -336,6 +340,7 @@ public final class SpawnStrategyRegistry
      * Reset the default strategies (see {@link #setDefaultStrategies}) to the reverse of the order
      * they were registered in.
      */
+    @CanIgnoreReturnValue
     public Builder resetDefaultStrategies() {
       this.explicitDefaultStrategies = ImmutableList.of();
       return this;
@@ -349,8 +354,9 @@ public final class SpawnStrategyRegistry
      * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
      * list that says so will get the job.
      */
+    @CanIgnoreReturnValue
     public Builder addDynamicRemoteStrategies(Map<String, List<String>> strategies) {
-      mnemonicToRemoteIdentifiers.putAll(strategies);
+      mnemonicToRemoteDynamicIdentifiers.putAll(strategies);
       return this;
     }
 
@@ -362,8 +368,9 @@ public final class SpawnStrategyRegistry
      * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
      * list that says so will get the job.
      */
+    @CanIgnoreReturnValue
     public Builder addDynamicLocalStrategies(Map<String, List<String>> strategies) {
-      mnemonicToLocalIdentifiers.putAll(strategies);
+      mnemonicToLocalDynamicIdentifiers.putAll(strategies);
       return this;
     }
 
@@ -376,6 +383,7 @@ public final class SpawnStrategyRegistry
      * value <b>is</b> provided it must match the commandline identifier of a registered strategy
      * (at {@linkplain #build build} time).
      */
+    @CanIgnoreReturnValue
     public Builder setRemoteLocalFallbackStrategyIdentifier(String commandlineIdentifier) {
       this.remoteLocalFallbackStrategyIdentifier = commandlineIdentifier;
       return this;
@@ -408,7 +416,7 @@ public final class SpawnStrategyRegistry
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToLocalStrategies =
           new ImmutableListMultimap.Builder<>();
-      for (Map.Entry<String, List<String>> entry : mnemonicToLocalIdentifiers.entrySet()) {
+      for (Map.Entry<String, List<String>> entry : mnemonicToLocalDynamicIdentifiers.entrySet()) {
         mnemonicToLocalStrategies.putAll(
             entry.getKey(),
             toSandboxedStrategies(entry.getValue(), "local mnemonic " + entry.getKey()));
@@ -416,7 +424,7 @@ public final class SpawnStrategyRegistry
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToRemoteStrategies =
           new ImmutableListMultimap.Builder<>();
-      for (Map.Entry<String, List<String>> entry : mnemonicToRemoteIdentifiers.entrySet()) {
+      for (Map.Entry<String, List<String>> entry : mnemonicToRemoteDynamicIdentifiers.entrySet()) {
         mnemonicToRemoteStrategies.putAll(
             entry.getKey(),
             toSandboxedStrategies(entry.getValue(), "remote mnemonic " + entry.getKey()));
