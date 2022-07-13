@@ -302,6 +302,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
       unloadedToolchainContexts = result.toolchainCollection;
       execGroupCollectionBuilder = result.execGroupCollectionBuilder;
+      PlatformInfo platformInfo =
+          unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
       ConfigConditions configConditions =
@@ -309,9 +311,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               env,
               targetAndConfiguration,
               state.transitivePackagesForPackageRootResolution,
-              unloadedToolchainContexts == null
-                  ? null
-                  : unloadedToolchainContexts.getTargetPlatform(),
+              platformInfo,
               state.transitiveRootCauses);
       if (env.valuesMissing()) {
         return null;
@@ -341,7 +341,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               targetAndConfiguration,
               configConditions,
               env,
-              unloadedToolchainContexts,
+              platformInfo,
               state.transitivePackagesForPackageRootResolution);
       if (env.valuesMissing()) {
         Preconditions.checkState(incompatibleTarget == null);
@@ -388,7 +388,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               targetAndConfiguration,
               depValueMap,
               configConditions,
-              unloadedToolchainContexts,
+              platformInfo,
               state.transitivePackagesForPackageRootResolution);
       if (incompatibleTarget != null) {
         return incompatibleTarget;

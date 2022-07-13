@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -99,13 +98,11 @@ public class IncompatibleDeterminingHelper {
       TargetAndConfiguration targetAndConfiguration,
       ConfigConditions configConditions,
       Environment env,
-      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts,
+      PlatformInfo platformInfo,
       NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws InterruptedException {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
-    PlatformInfo platformInfo =
-        unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
     if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
       return null;
@@ -131,7 +128,6 @@ public class IncompatibleDeterminingHelper {
                         .build()
                         .getConfiguredTargetKey())
             .collect(toImmutableList());
-
     SkyframeLookupResult constraintValues = env.getValuesAndExceptions(constraintKeys);
     if (env.valuesMissing()) {
       return null;
@@ -172,7 +168,7 @@ public class IncompatibleDeterminingHelper {
       TargetAndConfiguration targetAndConfiguration,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
-      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts,
+      PlatformInfo platformInfo,
       NestedSetBuilder<Package> transitivePackagesForPackageRootResolution) {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
@@ -193,8 +189,6 @@ public class IncompatibleDeterminingHelper {
     }
 
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
-    PlatformInfo platformInfo =
-        unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
     Label platformLabel = platformInfo != null ? platformInfo.label() : null;
     return createIncompatibleRuleConfiguredTarget(
         target,
