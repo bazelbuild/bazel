@@ -307,3 +307,11 @@ tasks:
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
     index_upload_policy: Always
     index_upload_gcs: False
+  docs_ubuntu1804:
+    platform: ubuntu1804
+    name: "Docs"
+    build_flags:
+      - "--config=docs"
+    build_targets:
+      - "//scripts/docs:gen_release_docs"
+      - "//src/main/java/com/google/devtools/build/lib:gen_reference_docs"
