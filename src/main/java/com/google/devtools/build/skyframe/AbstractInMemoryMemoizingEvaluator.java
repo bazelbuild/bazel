@@ -21,7 +21,7 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -38,8 +38,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final Set<Entry<SkyKey, InMemoryNodeEntry>> getGraphEntries() {
-    return inMemoryGraph().getAllValuesMutable().entrySet();
+  public final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
+    return inMemoryGraph().getAllValuesMutable();
   }
 
   @Override

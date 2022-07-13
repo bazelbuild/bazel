@@ -203,6 +203,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
@@ -222,13 +223,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
@@ -251,6 +252,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final int PARALLELISM_THRESHOLD = 1024;
 
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
@@ -1021,13 +1023,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * <p>{@code discardType} can be used to specify which data to discard.
    */
   protected void discardPreExecutionCache(
-      Collection<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<ConfiguredTarget> topLevelTargets,
       ImmutableSet<AspectKey> topLevelAspects,
       DiscardType discardType) {
-    if (discardType.discardsAnalysis()) {
-      topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
-      topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
-    }
     // This is to prevent throwing away Packages we may need during execution.
     ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
     if (discardType.discardsLoading()) {
@@ -1041,22 +1039,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     try (SilentCloseable p = trackDiscardAnalysisCache()) {
       lastAnalysisDiscarded = true;
-      Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
-          memoizingEvaluator.getGraphEntries().iterator();
-      while (it.hasNext()) {
-        Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
-        NodeEntry entry = keyAndEntry.getValue();
-        if (entry == null || !entry.isDone()) {
-          continue;
-        }
-        SkyKey key = keyAndEntry.getKey();
-        boolean removeNode =
-            processDiscardAndDetermineRemoval(
-                key, entry, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
-        if (removeNode) {
-          it.remove();
-        }
-      }
+      ConcurrentHashMap<SkyKey, InMemoryNodeEntry> mutableNodeMap =
+          memoizingEvaluator.getAllValuesMutable();
+      mutableNodeMap.forEach(
+          PARALLELISM_THRESHOLD,
+          (k, e) -> {
+            if (e == null || !e.isDone()) {
+              return;
+            }
+            boolean removeNode =
+                processDiscardAndDetermineRemoval(
+                    k, e, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
+            if (removeNode) {
+              mutableNodeMap.remove(k);
+            }
+          });
     }
   }
 
@@ -1133,13 +1130,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   // VisibleForTesting but open-source annotation doesn't have productionVisibility option.
   public final void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     this.analysisCacheCleared = true;
     clearAnalysisCacheImpl(topLevelTargets, topLevelAspects);
   }
 
   protected abstract void clearAnalysisCacheImpl(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 
