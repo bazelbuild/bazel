@@ -64,10 +64,36 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
 
+/**
+ * Helpers for creating configured targets that are incompatible.
+ *
+ * A target is considered incompatible if any of the following applies:
+ * <ol>
+ *   <li>The target's <code>target_compatible_with</code> attribute specifies a constraint that is
+ *       not present in the target platform.
+ *   <li>One or more of the target's dependencies is incompatible.
+ * </ol>
+ *
+ * The intent of these helpers is that they get called as early in the analysis phase as possible.
+ * Doing this as early as possible allows us to skip analysing unused dependencies and ignore unused
+ * toolchains.
+ *
+ * See https://bazel.build/docs/platforms#skipping-incompatible-targets for more information on
+ * incompatible target skipping.
+ */
 public class IncompatibleDeterminingHelper {
-  // Check if the specified target is directly incompatible. In other words, check if it's
-  // incompatible because of its "target_compatible_with" value.
-  // TODO(phil): Document everything.
+  /**
+   * Creates an incompatible configured target if it is "directly incompatible".
+   *
+   * In other words, this function checks if a target is incompatible because of its
+   * "target_compatible_with" attribute.
+   *
+   * After this function returns, the caller must immediatly check if "env.valuesMissing()" returns
+   * true. If that check succeeds, the return value of this function is guaranteed to be null. The
+   * caller must request a skyframe restart. If the check fails, then the return value is either
+   * null or an incompatible configured target. If null is returned, the target is not directly
+   * incompatible and analysis of this target should proceed.
+   */
   @Nullable
   public static RuleConfiguredTargetValue createDirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
@@ -132,9 +158,15 @@ public class IncompatibleDeterminingHelper {
             transitivePackagesForPackageRootResolution);
   }
 
-  // Check if any dependencies are incompatible. If any are, then this target is also
-  // incompatible.
-  // TODO(phil): Document everything.
+  /**
+   * Creates an incompatible target if it is "indirectly incompatible".
+   *
+   * In other words, this function checks if a target is incompatible because of one of its
+   * dependencies. If a dependency is incompatible, then this target is also incompatible.
+   *
+   * This function returns either null or an incompatible configured target. If null is returned,
+   * the target is not indirectly incompatible and analysis of this target should proceed.
+   */
   @Nullable
   public static RuleConfiguredTargetValue createIndirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
@@ -149,6 +181,7 @@ public class IncompatibleDeterminingHelper {
       return null;
     }
 
+    // Find all the incompatible dependencies.
     ImmutableList<ConfiguredTarget> incompatibleDeps =
         depValueMap.values().stream()
             .map(ConfiguredTargetAndData::getConfiguredTarget)
@@ -172,6 +205,9 @@ public class IncompatibleDeterminingHelper {
         transitivePackagesForPackageRootResolution);
   }
 
+  /**
+   * Creates an incompatible target.
+   */
   private static RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
       Target target,
       BuildConfigurationValue configuration,
@@ -179,6 +215,8 @@ public class IncompatibleDeterminingHelper {
       IncompatiblePlatformProvider incompatiblePlatformProvider,
       String ruleClassString,
       NestedSetBuilder<Package> transitivePackagesForPackageRootResolution) {
+    // Create dummy instances of the necessary data for a configured target. None of this data will
+    // actually be used because actions associated with incompatible targets must not be evaluated.
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     FileProvider fileProvider = new FileProvider(filesToBuild);
     FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
