@@ -2180,8 +2180,8 @@ java_library(
 )
 
 java_library(
-    name = "constraints/rule_constraint_semantics",
-    srcs = ["constraints/RuleConstraintSemantics.java"],
+    name = "constraints/incompatible_determining_helper",
+    srcs = ["constraints/IncompatibleDeterminingHelper.java"],
     deps = [
         ":analysis_cluster",
         ":file_provider",

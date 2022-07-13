@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -64,25 +63,12 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import javax.annotation.Nullable;
 
-public class RuleConstraintSemantics {
-  @AutoValue
-  public abstract static class IncompatibleTargetCreationResult {
-    private static IncompatibleTargetCreationResult create(
-        boolean needsMoreConfiguredTargets, RuleConfiguredTargetValue incompatibleTarget) {
-      return new AutoValue_RuleConstraintSemantics_IncompatibleTargetCreationResult(
-          needsMoreConfiguredTargets, incompatibleTarget);
-    }
-
-    public abstract boolean needsMoreConfiguredTargets();
-
-    @Nullable
-    public abstract RuleConfiguredTargetValue incompatibleTarget();
-  }
-
+public class IncompatibleDeterminingHelper {
   // Check if the specified target is directly incompatible. In other words, check if it's
   // incompatible because of its "target_compatible_with" value.
   // TODO(phil): Document everything.
-  public static IncompatibleTargetCreationResult createDirectlyIncompatibleTarget(
+  @Nullable
+  public static RuleConfiguredTargetValue createDirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
       ConfigConditions configConditions,
       Environment env,
@@ -95,7 +81,7 @@ public class RuleConstraintSemantics {
         unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
     if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
-      return IncompatibleTargetCreationResult.create(false, null);
+      return null;
     }
 
     // Retrieve the label list for the target_compatible_with attribute.
@@ -103,7 +89,7 @@ public class RuleConstraintSemantics {
     ConfiguredAttributeMapper attrs =
         ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
     if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-      return IncompatibleTargetCreationResult.create(false, null);
+      return null;
     }
 
     // Resolve the constraint labels.
@@ -121,7 +107,7 @@ public class RuleConstraintSemantics {
 
     SkyframeLookupResult constraintValues = env.getValuesAndExceptions(constraintKeys);
     if (env.valuesMissing()) {
-      return IncompatibleTargetCreationResult.create(true, null);
+      return null;
     }
 
     // Find the constraints that don't satisfy the target platform.
@@ -132,19 +118,17 @@ public class RuleConstraintSemantics {
             .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
             .collect(toImmutableList());
     if (invalidConstraintValues.isEmpty()) {
-      return IncompatibleTargetCreationResult.create(false, null);
+      return null;
     }
 
-    return IncompatibleTargetCreationResult.create(
-        false,
-        createIncompatibleRuleConfiguredTarget(
+    return createIncompatibleRuleConfiguredTarget(
             target,
             configuration,
             configConditions,
             IncompatiblePlatformProvider.incompatibleDueToConstraints(
                 platformInfo.label(), invalidConstraintValues),
             rule.getRuleClass(),
-            transitivePackagesForPackageRootResolution));
+            transitivePackagesForPackageRootResolution);
   }
 
   // Check if any dependencies are incompatible. If any are, then this target is also

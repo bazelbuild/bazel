@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.constraints.RuleConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleDeterminingHelper;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -336,17 +336,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      RuleConstraintSemantics.IncompatibleTargetCreationResult incompatibleTargetCreationResult =
-          RuleConstraintSemantics.createDirectlyIncompatibleTarget(
+      RuleConfiguredTargetValue incompatibleTarget =
+          IncompatibleDeterminingHelper.createDirectlyIncompatibleTarget(
               targetAndConfiguration,
               configConditions,
               env,
               unloadedToolchainContexts,
               state.transitivePackagesForPackageRootResolution);
-      if (incompatibleTargetCreationResult.needsMoreConfiguredTargets()) {
+      if (env.valuesMissing()) {
+        Preconditions.checkState(incompatibleTarget == null);
         return null;
-      } else if (incompatibleTargetCreationResult.incompatibleTarget() != null) {
-        return incompatibleTargetCreationResult.incompatibleTarget();
+      }
+      if (incompatibleTarget != null) {
+        return incompatibleTarget;
       }
 
       // Calculate the dependencies of this target.
@@ -381,8 +383,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
       Preconditions.checkNotNull(depValueMap);
 
-      RuleConfiguredTargetValue incompatibleTarget =
-          RuleConstraintSemantics.createIndirectlyIncompatibleTarget(
+      incompatibleTarget =
+          IncompatibleDeterminingHelper.createIndirectlyIncompatibleTarget(
               targetAndConfiguration,
               depValueMap,
               configConditions,
