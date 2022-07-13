@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -94,7 +95,7 @@ public class IncompatibleDeterminingHelper {
 
     // Resolve the constraint labels.
     List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
-    ImmutableList<SkyKey> constraintKeys =
+    ImmutableList<ConfiguredTargetKey> constraintKeys =
         labels.stream()
             .map(
                 label ->
