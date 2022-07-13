@@ -12,7 +12,7 @@ java_binary(
         "TableOfContentsOptions.java",
         "TableOfContentsUpdater.java",
     ],
-    main_class = "com.google.devtools.build.docgen.TableOfContentsUpdater",
+    main_class = "com.google.devtools.build.docgen.release.TableOfContentsUpdater",
     visibility = ["//scripts/docs:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
