@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
@@ -305,6 +306,10 @@ public final class SkyframeActionExecutor {
 
   Path getExecRoot() {
     return executorEngine.getExecRoot();
+  }
+
+  ActionContextRegistry getActionContextRegistry() {
+    return executorEngine;
   }
 
   boolean useArchivedTreeArtifacts(ActionAnalysisMetadata action) {

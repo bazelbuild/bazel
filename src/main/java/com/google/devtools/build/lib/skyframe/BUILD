@@ -86,6 +86,7 @@ java_library(
         ":action_environment_function",
         ":action_execution_state",
         ":action_execution_value",
+        ":action_input_collected_event",
         ":action_input_map_helper",
         ":action_lookup_conflict_finding_value",
         ":action_metadata_handler",
@@ -2876,5 +2877,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "action_input_collected_event",
+    srcs = ["ActionInputCollectedEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:auto_value",
     ],
 )
