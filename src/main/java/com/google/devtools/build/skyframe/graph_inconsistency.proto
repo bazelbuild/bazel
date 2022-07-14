@@ -24,7 +24,10 @@ enum Inconsistency {
   // printed, we add a dummy enum at position 0.
   IMPOSSIBLE_NO_INCONSISTENCY_TO_MAKE_OTHER_VALUES_NONZERO = 0;
   RESET_REQUESTED = 1;
-  DIRTY_PARENT_HAD_MISSING_CHILD = 2;
+  // Deprecated: children should never be missing. A missing child is not
+  // tolerated and results in a crash, so this inconsistency will not appear in
+  // InconsistencyStats.
+  DIRTY_PARENT_HAD_MISSING_CHILD = 2 [deprecated = true];
   PARENT_FORCE_REBUILD_OF_CHILD = 3;
   // Deprecated: children requested for rewinding should be created if absent.
   // A missing child is not tolerated and results in a crash, so this
