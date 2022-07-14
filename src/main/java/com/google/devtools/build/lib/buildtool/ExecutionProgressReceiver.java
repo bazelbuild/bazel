@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -40,7 +39,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.text.NumberFormat;
-import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,9 +61,6 @@ public final class ExecutionProgressReceiver
             return numberFormat;
           });
 
-  // Must be thread-safe!
-  private final Set<ConfiguredTargetKey> builtTargets;
-  private final Set<AspectKey> builtAspects;
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
@@ -79,13 +74,8 @@ public final class ExecutionProgressReceiver
    * permitted while this receiver is active.
    */
   ExecutionProgressReceiver(
-      Set<ConfiguredTargetKey> builtTargets,
-      Set<AspectKey> builtAspects,
       int exclusiveTestsCount,
       EventBus eventBus) {
-    // TODO(b/227138583) Remove these.
-    this.builtTargets = Collections.synchronizedSet(builtTargets);
-    this.builtAspects = Collections.synchronizedSet(builtAspects);
     this.exclusiveTestsCount = exclusiveTestsCount;
     this.eventBus = eventBus;
   }
@@ -138,8 +128,6 @@ public final class ExecutionProgressReceiver
       ConfiguredTargetKey configuredTargetKey =
           ((TargetCompletionValue.TargetCompletionKey) skyKey).actionLookupKey();
       eventBus.post(TopLevelTargetBuiltEvent.create(configuredTargetKey));
-      // TODO(b/227138583) Remove this.
-      builtTargets.add(configuredTargetKey);
       return;
     }
 
@@ -147,8 +135,6 @@ public final class ExecutionProgressReceiver
       AspectKeyCreator.AspectKey aspectKey =
           ((AspectCompletionValue.AspectCompletionKey) skyKey).actionLookupKey();
       eventBus.post(AspectBuiltEvent.create(aspectKey));
-      // TODO(b/227138583) Remove this.
-      builtAspects.add(aspectKey);
       return;
     }
 

@@ -107,7 +107,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -248,8 +247,7 @@ public class ExecutionTool {
    * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
    * tests for these setup steps.
    */
-  public void prepareForExecution(
-      UUID buildId, Set<ConfiguredTargetKey> builtTargets, Set<AspectKey> builtAspects)
+  public void prepareForExecution(UUID buildId)
       throws AbruptExitException, BuildFailedException, InterruptedException {
     init();
     BuildRequestOptions options = request.getBuildOptions();
@@ -330,9 +328,7 @@ public class ExecutionTool {
           env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
     }
 
-    env.getEventBus()
-        .register(
-            new ExecutionProgressReceiverSetup(skyframeExecutor, env, builtTargets, builtAspects));
+    env.getEventBus().register(new ExecutionProgressReceiverSetup(skyframeExecutor, env));
     // TODO(leba): Add watchdog support.
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
@@ -363,8 +359,7 @@ public class ExecutionTool {
       AnalysisResult analysisResult,
       BuildResult buildResult,
       PackageRoots packageRoots,
-      TopLevelArtifactContext topLevelArtifactContext,
-      boolean useEventBasedBuildCompletionStatus)
+      TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
     prepare(packageRoots);
@@ -422,10 +417,6 @@ public class ExecutionTool {
         installExplanationHandler(
             request.getBuildOptions().explanationPath, request.getOptionsDescription());
 
-    // TODO(b/227138583): Remove these.
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
-
     if (request.isRunningInEmacs()) {
       // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
       request
@@ -474,8 +465,6 @@ public class ExecutionTool {
           analysisResult.getTargetsToSkip(),
           analysisResult.getAspectsMap().keySet(),
           executor,
-          builtTargets,
-          builtAspects,
           request,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
           topLevelArtifactContext,
@@ -509,16 +498,14 @@ public class ExecutionTool {
         saveActionCache(actionCache);
       }
 
-      if (useEventBasedBuildCompletionStatus) {
-        builtTargets = env.getBuildResultListener().getBuiltTargets();
-        builtAspects = env.getBuildResultListener().getBuiltAspects();
-      }
-
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
-            determineSuccessfulTargets(configuredTargets, builtTargets));
+            determineSuccessfulTargets(
+                configuredTargets, env.getBuildResultListener().getBuiltTargets()));
         buildResult.setSuccessfulAspects(
-            determineSuccessfulAspects(analysisResult.getAspectsMap().keySet(), builtAspects));
+            determineSuccessfulAspects(
+                analysisResult.getAspectsMap().keySet(),
+                env.getBuildResultListener().getBuiltAspects()));
         buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(
@@ -989,20 +976,11 @@ public class ExecutionTool {
   private static class ExecutionProgressReceiverSetup {
     private final SkyframeExecutor skyframeExecutor;
     private final CommandEnvironment env;
-    private final Set<ConfiguredTargetKey> builtTargets;
-    private final Set<AspectKey> builtAspects;
     private final AtomicBoolean activated = new AtomicBoolean(false);
 
-    ExecutionProgressReceiverSetup(
-        SkyframeExecutor skyframeExecutor,
-        CommandEnvironment env,
-        Set<ConfiguredTargetKey> builtTargets,
-        Set<AspectKey> builtAspects) {
+    ExecutionProgressReceiverSetup(SkyframeExecutor skyframeExecutor, CommandEnvironment env) {
       this.skyframeExecutor = skyframeExecutor;
       this.env = env;
-      // TODO(b/227138583) Remove these.
-      this.builtTargets = builtTargets;
-      this.builtAspects = builtAspects;
     }
 
     @Subscribe
@@ -1014,8 +992,6 @@ public class ExecutionTool {
         // TODO(leba): count test actions
         ExecutionProgressReceiver executionProgressReceiver =
             new ExecutionProgressReceiver(
-                Preconditions.checkNotNull(builtTargets),
-                Preconditions.checkNotNull(builtAspects),
                 /*exclusiveTestsCount=*/ 0,
                 env.getEventBus());
         env.getEventBus()

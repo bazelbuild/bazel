@@ -532,6 +532,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean incompatibleDisableManagedDirectories;
+
+    @Option(
+        name = "experimental_use_event_based_build_completion_status",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+        help = "No-op")
+    public boolean useEventBasedBuildCompletionStatus;
   }
 
   @Override
