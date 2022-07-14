@@ -1354,4 +1354,61 @@ EOF
   expect_log "START.*: \[.*\] Executing genrule //a:dep"
 }
 
+function test_remote_download_regex() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+java_library(
+    name = "lib",
+    srcs = ["Library.java"],
+)
+java_test(
+    name = "test",
+    srcs = ["JavaTest.java"],
+    test_class = "JavaTest",
+    deps = [":lib"],
+)
+EOF
+
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+
+  cat > a/JavaTest.java <<'EOF'
+import org.junit.Assert;
+import org.junit.Test;
+public class JavaTest {
+    @Test
+    public void test() { Assert.assertTrue(Library.TEST); }
+}
+EOF
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:test >& $TEST_log || fail "Failed to build"
+
+  [[ ! -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar shouldn't exist"
+  [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
+
+  bazel clean && bazel test \
+        --remote_executor=grpc://localhost:${worker_port} \
+        --remote_download_minimal \
+        --experimental_remote_download_regex=".*" \
+        //a:test >& $TEST_log || fail "Failed to build"
+
+  [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
+  [[ -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps file does not exist!"
+
+  bazel clean && bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --experimental_remote_download_regex=".*jar$" \
+    //a:test >& $TEST_log || fail "Failed to build"
+
+  [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
+  [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
+}
+
 run_suite "Build without the Bytes tests"

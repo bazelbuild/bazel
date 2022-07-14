@@ -203,6 +203,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
@@ -222,13 +223,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
@@ -251,6 +252,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  */
 public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final int PARALLELISM_THRESHOLD = 1024;
 
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
@@ -1021,13 +1023,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * <p>{@code discardType} can be used to specify which data to discard.
    */
   protected void discardPreExecutionCache(
-      Collection<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<ConfiguredTarget> topLevelTargets,
       ImmutableSet<AspectKey> topLevelAspects,
       DiscardType discardType) {
-    if (discardType.discardsAnalysis()) {
-      topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
-      topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
-    }
     // This is to prevent throwing away Packages we may need during execution.
     ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
     if (discardType.discardsLoading()) {
@@ -1041,66 +1039,79 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     try (SilentCloseable p = trackDiscardAnalysisCache()) {
       lastAnalysisDiscarded = true;
-      Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
-          memoizingEvaluator.getGraphEntries().iterator();
-      while (it.hasNext()) {
-        Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
-        NodeEntry entry = keyAndEntry.getValue();
-        if (entry == null || !entry.isDone()) {
-          continue;
+      ConcurrentHashMap<SkyKey, InMemoryNodeEntry> mutableNodeMap =
+          memoizingEvaluator.getAllValuesMutable();
+      mutableNodeMap.forEach(
+          PARALLELISM_THRESHOLD,
+          (k, e) -> {
+            if (e == null || !e.isDone()) {
+              return;
+            }
+            boolean removeNode =
+                processDiscardAndDetermineRemoval(
+                    k, e, discardType, topLevelPackages, topLevelTargets, topLevelAspects);
+            if (removeNode) {
+              mutableNodeMap.remove(k);
+            }
+          });
+    }
+  }
+
+  /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
+  @ForOverride
+  protected boolean processDiscardAndDetermineRemoval(
+      SkyKey key,
+      NodeEntry entry,
+      DiscardType discardType,
+      ImmutableSet<PackageIdentifier> topLevelPackages,
+      Collection<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<AspectKey> topLevelAspects) {
+    SkyFunctionName functionName = key.functionName();
+    if (discardType.discardsLoading()) {
+      // Keep packages for top-level targets and aspects in memory to get the target from later.
+      if (functionName.equals(SkyFunctions.PACKAGE) && topLevelPackages.contains(key.argument())) {
+        return false;
+      }
+      if (LOADING_TYPES.contains(functionName)) {
+        return true;
+      }
+    }
+    if (discardType.discardsAnalysis()) {
+      if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+        ConfiguredTargetValue ctValue;
+        try {
+          ctValue = (ConfiguredTargetValue) entry.getValue();
+        } catch (InterruptedException e) {
+          throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
         }
-        SkyKey key = keyAndEntry.getKey();
-        SkyFunctionName functionName = key.functionName();
-        if (discardType.discardsLoading()) {
-          // Keep packages for top-level targets and aspects in memory to get the target from later.
-          if (functionName.equals(SkyFunctions.PACKAGE)
-              && topLevelPackages.contains(key.argument())) {
-            continue;
-          }
-          if (LOADING_TYPES.contains(functionName)) {
-            it.remove();
-            continue;
+        // ctValue may be null if target was not successfully analyzed.
+        if (ctValue != null) {
+          if (!(ctValue instanceof ActionLookupValue)
+              && discardType.discardsLoading()
+              && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+            // If loading nodes are already being removed, removing these nodes doesn't hurt.
+            // Morally we should always be able to remove these, since they're not used for
+            // execution, but it leaves the graph inconsistent, and the --discard_analysis_cache
+            // with --track_incremental_state case isn't worth optimizing for.
+            return true;
+          } else {
+            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
           }
         }
-        if (discardType.discardsAnalysis()) {
-          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-            ConfiguredTargetValue ctValue;
-            try {
-              ctValue = (ConfiguredTargetValue) entry.getValue();
-            } catch (InterruptedException e) {
-              throw new IllegalStateException(
-                  "No interruption in in-memory retrieval: " + entry, e);
-            }
-            // ctValue may be null if target was not successfully analyzed.
-            if (ctValue != null) {
-              if (!(ctValue instanceof ActionLookupValue)
-                  && discardType.discardsLoading()
-                  && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
-                // If loading is already being deleted, deleting these nodes doesn't hurt. Morally
-                // we should always be able to delete these, since they're not used for execution,
-                // but it leaves the graph inconsistent, and the --discard_analysis_cache with
-                // --track_incremental_state case isn't worth optimizing for.
-                it.remove();
-              } else {
-                ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
-              }
-            }
-          } else if (functionName.equals(SkyFunctions.ASPECT)) {
-            AspectValue aspectValue;
-            try {
-              aspectValue = (AspectValue) entry.getValue();
-            } catch (InterruptedException e) {
-              throw new IllegalStateException(
-                  "No interruption in in-memory retrieval: " + entry, e);
-            }
-            // value may be null if target was not successfully analyzed.
-            if (aspectValue != null) {
-              aspectValue.clear(!topLevelAspects.contains(key));
-            }
-          }
+      } else if (functionName.equals(SkyFunctions.ASPECT)) {
+        AspectValue aspectValue;
+        try {
+          aspectValue = (AspectValue) entry.getValue();
+        } catch (InterruptedException e) {
+          throw new IllegalStateException("No interruption in in-memory retrieval: " + entry, e);
+        }
+        // aspectValue may be null if target was not successfully analyzed.
+        if (aspectValue != null) {
+          aspectValue.clear(!topLevelAspects.contains(key));
         }
       }
     }
+    return false;
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
@@ -1119,13 +1130,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   // VisibleForTesting but open-source annotation doesn't have productionVisibility option.
   public final void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     this.analysisCacheCleared = true;
     clearAnalysisCacheImpl(topLevelTargets, topLevelAspects);
   }
 
   protected abstract void clearAnalysisCacheImpl(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 

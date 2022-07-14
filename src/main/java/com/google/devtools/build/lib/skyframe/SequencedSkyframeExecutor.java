@@ -723,7 +723,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void clearAnalysisCacheImpl(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     discardPreExecutionCache(
         topLevelTargets,
         topLevelAspects,

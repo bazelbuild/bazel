@@ -259,6 +259,14 @@ public final class ActionExecutionFunction implements SkyFunction {
                 .actionFileSystemType()
                 .equals(ActionFileSystemType.STAGE_REMOTE_FILES));
 
+    if (!state.actionInputCollectedEventSent) {
+      env.getListener()
+          .post(
+              ActionInputCollectedEvent.create(
+                  action, allInputs, skyframeActionExecutor.getActionContextRegistry()));
+      state.actionInputCollectedEventSent = true;
+    }
+
     if (!state.hasArtifactData()) {
       Iterable<SkyKey> depKeys = getInputDepKeys(allInputs, state);
       SkyframeIterableResult inputDeps = env.getOrderedValuesAndExceptions(depKeys);
@@ -1372,6 +1380,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
     boolean preparedInputDiscovery = false;
+    boolean actionInputCollectedEventSent = false;
 
     /**
      * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid

@@ -317,16 +317,7 @@ public class Package {
       throw new UnsupportedOperationException("Can only access the external package repository"
           + "mappings from the //external package");
     }
-
-    // We are passed a repository name as seen from the main repository, not necessarily
-    // a canonical repository name. So, we first have to find the canonical name for the
-    // repository in question before we can look up the mapping for it.
-    RepositoryName actualRepositoryName =
-        externalPackageRepositoryMappings
-            .getOrDefault(RepositoryName.MAIN, ImmutableMap.of())
-            .getOrDefault(repository.getName(), repository);
-
-    return externalPackageRepositoryMappings.getOrDefault(actualRepositoryName, ImmutableMap.of());
+    return externalPackageRepositoryMappings.getOrDefault(repository, ImmutableMap.of());
   }
 
   /** Get the repository mapping for this package. */
@@ -874,13 +865,14 @@ public class Package {
       PackageSettings helper,
       RootedPath workspacePath,
       String workspaceName,
+      RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            RepositoryMapping.ALWAYS_FALLBACK)
+            mainRepoMapping)
         .setFilename(workspacePath);
   }
 

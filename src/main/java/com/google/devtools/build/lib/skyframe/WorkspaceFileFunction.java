@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -240,21 +241,6 @@ public class WorkspaceFileFunction implements SkyFunction {
     // -- start of historical WorkspaceFileFunction --
     // TODO(adonovan): reorganize and simplify.
 
-    Package.Builder builder =
-        packageFactory.newExternalPackageBuilder(
-            workspaceFile, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
-
-    if (chunks.isEmpty()) {
-      return new WorkspaceFileValue(
-          buildAndReportEvents(builder, env),
-          /* loadedModules = */ ImmutableMap.<String, Module>of(),
-          /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
-          /* bindings = */ ImmutableMap.<String, Object>of(),
-          workspaceFile,
-          /* idx = */ 0, // first fragment
-          /* hasNext = */ false);
-    }
-
     // Get the state at the end of the previous chunk.
     WorkspaceFileValue prevValue = null;
     if (key.getIndex() > 0) {
@@ -268,6 +254,31 @@ public class WorkspaceFileFunction implements SkyFunction {
         return prevValue;
       }
     }
+    RepositoryMapping repoMapping;
+    if (prevValue == null) {
+      repoMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    } else {
+      repoMapping =
+          RepositoryMapping.createAllowingFallback(
+              prevValue
+                  .getRepositoryMapping()
+                  .getOrDefault(RepositoryName.MAIN, ImmutableMap.of()));
+    }
+
+    Package.Builder builder =
+        packageFactory.newExternalPackageBuilder(
+            workspaceFile, ruleClassProvider.getRunfilesPrefix(), repoMapping, starlarkSemantics);
+
+    if (chunks.isEmpty()) {
+      return new WorkspaceFileValue(
+          buildAndReportEvents(builder, env),
+          /* loadedModules = */ ImmutableMap.<String, Module>of(),
+          /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
+          /* bindings = */ ImmutableMap.<String, Object>of(),
+          workspaceFile,
+          /* idx = */ 0, // first fragment
+          /* hasNext = */ false);
+    }
 
     List<StarlarkFile> chunk = chunks.get(key.getIndex());
 
@@ -275,8 +286,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     ImmutableList<Pair<String, Location>> programLoads =
         BzlLoadFunction.getLoadsFromStarlarkFiles(chunk);
     ImmutableList<Label> loadLabels =
-        BzlLoadFunction.getLoadLabels(
-            env.getListener(), programLoads, rootPackage, RepositoryMapping.ALWAYS_FALLBACK);
+        BzlLoadFunction.getLoadLabels(env.getListener(), programLoads, rootPackage, repoMapping);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()

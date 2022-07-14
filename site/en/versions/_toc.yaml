@@ -1,11 +1,11 @@
 toc:
-- label: "5.2 ↗"
+- label: "5.2"
   path: https://docs.bazel.build/versions/5.2.0/bazel-overview.html
-- label: "5.1.1 ↗"
+- label: "5.1.1"
   path: https://docs.bazel.build/versions/5.1.1/bazel-overview.html
-- label: "5.1 ↗"
+- label: "5.1"
   path: https://docs.bazel.build/versions/5.1.0/bazel-overview.html
-- label: "5.0 ↗"
+- label: "5.0"
   path: https://docs.bazel.build/versions/5.0.0/bazel-overview.html
-- label: "4.2.2 ↗"
+- label: "4.2.2"
   path: https://docs.bazel.build/versions/4.2.2/bazel-overview.html

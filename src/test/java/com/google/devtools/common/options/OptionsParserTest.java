@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -208,6 +209,72 @@ public final class OptionsParserTest {
     assertThat(foo.bar).isEqualTo(17);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
     assertThat(baz.baz).isEqualTo("oops");
+  }
+
+  @Test
+  public void parseWithSourceFunctionThrowsExceptionIfResidueIsNotAllowed() {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExampleFoo.class, ExampleBaz.class)
+            .allowResidue(false)
+            .build();
+    Function<OptionDefinition, String> sourceFunction = option -> "command line";
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () ->
+                parser.parseWithSourceFunction(
+                    PriorityCategory.COMMAND_LINE,
+                    sourceFunction,
+                    ImmutableList.of("residue", "not", "allowed", "in", "parseWithSource")));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized arguments: residue not allowed in parseWithSource");
+    assertThat(parser.getResidue())
+        .containsExactly("residue", "not", "allowed", "in", "parseWithSource");
+  }
+
+  @Test
+  public void parseWithSourceFunctionDoesntThrowExceptionIfResidueIsAllowed() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExampleFoo.class, ExampleBaz.class)
+            .allowResidue(true)
+            .build();
+    Function<OptionDefinition, String> sourceFunction = option -> "command line";
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.COMMAND_LINE,
+        sourceFunction,
+        ImmutableList.of("residue", "is", "allowed", "in", "parseWithSource"));
+    assertThat(parser.getResidue())
+        .containsExactly("residue", "is", "allowed", "in", "parseWithSource");
+  }
+
+  @Test
+  public void parseArgsAsExpansionOfOptionThrowsExceptionIfResidueIsNotAllowed() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExpansionOptions.class).allowResidue(false).build();
+    parser.parse(OptionPriority.PriorityCategory.COMMAND_LINE, null, ImmutableList.of("--expands"));
+    OptionValueDescription expansionDescription = parser.getOptionValueDescription("expands");
+    assertThat(expansionDescription).isNotNull();
+
+    OptionValueDescription optionValue = parser.getOptionValueDescription("underlying");
+    assertThat(optionValue).isNotNull();
+
+    ParsedOptionDescription optionToExpand = optionValue.getCanonicalInstances().get(0);
+
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () ->
+                parser.parseArgsAsExpansionOfOption(
+                    optionToExpand,
+                    "source",
+                    ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion")));
+    assertThat(parser.getResidue()).isNotEmpty();
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue in expansion");
   }
 
   @Test

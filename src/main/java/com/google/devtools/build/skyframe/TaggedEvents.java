@@ -48,7 +48,7 @@ public final class TaggedEvents {
     this.hashCode = events.hashCode();
   }
 
-  ImmutableList<Event> getEvents() {
+  public ImmutableList<Event> getEvents() {
     return events;
   }
 
