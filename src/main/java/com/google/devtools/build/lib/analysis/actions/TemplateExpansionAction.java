@@ -164,8 +164,7 @@ public final class TemplateExpansionAction extends AbstractAction {
             return this;
           }
         } catch (ExecException e) {
-          throw e.toActionExecutionException(
-              TemplateExpansionAction.this);
+          throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       }

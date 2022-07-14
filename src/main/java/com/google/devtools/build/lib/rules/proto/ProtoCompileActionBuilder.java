@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -42,6 +41,8 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +54,7 @@ import javax.annotation.Nullable;
 public class ProtoCompileActionBuilder {
   @VisibleForTesting
   public static final String STRICT_DEPS_FLAG_TEMPLATE =
-      "--direct_dependencies_violation_msg=" + StrictProtoDepsViolationMessage.MESSAGE;
+      "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
 
   private static final String MNEMONIC = "GenProto";
 
@@ -190,9 +191,9 @@ public class ProtoCompileActionBuilder {
   /** Builds a ResourceSet based on the number of inputs. */
   public static class ProtoCompileResourceSetBuilder implements ResourceSetOrBuilder {
     @Override
-    public ResourceSet buildResourceSet(NestedSet<Artifact> inputs) {
+    public ResourceSet buildResourceSet(OS os, int inputsSize) {
       return ResourceSet.createWithRamCpu(
-          /* memoryMb= */ 25 + 0.15 * inputs.memoizedFlattenAndGetSize(), /* cpuUsage= */ 1);
+          /* memoryMb= */ 25 + 0.15 * inputsSize, /* cpuUsage= */ 1);
     }
   }
 
@@ -332,7 +333,7 @@ public class ProtoCompileActionBuilder {
             protoToolchain,
             ImmutableList.of(
                 createDescriptorSetToolchain(
-                    ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString())),
+                    ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString(), protoToolchain)),
             protoInfo,
             ruleContext.getLabel(),
             ImmutableList.of(output),
@@ -349,7 +350,7 @@ public class ProtoCompileActionBuilder {
   }
 
   private static ToolchainInvocation createDescriptorSetToolchain(
-      ProtoConfiguration configuration, CharSequence outReplacement) {
+      ProtoConfiguration configuration, CharSequence outReplacement, ProtoToolchainInfo protoToolchain) {
     ImmutableList.Builder<String> protocOpts = ImmutableList.builder();
     if (configuration.experimentalProtoDescriptorSetsIncludeSourceInfo()) {
       protocOpts.add("--include_source_info");
@@ -357,15 +358,21 @@ public class ProtoCompileActionBuilder {
 
     return new ToolchainInvocation(
         "dontcare",
-        ProtoLangToolchainProvider.create(
+        ProtoLangToolchainProvider.createNative(
             // Note: adding --include_imports here was requested multiple times, but it'll cause the
             // output size to become quadratic, so don't.
             // A rule that concatenates the artifacts from ctx.deps.proto.transitive_descriptor_sets
             // provides similar results.
-            "--descriptor_set_out=$(OUT)",
+            "--descriptor_set_out=%s",
+            /* pluginFormatFlag = */ "",
             /* pluginExecutable= */ null,
             /* runtime= */ null,
-            /* providedProtoSources= */ ImmutableList.of()),
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoCompiler= */ protoToolchain.getCompiler(),
+            /* protoCopts=*/ configuration.protocOpts(),
+            /* progressMessage=*/ "",
+            /* mnemonic=*/ "GenProtoDescriptorSet"),
+
         outReplacement,
         protocOpts.build());
   }
@@ -488,8 +495,6 @@ public class ProtoCompileActionBuilder {
    * <ul>
    *   <li>Each toolchain contributes a command-line, formatted from its commandLine() method.
    *   <li>$(OUT) is replaced with the outReplacement field of ToolchainInvocation.
-   *   <li>$(PLUGIN_out) is replaced with PLUGIN_<key>_out where 'key' is the key of
-   *       toolchainInvocations. The key thus allows multiple plugins in one command-line.
    *   <li>If a toolchain's {@code plugin()} is non-null, we point at it by emitting
    *       --plugin=protoc-gen-PLUGIN_<key>=<location of plugin>.
    * </ul>
@@ -533,14 +538,15 @@ public class ProtoCompileActionBuilder {
 
       ProtoLangToolchainProvider toolchain = invocation.toolchain;
 
+      final String formatString = toolchain.outReplacementFormatFlag();
+      final CharSequence outReplacement = invocation.outReplacement;
       cmdLine.addLazyString(
-          new OnDemandCommandLineExpansion(
-              toolchain.commandLine(),
-              ImmutableMap.of(
-                  "OUT",
-                  invocation.outReplacement,
-                  "PLUGIN_OUT",
-                  String.format("PLUGIN_%s_out", invocation.name))));
+          new OnDemandString() {
+            @Override
+            public String toString() {
+              return String.format(formatString, outReplacement);
+            }
+          });
 
       if (toolchain.pluginExecutable() != null) {
         cmdLine.addFormatted(

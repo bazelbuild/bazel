@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoConfigurationApi;
@@ -38,6 +39,7 @@ import net.starlark.java.annot.StarlarkMethod;
 // configuration fragment in aspect definitions.
 @RequiresOptions(options = {ProtoConfiguration.Options.class})
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
+
   /** Command line options. */
   public static class Options extends FragmentOptions {
     @Option(
@@ -81,7 +83,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_compiler",
-        defaultValue = "@com_google_protobuf//:protoc",
+        defaultValue = ProtoConstants.DEFAULT_PROTOC_LABEL,
         converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -220,6 +222,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.experimentalProtoExtraActions;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_compiler",
+      doc = "Label for the proto compiler.",
+      defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
   public Label protoCompiler() {
     return options.protoCompiler;
   }

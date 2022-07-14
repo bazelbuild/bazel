@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -158,15 +157,14 @@ public class JavaProtoAspectCommon {
 
   /** Returns the toolchain that specifies how to generate code from {@code .proto} files. */
   public ProtoLangToolchainProvider getProtoToolchainProvider() {
-    return checkNotNull(
-        ruleContext.getPrerequisite(protoToolchainAttr, ProtoLangToolchainProvider.class));
+    return checkNotNull(ProtoLangToolchainProvider.get(ruleContext, protoToolchainAttr));
   }
 
   /**
    * Returns the toolchain that specifies how to generate Java-lite code from {@code .proto} files.
    */
   static ProtoLangToolchainProvider getLiteProtoToolchainProvider(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(LITE_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+    return ProtoLangToolchainProvider.get(ruleContext, LITE_PROTO_TOOLCHAIN_ATTR);
   }
 
   /**
@@ -205,14 +203,8 @@ public class JavaProtoAspectCommon {
       return false;
     }
 
-    NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
-    forbiddenProtos.addTransitive(getProtoToolchainProvider().forbiddenProtos());
-    if (rpcSupport != null) {
-      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
-    }
-
     final ProtoSourceFileExcludeList protoExcludeList =
-        new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
+        new ProtoSourceFileExcludeList(ruleContext, getProtoToolchainProvider().providedProtoSources());
 
     return protoExcludeList.checkSrcs(protoInfo.getDirectSources(), ruleName);
   }
