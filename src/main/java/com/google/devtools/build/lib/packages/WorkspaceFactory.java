@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -291,12 +292,7 @@ public class WorkspaceFactory {
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   thread.getSemantics(),
                   thread.getCallStack());
-          if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
-            throw Starlark.errorf(
-                "%s's name field must be a legal workspace name; workspace names may contain only"
-                    + " A-Z, a-z, 0-9, '-', '_', and '.', and must start with a letter",
-                rule);
-          }
+          RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException
             | LabelSyntaxException e) {

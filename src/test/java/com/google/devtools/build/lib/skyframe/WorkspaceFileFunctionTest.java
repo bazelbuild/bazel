@@ -188,7 +188,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("foo$ is not a legal workspace name");
+    assertContainsEvent("Error in workspace: invalid user-provided repo name 'foo$'");
   }
 
   @Test
