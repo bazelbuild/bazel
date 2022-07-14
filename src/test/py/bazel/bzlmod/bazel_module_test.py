@@ -28,11 +28,11 @@ class BazelModuleTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
-    self.main_registry.createCcModule('A', '1.0') \
-        .createCcModule('A', '1.1') \
-        .createCcModule('B', '1.0', {'A': '1.0'}, {'A': 'com_foo_bar_a'}) \
-        .createCcModule('B', '1.1', {'A': '1.1'}) \
-        .createCcModule('C', '1.1', {'A': '1.1', 'B': '1.1'})
+    self.main_registry.createCcModule('aaa', '1.0') \
+        .createCcModule('aaa', '1.1') \
+        .createCcModule('bbb', '1.0', {'aaa': '1.0'}, {'aaa': 'com_foo_aaa'}) \
+        .createCcModule('bbb', '1.1', {'aaa': '1.1'}) \
+        .createCcModule('ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'})
     self.ScratchFile(
         '.bazelrc',
         [
@@ -51,15 +51,15 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE.bzlmod')
 
   def writeMainProjectFiles(self):
-    self.ScratchFile('A.patch', [
-        '--- a/a.cc',
-        '+++ b/a.cc',
+    self.ScratchFile('aaa.patch', [
+        '--- a/aaa.cc',
+        '+++ b/aaa.cc',
         '@@ -1,6 +1,6 @@',
         ' #include <stdio.h>',
-        ' #include "a.h"',
-        ' void hello_a(const std::string& caller) {',
-        '-    std::string lib_name = "A@1.0";',
-        '+    std::string lib_name = "A@1.0 (locally patched)";',
+        ' #include "aaa.h"',
+        ' void hello_aaa(const std::string& caller) {',
+        '-    std::string lib_name = "aaa@1.0";',
+        '+    std::string lib_name = "aaa@1.0 (locally patched)";',
         '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
         ' }',
     ])
@@ -68,271 +68,271 @@ class BazelModuleTest(test_base.TestBase):
         '  name = "main",',
         '  srcs = ["main.cc"],',
         '  deps = [',
-        '    "@A//:lib_a",',
-        '    "@B//:lib_b",',
+        '    "@aaa//:lib_aaa",',
+        '    "@bbb//:lib_bbb",',
         '  ],',
         ')',
     ])
     self.ScratchFile('main.cc', [
-        '#include "a.h"',
-        '#include "b.h"',
+        '#include "aaa.h"',
+        '#include "bbb.h"',
         'int main() {',
-        '    hello_a("main function");',
-        '    hello_b("main function");',
+        '    hello_aaa("main function");',
+        '    hello_bbb("main function");',
         '}',
     ])
 
   def testSimple(self):
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.0")',
+        'bazel_dep(name = "aaa", version = "1.0")',
     ])
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
-        '  deps = ["@A//:lib_a"],',
+        '  deps = ["@aaa//:lib_aaa"],',
         ')',
     ])
     self.ScratchFile('main.cc', [
-        '#include "a.h"',
+        '#include "aaa.h"',
         'int main() {',
-        '    hello_a("main function");',
+        '    hello_aaa("main function");',
         '}',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0', stdout)
+    self.assertIn('main function => aaa@1.0', stdout)
 
   def testSimpleTransitive(self):
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "B", version = "1.0")',
+        'bazel_dep(name = "bbb", version = "1.0")',
     ])
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
-        '  deps = ["@B//:lib_b"],',
+        '  deps = ["@bbb//:lib_bbb"],',
         ')',
     ])
     self.ScratchFile('main.cc', [
-        '#include "b.h"',
+        '#include "bbb.h"',
         'int main() {',
-        '    hello_b("main function");',
+        '    hello_bbb("main function");',
         '}',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => B@1.0', stdout)
-    self.assertIn('B@1.0 => A@1.0', stdout)
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => aaa@1.0', stdout)
 
   def testSimpleDiamond(self):
     self.writeMainProjectFiles()
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "A", version = "1.1")',
-            # B1.0 has to depend on A1.1 after MVS.
-            'bazel_dep(name = "B", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.1")',
+            # bbb@1.0 has to depend on aaa@1.1 after MVS.
+            'bazel_dep(name = "bbb", version = "1.0")',
         ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.1', stdout)
-    self.assertIn('main function => B@1.0', stdout)
-    self.assertIn('B@1.0 => A@1.1', stdout)
+    self.assertIn('main function => aaa@1.1', stdout)
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => aaa@1.1', stdout)
 
   def testSingleVersionOverrideWithPatch(self):
     self.writeMainProjectFiles()
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "A", version = "1.1")',
-            'bazel_dep(name = "B", version = "1.1")',
-            # Both main and B1.1 has to depend on the locally patched A1.0.
+            'bazel_dep(name = "aaa", version = "1.1")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+            # Both main and bbb@1.1 has to depend on the locally patched aaa@1.0
             'single_version_override(',
-            '  module_name = "A",',
+            '  module_name = "aaa",',
             '  version = "1.0",',
-            '  patches = ["//:A.patch"],',
+            '  patches = ["//:aaa.patch"],',
             '  patch_strip = 1,',
             ')',
         ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0 (locally patched)', stdout)
-    self.assertIn('main function => B@1.1', stdout)
-    self.assertIn('B@1.1 => A@1.0 (locally patched)', stdout)
+    self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
 
   def testRegistryOverride(self):
     self.writeMainProjectFiles()
     another_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'another'),
         ' from another registry')
-    another_registry.createCcModule('A', '1.0')
+    another_registry.createCcModule('aaa', '1.0')
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.0")',
-        'bazel_dep(name = "B", version = "1.0")',
+        'bazel_dep(name = "aaa", version = "1.0")',
+        'bazel_dep(name = "bbb", version = "1.0")',
         'single_version_override(',
-        '  module_name = "A",',
+        '  module_name = "aaa",',
         '  registry = "%s",' % another_registry.getURL(),
         ')',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0 from another registry', stdout)
-    self.assertIn('main function => B@1.0', stdout)
-    self.assertIn('B@1.0 => A@1.0 from another registry', stdout)
+    self.assertIn('main function => aaa@1.0 from another registry', stdout)
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
 
   def testArchiveOverride(self):
     self.writeMainProjectFiles()
-    archive_a_1_0 = self.main_registry.archives.joinpath('A.1.0.zip')
+    archive_aaa_1_0 = self.main_registry.archives.joinpath('aaa.1.0.zip')
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.1")',
-        'bazel_dep(name = "B", version = "1.1")',
+        'bazel_dep(name = "aaa", version = "1.1")',
+        'bazel_dep(name = "bbb", version = "1.1")',
         'archive_override(',
-        '  module_name = "A",',
-        '  urls = ["%s"],' % archive_a_1_0.as_uri(),
-        '  patches = ["//:A.patch"],',
+        '  module_name = "aaa",',
+        '  urls = ["%s"],' % archive_aaa_1_0.as_uri(),
+        '  patches = ["//:aaa.patch"],',
         '  patch_strip = 1,',
         ')',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0 (locally patched)', stdout)
-    self.assertIn('main function => B@1.1', stdout)
-    self.assertIn('B@1.1 => A@1.0 (locally patched)', stdout)
+    self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
 
   def testGitOverride(self):
     self.writeMainProjectFiles()
 
-    src_a_1_0 = self.main_registry.projects.joinpath('A', '1.0')
-    self.RunProgram(['git', 'init'], cwd=src_a_1_0, allow_failure=False)
+    src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
+    self.RunProgram(['git', 'init'], cwd=src_aaa_1_0, allow_failure=False)
     self.RunProgram(['git', 'config', 'user.name', 'tester'],
-                    cwd=src_a_1_0,
+                    cwd=src_aaa_1_0,
                     allow_failure=False)
     self.RunProgram(['git', 'config', 'user.email', 'tester@foo.com'],
-                    cwd=src_a_1_0,
+                    cwd=src_aaa_1_0,
                     allow_failure=False)
-    self.RunProgram(['git', 'add', './'], cwd=src_a_1_0, allow_failure=False)
+    self.RunProgram(['git', 'add', './'], cwd=src_aaa_1_0, allow_failure=False)
     self.RunProgram(['git', 'commit', '-m', 'Initial commit.'],
-                    cwd=src_a_1_0,
+                    cwd=src_aaa_1_0,
                     allow_failure=False)
     _, stdout, _ = self.RunProgram(['git', 'rev-parse', 'HEAD'],
-                                   cwd=src_a_1_0,
+                                   cwd=src_aaa_1_0,
                                    allow_failure=False)
     commit = stdout[0].strip()
 
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.1")',
-        'bazel_dep(name = "B", version = "1.1")',
+        'bazel_dep(name = "aaa", version = "1.1")',
+        'bazel_dep(name = "bbb", version = "1.1")',
         'git_override(',
-        '  module_name = "A",',
-        '  remote = "%s",' % src_a_1_0.as_uri(),
+        '  module_name = "aaa",',
+        '  remote = "%s",' % src_aaa_1_0.as_uri(),
         '  commit = "%s",' % commit,
-        '  patches = ["//:A.patch"],',
+        '  patches = ["//:aaa.patch"],',
         '  patch_strip = 1,',
         ')',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0 (locally patched)', stdout)
-    self.assertIn('main function => B@1.1', stdout)
-    self.assertIn('B@1.1 => A@1.0 (locally patched)', stdout)
+    self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
 
   def testLocalPathOverride(self):
-    src_a_1_0 = self.main_registry.projects.joinpath('A', '1.0')
+    src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
     self.writeMainProjectFiles()
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.1")',
-        'bazel_dep(name = "B", version = "1.1")',
+        'bazel_dep(name = "aaa", version = "1.1")',
+        'bazel_dep(name = "bbb", version = "1.1")',
         'local_path_override(',
-        '  module_name = "A",',
-        '  path = "%s",' % str(src_a_1_0.resolve()).replace('\\', '/'),
+        '  module_name = "aaa",',
+        '  path = "%s",' % str(src_aaa_1_0.resolve()).replace('\\', '/'),
         ')',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0', stdout)
-    self.assertIn('main function => B@1.1', stdout)
-    self.assertIn('B@1.1 => A@1.0', stdout)
+    self.assertIn('main function => aaa@1.0', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.0', stdout)
 
   def testRemotePatchForBazelDep(self):
-    patch_file = self.ScratchFile('A.patch', [
-        '--- a/a.cc',
-        '+++ b/a.cc',
+    patch_file = self.ScratchFile('aaa.patch', [
+        '--- a/aaa.cc',
+        '+++ b/aaa.cc',
         '@@ -1,6 +1,6 @@',
         ' #include <stdio.h>',
-        ' #include "a.h"',
-        ' void hello_a(const std::string& caller) {',
-        '-    std::string lib_name = "A@1.1-1";',
-        '+    std::string lib_name = "A@1.1-1 (remotely patched)";',
+        ' #include "aaa.h"',
+        ' void hello_aaa(const std::string& caller) {',
+        '-    std::string lib_name = "aaa@1.1-1";',
+        '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
         '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
         ' }',
     ])
     self.main_registry.createCcModule(
-        'A', '1.1-1', patches=[patch_file], patch_strip=1)
+        'aaa', '1.1-1', patches=[patch_file], patch_strip=1)
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.1-1")',
+        'bazel_dep(name = "aaa", version = "1.1-1")',
     ])
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
-        '  deps = ["@A//:lib_a"],',
+        '  deps = ["@aaa//:lib_aaa"],',
         ')',
     ])
     self.ScratchFile('main.cc', [
-        '#include "a.h"',
+        '#include "aaa.h"',
         'int main() {',
-        '    hello_a("main function");',
+        '    hello_aaa("main function");',
         '}',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.1-1 (remotely patched)', stdout)
+    self.assertIn('main function => aaa@1.1-1 (remotely patched)', stdout)
 
   def testRepoNameForBazelDep(self):
     self.writeMainProjectFiles()
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "A", version = "1.0", repo_name = "my_repo_a_name")',
-            # B should still be able to access A as com_foo_bar_a
-            'bazel_dep(name = "B", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo_a_name")',
+            # bbb should still be able to access aaa as com_foo_aaa
+            'bazel_dep(name = "bbb", version = "1.0")',
         ])
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
         '  deps = [',
-        '    "@my_repo_a_name//:lib_a",',
-        '    "@B//:lib_b",',
+        '    "@my_repo_a_name//:lib_aaa",',
+        '    "@bbb//:lib_bbb",',
         '  ],',
         ')',
     ])
     _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => A@1.0', stdout)
-    self.assertIn('main function => B@1.0', stdout)
-    self.assertIn('B@1.0 => A@1.0', stdout)
+    self.assertIn('main function => aaa@1.0', stdout)
+    self.assertIn('main function => bbb@1.0', stdout)
+    self.assertIn('bbb@1.0 => aaa@1.0', stdout)
 
   def testCheckDirectDependencies(self):
     self.writeMainProjectFiles()
     self.ScratchFile('MODULE.bazel', [
-        'bazel_dep(name = "A", version = "1.0")',
-        'bazel_dep(name = "B", version = "1.0")',
-        'bazel_dep(name = "C", version = "1.1")',
+        'bazel_dep(name = "aaa", version = "1.0")',
+        'bazel_dep(name = "bbb", version = "1.0")',
+        'bazel_dep(name = "ccc", version = "1.1")',
     ])
     _, stdout, stderr = self.RunBazel(
         ['run', '//:main', '--check_direct_dependencies=warning'],
         allow_failure=False)
     self.assertIn(
-        'WARNING: For repository \'A\', the root module requires module version A@1.0, but got A@1.1 in the resolved dependency graph.',
+        'WARNING: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
     self.assertIn(
-        'WARNING: For repository \'B\', the root module requires module version B@1.0, but got B@1.1 in the resolved dependency graph.',
+        'WARNING: For repository \'bbb\', the root module requires module version bbb@1.0, but got bbb@1.1 in the resolved dependency graph.',
         stderr)
-    self.assertIn('main function => A@1.1', stdout)
-    self.assertIn('main function => B@1.1', stdout)
-    self.assertIn('B@1.1 => A@1.1', stdout)
+    self.assertIn('main function => aaa@1.1', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.1', stdout)
 
     exit_code, _, stderr = self.RunBazel(
         ['run', '//:main', '--check_direct_dependencies=error'],
         allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        'ERROR: For repository \'A\', the root module requires module version A@1.0, but got A@1.1 in the resolved dependency graph.',
+        'ERROR: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
     self.assertIn(
-        'ERROR: For repository \'B\', the root module requires module version B@1.0, but got B@1.1 in the resolved dependency graph.',
+        'ERROR: For repository \'bbb\', the root module requires module version bbb@1.0, but got bbb@1.1 in the resolved dependency graph.',
         stderr)
 
   def testRepositoryRuleErrorInModuleExtensionFailsTheBuild(self):
