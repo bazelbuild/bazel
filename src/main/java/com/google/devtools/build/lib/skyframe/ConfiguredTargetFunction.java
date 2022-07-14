@@ -99,6 +99,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -336,19 +337,18 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      RuleConfiguredTargetValue incompatibleTarget =
+      Optional<RuleConfiguredTargetValue> incompatibleTarget =
           IncompatibleDeterminingHelper.createDirectlyIncompatibleTarget(
               targetAndConfiguration,
               configConditions,
               env,
               platformInfo,
               state.transitivePackagesForPackageRootResolution);
-      if (env.valuesMissing()) {
-        Preconditions.checkState(incompatibleTarget == null);
+      if (incompatibleTarget == null) {
         return null;
       }
-      if (incompatibleTarget != null) {
-        return incompatibleTarget;
+      if (incompatibleTarget.isPresent()) {
+        return incompatibleTarget.get();
       }
 
       // Calculate the dependencies of this target.
@@ -390,8 +390,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               platformInfo,
               state.transitivePackagesForPackageRootResolution);
-      if (incompatibleTarget != null) {
-        return incompatibleTarget;
+      if (incompatibleTarget.isPresent()) {
+        return incompatibleTarget.get();
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.

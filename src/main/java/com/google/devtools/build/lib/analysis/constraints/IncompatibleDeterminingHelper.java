@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -68,12 +69,16 @@ import javax.annotation.Nullable;
  *
  * <ol>
  *   <li>The target's <code>target_compatible_with</code> attribute specifies a constraint that is
- *       not present in the target platform.
- *   <li>One or more of the target's dependencies is incompatible.
+ *       not present in the target platform. The target is said to be "directly incompatible".
+ *   <li>One or more of the target's dependencies is incompatible. The target is said to be
+ *       "indirectly incompatible."
  * </ol>
  *
  * The intent of these helpers is that they get called as early in the analysis phase as possible.
- * Doing this as early as possible allows us to skip analysing unused dependencies and ignore unused
+ * That's why there are two helpers instead of just one. The first helper determines direct
+ * incompatibility very early in the analysis phase. If a target is not directly incompatible, the
+ * dependencies need to be analysed and then we can check for indirect compatibility. Doing these
+ * checks as early as possible allows us to skip analysing unused dependencies and ignore unused
  * toolchains.
  *
  * <p>See https://bazel.build/docs/platforms#skipping-incompatible-targets for more information on
@@ -86,25 +91,28 @@ public class IncompatibleDeterminingHelper {
    * <p>In other words, this function checks if a target is incompatible because of its
    * "target_compatible_with" attribute.
    *
-   * <p>After this function returns, the caller must immediatly check if "env.valuesMissing()"
-   * returns true. If that check succeeds, the return value of this function is guaranteed to be
-   * null. The caller must request a skyframe restart. If the check fails, then the return value is
-   * either null or an incompatible configured target. If null is returned, the target is not
-   * directly incompatible and analysis of this target should proceed.
+   * <p>This function returns a nullable {@code Optional} of a {@link RuleConfiguredTargetValue}.
+   * This provides three states of return values:
+   * <ul>
+   *   <li>{@code null}: A skyframe restart is required.</li>
+   *   <li>{@code Optional.empty()}: The target is not directly incompatible. Analysis can continue.
+   *   <li>{@code !Optional.empty()}: The target is directly incompatible. Analysis should not
+   *       continue.
+   * </ul>
    */
   @Nullable
-  public static RuleConfiguredTargetValue createDirectlyIncompatibleTarget(
+  public static Optional<RuleConfiguredTargetValue> createDirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
       ConfigConditions configConditions,
       Environment env,
-      PlatformInfo platformInfo,
+      @Nullable PlatformInfo platformInfo,
       NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws InterruptedException {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
     if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
-      return null;
+      return Optional.empty();
     }
 
     // Retrieve the label list for the target_compatible_with attribute.
@@ -112,7 +120,7 @@ public class IncompatibleDeterminingHelper {
     ConfiguredAttributeMapper attrs =
         ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
     if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-      return null;
+      return Optional.empty();
     }
 
     // Resolve the constraint labels.
@@ -140,17 +148,17 @@ public class IncompatibleDeterminingHelper {
             .filter(cv -> cv != null && !platformInfo.constraints().hasConstraintValue(cv))
             .collect(toImmutableList());
     if (invalidConstraintValues.isEmpty()) {
-      return null;
+      return Optional.empty();
     }
 
-    return createIncompatibleRuleConfiguredTarget(
+    return Optional.of(createIncompatibleRuleConfiguredTarget(
         target,
         configuration,
         configConditions,
         IncompatiblePlatformProvider.incompatibleDueToConstraints(
             platformInfo.label(), invalidConstraintValues),
         rule.getRuleClass(),
-        transitivePackagesForPackageRootResolution);
+        transitivePackagesForPackageRootResolution));
   }
 
   /**
@@ -159,21 +167,26 @@ public class IncompatibleDeterminingHelper {
    * <p>In other words, this function checks if a target is incompatible because of one of its
    * dependencies. If a dependency is incompatible, then this target is also incompatible.
    *
-   * <p>This function returns either null or an incompatible configured target. If null is returned,
-   * the target is not indirectly incompatible and analysis of this target should proceed.
+   * <p>This function returns an {@code Optional} of a {@link RuleConfiguredTargetValue}.
+   * This provides two states of return values:
+   * <ul>
+   *   <li>{@code Optional.empty()}: The target is not indirectly incompatible. Analysis can
+   *       continue.
+   *   <li>{@code !Optional.empty()}: The target is indirectly incompatible. Analysis should not
+   *       continue.
+   * </ul>
    */
-  @Nullable
-  public static RuleConfiguredTargetValue createIndirectlyIncompatibleTarget(
+  public static Optional<RuleConfiguredTargetValue> createIndirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
-      PlatformInfo platformInfo,
+      @Nullable PlatformInfo platformInfo,
       NestedSetBuilder<Package> transitivePackagesForPackageRootResolution) {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
     if (rule == null || rule.getRuleClass().equals("toolchain")) {
-      return null;
+      return Optional.empty();
     }
 
     // Find all the incompatible dependencies.
@@ -184,18 +197,18 @@ public class IncompatibleDeterminingHelper {
                 dep -> RuleContextConstraintSemantics.checkForIncompatibility(dep).isIncompatible())
             .collect(toImmutableList());
     if (incompatibleDeps.isEmpty()) {
-      return null;
+      return Optional.empty();
     }
 
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
     Label platformLabel = platformInfo != null ? platformInfo.label() : null;
-    return createIncompatibleRuleConfiguredTarget(
+    return Optional.of(createIncompatibleRuleConfiguredTarget(
         target,
         configuration,
         configConditions,
         IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
         rule.getRuleClass(),
-        transitivePackagesForPackageRootResolution);
+        transitivePackagesForPackageRootResolution));
   }
 
   /** Creates an incompatible target. */
