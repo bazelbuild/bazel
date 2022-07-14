@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Suppliers;
@@ -68,6 +69,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 import org.junit.Before;
@@ -630,6 +632,83 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("parameter 'compatibility_level' got value of type 'string', want 'int'");
+  }
+
+  @Test
+  public void validateModuleName() throws Exception {
+    ModuleFileGlobals.validateModuleName("abc");
+    ModuleFileGlobals.validateModuleName("a3");
+    ModuleFileGlobals.validateModuleName("a.e");
+    ModuleFileGlobals.validateModuleName("a.-_e");
+
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName(""));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("f"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("fooBar"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("_foo"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo#bar"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo~bar"));
+  }
+
+  @Test
+  public void badModuleName_module() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='f',version='0.1')");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("invalid module name 'f'");
+  }
+
+  @Test
+  public void badModuleName_bazelDep() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='f',version='0.1')");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("invalid module name 'f'");
+  }
+
+  @Test
+  public void badRepoName_bazelDep() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='foo',version='0.1',repo_name='_foo')");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("invalid user-provided repo name '_foo'");
+  }
+
+  @Test
+  public void badRepoName_useRepo() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "ext=use_extension('//:hello.bzl', 'ext')",
+        "use_repo(ext, foo='_foo')");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("invalid user-provided repo name '_foo'");
+  }
+
+  @Test
+  public void badRepoName_useRepo_assignedName() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "ext=use_extension('//:hello.bzl', 'ext')",
+        "use_repo(ext, _foo='foo')");
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("invalid user-provided repo name '_foo'");
   }
 
   @Test

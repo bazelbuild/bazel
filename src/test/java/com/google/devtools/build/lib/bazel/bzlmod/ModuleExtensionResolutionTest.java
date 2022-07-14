@@ -871,7 +871,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  ctx.file('WORKSPACE')",
         "  ctx.file('BUILD')",
         "  ctx.file('data.bzl', \"\"\"load('@foo//:data.bzl', foo_data='data')",
-        "load('@_internal//:data.bzl', internal_data='data')",
+        "load('@internal//:data.bzl', internal_data='data')",
         "data = 'foo: '+foo_data+' internal: '+internal_data",
         "\"\"\")",
         "ext_repo = repository_rule(implementation=_ext_repo_impl)",
@@ -883,7 +883,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "internal_repo = repository_rule(implementation=_internal_repo_impl)",
         "",
         "def _ext_impl(ctx):",
-        "  internal_repo(name='_internal')",
+        "  internal_repo(name='internal')",
         "  ext_repo(name='ext')",
         "tag=tag_class(attrs={'file':attr.label()})",
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
@@ -1039,6 +1039,31 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             "module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
                 + " \"missing_repo\", yet it is imported as \"my_repo\" in the usage at"
                 + " <root>/MODULE.bazel:1:20");
+  }
+
+  @Test
+  public void badRepoNameInExtensionImplFunction() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='_something',data='void')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent("invalid user-provided repo name '_something'");
   }
 
   @Test

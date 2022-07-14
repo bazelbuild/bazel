@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -42,9 +41,6 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
-
-  // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
-  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[-.\\w]*$");
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;
@@ -63,9 +59,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throw Starlark.errorf(
           "workspace() function should be used only at the top of the WORKSPACE file");
     }
-    if (!isLegalWorkspaceName(name)) {
-      throw Starlark.errorf("%s is not a legal workspace name", name);
-    }
+    RepositoryName.validateUserProvidedRepoName(name);
     String errorMessage = LabelValidator.validateTargetName(name);
     if (errorMessage != null) {
       throw Starlark.errorf("%s", errorMessage);
@@ -162,12 +156,5 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-  }
-
-  /**
-   * Returns true if the given name is a valid workspace name.
-   */
-  public static boolean isLegalWorkspaceName(String name) {
-    return LEGAL_WORKSPACE_NAME.matcher(name).matches();
   }
 }
