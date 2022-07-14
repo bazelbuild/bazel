@@ -93,8 +93,9 @@ public class IncompatibleTargetChecker {
    *
    * <p>This function returns a nullable {@code Optional} of a {@link RuleConfiguredTargetValue}.
    * This provides three states of return values:
+   *
    * <ul>
-   *   <li>{@code null}: A skyframe restart is required.</li>
+   *   <li>{@code null}: A skyframe restart is required.
    *   <li>{@code Optional.empty()}: The target is not directly incompatible. Analysis can continue.
    *   <li>{@code !Optional.empty()}: The target is directly incompatible. Analysis should not
    *       continue.
@@ -151,14 +152,15 @@ public class IncompatibleTargetChecker {
       return Optional.empty();
     }
 
-    return Optional.of(createIncompatibleRuleConfiguredTarget(
-        target,
-        configuration,
-        configConditions,
-        IncompatiblePlatformProvider.incompatibleDueToConstraints(
-            platformInfo.label(), invalidConstraintValues),
-        rule.getRuleClass(),
-        transitivePackagesForPackageRootResolution));
+    return Optional.of(
+        createIncompatibleRuleConfiguredTarget(
+            target,
+            configuration,
+            configConditions,
+            IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                platformInfo.label(), invalidConstraintValues),
+            rule.getRuleClass(),
+            transitivePackagesForPackageRootResolution));
   }
 
   /**
@@ -167,8 +169,9 @@ public class IncompatibleTargetChecker {
    * <p>In other words, this function checks if a target is incompatible because of one of its
    * dependencies. If a dependency is incompatible, then this target is also incompatible.
    *
-   * <p>This function returns an {@code Optional} of a {@link RuleConfiguredTargetValue}.
-   * This provides two states of return values:
+   * <p>This function returns an {@code Optional} of a {@link RuleConfiguredTargetValue}. This
+   * provides two states of return values:
+   *
    * <ul>
    *   <li>{@code Optional.empty()}: The target is not indirectly incompatible. Analysis can
    *       continue.
@@ -202,13 +205,14 @@ public class IncompatibleTargetChecker {
 
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
     Label platformLabel = platformInfo != null ? platformInfo.label() : null;
-    return Optional.of(createIncompatibleRuleConfiguredTarget(
-        target,
-        configuration,
-        configConditions,
-        IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
-        rule.getRuleClass(),
-        transitivePackagesForPackageRootResolution));
+    return Optional.of(
+        createIncompatibleRuleConfiguredTarget(
+            target,
+            configuration,
+            configConditions,
+            IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
+            rule.getRuleClass(),
+            transitivePackagesForPackageRootResolution));
   }
 
   /** Creates an incompatible target. */
