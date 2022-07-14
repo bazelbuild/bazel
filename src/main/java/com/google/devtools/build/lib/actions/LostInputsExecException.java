@@ -64,8 +64,7 @@ public class LostInputsExecException extends ExecException {
     return owners;
   }
 
-  @Override
-  protected ActionExecutionException toActionExecutionException(
+  protected ActionExecutionException fromExecException(
       String message, Action action, DetailedExitCode code) {
     return new LostInputsActionExecutionException(
         message, lostInputs, owners, action, /*cause=*/ this, code);

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -390,10 +391,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
 
     ProtoLangToolchainProvider protoToolchain =
-        ruleContext.getPrerequisite(J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
+        ProtoLangToolchainProvider.get(ruleContext, J2OBJC_PROTO_TOOLCHAIN_ATTR);
     // Avoid pulling in any generated files from forbidden protos.
     ProtoSourceFileExcludeList protoExcludeList =
-        new ProtoSourceFileExcludeList(ruleContext, protoToolchain.forbiddenProtos());
+        new ProtoSourceFileExcludeList(ruleContext, protoToolchain.providedProtoSources());
 
     ImmutableList<Artifact> filteredProtoSources =
         ImmutableList.copyOf(protoExcludeList.filter(protoSources));

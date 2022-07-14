@@ -15,14 +15,19 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Represents a single {@code .proto} source file. */
 @Immutable
-@AutoCodec
-class ProtoSource {
+final class ProtoSource implements StarlarkValue {
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(ProtoSource.class);
+
   private final Artifact sourceFile;
   private final Artifact originalSourceFile;
   private final PathFragment sourceRoot;
@@ -31,7 +36,6 @@ class ProtoSource {
     this(sourceFile, sourceFile, sourceRoot);
   }
 
-  @AutoCodec.Instantiator
   ProtoSource(Artifact sourceFile, Artifact originalSourceFile, PathFragment sourceRoot) {
     this.sourceFile = sourceFile;
     this.originalSourceFile = originalSourceFile;
@@ -42,14 +46,31 @@ class ProtoSource {
     return sourceFile;
   }
 
+  @StarlarkMethod(name = "source_file", documented = false, useStarlarkThread = true)
+  public Artifact getSourceFileForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return sourceFile;
+  }
+
   /** Returns the original source file. Only for forbidding protos! */
-  @Deprecated
+  @StarlarkMethod(name = "original_source_file", documented = false, useStarlarkThread = true)
+  public Artifact getOriginalSourceFileForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return originalSourceFile;
+  }
+
   Artifact getOriginalSourceFile() {
     return originalSourceFile;
   }
 
   public PathFragment getSourceRoot() {
     return sourceRoot;
+  }
+
+  @StarlarkMethod(name = "import_path", documented = false, useStarlarkThread = true)
+  public String getImportPathForStarlark(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return getImportPath().getPathString();
   }
 
   public PathFragment getImportPath() {
