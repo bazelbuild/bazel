@@ -26,6 +26,10 @@ import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.google.auto.value.AutoValue;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
@@ -84,6 +88,7 @@ public class CompatDexBuilder {
 
   public static void main(String[] args)
       throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
+    int ONE_MEG = 1024*1024;
     CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
       ByteArrayOutputStream buf = new ByteArrayOutputStream();
@@ -94,6 +99,19 @@ public class CompatDexBuilder {
       // Redirect all stdout and stderr output for logging.
       System.setOut(ps);
       System.setErr(ps);
+
+      // Set up dexer cache
+      Cache<DexingKeyR8, byte[]> dexCache = CacheBuilder.newBuilder()
+          // Use at most 200 MB for cache and leave at least 25 MB of heap space alone. For reference:
+          // .class & class.dex files are around 1-5 KB, so this fits ~30K-35K class-dex pairs.
+          .maximumWeight(Math.min(Runtime.getRuntime().maxMemory() - 25 * ONE_MEG, 200 * ONE_MEG))
+          .weigher(new Weigher<DexingKeyR8, byte[]>() {
+            @Override
+            public int weigh(DexingKeyR8 key, byte[] value) {
+              return key.classfileContent().length + value.length;
+            }
+          })
+          .build();
       try {
         WorkRequestHandler workerHandler =
             new WorkRequestHandler.WorkRequestHandlerBuilder(
@@ -265,4 +283,21 @@ public class CompatDexBuilder {
     D8.run(builder.build(), executor);
     return consumer;
   }
+  @AutoValue
+  abstract static class DexingKeyR8 {
+    static DexingKeyR8 create(
+        boolean noLocals,
+        int minSdkVersion,
+        String position,
+        byte[] classfileContent) {
+      return new AutoValue_CompatDexBuilder_DexingKeyR8(noLocals, minSdkVersion, position, classfileContent);
+    }
+
+    abstract boolean noLocals();
+    abstract int minSdkVersion();
+    abstract String position();
+    @SuppressWarnings("mutable") abstract byte[] classfileContent();
+  }
+
 }
+
