@@ -22,21 +22,24 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.runfiles.Runfiles;
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CredentialHelperTest {
+  private static final PathFragment TEST_WORKSPACE_PATH =
+      PathFragment.create(System.getenv("TEST_TMPDIR"));
   private static final PathFragment TEST_CREDENTIAL_HELPER_DIR =
       PathFragment.create(
           "io_bazel/src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper");
@@ -51,29 +54,36 @@ public class CredentialHelperTest {
     }
   }
 
-  private static boolean isWindows() {
-    return File.separatorChar == '\\';
-  }
-
   private static final Reporter reporter = new Reporter(new EventBus());
 
-  private GetCredentialsResponse getCredentialsFromHelper(String uri) throws Exception {
+  private GetCredentialsResponse getCredentialsFromHelper(
+      String uri, ImmutableMap<String, String> env) throws Exception {
     Preconditions.checkNotNull(uri);
+    Preconditions.checkNotNull(env);
 
     FileSystem filesystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     PathFragment credentialHelperPath =
         TEST_CREDENTIAL_HELPER_DIR.getChild(
-            isWindows() ? "test_credential_helper.exe" : "test_credential_helper");
+            OS.getCurrent() == OS.WINDOWS
+                ? "test_credential_helper.exe"
+                : "test_credential_helper");
     CredentialHelper credentialHelper =
         new CredentialHelper(
             filesystem.getPath(runfiles.rlocation(credentialHelperPath.getSafePathString())));
     return credentialHelper.getCredentials(
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(reporter)
-            .setWorkspacePath(filesystem.getPath(System.getenv("TEST_TMPDIR")))
-            .setClientEnvironment(ImmutableMap.of())
+            .setWorkspacePath(filesystem.getPath(TEST_WORKSPACE_PATH))
+            .setClientEnvironment(env)
+            .setHelperExecutionTimeout(Duration.ofSeconds(5))
             .build(),
         URI.create(uri));
+  }
+
+  private GetCredentialsResponse getCredentialsFromHelper(String uri) throws Exception {
+    Preconditions.checkNotNull(uri);
+
+    return getCredentialsFromHelper(uri, ImmutableMap.of());
   }
 
   @Test
@@ -123,5 +133,33 @@ public class CredentialHelperTest {
             ImmutableMap.<String, ImmutableList<String>>builder()
                 .put("header1", ImmutableList.of("value1"))
                 .build());
+  }
+
+  @Test
+  public void helperRunsInWorkspace() throws Exception {
+    GetCredentialsResponse response = getCredentialsFromHelper("https://cwd.example.com");
+    ImmutableMap<String, ImmutableList<String>> headers = response.getHeaders();
+    assertThat(PathFragment.create(headers.get("cwd").get(0))).isEqualTo(TEST_WORKSPACE_PATH);
+  }
+
+  @Test
+  public void helperGetEnvironment() throws Exception {
+    GetCredentialsResponse response =
+        getCredentialsFromHelper(
+            "https://env.example.com", ImmutableMap.of("FOO", "BAR!", "BAR", "123"));
+    assertThat(response.getHeaders())
+        .containsExactlyEntriesIn(
+            ImmutableMap.<String, ImmutableList<String>>builder()
+                .put("foo", ImmutableList.of("BAR!"))
+                .put("bar", ImmutableList.of("123"))
+                .build());
+  }
+
+  @Test
+  public void helperTimeout() throws Exception {
+    IOException ioException =
+        assertThrows(
+            IOException.class, () -> getCredentialsFromHelper("https://timeout.example.com"));
+    assertThat(ioException).hasMessageThat().contains("process did not exit");
   }
 }

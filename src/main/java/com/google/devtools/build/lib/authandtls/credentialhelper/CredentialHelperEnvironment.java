@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
+import java.time.Duration;
 
 /** Environment for running {@link CredentialHelper}s in. */
 @AutoValue
@@ -38,6 +39,9 @@ public abstract class CredentialHelperEnvironment {
    * <p>Passed as environment variables to the subprocess.
    */
   public abstract ImmutableMap<String, String> getClientEnvironment();
+
+  /** Returns the execution timeout for the helper subprocess. */
+  public abstract Duration getHelperExecutionTimeout();
 
   /** Returns a new builder for {@link CredentialHelperEnvironment}. */
   public static CredentialHelperEnvironment.Builder newBuilder() {
@@ -61,6 +65,9 @@ public abstract class CredentialHelperEnvironment {
      * subprocess.
      */
     public abstract Builder setClientEnvironment(ImmutableMap<String, String> environment);
+
+    /** Sets the execution timeout for the helper subprocess. */
+    public abstract Builder setHelperExecutionTimeout(Duration timeout);
 
     /** Returns the newly constructed {@link CredentialHelperEnvironment}. */
     public abstract CredentialHelperEnvironment build();

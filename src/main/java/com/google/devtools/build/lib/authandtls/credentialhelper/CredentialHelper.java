@@ -76,11 +76,24 @@ public final class CredentialHelper {
       }
 
       process.waitFor();
+      if (process.timedout()) {
+        throw new IOException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': process did not exit within"
+                    + " %s",
+                uri,
+                path,
+                environment.getHelperExecutionTimeout()));
+      }
       if (process.exitValue() != 0) {
         throw new IOException(
             String.format(
                 Locale.US,
-                "Failed to get credentials from helper (exited with code %d): %s",
+                "Failed to get credentials for '%s' from helper '%s': process exited with code %d."
+                    + " stderr: %s",
+                uri,
+                path,
                 process.exitValue(),
                 CharStreams.toString(stderr)));
       }
@@ -88,11 +101,26 @@ public final class CredentialHelper {
       try {
         GetCredentialsResponse response = GSON.fromJson(stdout, GetCredentialsResponse.class);
         if (response == null) {
-          throw new IOException("Credential helper exited without output");
+          throw new IOException(
+              String.format(
+                  Locale.US,
+                  "Failed to get credentials for '%s' from helper '%s': process exited without"
+                      + " output. stderr: %s",
+                  uri,
+                  path,
+                  CharStreams.toString(stderr)));
         }
         return response;
       } catch (JsonSyntaxException e) {
-        throw new IOException("Error parsing output from credential helper", e);
+        throw new IOException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': error parsing output. stderr:"
+                    + " %s",
+                uri,
+                path,
+                CharStreams.toString(stderr)),
+            e);
       }
     }
   }
@@ -106,6 +134,7 @@ public final class CredentialHelper {
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
         .setWorkingDirectory(environment.getWorkspacePath().getPathFile())
         .setEnv(environment.getClientEnvironment())
+        .setTimeoutMillis(environment.getHelperExecutionTimeout().toMillis())
         .start();
   }
 

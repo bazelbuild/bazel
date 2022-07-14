@@ -15,7 +15,9 @@
 """Credential helper for testing."""
 
 import json
+import os
 import sys
+import time
 
 
 def eprint(*args, **kargs):
@@ -27,43 +29,64 @@ def main(argv):
         eprint("Usage: test_credential_helper <command>")
         return 1
 
-    if argv[1] == "get":
-        request = json.load(sys.stdin)
-        if request['uri'] == "https://singleheader.example.com":
-            response = {
-                "headers": {
-                    "header1": ["value1"],
-                },
-            }
-        elif request['uri'] == "https://multipleheaders.example.com":
-            response = {
-                "headers": {
-                    "header1": ["value1"],
-                    "header2": ["value1", "value2"],
-                    "header3": ["value1", "value2", "value3"],
-                },
-            }
-        elif request['uri'] == "https://extrafields.example.com":
-            response = {
-                "foo": "YES",
-                "headers": {
-                    "header1": ["value1"],
-                },
-                "umlaut": [
-                    "ß",
-                    "å",
-                ],
-            }
-        elif request['uri'] == "https://printnothing.example.com":
-            return 0
-        else:
-            eprint("Unknown uri '{}'".format(request['uri']))
-            return 1
-        json.dump(response, sys.stdout)
-        return 0
-    else:
+    if argv[1] != "get":
         eprint("Unknown command '{}'".format(argv[1]))
         return 1
+
+    request = json.load(sys.stdin)
+    if request['uri'] == "https://singleheader.example.com":
+        response = {
+            "headers": {
+                "header1": ["value1"],
+            },
+        }
+    elif request['uri'] == "https://multipleheaders.example.com":
+        response = {
+            "headers": {
+                "header1": ["value1"],
+                "header2": ["value1", "value2"],
+                "header3": ["value1", "value2", "value3"],
+            },
+        }
+    elif request['uri'] == "https://extrafields.example.com":
+        response = {
+            "foo": "YES",
+            "headers": {
+                "header1": ["value1"],
+            },
+            "umlaut": [
+                "ß",
+                "å",
+            ],
+        }
+    elif request['uri'] == "https://printnothing.example.com":
+        return 0
+    elif request['uri'] == "https://cwd.example.com":
+        response = {
+            "headers": {
+                "cwd": [os.getcwd()],
+            },
+        }
+    elif request['uri'] == "https://env.example.com":
+        response = {
+            "headers": {
+                "foo": [os.getenv("FOO")],
+                "bar": [os.getenv("BAR")],
+            },
+        }
+    elif request['uri'] == "https://timeout.example.com":
+        # We expect the subprocess to be killed after 5s.
+        time.sleep(10)
+        response = {
+            "headers": {
+                "header1": ["value1"],
+            },
+        }
+    else:
+        eprint("Unknown uri '{}'".format(request['uri']))
+        return 1
+    json.dump(response, sys.stdout)
+    return 0
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
