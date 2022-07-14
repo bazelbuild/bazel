@@ -27,6 +27,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -98,23 +99,32 @@ public final class SpawnStrategyRegistry
    */
   @VisibleForTesting
   public List<? extends SpawnStrategy> getStrategies(Spawn spawn, EventHandler reporter) {
+    return getStrategies(spawn.getResourceOwner(), spawn.getMnemonic(), reporter);
+  }
+
+  public List<? extends SpawnStrategy> getStrategies(
+      @Nullable ActionExecutionMetadata resourceOwner,
+      String mnemonic,
+      @Nullable EventHandler reporter) {
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
-    if (spawn.getResourceOwner() != null && !"TestRunner".equals(spawn.getMnemonic())) {
-      String description = spawn.getResourceOwner().getProgressMessage();
+    if (resourceOwner != null && !"TestRunner".equals(mnemonic)) {
+      String description = resourceOwner.getProgressMessage();
       if (description != null) {
         for (Map.Entry<RegexFilter, Collection<SpawnStrategy>> filterStrategies :
             filterToStrategies.asMap().entrySet()) {
           if (filterStrategies.getKey().isIncluded(description)) {
             // TODO(schmitt): Why is this done here and not after running canExec?
-            reporter.handle(
-                Event.progress(description + " with context " + filterStrategies.getValue()));
+            if (reporter != null) {
+              reporter.handle(
+                  Event.progress(description + " with context " + filterStrategies.getValue()));
+            }
             return ImmutableList.copyOf(filterStrategies.getValue());
           }
         }
       }
     }
-    if (mnemonicToStrategies.containsKey(spawn.getMnemonic())) {
-      return mnemonicToStrategies.get(spawn.getMnemonic());
+    if (mnemonicToStrategies.containsKey(mnemonic)) {
+      return mnemonicToStrategies.get(mnemonic);
     }
     return defaultStrategies;
   }
@@ -511,6 +521,10 @@ public final class SpawnStrategyRegistry
           (Iterable<? extends SandboxedSpawnStrategy>) strategies;
       return sandboxedStrategies;
     }
+  }
+
+  public ImmutableListMultimap<String, SpawnStrategy> getMnemonicToStrategies() {
+    return mnemonicToStrategies;
   }
 
   private static AbruptExitException createExitException(String message, Code detailedCode) {

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -87,11 +88,14 @@ public interface MemoizingEvaluator {
   Map<SkyKey, SkyValue> getValues();
 
   /**
-   * Returns the node entries in the graph. Should only be called between evaluations. The returned
-   * iterable is mutable, but do not mutate it unless you know what you are doing! Naively deleting
-   * an entry will break graph invariants and cause a crash.
+   * Returns a mutable map of {@link InMemoryNodeEntry} entries in the graph. It is used to power
+   * --discard_analysis_cache and therefore should only be called between evaluations or for test
+   * infrastructure.
+   *
+   * <p>This method should only be supported if all analysis phase nodes are stored in-memory since
+   * deleting nodes otherwise will break graph invariants and cause a crash.
    */
-  Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries();
+  ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable();
 
   /**
    * Informs the evaluator that a sequence of evaluations at the same version has finished.

@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
@@ -253,7 +252,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
-    skyframeExecutor.clearAnalysisCache(ImmutableList.of(), ImmutableSet.of());
+    skyframeExecutor.clearAnalysisCache(ImmutableSet.of(), ImmutableSet.of());
     assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     eventCollector.clear();
     scratch.overwriteFile(
