@@ -2215,7 +2215,7 @@ java_library(
     srcs = ["starlark/BazelBuildApiGlobals.java"],
     deps = [
         ":starlark/starlark_late_bound_default",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
