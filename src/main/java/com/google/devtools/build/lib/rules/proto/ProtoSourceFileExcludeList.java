@@ -54,12 +54,12 @@ public class ProtoSourceFileExcludeList {
    * @param noGenerateProtoFiles a list of .proto files. The list will be iterated.
    */
   public ProtoSourceFileExcludeList(
-      RuleContext ruleContext, NestedSet<Artifact> noGenerateProtoFiles) {
+      RuleContext ruleContext, ImmutableList<ProtoSource> noGenerateProtoFiles) {
     this.ruleContext = ruleContext;
     ImmutableSet.Builder<PathFragment> noGenerateProtoFilePathsBuilder =
         new ImmutableSet.Builder<>();
-    for (Artifact noGenerateProtoFile : noGenerateProtoFiles.toList()) {
-      PathFragment execPath = noGenerateProtoFile.getExecPath();
+    for (ProtoSource noGenerateProtoFile : noGenerateProtoFiles) {
+      PathFragment execPath = noGenerateProtoFile.getOriginalSourceFile().getExecPath();
       // For listed protos bundled with the Bazel tools repository, their exec paths start
       // with external/bazel_tools/. This prefix needs to be removed first, because the protos in
       // user repositories will not have that prefix.

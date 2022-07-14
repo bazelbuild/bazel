@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -113,6 +114,47 @@ public class ActionExecutionException extends Exception implements DetailedExcep
                 action.getOwner().getLabel(),
                 action.getOwner().getConfigurationChecksum(),
                 detailedExitCode));
+  }
+
+  public static ActionExecutionException fromExecException(ExecException exception, Action action) {
+    return fromExecException(exception, null, action);
+  }
+
+  /**
+   * Returns a new ActionExecutionException given an optional action subtask describing which part
+   * of the action failed (should be null for standard action failures). When appropriate (we use
+   * some heuristics to decide), produces an abbreviated message incorporating just the termination
+   * status if available.
+   *
+   * @param exception initial ExecException
+   * @param actionSubtask additional information about the action
+   * @param action failed action
+   * @return ActionExecutionException object describing the action failure
+   */
+  public static ActionExecutionException fromExecException(
+      ExecException exception, @Nullable String actionSubtask, Action action) {
+    // Message from ActionExecutionException will be prepended with action.describe() where
+    // necessary: because not all ActionExecutionExceptions come from this codepath, it is safer
+    // for consumers to manually prepend. We still put action.describe() in the failure detail
+    // message argument.
+    String message =
+        (actionSubtask == null ? "" : actionSubtask + ": ")
+            + exception.getMessageForActionExecutionException();
+
+    DetailedExitCode code =
+        DetailedExitCode.of(exception.getFailureDetail(action.describe() + " failed: " + message));
+
+    if (exception instanceof LostInputsExecException) {
+      return ((LostInputsExecException) exception).fromExecException(message, action, code);
+    }
+
+    return fromExecException(exception, message, action, code);
+  }
+
+  public static ActionExecutionException fromExecException(
+      ExecException exception, String message, Action action, DetailedExitCode code) {
+    return new ActionExecutionException(
+        message, exception, action, exception.isCatastrophic(), code);
   }
 
   /** Returns the action that failed. */

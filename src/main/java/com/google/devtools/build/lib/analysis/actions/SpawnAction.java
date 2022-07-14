@@ -318,7 +318,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
+      throw ActionExecutionException.fromExecException(e, this);
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     }
@@ -590,8 +590,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           executionInfo,
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
-          SpawnAction.this.resourceSetOrBuilder.buildResourceSet(inputs));
-
+          SpawnAction.this.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {
@@ -1428,7 +1427,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw e.toActionExecutionException(SpawnAction.this);
+        throw ActionExecutionException.fromExecException(e, SpawnAction.this);
       }
     }
   }

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Deps;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -103,18 +104,27 @@ public class ProtoCompileActionBuilderTest {
             artifact("//:dont-care", "protoc-gen-javalite.exe"));
 
     ProtoLangToolchainProvider toolchainNoPlugin =
-        ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+        ProtoLangToolchainProvider.createNative(
+            "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
-
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
     ProtoLangToolchainProvider toolchainWithPlugin =
-        ProtoLangToolchainProvider.create(
-            "--$(PLUGIN_OUT)=param3,param4:$(OUT)",
+        ProtoLangToolchainProvider.createNative(
+            "--PLUGIN_pluginName_out=param3,param4:%s",
+            /* pluginFormatFlag= */ "--plugin=protoc-gen-PLUGIN_pluginName=%s",
             plugin,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -173,11 +183,16 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void commandLine_strictDeps() throws Exception {
     ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+        ProtoLangToolchainProvider.createNative(
+            "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -211,11 +226,16 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void commandLine_exports() throws Exception {
     ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+        ProtoLangToolchainProvider.createNative(
+            "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -281,11 +301,16 @@ public class ProtoCompileActionBuilderTest {
         };
 
     ProtoLangToolchainProvider toolchain =
-        ProtoLangToolchainProvider.create(
-            "--java_out=param1,param2:$(OUT)",
+        ProtoLangToolchainProvider.createNative(
+            "--java_out=param1,param2:%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -315,18 +340,27 @@ public class ProtoCompileActionBuilderTest {
   @Test
   public void exceptionIfSameName() throws Exception {
     ProtoLangToolchainProvider toolchain1 =
-        ProtoLangToolchainProvider.create(
-            "dontcare",
+        ProtoLangToolchainProvider.createNative(
+            "dontcare=%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
-
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
     ProtoLangToolchainProvider toolchain2 =
-        ProtoLangToolchainProvider.create(
-            "dontcare",
+        ProtoLangToolchainProvider.createNative(
+            "dontcare=%s",
+            /* pluginFormatFlag= */ null,
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* providedProtoSources= */ ImmutableList.of());
+            /* providedProtoSources= */ ImmutableList.of(),
+            /* protoc= */ FilesToRunProvider.EMPTY,
+            /* protocOpts= */ ImmutableList.of(),
+            /* progressMessage = */ "",
+            /* mnemonic= */ "");
 
     IllegalStateException e =
         assertThrows(
@@ -460,17 +494,12 @@ public class ProtoCompileActionBuilderTest {
 
     assertThat(
             new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
-                .buildResourceSet(NestedSetBuilder.emptySet(STABLE_ORDER)))
+                .buildResourceSet(OS.DARWIN, 0))
         .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
 
     assertThat(
             new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
-                .buildResourceSet(
-                    NestedSetBuilder.wrap(
-                        STABLE_ORDER,
-                        ImmutableList.of(
-                            artifact("//:dont-care", "protoc-gen-javalite.exe"),
-                            artifact("//:dont-care-2", "protoc-gen-javalite-2.exe")))))
+                .buildResourceSet(OS.LINUX, 2))
         .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
 }
