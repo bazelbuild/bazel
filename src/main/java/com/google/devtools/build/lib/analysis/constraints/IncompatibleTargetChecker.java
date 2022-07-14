@@ -84,7 +84,7 @@ import javax.annotation.Nullable;
  * <p>See https://bazel.build/docs/platforms#skipping-incompatible-targets for more information on
  * incompatible target skipping.
  */
-public class IncompatibleDeterminingHelper {
+public class IncompatibleTargetChecker {
   /**
    * Creates an incompatible configured target if it is "directly incompatible".
    *

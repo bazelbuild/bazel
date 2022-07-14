@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.constraints.IncompatibleDeterminingHelper;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -338,7 +338,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       Optional<RuleConfiguredTargetValue> incompatibleTarget =
-          IncompatibleDeterminingHelper.createDirectlyIncompatibleTarget(
+          IncompatibleTargetChecker.createDirectlyIncompatibleTarget(
               targetAndConfiguration,
               configConditions,
               env,
@@ -384,7 +384,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Preconditions.checkNotNull(depValueMap);
 
       incompatibleTarget =
-          IncompatibleDeterminingHelper.createIndirectlyIncompatibleTarget(
+          IncompatibleTargetChecker.createIndirectlyIncompatibleTarget(
               targetAndConfiguration,
               depValueMap,
               configConditions,

@@ -2180,8 +2180,8 @@ java_library(
 )
 
 java_library(
-    name = "constraints/incompatible_determining_helper",
-    srcs = ["constraints/IncompatibleDeterminingHelper.java"],
+    name = "constraints/incompatible_target_checker",
+    srcs = ["constraints/IncompatibleTargetChecker.java"],
     deps = [
         ":analysis_cluster",
         ":file_provider",
