@@ -90,7 +90,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "    additional_args.add_all(ctx.attr.additional_args)",
         "    kwargs['additional_args'] = additional_args",
         "  if ctx.files.additional_tools:",
-        "    kwargs['additional_tools'] = ctx.files.additional_tools",
+        "    kwargs['additional_tools'] = [f[DefaultInfo].files_to_run for f in ctx.attr.additional_tools]",
         "  if ctx.files.additional_inputs:",
         "    kwargs['additional_inputs'] = depset(ctx.files.additional_inputs)",
         "  if ctx.attr.use_resource_set:",
@@ -401,23 +401,14 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   @TestParameters({
     "{virtual: false, sibling: false, generated: false, expectedFlags:"
         + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
-    "{virtual: false, sibling: false, generated: true, expectedFlags:"
-        + " ['--proto_path=external/foo',"
-        + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/E.proto']}",
     "{virtual: true, sibling: false, generated: false,expectedFlags:"
         + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
     "{virtual: true, sibling: false, generated: true, expectedFlags:"
         + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e',"
         + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e/e/E.proto']}",
-    "{virtual: true, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-I../foo/e/E.proto=../foo/e/E.proto']}",
     "{virtual: true, sibling: true, generated: true, expectedFlags:"
         + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e',"
         + " '-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e/e/E.proto']}",
-    "{virtual: false, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-I../foo/e/E.proto=../foo/e/E.proto']}",
-    "{virtual: false, sibling: true, generated: true, expectedFlags:"
-        + " ['--proto_path=../foo','-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/E.proto']}",
   })
   public void generateCode_externalProtoLibrary(
       boolean virtual, boolean sibling, boolean generated, List<String> expectedFlags)
