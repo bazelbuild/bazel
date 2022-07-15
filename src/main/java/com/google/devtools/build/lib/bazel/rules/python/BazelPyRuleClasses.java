@@ -143,7 +143,7 @@ public final class BazelPyRuleClasses {
           <code>name</code> is used instead (see above). If <code>name</code> does not
           match any filename in <code>srcs</code>, <code>main</code> must be specified.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("main", LABEL).allowedFileTypes(PyRuleClasses.PYTHON_SOURCE))
+          .add(attr("main", STRING))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(python_version) -->
           Whether to build this target (and its transitive <code>deps</code>) for Python 2 or Python
           3. Valid values are <code>"PY2"</code> and <code>"PY3"</code> (the default).

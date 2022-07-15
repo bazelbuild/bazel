@@ -877,7 +877,14 @@ public final class PyCommon {
     Rule target = ruleContext.getRule();
     boolean explicitMain = target.isAttributeValueExplicitlySpecified("main");
     if (explicitMain) {
-      mainSourceName = ruleContext.attributes().get("main", BuildType.LABEL).getName();
+      // The "main" attribute used to be of type BuildType.LABEL, but this logic only used the name
+      // part. For backwards compatibility, only take the part after the last label delimiter - if
+      // the string is a valid label, this will give its name.
+      String maybeLabel = ruleContext.attributes().get("main", Type.STRING);
+      int lastLabelDelimiter = Math.max(
+          Math.max(maybeLabel.lastIndexOf('@'), maybeLabel.lastIndexOf('/')),
+          maybeLabel.lastIndexOf(':'));
+      mainSourceName = maybeLabel.substring(lastLabelDelimiter + 1);
       if (!mainSourceName.endsWith(".py")) {
         ruleContext.attributeError("main", "main must end in '.py'");
       }
