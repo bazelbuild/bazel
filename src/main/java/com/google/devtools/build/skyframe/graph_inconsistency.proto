@@ -45,8 +45,12 @@ enum Inconsistency {
 message InconsistencyStats {
   repeated InconsistencyStat self_stats = 1;
   repeated InconsistencyStat child_stats = 2;
-  repeated InconsistencyStat unexpected_self_stats = 3;
-  repeated InconsistencyStat unexpected_child_stats = 4;
+  // Deprecated: an unexpected inconsistency is not tolerated and results in a
+  // crash, so this field will always be empty.
+  repeated InconsistencyStat unexpected_self_stats = 3 [deprecated = true];
+  // Deprecated: an unexpected inconsistency is not tolerated and results in a
+  // crash, so this field will always be empty.
+  repeated InconsistencyStat unexpected_child_stats = 4 [deprecated = true];
 
   message InconsistencyStat {
     Inconsistency inconsistency = 1;
