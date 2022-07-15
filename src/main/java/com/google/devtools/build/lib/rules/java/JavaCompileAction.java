@@ -171,12 +171,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {
       throw new IllegalArgumentException(
           String.format(
-              "Unexpected tree artifact output(s): [%s] in JavaCompileAction: %s",
+              "Unexpected tree artifact output(s): [%s] in JavaCompileAction for %s",
               outputs.stream()
                   .filter(Artifact::isTreeArtifact)
                   .map(Artifact::getExecPathString)
                   .collect(joining(",")),
-              this));
+              owner.getLabel()));
     }
     this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
