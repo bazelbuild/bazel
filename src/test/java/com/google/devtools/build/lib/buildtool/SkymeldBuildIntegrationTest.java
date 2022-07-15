@@ -13,17 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,10 +38,13 @@ import org.junit.runner.RunWith;
 /** Integration tests for project Skymeld: interleaving Skyframe's analysis and execution phases. */
 @RunWith(TestParameterInjector.class)
 public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
+  private AnalysisEventsSubscriber analysisEventsSubscriber;
 
   @Before
   public void setUp() {
     addOptions("--experimental_merged_skyframe_analysis_execution");
+    this.analysisEventsSubscriber = new AnalysisEventsSubscriber();
+    runtimeWrapper.registerSubscriber(analysisEventsSubscriber);
   }
 
   /** A simple rule that has srcs, deps and writes these attributes to its output. */
@@ -92,6 +102,22 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "execution_err_aspect = aspect(implementation = _aspect_impl)");
   }
 
+  private void writeEnvironmentRules(String... defaults) throws Exception {
+    StringBuilder defaultsBuilder = new StringBuilder();
+    for (String defaultEnv : defaults) {
+      defaultsBuilder.append("'").append(defaultEnv).append("', ");
+    }
+
+    write(
+        "buildenv/BUILD",
+        "environment_group(",
+        "    name = 'group',",
+        "    environments = [':one', ':two'],",
+        "    defaults = [" + defaultsBuilder + "])",
+        "environment(name = 'one')",
+        "environment(name = 'two')");
+  }
+
   private void assertSingleOutputBuilt(String target) throws Exception {
     assertThat(Iterables.getOnlyElement(getArtifacts(target)).getPath().isFile()).isTrue();
   }
@@ -115,6 +141,9 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo", "//foo:bar");
     assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo", "//foo:bar");
+
+    assertThat(analysisEventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
+    assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
   }
 
   @Test
@@ -299,5 +328,129 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     // After the 2nd build: symlink to unusedDir is gone, since the package itself was deleted.
     assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
     assertThat(execroot.getRelative("unused").exists()).isFalse();
+  }
+
+  @Test
+  public void targetAnalysisFailure_skymeld_correctAnalysisEvents(@TestParameter boolean keepGoing)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_merged_skyframe_analysis_execution");
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'analysis_failure', srcs = ['foo.in'], deps = [':missing'])",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    if (keepGoing) {
+      assertThrows(
+          BuildFailedException.class, () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
+
+      assertThat(analysisEventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
+      assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo");
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () -> buildTarget("//foo:foo", "//foo:analysis_failure"));
+      assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).isEmpty();
+    }
+  }
+
+  @Test
+  public void aspectAnalysisFailure_skymeld_correctAnalysisEvents(@TestParameter boolean keepGoing)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    writeMyRuleBzl();
+    writeAnalysisFailureAspectBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    addOptions("--aspects=//foo:aspect.bzl%analysis_err_aspect", "--output_groups=files");
+    if (keepGoing) {
+      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+      assertThat(analysisEventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
+      assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo");
+    } else {
+      assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
+      assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).isEmpty();
+    }
+    events.assertContainsError("compilation of module 'foo/aspect.bzl' failed");
+  }
+
+  @Test
+  public void targetSkipped_skymeld_correctAnalysisEvents(@TestParameter boolean keepGoing)
+      throws Exception {
+    writeEnvironmentRules();
+    addOptions("--keep_going=" + keepGoing);
+    write(
+        "foo/BUILD",
+        "sh_library(name = 'good_bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])",
+        "sh_library(name = 'bad_bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:two'])");
+    write("foo/bar.sh");
+    addOptions("--target_environment=//buildenv:one");
+    if (keepGoing) {
+      assertThrows(
+          BuildFailedException.class, () -> buildTarget("//foo:good_bar", "//foo:bad_bar"));
+
+      assertThat(analysisEventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
+      assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
+      AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =
+          Iterables.getOnlyElement(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents());
+      assertThat(analysisPhaseCompleteEvent.getTimeInMs()).isGreaterThan(0);
+      assertThat(getLabelsOfAnalyzedTargets(analysisPhaseCompleteEvent))
+          .containsExactly("//foo:good_bar", "//foo:bad_bar");
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class, () -> buildTarget("//foo:good_bar", "//foo:bad_bar"));
+      assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).isEmpty();
+    }
+  }
+
+  private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
+    assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
+    AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =
+        Iterables.getOnlyElement(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents());
+    assertThat(analysisPhaseCompleteEvent.getTimeInMs()).isGreaterThan(0);
+    assertThat(getLabelsOfAnalyzedTargets(analysisPhaseCompleteEvent))
+        .containsExactlyElementsIn(labels);
+  }
+
+  private static ImmutableSet<String> getLabelsOfAnalyzedTargets(AnalysisPhaseCompleteEvent event) {
+    return event.getTopLevelTargets().stream()
+        .map(x -> x.getOriginalLabel().getCanonicalForm())
+        .collect(toImmutableSet());
+  }
+
+  private static final class AnalysisEventsSubscriber {
+
+    private final Set<TopLevelEntityAnalysisConcludedEvent> topLevelEntityAnalysisConcludedEvents =
+        Sets.newConcurrentHashSet();
+
+    private final Set<AnalysisPhaseCompleteEvent> analysisPhaseCompleteEvents =
+        Sets.newConcurrentHashSet();
+
+    AnalysisEventsSubscriber() {}
+
+    @Subscribe
+    void recordTopLevelEntityAnalysisConcludedEvent(TopLevelEntityAnalysisConcludedEvent event) {
+      topLevelEntityAnalysisConcludedEvents.add(event);
+    }
+
+    @Subscribe
+    void recordAnalysisPhaseCompleteEvent(AnalysisPhaseCompleteEvent event) {
+      analysisPhaseCompleteEvents.add(event);
+    }
+
+    public Set<TopLevelEntityAnalysisConcludedEvent> getTopLevelEntityAnalysisConcludedEvents() {
+      return topLevelEntityAnalysisConcludedEvents;
+    }
+
+    public Set<AnalysisPhaseCompleteEvent> getAnalysisPhaseCompleteEvents() {
+      return analysisPhaseCompleteEvents;
+    }
   }
 }
