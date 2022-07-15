@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -169,6 +170,8 @@ public final class SkyframeErrorProcessor {
     DetailedExitCode representativeExecutionDetailedExitCode = null;
     Map<ActionAnalysisMetadata, ConflictException> actionConflicts = new HashMap<>();
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
+      maybePostTopLevelEntryAnalysisConcludedEvent(
+          errorEntry.getKey(), errorEntry.getValue(), eventBus, keepGoing);
       SkyKey errorKey = getErrorKey(errorEntry);
       ErrorInfo errorInfo = errorEntry.getValue();
       if (includeExecutionPhase) {
@@ -359,6 +362,17 @@ public final class SkyframeErrorProcessor {
         hasAnalysisError,
         ImmutableMap.copyOf(actionConflicts),
         representativeExecutionDetailedExitCode);
+  }
+
+  private static void maybePostTopLevelEntryAnalysisConcludedEvent(
+      SkyKey skyKey, ErrorInfo errorInfo, EventBus eventBus, boolean keepGoing) {
+    // In case of --nokeep_going and there's an analysis error, we don't consider the analysis phase
+    // to be concluded.
+    if (keepGoing
+        && skyKey instanceof BuildDriverKey
+        && !isExecutionException(errorInfo.getException())) {
+      eventBus.post(TopLevelEntityAnalysisConcludedEvent.create(skyKey));
+    }
   }
 
   private static SkyKey getErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * A collection of events that mark the completion of the analysis/building of top level targets or
@@ -33,7 +34,10 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 public final class TopLevelStatusEvents {
   private TopLevelStatusEvents() {}
 
-  /** An event that marks the successful analysis of a top-level target, including tests. */
+  /**
+   * An event that marks the successful analysis of a top-level target, including tests. A skipped
+   * target is still considered analyzed and a TopLevelTargetAnalyzedEvent is expected for it.
+   */
   @AutoValue
   public abstract static class TopLevelTargetAnalyzedEvent implements Postable {
     abstract ConfiguredTarget configuredTarget();
@@ -50,6 +54,20 @@ public final class TopLevelStatusEvents {
 
     public static TopLevelTargetSkippedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetSkippedEvent(configuredTarget);
+    }
+  }
+
+  /**
+   * An event that marks the conclusion of the analysis of a top level target/aspect, successful or
+   * otherwise.
+   */
+  @AutoValue
+  public abstract static class TopLevelEntityAnalysisConcludedEvent implements Postable {
+    public abstract SkyKey getAnalyzedTopLevelKey();
+
+    public static TopLevelEntityAnalysisConcludedEvent create(SkyKey analyzedTopLevelKey) {
+      return new AutoValue_TopLevelStatusEvents_TopLevelEntityAnalysisConcludedEvent(
+          analyzedTopLevelKey);
     }
   }
 

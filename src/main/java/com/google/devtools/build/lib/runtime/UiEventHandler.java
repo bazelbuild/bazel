@@ -555,6 +555,10 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   public synchronized void analysisComplete(AnalysisPhaseCompleteEvent event) {
+    // TODO(b/215335350): Make this work with Skymeld. Ignore for now.
+    if (event.isOriginatedFromSkymeld()) {
+      return;
+    }
     String analysisSummary = stateTracker.analysisComplete();
     handle(Event.info(null, analysisSummary));
   }
