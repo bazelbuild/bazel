@@ -216,13 +216,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   protected InMemoryMemoizingEvaluator createEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
+      EventFilter eventFilter,
       EmittedEventState emittedEventState) {
     return new InMemoryMemoizingEvaluator(
         skyFunctions,
         recordingDiffer,
         progressReceiver,
         inconsistencyReceiver,
-        trackIncrementalState ? DEFAULT_EVENT_FILTER_WITH_ACTIONS : EventFilter.NO_STORAGE,
+        eventFilter,
         emittedEventState,
         trackIncrementalState);
   }
