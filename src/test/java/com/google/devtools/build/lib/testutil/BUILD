@@ -251,7 +251,7 @@ java_library(
         "TestConstants.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//third_party:guava",
     ],

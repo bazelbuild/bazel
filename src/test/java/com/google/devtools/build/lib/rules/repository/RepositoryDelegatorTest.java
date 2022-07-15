@@ -384,7 +384,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   public void loadRepositoryFromBzlmod() throws Exception {
     scratch.overwriteFile(
         rootPath.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
+        "module(name='aaa',version='0.1')",
         "bazel_dep(name='bazel_tools',version='1.0')");
     FakeRegistry registry =
         registryFactory

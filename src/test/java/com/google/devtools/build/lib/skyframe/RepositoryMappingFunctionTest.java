@@ -152,9 +152,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepoNameMapping_asMainModule() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0', repo_name = 'com_foo_bar_b')");
-    registry.addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0', repo_name = 'com_foo_bar_b')");
+    registry.addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')");
 
     RepositoryName name = RepositoryName.MAIN;
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -168,12 +168,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                 ImmutableMap.of(
                     "",
                     RepositoryName.MAIN,
-                    "A",
+                    "aaa",
                     RepositoryName.MAIN,
                     TestConstants.WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
-                    RepositoryName.create("@B~1.0")),
+                    RepositoryName.create("@bbb~1.0")),
                 name));
   }
 
@@ -181,17 +181,17 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepoNameMapping_asDependency() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='1.0', repo_name = 'com_foo_bar_c')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.0', repo_name = 'com_foo_bar_c')");
     registry
-        .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')")
+        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
         .addModule(
-            createModuleKey("C", "1.0"),
-            "module(name='C', version='1.0')",
-            "bazel_dep(name='B', version='1.0', repo_name='com_foo_bar_b')");
+            createModuleKey("ccc", "1.0"),
+            "module(name='ccc', version='1.0')",
+            "bazel_dep(name='bbb', version='1.0', repo_name='com_foo_bar_b')");
 
-    RepositoryName name = RepositoryName.create("@C~1.0");
+    RepositoryName name = RepositoryName.create("@ccc~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -201,21 +201,21 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "C", RepositoryName.create("@C~1.0"),
-                    "com_foo_bar_b", RepositoryName.create("@B~1.0")),
+                    "ccc", RepositoryName.create("@ccc~1.0"),
+                    "com_foo_bar_b", RepositoryName.create("@bbb~1.0")),
                 name));
   }
 
   @Test
   public void testRepoNameMapping_dependencyOnRootModule() throws Exception {
     scratch.overwriteFile(
-        "MODULE.bazel", "module(name='A',version='0.1')", "bazel_dep(name='B',version='1.0')");
+        "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry.addModule(
-        createModuleKey("B", "1.0"),
-        "module(name='B', version='1.0')",
-        "bazel_dep(name='A',version='3.0')");
+        createModuleKey("bbb", "1.0"),
+        "module(name='bbb', version='1.0')",
+        "bazel_dep(name='aaa',version='3.0')");
 
-    RepositoryName name = RepositoryName.create("@B~1.0");
+    RepositoryName name = RepositoryName.create("@bbb~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -225,7 +225,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "B", RepositoryName.create("@B~1.0"), "A", RepositoryName.create("")),
+                    "bbb", RepositoryName.create("@bbb~1.0"), "aaa", RepositoryName.create("")),
                 name));
   }
 
@@ -233,13 +233,13 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepoNameMapping_multipleVersionOverride_fork() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0',repo_name='B1')",
-        "bazel_dep(name='B',version='2.0',repo_name='B2')",
-        "multiple_version_override(module_name='B',versions=['1.0','2.0'])");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0',repo_name='bbb1')",
+        "bazel_dep(name='bbb',version='2.0',repo_name='bbb2')",
+        "multiple_version_override(module_name='bbb',versions=['1.0','2.0'])");
     registry
-        .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')")
-        .addModule(createModuleKey("B", "2.0"), "module(name='B', version='2.0')");
+        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
+        .addModule(createModuleKey("bbb", "2.0"), "module(name='bbb', version='2.0')");
 
     RepositoryName name = RepositoryName.MAIN;
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -255,14 +255,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                 ImmutableMap.of(
                     "",
                     RepositoryName.MAIN,
-                    "A",
+                    "aaa",
                     RepositoryName.MAIN,
                     TestConstants.WORKSPACE_NAME,
                     RepositoryName.MAIN,
-                    "B1",
-                    RepositoryName.create("@B~1.0"),
-                    "B2",
-                    RepositoryName.create("@B~2.0")),
+                    "bbb1",
+                    RepositoryName.create("@bbb~1.0"),
+                    "bbb2",
+                    RepositoryName.create("@bbb~2.0")),
                 name));
   }
 
@@ -270,21 +270,21 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepoNameMapping_multipleVersionOverride_diamond() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='2.0')",
-        "multiple_version_override(module_name='D',versions=['1.0','2.0'])");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')",
+        "multiple_version_override(module_name='ddd',versions=['1.0','2.0'])");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');bazel_dep(name='D', version='1.0')")
+            createModuleKey("bbb", "1.0"),
+            "module(name='bbb', version='1.0');bazel_dep(name='ddd', version='1.0')")
         .addModule(
-            createModuleKey("C", "2.0"),
-            "module(name='C', version='2.0');bazel_dep(name='D', version='2.0')")
-        .addModule(createModuleKey("D", "1.0"), "module(name='D', version='1.0')")
-        .addModule(createModuleKey("D", "2.0"), "module(name='D', version='2.0')");
+            createModuleKey("ccc", "2.0"),
+            "module(name='ccc', version='2.0');bazel_dep(name='ddd', version='2.0')")
+        .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
+        .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
 
-    RepositoryName name = RepositoryName.create("@B~1.0");
+    RepositoryName name = RepositoryName.create("@bbb~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -296,8 +296,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "B", RepositoryName.create("@B~1.0"),
-                    "D", RepositoryName.create("@D~1.0")),
+                    "bbb", RepositoryName.create("@bbb~1.0"),
+                    "ddd", RepositoryName.create("@ddd~1.0")),
                 name));
   }
 
@@ -305,19 +305,19 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   public void testRepoNameMapping_multipleVersionOverride_lookup() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0',repo_name='B1')",
-        "bazel_dep(name='B',version='2.0',repo_name='B2')",
-        "multiple_version_override(module_name='B',versions=['1.0','2.0'])");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0',repo_name='bbb1')",
+        "bazel_dep(name='bbb',version='2.0',repo_name='bbb2')",
+        "multiple_version_override(module_name='bbb',versions=['1.0','2.0'])");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');"
-                + "bazel_dep(name='C', version='1.0', repo_name='com_foo_bar_c')")
-        .addModule(createModuleKey("B", "2.0"), "module(name='B', version='2.0')")
-        .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0')");
+            createModuleKey("bbb", "1.0"),
+            "module(name='bbb', version='1.0');"
+                + "bazel_dep(name='ccc', version='1.0', repo_name='com_foo_bar_c')")
+        .addModule(createModuleKey("bbb", "2.0"), "module(name='bbb', version='2.0')")
+        .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')");
 
-    RepositoryName name = RepositoryName.create("@B~1.0");
+    RepositoryName name = RepositoryName.create("@bbb~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -329,8 +329,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "B", RepositoryName.create("@B~1.0"),
-                    "com_foo_bar_c", RepositoryName.create("@C~1.0")),
+                    "bbb", RepositoryName.create("@bbb~1.0"),
+                    "com_foo_bar_c", RepositoryName.create("@ccc~1.0")),
                 name));
   }
 
@@ -399,27 +399,27 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "    name = 'ws_repo',",
         "    path = '/ws_repo',",
         "    repo_mapping = {",
-        "        '@B_alias' : '@B',",
-        "        '@B_alias2' : '@B',",
-        "        '@D_alias' : '@D',",
-        "        '@E_alias' : '@E',",
+        "        '@bbb_alias' : '@bbb',",
+        "        '@bbb_alias2' : '@bbb',",
+        "        '@ddd_alias' : '@ddd',",
+        "        '@eee_alias' : '@eee',",
         "    },",
         ")");
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='2.0')",
-        "multiple_version_override(module_name='D',versions=['1.0','2.0'])");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')",
+        "multiple_version_override(module_name='ddd',versions=['1.0','2.0'])");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');bazel_dep(name='D', version='1.0')")
+            createModuleKey("bbb", "1.0"),
+            "module(name='bbb', version='1.0');bazel_dep(name='ddd', version='1.0')")
         .addModule(
-            createModuleKey("C", "2.0"),
-            "module(name='C', version='2.0');bazel_dep(name='D', version='2.0')")
-        .addModule(createModuleKey("D", "1.0"), "module(name='D', version='1.0')")
-        .addModule(createModuleKey("D", "2.0"), "module(name='D', version='2.0')");
+            createModuleKey("ccc", "2.0"),
+            "module(name='ccc', version='2.0');bazel_dep(name='ddd', version='2.0')")
+        .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
+        .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
 
     RepositoryName name = RepositoryName.create("ws_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -429,17 +429,17 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             withMappingAllowingFallback(
                 ImmutableMap.<String, RepositoryName>builder()
                     .put("root", RepositoryName.MAIN)
-                    // mappings to @B get remapped to @B~1.0 because of module B~1.0
-                    .put("B_alias", RepositoryName.create("@B~1.0"))
-                    .put("B_alias2", RepositoryName.create("@B~1.0"))
-                    // mapping from @B to @B~1.0 is also created
-                    .put("B", RepositoryName.create("@B~1.0"))
-                    // mapping from @C to @C~2.0 is created despite not being mentioned
-                    .put("C", RepositoryName.create("@C~2.0"))
-                    // mapping to @D is untouched because D has a multiple-version override
-                    .put("D_alias", RepositoryName.create("D"))
-                    // mapping to @E is untouched because E is not a module
-                    .put("E_alias", RepositoryName.create("E"))
+                    // mappings to @bbb get remapped to @bbb~1.0 because of module bbb@1.0
+                    .put("bbb_alias", RepositoryName.create("@bbb~1.0"))
+                    .put("bbb_alias2", RepositoryName.create("@bbb~1.0"))
+                    // mapping from @bbb to @bbb~1.0 is also created
+                    .put("bbb", RepositoryName.create("@bbb~1.0"))
+                    // mapping from @ccc to @ccc~2.0 is created despite not being mentioned
+                    .put("ccc", RepositoryName.create("@ccc~2.0"))
+                    // mapping to @ddd is untouched because ddd has a multiple-version override
+                    .put("ddd_alias", RepositoryName.create("ddd"))
+                    // mapping to @eee is untouched because eee is not a module
+                    .put("eee_alias", RepositoryName.create("eee"))
                     .buildOrThrow()));
   }
 
@@ -452,12 +452,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "    path = '/ws_repo',",
         ")");
     scratch.overwriteFile(
-        "MODULE.bazel", "module(name='A',version='0.1')", "bazel_dep(name='B',version='1.0')");
+        "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');bazel_dep(name='C', version='2.0')")
-        .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+            createModuleKey("bbb", "1.0"),
+            "module(name='bbb', version='1.0');bazel_dep(name='ccc', version='2.0')")
+        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
 
     SkyKey skyKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     assertThatEvaluationResult(eval(skyKey))
@@ -466,8 +466,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             withMappingForRootModule(
                 ImmutableMap.of(
                     "", RepositoryName.MAIN,
-                    "A", RepositoryName.MAIN,
-                    "B", RepositoryName.create("@B~1.0"),
+                    "aaa", RepositoryName.MAIN,
+                    "bbb", RepositoryName.create("@bbb~1.0"),
                     "root", RepositoryName.MAIN,
                     "ws_repo", RepositoryName.create("ws_repo")),
                 RepositoryName.MAIN));
@@ -482,12 +482,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "    path = '/ws_repo',",
         ")");
     scratch.overwriteFile(
-        "MODULE.bazel", "module(name='A',version='0.1')", "bazel_dep(name='B',version='1.0')");
+        "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
-            "module(name='B', version='1.0');bazel_dep(name='C', version='2.0')")
-        .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+            createModuleKey("bbb", "1.0"),
+            "module(name='bbb', version='1.0');bazel_dep(name='ccc', version='2.0')")
+        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
 
     SkyKey skyKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
     assertThatEvaluationResult(eval(skyKey))
@@ -496,8 +496,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             withMapping(
                 ImmutableMap.of(
                     "", RepositoryName.MAIN,
-                    "A", RepositoryName.MAIN,
-                    "B", RepositoryName.create("@B~1.0")),
+                    "aaa", RepositoryName.MAIN,
+                    "bbb", RepositoryName.create("@bbb~1.0")),
                 RepositoryName.MAIN));
   }
 

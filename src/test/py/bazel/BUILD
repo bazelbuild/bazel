@@ -1,3 +1,4 @@
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("//tools/python:private/defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:private"])
@@ -22,7 +23,10 @@ py_library(
     name = "test_base",
     testonly = 1,
     srcs = ["test_base.py"],
-    data = [":test-deps"],
+    data = [
+        ":default_repos_stanza.txt",
+        ":test-deps",
+    ],
     visibility = [
         "//src/test/py/bazel:__pkg__",
         "//third_party/def_parser:__pkg__",
@@ -30,6 +34,14 @@ py_library(
         "//tools/build_rules:__pkg__",
         "//tools/ctexplain:__pkg__",
         "//tools/python:__pkg__",
+    ],
+)
+
+gen_workspace_stanza(
+    name = "default_repos_stanza",
+    out = "default_repos_stanza.txt",
+    repos = [
+        "rules_cc",
     ],
 )
 

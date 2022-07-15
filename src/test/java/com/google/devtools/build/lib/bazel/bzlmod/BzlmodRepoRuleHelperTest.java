@@ -135,30 +135,30 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   public void getRepoSpec_bazelModule() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
-            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@C~2.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@ccc~2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@C~2.0")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@ccc~2.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
-                    ImmutableMap.of("name", "@C~2.0", "path", "/usr/local/modules/@C~2.0"))
+                    ImmutableMap.of("name", "@ccc~2.0", "path", "/usr/local/modules/@ccc~2.0"))
                 .build());
   }
 
@@ -166,33 +166,33 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   public void getRepoSpec_nonRegistryOverride() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "local_path_override(module_name='C',path='/foo/bar/C')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "local_path_override(module_name='ccc',path='/foo/bar/C')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
-            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
         evaluator.evaluate(
-            ImmutableList.of(getRepoSpecByNameKey("@C~override")), evaluationContext);
+            ImmutableList.of(getRepoSpecByNameKey("@ccc~override")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@C~override")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@ccc~override")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "name", "@C~override",
+                        "name", "@ccc~override",
                         "path", "/foo/bar/C"))
                 .build());
   }
@@ -201,27 +201,27 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   public void getRepoSpec_singleVersionOverride() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
         "single_version_override(",
-        "  module_name='C',version='3.0',patches=['//:foo.patch'],patch_strip=1)");
+        "  module_name='ccc',version='3.0',patches=['//:foo.patch'],patch_strip=1)");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
-            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')")
-            .addModule(createModuleKey("C", "3.0"), "module(name='C', version='3.0')");
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')")
+            .addModule(createModuleKey("ccc", "3.0"), "module(name='ccc', version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@C~3.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@ccc~3.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@C~3.0")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@ccc~3.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
@@ -232,9 +232,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .setAttributes(
                     ImmutableMap.of(
                         "name",
-                        "@C~3.0",
+                        "@ccc~3.0",
                         "path",
-                        "/usr/local/modules/@C~3.0",
+                        "/usr/local/modules/@ccc~3.0",
                         "patches",
                         ImmutableList.of("//:foo.patch"),
                         "patch_args",
@@ -246,36 +246,36 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   public void getRepoSpec_multipleVersionOverride() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='2.0')",
-        "multiple_version_override(module_name='D',versions=['1.0','2.0'])");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')",
+        "multiple_version_override(module_name='ddd',versions=['1.0','2.0'])");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='D',version='1.0')")
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ddd',version='1.0')")
             .addModule(
-                createModuleKey("C", "2.0"),
-                "module(name='C', version='2.0');bazel_dep(name='D',version='2.0')")
-            .addModule(createModuleKey("D", "1.0"), "module(name='D', version='1.0')")
-            .addModule(createModuleKey("D", "2.0"), "module(name='D', version='2.0')");
+                createModuleKey("ccc", "2.0"),
+                "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='2.0')")
+            .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
+            .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@D~2.0")), evaluationContext);
+        evaluator.evaluate(ImmutableList.of(getRepoSpecByNameKey("@ddd~2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@D~2.0")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("@ddd~2.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
-                    ImmutableMap.of("name", "@D~2.0", "path", "/usr/local/modules/@D~2.0"))
+                    ImmutableMap.of("name", "@ddd~2.0", "path", "/usr/local/modules/@ddd~2.0"))
                 .build());
   }
 
@@ -283,12 +283,12 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
   public void getRepoSpec_notFound() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
-            .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')");
+            .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =

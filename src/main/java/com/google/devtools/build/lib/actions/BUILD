@@ -212,7 +212,6 @@ java_library(
         ":fileset_output_symlink",
         ":package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
@@ -327,7 +326,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

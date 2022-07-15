@@ -101,7 +101,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",

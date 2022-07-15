@@ -1044,7 +1044,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       mutableNodeMap.forEach(
           PARALLELISM_THRESHOLD,
           (k, e) -> {
-            if (e == null || !e.isDone()) {
+            if (!e.isDone()) {
               return;
             }
             boolean removeNode =

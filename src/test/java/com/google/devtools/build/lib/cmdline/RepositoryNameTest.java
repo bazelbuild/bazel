@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,6 +52,21 @@ public class RepositoryNameTest {
     assertNotValid("foo/bar", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'");
     assertNotValid("foo@", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'");
     assertNotValid("foo\0", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'");
+  }
+
+  @Test
+  public void validateUserProvidedRepoName() throws Exception {
+    RepositoryName.validateUserProvidedRepoName("foo");
+    RepositoryName.validateUserProvidedRepoName("foo_bar");
+    RepositoryName.validateUserProvidedRepoName("foo-bar");
+    RepositoryName.validateUserProvidedRepoName("foo.bar");
+    RepositoryName.validateUserProvidedRepoName("foo..");
+    RepositoryName.validateUserProvidedRepoName("foo.33");
+
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName(".foo"));
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName("_foo"));
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName("foo/bar"));
+    assertThrows(EvalException.class, () -> RepositoryName.validateUserProvidedRepoName("@foo"));
   }
 
   @Test

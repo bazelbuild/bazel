@@ -260,6 +260,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context().write("BUILD");
     ProcessResult result = context().bazel().shouldFail().build("//...");
     assertThat(result.errString())
-        .contains("name field must be a legal workspace name; workspace names may contain only");
+        .contains("Error in local_repository: invalid user-provided repo name '@a'");
   }
 }

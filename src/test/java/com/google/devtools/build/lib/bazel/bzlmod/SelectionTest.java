@@ -36,57 +36,57 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("BfromA", createModuleKey("B", "1.0"))
-                    .addDep("CfromA", createModuleKey("C", "2.0"))
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("DfromB", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("DfromC", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("D", "2.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0", 1).buildEntry())
             .buildOrThrow();
 
     SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("BfromA", createModuleKey("B", "1.0"))
-                .addDep("CfromA", createModuleKey("C", "2.0"))
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0")
-                .addDep("DfromB", createModuleKey("D", "2.0"))
-                .addOriginalDep("DfromB", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("C", "2.0")
-                .addDep("DfromC", createModuleKey("D", "2.0"))
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("D", "2.0", 1).buildEntry())
+            ModuleBuilder.create("ddd", "2.0", 1).buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("BfromA", createModuleKey("B", "1.0"))
-                .addDep("CfromA", createModuleKey("C", "2.0"))
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0")
-                .addDep("DfromB", createModuleKey("D", "2.0"))
-                .addOriginalDep("DfromB", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("C", "2.0")
-                .addDep("DfromC", createModuleKey("D", "2.0"))
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("D", "1.0", 1).buildEntry(),
-            ModuleBuilder.create("D", "2.0", 1).buildEntry());
+            ModuleBuilder.create("ddd", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("ddd", "2.0", 1).buildEntry());
   }
 
   @Test
@@ -94,60 +94,66 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", "1.0"))
-                    .addDep("C", createModuleKey("C", "2.0"))
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("D", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("D", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd", createModuleKey("ddd", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("D", "1.0")
-                    .addDep("E", createModuleKey("E", "1.0"))
+                ModuleBuilder.create("ddd", "1.0")
+                    .addDep("eee", createModuleKey("eee", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "2.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
             // Only D@1.0 needs E. When D@1.0 is removed, E should be gone as well (even though
             // E@1.0 is selected for E).
-            .put(ModuleBuilder.create("E", "1.0").buildEntry())
+            .put(ModuleBuilder.create("eee", "1.0").buildEntry())
             .build();
 
     SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "2.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0")
-                .addDep("D", createModuleKey("D", "2.0"))
-                .addOriginalDep("D", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd", createModuleKey("ddd", "2.0"))
+                .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("C", "2.0").addDep("D", createModuleKey("D", "2.0")).buildEntry(),
-            ModuleBuilder.create("D", "2.0").buildEntry())
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd", createModuleKey("ddd", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ddd", "2.0").buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "2.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0")
-                .addDep("D", createModuleKey("D", "2.0"))
-                .addOriginalDep("D", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd", createModuleKey("ddd", "2.0"))
+                .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("C", "2.0").addDep("D", createModuleKey("D", "2.0")).buildEntry(),
-            ModuleBuilder.create("D", "2.0").buildEntry(),
-            ModuleBuilder.create("D", "1.0").addDep("E", createModuleKey("E", "1.0")).buildEntry(),
-            ModuleBuilder.create("E", "1.0").buildEntry());
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd", createModuleKey("ddd", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ddd", "2.0").buildEntry(),
+            ModuleBuilder.create("ddd", "1.0")
+                .addDep("eee", createModuleKey("eee", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("eee", "1.0").buildEntry());
   }
 
   @Test
@@ -155,55 +161,59 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", "1.0"))
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("B", createModuleKey("B", "1.0-pre"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("bbb", createModuleKey("bbb", "1.0-pre"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0-pre")
-                    .addDep("D", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0-pre")
+                    .addDep("ddd", createModuleKey("ddd", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0").buildEntry())
             .buildOrThrow();
 
     SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
-            ModuleBuilder.create("C", "2.0")
-                .addDep("B", createModuleKey("B", "1.0"))
-                .addOriginalDep("B", createModuleKey("B", "1.0-pre"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
                 .buildEntry())
         .inOrder();
     // D is completely gone.
 
     assertThat(selectionResult.getUnprunedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
-            ModuleBuilder.create("C", "2.0")
-                .addDep("B", createModuleKey("B", "1.0"))
-                .addOriginalDep("B", createModuleKey("B", "1.0-pre"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0-pre")
-                .addDep("D", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
                 .buildEntry(),
-            ModuleBuilder.create("D", "1.0").buildEntry());
+            ModuleBuilder.create("bbb", "1.0-pre")
+                .addDep("ddd", createModuleKey("ddd", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ddd", "1.0").buildEntry());
   }
 
   @Test
@@ -211,21 +221,21 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("BfromA", createModuleKey("B", "1.0"))
-                    .addDep("CfromA", createModuleKey("C", "2.0"))
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("DfromB", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("DfromC", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("D", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0", 2).buildEntry())
             .buildOrThrow();
 
     ExternalDepsException e =
@@ -233,86 +243,96 @@ public class SelectionTest {
             ExternalDepsException.class,
             () -> Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()));
     String error = e.getMessage();
-    assertThat(error).contains("B@1.0 depends on D@1.0 with compatibility level 1");
-    assertThat(error).contains("C@2.0 depends on D@2.0 with compatibility level 2");
+    assertThat(error).contains("bbb@1.0 depends on ddd@1.0 with compatibility level 1");
+    assertThat(error).contains("ccc@2.0 depends on ddd@2.0 with compatibility level 2");
     assertThat(error).contains("which is different");
   }
 
   @Test
   public void differentCompatibilityLevelIsOkIfUnreferenced() throws Exception {
-    // A 1.0 -> B 1.0 -> C 2.0
-    //       \-> C 1.0
-    //        \-> D 1.0 -> B 1.1
-    //         \-> E 1.0 -> C 1.1
+    // aaa 1.0 -> bbb 1.0 -> ccc 2.0
+    //       \-> ccc 1.0
+    //        \-> ddd 1.0 -> bbb 1.1
+    //         \-> eee 1.0 -> ccc 1.1
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", "1.0")
+                ModuleBuilder.create("aaa", "1.0")
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", "1.0"))
-                    .addDep("C", createModuleKey("C", "1.0"))
-                    .addDep("D", createModuleKey("D", "1.0"))
-                    .addDep("E", createModuleKey("E", "1.0"))
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc", createModuleKey("ccc", "1.0"))
+                    .addDep("ddd", createModuleKey("ddd", "1.0"))
+                    .addDep("eee", createModuleKey("eee", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("C", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
             .put(
-                ModuleBuilder.create("D", "1.0")
-                    .addDep("B", createModuleKey("B", "1.1"))
+                ModuleBuilder.create("ddd", "1.0")
+                    .addDep("bbb", createModuleKey("bbb", "1.1"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B", "1.1").buildEntry())
+            .put(ModuleBuilder.create("bbb", "1.1").buildEntry())
             .put(
-                ModuleBuilder.create("E", "1.0")
-                    .addDep("C", createModuleKey("C", "1.1"))
+                ModuleBuilder.create("eee", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.1"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "1.1", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.1", 1).buildEntry())
             .buildOrThrow();
 
-    // After selection, C 2.0 is gone, so we're okay.
-    // A 1.0 -> B 1.1
-    //       \-> C 1.1
-    //        \-> D 1.0 -> B 1.1
-    //         \-> E 1.0 -> C 1.1
+    // After selection, ccc 2.0 is gone, so we're okay.
+    // aaa 1.0 -> bbb 1.1
+    //       \-> ccc 1.1
+    //        \-> ddd 1.0 -> bbb 1.1
+    //         \-> eee 1.0 -> ccc 1.1
     SelectionResult selectionResult = Selection.run(depGraph, /*overrides=*/ ImmutableMap.of());
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", "1.0")
+            ModuleBuilder.create("aaa", "1.0")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.1"))
-                .addOriginalDep("B", createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "1.1"))
-                .addOriginalDep("C", createModuleKey("C", "1.0"))
-                .addDep("D", createModuleKey("D", "1.0"))
-                .addDep("E", createModuleKey("E", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.1"))
+                .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "1.1"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                .addDep("ddd", createModuleKey("ddd", "1.0"))
+                .addDep("eee", createModuleKey("eee", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.1").buildEntry(),
-            ModuleBuilder.create("C", "1.1", 1).buildEntry(),
-            ModuleBuilder.create("D", "1.0").addDep("B", createModuleKey("B", "1.1")).buildEntry(),
-            ModuleBuilder.create("E", "1.0").addDep("C", createModuleKey("C", "1.1")).buildEntry())
+            ModuleBuilder.create("bbb", "1.1").buildEntry(),
+            ModuleBuilder.create("ccc", "1.1", 1).buildEntry(),
+            ModuleBuilder.create("ddd", "1.0")
+                .addDep("bbb", createModuleKey("bbb", "1.1"))
+                .buildEntry(),
+            ModuleBuilder.create("eee", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.1"))
+                .buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", "1.0")
+            ModuleBuilder.create("aaa", "1.0")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.1"))
-                .addOriginalDep("B", createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "1.1"))
-                .addOriginalDep("C", createModuleKey("C", "1.0"))
-                .addDep("D", createModuleKey("D", "1.0"))
-                .addDep("E", createModuleKey("E", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.1"))
+                .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "1.1"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
+                .addDep("ddd", createModuleKey("ddd", "1.0"))
+                .addDep("eee", createModuleKey("eee", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
-            ModuleBuilder.create("B", "1.1").buildEntry(),
-            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
-            ModuleBuilder.create("C", "1.1", 1).buildEntry(),
-            ModuleBuilder.create("C", "2.0", 2).buildEntry(),
-            ModuleBuilder.create("D", "1.0").addDep("B", createModuleKey("B", "1.1")).buildEntry(),
-            ModuleBuilder.create("E", "1.0").addDep("C", createModuleKey("C", "1.1")).buildEntry());
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "1.1").buildEntry(),
+            ModuleBuilder.create("ccc", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "1.1", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "2.0", 2).buildEntry(),
+            ModuleBuilder.create("ddd", "1.0")
+                .addDep("bbb", createModuleKey("bbb", "1.1"))
+                .buildEntry(),
+            ModuleBuilder.create("eee", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.1"))
+                .buildEntry());
   }
 
   @Test
@@ -320,17 +340,17 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B", "1.0"))
-                    .addDep("B2", createModuleKey("B", "2.0"))
+                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B", "1.0").buildEntry())
-            .put(ModuleBuilder.create("B", "2.0").buildEntry())
+            .put(ModuleBuilder.create("bbb", "1.0").buildEntry())
+            .put(ModuleBuilder.create("bbb", "2.0").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "B",
+            "bbb",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0"), Version.parse("3.0")),
                 ""));
@@ -340,7 +360,7 @@ public class SelectionTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "multiple_version_override for module B contains version 3.0, but it doesn't exist in"
+            "multiple_version_override for module bbb contains version 3.0, but it doesn't exist in"
                 + " the dependency graph");
   }
 
@@ -350,30 +370,30 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B", "1.0"))
-                    .addDep("B2", createModuleKey("B", "2.0"))
+                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B", "1.0").buildEntry())
-            .put(ModuleBuilder.create("B", "2.0").buildEntry())
+            .put(ModuleBuilder.create("bbb", "1.0").buildEntry())
+            .put(ModuleBuilder.create("bbb", "2.0").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "B",
+            "bbb",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
     SelectionResult selectionResult = Selection.run(depGraph, overrides);
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B1", createModuleKey("B", "1.0"))
-                .addDep("B2", createModuleKey("B", "2.0"))
+                .addDep("bbb1", createModuleKey("bbb", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0").buildEntry(),
-            ModuleBuilder.create("B", "2.0").buildEntry())
+            ModuleBuilder.create("bbb", "1.0").buildEntry(),
+            ModuleBuilder.create("bbb", "2.0").buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph())
@@ -385,19 +405,19 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B", "1.0"))
-                    .addDep("B2", createModuleKey("B", "1.3"))
-                    .addDep("B3", createModuleKey("B", "1.5"))
+                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb", "1.3"))
+                    .addDep("bbb3", createModuleKey("bbb", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B", "1.0").buildEntry())
-            .put(ModuleBuilder.create("B", "1.3").buildEntry())
-            .put(ModuleBuilder.create("B", "1.5").buildEntry())
+            .put(ModuleBuilder.create("bbb", "1.0").buildEntry())
+            .put(ModuleBuilder.create("bbb", "1.3").buildEntry())
+            .put(ModuleBuilder.create("bbb", "1.5").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "B",
+            "bbb",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("1.5")), ""));
 
@@ -406,7 +426,8 @@ public class SelectionTest {
     assertThat(e)
         .hasMessageThat()
         .containsMatch(
-            "A@_ depends on B@1.5 at least twice \\(with repo names (B2 and B3)|(B3 and B2)\\)");
+            "aaa@_ depends on bbb@1.5 at least twice \\(with repo names (bbb2 and bbb3)|(bbb3 and"
+                + " bbb2)\\)");
   }
 
   @Test
@@ -414,44 +435,44 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("BfromA", createModuleKey("B", "1.0"))
-                    .addDep("CfromA", createModuleKey("C", "2.0"))
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("DfromB", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("DfromC", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("D", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0", 2).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "D",
+            "ddd",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
     SelectionResult selectionResult = Selection.run(depGraph, overrides);
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("BfromA", createModuleKey("B", "1.0"))
-                .addDep("CfromA", createModuleKey("C", "2.0"))
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0")
-                .addDep("DfromB", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("C", "2.0")
-                .addDep("DfromC", createModuleKey("D", "2.0"))
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("D", "1.0", 1).buildEntry(),
-            ModuleBuilder.create("D", "2.0", 2).buildEntry())
+            ModuleBuilder.create("ddd", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("ddd", "2.0", 2).buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph())
@@ -463,44 +484,44 @@ public class SelectionTest {
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("BfromA", createModuleKey("B", "1.0"))
-                    .addDep("CfromA", createModuleKey("C", "2.0"))
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("DfromB", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("DfromC", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0").buildEntry())
-            .put(ModuleBuilder.create("D", "2.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "D",
+            "ddd",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
     SelectionResult selectionResult = Selection.run(depGraph, overrides);
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("BfromA", createModuleKey("B", "1.0"))
-                .addDep("CfromA", createModuleKey("C", "2.0"))
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B", "1.0")
-                .addDep("DfromB", createModuleKey("D", "1.0"))
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("C", "2.0")
-                .addDep("DfromC", createModuleKey("D", "2.0"))
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                 .buildEntry(),
-            ModuleBuilder.create("D", "1.0").buildEntry(),
-            ModuleBuilder.create("D", "2.0").buildEntry())
+            ModuleBuilder.create("ddd", "1.0").buildEntry(),
+            ModuleBuilder.create("ddd", "2.0").buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph())
@@ -509,148 +530,160 @@ public class SelectionTest {
 
   @Test
   public void multipleVersionOverride_diamond_snappingToNextHighestVersion() throws Exception {
-    // A --> B1@1.0 -> C@1.0
-    //   \-> B2@1.0 -> C@1.3  [allowed]
-    //   \-> B3@1.0 -> C@1.5
-    //   \-> B4@1.0 -> C@1.7  [allowed]
-    //   \-> B5@1.0 -> C@2.0  [allowed]
+    // aaa --> bbb1@1.0 -> ccc@1.0
+    //     \-> bbb2@1.0 -> ccc@1.3  [allowed]
+    //     \-> bbb3@1.0 -> ccc@1.5
+    //     \-> bbb4@1.0 -> ccc@1.7  [allowed]
+    //     \-> bbb5@1.0 -> ccc@2.0  [allowed]
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B1", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.0"))
-                    .addDep("B3", createModuleKey("B3", "1.0"))
-                    .addDep("B4", createModuleKey("B4", "1.0"))
-                    .addDep("B5", createModuleKey("B5", "1.0"))
+                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                    .addDep("bbb4", createModuleKey("bbb4", "1.0"))
+                    .addDep("bbb5", createModuleKey("bbb5", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B1", "1.0")
-                    .addDep("C", createModuleKey("C", "1.0"))
+                ModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B2", "1.0")
-                    .addDep("C", createModuleKey("C", "1.3"))
+                ModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.3"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B3", "1.0")
-                    .addDep("C", createModuleKey("C", "1.5"))
+                ModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B4", "1.0")
-                    .addDep("C", createModuleKey("C", "1.7"))
+                ModuleBuilder.create("bbb4", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.7"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B5", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
+                ModuleBuilder.create("bbb5", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "1.3", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "1.5", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "1.7", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.3", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.5", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.7", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "C",
+            "ccc",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.3"), Version.parse("1.7"), Version.parse("2.0")),
                 ""));
 
-    // A --> B1@1.0 -> C@1.3  [originally C@1.0]
-    //   \-> B2@1.0 -> C@1.3  [allowed]
-    //   \-> B3@1.0 -> C@1.7  [originally C@1.5]
-    //   \-> B4@1.0 -> C@1.7  [allowed]
-    //   \-> B5@1.0 -> C@2.0  [allowed]
+    // aaa --> bbb1@1.0 -> ccc@1.3  [originally ccc@1.0]
+    //     \-> bbb2@1.0 -> ccc@1.3  [allowed]
+    //     \-> bbb3@1.0 -> ccc@1.7  [originally ccc@1.5]
+    //     \-> bbb4@1.0 -> ccc@1.7  [allowed]
+    //     \-> bbb5@1.0 -> ccc@2.0  [allowed]
     SelectionResult selectionResult = Selection.run(depGraph, overrides);
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B1", createModuleKey("B1", "1.0"))
-                .addDep("B2", createModuleKey("B2", "1.0"))
-                .addDep("B3", createModuleKey("B3", "1.0"))
-                .addDep("B4", createModuleKey("B4", "1.0"))
-                .addDep("B5", createModuleKey("B5", "1.0"))
+                .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb2", "1.0"))
+                .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                .addDep("bbb4", createModuleKey("bbb4", "1.0"))
+                .addDep("bbb5", createModuleKey("bbb5", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B1", "1.0")
-                .addDep("C", createModuleKey("C", "1.3"))
-                .addOriginalDep("C", createModuleKey("C", "1.0"))
+            ModuleBuilder.create("bbb1", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.3"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B2", "1.0").addDep("C", createModuleKey("C", "1.3")).buildEntry(),
-            ModuleBuilder.create("B3", "1.0")
-                .addDep("C", createModuleKey("C", "1.7"))
-                .addOriginalDep("C", createModuleKey("C", "1.5"))
+            ModuleBuilder.create("bbb2", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.3"))
                 .buildEntry(),
-            ModuleBuilder.create("B4", "1.0").addDep("C", createModuleKey("C", "1.7")).buildEntry(),
-            ModuleBuilder.create("B5", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
-            ModuleBuilder.create("C", "1.3", 1).buildEntry(),
-            ModuleBuilder.create("C", "1.7", 1).buildEntry(),
-            ModuleBuilder.create("C", "2.0", 2).buildEntry())
+            ModuleBuilder.create("bbb3", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.7"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.5"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb4", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.7"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb5", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "1.3", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "1.7", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B1", createModuleKey("B1", "1.0"))
-                .addDep("B2", createModuleKey("B2", "1.0"))
-                .addDep("B3", createModuleKey("B3", "1.0"))
-                .addDep("B4", createModuleKey("B4", "1.0"))
-                .addDep("B5", createModuleKey("B5", "1.0"))
+                .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb2", "1.0"))
+                .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                .addDep("bbb4", createModuleKey("bbb4", "1.0"))
+                .addDep("bbb5", createModuleKey("bbb5", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B1", "1.0")
-                .addDep("C", createModuleKey("C", "1.3"))
-                .addOriginalDep("C", createModuleKey("C", "1.0"))
+            ModuleBuilder.create("bbb1", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.3"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B2", "1.0").addDep("C", createModuleKey("C", "1.3")).buildEntry(),
-            ModuleBuilder.create("B3", "1.0")
-                .addDep("C", createModuleKey("C", "1.7"))
-                .addOriginalDep("C", createModuleKey("C", "1.5"))
+            ModuleBuilder.create("bbb2", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.3"))
                 .buildEntry(),
-            ModuleBuilder.create("B4", "1.0").addDep("C", createModuleKey("C", "1.7")).buildEntry(),
-            ModuleBuilder.create("B5", "1.0").addDep("C", createModuleKey("C", "2.0")).buildEntry(),
-            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
-            ModuleBuilder.create("C", "1.3", 1).buildEntry(),
-            ModuleBuilder.create("C", "1.5", 1).buildEntry(),
-            ModuleBuilder.create("C", "1.7", 1).buildEntry(),
-            ModuleBuilder.create("C", "2.0", 2).buildEntry());
+            ModuleBuilder.create("bbb3", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.7"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.5"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb4", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.7"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb5", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "1.3", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "1.5", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "1.7", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "2.0", 2).buildEntry());
   }
 
   @Test
   public void multipleVersionOverride_diamond_dontSnapToDifferentCompatibility() throws Exception {
-    // A --> B1@1.0 -> C@1.0  [allowed]
-    //   \-> B2@1.0 -> C@1.7
-    //   \-> B3@1.0 -> C@2.0  [allowed]
+    // aaa --> bbb1@1.0 -> ccc@1.0  [allowed]
+    //     \-> bbb2@1.0 -> ccc@1.7
+    //     \-> bbb3@1.0 -> ccc@2.0  [allowed]
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B1", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.0"))
-                    .addDep("B3", createModuleKey("B3", "1.0"))
+                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B1", "1.0")
-                    .addDep("C", createModuleKey("C", "1.0"))
+                ModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B2", "1.0")
-                    .addDep("C", createModuleKey("C", "1.7"))
+                ModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.7"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B3", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
+                ModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "1.7", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.7", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "C",
+            "ccc",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
@@ -659,43 +692,43 @@ public class SelectionTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "B2@1.0 depends on C@1.7 which is not allowed by the multiple_version_override on C,"
-                + " which allows only [1.0, 2.0]");
+            "bbb2@1.0 depends on ccc@1.7 which is not allowed by the multiple_version_override on"
+                + " ccc, which allows only [1.0, 2.0]");
   }
 
   @Test
   public void multipleVersionOverride_diamond_unknownCompatibility() throws Exception {
-    // A --> B1@1.0 -> C@1.0  [allowed]
-    //   \-> B2@1.0 -> C@2.0  [allowed]
-    //   \-> B3@1.0 -> C@3.0
+    // aaa --> bbb1@1.0 -> ccc@1.0  [allowed]
+    //     \-> bbb2@1.0 -> ccc@2.0  [allowed]
+    //     \-> bbb3@1.0 -> ccc@3.0
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B1", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.0"))
-                    .addDep("B3", createModuleKey("B3", "1.0"))
+                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B1", "1.0")
-                    .addDep("C", createModuleKey("C", "1.0"))
+                ModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B2", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
+                ModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B3", "1.0")
-                    .addDep("C", createModuleKey("C", "3.0"))
+                ModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "3.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("C", "3.0", 3).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ccc", "3.0", 3).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "C",
+            "ccc",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
@@ -704,118 +737,122 @@ public class SelectionTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "B3@1.0 depends on C@3.0 which is not allowed by the multiple_version_override on C,"
-                + " which allows only [1.0, 2.0]");
+            "bbb3@1.0 depends on ccc@3.0 which is not allowed by the multiple_version_override on"
+                + " ccc, which allows only [1.0, 2.0]");
   }
 
   @Test
   public void multipleVersionOverride_diamond_badVersionsAreOkayIfUnreferenced() throws Exception {
-    // A --> B1@1.0 --> C@1.0  [allowed]
-    //   \          \-> B2@1.1
-    //   \-> B2@1.0 --> C@1.5
-    //   \-> B3@1.0 --> C@2.0  [allowed]
-    //   \          \-> B4@1.1
-    //   \-> B4@1.0 --> C@3.0
+    // aaa --> bbb1@1.0 --> ccc@1.0  [allowed]
+    //     \            \-> bbb2@1.1
+    //     \-> bbb2@1.0 --> ccc@1.5
+    //     \-> bbb3@1.0 --> ccc@2.0  [allowed]
+    //     \            \-> bbb4@1.1
+    //     \-> bbb4@1.0 --> ccc@3.0
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B1", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.0"))
-                    .addDep("B3", createModuleKey("B3", "1.0"))
-                    .addDep("B4", createModuleKey("B4", "1.0"))
+                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                    .addDep("bbb4", createModuleKey("bbb4", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B1", "1.0")
-                    .addDep("C", createModuleKey("C", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.1"))
+                ModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B2", "1.0")
-                    .addDep("C", createModuleKey("C", "1.5"))
+                ModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B2", "1.1").buildEntry())
+            .put(ModuleBuilder.create("bbb2", "1.1").buildEntry())
             .put(
-                ModuleBuilder.create("B3", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
-                    .addDep("B4", createModuleKey("B4", "1.1"))
+                ModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                    .addDep("bbb4", createModuleKey("bbb4", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B4", "1.0")
-                    .addDep("C", createModuleKey("C", "3.0"))
+                ModuleBuilder.create("bbb4", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "3.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B4", "1.1").buildEntry())
-            .put(ModuleBuilder.create("C", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "1.5", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("C", "3.0", 3).buildEntry())
+            .put(ModuleBuilder.create("bbb4", "1.1").buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.5", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ccc", "3.0", 3).buildEntry())
             .buildOrThrow();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "C",
+            "ccc",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    // A --> B1@1.0 --> C@1.0  [allowed]
-    //   \          \-> B2@1.1
-    //   \-> B2@1.1
-    //   \-> B3@1.0 --> C@2.0  [allowed]
-    //   \          \-> B4@1.1
-    //   \-> B4@1.1
-    // C@1.5 and C@3.0, the versions violating the allowlist, are gone.
+    // aaa --> bbb1@1.0 --> ccc@1.0  [allowed]
+    //     \            \-> bbb2@1.1
+    //     \-> bbb2@1.1
+    //     \-> bbb3@1.0 --> ccc@2.0  [allowed]
+    //     \            \-> bbb4@1.1
+    //     \-> bbb4@1.1
+    // ccc@1.5 and ccc@3.0, the versions violating the allowlist, are gone.
     SelectionResult selectionResult = Selection.run(depGraph, overrides);
     assertThat(selectionResult.getResolvedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B1", createModuleKey("B1", "1.0"))
-                .addDep("B2", createModuleKey("B2", "1.1"))
-                .addOriginalDep("B2", createModuleKey("B2", "1.0"))
-                .addDep("B3", createModuleKey("B3", "1.0"))
-                .addDep("B4", createModuleKey("B4", "1.1"))
-                .addOriginalDep("B4", createModuleKey("B4", "1.0"))
+                .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb2", "1.1"))
+                .addOriginalDep("bbb2", createModuleKey("bbb2", "1.0"))
+                .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                .addDep("bbb4", createModuleKey("bbb4", "1.1"))
+                .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B1", "1.0")
-                .addDep("C", createModuleKey("C", "1.0"))
-                .addDep("B2", createModuleKey("B2", "1.1"))
+            ModuleBuilder.create("bbb1", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb2", "1.1"))
                 .buildEntry(),
-            ModuleBuilder.create("B2", "1.1").buildEntry(),
-            ModuleBuilder.create("B3", "1.0")
-                .addDep("C", createModuleKey("C", "2.0"))
-                .addDep("B4", createModuleKey("B4", "1.1"))
+            ModuleBuilder.create("bbb2", "1.1").buildEntry(),
+            ModuleBuilder.create("bbb3", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .addDep("bbb4", createModuleKey("bbb4", "1.1"))
                 .buildEntry(),
-            ModuleBuilder.create("B4", "1.1").buildEntry(),
-            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
-            ModuleBuilder.create("C", "2.0", 2).buildEntry())
+            ModuleBuilder.create("bbb4", "1.1").buildEntry(),
+            ModuleBuilder.create("ccc", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
         .inOrder();
 
     assertThat(selectionResult.getUnprunedDepGraph().entrySet())
         .containsExactly(
-            ModuleBuilder.create("A", Version.EMPTY)
+            ModuleBuilder.create("aaa", Version.EMPTY)
                 .setKey(ModuleKey.ROOT)
-                .addDep("B1", createModuleKey("B1", "1.0"))
-                .addDep("B2", createModuleKey("B2", "1.1"))
-                .addOriginalDep("B2", createModuleKey("B2", "1.0"))
-                .addDep("B3", createModuleKey("B3", "1.0"))
-                .addDep("B4", createModuleKey("B4", "1.1"))
-                .addOriginalDep("B4", createModuleKey("B4", "1.0"))
+                .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb2", "1.1"))
+                .addOriginalDep("bbb2", createModuleKey("bbb2", "1.0"))
+                .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                .addDep("bbb4", createModuleKey("bbb4", "1.1"))
+                .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
                 .buildEntry(),
-            ModuleBuilder.create("B1", "1.0")
-                .addDep("C", createModuleKey("C", "1.0"))
-                .addDep("B2", createModuleKey("B2", "1.1"))
+            ModuleBuilder.create("bbb1", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.0"))
+                .addDep("bbb2", createModuleKey("bbb2", "1.1"))
                 .buildEntry(),
-            ModuleBuilder.create("B2", "1.0").addDep("C", createModuleKey("C", "1.5")).buildEntry(),
-            ModuleBuilder.create("B2", "1.1").buildEntry(),
-            ModuleBuilder.create("B3", "1.0")
-                .addDep("C", createModuleKey("C", "2.0"))
-                .addDep("B4", createModuleKey("B4", "1.1"))
+            ModuleBuilder.create("bbb2", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "1.5"))
                 .buildEntry(),
-            ModuleBuilder.create("B4", "1.0").addDep("C", createModuleKey("C", "3.0")).buildEntry(),
-            ModuleBuilder.create("B4", "1.1").buildEntry(),
-            ModuleBuilder.create("C", "1.0", 1).buildEntry(),
-            ModuleBuilder.create("C", "1.5", 1).buildEntry(),
-            ModuleBuilder.create("C", "2.0", 2).buildEntry(),
-            ModuleBuilder.create("C", "3.0", 3).buildEntry());
+            ModuleBuilder.create("bbb2", "1.1").buildEntry(),
+            ModuleBuilder.create("bbb3", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .addDep("bbb4", createModuleKey("bbb4", "1.1"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb4", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "3.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb4", "1.1").buildEntry(),
+            ModuleBuilder.create("ccc", "1.0", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "1.5", 1).buildEntry(),
+            ModuleBuilder.create("ccc", "2.0", 2).buildEntry(),
+            ModuleBuilder.create("ccc", "3.0", 3).buildEntry());
   }
 }
