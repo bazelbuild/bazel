@@ -502,32 +502,13 @@ abstract class AbstractParallelEvaluator {
         boolean enqueueParentIfReady)
         throws InterruptedException {
       boolean parentIsSignalledAndReady = false;
-      if (oldChildren.size() != knownChildren.size()) {
-        GraphInconsistencyReceiver inconsistencyReceiver =
-            evaluatorContext.getGraphInconsistencyReceiver();
-        Set<SkyKey> missingChildren =
-            Sets.difference(ImmutableSet.copyOf(knownChildren), oldChildren.keySet());
-        if (!missingChildren.isEmpty()) {
-          inconsistencyReceiver.noteInconsistencyAndMaybeThrow(
-              skyKey, missingChildren, Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD);
-        }
-        Map<SkyKey, ? extends NodeEntry> recreatedEntries =
-            graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, missingChildren);
-        for (Map.Entry<SkyKey, ? extends NodeEntry> recreatedEntry : recreatedEntries.entrySet()) {
-          parentIsSignalledAndReady |=
-              enqueueChild(
-                  skyKey,
-                  nodeEntry,
-                  recreatedEntry.getKey(),
-                  recreatedEntry.getValue(),
-                  /*depAlreadyExists=*/ false,
-                  childEvaluationPriority,
-                  enqueueParentIfReady);
-        }
-      }
-      for (Map.Entry<SkyKey, ? extends NodeEntry> e : oldChildren.entrySet()) {
-        SkyKey directDep = e.getKey();
-        NodeEntry directDepEntry = e.getValue();
+      for (SkyKey directDep : knownChildren) {
+        NodeEntry directDepEntry =
+            checkNotNull(
+                oldChildren.get(directDep),
+                "Dirty parent had missing child (parent=%s, child=%s)",
+                skyKey,
+                directDep);
         parentIsSignalledAndReady |=
             enqueueChild(
                 skyKey,

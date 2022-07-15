@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -96,6 +97,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
           "expected string for attribute 'name', got '%s'", Starlark.type(nameValue));
     }
     String name = (String) nameValue;
+    RepositoryName.validateUserProvidedRepoName(name);
     PackageAndLocation conflict = generatedRepos.get(name);
     if (conflict != null) {
       throw Starlark.errorf(

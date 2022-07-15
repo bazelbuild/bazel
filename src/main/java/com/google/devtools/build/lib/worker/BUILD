@@ -158,11 +158,9 @@ java_library(
     srcs = [
         "WorkerMetric.java",
         "WorkerMetricsCollector.java",
-        "WorkerMetricsEvent.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:auto_value",
         "//third_party:flogger",

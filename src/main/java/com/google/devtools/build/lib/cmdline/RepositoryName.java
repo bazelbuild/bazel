@@ -28,6 +28,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** The canonical name of an external repository. */
 public final class RepositoryName {
@@ -38,6 +40,9 @@ public final class RepositoryName {
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
   private static final Pattern VALID_REPO_NAME = Pattern.compile("@?[\\w\\-.~]*");
+
+  // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
+  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
@@ -146,6 +151,19 @@ public final class RepositoryName {
       throw LabelParser.syntaxErrorf(
           "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
               + " and '~'",
+          StringUtilities.sanitizeControlChars(name));
+    }
+  }
+
+  /**
+   * Validates a repo name provided by the user. Such names have tighter restrictions; for example,
+   * they can only start with a letter, and cannot contain a tilde (~).
+   */
+  public static void validateUserProvidedRepoName(String name) throws EvalException {
+    if (!VALID_USER_PROVIDED_NAME.matcher(name).matches()) {
+      throw Starlark.errorf(
+          "invalid user-provided repo name '%s': valid names may contain only A-Z, a-z, 0-9, '-',"
+              + " '_', '.', and must start with a letter",
           StringUtilities.sanitizeControlChars(name));
     }
   }

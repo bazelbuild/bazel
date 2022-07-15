@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableCollection;
@@ -25,11 +26,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -49,6 +52,13 @@ import net.starlark.java.syntax.Location;
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @DocumentMethods
 public class ModuleFileGlobals {
+  /**
+   * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
+   * digit; 3) be at least 2 characters long; 4) contain only lowercase letters, digits, or one of
+   * '._-'.
+   */
+  private static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z][a-z0-9._-]*[a-z0-9]");
+
   private boolean moduleCalled = false;
   private final boolean ignoreDevDeps;
   private final Module.Builder module;
@@ -98,6 +108,18 @@ public class ModuleFileGlobals {
     }
   }
 
+  @VisibleForTesting
+  static void validateModuleName(String moduleName) throws EvalException {
+    if (!VALID_MODULE_NAME.matcher(moduleName).matches()) {
+      throw Starlark.errorf(
+          "invalid module name '%s': valid names must 1) only contain lowercase letters (a-z),"
+              + " digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin with a"
+              + " lowercase letter; 3) end with a lowercase letter or digit; 4) be at least two"
+              + " characters long.",
+          moduleName);
+    }
+  }
+
   @StarlarkMethod(
       name = "module",
       doc =
@@ -109,10 +131,12 @@ public class ModuleFileGlobals {
       parameters = {
         @Param(
             name = "name",
-            // TODO(wyv): explain module name format
             doc =
                 "The name of the module. Can be omitted only if this module is the root module (as"
-                    + " in, if it's not going to be depended on by another module).",
+                    + " in, if it's not going to be depended on by another module). A valid module"
+                    + " name must: 1) only contain lowercase letters (a-z), digits (0-9), dots (.),"
+                    + " hyphens (-), and underscores (_); 2) begin with a lowercase letter; 3) end"
+                    + " with a lowercase letter or digit; 4) be at least two characters long.",
             named = true,
             positional = false,
             defaultValue = "''"),
@@ -179,8 +203,9 @@ public class ModuleFileGlobals {
       throw Starlark.errorf("the module() directive can only be called once");
     }
     moduleCalled = true;
-    // TODO(wyv): add validation logic for name (alphanumerical, start with a letter) & others in
-    //   the future
+    if (!name.isEmpty()) {
+      validateModuleName(name);
+    }
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
@@ -228,7 +253,8 @@ public class ModuleFileGlobals {
             name = "version",
             doc = "The version of the module to be added as a direct dependency.",
             named = true,
-            positional = false),
+            positional = false,
+            defaultValue = "''"),
         @Param(
             name = "repo_name",
             doc =
@@ -253,14 +279,14 @@ public class ModuleFileGlobals {
     if (repoName.isEmpty()) {
       repoName = name;
     }
-    // TODO(wyv): add validation logic for name (alphanumerical, start with a letter) and repoName
-    //   (RepositoryName?, start with a letter)
+    validateModuleName(name);
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
+    RepositoryName.validateUserProvidedRepoName(repoName);
 
     if (!(ignoreDevDeps && devDependency)) {
       deps.put(repoName, ModuleKey.create(name, parsedVersion));
@@ -379,7 +405,8 @@ public class ModuleFileGlobals {
 
     void addImport(String localRepoName, String exportedName, Location location)
         throws EvalException {
-      // TODO(wyv): validate both repo names (RepositoryName.validate; starts with a letter)
+      RepositoryName.validateUserProvidedRepoName(localRepoName);
+      RepositoryName.validateUserProvidedRepoName(exportedName);
       addRepoNameUsage(localRepoName, "by a use_repo() call", location);
       if (imports.containsValue(exportedName)) {
         String collisionRepoName = imports.inverse().get(exportedName);
@@ -460,27 +487,11 @@ public class ModuleFileGlobals {
   }
 
   private void addOverride(String moduleName, ModuleOverride override) throws EvalException {
+    validateModuleName(moduleName);
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
     }
-  }
-
-  // TODO(wyv): replace usages with Sequence.cast(...).getImmutableList().
-  private static ImmutableList<String> checkAllStrings(Iterable<?> iterable, String where)
-      throws EvalException {
-    ImmutableList.Builder<String> result = ImmutableList.builder();
-
-    for (Object o : iterable) {
-      if (!(o instanceof String)) {
-        throw Starlark.errorf(
-            "Expected sequence of strings for '%s' argument, but got '%s' item in the sequence",
-            where, Starlark.type(o));
-      }
-      result.add((String) o);
-    }
-
-    return result.build();
   }
 
   @StarlarkMethod(
@@ -549,7 +560,7 @@ public class ModuleFileGlobals {
         SingleVersionOverride.create(
             parsedVersion,
             registry,
-            checkAllStrings(patches, "patches"),
+            Sequence.cast(patches, String.class, "patches").getImmutableList(),
             patchStrip.toInt("single_version_override.patch_strip")));
   }
 
@@ -592,7 +603,7 @@ public class ModuleFileGlobals {
       throws EvalException {
     ImmutableList.Builder<Version> parsedVersionsBuilder = new ImmutableList.Builder<>();
     try {
-      for (String version : checkAllStrings(versions, "versions")) {
+      for (String version : Sequence.cast(versions, String.class, "versions").getImmutableList()) {
         parsedVersionsBuilder.add(Version.parse(version));
       }
     } catch (ParseException e) {
@@ -667,12 +678,12 @@ public class ModuleFileGlobals {
     ImmutableList<String> urlList =
         urls instanceof String
             ? ImmutableList.of((String) urls)
-            : checkAllStrings((Iterable<?>) urls, "urls");
+            : Sequence.cast(urls, String.class, "urls").getImmutableList();
     addOverride(
         moduleName,
         ArchiveOverride.create(
             urlList,
-            checkAllStrings(patches, "patches"),
+            Sequence.cast(patches, String.class, "patches").getImmutableList(),
             integrity,
             stripPrefix,
             patchStrip.toInt("archive_override.patch_strip")));
@@ -726,7 +737,7 @@ public class ModuleFileGlobals {
         GitOverride.create(
             remote,
             commit,
-            checkAllStrings(patches, "patches"),
+            Sequence.cast(patches, String.class, "patches").getImmutableList(),
             patchStrip.toInt("git_override.patch_strip")));
   }
 

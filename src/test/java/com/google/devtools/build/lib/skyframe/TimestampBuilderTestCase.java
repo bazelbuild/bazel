@@ -122,7 +122,6 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -353,8 +352,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Set<ConfiguredTarget> targetsToSkip,
           ImmutableSet<AspectKey> aspects,
           Executor executor,
-          Set<ConfiguredTargetKey> builtTargets,
-          Set<AspectKey> builtAspects,
           OptionsProvider options,
           Range<Long> lastExecutionTimeRange,
           TopLevelArtifactContext topLevelArtifactContext,
@@ -516,8 +513,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
     tsgm.setCommandStartTime();
     Set<Artifact> artifactsToBuild = Sets.newHashSet(artifacts);
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     try {
       builder.buildArtifacts(
           reporter,
@@ -528,8 +523,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           null,
           null,
           executor,
-          builtTargets,
-          builtAspects,
           options,
           null,
           null,

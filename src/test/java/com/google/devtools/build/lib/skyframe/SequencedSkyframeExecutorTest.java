@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashCode;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -105,10 +106,10 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -218,6 +219,19 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             .buildOrThrow();
       }
     };
+  }
+
+  private static class TopLevelTargetBuiltEventCollector {
+    private final Set<TopLevelTargetBuiltEvent> collectedEvents = new HashSet<>();
+
+    @Subscribe
+    void collect(TopLevelTargetBuiltEvent e) {
+      collectedEvents.add(e);
+    }
+
+    private ImmutableSet<TopLevelTargetBuiltEvent> getCollectedEvents() {
+      return ImmutableSet.copyOf(collectedEvents);
+    }
   }
 
   @Test
@@ -1811,7 +1825,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+    TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
+    skyframeExecutor.getEventBus().register(collector);
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(EMPTY_PROGRESS_SUPPLIER,
@@ -1827,36 +1843,36 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     // Note that since ImmutableSet iterates through its elements in the order they are passed in
     // here, we are guaranteed that output will be built before output2, throwing an exception and
     // shutting down the build before output2 is requested.
     Set<Artifact> normalArtifacts = ImmutableSet.of(output, output2);
-    BuildFailedException e =
-        assertThrows(
-            BuildFailedException.class,
-            () ->
-                builder.buildArtifacts(
-                    reporter,
-                    normalArtifacts,
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    new DummyExecutor(fileSystem, rootDirectory),
-                    builtTargets,
-                    builtAspects,
-                    options,
-                    null,
-                    null,
-                    /* trustRemoteArtifacts= */ false));
-    // The catastrophic exception should be propagated into the BuildFailedException whether or not
-    // --keep_going is set.
-    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
-    assertThat(builtTargets).isEmpty();
-    assertThat(markerRan.get()).isFalse();
+    try {
+      BuildFailedException e =
+          assertThrows(
+              BuildFailedException.class,
+              () ->
+                  builder.buildArtifacts(
+                      reporter,
+                      normalArtifacts,
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      new DummyExecutor(fileSystem, rootDirectory),
+                      options,
+                      null,
+                      null,
+                      /* trustRemoteArtifacts= */ false));
+      // The catastrophic exception should be propagated into the BuildFailedException whether or
+      // not --keep_going is set.
+      assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
+      assertThat(collector.getCollectedEvents()).isEmpty();
+      assertThat(markerRan.get()).isFalse();
+    } finally {
+      skyframeExecutor.getEventBus().unregister(collector);
+    }
   }
 
   private static ActionLookupValue createActionLookupValue(
@@ -1945,7 +1961,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                   }
                 },
                 /*deterministic=*/ true));
+    TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
+    skyframeExecutor.getEventBus().register(collector);
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1963,32 +1981,32 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     Set<Artifact> normalArtifacts = ImmutableSet.of(topArtifact);
-    BuildFailedException e =
-        assertThrows(
-            BuildFailedException.class,
-            () ->
-                builder.buildArtifacts(
-                    reporter,
-                    normalArtifacts,
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    new DummyExecutor(fileSystem, rootDirectory),
-                    builtTargets,
-                    builtAspects,
-                    options,
-                    null,
-                    null,
-                    /* trustRemoteArtifacts= */ false));
-    // The catastrophic exception should be propagated into the BuildFailedException whether or not
-    // --keep_going is set.
-    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
-    assertThat(builtTargets).isEmpty();
+    try {
+      BuildFailedException e =
+          assertThrows(
+              BuildFailedException.class,
+              () ->
+                  builder.buildArtifacts(
+                      reporter,
+                      normalArtifacts,
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      new DummyExecutor(fileSystem, rootDirectory),
+                      options,
+                      null,
+                      null,
+                      /* trustRemoteArtifacts= */ false));
+      // The catastrophic exception should be propagated into the BuildFailedException whether or
+      // not --keep_going is set.
+      assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
+      assertThat(collector.getCollectedEvents()).isEmpty();
+    } finally {
+      skyframeExecutor.getEventBus().unregister(collector);
+    }
   }
 
   /**
@@ -2068,7 +2086,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 // Determinism actually doesn't help here because the internal maps are still
                 // effectively unordered.
                 /*deterministic=*/ true));
+    TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
+    skyframeExecutor.getEventBus().register(collector);
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -2086,41 +2106,41 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /*fileCache=*/ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
-    BuildFailedException e =
-        assertThrows(
-            BuildFailedException.class,
-            () ->
-                builder.buildArtifacts(
-                    reporter,
-                    ImmutableSet.<Artifact>builder()
-                        .addAll(failedArtifacts)
-                        .add(catastropheArtifact)
-                        .build(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    new DummyExecutor(fileSystem, rootDirectory),
-                    builtTargets,
-                    builtAspects,
-                    options,
-                    null,
-                    new TopLevelArtifactContext(
-                        /*runTestsExclusively=*/ false,
-                        false,
-                        false,
-                        OutputGroupInfo.determineOutputGroups(
-                            ImmutableList.of(),
-                            OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
-                            /*shouldRunTests=*/ false)),
-                    /* trustRemoteArtifacts= */ false));
-    // The catastrophic exception should be propagated into the BuildFailedException whether or not
-    // --keep_going is set.
-    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
-    assertThat(builtTargets).isEmpty();
+    try {
+      BuildFailedException e =
+          assertThrows(
+              BuildFailedException.class,
+              () ->
+                  builder.buildArtifacts(
+                      reporter,
+                      ImmutableSet.<Artifact>builder()
+                          .addAll(failedArtifacts)
+                          .add(catastropheArtifact)
+                          .build(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      new DummyExecutor(fileSystem, rootDirectory),
+                      options,
+                      null,
+                      new TopLevelArtifactContext(
+                          /*runTestsExclusively=*/ false,
+                          false,
+                          false,
+                          OutputGroupInfo.determineOutputGroups(
+                              ImmutableList.of(),
+                              OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
+                              /*shouldRunTests=*/ false)),
+                      /* trustRemoteArtifacts= */ false));
+      // The catastrophic exception should be propagated into the BuildFailedException whether or
+      // not --keep_going is set.
+      assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
+      assertThat(collector.getCollectedEvents()).isEmpty();
+    } finally {
+      skyframeExecutor.getEventBus().unregister(collector);
+    }
   }
 
   @Test
@@ -2185,7 +2205,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ImmutableMap.of(
                 failedKey, failedTarget,
                 catastrophicKey, catastrophicTarget));
+    TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
+    skyframeExecutor.getEventBus().register(collector);
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -2204,35 +2226,35 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     // Note that since ImmutableSet iterates through its elements in the order they are passed in
     // here, we are guaranteed that failedOutput will be built before catastrophicOutput is
     // requested, putting a top-level failure into the build result.
     Set<Artifact> normalArtifacts = ImmutableSet.of(failedOutput, catastrophicOutput);
-    BuildFailedException e =
-        assertThrows(
-            BuildFailedException.class,
-            () ->
-                builder.buildArtifacts(
-                    reporter,
-                    normalArtifacts,
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    ImmutableSet.of(),
-                    new DummyExecutor(fileSystem, rootDirectory),
-                    builtTargets,
-                    builtAspects,
-                    options,
-                    null,
-                    null,
-                    /* trustRemoteArtifacts= */ false));
-    // The catastrophic exception should be propagated into the BuildFailedException whether or not
-    // --keep_going is set.
-    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
-    assertThat(builtTargets).isEmpty();
+    try {
+      BuildFailedException e =
+          assertThrows(
+              BuildFailedException.class,
+              () ->
+                  builder.buildArtifacts(
+                      reporter,
+                      normalArtifacts,
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      ImmutableSet.of(),
+                      new DummyExecutor(fileSystem, rootDirectory),
+                      options,
+                      null,
+                      null,
+                      /* trustRemoteArtifacts= */ false));
+      // The catastrophic exception should be propagated into the BuildFailedException whether or
+      // not --keep_going is set.
+      assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
+      assertThat(collector.getCollectedEvents()).isEmpty();
+    } finally {
+      skyframeExecutor.getEventBus().unregister(collector);
+    }
   }
 
   /** Dummy action that throws a ActionExecution error when it runs. */
@@ -2311,8 +2333,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     Set<Artifact> normalArtifacts = ImmutableSet.of(succeededOutput, failedOutput);
     BuildFailedException e =
         assertThrows(
@@ -2327,8 +2347,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     ImmutableSet.of(),
                     ImmutableSet.of(),
                     new DummyExecutor(fileSystem, rootDirectory),
-                    builtTargets,
-                    builtAspects,
                     options,
                     null,
                     null,
@@ -2408,8 +2426,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     Set<Artifact> normalArtifacts = ImmutableSet.of(failedOutput1, failedOutput2);
     BuildFailedException e =
         assertThrows(
@@ -2424,8 +2440,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     ImmutableSet.of(),
                     ImmutableSet.of(),
                     new DummyExecutor(fileSystem, rootDirectory),
-                    builtTargets,
-                    builtAspects,
                     options,
                     null,
                     null,
@@ -2500,8 +2514,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ImmutableSet.of(),
         ImmutableSet.of(),
         new DummyExecutor(fileSystem, rootDirectory),
-        ImmutableSet.of(),
-        ImmutableSet.of(),
         options,
         null,
         null,

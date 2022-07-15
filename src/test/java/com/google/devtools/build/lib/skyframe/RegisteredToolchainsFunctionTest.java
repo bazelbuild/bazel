@@ -307,49 +307,49 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(toolchains_to_register=['//:tool'])",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='1.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.1')",
         "bazel_dep(name='toolchain_def',version='1.0')");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
+            createModuleKey("bbb", "1.0"),
             "module(",
-            "    name='B',",
+            "    name='bbb',",
             "    version='1.0',",
             "    toolchains_to_register=['//:tool'],",
             ")",
-            "bazel_dep(name='D',version='1.0')",
+            "bazel_dep(name='ddd',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
-            createModuleKey("C", "1.1"),
+            createModuleKey("ccc", "1.1"),
             "module(",
-            "    name='C',",
+            "    name='ccc',",
             "    version='1.1',",
             "    toolchains_to_register=['//:tool'],",
             ")",
-            "bazel_dep(name='D',version='1.1')",
+            "bazel_dep(name='ddd',version='1.1')",
             "bazel_dep(name='toolchain_def',version='1.0')")
-        // D@1.0 is not selected
+        // ddd@1.0 is not selected
         .addModule(
-            createModuleKey("D", "1.0"),
+            createModuleKey("ddd", "1.0"),
             "module(",
-            "    name='D',",
+            "    name='ddd',",
             "    version='1.0',",
             "    toolchains_to_register=['//:tool'],",
             ")",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
-            createModuleKey("D", "1.1"),
+            createModuleKey("ddd", "1.1"),
             "module(",
-            "    name='D',",
+            "    name='ddd',",
             "    version='1.1',",
-            "    toolchains_to_register=['@E//:tool', '//:tool'],",
+            "    toolchains_to_register=['@eee//:tool', '//:tool'],",
             ")",
-            "bazel_dep(name='E',version='1.0')",
+            "bazel_dep(name='eee',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
-            createModuleKey("E", "1.0"),
-            "module(name='E',version='1.0')",
+            createModuleKey("eee", "1.0"),
+            "module(name='eee',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
             createModuleKey("toolchain_def", "1.0"), "module(name='toolchain_def',version='1.0')");
@@ -376,7 +376,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "        data = 'stuff')");
 
     // Now create the toolchains for each module.
-    for (String repo : ImmutableList.of("@B~1.0", "@C~1.1", "@D~1.0", "@D~1.1", "@E~1.0")) {
+    for (String repo :
+        ImmutableList.of("@bbb~1.0", "@ccc~1.1", "@ddd~1.0", "@ddd~1.1", "@eee~1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
@@ -403,10 +404,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
             Label.parseCanonical("//:tool_impl"),
-            Label.parseCanonical("@@B~1.0//:tool_impl"),
-            Label.parseCanonical("@@C~1.1//:tool_impl"),
-            Label.parseCanonical("@@E~1.0//:tool_impl"),
-            Label.parseCanonical("@@D~1.1//:tool_impl"),
+            Label.parseCanonical("@@bbb~1.0//:tool_impl"),
+            Label.parseCanonical("@@ccc~1.1//:tool_impl"),
+            Label.parseCanonical("@@eee~1.0//:tool_impl"),
+            Label.parseCanonical("@@ddd~1.1//:tool_impl"),
             Label.parseCanonical("//:wstool_impl"))
         .inOrder();
   }

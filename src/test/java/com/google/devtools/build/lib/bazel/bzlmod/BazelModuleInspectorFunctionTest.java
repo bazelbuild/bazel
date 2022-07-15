@@ -41,30 +41,30 @@ public class BazelModuleInspectorFunctionTest {
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("BfromA", createModuleKey("B", "1.0"))
-                    .addDep("CfromA", createModuleKey("C", "2.0"))
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("DfromB", createModuleKey("D", "2.0"))
-                    .addOriginalDep("DfromB", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                    .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("DfromC", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("D", "2.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0", 1).buildEntry())
             .buildOrThrow();
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(
             ModuleKey.ROOT,
-            createModuleKey("B", "1.0"),
-            createModuleKey("C", "2.0"),
-            createModuleKey("D", "2.0"));
+            createModuleKey("bbb", "1.0"),
+            createModuleKey("ccc", "2.0"),
+            createModuleKey("ddd", "2.0"));
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
@@ -72,23 +72,23 @@ public class BazelModuleInspectorFunctionTest {
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A")
-                .addDep("B", "1.0")
-                .addDep("C", "2.0")
+            buildAugmentedModule(ModuleKey.ROOT, "aaa")
+                .addDep("bbb", "1.0")
+                .addDep("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("B", "1.0")
-                .addDep("D", "2.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
+            buildAugmentedModule("bbb", "1.0")
+                .addDep("ddd", "2.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("C", "2.0")
-                .addDep("D", "2.0")
+            buildAugmentedModule("ccc", "2.0")
+                .addDep("ddd", "2.0")
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("D", "2.0")
-                .addDependant("B", "1.0")
-                .addStillDependant("C", "2.0")
+            buildAugmentedModule("ddd", "2.0")
+                .addDependant("bbb", "1.0")
+                .addStillDependant("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("D", "1.0").addOriginalDependant("B", "1.0").buildEntry());
+            buildAugmentedModule("ddd", "1.0").addOriginalDependant("bbb", "1.0").buildEntry());
   }
 
   @Test
@@ -96,34 +96,34 @@ public class BazelModuleInspectorFunctionTest {
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", "1.0"))
-                    .addDep("C", createModuleKey("C", "2.0"))
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("D", createModuleKey("D", "2.0"))
-                    .addOriginalDep("D", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ddd", createModuleKey("ddd", "2.0"))
+                    .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("D", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "2.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
             .put(
-                ModuleBuilder.create("D", "1.0")
-                    .addDep("E", createModuleKey("E", "1.0"))
+                ModuleBuilder.create("ddd", "1.0")
+                    .addDep("eee", createModuleKey("eee", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("E", "1.0").buildEntry())
+            .put(ModuleBuilder.create("eee", "1.0").buildEntry())
             .buildOrThrow();
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(
             ModuleKey.ROOT,
-            createModuleKey("B", "1.0"),
-            createModuleKey("C", "2.0"),
-            createModuleKey("D", "2.0"));
+            createModuleKey("bbb", "1.0"),
+            createModuleKey("ccc", "2.0"),
+            createModuleKey("ddd", "2.0"));
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
@@ -131,27 +131,27 @@ public class BazelModuleInspectorFunctionTest {
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A")
-                .addDep("B", "1.0")
-                .addDep("C", "2.0")
+            buildAugmentedModule(ModuleKey.ROOT, "aaa")
+                .addDep("bbb", "1.0")
+                .addDep("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("B", "1.0")
-                .addDep("D", "2.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
+            buildAugmentedModule("bbb", "1.0")
+                .addDep("ddd", "2.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("C", "2.0")
-                .addDep("D", "2.0")
+            buildAugmentedModule("ccc", "2.0")
+                .addDep("ddd", "2.0")
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("D", "2.0")
-                .addDependant("B", "1.0")
-                .addStillDependant("C", "2.0")
+            buildAugmentedModule("ddd", "2.0")
+                .addDependant("bbb", "1.0")
+                .addStillDependant("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("D", "1.0")
-                .addDep("E", "1.0")
-                .addOriginalDependant("B", "1.0")
+            buildAugmentedModule("ddd", "1.0")
+                .addDep("eee", "1.0")
+                .addOriginalDependant("bbb", "1.0")
                 .buildEntry(),
-            buildAugmentedModule("E", "1.0").addOriginalDependant("D", "1.0").buildEntry());
+            buildAugmentedModule("eee", "1.0").addOriginalDependant("ddd", "1.0").buildEntry());
   }
 
   @Test
@@ -159,28 +159,29 @@ public class BazelModuleInspectorFunctionTest {
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", "1.0"))
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("B", createModuleKey("B", "1.0"))
-                    .addOriginalDep("B", createModuleKey("B", "1.0-pre"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
+                    .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0-pre")
-                    .addDep("D", createModuleKey("D", "1.0"))
+                ModuleBuilder.create("bbb", "1.0-pre")
+                    .addDep("ddd", createModuleKey("ddd", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "1.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "1.0").buildEntry())
             .buildOrThrow();
 
     ImmutableSet<ModuleKey> usedModules =
-        ImmutableSet.of(ModuleKey.ROOT, createModuleKey("B", "1.0"), createModuleKey("C", "2.0"));
+        ImmutableSet.of(
+            ModuleKey.ROOT, createModuleKey("bbb", "1.0"), createModuleKey("ccc", "2.0"));
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
@@ -188,60 +189,60 @@ public class BazelModuleInspectorFunctionTest {
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A").addDep("B", "1.0").buildEntry(),
-            buildAugmentedModule("B", "1.0")
-                .addDep("C", "2.0")
+            buildAugmentedModule(ModuleKey.ROOT, "aaa").addDep("bbb", "1.0").buildEntry(),
+            buildAugmentedModule("bbb", "1.0")
+                .addDep("ccc", "2.0")
                 .addStillDependant(ModuleKey.ROOT)
-                .addDependant("C", "2.0")
+                .addDependant("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("C", "2.0")
-                .addDep("B", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
-                .addStillDependant("B", "1.0")
+            buildAugmentedModule("ccc", "2.0")
+                .addDep("bbb", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addStillDependant("bbb", "1.0")
                 .buildEntry(),
-            buildAugmentedModule("B", "1.0-pre")
-                .addDep("D", "1.0")
-                .addOriginalDependant("C", "2.0")
+            buildAugmentedModule("bbb", "1.0-pre")
+                .addDep("ddd", "1.0")
+                .addOriginalDependant("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("D", "1.0").addOriginalDependant("B", "1.0-pre").buildEntry());
+            buildAugmentedModule("ddd", "1.0").addOriginalDependant("bbb", "1.0-pre").buildEntry());
   }
 
   @Test
   public void testSingleVersionOverride_withRemoval() throws Exception {
     // Original (non-resolved) dep graph
-    // single_version_override (C, 2.0)
-    // A -> B 1.0 -> C 1.0 -> D -> 1.0
-    //               C 2.0 -> D -> 2.0
+    // single_version_override (ccc, 2.0)
+    // aaa -> bbb 1.0 -> ccc 1.0 -> ddd -> 1.0
+    //                   ccc 2.0 -> ddd -> 2.0
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", "1.0"))
+                    .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
-                    .addOriginalDep("C", createModuleKey("C", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                    .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("C", "2.0")
-                    .addDep("D", createModuleKey("D", "2.0"))
+                ModuleBuilder.create("ccc", "2.0")
+                    .addDep("ddd", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("D", "2.0").buildEntry())
+            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "C", SingleVersionOverride.create(Version.parse("2.0"), "", ImmutableList.of(), 0));
+            "ccc", SingleVersionOverride.create(Version.parse("2.0"), "", ImmutableList.of(), 0));
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(
             ModuleKey.ROOT,
-            createModuleKey("B", "1.0"),
-            createModuleKey("C", "1.0"),
-            createModuleKey("C", "2.0"),
-            createModuleKey("D", "1.0"),
-            createModuleKey("D", "2.0"));
+            createModuleKey("bbb", "1.0"),
+            createModuleKey("ccc", "1.0"),
+            createModuleKey("ccc", "2.0"),
+            createModuleKey("ddd", "1.0"),
+            createModuleKey("ddd", "2.0"));
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
@@ -249,49 +250,51 @@ public class BazelModuleInspectorFunctionTest {
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A").addDep("B", "1.0").buildEntry(),
-            buildAugmentedModule("B", "1.0")
-                .addDep("C", "2.0", ResolutionReason.SINGLE_VERSION_OVERRIDE)
+            buildAugmentedModule(ModuleKey.ROOT, "aaa").addDep("bbb", "1.0").buildEntry(),
+            buildAugmentedModule("bbb", "1.0")
+                .addDep("ccc", "2.0", ResolutionReason.SINGLE_VERSION_OVERRIDE)
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("C", "1.0", false).addOriginalDependant("B", "1.0").buildEntry(),
-            buildAugmentedModule("C", "2.0")
-                .addDependant("B", "1.0")
-                .addDep("D", "2.0")
+            buildAugmentedModule("ccc", "1.0", false)
+                .addOriginalDependant("bbb", "1.0")
                 .buildEntry(),
-            buildAugmentedModule("D", "2.0").addStillDependant("C", "2.0").buildEntry());
+            buildAugmentedModule("ccc", "2.0")
+                .addDependant("bbb", "1.0")
+                .addDep("ddd", "2.0")
+                .buildEntry(),
+            buildAugmentedModule("ddd", "2.0").addStillDependant("ccc", "2.0").buildEntry());
   }
 
   @Test
   public void testNonRegistryOverride_withRemoval() throws Exception {
     // Original (non-resolved) dep graph
-    // archive_override "file://users/user/B.zip"
-    // A    -> B 1.0        -> C 1.0 (not loaded)
-    // (local) B 1.0-hotfix -> C 1.1
+    // archive_override "file://users/user/bbb.zip"
+    // aaa    -> bbb 1.0        -> ccc 1.0 (not loaded)
+    //   (local) bbb 1.0-hotfix -> ccc 1.1
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B", createModuleKey("B", ""))
-                    .addOriginalDep("B", createModuleKey("B", "1.0"))
+                    .addDep("bbb", createModuleKey("bbb", ""))
+                    .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .setKey(createModuleKey("B", ""))
-                    .addDep("C", createModuleKey("C", "1.1"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .setKey(createModuleKey("bbb", ""))
+                    .addDep("ccc", createModuleKey("ccc", "1.1"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "1.1").buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.1").buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "B",
+            "bbb",
             ArchiveOverride.create(
-                ImmutableList.of("file://users/user/B.zip"), ImmutableList.of(), "", "", 0));
+                ImmutableList.of("file://users/user/bbb.zip"), ImmutableList.of(), "", "", 0));
 
     ImmutableSet<ModuleKey> usedModules =
-        ImmutableSet.of(ModuleKey.ROOT, createModuleKey("B", ""), createModuleKey("C", "1.1"));
+        ImmutableSet.of(ModuleKey.ROOT, createModuleKey("bbb", ""), createModuleKey("ccc", "1.1"));
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
@@ -299,147 +302,147 @@ public class BazelModuleInspectorFunctionTest {
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A")
-                .addDep("B", "", ResolutionReason.NON_REGISTRY_OVERRIDE)
+            buildAugmentedModule(ModuleKey.ROOT, "aaa")
+                .addDep("bbb", "", ResolutionReason.NON_REGISTRY_OVERRIDE)
                 .buildEntry(),
-            buildAugmentedModule("B", "1.0", false)
+            buildAugmentedModule("bbb", "1.0", false)
                 .addOriginalDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule(createModuleKey("B", ""), "B", Version.parse("1.0"), true)
-                .addDep("C", "1.1")
+            buildAugmentedModule(createModuleKey("bbb", ""), "bbb", Version.parse("1.0"), true)
+                .addDep("ccc", "1.1")
                 .addDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("C", "1.1").addStillDependant("B", "").buildEntry());
+            buildAugmentedModule("ccc", "1.1").addStillDependant("bbb", "").buildEntry());
   }
 
   @Test
   public void testMultipleVersionOverride_simpleSnapToHigher() throws Exception {
     // Initial dep graph
-    // A  -> (B1)B 1.0 -> C 1.0
-    //   \-> (B2)B 2.0 -> C 1.5
-    //   \-> C 2.0
-    // multiple_version_override C: [1.5, 2.0]
-    // multiple_version_override B: [1.0, 2.0]
+    // aaa  -> (bbb1)bbb 1.0 -> ccc 1.0
+    //     \-> (bbb2)bbb 2.0 -> ccc 1.5
+    //     \-> ccc 2.0
+    // multiple_version_override ccc: [1.5, 2.0]
+    // multiple_version_override bbb: [1.0, 2.0]
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B", "1.0"))
-                    .addDep("B2", createModuleKey("B", "2.0"))
-                    .addDep("C", createModuleKey("C", "2.0"))
+                    .addDep("bbb1", createModuleKey("bbb", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb", "2.0"))
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "1.0")
-                    .addDep("C", createModuleKey("C", "1.5"))
-                    .addOriginalDep("C", createModuleKey("C", "1.0"))
+                ModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.5"))
+                    .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B", "2.0")
-                    .addDep("C", createModuleKey("C", "1.5"))
+                ModuleBuilder.create("bbb", "2.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("C", "1.0").buildEntry())
-            .put(ModuleBuilder.create("C", "1.5").buildEntry())
-            .put(ModuleBuilder.create("C", "2.0").buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0").buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.5").buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0").buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "B",
+            "bbb",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""),
-            "C",
+            "ccc",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.5"), Version.parse("2.0")), ""));
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(
             ModuleKey.ROOT,
-            createModuleKey("B", "1.0"),
-            createModuleKey("B", "2.0"),
-            createModuleKey("C", "1.5"),
-            createModuleKey("C", "2.0"));
+            createModuleKey("bbb", "1.0"),
+            createModuleKey("bbb", "2.0"),
+            createModuleKey("ccc", "1.5"),
+            createModuleKey("ccc", "2.0"));
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
             unprunedDepGraph, usedModules, overrides);
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A")
-                .addDep("B", "1.0")
-                .addDep("B", "2.0")
-                .addDep("C", "2.0")
+            buildAugmentedModule(ModuleKey.ROOT, "aaa")
+                .addDep("bbb", "1.0")
+                .addDep("bbb", "2.0")
+                .addDep("ccc", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("B", "1.0")
+            buildAugmentedModule("bbb", "1.0")
                 .addStillDependant(ModuleKey.ROOT)
-                .addDep("C", "1.5", ResolutionReason.MULTIPLE_VERSION_OVERRIDE)
+                .addDep("ccc", "1.5", ResolutionReason.MULTIPLE_VERSION_OVERRIDE)
                 .buildEntry(),
-            buildAugmentedModule("B", "2.0")
+            buildAugmentedModule("bbb", "2.0")
                 .addStillDependant(ModuleKey.ROOT)
-                .addDep("C", "1.5")
+                .addDep("ccc", "1.5")
                 .buildEntry(),
-            buildAugmentedModule("C", "1.0").addOriginalDependant("B", "1.0").buildEntry(),
-            buildAugmentedModule("C", "1.5")
-                .addDependant("B", "1.0")
-                .addStillDependant("B", "2.0")
+            buildAugmentedModule("ccc", "1.0").addOriginalDependant("bbb", "1.0").buildEntry(),
+            buildAugmentedModule("ccc", "1.5")
+                .addDependant("bbb", "1.0")
+                .addStillDependant("bbb", "2.0")
                 .buildEntry(),
-            buildAugmentedModule("C", "2.0").addStillDependant(ModuleKey.ROOT).buildEntry());
+            buildAugmentedModule("ccc", "2.0").addStillDependant(ModuleKey.ROOT).buildEntry());
   }
 
   @Test
   public void testMultipleVersionOverride_badDepsUnreferenced() throws Exception {
     // Initial dep graph
-    // A --> B1@1.0 --> C@1.0  [allowed]
-    //   \          \-> B2@1.1
-    //   \-> B2@1.0 --> C@1.5
-    //   \-> B3@1.0 --> C@2.0  [allowed]
-    //   \          \-> B4@1.1
-    //   \-> B4@1.0 --> C@3.0
+    // aaa --> bbb1@1.0 --> ccc@1.0  [allowed]
+    //     \            \-> bbb2@1.1
+    //     \-> bbb2@1.0 --> ccc@1.5
+    //     \-> bbb3@1.0 --> ccc@2.0  [allowed]
+    //     \            \-> bbb4@1.1
+    //     \-> bbb4@1.0 --> ccc@3.0
     //
     // Resolved dep graph
-    // A --> B1@1.0 --> C@1.0  [allowed]
-    //   \          \-> B2@1.1
-    //   \-> B2@1.1
-    //   \-> B3@1.0 --> C@2.0  [allowed]
-    //   \          \-> B4@1.1
-    //   \-> B4@1.1
-    // C@1.5 and C@3.0, the versions violating the allowlist, are gone.
+    // aaa --> bbb1@1.0 --> ccc@1.0  [allowed]
+    //     \            \-> bbb2@1.1
+    //     \-> bbb2@1.1
+    //     \-> bbb3@1.0 --> ccc@2.0  [allowed]
+    //     \            \-> bbb4@1.1
+    //     \-> bbb4@1.1
+    // ccc@1.5 and ccc@3.0, the versions violating the allowlist, are gone.
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                ModuleBuilder.create("A", Version.EMPTY)
+                ModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
-                    .addDep("B1", createModuleKey("B1", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.1"))
-                    .addOriginalDep("B2", createModuleKey("B2", "1.0"))
-                    .addDep("B3", createModuleKey("B3", "1.0"))
-                    .addDep("B4", createModuleKey("B4", "1.1"))
-                    .addOriginalDep("B4", createModuleKey("B4", "1.0"))
+                    .addDep("bbb1", createModuleKey("bbb1", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.1"))
+                    .addOriginalDep("bbb2", createModuleKey("bbb2", "1.0"))
+                    .addDep("bbb3", createModuleKey("bbb3", "1.0"))
+                    .addDep("bbb4", createModuleKey("bbb4", "1.1"))
+                    .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B1", "1.0")
-                    .addDep("C", createModuleKey("C", "1.0"))
-                    .addDep("B2", createModuleKey("B2", "1.1"))
+                ModuleBuilder.create("bbb1", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.0"))
+                    .addDep("bbb2", createModuleKey("bbb2", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B2", "1.0")
-                    .addDep("C", createModuleKey("C", "1.5"))
+                ModuleBuilder.create("bbb2", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B2", "1.1").buildEntry())
+            .put(ModuleBuilder.create("bbb2", "1.1").buildEntry())
             .put(
-                ModuleBuilder.create("B3", "1.0")
-                    .addDep("C", createModuleKey("C", "2.0"))
-                    .addDep("B4", createModuleKey("B4", "1.1"))
+                ModuleBuilder.create("bbb3", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "2.0"))
+                    .addDep("bbb4", createModuleKey("bbb4", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("B4", "1.0")
-                    .addDep("C", createModuleKey("C", "3.0"))
+                ModuleBuilder.create("bbb4", "1.0")
+                    .addDep("ccc", createModuleKey("ccc", "3.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("B4", "1.1").buildEntry())
-            .put(ModuleBuilder.create("C", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "1.5", 1).buildEntry())
-            .put(ModuleBuilder.create("C", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("C", "3.0", 3).buildEntry())
+            .put(ModuleBuilder.create("bbb4", "1.1").buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "1.5", 1).buildEntry())
+            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(ModuleBuilder.create("ccc", "3.0", 3).buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
@@ -451,54 +454,54 @@ public class BazelModuleInspectorFunctionTest {
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(
             ModuleKey.ROOT,
-            createModuleKey("B1", "1.0"),
-            createModuleKey("B2", "1.1"),
-            createModuleKey("B3", "1.0"),
-            createModuleKey("B4", "1.1"),
-            createModuleKey("C", "1.0"),
-            createModuleKey("C", "2.0"));
+            createModuleKey("bbb1", "1.0"),
+            createModuleKey("bbb2", "1.1"),
+            createModuleKey("bbb3", "1.0"),
+            createModuleKey("bbb4", "1.1"),
+            createModuleKey("ccc", "1.0"),
+            createModuleKey("ccc", "2.0"));
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
             unprunedDepGraph, usedModules, overrides);
 
     assertThat(depGraph.entrySet())
         .containsExactly(
-            buildAugmentedModule(ModuleKey.ROOT, "A")
-                .addDep("B1", "1.0")
-                .addDep("B2", "1.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
-                .addDep("B3", "1.0")
-                .addDep("B4", "1.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
+            buildAugmentedModule(ModuleKey.ROOT, "aaa")
+                .addDep("bbb1", "1.0")
+                .addDep("bbb2", "1.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addDep("bbb3", "1.0")
+                .addDep("bbb4", "1.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .buildEntry(),
-            buildAugmentedModule("B1", "1.0")
-                .addDep("C", "1.0")
-                .addDep("B2", "1.1")
+            buildAugmentedModule("bbb1", "1.0")
+                .addDep("ccc", "1.0")
+                .addDep("bbb2", "1.1")
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("B2", "1.0")
-                .addDep("C", "1.5")
+            buildAugmentedModule("bbb2", "1.0")
+                .addDep("ccc", "1.5")
                 .addOriginalDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("B2", "1.1")
+            buildAugmentedModule("bbb2", "1.1")
                 .addDependant(ModuleKey.ROOT)
-                .addStillDependant("B1", "1.0")
+                .addStillDependant("bbb1", "1.0")
                 .buildEntry(),
-            buildAugmentedModule("B3", "1.0")
-                .addDep("C", "2.0")
-                .addDep("B4", "1.1")
+            buildAugmentedModule("bbb3", "1.0")
+                .addDep("ccc", "2.0")
+                .addDep("bbb4", "1.1")
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("B4", "1.0")
-                .addDep("C", "3.0")
+            buildAugmentedModule("bbb4", "1.0")
+                .addDep("ccc", "3.0")
                 .addOriginalDependant(ModuleKey.ROOT)
                 .buildEntry(),
-            buildAugmentedModule("B4", "1.1")
+            buildAugmentedModule("bbb4", "1.1")
                 .addDependant(ModuleKey.ROOT)
-                .addStillDependant("B3", "1.0")
+                .addStillDependant("bbb3", "1.0")
                 .buildEntry(),
-            buildAugmentedModule("C", "1.0").addStillDependant("B1", "1.0").buildEntry(),
-            buildAugmentedModule("C", "1.5").addOriginalDependant("B2", "1.0").buildEntry(),
-            buildAugmentedModule("C", "2.0").addStillDependant("B3", "1.0").buildEntry(),
-            buildAugmentedModule("C", "3.0").addOriginalDependant("B4", "1.0").buildEntry());
+            buildAugmentedModule("ccc", "1.0").addStillDependant("bbb1", "1.0").buildEntry(),
+            buildAugmentedModule("ccc", "1.5").addOriginalDependant("bbb2", "1.0").buildEntry(),
+            buildAugmentedModule("ccc", "2.0").addStillDependant("bbb3", "1.0").buildEntry(),
+            buildAugmentedModule("ccc", "3.0").addOriginalDependant("bbb4", "1.0").buildEntry());
   }
 
   static ModuleAugmentBuilder buildAugmentedModule(

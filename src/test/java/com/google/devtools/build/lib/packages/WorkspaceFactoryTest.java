@@ -49,20 +49,20 @@ public class WorkspaceFactoryTest {
   @Test
   public void testWorkspaceStartsWithNumber() throws Exception {
     helper.parse("workspace(name = '123abc')");
-    assertThat(helper.getParserError()).contains("123abc is not a legal workspace name");
+    assertThat(helper.getParserError()).contains("invalid user-provided repo name '123abc'");
   }
 
   @Test
   public void testWorkspaceWithIllegalCharacters() throws Exception {
     helper.parse("workspace(name = 'a+b+c')");
-    assertThat(helper.getParserError()).contains("a+b+c is not a legal workspace name");
+    assertThat(helper.getParserError()).contains("invalid user-provided repo name 'a+b+c'");
   }
 
   @Test
   public void testIllegalRepoName() throws Exception {
     helper.parse("local_repository(", "    name = 'foo/bar',", "    path = '/foo/bar',", ")");
-    assertThat(helper.getParserError()).contains(
-        "local_repository rule //external:foo/bar's name field must be a legal workspace name");
+    assertThat(helper.getParserError())
+        .contains("Error in local_repository: invalid user-provided repo name 'foo/bar'");
   }
 
   @Test

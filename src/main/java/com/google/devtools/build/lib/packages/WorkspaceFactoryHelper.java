@@ -137,13 +137,7 @@ public class WorkspaceFactoryHelper {
                   + e.getValue()
                   + "': repo names used in the repo_mapping attribute must start with '@'");
         }
-        if (!WorkspaceGlobals.isLegalWorkspaceName(e.getKey().substring(1))) {
-          throw new LabelSyntaxException(
-              "invalid repository name '"
-                  + e.getKey().substring(1)
-                  + "': must start with a letter and contain only letters, digits, '.', '-', or"
-                  + " '_'");
-        }
+        RepositoryName.validateUserProvidedRepoName(e.getKey().substring(1));
         builder.addRepositoryMappingEntry(
             RepositoryName.create(externalRepoName),
             e.getKey().substring(1),
