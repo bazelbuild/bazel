@@ -14,7 +14,7 @@
 """Unit tests for enforce_min_sdk_floor.py."""
 
 import unittest
-from lxml import etree
+import xml.etree.ElementTree as ET
 
 from tools.android.enforce_min_sdk_floor import _BumpMinSdk
 from tools.android.enforce_min_sdk_floor import _ValidateMinSdk
@@ -59,12 +59,12 @@ class EnforceMinSdkFloorTest(unittest.TestCase):
 
   def test_bump_no_uses_sdk(self):
     out, _ = _BumpMinSdk(MANIFEST_NO_USES_SDK, 11)
-    min_sdk = etree.fromstring(out).find(USES_SDK).get(MIN_SDK_ATTRIB)
+    min_sdk = ET.fromstring(out).find(USES_SDK).get(MIN_SDK_ATTRIB)
     self.assertEqual(min_sdk, "11")
 
   def test_bump_no_min_sdk_attrib(self):
     out, _ = _BumpMinSdk(MANIFEST_NO_MIN_SDK, 7)
-    min_sdk = etree.fromstring(out).find(USES_SDK).get(MIN_SDK_ATTRIB)
+    min_sdk = ET.fromstring(out).find(USES_SDK).get(MIN_SDK_ATTRIB)
     self.assertEqual(min_sdk, "7")
 
   def test_bump_min_sdk_attrib_placeholder(self):
@@ -77,7 +77,7 @@ class EnforceMinSdkFloorTest(unittest.TestCase):
 
   def test_bump_lower_min_sdk(self):
     out, _ = _BumpMinSdk(MANIFEST_MIN_SDK, 14)
-    min_sdk = etree.fromstring(out).find(USES_SDK).get(MIN_SDK_ATTRIB)
+    min_sdk = ET.fromstring(out).find(USES_SDK).get(MIN_SDK_ATTRIB)
     self.assertEqual(min_sdk, "14")
 
   def test_validate_no_min_sdk_floor(self):

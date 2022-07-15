@@ -22,10 +22,10 @@ sets it to the floor.
 import os
 import sys
 
+import xml.etree.ElementTree as ET
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-from lxml import etree
 
 BUMP = "bump"
 VALIDATE = "validate"
@@ -75,13 +75,19 @@ def _BumpMinSdk(xml_content, min_sdk_floor):
   if min_sdk_floor == 0:
     return xml_content, "No min SDK floor specified. Manifest unchanged."
 
-  root = etree.fromstring(xml_content)
+  # Parse namespaces first to keep the prefix.
+  ns_parser = ET.XMLPullParser(events=["start-ns"])
+  ns_parser.feed(xml_content)
+  ns_parser.close()
+  for _, ns_tuple in ns_parser.read_events():
+    ET.register_namespace(ns_tuple[0], ns_tuple[1])
 
+  root = ET.fromstring(xml_content)
   uses_sdk = root.find(USES_SDK)
   if uses_sdk is None:
-    etree.SubElement(root, USES_SDK, {MIN_SDK_ATTRIB: str(min_sdk_floor)})
+    ET.SubElement(root, USES_SDK, {MIN_SDK_ATTRIB: str(min_sdk_floor)})
     return (
-        etree.tostring(root, xml_declaration=True, encoding="utf-8"),
+        ET.tostring(root, encoding="utf-8"),
         "No uses-sdk element found while floor is specified "
         + f"({min_sdk_floor}). Min SDK added.")
 
@@ -89,7 +95,7 @@ def _BumpMinSdk(xml_content, min_sdk_floor):
   if min_sdk is None:
     uses_sdk.set(MIN_SDK_ATTRIB, str(min_sdk_floor))
     return (
-        etree.tostring(root, xml_declaration=True, encoding="utf-8"),
+        ET.tostring(root, encoding="utf-8"),
         "No minSdkVersion attribute found while floor is specified"
         + f"({min_sdk_floor}). Min SDK added.")
 
@@ -104,7 +110,7 @@ def _BumpMinSdk(xml_content, min_sdk_floor):
   if min_sdk_int < min_sdk_floor:
     uses_sdk.set(MIN_SDK_ATTRIB, str(min_sdk_floor))
     return (
-        etree.tostring(root, xml_declaration=True, encoding="utf-8"),
+        ET.tostring(root, encoding="utf-8"),
         f"minSdkVersion attribute specified in the manifest ({min_sdk}) "
         + f"is less than the floor ({min_sdk_floor}). Min SDK replaced.")
   return (
@@ -127,7 +133,7 @@ def _ValidateMinSdk(xml_content, min_sdk_floor):
   if min_sdk_floor == 0:
     return "No min SDK floor specified."
 
-  root = etree.fromstring(xml_content)
+  root = ET.fromstring(xml_content)
 
   uses_sdk = root.find(USES_SDK)
   if uses_sdk is None:

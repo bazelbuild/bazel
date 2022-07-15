@@ -391,6 +391,15 @@ py_binary(
     python_version = "PY3",
 )
 
+py_binary(
+    name = "enforce_min_sdk_floor",
+    srcs = ["enforce_min_sdk_floor.py"],
+    python_version = "PY3",
+    deps = [
+        "//third_party/py/abseil",
+    ],
+)
+
 py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
