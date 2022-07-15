@@ -24,9 +24,10 @@ migration guide to start building your Maven projects with Bazel:
 ## Java versions {:#java-versions}
 
 There are two relevant versions of Java that are set with configuration flags:
- - the version of the source files in the repository
- - the version of the Java runtime that is used to execute the code and to test
-   it
+
+*   the version of the source files in the repository
+*   the version of the Java runtime that is used to execute the code and to test
+    it
 
 ### Configuring the version of the source code in your repository {:#config-source-code}
 
@@ -193,7 +194,7 @@ remote_java_repository(
 
 Compilation toolchain is composed of JDK and multiple tools that Bazel uses
 during the compilation and that provides additional features, such as: Error
-Prone, strict Java dependenciess, header compilation, Android desugaring,
+Prone, strict Java dependencies, header compilation, Android desugaring,
 coverage instrumentation, and genclass handling for IDEs.
 
 JavaBuilder is a Bazel-bundled tool that executes compilation, and provides the
