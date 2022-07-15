@@ -193,8 +193,8 @@ issues.
     * Contact: [comius](https://github.com/comius){: .external}
 *   [`team-Rules-Python`](https://github.com/bazelbuild/bazel/labels/team-Rules-Python){: .external}: Issues for the native Python rules
     * Contact: [comius](https://github.com/comius){: .external}
-*   [`team-Rules-Server`](https://github.com/bazelbuild/bazel/labels/team-Rules-Server){: .external}: Issues for serverside rules included with Bazel
-    * Contact: [lberki](https://github.com/lberki){: .external}
+*   [`team-Rules-Server`](https://github.com/bazelbuild/bazel/labels/team-Rules-Server){: .external}: Issues for server-side rules included with Bazel
+    * Contact: [comius](https://github.com/comius){: .external}
 *   [`team-Starlark-integration`](https://github.com/bazelbuild/bazel/labels/team-Starlark-integration): Non-API Bazel + Starlark integration. Includes: how Bazel triggers the Starlark interpreter, Stardoc, builtins injection, character encoding.  Does *not* include: BUILD or .bzl language issues.
     * Contact: [brandjon](https://github.com/brandjon)
 *   [`team-Starlark-interpreter`](https://github.com/bazelbuild/bazel/labels/team-Starlark-interpreter): Issues for the Starlark interpreter (anything in [java.net.starlark](https://github.com/bazelbuild/bazel/tree/master/src/main/java/net/starlark/java)). BUILD and .bzl API issues (which represent Bazel's *integration* with Starlark) go in `team-Build-Language`.
