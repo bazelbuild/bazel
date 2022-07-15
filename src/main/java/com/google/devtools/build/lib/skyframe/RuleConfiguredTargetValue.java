@@ -49,7 +49,6 @@ public final class RuleConfiguredTargetValue
     this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
   }
 
-  // TODO(phil): Revert this back to non-public.
   public RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget,
       @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {

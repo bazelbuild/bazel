@@ -404,7 +404,7 @@ public class BaseRuleClasses {
               attr("distribs", DISTRIBUTIONS)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
           // Any rule that has provides its own meaning for the "target_compatible_with" attribute
-          // has to be excluded in `ConfiguredTargetFunction.compute()`.
+          // has to be excluded in `IncompatibleTargetChecker`.
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
