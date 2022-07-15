@@ -33,6 +33,8 @@ public class ProtoBootstrap implements Bootstrap {
   /** The name of the proto namespace in Starlark. */
   public static final String PROTO_COMMON_NAME = "proto_common";
 
+  public static final String PROTO_COMMON_SECOND_NAME = "proto_common_do_not_use";
+
   private final ProtoInfoProviderApi protoInfoApiProvider;
   private final ProtoToolchainInfoApi.Provider<? extends FilesToRunProviderApi<? extends FileApi>>
       protoToolchainInfoApi;
@@ -59,6 +61,7 @@ public class ProtoBootstrap implements Bootstrap {
     builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
     builder.put(ProtoToolchainInfoApi.NAME, protoToolchainInfoApi);
     builder.put(PROTO_COMMON_NAME, protoCommon);
+    builder.put(PROTO_COMMON_SECOND_NAME, protoCommon);
     builder.put(
         "ProtoRegistryAspect",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
