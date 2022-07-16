@@ -512,9 +512,6 @@ multi_arch_transition = transition(
 )
 ```
 
-See [Accessing attributes with transitions](#accessing-attributes-with-transitions)
-for how to read these keys.
-
 ### Attaching transitions {:#attaching-transitions}
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/attaching_transitions_to_rules){: .external}
@@ -559,6 +556,9 @@ drink_rule = rule(
     ...
 ```
 Outgoing edge transitions can be 1:1 or 1:2+.
+
+See [Accessing attributes with transitions](#accessing-attributes-with-transitions)
+for how to read these keys.
 
 ### Transitions on native options {:#transitions-native-options}
 
