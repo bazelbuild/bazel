@@ -546,9 +546,6 @@ public final class SandboxHelpers {
           } else {
             virtualInputsWithDelayedMaterialization.add((VirtualActionInput) actionInput);
           }
-        } else if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
         } else {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
           inputFiles.put(pathFragment, inputPath);
@@ -560,17 +557,11 @@ public final class SandboxHelpers {
                   (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
           materializedVirtualInputs.put((VirtualActionInput) actionInput, digest);
         }
-
-        if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath =
-              actionInput instanceof EmptyActionInput
-                  ? null
-                  : execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
+        Path inputPath =
+            actionInput instanceof EmptyActionInput
+                ? null
+                : execRoot.getRelative(actionInput.getExecPath());
+        inputFiles.put(pathFragment, inputPath);
       }
     }
     return new SandboxInputs(
