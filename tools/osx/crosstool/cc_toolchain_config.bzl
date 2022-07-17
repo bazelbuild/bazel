@@ -93,6 +93,10 @@ def _impl(ctx):
         target_system_name = "arm64-apple-macosx{}".format(target_os_version)
     elif (ctx.attr.cpu == "darwin_arm64e"):
         target_system_name = "arm64e-apple-macosx{}".format(target_os_version)
+    elif (ctx.attr.cpu == "maccatalyst_x86_64"):
+        target_system_name = "x86_64-apple-ios{}-macabi".format(target_os_version)
+    elif (ctx.attr.cpu == "maccatalyst_arm64"):
+        target_system_name = "arm64-apple-ios{}-macabi".format(target_os_version)
     elif (ctx.attr.cpu == "tvos_x86_64"):
         target_system_name = "x86_64-apple-tvos{}-simulator".format(target_os_version)
     elif (ctx.attr.cpu == "watchos_x86_64"):
