@@ -23,12 +23,12 @@ OSX_TOOLS_CONSTRAINTS = {
         "@platforms//os:osx",
         "@platforms//cpu:x86_64",
     ],
-    "maccatalyst_x86_64": [
-        "@platforms//os:ios",
+    "catalyst_x86_64": [
+        "@platforms//os:osx",
         "@platforms//cpu:x86_64",
     ],
-    "maccatalyst_arm64": [
-        "@platforms//os:ios",
+    "catalyst_arm64": [
+        "@platforms//os:osx",
         "@platforms//cpu:arm64",
     ],
     "ios_arm64": [
