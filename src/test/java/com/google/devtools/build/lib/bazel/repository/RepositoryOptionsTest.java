@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
@@ -52,6 +53,13 @@ public class RepositoryOptionsTest {
     assertThat(actual.repositoryName())
         .isEqualTo(RepositoryName.createFromValidStrippedName("foo"));
     assertThat(actual.path()).isEqualTo(PathFragment.create("/bar=/baz"));
+  }
+
+  @Test
+  public void testOverridePathWithTilde() throws Exception {
+    RepositoryOverride actual = converter.convert("foo=~/bar");
+    assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
+    assertThat(actual.path()).isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
   }
 
   @Test
