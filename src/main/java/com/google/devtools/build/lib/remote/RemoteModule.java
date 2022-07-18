@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.UnresolvedScopedCredentialHelper;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.Netrc;
@@ -99,6 +100,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
@@ -1139,44 +1141,23 @@ public final class RemoteModule extends BlazeModule {
   static CredentialHelperProvider newCredentialHelperProvider(
       CredentialHelperEnvironment environment,
       CommandLinePathFactory pathFactory,
-      List<String> inputs)
+      List<UnresolvedScopedCredentialHelper> helpers)
       throws IOException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(pathFactory);
-    Preconditions.checkNotNull(inputs);
+    Preconditions.checkNotNull(helpers);
 
     CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
-    for (String input : inputs) {
-      ScopedCredentialHelper helper = parseCredentialHelperFlag(environment, pathFactory, input);
+    for (UnresolvedScopedCredentialHelper helper : helpers) {
       Optional<String> scope = helper.getScope();
+      Path path = pathFactory.create(environment.getClientEnvironment(), helper.getPath());
       if (scope.isPresent()) {
-        builder.add(scope.get(), helper.getPath());
+        builder.add(scope.get(), path);
       } else {
-        builder.add(helper.getPath());
+        builder.add(path);
       }
     }
     return builder.build();
-  }
-
-  @VisibleForTesting
-  static ScopedCredentialHelper parseCredentialHelperFlag(
-      CredentialHelperEnvironment environment, CommandLinePathFactory pathFactory, String input)
-      throws IOException {
-    Preconditions.checkNotNull(environment);
-    Preconditions.checkNotNull(pathFactory);
-    Preconditions.checkNotNull(input);
-
-    int pos = input.indexOf('=');
-    if (pos > 0) {
-      String scope = input.substring(0, pos);
-      String path = input.substring(pos + 1);
-      return new AutoValue_RemoteModule_ScopedCredentialHelper(
-          Optional.of(scope), pathFactory.create(environment.getClientEnvironment(), path));
-    }
-
-    // `input` does not specify a scope.
-    return new AutoValue_RemoteModule_ScopedCredentialHelper(
-        Optional.empty(), pathFactory.create(environment.getClientEnvironment(), input));
   }
 
   @VisibleForTesting

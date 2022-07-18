@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.UnresolvedScopedCredentialHelper;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.UnresolvedScopedCredentialHelperConverter;
 import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.BindableService;
 import io.grpc.Server;
@@ -586,92 +589,6 @@ public final class RemoteModuleTest {
   }
 
   @Test
-  public void parseCredentialHelperFlag() throws Exception {
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-
-    Path workspace = fileSystem.getPath("/workspace");
-    Path pathValue = fileSystem.getPath("/usr/local/bin");
-    pathValue.createDirectoryAndParents();
-
-    CredentialHelperEnvironment credentialHelperEnvironment =
-        CredentialHelperEnvironment.newBuilder()
-            .setEventReporter(new Reporter(new EventBus()))
-            .setWorkspacePath(workspace)
-            .setClientEnvironment(ImmutableMap.of("PATH", pathValue.getPathString()))
-            .setHelperExecutionTimeout(Duration.ZERO)
-            .build();
-    CommandLinePathFactory commandLinePathFactory =
-        new CommandLinePathFactory(
-            fileSystem,
-            ImmutableMap.of("workspace", workspace));
-
-    // Absolute paths.
-    {
-      RemoteModule.ScopedCredentialHelper helper1 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "/absolute/path");
-      assertThat(helper1.getScope()).isEmpty();
-      assertThat(helper1.getPath()).isEqualTo(fileSystem.getPath("/absolute/path"));
-
-      RemoteModule.ScopedCredentialHelper helper2 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "example.com=/absolute/path");
-      assertThat(helper2.getScope().get()).isEqualTo("example.com");
-      assertThat(helper2.getPath()).isEqualTo(fileSystem.getPath("/absolute/path"));
-
-      RemoteModule.ScopedCredentialHelper helper3 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "*.example.com=/absolute/path");
-      assertThat(helper3.getScope().get()).isEqualTo("*.example.com");
-      assertThat(helper3.getPath()).isEqualTo(fileSystem.getPath("/absolute/path"));
-    }
-
-    // Root-relative paths.
-    {
-      RemoteModule.ScopedCredentialHelper helper1 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "%workspace%/path");
-      assertThat(helper1.getScope()).isEmpty();
-      assertThat(helper1.getPath()).isEqualTo(workspace.getRelative("path"));
-
-      RemoteModule.ScopedCredentialHelper helper2 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "example.com=%workspace%/path");
-      assertThat(helper2.getScope().get()).isEqualTo("example.com");
-      assertThat(helper2.getPath()).isEqualTo(workspace.getRelative("path"));
-
-      RemoteModule.ScopedCredentialHelper helper3 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "*.example.com=%workspace%/path");
-      assertThat(helper3.getScope().get()).isEqualTo("*.example.com");
-      assertThat(helper3.getPath()).isEqualTo(workspace.getRelative("path"));
-    }
-
-    // PATH lookup.
-    {
-      Path helper = createExecutable(pathValue.getRelative("foo"));
-
-      RemoteModule.ScopedCredentialHelper helper1 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "foo");
-      assertThat(helper1.getScope()).isEmpty();
-      assertThat(helper1.getPath()).isEqualTo(pathValue.getRelative("foo"));
-
-      RemoteModule.ScopedCredentialHelper helper2 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "example.com=foo");
-      assertThat(helper2.getScope().get()).isEqualTo("example.com");
-      assertThat(helper2.getPath()).isEqualTo(pathValue.getRelative("foo"));
-
-      RemoteModule.ScopedCredentialHelper helper3 =
-          RemoteModule.parseCredentialHelperFlag(
-              credentialHelperEnvironment, commandLinePathFactory, "*.example.com=foo");
-      assertThat(helper3.getScope().get()).isEqualTo("*.example.com");
-      assertThat(helper3.getPath()).isEqualTo(pathValue.getRelative("foo"));
-    }
-  }
-
-  @Test
   public void newCredentialHelperProvider() throws Exception {
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
@@ -701,7 +618,7 @@ public final class RemoteModuleTest {
     Path exampleOrgHelper = createExecutable(workspace.getRelative("helpers/example-org"));
 
     // No helpers.
-    CredentialHelperProvider credentialHelperProvider1 = RemoteModule.newCredentialHelperProvider(
+    CredentialHelperProvider credentialHelperProvider1 = newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of());
@@ -709,7 +626,7 @@ public final class RemoteModuleTest {
     assertThat(credentialHelperProvider1.findCredentialHelper(URI.create("https://foo.example.com"))).isEmpty();
 
     // Default helper only.
-    CredentialHelperProvider credentialHelperProvider2 = RemoteModule.newCredentialHelperProvider(
+    CredentialHelperProvider credentialHelperProvider2 = newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of(defaultHelper.getPathString()));
@@ -717,7 +634,7 @@ public final class RemoteModuleTest {
     assertThat(credentialHelperProvider2.findCredentialHelper(URI.create("https://foo.example.com")).get().getPath()).isEqualTo(defaultHelper);
 
     // Default and exact match.
-    CredentialHelperProvider credentialHelperProvider3 = RemoteModule.newCredentialHelperProvider(
+    CredentialHelperProvider credentialHelperProvider3 = newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of(
@@ -727,7 +644,7 @@ public final class RemoteModuleTest {
     assertThat(credentialHelperProvider3.findCredentialHelper(URI.create("https://foo.example.com")).get().getPath()).isEqualTo(defaultHelper);
 
     // Exact match without default.
-    CredentialHelperProvider credentialHelperProvider4 = RemoteModule.newCredentialHelperProvider(
+    CredentialHelperProvider credentialHelperProvider4 = newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of("example.com=" + exampleComHelper.getPathString()));
@@ -735,7 +652,7 @@ public final class RemoteModuleTest {
     assertThat(credentialHelperProvider4.findCredentialHelper(URI.create("https://foo.example.com"))).isEmpty();
 
     // Multiple scoped helpers with default.
-    CredentialHelperProvider credentialHelperProvider5 = RemoteModule.newCredentialHelperProvider(
+    CredentialHelperProvider credentialHelperProvider5 = newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of(
@@ -753,7 +670,7 @@ public final class RemoteModuleTest {
     assertThat(credentialHelperProvider5.findCredentialHelper(URI.create("https://example.org")).get().getPath()).isEqualTo(exampleOrgHelper);
 
     // Helpers override.
-    CredentialHelperProvider credentialHelperProvider6 = RemoteModule.newCredentialHelperProvider(
+    CredentialHelperProvider credentialHelperProvider6 = newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of(
@@ -800,5 +717,30 @@ public final class RemoteModuleTest {
     path.setExecutable(true);
 
     return path;
+  }
+
+  private static CredentialHelperProvider newCredentialHelperProvider(
+      CredentialHelperEnvironment credentialHelperEnvironment,
+      CommandLinePathFactory commandLinePathFactory,
+      ImmutableList<String> inputs)
+      throws Exception {
+    Preconditions.checkNotNull(credentialHelperEnvironment);
+    Preconditions.checkNotNull(commandLinePathFactory);
+    Preconditions.checkNotNull(inputs);
+
+    return RemoteModule.newCredentialHelperProvider(
+        credentialHelperEnvironment,
+        commandLinePathFactory,
+        ImmutableList.copyOf(Iterables.transform(inputs, s -> createUnresolvedScopedCredentialHelper(s))));
+  }
+
+  private static UnresolvedScopedCredentialHelper createUnresolvedScopedCredentialHelper(String input) {
+    Preconditions.checkNotNull(input);
+
+    try {
+      return AuthAndTLSOptions.UnresolvedScopedCredentialHelperConverter.INSTANCE.convert(input);
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
   }
 }
