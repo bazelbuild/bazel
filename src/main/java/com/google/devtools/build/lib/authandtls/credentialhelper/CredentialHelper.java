@@ -14,14 +14,32 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.shell.Subprocess;
+import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.Immutable;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.net.URI;
+import java.util.Locale;
+import java.util.Objects;
 
 /** Wraps an external tool used to obtain credentials. */
 @Immutable
 public final class CredentialHelper {
+  private static final Gson GSON = new Gson();
+
   // `Path` is immutable, but not annotated.
   @SuppressWarnings("Immutable")
   private final Path path;
@@ -35,5 +53,101 @@ public final class CredentialHelper {
     return path;
   }
 
-  // TODO(yannic): Implement running the helper subprocess.
+  /**
+   * Fetches credentials for the specified {@link URI} by invoking the credential helper as
+   * subprocess according to the <a
+   * href="https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md">credential
+   * helper protocol</a>.
+   *
+   * @param environment The environment to run the subprocess in.
+   * @param uri The {@link URI} to fetch credentials for.
+   * @return The response from the subprocess.
+   */
+  public GetCredentialsResponse getCredentials(CredentialHelperEnvironment environment, URI uri)
+      throws InterruptedException, IOException {
+    Preconditions.checkNotNull(environment);
+    Preconditions.checkNotNull(uri);
+
+    Subprocess process = spawnSubprocess(environment, "get");
+    try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
+        Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
+      try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
+        GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
+      }
+
+      process.waitFor();
+      if (process.timedout()) {
+        throw new IOException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': process timed out",
+                uri,
+                path));
+      }
+      if (process.exitValue() != 0) {
+        throw new IOException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': process exited with code %d."
+                    + " stderr: %s",
+                uri,
+                path,
+                process.exitValue(),
+                CharStreams.toString(stderr)));
+      }
+
+      try {
+        GetCredentialsResponse response = GSON.fromJson(stdout, GetCredentialsResponse.class);
+        if (response == null) {
+          throw new IOException(
+              String.format(
+                  Locale.US,
+                  "Failed to get credentials for '%s' from helper '%s': process exited without"
+                      + " output. stderr: %s",
+                  uri,
+                  path,
+                  CharStreams.toString(stderr)));
+        }
+        return response;
+      } catch (JsonSyntaxException e) {
+        throw new IOException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': error parsing output. stderr:"
+                    + " %s",
+                uri,
+                path,
+                CharStreams.toString(stderr)),
+            e);
+      }
+    }
+  }
+
+  private Subprocess spawnSubprocess(CredentialHelperEnvironment environment, String... args)
+      throws IOException {
+    Preconditions.checkNotNull(environment);
+    Preconditions.checkNotNull(args);
+
+    return new SubprocessBuilder()
+        .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
+        .setWorkingDirectory(environment.getWorkspacePath().getPathFile())
+        .setEnv(environment.getClientEnvironment())
+        .setTimeoutMillis(environment.getHelperExecutionTimeout().toMillis())
+        .start();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o instanceof CredentialHelper) {
+      CredentialHelper that = (CredentialHelper) o;
+      return Objects.equals(this.getPath(), that.getPath());
+    }
+
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(getPath());
+  }
 }
