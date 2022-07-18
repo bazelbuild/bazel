@@ -397,7 +397,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "experimental_incremental_dexing_after_proguard",
-        defaultValue = "1",
+        defaultValue = "50",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -411,7 +411,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     /** Whether to use a separate tool to shard classes before merging them into final dex files. */
     @Option(
         name = "experimental_use_dex_splitter_for_incremental_dexing",
-        defaultValue = "false",
+        defaultValue = "true",
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -420,7 +420,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "experimental_incremental_dexing_after_proguard_by_default",
-        defaultValue = "false",
+        defaultValue = "true",
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},

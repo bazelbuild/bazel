@@ -179,4 +179,130 @@ built_with_bazel_version 4.5.6"
   assert_equals "$expected" "$actual"
 }
 
+function write_large_java_file() {
+  f="$1"
+  class="$(basename $f .java)"
+  package="$(dirname $f | sed 's|java/||' | sed 's|/|.|g')"
+  echo package = $package
+  echo "package $package;" > "$f"
+  echo "public class $class {" >> "$f"
+  for i in $(seq 33000); do
+    echo "public int foo_$i() { return $i ; }" >> "$f"
+  done
+  echo "}" >> "$f"
+}
+
+function assert_multiple_dex_files() {
+  apk="bazel-bin/java/com/example/hello/hello.apk"
+  count=$(unzip -l ${apk} | grep classes | wc -l)
+  [ "${count}" -gt 1 ] || \
+      fail "Expected multiple dex files in apk, found ${count}"
+}
+
+function test_native_multidex() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_native_multidex_proguard() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+    proguard_specs = ["proguard.cfg"],
+)
+EOF
+
+  cat > java/com/example/hello/proguard.cfg <<'EOF'
+-keep class com.example.hello.**
+-keep class com.example.hello.Lib1 {
+  public int foo*();
+}
+-keep class com.example.hello.Lib2 {
+  public int foo*();
+}
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  # Ensures that we didn't accidentally optimize away all the unused methods.
+  assert_multiple_dex_files
+}
+
+function test_native_multidex_dex_shards() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+    dex_shards = 10,
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_native_multidex_dex_shards_proguard() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+    proguard_specs = ["proguard.cfg"],
+    dex_shards = 10,
+)
+EOF
+
+  cat > java/com/example/hello/proguard.cfg <<'EOF'
+-keep class com.example.hello.**
+-keep class com.example.hello.Lib1 {
+  public int foo*();
+}
+-keep class com.example.hello.Lib2 {
+  public int foo*();
+}
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  # Ensures that we didn't accidentally optimize away all the unused methods.
+  assert_multiple_dex_files
+}
+
 run_suite "Android integration tests"
