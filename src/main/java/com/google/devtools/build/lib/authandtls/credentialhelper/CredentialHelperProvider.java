@@ -130,6 +130,23 @@ public final class CredentialHelperProvider {
     }
 
     /**
+     * Adds a credential helper to use for all {@link URI}s matching the provided pattern, or as
+     * default credential helper if {@code pattern} is empty.
+     *
+     * <p>See {@link #add(String, Path)} for the syntax of {@code pattern}.
+     */
+    public Builder add(Optional<String> pattern, Path helper) throws IOException {
+      Preconditions.checkNotNull(pattern);
+      Preconditions.checkNotNull(helper);
+
+      if (pattern.isPresent()) {
+        return add(pattern.get(), helper);
+      } else {
+        return add(helper);
+      }
+    }
+
+    /**
      * Adds a default credential helper to use for all {@link URI}s that don't specify a more
      * specific credential helper.
      */

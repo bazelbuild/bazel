@@ -49,7 +49,7 @@ public final class CredentialHelper {
   }
 
   @VisibleForTesting
-  Path getPath() {
+  public Path getPath() {
     return path;
   }
 
