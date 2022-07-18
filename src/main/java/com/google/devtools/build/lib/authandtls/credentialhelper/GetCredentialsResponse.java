@@ -50,7 +50,7 @@ public abstract class GetCredentialsResponse {
   /** Builder for {@link GetCredentialsResponse}. */
   @AutoValue.Builder
   public abstract static class Builder {
-    protected abstract ImmutableMap.Builder<String, ImmutableList<String>> headersBuilder();
+    public abstract ImmutableMap.Builder<String, ImmutableList<String>> headersBuilder();
 
     /** Returns the newly constructed {@link GetCredentialsResponse}. */
     public abstract GetCredentialsResponse build();
