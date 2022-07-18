@@ -107,6 +107,7 @@ public class CommandEnvironment {
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
   private final Consumer<String> shutdownReasonConsumer;
   private final BuildResultListener buildResultListener;
+  private final CommandLinePathFactory commandLinePathFactory;
 
   private OutputService outputService;
   private String workspaceName;
@@ -273,6 +274,13 @@ public class CommandEnvironment {
     }
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
+
+    this.commandLinePathFactory =
+        new CommandLinePathFactory(
+            getRuntime().getFileSystem(),
+            ImmutableMap.<String, Path>builder()
+                .put("workspace", workspace.getWorkspace())
+                .build());
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -839,5 +847,9 @@ public class CommandEnvironment {
 
   public BuildResultListener getBuildResultListener() {
     return buildResultListener;
+  }
+
+  public CommandLinePathFactory getCommandLinePathFactory() {
+    return commandLinePathFactory;
   }
 }

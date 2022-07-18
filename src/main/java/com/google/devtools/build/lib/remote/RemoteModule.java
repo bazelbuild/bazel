@@ -19,6 +19,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
@@ -50,6 +51,9 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -78,6 +82,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -103,7 +108,6 @@ import io.grpc.ManagedChannel;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -217,12 +221,12 @@ public final class RemoteModule extends BlazeModule {
     try {
       creds =
           newCredentials(
-              env.getClientEnv(),
+              env.getCommandLinePathFactory(),
+              newCredentialHelperEnvironment(env, authAndTlsOptions),
               env.getRuntime().getFileSystem(),
-              env.getReporter(),
               authAndTlsOptions,
               remoteOptions);
-    } catch (IOException e) {
+    } catch (IOException | IllegalArgumentException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
       return;
     }
@@ -432,12 +436,12 @@ public final class RemoteModule extends BlazeModule {
       callCredentialsProvider =
           GoogleAuthUtils.newCallCredentialsProvider(
               newCredentials(
-                  env.getClientEnv(),
+                  env.getCommandLinePathFactory(),
+                  newCredentialHelperEnvironment(env, authAndTlsOptions),
                   env.getRuntime().getFileSystem(),
-                  env.getReporter(),
                   authAndTlsOptions,
                   remoteOptions));
-    } catch (IOException e) {
+    } catch (IOException | IllegalArgumentException e) {
       handleInitFailure(env, e, Code.CREDENTIALS_INIT_FAILURE);
       return;
     }
@@ -645,7 +649,7 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private static void handleInitFailure(
-      CommandEnvironment env, IOException e, Code remoteExecutionCode) {
+      CommandEnvironment env, Exception e, Code remoteExecutionCode) {
     env.getReporter().handle(Event.error(e.getMessage()));
     env.getBlazeModuleEnvironment()
         .exit(
@@ -1096,38 +1100,108 @@ public final class RemoteModule extends BlazeModule {
    */
   @VisibleForTesting
   static Credentials newCredentials(
-      Map<String, String> clientEnv,
+      CommandLinePathFactory commandLinePathFactory,
+      CredentialHelperEnvironment credentialHelperEnvironment,
       FileSystem fileSystem,
-      Reporter reporter,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions)
       throws IOException {
-    Credentials creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
+    // TODO(yannic): Change `GoogleAuthUtils.newCredentials` to return `Optional`.
+    Optional<Credentials> creds = Optional.ofNullable(GoogleAuthUtils.newCredentials(authAndTlsOptions));
+    creds = creds.or(() -> {
+      // Fallback to .netrc if it exists.
 
-    // Fallback to .netrc if it exists
-    if (creds == null) {
       try {
-        creds = newCredentialsFromNetrc(clientEnv, fileSystem);
+        // TODO(yannic): Change `newCredentialsFromNetrc` to return `Optional`.
+        return Optional.ofNullable(
+            newCredentialsFromNetrc(
+                credentialHelperEnvironment.getClientEnvironment(), fileSystem));
       } catch (IOException e) {
-        reporter.handle(Event.warn(e.getMessage()));
+        credentialHelperEnvironment.getEventReporter().handle(Event.warn(e.getMessage()));
+        return Optional.empty();
       }
+    });
 
-      try {
-        if (creds != null
-            && remoteOptions.remoteCache != null
-            && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
-            && !creds.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
-          reporter.handle(
-              Event.warn(
-                  "Username and password from .netrc is transmitted in plaintext to "
-                      + remoteOptions.remoteCache
-                      + ". Please consider using an HTTPS endpoint."));
-        }
-      } catch (URISyntaxException e) {
-        throw new IOException(e.getMessage(), e);
+    if (creds.isPresent()) {
+      if (remoteOptions.remoteCache != null
+          && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
+          && !creds.get().getRequestMetadata(URI.create(remoteOptions.remoteCache)).isEmpty()) {
+        credentialHelperEnvironment.getEventReporter().handle(
+            Event.warn(
+                "Username and password from .netrc is transmitted in plaintext to "
+                    + remoteOptions.remoteCache
+                    + ". Please consider using an HTTPS endpoint."));
       }
     }
 
-    return creds;
+    CredentialHelperProvider credentialHelperProvider =
+        newCredentialHelperProvider(
+            credentialHelperEnvironment,
+            commandLinePathFactory,
+            authAndTlsOptions.credentialHelpers);
+    return new CredentialHelperCredentials(
+        credentialHelperProvider, credentialHelperEnvironment, creds);
+  }
+
+  private CredentialHelperEnvironment newCredentialHelperEnvironment(
+      CommandEnvironment env, AuthAndTLSOptions authAndTlsOptions) {
+    Preconditions.checkNotNull(env);
+    Preconditions.checkNotNull(authAndTlsOptions);
+
+    return CredentialHelperEnvironment.newBuilder()
+        .setEventReporter(env.getReporter())
+        .setWorkspacePath(env.getWorkspace())
+        .setClientEnvironment(env.getClientEnv())
+        .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+        .build();
+  }
+
+  @VisibleForTesting
+  static CredentialHelperProvider newCredentialHelperProvider(
+      CredentialHelperEnvironment environment,
+      CommandLinePathFactory pathFactory,
+      List<String> inputs)
+      throws IOException {
+    Preconditions.checkNotNull(environment);
+    Preconditions.checkNotNull(pathFactory);
+    Preconditions.checkNotNull(inputs);
+
+    CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
+    for (String input : inputs) {
+      ScopedCredentialHelper helper = parseCredentialHelperFlag(environment, pathFactory, input);
+      builder.add(helper.getScope(), helper.getPath());
+    }
+    return builder.build();
+  }
+
+  @VisibleForTesting
+  static ScopedCredentialHelper parseCredentialHelperFlag(
+      CredentialHelperEnvironment environment, CommandLinePathFactory pathFactory, String input)
+      throws IOException {
+    Preconditions.checkNotNull(environment);
+    Preconditions.checkNotNull(pathFactory);
+    Preconditions.checkNotNull(input);
+
+    int pos = input.indexOf('=');
+    if (pos > 0) {
+      String scope = input.substring(0, pos);
+      String path = input.substring(pos + 1);
+      return new AutoValue_RemoteModule_ScopedCredentialHelper(
+          Optional.of(scope), pathFactory.create(environment.getClientEnvironment(), path));
+    }
+
+    // `input` does not specify a scope.
+    return new AutoValue_RemoteModule_ScopedCredentialHelper(
+        Optional.empty(), pathFactory.create(environment.getClientEnvironment(), input));
+  }
+
+  @VisibleForTesting
+  @AutoValue
+  static abstract class ScopedCredentialHelper {
+    /** Returns the scope of the credential helper (if any). */
+    public abstract Optional<String> getScope();
+
+    /** Returns the path of the credential helper. */
+    public abstract Path getPath();
   }
 }

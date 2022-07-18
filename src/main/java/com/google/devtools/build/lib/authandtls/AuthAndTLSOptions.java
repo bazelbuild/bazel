@@ -131,4 +131,24 @@ public class AuthAndTLSOptions extends OptionsBase {
               + "granularity; it is an error to set a value less than one second. If keep-alive "
               + "pings are disabled, then this setting is ignored.")
   public Duration grpcKeepaliveTimeout;
+
+  @Option(
+      name = "credential_helper",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "TODO")
+  public List<String> credentialHelpers;
+
+  @Option(
+      name = "credential_helper_timeout",
+      defaultValue = "5s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures the timeout for the Credential Helper.\n\n"
+              + "Credential Helpers failing to respond within this timeout will fail the invocation.")
+  public Duration credentialHelperTimeout;
 }

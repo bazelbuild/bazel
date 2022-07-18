@@ -170,6 +170,17 @@ public final class CredentialHelperProvider {
       return this;
     }
 
+    public Builder add(Optional<String> pattern, Path helper) throws IOException {
+      Preconditions.checkNotNull(pattern);
+      Preconditions.checkNotNull(helper);
+
+      if (pattern.isPresent()) {
+        return add(pattern.get(), helper);
+      } else {
+        return add(helper);
+      }
+    }
+
     /** Converts a pattern to Punycode (see https://en.wikipedia.org/wiki/Punycode). */
     private final String toPunycodePattern(String pattern) {
       Preconditions.checkNotNull(pattern);
