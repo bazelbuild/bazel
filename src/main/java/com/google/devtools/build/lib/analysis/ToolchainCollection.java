@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -95,6 +96,7 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
       toolchainContexts.put(execGroup, context);
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> addDefaultContext(T context) {
       addContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME, context);
       return this;

@@ -43,7 +43,7 @@ public class RunUnderConverterTest {
 
   private void assertEqualsRunUnder(String input, String label, String command,
       List<String> options) throws Exception {
-    RunUnder runUnder = new RunUnderConverter().convert(input);
+    RunUnder runUnder = new RunUnderConverter().convert(input, /*conversionContext=*/ null);
     assertThat(runUnder.getLabel() == null ? null : runUnder.getLabel().toString())
         .isEqualTo(label);
     assertThat(runUnder.getCommand()).isEqualTo(command);
@@ -52,7 +52,9 @@ public class RunUnderConverterTest {
 
   private void assertRunUnderFails(String input, String expectedError) {
     OptionsParsingException e =
-        assertThrows(OptionsParsingException.class, () -> new RunUnderConverter().convert(input));
+        assertThrows(
+            OptionsParsingException.class,
+            () -> new RunUnderConverter().convert(input, /*conversionContext=*/ null));
     assertThat(e).hasMessageThat().isEqualTo(expectedError);
   }
 }

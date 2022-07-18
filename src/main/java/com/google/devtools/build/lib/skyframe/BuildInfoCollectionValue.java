@@ -88,6 +88,7 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
       return infoKey;
     }
 
+    @Nullable
     @Override
     public Label getLabel() {
       return null;

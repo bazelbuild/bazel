@@ -21,6 +21,7 @@ import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.ParsedAndroidData.OverwritableConsumer;
 import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.Namespaces;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -72,6 +73,7 @@ public class ParsedAndroidDataBuilder {
     return buildOn(null, null);
   }
 
+  @CanIgnoreReturnValue
   public ParsedAndroidDataBuilder overwritable(DataEntry... resourceBuilders) {
     OverwritableConsumer<DataKey, DataResource> consumer =
         new OverwritableConsumer<>(overwrite, conflicts);
@@ -81,6 +83,7 @@ public class ParsedAndroidDataBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ParsedAndroidDataBuilder combining(DataEntry... resourceBuilders) {
     CombiningConsumer consumer = new CombiningConsumer(combine);
     for (DataEntry resourceBuilder : resourceBuilders) {
@@ -89,6 +92,7 @@ public class ParsedAndroidDataBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ParsedAndroidDataBuilder assets(DataEntry... assetBuilders) {
     OverwritableConsumer<DataKey, DataAsset> consumer =
         new OverwritableConsumer<>(assets, conflicts);
@@ -126,6 +130,7 @@ public class ParsedAndroidDataBuilder {
       this.rawKey = rawKey;
     }
 
+    @CanIgnoreReturnValue
     FileResourceBuilder root(Path root) {
       this.root = root;
       return this;
@@ -244,11 +249,13 @@ public class ParsedAndroidDataBuilder {
       };
     }
 
+    @CanIgnoreReturnValue
     XmlResourceBuilder root(Path root) {
       this.root = root;
       return this;
     }
 
+    @CanIgnoreReturnValue
     XmlResourceBuilder namespace(String prefix, String uri) {
       prefixToUri.put(prefix, uri);
       return this;

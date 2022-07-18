@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -195,6 +196,7 @@ public class GraphTester {
       return addDependency(skyKey(name));
     }
 
+    @CanIgnoreReturnValue
     public TestFunction addDependency(SkyKey key) {
       deps.add(Pair.of(key, null));
       return this;
@@ -204,6 +206,7 @@ public class GraphTester {
       return removeDependency(skyKey(name));
     }
 
+    @CanIgnoreReturnValue
     public TestFunction removeDependency(SkyKey key) {
       deps.remove(Pair.<SkyKey, SkyValue>of(key, null));
       return this;
@@ -213,33 +216,39 @@ public class GraphTester {
       return addErrorDependency(skyKey(name), altValue);
     }
 
+    @CanIgnoreReturnValue
     public TestFunction addErrorDependency(SkyKey key, SkyValue altValue) {
       deps.add(Pair.of(key, altValue));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setConstantValue(SkyValue value) {
       Preconditions.checkState(this.computer == null);
       this.value = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction unsetConstantValue() {
       this.value = null;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setComputedValue(ValueComputer computer) {
       Preconditions.checkState(this.value == null);
       this.computer = computer;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction unsetComputedValue() {
       this.computer = null;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setBuilder(SkyFunction builder) {
       Preconditions.checkState(this.value == null);
       Preconditions.checkState(this.computer == null);
@@ -252,37 +261,44 @@ public class GraphTester {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setBuilderUnconditionally(SkyFunction builder) {
       this.builder = builder;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setHasTransientError(boolean hasError) {
       this.hasTransientError = hasError;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setHasError(boolean hasError) {
       // TODO(bazel-team): switch to an enum for hasError.
       this.hasError = hasError;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setWarning(String warning) {
       this.warning = warning;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setProgress(String info) {
       this.progress = info;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setTag(String tag) {
       this.tag = tag;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setPostable(Postable postable) {
       this.postable = postable;
       return this;

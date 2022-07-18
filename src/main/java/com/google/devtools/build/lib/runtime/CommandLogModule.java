@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /** This module logs complete stdout / stderr output of Bazel to a local file. */
 public class CommandLogModule extends BlazeModule {
@@ -44,6 +45,7 @@ public class CommandLogModule extends BlazeModule {
   }
 
   @Override
+  @Nullable
   public OutErr getOutputListener() {
     Path commandLog = getCommandLogPath(env.getOutputBase());
     // Unlink old command log from previous build, if present.

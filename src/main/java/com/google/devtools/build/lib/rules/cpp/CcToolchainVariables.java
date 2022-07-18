@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -331,6 +332,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
    *     reason why variable was not found)
    */
+  @Nullable
   private VariableValue lookupVariable(
       String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
       throws ExpansionException {
@@ -383,6 +385,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     return null;
   }
 
+  @Nullable
   private VariableValue getStructureVariable(
       String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
       throws ExpansionException {
@@ -525,6 +528,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
           variableName, field, /* expander= */ null, /* throwOnMissingVariable= */ true);
     }
 
+    @Nullable
     @Override
     public VariableValue getFieldValue(
         String variableName,
@@ -574,6 +578,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final ImmutableList.Builder<String> values = ImmutableList.builder();
 
     /** Adds a value to the sequence. */
+    @CanIgnoreReturnValue
     public StringSequenceBuilder addValue(String value) {
       values.add(value);
       return this;
@@ -592,12 +597,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final ImmutableList.Builder<VariableValue> values = ImmutableList.builder();
 
     /** Adds a value to the sequence. */
+    @CanIgnoreReturnValue
     public SequenceBuilder addValue(VariableValue value) {
       values.add(value);
       return this;
     }
 
     /** Adds a value to the sequence. */
+    @CanIgnoreReturnValue
     public SequenceBuilder addValue(VariableValueBuilder value) {
       Preconditions.checkArgument(value != null, "Cannot use null builder for a sequence value");
       values.add(value.build());
@@ -617,12 +624,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     private final ImmutableMap.Builder<String, VariableValue> fields = ImmutableMap.builder();
 
     /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
     public StructureBuilder addField(String name, VariableValue value) {
       fields.put(name, value);
       return this;
     }
 
     /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
     public StructureBuilder addField(String name, VariableValueBuilder valueBuilder) {
       Preconditions.checkArgument(
           valueBuilder != null,
@@ -633,12 +642,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
     public StructureBuilder addField(String name, String value) {
       fields.put(name, new StringValue(value));
       return this;
     }
 
     /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
     public StructureBuilder addField(String name, ImmutableList<String> values) {
       fields.put(name, new StringSequence(values));
       return this;
@@ -694,6 +705,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
           : new ForObjectFileGroup(objects);
     }
 
+    @Nullable
     public VariableValue getFieldValue(
         String variableName,
         String field,
@@ -862,6 +874,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         this.objectFiles = objectFiles;
       }
 
+      @Nullable
       @Override
       public VariableValue getFieldValue(
           String variableName,
@@ -1097,6 +1110,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       this.value = value;
     }
 
+    @Nullable
     @Override
     public VariableValue getFieldValue(
         String variableName,
@@ -1250,12 +1264,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     /** Add an integer variable that expands {@code name} to {@code value}. */
+    @CanIgnoreReturnValue
     public Builder addIntegerVariable(String name, int value) {
       variablesMap.put(name, new IntegerValue(value));
       return this;
     }
 
     /** Add a string variable that expands {@code name} to {@code value}. */
+    @CanIgnoreReturnValue
     public Builder addStringVariable(String name, String value) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
@@ -1264,6 +1280,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     /** Overrides a variable to expands {@code name} to {@code value} instead. */
+    @CanIgnoreReturnValue
     public Builder overrideStringVariable(String name, String value) {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, value);
@@ -1276,6 +1293,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * <p>Accepts values as ImmutableSet. As ImmutableList has smaller memory footprint, we copy the
      * values into a new list.
      */
+    @CanIgnoreReturnValue
     public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
@@ -1290,6 +1308,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
      */
+    @CanIgnoreReturnValue
     public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
@@ -1305,6 +1324,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * that the iterable always returns the same elements in the same order, without any side
      * effects.
      */
+    @CanIgnoreReturnValue
     public Builder addStringSequenceVariable(String name, Iterable<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
@@ -1316,6 +1336,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * Add a variable built using {@code VariableValueBuilder} api that expands {@code name} to the
      * value returned by the {@code builder}.
      */
+    @CanIgnoreReturnValue
     public Builder addCustomBuiltVariable(
         String name, CcToolchainVariables.VariableValueBuilder builder) {
       checkVariableNotPresentAlready(name);
@@ -1326,6 +1347,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     /** Add all string variables in a map. */
+    @CanIgnoreReturnValue
     public Builder addAllStringVariables(Map<String, String> variables) {
       for (String name : variables.keySet()) {
         checkVariableNotPresentAlready(name);
@@ -1344,6 +1366,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * Adds all variables to this builder. Cannot override already added variables. Does not add
      * variables defined in the {@code parent} variables.
      */
+    @CanIgnoreReturnValue
     public Builder addAllNonTransitive(CcToolchainVariables variables) {
       SetView<String> intersection =
           Sets.intersection(variables.getVariableKeys(), variablesMap.keySet());
@@ -1442,6 +1465,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       }
     }
 
+    @Nullable
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (keyToIndex.containsKey(name)) {
@@ -1524,6 +1548,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       variablesMap.put(name, variableValue);
     }
 
+    @Nullable
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (this.name.equals(name)) {

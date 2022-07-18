@@ -24,9 +24,10 @@ migration guide to start building your Maven projects with Bazel:
 ## Java versions {:#java-versions}
 
 There are two relevant versions of Java that are set with configuration flags:
- - the version of the source files in the repository
- - the version of the Java runtime that is used to execute the code and to test
-   it
+
+*   the version of the source files in the repository
+*   the version of the Java runtime that is used to execute the code and to test
+    it
 
 ### Configuring the version of the source code in your repository {:#config-source-code}
 
@@ -137,7 +138,6 @@ projects:
     *   [`java_compilation_info`](/rules/lib/java_compilation_info)
     *   [`java_output`](/rules/lib/java_output)
     *   [`java_output_jars`](/rules/lib/java_output_jars)
-    *   [`java_proto_common`](/rules/lib/java_proto_common)
     *   [`JavaRuntimeInfo`](/rules/lib/JavaRuntimeInfo)
     *   [`JavaToolchainInfo`](/rules/lib/JavaToolchainInfo)
 
@@ -194,7 +194,7 @@ remote_java_repository(
 
 Compilation toolchain is composed of JDK and multiple tools that Bazel uses
 during the compilation and that provides additional features, such as: Error
-Prone, strict Java dependenciess, header compilation, Android desugaring,
+Prone, strict Java dependencies, header compilation, Android desugaring,
 coverage instrumentation, and genclass handling for IDEs.
 
 JavaBuilder is a Bazel-bundled tool that executes compilation, and provides the
@@ -266,7 +266,6 @@ Predefined configurations:
 -   `DEFAULT_TOOLCHAIN_CONFIGURATION`: all features, supports JDK versions >= 9
 -   `VANILLA_TOOLCHAIN_CONFIGURATION`: no additional features, supports JDKs of
     arbitrary vendors.
--   `JVM8_TOOLCHAIN_CONFIGURATION`: all features, JDK version 8
 -   `PREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but only use prebuilt
     tools (`ijar`, `singlejar`)
 -   `NONPREBUILT_TOOLCHAIN_CONFIGURATION`: same as default, but all tools are

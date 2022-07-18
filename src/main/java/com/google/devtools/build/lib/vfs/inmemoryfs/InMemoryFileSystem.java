@@ -182,6 +182,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
    * Inserts inode 'childInode' into the existing directory 'dir' under the specified 'name'. Dual
    * to unlink. Fails if the directory was read-only.
    */
+  @Nullable
   @CheckReturnValue
   private static Errno insert(
       InMemoryDirectoryInfo dir, String child, InMemoryContentInfo childInode) {
@@ -406,6 +407,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
    * path segments are statted, and each stat requires a linear amount of work in the "kernel"
    * routine.
    */
+  @Nullable
   @Override
   protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of

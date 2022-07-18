@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -63,12 +64,14 @@ public class WerrorCustomOption {
       }
     }
 
+    @CanIgnoreReturnValue
     Builder all() {
       werrors.clear();
       werrors.put("all", true);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder process(String flag) {
       checkArgument(flag.startsWith(WERROR), flag);
       for (String arg : Splitter.on(',').split(flag.substring(WERROR.length()))) {

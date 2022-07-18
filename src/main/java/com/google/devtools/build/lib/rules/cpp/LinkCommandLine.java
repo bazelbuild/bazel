@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -423,12 +424,14 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /** Use given tool path instead of the one from feature configuration */
+    @CanIgnoreReturnValue
     public Builder forceToolPath(String forcedToolPath) {
       this.forcedToolPath = forcedToolPath;
       return this;
     }
 
     /** Sets the feature configuration for this link action. */
+    @CanIgnoreReturnValue
     public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
       this.featureConfiguration = featureConfiguration;
       return this;
@@ -440,6 +443,7 @@ public final class LinkCommandLine extends CommandLine {
      * LinkTargetType#linkerOrArchiver}) are equivalent, and there is no check that the output
      * artifact matches the target type extension.
      */
+    @CanIgnoreReturnValue
     public Builder setLinkTargetType(LinkTargetType linkTargetType) {
       Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
       this.linkTargetType = linkTargetType;
@@ -451,6 +455,7 @@ public final class LinkCommandLine extends CommandLine {
      * staticness and the target type. This call makes an immutable copy of the inputs, if the
      * provided Iterable isn't already immutable (see {@link CollectionUtils#makeImmutable}).
      */
+    @CanIgnoreReturnValue
     public Builder setLinkerInputArtifacts(NestedSet<Artifact> linkerInputArtifacts) {
       this.linkerInputArtifacts = linkerInputArtifacts;
       return this;
@@ -461,6 +466,7 @@ public final class LinkCommandLine extends CommandLine {
      * LinkTargetType#linkerOrArchiver()}}), the {@link #build} method throws an exception if this
      * is not {@link LinkingMode#STATIC}. The default setting is {@link LinkingMode#STATIC}.
      */
+    @CanIgnoreReturnValue
     public Builder setLinkingMode(Link.LinkingMode linkingMode) {
       this.linkingMode = linkingMode;
       return this;
@@ -471,6 +477,7 @@ public final class LinkCommandLine extends CommandLine {
      * The {@link #build} method throws an exception if the build info header artifacts are
      * non-empty for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
      */
+    @CanIgnoreReturnValue
     public Builder setBuildInfoHeaderArtifacts(ImmutableList<Artifact> buildInfoHeaderArtifacts) {
       this.buildInfoHeaderArtifacts = buildInfoHeaderArtifacts;
       return this;
@@ -481,6 +488,7 @@ public final class LinkCommandLine extends CommandLine {
      * programming language. This influences the rpath. The {@link #build} method throws an
      * exception if this is true for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
      */
+    @CanIgnoreReturnValue
     public Builder setNativeDeps(boolean nativeDeps) {
       this.nativeDeps = nativeDeps;
       return this;
@@ -490,26 +498,31 @@ public final class LinkCommandLine extends CommandLine {
      * Sets whether to use test-specific linker flags, e.g. {@code $EXEC_ORIGIN} instead of {@code
      * $ORIGIN} in the rpath or lazy binding.
      */
+    @CanIgnoreReturnValue
     public Builder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
       this.useTestOnlyFlags = useTestOnlyFlags;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setParamFile(Artifact paramFile) {
       this.paramFile = paramFile;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setBuildVariables(CcToolchainVariables variables) {
       this.variables = variables;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setToolchainLibrariesSolibDir(PathFragment toolchainLibrariesSolibDir) {
       this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionName(String actionName) {
       this.actionName = actionName;
       return this;

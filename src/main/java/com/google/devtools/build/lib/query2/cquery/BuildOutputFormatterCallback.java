@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.Ta
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /** Cquery implementation of BUILD-style output. */
 class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -64,6 +65,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
+  @Nullable
   private ConfiguredAttributeMapper getAttributeMap(KeyedConfiguredTarget kct)
       throws InterruptedException {
     Rule associatedRule = accessor.getTarget(kct).getAssociatedRule();

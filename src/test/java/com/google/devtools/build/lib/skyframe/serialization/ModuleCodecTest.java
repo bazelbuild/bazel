@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
@@ -30,7 +29,7 @@ public class ModuleCodecTest {
     Module subject1 = Module.create();
 
     Module subject2 = Module.create();
-    subject2.setClientData(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    subject2.setClientData(Label.parseCanonical("//foo:bar"));
     subject2.setGlobal("x", 1);
     subject2.setGlobal("y", 2);
 

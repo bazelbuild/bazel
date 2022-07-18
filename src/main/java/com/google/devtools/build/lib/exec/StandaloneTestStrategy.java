@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import com.google.protobuf.util.Durations;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -487,19 +489,74 @@ public class StandaloneTestStrategy extends TestStrategy {
       SpawnResult spawnResult, TestResultData.Builder result) {
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
+
     if (spawnResult.isCacheHit()) {
       result.setRemotelyCached(true);
       executionInfo.setCachedRemotely(true);
     }
+
     String strategy = spawnResult.getRunnerName();
     if (strategy != null) {
       executionInfo.setStrategy(strategy);
       result.setIsRemoteStrategy(strategy.equals("remote"));
     }
+
     if (spawnResult.getExecutorHostName() != null) {
       executionInfo.setHostname(spawnResult.getExecutorHostName());
     }
+
+    SpawnMetrics sm = spawnResult.getMetrics();
+    executionInfo.setTimingBreakdown(
+        BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+            .setName("totalTime")
+            .setTime(toProtoDuration(sm.totalTime()))
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("parseTime")
+                    .setTime(toProtoDuration(sm.parseTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("fetchTime")
+                    .setTime(toProtoDuration(sm.fetchTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("queueTime")
+                    .setTime(toProtoDuration(sm.queueTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("uploadTime")
+                    .setTime(toProtoDuration(sm.uploadTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("setupTime")
+                    .setTime(toProtoDuration(sm.setupTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("executionWallTime")
+                    .setTime(toProtoDuration(sm.executionWallTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("processOutputsTime")
+                    .setTime(toProtoDuration(sm.processOutputsTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("networkTime")
+                    .setTime(toProtoDuration(sm.networkTime()))
+                    .build())
+            .build());
+
     return executionInfo.build();
+  }
+
+  private static com.google.protobuf.Duration toProtoDuration(Duration d) {
+    return Durations.fromNanos(d.toNanos());
   }
 
   private static Artifact.DerivedArtifact createArtifactOutput(

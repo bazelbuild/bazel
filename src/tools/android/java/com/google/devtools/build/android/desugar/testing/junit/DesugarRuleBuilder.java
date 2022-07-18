@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -114,16 +115,19 @@ public class DesugarRuleBuilder {
     return fields.build();
   }
 
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder setWorkingJavaPackage(String workingJavaPackage) {
     this.workingJavaPackage = workingJavaPackage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder enableIterativeTransformation(int maxNumOfTransformations) {
     this.maxNumOfTransformations = maxNumOfTransformations;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder addInputs(Path... inputJars) {
     for (Path path : inputJars) {
       if (!path.toString().endsWith(".jar")) {
@@ -138,6 +142,7 @@ public class DesugarRuleBuilder {
   }
 
   /** Add Java source files subject to be compiled during test execution. */
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder addSourceInputs(Path... inputSourceFiles) {
     for (Path path : inputSourceFiles) {
       if (!path.toString().endsWith(".java")) {
@@ -175,6 +180,7 @@ public class DesugarRuleBuilder {
    * Add javac options used for compilation, with the same support of `javacopts` attribute in
    * java_binary rule.
    */
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder addJavacOptions(String... javacOptions) {
     for (String javacOption : javacOptions) {
       if (!javacOption.startsWith("-")) {
@@ -187,17 +193,20 @@ public class DesugarRuleBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder addClasspathEntries(Path... inputJars) {
     Collections.addAll(classPathEntries, inputJars);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder addBootClassPathEntries(Path... inputJars) {
     Collections.addAll(bootClassPathEntries, inputJars);
     return this;
   }
 
   /** Format: --<key>=<value> */
+  @CanIgnoreReturnValue
   public DesugarRuleBuilder addCommandOptions(String key, String value) {
     customCommandOptions.put(key, value);
     return this;

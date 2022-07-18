@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.Optional;
@@ -384,16 +385,19 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setAdditionalOutputs(ImmutableSet<Artifact> outputs) {
     this.additionalOutputs = outputs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setSourceFiles(ImmutableSet<Artifact> sourceFiles) {
     this.sourceFiles = sourceFiles;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setSourceJars(ImmutableList<Artifact> sourceJars) {
     checkState(this.sourceJars.isEmpty());
     this.sourceJars = checkNotNull(sourceJars, "sourceJars must not be null");
@@ -401,23 +405,27 @@ public final class JavaCompileActionBuilder {
   }
 
   /** Sets the strictness of Java dependency checking, see {@link StrictDepsMode}. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictDeps) {
     strictJavaDeps = strictDeps;
     return this;
   }
 
   /** Sets the tool with which to fix dependency errors. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setFixDepsTool(String depsTool) {
     fixDepsTool = depsTool;
     return this;
   }
 
   /** Accumulates the given jar artifacts as being provided by direct dependencies. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setDirectJars(NestedSet<Artifact> directJars) {
     this.directJars = checkNotNull(directJars, "directJars must not be null");
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCompileTimeDependencyArtifacts(
       NestedSet<Artifact> dependencyArtifacts) {
     checkNotNull(compileTimeDependencyArtifacts, "dependencyArtifacts must not be null");
@@ -425,37 +433,44 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavacOpts(ImmutableList<String> copts) {
     this.javacOpts = Preconditions.checkNotNull(copts);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavacExecutionInfo(
       ImmutableMap<String, String> executionInfo) {
     this.executionInfo = executionInfo;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCompressJar(boolean compressJar) {
     this.compressJar = compressJar;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setClasspathEntries(NestedSet<Artifact> classpathEntries) {
     this.classpathEntries = classpathEntries;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setBootClassPath(BootClassPathInfo bootClassPath) {
     this.bootClassPath = bootClassPath;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
     this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setPlugins(JavaPluginData plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
@@ -463,6 +478,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setBuiltinProcessorNames(
       ImmutableSet<String> builtinProcessorNames) {
     this.builtinProcessorNames =
@@ -477,32 +493,38 @@ public final class JavaCompileActionBuilder {
   }
 
   /** Sets the tools jars. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setToolsJars(NestedSet<Artifact> toolsJars) {
     checkNotNull(toolsJars, "toolsJars must not be null");
     this.toolsJars = toolsJars;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavaBuilder(JavaToolchainTool javaBuilder) {
     this.javaBuilder = javaBuilder;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCoverageArtifact(Artifact coverageArtifact) {
     this.coverageArtifact = coverageArtifact;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setTargetLabel(Label targetLabel) {
     this.targetLabel = targetLabel;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setInjectingRuleKind(@Nullable String injectingRuleKind) {
     this.injectingRuleKind = injectingRuleKind;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setAdditionalInputs(ImmutableList<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
     this.additionalInputs = additionalInputs;

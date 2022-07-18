@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.gson.stream.JsonWriter;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.BufferedOutputStream;
@@ -53,6 +54,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Blaze internal profiler. Provides facility to report various Blaze tasks and store them
@@ -106,7 +108,7 @@ public final class Profiler {
     @Override
     public int compareTo(SlowTask other) {
       long delta = durationNanos - other.durationNanos;
-      if (delta < 0) {  // Very clumsy
+      if (delta < 0) { // Very clumsy
         return -1;
       } else if (delta > 0) {
         return 1;
@@ -273,7 +275,7 @@ public final class Profiler {
   final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
 
   /** Thread that collects local cpu usage data (if enabled). */
-  private CollectLocalResourceUsage cpuUsageThread;
+  private CollectLocalResourceUsage resourceUsageThread;
 
   private TimeSeries actionCountTimeSeries;
   private long actionCountStartTime;
@@ -295,8 +297,10 @@ public final class Profiler {
             VfsHeuristics.vfsTypeHeuristics;
         List<RecorderAndPredicate> recorders = new ArrayList<>(vfsHeuristics.size());
         for (Map.Entry<String, ? extends Predicate<? super String>> e : vfsHeuristics.entrySet()) {
-          recorders.add(new RecorderAndPredicate(
-              new SingleStatRecorder(task + " " + e.getKey(), HISTOGRAM_BUCKETS), e.getValue()));
+          recorders.add(
+              new RecorderAndPredicate(
+                  new SingleStatRecorder(task + " " + e.getKey(), HISTOGRAM_BUCKETS),
+                  e.getValue()));
         }
         tasksHistograms[task.ordinal()] = new PredicateBasedStatRecorder(recorders);
       } else {
@@ -324,8 +328,7 @@ public final class Profiler {
   }
 
   /**
-   * Returns the nanoTime of the current profiler instance, or an arbitrary
-   * constant if not active.
+   * Returns the nanoTime of the current profiler instance, or an arbitrary constant if not active.
    */
   public static long nanoTimeMaybe() {
     if (instance.isActive()) {
@@ -335,6 +338,7 @@ public final class Profiler {
   }
 
   // Returns the elapsed wall clock time since the profile has been started or null if inactive.
+  @Nullable
   public static Duration elapsedTimeMaybe() {
     if (instance.isActive()) {
       return Duration.ofNanos(instance.clock.nanoTime())
@@ -350,6 +354,7 @@ public final class Profiler {
   }
 
   // Returns the CPU time since the profile has been started or null if inactive.
+  @Nullable
   public static Duration getProcessCpuTimeMaybe() {
     if (instance().isActive()) {
       return getProcessCpuTime().minus(instance().profileCpuStartTime);
@@ -384,6 +389,8 @@ public final class Profiler {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean collectTaskHistograms,
+      boolean collectWorkerDataInProfiler,
+      WorkerMetricsCollector workerMetricsCollector,
       BugReporter bugReporter)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
@@ -439,9 +446,11 @@ public final class Profiler {
     profileCpuStartTime = getProcessCpuTime();
 
     // Start collecting Bazel and system-wide CPU metric collection.
-    cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
-    cpuUsageThread.setDaemon(true);
-    cpuUsageThread.start();
+    resourceUsageThread =
+        new CollectLocalResourceUsage(
+            bugReporter, workerMetricsCollector, collectWorkerDataInProfiler);
+    resourceUsageThread.setDaemon(true);
+    resourceUsageThread.start();
   }
 
   /**
@@ -479,9 +488,8 @@ public final class Profiler {
   }
 
   /**
-   * Disable profiling and complete profile file creation.
-   * Subsequent calls to beginTask/endTask will no longer
-   * be recorded in the profile.
+   * Disable profiling and complete profile file creation. Subsequent calls to beginTask/endTask
+   * will no longer be recorded in the profile.
    */
   public synchronized void stop() throws IOException {
     if (!isActive()) {
@@ -490,15 +498,15 @@ public final class Profiler {
 
     collectActionCounts();
 
-    if (cpuUsageThread != null) {
-      cpuUsageThread.stopCollecting();
+    if (resourceUsageThread != null) {
+      resourceUsageThread.stopCollecting();
       try {
-        cpuUsageThread.join();
+        resourceUsageThread.join();
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
-      cpuUsageThread.logCollectedData();
-      cpuUsageThread = null;
+      resourceUsageThread.logCollectedData();
+      resourceUsageThread = null;
     }
 
     // Log a final event to update the duration of ProfilePhase.FINISH.
@@ -519,9 +527,7 @@ public final class Profiler {
     }
   }
 
-  /**
-   *  Returns true iff profiling is currently enabled.
-   */
+  /** Returns true iff profiling is currently enabled. */
   public boolean isActive() {
     return profileStartTime != 0L;
   }
@@ -900,6 +906,7 @@ public final class Profiler {
        * If not mergeable, returns the TaskData of the previously merged events and clears the
        * internal data structures.
        */
+      @Nullable
       TaskData maybeMerge(TaskData data) {
         long startTimeNanos = data.startTimeNanos;
         long endTimeNanos = startTimeNanos + data.duration;
@@ -1054,9 +1061,8 @@ public final class Profiler {
     }
 
     /**
-     * Saves all gathered information from taskQueue queue to the file.
-     * Method is invoked internally by the Timer-based thread and at the end of
-     * profiling session.
+     * Saves all gathered information from taskQueue queue to the file. Method is invoked internally
+     * by the Timer-based thread and at the end of profiling session.
      */
     @Override
     public void run() {
@@ -1150,7 +1156,8 @@ public final class Profiler {
                 || data.type == ProfilerTask.LOCAL_MEMORY_USAGE
                 || data.type == ProfilerTask.ACTION_COUNTS
                 || data.type == ProfilerTask.SYSTEM_CPU_USAGE
-                || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE) {
+                || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE
+                || data.type == ProfilerTask.WORKERS_MEMORY_USAGE) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
                 continue;
@@ -1177,6 +1184,9 @@ public final class Profiler {
                   break;
                 case SYSTEM_MEMORY_USAGE:
                   writer.name("cname").value("bad");
+                  break;
+                case WORKERS_MEMORY_USAGE:
+                  writer.name("cname").value("rail_animation");
                   break;
                 default:
                   // won't happen
@@ -1206,6 +1216,9 @@ public final class Profiler {
                   break;
                 case SYSTEM_MEMORY_USAGE:
                   writer.name("system memory").value(data.description);
+                  break;
+                case WORKERS_MEMORY_USAGE:
+                  writer.name("workers memory").value(data.description);
                   break;
                 default:
                   // won't happen

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -43,10 +44,11 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
     }
 
     /**
-     * Sets the {@link ForkJoinPool} that will be used by the to-be-built
-     * {@link ForkJoinQuiescingExecutor}. The given {@link ForkJoinPool} will be shut down on
-     * completion of the {@link ForkJoinQuiescingExecutor}.
+     * Sets the {@link ForkJoinPool} that will be used by the to-be-built {@link
+     * ForkJoinQuiescingExecutor}. The given {@link ForkJoinPool} will be shut down on completion of
+     * the {@link ForkJoinQuiescingExecutor}.
      */
+    @CanIgnoreReturnValue
     public Builder withOwnershipOf(ForkJoinPool forkJoinPool) {
       Preconditions.checkState(this.forkJoinPool == null);
       this.forkJoinPool = forkJoinPool;
@@ -54,9 +56,10 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
     }
 
     /**
-     * Sets the {@link ErrorClassifier} that will be used by the to-be-built
-     * {@link ForkJoinQuiescingExecutor}.
+     * Sets the {@link ErrorClassifier} that will be used by the to-be-built {@link
+     * ForkJoinQuiescingExecutor}.
      */
+    @CanIgnoreReturnValue
     public Builder setErrorClassifier(ErrorClassifier errorClassifier) {
       this.errorClassifier = errorClassifier;
       return this;

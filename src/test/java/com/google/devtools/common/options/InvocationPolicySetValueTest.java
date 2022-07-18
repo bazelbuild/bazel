@@ -596,7 +596,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse();
 
-    enforcer.enforce(parser, /*command=*/ null);
+    enforcer.enforce(parser, "build");
 
     assertThat(getTestOptions()).isEqualTo(Options.getDefaults(TestOptions.class));
   }

@@ -18,7 +18,6 @@ load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
-proto_common = _builtins.toplevel.proto_common
 
 def _rule_impl(ctx):
     provided_proto_sources = depset(transitive = [bp[ProtoInfo].transitive_proto_sources() for bp in ctx.attr.blacklisted_protos]).to_list()

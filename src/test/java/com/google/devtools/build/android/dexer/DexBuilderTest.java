@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.dex.Dex;
-import com.android.dx.dex.code.PositionList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.nio.file.FileSystems;
@@ -46,7 +45,7 @@ public class DexBuilderTest {
     options.maxThreads = 1;
     Dexing.DexingOptions dexingOptions = new Dexing.DexingOptions();
     dexingOptions.optimize = true;
-    dexingOptions.positionInfo = PositionList.LINES;
+    dexingOptions.positionInfo = "lines"; // com.android.dx.dex.code.PositionList.LINES;
     DexBuilder.buildDexArchive(options, new Dexing(dexingOptions));
     assertThat(options.outputZip.toFile().exists()).isTrue();
 

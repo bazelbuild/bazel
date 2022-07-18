@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Utility methods for use by Java-related parts of Bazel. */
 // TODO(bazel-team): Merge with JavaUtil.
@@ -34,6 +34,7 @@ public abstract class JavaHelper {
    * Returns the java launcher implementation for the given target, if any. A null return value
    * means "use the JDK launcher".
    */
+  @Nullable
   public static TransitiveInfoCollection launcherForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
@@ -44,6 +45,7 @@ public abstract class JavaHelper {
    * Returns the java launcher artifact for the given target, if any. A null return value means "use
    * the JDK launcher".
    */
+  @Nullable
   public static Artifact launcherArtifactForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
@@ -57,6 +59,7 @@ public abstract class JavaHelper {
    * <p>Returns {@code null} if either {@code create_executable} or {@code use_launcher} are
    * disabled.
    */
+  @Nullable
   private static String filterLauncherForTarget(RuleContext ruleContext) {
     // create_executable=0 disables the launcher
     if (ruleContext.getRule().isAttrDefined("create_executable", Type.BOOLEAN)

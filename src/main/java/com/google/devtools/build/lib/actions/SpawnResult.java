@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.InputStream;
 import java.time.Duration;
@@ -550,102 +551,122 @@ public interface SpawnResult {
       return new SimpleSpawnResult(this);
     }
 
+    @CanIgnoreReturnValue
     public Builder setExitCode(int exitCode) {
       this.exitCode = exitCode;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStatus(Status status) {
       this.status = status;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFailureDetail(FailureDetail failureDetail) {
       this.failureDetail = failureDetail;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutorHostname(String executorHostName) {
       this.executorHostName = executorHostName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRunnerName(String runnerName) {
       this.runnerName = runnerName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSpawnMetrics(SpawnMetrics spawnMetrics) {
       this.spawnMetrics = spawnMetrics;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartTime(Instant startTime) {
       this.startTime = Optional.of(startTime);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWallTime(Duration wallTime) {
       this.wallTime = Optional.of(wallTime);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setUserTime(Duration userTime) {
       this.userTime = Optional.of(userTime);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSystemTime(Duration systemTime) {
       this.systemTime = Optional.of(systemTime);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumBlockOutputOperations(long numBlockOutputOperations) {
       this.numBlockOutputOperations = Optional.of(numBlockOutputOperations);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumBlockInputOperations(long numBlockInputOperations) {
       this.numBlockInputOperations = Optional.of(numBlockInputOperations);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumInvoluntaryContextSwitches(long numInvoluntaryContextSwitches) {
       this.numInvoluntaryContextSwitches = Optional.of(numInvoluntaryContextSwitches);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setMemoryInKb(long memoryInKb) {
       this.memoryInKb = Optional.of(memoryInKb);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFailureMessage(String failureMessage) {
       this.failureMessage = failureMessage;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInMemoryOutput(ActionInput outputFile, ByteString contents) {
       this.inMemoryOutputFile = Preconditions.checkNotNull(outputFile);
       this.inMemoryContents = Preconditions.checkNotNull(contents);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setActionMetadataLog(MetadataLog actionMetadataLog) {
       this.actionMetadataLog = Optional.of(actionMetadataLog);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRemote(boolean remote) {
       this.remote = remote;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDigest(Optional<Digest> digest) {
       this.digest = digest;
       return this;

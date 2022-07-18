@@ -24,6 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link FileStateValue}s.
@@ -51,6 +52,7 @@ public class FileStateFunction implements SkyFunction {
   // deciding which overload of FileStateFunctionException() to call.
   @SuppressWarnings("UseMultiCatch")
   @Override
+  @Nullable
   public FileStateValue compute(SkyKey skyKey, Environment env)
       throws FileStateFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
@@ -60,8 +62,7 @@ public class FileStateFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      if (fileType == FileType.EXTERNAL_REPO
-          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+      if (fileType == FileType.EXTERNAL_REPO) {
         // do not use syscallCache as files under repositories get generated during the build
         return FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, tsgm.get());
       }

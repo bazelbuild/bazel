@@ -33,6 +33,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** This interface models a file system. */
 @ThreadSafe
@@ -400,6 +401,7 @@ public abstract class FileSystem {
    *     symlink
    * @throws IOException if the file did not exist, or a parent directory could not be searched
    */
+  @Nullable
   protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     try {
       return readSymbolicLink(path);
@@ -505,6 +507,7 @@ public abstract class FileSystem {
   }
 
   /** Like stat(), but returns null on failures instead of throwing. */
+  @Nullable
   protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
       return stat(path, followSymlinks);
@@ -519,6 +522,7 @@ public abstract class FileSystem {
    * implementation does <i>not</i> successfully catch {@code ENOTDIR} exceptions. If the
    * instantiated filesystem can catch such errors, it should override this method to do so.
    */
+  @Nullable
   protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);

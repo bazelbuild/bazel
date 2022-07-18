@@ -21,6 +21,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
@@ -46,6 +47,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public DirectoryListingStateValue compute(SkyKey skyKey, Environment env)
       throws DirectoryListingStateFunctionException, InterruptedException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
@@ -55,8 +57,7 @@ public class DirectoryListingStateFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      if (fileType == FileType.EXTERNAL_REPO
-          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+      if (fileType == FileType.EXTERNAL_REPO) {
         // Do not use syscallCache as files under repositories get generated during the build,
         // while syscallCache is used independently from Skyframe and generally assumes
         // the file system is frozen at the beginning of the build command.

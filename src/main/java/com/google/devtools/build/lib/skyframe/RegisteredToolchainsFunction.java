@@ -173,6 +173,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return toolchains.build();
   }
 
+  @Nullable
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {

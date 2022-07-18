@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.events.Event;
+import java.util.function.Predicate;
 
 /** Filters out events which should not be stored during evaluation in {@link ParallelEvaluator}. */
 public interface EventFilter extends Predicate<Event> {
@@ -25,7 +24,13 @@ public interface EventFilter extends Predicate<Event> {
    */
   boolean storeEventsAndPosts();
 
-  default Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-    return Predicates.alwaysTrue();
+  /**
+   * Determines whether stored events and posts should propagate from {@code depKey} to {@code
+   * primaryKey}.
+   *
+   * <p>Only relevant if {@link #storeEventsAndPosts} returns {@code true}.
+   */
+  default boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+    return true;
   }
 }

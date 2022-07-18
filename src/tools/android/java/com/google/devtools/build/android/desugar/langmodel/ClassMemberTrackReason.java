@@ -18,6 +18,7 @@ package com.google.devtools.build.android.desugar.langmodel;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import org.objectweb.asm.Opcodes;
 
@@ -71,16 +72,19 @@ abstract class ClassMemberTrackReason {
       return setHasDeclReason(true).setOwnerAccess(ownerAccess).setMemberAccess(memberAccess);
     }
 
+    @CanIgnoreReturnValue
     final ClassMemberTrackReasonBuilder addUseAccess(int invokeOpcode) {
       useAccessesBuilder().add(MemberUseKind.fromValue(invokeOpcode));
       return this;
     }
 
+    @CanIgnoreReturnValue
     final ClassMemberTrackReasonBuilder addAllUseAccesses(Collection<MemberUseKind> values) {
       useAccessesBuilder().addAll(values);
       return this;
     }
 
+    @CanIgnoreReturnValue
     final ClassMemberTrackReasonBuilder mergeFrom(ClassMemberTrackReason otherReason) {
       if (otherReason.hasDeclReason()) {
         setDeclAccess(otherReason.ownerAccess(), otherReason.memberAccess());

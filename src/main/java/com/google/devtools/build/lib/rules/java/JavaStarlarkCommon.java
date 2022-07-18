@@ -86,6 +86,7 @@ public class JavaStarlarkCommon
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
+      Sequence<?> resourceJars, // <Artifact> expected
       Sequence<?> classpathResources, // <Artifact> expected
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
@@ -136,6 +137,7 @@ public class JavaStarlarkCommon
         || !enableJSpecify
         || !includeCompilationInfo
         || !classpathResources.isEmpty()
+        || !resourceJars.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
@@ -165,6 +167,7 @@ public class JavaStarlarkCommon
             javaToolchain,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
+            Sequence.cast(resourceJars, Artifact.class, "resource_jars"),
             Sequence.cast(classpathResources, Artifact.class, "classpath_resources"),
             neverlink,
             enableAnnotationProcessing,

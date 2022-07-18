@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -294,23 +295,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     BlazeWorkspace workspace = runtime.getWorkspace();
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
+    // Provide the options parser so that we can cache OptionsData here.
+    OptionsParser optionsParser = createOptionsParser(command);
     BlazeOptionHandler optionHandler =
         new BlazeOptionHandler(
-            runtime,
-            workspace,
-            command,
-            commandAnnotation,
-            // Provide the options parser so that we can cache OptionsData here.
-            createOptionsParser(command),
-            invocationPolicy);
+            runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
     DetailedExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
     OptionsParsingResult options = optionHandler.getOptionsResult();
-
-    CommandLineEvent originalCommandLineEvent =
-        new CommandLineEvent.OriginalCommandLineEvent(
-            runtime, commandName, options, startupOptionsTaggedWithBazelRc);
-    CommandLineEvent canonicalCommandLineEvent =
-        new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
     List<String> commandEnvWarnings = new ArrayList<>();
@@ -519,13 +510,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         return result;
       }
 
-      // Log the command line now that the modules have all had a change to register their listeners
-      // to the event bus.
-      env.getEventBus().post(unstructuredServerCommandLineEvent);
-      env.getEventBus().post(originalCommandLineEvent);
-      env.getEventBus().post(canonicalCommandLineEvent);
-      env.getEventBus().post(commonOptions.toolCommandLine);
-
       for (BlazeModule module : runtime.getBlazeModules()) {
         try (SilentCloseable closeable =
             Profiler.instance().profile(module + ".injectExtraPrecomputedValues")) {
@@ -553,11 +537,42 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           earlyExitCode = e.getDetailedExitCode();
         }
         if (!earlyExitCode.isSuccess()) {
-          replayEarlyExitEvents(
-              outErr,
-              optionHandler,
-              storedEventHandler,
-              env,
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
+
+        // Compute the repo mapping of the main repo and re-parse options so that we get correct
+        // values for label-typed options.
+        try {
+          RepositoryMapping mainRepoMapping =
+              env.getSkyframeExecutor().getMainRepoMapping(reporter);
+          optionsParser = optionsParser.toBuilder().withConversionContext(mainRepoMapping).build();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          String message = "command interrupted while computing main repo mapping";
+          reporter.handle(Event.error(message));
+          earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
+        } catch (AbruptExitException e) {
+          logger.atInfo().withCause(e).log("Error computing main repo mapping");
+          reporter.handle(Event.error(e.getMessage()));
+          earlyExitCode = e.getDetailedExitCode();
+        }
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
+              new NoBuildEvent(
+                  commandName, firstContactTime, false, true, env.getCommandId().toString()));
+          result = BlazeCommandResult.detailedExitCode(earlyExitCode);
+          return result;
+        }
+        optionHandler =
+            new BlazeOptionHandler(
+                runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
+        earlyExitCode = optionHandler.parseOptions(args, reporter);
+        if (!earlyExitCode.isSuccess()) {
+          reporter.post(
               new NoBuildEvent(
                   commandName, firstContactTime, false, true, env.getCommandId().toString()));
           result = BlazeCommandResult.detailedExitCode(earlyExitCode);
@@ -566,19 +581,27 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Parse starlark options.
-      earlyExitCode = optionHandler.parseStarlarkOptions(env, storedEventHandler);
+      earlyExitCode = optionHandler.parseStarlarkOptions(env, reporter);
       if (!earlyExitCode.isSuccess()) {
-        replayEarlyExitEvents(
-            outErr,
-            optionHandler,
-            storedEventHandler,
-            env,
+        reporter.post(
             new NoBuildEvent(
                 commandName, firstContactTime, false, true, env.getCommandId().toString()));
         result = BlazeCommandResult.detailedExitCode(earlyExitCode);
         return result;
       }
       options = optionHandler.getOptionsResult();
+
+      // Log the command line now that the modules have all had a change to register their listeners
+      // to the event bus, and the flags have been re-parsed.
+      CommandLineEvent originalCommandLineEvent =
+          new CommandLineEvent.OriginalCommandLineEvent(
+              runtime, commandName, options, startupOptionsTaggedWithBazelRc);
+      CommandLineEvent canonicalCommandLineEvent =
+          new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
+      env.getEventBus().post(unstructuredServerCommandLineEvent);
+      env.getEventBus().post(originalCommandLineEvent);
+      env.getEventBus().post(canonicalCommandLineEvent);
+      env.getEventBus().post(commonOptions.toolCommandLine);
 
       // Run the command.
       result = command.exec(env, options);

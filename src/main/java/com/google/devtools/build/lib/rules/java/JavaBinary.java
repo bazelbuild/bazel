@@ -621,6 +621,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  @Nullable
   private static Artifact createSharedArchive(
       RuleContext ruleContext,
       JavaCompilationArtifacts javaArtifacts,

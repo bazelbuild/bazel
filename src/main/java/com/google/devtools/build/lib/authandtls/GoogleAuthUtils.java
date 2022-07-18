@@ -190,6 +190,7 @@ public final class GoogleAuthUtils {
    *
    * @throws IOException in case the call credentials can't be constructed.
    */
+  @Nullable
   public static CallCredentials newCallCredentials(AuthAndTLSOptions options) throws IOException {
     Credentials creds = newCredentials(options);
     if (creds != null) {

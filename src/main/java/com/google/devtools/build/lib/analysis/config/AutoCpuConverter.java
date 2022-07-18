@@ -26,7 +26,7 @@ import com.google.devtools.common.options.OptionsParsingException;
  * <p>If the compilation happens remotely then the cpu of the remote machine might be different from
  * the auto-detected one and the --cpu and --host_cpu options must be set explicitly.
  */
-public class AutoCpuConverter implements Converter<String> {
+public class AutoCpuConverter extends Converter.Contextless<String> {
   @Override
   public String convert(String input) throws OptionsParsingException {
     if (input.isEmpty()) {
@@ -83,7 +83,10 @@ public class AutoCpuConverter implements Converter<String> {
     return input;
   }
 
-  /** Reverses the conversion performed by {@link #convert} to return the matching OS, CPU pair. */
+  /**
+   * Reverses the conversion performed by {@link Converter#convert} to return the matching OS, CPU
+   * pair.
+   */
   public static Pair<CPU, OS> reverse(String input) {
     if (input == null || input.length() == 0 || "unknown".equals(input)) {
       // Use the auto-detected values.

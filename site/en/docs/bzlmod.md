@@ -14,6 +14,9 @@ In Bazel 5.0, Bzlmod is not turned on by default; the flag
 effect. As the flag name suggests, this feature is currently *experimental*;
 APIs and behaviors may change until the feature officially launches.
 
+To migrate your project to Bzlmod, follow the [Bzlmod Migration Guide](https://docs.google.com/document/d/1JtXIVnXyFZ4bmbiBCr5gsTH4-opZAFf5DMMb-54kES0/edit?usp=sharing).
+You can also find example Bzlmod usages in the [examples](https://github.com/bazelbuild/examples/tree/main/bzlmod) repository.
+
 ## Bazel Modules {:#modules}
 
 The old `WORKSPACE`-based external dependency system is centered around
@@ -249,7 +252,7 @@ An index registry must follow the format below:
 ### Bazel Central Registry {:#bazel-central-registry}
 
 Bazel Central Registry (BCR) is an index registry located at
-[registry.bazel.build](https://registry.bazel.build){: .external}. Its contents
+[bcr.bazel.build](https://bcr.bazel.build){: .external}. Its contents
 are backed by the GitHub repo
 [`bazelbuild/bazel-central-registry`](https://github.com/bazelbuild/bazel-central-registry){: .external}.
 

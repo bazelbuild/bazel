@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -79,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue;
@@ -211,7 +213,9 @@ public class BuildView {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean includeExecutionPhase,
-      int mergedPhasesExecutionJobsCount)
+      int mergedPhasesExecutionJobsCount,
+      @Nullable ResourceManager resourceManager,
+      @Nullable BuildResultListener buildResultListener)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
           BuildFailedException, TestExecException {
     logger.atInfo().log("Starting analysis");
@@ -420,6 +424,8 @@ public class BuildView {
                 explicitTargetPatterns,
                 eventBus,
                 bugReporter,
+                Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
+                Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
                 keepGoing,
                 viewOptions.strictConflictChecks,
                 checkForActionConflicts,

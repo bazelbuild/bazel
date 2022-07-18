@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar.corelibadapter;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** A record that tracks the method invocation transformations. */
 @AutoValue
@@ -35,6 +36,7 @@ public abstract class InvocationSiteTransformationRecord {
 
     abstract ImmutableSet.Builder<MethodInvocationSite> adapterReplacementsBuilder();
 
+    @CanIgnoreReturnValue
     final InvocationSiteTransformationRecordBuilder addAdapterReplacement(
         MethodInvocationSite originalMethodInvocationSite) {
       adapterReplacementsBuilder().add(originalMethodInvocationSite);
@@ -43,6 +45,7 @@ public abstract class InvocationSiteTransformationRecord {
 
     abstract ImmutableSet.Builder<MethodInvocationSite> inlineConversionsBuilder();
 
+    @CanIgnoreReturnValue
     final InvocationSiteTransformationRecordBuilder addInlineConversion(
         MethodInvocationSite originalMethodInvocationSite) {
       inlineConversionsBuilder().add(originalMethodInvocationSite);

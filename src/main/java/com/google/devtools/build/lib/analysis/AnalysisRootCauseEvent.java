@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * avoid duplicating error messages in the stream if multiple targets fail due to the same root
  * cause. It also allows UIs to collate errors by root cause.
  */
-public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
+public final class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
   private final BuildConfigurationValue configuration;
   private final Label label;
   private final String errorMessage;
@@ -62,7 +62,7 @@ public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.<BuildEventId>of();
+    return ImmutableList.of();
   }
 
   @Override
@@ -85,5 +85,10 @@ public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
       result.add(configuration.toBuildEvent());
     }
     return result;
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 }

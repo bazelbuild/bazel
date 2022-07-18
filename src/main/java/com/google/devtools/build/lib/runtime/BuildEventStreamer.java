@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer.LatchedGroupName;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -846,26 +847,31 @@ public class BuildEventStreamer {
     private CountingArtifactGroupNamer artifactGroupNamer;
     private String oomMessage;
 
+    @CanIgnoreReturnValue
     public Builder buildEventTransports(Set<BuildEventTransport> value) {
       this.buildEventTransports = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder besStreamOptions(BuildEventStreamOptions value) {
       this.besStreamOptions = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder publishTargetSummaries(boolean publishTargetSummaries) {
       this.publishTargetSummaries = publishTargetSummaries;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder artifactGroupNamer(CountingArtifactGroupNamer value) {
       this.artifactGroupNamer = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder oomMessage(String oomMessage) {
       this.oomMessage = oomMessage;
       return this;

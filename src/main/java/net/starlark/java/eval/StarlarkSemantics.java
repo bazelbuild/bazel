@@ -17,6 +17,7 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -143,6 +144,7 @@ public final class StarlarkSemantics {
     }
 
     /** Sets the value for the specified key. */
+    @CanIgnoreReturnValue
     public <T> Builder set(Key<T> key, T value) {
       if (!value.equals(key.defaultValue)) {
         map.put(key.name, value);
@@ -153,6 +155,7 @@ public final class StarlarkSemantics {
     }
 
     /** Sets the value for the boolean key, which must have a [+-] prefix. */
+    @CanIgnoreReturnValue
     public Builder setBool(String name, boolean value) {
       char prefix = name.charAt(0);
       Preconditions.checkArgument(prefix == '+' || prefix == '-');

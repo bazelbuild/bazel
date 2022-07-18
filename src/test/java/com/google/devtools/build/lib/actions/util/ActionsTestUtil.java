@@ -105,6 +105,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import com.google.devtools.build.skyframe.Version;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -913,6 +914,7 @@ public final class ActionsTestUtil {
     }
 
     /** Sets the count of the given miss reason to the given value. */
+    @CanIgnoreReturnValue
     public MissDetailsBuilder set(MissReason reason, int count) {
       checkArgument(details.containsKey(reason));
       details.put(reason, count);

@@ -342,6 +342,7 @@ public final class BugReport {
    *   <li>{@code --default_override} is spammy.
    * </ul>
    */
+  @Nullable
   private static ImmutableList<String> filterArgs(Iterable<String> args) {
     if (args == null) {
       return null;

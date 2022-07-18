@@ -403,10 +403,10 @@ public final class StarlarkLibrary {
           BuildType.LABEL_LIST.convert(
               environmentsList,
               "'environment_group argument'",
-              context.pkgBuilder.getBuildFileLabel());
+              context.pkgBuilder.getLabelConverter());
       List<Label> defaults =
           BuildType.LABEL_LIST.convert(
-              defaultsList, "'environment_group argument'", context.pkgBuilder.getBuildFileLabel());
+              defaultsList, "'environment_group argument'", context.pkgBuilder.getLabelConverter());
 
       if (environments.isEmpty()) {
         throw Starlark.errorf("environment group %s must contain at least one environment", name);

@@ -70,8 +70,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
-import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
-import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -82,6 +80,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Aspect to {@link DexArDchiveProvider build .dex Archives} from Jars. */
 public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -132,7 +131,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
           "$build_stamp_deps", // for build stamp runtime class deps
           "$build_stamp_mergee_manifest_lib", // for empty build stamp Service class implementation
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
-          JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR,
+          ":aspect_proto_toolchain_for_javalite",
           "runtime");
 
   private static final FlagMatcher DEXOPTS_SUPPORTED_IN_DEXBUILDER =
@@ -183,8 +182,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
-                ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))))
-            .requireAspectsWithBuiltinProviders(JavaProtoLibraryAspectProvider.class);
+                ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))));
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
@@ -372,6 +370,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return Functions.forMap(newlyDesugared);
   }
 
+  @Nullable
   private static Iterable<Artifact> getProducedRuntimeJars(
       ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars) {
     if (isProtoLibrary(ruleContext)) {
@@ -415,6 +414,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return null;
   }
 
+  @Nullable
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(
       ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationArgsProvider provider =
@@ -429,6 +429,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return "proto_library".equals(ruleContext.getRule().getRuleClass());
   }
 
+  @Nullable
   private static Artifact getAndroidLibraryRJar(ConfiguredTarget base) {
     AndroidIdeInfoProvider provider =
         (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
@@ -438,6 +439,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return null;
   }
 
+  @Nullable
   private static Artifact getAndroidBuildStampJar(ConfiguredTarget base) {
     AndroidApplicationResourceInfo provider =
         (AndroidApplicationResourceInfo) base.get(AndroidApplicationResourceInfo.PROVIDER.getKey());

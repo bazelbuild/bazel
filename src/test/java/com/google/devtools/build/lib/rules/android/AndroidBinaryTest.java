@@ -4121,8 +4121,9 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         binary.getConfiguredTarget(),
         "b_proguard.jar",
         false,
-        null,
-        /*splitOptimizationPass=*/ false,
+        /*passes=*/ null,
+        // no-op since passes is null.
+        /*bytecodeOptimizationPassActions=*/ 0,
         binary.getConfiguration().getBinFragment(RepositoryName.MAIN)
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
@@ -4265,8 +4266,9 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getConfiguredTarget("//java/com/google/android/hello:b"),
         "b_proguard.jar",
         true,
-        null,
-        /*splitOptimizationPass=*/ false,
+        /*passes=*/ null,
+        // no-op since passes is null.
+        /*bytecodeOptimizationPassActions=*/ 0,
         getAndroidJarPath());
   }
 
@@ -4322,8 +4324,9 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getConfiguredTarget("//java/com/google/android/hello:b"),
         "b_proguard.jar",
         false,
-        null,
-        /*splitOptimizationPass=*/ false,
+        /*passes=*/ null,
+        // no-op since passes is null.
+        /*bytecodeOptimizationPassActions=*/ 0,
         getAndroidJarPath());
 
     SpawnAction action =
@@ -4353,8 +4356,9 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getConfiguredTarget("//java/com/google/android/hello:b"),
         "b_proguard.jar",
         false,
-        null,
-        /*splitOptimizationPass=*/ false,
+        /*passes=*/ null,
+        // no-op since passes is null.
+        /*bytecodeOptimizationPassActions=*/ 0,
         getAndroidJarPath());
 
     SpawnAction action =
@@ -4681,7 +4685,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "abin_proguard.jar",
         /*expectMapping=*/ false,
         /*passes=*/ null,
-        /*splitOptimizationPass=*/ false,
+        // no-op since passes is null.
+        /*bytecodeOptimizationPassActions=*/ 0,
         getAndroidJarPath());
   }
 

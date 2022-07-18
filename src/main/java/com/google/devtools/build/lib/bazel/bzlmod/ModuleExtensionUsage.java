@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -68,6 +69,7 @@ public abstract class ModuleExtensionUsage {
 
     abstract ImmutableList.Builder<Tag> tagsBuilder();
 
+    @CanIgnoreReturnValue
     public ModuleExtensionUsage.Builder addTag(Tag value) {
       tagsBuilder().add(value);
       return this;

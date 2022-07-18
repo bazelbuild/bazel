@@ -18,6 +18,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 
 /**
@@ -47,9 +48,8 @@ public final class AspectParameters {
     private final ImmutableMultimap.Builder<String, String> attributes =
         ImmutableMultimap.builder();
 
-    /**
-     * Adds a new pair of attribute-value.
-     */
+    /** Adds a new pair of attribute-value. */
+    @CanIgnoreReturnValue
     public Builder addAttribute(String name, String value) {
       attributes.put(name, value);
       return this;

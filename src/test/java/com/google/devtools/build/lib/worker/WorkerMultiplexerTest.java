@@ -147,23 +147,25 @@ public class WorkerMultiplexerTest {
     Future<WorkResponse> response1 =
         Futures.submit(
             () -> {
-              proxyThreads[0] = Thread.currentThread();
+              synchronized (this) {
+                proxyThreads[0] = Thread.currentThread();
+              }
+
               return worker1.getResponse(3);
             },
             executor);
     Future<WorkResponse> response2 =
         Futures.submit(
             () -> {
-              proxyThreads[1] = Thread.currentThread();
+              synchronized (this) {
+                proxyThreads[1] = Thread.currentThread();
+              }
               return worker2.getResponse(42);
             },
             executor);
 
     // Makes sure both workers are waiting for responses before the multiplexer processes anything.
-    while (proxyThreads[0] == null
-        || proxyThreads[0].getState() != State.WAITING
-        || proxyThreads[1] == null
-        || proxyThreads[1].getState() != State.WAITING) {
+    while (threadsAreNotWaiting(proxyThreads)) {
       Thread.sleep(1);
     }
 
@@ -177,6 +179,15 @@ public class WorkerMultiplexerTest {
     assertThat(response1.get().getRequestId()).isEqualTo(3);
     assertThat(response2.get().getRequestId()).isEqualTo(42);
     assertThat(multiplexer.noOutstandingRequests()).isTrue();
+  }
+
+  synchronized boolean threadsAreNotWaiting(Thread[] threads) {
+    for (Thread thread : threads) {
+      if (thread == null || thread.getState() != State.WAITING) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Test

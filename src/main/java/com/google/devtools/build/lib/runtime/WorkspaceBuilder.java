@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -134,6 +135,7 @@ public final class WorkspaceBuilder {
    * Sets a factory for creating {@link SkyframeExecutor} objects. Note that only one factory per
    * workspace is allowed.
    */
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setSkyframeExecutorFactory(
       SkyframeExecutorFactory skyframeExecutorFactory) {
     Preconditions.checkState(this.skyframeExecutorFactory == null,
@@ -147,6 +149,7 @@ public final class WorkspaceBuilder {
    * Sets the workspace status action factory contributed by this module. Only one factory per
    * workspace is allowed.
    */
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setWorkspaceStatusActionFactory(
       WorkspaceStatusAction.Factory workspaceStatusActionFactory) {
     Preconditions.checkState(this.workspaceStatusActionFactory == null,
@@ -156,6 +159,7 @@ public final class WorkspaceBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setAllocationTracker(AllocationTracker allocationTracker) {
     Preconditions.checkState(
         this.allocationTracker == null, "At most one allocation tracker can be set.");
@@ -163,6 +167,7 @@ public final class WorkspaceBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
     Preconditions.checkState(
         this.perCommandSyscallCache == null,
@@ -176,15 +181,17 @@ public final class WorkspaceBuilder {
   /**
    * Add a {@link DiffAwareness} factory. These will be used to determine which files, if any,
    * changed between Blaze commands. Note that these factories are attempted in the order in which
-   * they are added to this class, so order matters - in order to guarantee a specific order, only
-   * a single module should add such factories.
+   * they are added to this class, so order matters - in order to guarantee a specific order, only a
+   * single module should add such factories.
    */
+  @CanIgnoreReturnValue
   public WorkspaceBuilder addDiffAwarenessFactory(DiffAwareness.Factory factory) {
     this.diffAwarenessFactories.add(Preconditions.checkNotNull(factory));
     return this;
   }
 
   /** Add an "extra" SkyFunction for SkyValues. */
+  @CanIgnoreReturnValue
   public WorkspaceBuilder addSkyFunction(SkyFunctionName name, SkyFunction skyFunction) {
     Preconditions.checkNotNull(name);
     Preconditions.checkNotNull(skyFunction);
@@ -193,17 +200,20 @@ public final class WorkspaceBuilder {
   }
 
   /** Add "extra" SkyFunctions for SkyValues. */
+  @CanIgnoreReturnValue
   public WorkspaceBuilder addSkyFunctions(Map<SkyFunctionName, SkyFunction> skyFunctions) {
     this.skyFunctions.putAll(Preconditions.checkNotNull(skyFunctions));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setSkyframeExecutorRepositoryHelpersHolder(
       SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder) {
     this.skyframeExecutorRepositoryHelpersHolder = skyframeExecutorRepositoryHelpersHolder;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public WorkspaceBuilder setSkyKeyStateReceiver(
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver) {
     Preconditions.checkState(

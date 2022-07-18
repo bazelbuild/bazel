@@ -24,6 +24,7 @@ import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
@@ -76,6 +77,7 @@ class DexFileAggregator implements Closeable {
     tracker = new DexLimitTracker(maxNumberOfIdxPerDex);
   }
 
+  @CanIgnoreReturnValue
   public DexFileAggregator add(Dex dexFile) {
     if (multidex.isMultidexAllowed()) {
       // To determine whether currentShard is "full" we track unique field and method signatures,

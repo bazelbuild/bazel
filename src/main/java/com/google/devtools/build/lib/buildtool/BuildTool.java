@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -53,9 +55,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -76,8 +76,6 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.HashSet;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -202,11 +200,11 @@ public class BuildTool {
 
         if (request.getBuildOptions().performAnalysisPhase) {
           executionTool = new ExecutionTool(env, request);
-          Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-          Set<AspectKey> builtAspects = new HashSet<>();
+          // This timer measures time for loading + analysis + execution.
+          Stopwatch timer = Stopwatch.createStarted();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
+            executionTool.prepareForExecution(request.getId());
           }
 
           // TODO(b/199053098): implement support for --nobuild.
@@ -228,6 +226,9 @@ public class BuildTool {
             buildCompleted = true;
             throw e;
           } finally {
+            executionTool.unconditionalExecutionPhaseFinalizations(
+                timer, env.getSkyframeExecutor());
+
             BuildResultListener buildResultListener =
                 Preconditions.checkNotNull(env.getBuildResultListener());
             result.setActualTargets(buildResultListener.getAnalyzedTargets());
@@ -305,8 +306,7 @@ public class BuildTool {
               analysisResult,
               result,
               analysisResult.getPackageRoots(),
-              request.getTopLevelArtifactContext(),
-              request.getBuildOptions().useEventBasedBuildCompletionStatus);
+              request.getTopLevelArtifactContext());
         } else {
           env.getReporter().post(new NoExecutionEvent());
         }
@@ -324,7 +324,7 @@ public class BuildTool {
                 request.getOptions(BuildEventProtocolOptions.class),
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException e) {
+          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
@@ -391,7 +391,8 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException {
+      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException,
+          TemplateExpansionException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
     UploadContext streamingContext = null;
@@ -438,7 +439,8 @@ public class BuildTool {
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
               /* includeFileWriteContents */ false,
-              aqueryOutputHandler);
+              aqueryOutputHandler,
+              getReporter());
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
   }
@@ -662,7 +664,6 @@ public class BuildTool {
         env.getReporter().handle(Event.error("Build interrupted during command completion"));
         ie = e;
       }
-      env.getEventBus().post(new CollectMetricsEvent());
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(

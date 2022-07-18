@@ -29,11 +29,13 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Resolves module extension repos by evaluating all module extensions. */
 public class ModuleExtensionResolutionFunction implements SkyFunction {
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     BazelModuleResolutionValue bazelModuleResolutionValue =
@@ -75,7 +77,7 @@ public class ModuleExtensionResolutionFunction implements SkyFunction {
       ImmutableMap<String, Package> generatedRepos =
           ((SingleExtensionEvalValue) value).getGeneratedRepos();
       String repoPrefix =
-          bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '.';
+          bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId) + '~';
       for (Map.Entry<String, Package> entry : generatedRepos.entrySet()) {
         RepositoryName canonicalRepoName =
             RepositoryName.createUnvalidated(repoPrefix + entry.getKey());

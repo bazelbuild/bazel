@@ -16,19 +16,17 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
-import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Tuple;
 
@@ -51,7 +49,6 @@ public interface GoWrapCcHelperApi<
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
         CcLinkingContextT extends CcLinkingContextApi<FileT>,
         GoConfigurationT extends GoConfigurationApi,
-        GoContextInfoT extends GoContextInfoApi,
         TransitiveInfoCollectionT extends TransitiveInfoCollectionApi,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         CcCompilationContextT extends CcCompilationContextApi<FileT>,
@@ -76,34 +73,6 @@ public interface GoWrapCcHelperApi<
   // TODO(b/113797843): Not written in Starlark because of GoRunfilesProvider.
   public RunfilesApi starlarkGetGoRunfiles(StarlarkRuleContextT starlarkRuleContext)
       throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
-      name = "collect_transitive_go_context_gopkg",
-      doc = "",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "export", positional = false, named = true),
-        @Param(name = "pkg", positional = false, named = true),
-        @Param(name = "gopkg", positional = false, named = true),
-        @Param(
-            name = "wrap_context",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = NoneType.class),
-              @ParamType(type = GoContextInfoApi.class)
-            }),
-        @Param(name = "cc_info", positional = false, named = true),
-      })
-  public GoContextInfoT starlarkCollectTransitiveGoContextGopkg(
-      StarlarkRuleContextT starlarkRuleContext,
-      FileT export,
-      FileT pkg,
-      FileT gopkg,
-      Object starlarkWrapContext,
-      CcInfoT ccInfo);
 
   @StarlarkMethod(
       name = "create_go_compile_actions",
@@ -148,5 +117,5 @@ public interface GoWrapCcHelperApi<
         @Param(name = "gopkg", positional = false, named = true),
       })
   public Depset /*<FileT>*/ getGopackageFilesForStarlark(
-      StarlarkRuleContextT starlarkRuleContext, FileT starlarkGopkg);
+      StarlarkRuleContextT starlarkRuleContext, FileT starlarkGopkg) throws TypeException;
 }

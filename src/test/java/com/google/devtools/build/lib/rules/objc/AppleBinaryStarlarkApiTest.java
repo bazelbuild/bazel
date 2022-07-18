@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -112,8 +111,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -126,7 +124,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
             + " minimum_os_version='7.0')",
         "objc_library(name='b', srcs=['b.c'])");
 
-    useConfiguration("--experimental_apple_mandatory_minimum_version", "ios_cpus=i386");
+    useConfiguration("ios_cpus=i386");
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//a:b");
 
@@ -141,7 +139,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   public void testMandatoryMinimumOsVersionSet() throws Exception {
     getRuleType()
         .scratchTarget(scratch, "minimum_os_version", "'8.0'", "platform_type", "'watchos'");
-    useConfiguration("--experimental_apple_mandatory_minimum_version");
     getConfiguredTarget("//x:x");
   }
 

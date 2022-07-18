@@ -55,7 +55,7 @@ public class ZipOut {
   private final List<Future<?>> futures;
   private final List<CentralDirectory> centralDirectory;
   private CentralDirectory current;
-  private int fileOffset = 0;
+  private long fileOffset = 0;
   private int entryCount = 0;
   private boolean finished = false;
   private final boolean verbose = false;
@@ -73,7 +73,7 @@ public class ZipOut {
     this.fileChannel = channel;
     this.filename = filename;
     centralDirectory = new ArrayList<>();
-    fileOffset =  (int) fileChannel.position();
+    fileOffset = fileChannel.position();
   }
 
   /**
@@ -136,9 +136,10 @@ public class ZipOut {
   /**
    * Returns the file position for the next write operation. Because writes are asynchronous, this
    * may not be the actual position of the underlying file channel.
+   *
    * @return the file position position for the next write operation.
    */
-  public int fileOffset() {
+  public long fileOffset() {
     return fileOffset;
   }
 
@@ -150,22 +151,27 @@ public class ZipOut {
       return;
     }
     finished = true;
-    int cdOffset = fileOffset;
+    long cdOffset = fileOffset;
     for (CentralDirectory cd : centralDirectory) {
       //cd.finish().buffer.rewind();
       cd.buffer.flip();
       write(cd.buffer);
     }
-    int size = fileOffset - cdOffset;
+    long size = fileOffset - cdOffset;
     verbose("ZipOut finishing: " + filename);
     verbose("-- CDIR: " + cdOffset + " count: " + entryCount);
     verbose("-- EOCD: " + fileOffset + " size: " + size);
-    EndOfCentralDirectory eocd = EndOfCentralDirectory.allocate(null)
-        .set(ENDSUB, (short) entryCount)
-        .set(ENDTOT, (short) entryCount)
-        .set(ENDSIZ, size)
-        .set(ENDOFF, cdOffset)
-        .at(fileOffset);
+    if (entryCount > UnsignedShorts.SHORT_MASK) {
+      // Clamp number of entries to what fits.
+      entryCount = UnsignedShorts.SHORT_MASK;
+    }
+    EndOfCentralDirectory eocd =
+        EndOfCentralDirectory.allocate(null)
+            .set(ENDSUB, entryCount)
+            .set(ENDTOT, entryCount)
+            .set(ENDSIZ, size)
+            .set(ENDOFF, cdOffset)
+            .at(fileOffset);
     eocd.buffer.rewind();
     write(eocd.buffer);
     verbose("-- size: " + fileOffset);

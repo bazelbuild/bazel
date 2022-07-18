@@ -51,62 +51,40 @@ public class ExternalFilesHelper {
   private boolean tooManyNonOutputExternalFilesSeen = false;
   private boolean anyFilesInExternalReposSeen = false;
 
-  // This is a set of external files that are not in managed directories or
-  // external repositories.
+  // This is a set of external files that are not in external repositories.
   private Set<RootedPath> nonOutputExternalFilesSeen = Sets.newConcurrentHashSet();
-  private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
   private ExternalFilesHelper(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
-      int maxNumExternalFilesToLog,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      int maxNumExternalFilesToLog) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
-    this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
-      BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      BlazeDirectories directories) {
     return TestType.isInTest()
-        ? createForTesting(pkgLocator, externalFileAction, directories, managedDirectoriesKnowledge)
+        ? createForTesting(pkgLocator, externalFileAction, directories)
         : new ExternalFilesHelper(
-            pkgLocator,
-            externalFileAction,
-            directories,
-            /*maxNumExternalFilesToLog=*/ 100,
-            managedDirectoriesKnowledge);
+            pkgLocator, externalFileAction, directories, /*maxNumExternalFilesToLog=*/ 100);
   }
 
   public static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories) {
-    return createForTesting(
-        pkgLocator,
-        externalFileAction,
-        directories,
-        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
-  }
-
-  private static ExternalFilesHelper createForTesting(
-      AtomicReference<PathPackageLocator> pkgLocator,
-      ExternalFileAction externalFileAction,
-      BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
         // These log lines are mostly spam during unit and integration tests.
-        /*maxNumExternalFilesToLog=*/ 0,
-        managedDirectoriesKnowledge);
+        /*maxNumExternalFilesToLog=*/ 0);
   }
 
 
@@ -144,8 +122,8 @@ public class ExternalFilesHelper {
     INTERNAL,
 
     /**
-     * A non {@link #EXTERNAL_REPO} or {@link #EXTERNAL_IN_MANAGED_DIRECTORY} path outside the
-     * package roots about which we may make no other assumptions.
+     * A non {@link #EXTERNAL_REPO} path outside the package roots about which we may make no other
+     * assumptions.
      */
     EXTERNAL,
 
@@ -175,17 +153,6 @@ public class ExternalFilesHelper {
      * RepositoryDirectoryValue is computed.
      */
     EXTERNAL_REPO,
-
-    /**
-     * A path is under one of the managed directories. Managed directories are user-owned
-     * directories, which can be incrementally updated by repository rules, so that the updated
-     * files are visible for the actions in the same build.
-     *
-     * <p>Every such path under the managed directory is generated or updated by the execution of
-     * the corresponding repository rule, so these paths should not be cached by Skyframe before the
-     * RepositoryDirectoryValue is computed. {@link ManagedDirectoriesKnowledge}
-     */
-    EXTERNAL_IN_MANAGED_DIRECTORY,
   }
 
   /**
@@ -232,11 +199,7 @@ public class ExternalFilesHelper {
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
     return new ExternalFilesHelper(
-        pkgLocator,
-        externalFileAction,
-        directories,
-        maxNumExternalFilesToLog,
-        managedDirectoriesKnowledge);
+        pkgLocator, externalFileAction, directories, maxNumExternalFilesToLog);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -244,12 +207,6 @@ public class ExternalFilesHelper {
   }
 
   private Pair<FileType, RepositoryName> getFileTypeAndRepository(RootedPath rootedPath) {
-    RepositoryName repositoryName =
-        managedDirectoriesKnowledge.getOwnerRepository(rootedPath.getRootRelativePath());
-    if (repositoryName != null) {
-      anyFilesInExternalReposSeen = true;
-      return Pair.of(FileType.EXTERNAL_IN_MANAGED_DIRECTORY, repositoryName);
-    }
     FileType fileType = detectFileType(rootedPath);
     if (FileType.EXTERNAL == fileType) {
       if (nonOutputExternalFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
@@ -309,12 +266,6 @@ public class ExternalFilesHelper {
 
     FileType fileType = Preconditions.checkNotNull(pair.getFirst());
     switch (fileType) {
-      case EXTERNAL_IN_MANAGED_DIRECTORY:
-        Preconditions.checkState(
-            externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-            externalFileAction);
-        RepositoryFunction.addManagedDirectoryDependencies(pair.getSecond(), env);
-        break;
       case BUNDLED:
       case INTERNAL:
         break;

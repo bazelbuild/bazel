@@ -930,13 +930,16 @@ public final class RemoteModule extends BlazeModule {
               new TempPathGenerator(tempDir));
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      actionContextProvider.setActionInputFetcher(actionInputFetcher);
     }
   }
 
   @Override
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions != null
+        && !remoteOptions.remoteOutputsMode.downloadAllOutputs()
+        && actionContextProvider.getRemoteCache() != null) {
       remoteOutputService = new RemoteOutputService();
     }
     return remoteOutputService;
@@ -1018,6 +1021,7 @@ public final class RemoteModule extends BlazeModule {
       this.delegate = null;
     }
 
+    @Nullable
     @Override
     public RepositoryRemoteExecutor create() {
       RepositoryRemoteExecutorFactory delegate = this.delegate;
@@ -1050,6 +1054,7 @@ public final class RemoteModule extends BlazeModule {
    * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
    * @throws IOException in case the credentials can't be constructed.
    */
+  @Nullable
   @VisibleForTesting
   static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
       throws IOException {

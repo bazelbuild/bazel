@@ -107,7 +107,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
       ModuleExtensionUsage usage = e.getValue();
       for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
         String canonicalRepoName =
-            getExtensionUniqueNames().get(extensionId) + "." + entry.getValue();
+            getExtensionUniqueNames().get(extensionId) + "~" + entry.getValue();
         mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
       }
     }

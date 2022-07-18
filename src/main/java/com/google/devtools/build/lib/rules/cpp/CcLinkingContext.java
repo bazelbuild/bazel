@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryAp
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -309,31 +310,37 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
       private final ImmutableList.Builder<Linkstamp> linkstamps = ImmutableList.builder();
 
+      @CanIgnoreReturnValue
       public Builder addLibrary(LibraryToLink library) {
         this.libraries.add(library);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addLibraries(List<LibraryToLink> libraries) {
         this.libraries.addAll(libraries);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
         this.userLinkFlags.addAll(userLinkFlags);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addLinkstamps(List<Linkstamp> linkstamps) {
         this.linkstamps.addAll(linkstamps);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
         this.nonCodeInputs.addAll(nonCodeInputs);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setOwner(Label owner) {
         this.owner = owner;
         return this;
@@ -567,46 +574,54 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final NestedSetBuilder<LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
     private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
 
+    @CanIgnoreReturnValue
     public Builder setOwner(Label owner) {
       linkerInputBuilder.setOwner(owner);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLibrary(LibraryToLink library) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLibrary(library);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLibraries(List<LibraryToLink> libraries) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLibraries(libraries);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addUserLinkFlags(userLinkFlags);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLinkstamps(List<Linkstamp> linkstamps) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLinkstamps(linkstamps);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addTransitiveLinkerInputs(NestedSet<LinkerInput> linkerInputs) {
       this.linkerInputs.addTransitive(linkerInputs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExtraLinkTimeLibraries(ExtraLinkTimeLibraries extraLinkTimeLibraries) {
       Preconditions.checkState(this.extraLinkTimeLibraries == null);
       this.extraLinkTimeLibraries = extraLinkTimeLibraries;

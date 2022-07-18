@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Signals that an I/O exception of some sort has occurred. Contrary to
@@ -61,10 +62,11 @@ public class IORuntimeException extends RuntimeException {
   }
 
   /**
-   * @return the actual IOException that caused this exception, or null if it
-   *         was not caused by an IOException. Call <code>getCause()</code>
-   *         instead if it was caused by other types of exceptions.
+   * Returns the actual IOException that caused this exception, or null if it was not caused by an
+   * IOException. Call <code>getCause()</code> instead if it was caused by other types of
+   * exceptions.
    */
+  @Nullable
   public IOException getCauseIOException() {
     Throwable cause = getCause();
     if (cause instanceof IOException) {

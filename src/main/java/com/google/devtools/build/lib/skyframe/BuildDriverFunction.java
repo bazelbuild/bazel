@@ -54,14 +54,16 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
@@ -145,6 +147,10 @@ public class BuildDriverFunction implements SkyFunction {
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
       ConfiguredTarget configuredTarget =
           ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
+      // At this point, the target is considered "analyzed". It's important that this event is sent
+      // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
+      // concluded, we need to have the *complete* list of analyzed targets ready in
+      // BuildResultListener.
       env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
 
       BuildConfigurationValue buildConfigurationValue =
@@ -177,6 +183,9 @@ public class BuildDriverFunction implements SkyFunction {
                       TestAnalyzedEvent.create(
                           configuredTarget, buildConfigurationValue, /*isSkipped=*/ true));
             }
+            // Only send the event now to include the compatibility check in the measurement for
+            // time spent on analysis work.
+            env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
@@ -186,6 +195,11 @@ public class BuildDriverFunction implements SkyFunction {
         }
       }
 
+      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
+      env.getListener()
+          .post(
+              TopLevelTargetPendingExecutionEvent.create(
+                  configuredTarget, buildDriverKey.isTest()));
       requestConfiguredTargetExecution(
           configuredTarget,
           buildDriverKey,
@@ -194,6 +208,7 @@ public class BuildDriverFunction implements SkyFunction {
           env,
           topLevelArtifactContext);
     } else {
+      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
       requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
 
@@ -218,6 +233,7 @@ public class BuildDriverFunction implements SkyFunction {
    *
    * @return null if a value is missing in the environment.
    */
+  @Nullable
   private Boolean isConfiguredTargetCompatible(
       Environment env,
       State state,
@@ -271,6 +287,7 @@ public class BuildDriverFunction implements SkyFunction {
             .build());
   }
 
+  @Nullable
   private static Target getTarget(Environment env, Label label)
       throws InterruptedException, NoSuchTargetException {
     PackageValue packageValue =
@@ -293,6 +310,7 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+    env.getListener().post(SomeExecutionStartedEvent.create());
     if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
           env,
@@ -333,6 +351,7 @@ public class BuildDriverFunction implements SkyFunction {
       TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
 
+    env.getListener().post(SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
     for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {

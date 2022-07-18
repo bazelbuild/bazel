@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -102,7 +101,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
+                skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(getConfiguration(dep)).isNotEqualTo(getTargetConfiguration());
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEqualTo("PATCHED!");
   }
@@ -126,7 +125,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ImmutableList<ConfiguredTarget> deps =
         ImmutableList.copyOf(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
+                skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(deps).hasSize(2);
     ConfiguredTarget dep =
         deps.stream()

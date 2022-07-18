@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -139,6 +140,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   @Override
+  @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
     if (op == TokenKind.PLUS) {
       return thisLeft ? concat(this, that) : concat(that, this);

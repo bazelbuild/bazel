@@ -434,6 +434,15 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
     public boolean dontUseJavaSourceInfoProvider;
+
+    @Option(
+        name = "experimental_local_memory_estimate",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean localMemoryEstimate;
   }
 
   /**
@@ -515,6 +524,23 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean keepConfigNodes;
+
+    @Option(
+        name = "incompatible_disable_managed_directories",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDisableManagedDirectories;
+
+    @Option(
+        name = "experimental_use_event_based_build_completion_status",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+        help = "No-op")
+    public boolean useEventBasedBuildCompletionStatus;
   }
 
   @Override

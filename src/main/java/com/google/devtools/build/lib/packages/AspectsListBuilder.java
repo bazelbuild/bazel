@@ -165,6 +165,7 @@ public final class AspectsListBuilder {
       super(aspectClass, parametersExtractor, baseAspectName);
     }
 
+    @Nullable
     @Override
     public Aspect getAspect(Rule rule) {
       AspectParameters params = parametersExtractor.apply(rule);

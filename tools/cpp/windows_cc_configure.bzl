@@ -569,7 +569,7 @@ def _find_missing_llvm_tools(repository_ctx, llvm_path):
 
 def _get_clang_version(repository_ctx, clang_cl):
     result = repository_ctx.execute([clang_cl, "-v"])
-    first_line = result.stderr.strip().splitlines()[0]
+    first_line = result.stderr.strip().splitlines()[0].strip()
 
     # The first line of stderr should look like "[vendor ]clang version X.X.X"
     if result.return_code != 0 or first_line.find("clang version ") == -1:

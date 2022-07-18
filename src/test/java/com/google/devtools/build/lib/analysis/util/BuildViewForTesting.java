@@ -170,11 +170,10 @@ public class BuildViewForTesting {
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
     ImmutableMap<ActionLookupKey, Version> newMap =
-        stream(skyframeExecutor.getEvaluator().getGraphEntries())
+        skyframeExecutor.getEvaluator().getAllValuesMutable().entrySet().stream()
             .filter(e -> e.getKey() instanceof ActionLookupKey)
             .collect(
-                toImmutableMap(
-                    e -> ((ActionLookupKey) e.getKey()), e -> e.getValue().getVersion()));
+                toImmutableMap(e -> (ActionLookupKey) e.getKey(), e -> e.getValue().getVersion()));
     MapDifference<ActionLookupKey, Version> difference =
         Maps.difference(newMap, currentActionLookupKeys);
     currentActionLookupKeys = newMap;
@@ -221,7 +220,9 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /*includeExecutionPhase=*/ false,
-        /*mergedPhasesExecutionJobsCount=*/ 0);
+        /*mergedPhasesExecutionJobsCount=*/ 0,
+        /*resourceManager=*/ null,
+        /*buildResultListener=*/ null);
   }
 
   /** Sets the configurations. Not thread-safe. */
@@ -681,7 +682,7 @@ public class BuildViewForTesting {
 
   /** Clears the analysis cache as in --discard_analysis_cache. */
   void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     skyframeBuildView.clearAnalysisCache(topLevelTargets, topLevelAspects);
   }
 }

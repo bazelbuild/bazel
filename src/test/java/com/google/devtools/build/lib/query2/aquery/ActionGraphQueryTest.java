@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ActionGraphQueryEnvironment}. */
 @RunWith(JUnit4.class)
-public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTargetValue> {
+public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredTargetValue> {
   @Override
   protected HashMap<String, QueryFunction> getDefaultFunctions() {
     ImmutableList<QueryFunction> defaultFunctions =
@@ -45,7 +45,8 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
   }
 
   @Override
-  protected BuildConfigurationValue getConfiguration(ConfiguredTargetValue configuredTargetValue) {
+  protected BuildConfigurationValue getConfiguration(
+      KeyedConfiguredTargetValue configuredTargetValue) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(
@@ -54,7 +55,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
   }
 
   @Override
-  protected QueryHelper<ConfiguredTargetValue> createQueryHelper() {
+  protected QueryHelper<KeyedConfiguredTargetValue> createQueryHelper() {
     if (helper != null) {
       getHelper().cleanUp();
     }
@@ -67,12 +68,12 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
     writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
 
-    Set<ConfiguredTargetValue> result = eval("//test:my_java+//test:foo.java");
+    Set<KeyedConfiguredTargetValue> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<ConfiguredTargetValue> resultIterator = result.iterator();
-    ConfiguredTargetValue first = resultIterator.next();
+    Iterator<KeyedConfiguredTargetValue> resultIterator = result.iterator();
+    KeyedConfiguredTargetValue first = resultIterator.next();
     if (first.getConfiguredTarget().getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();
@@ -80,5 +81,62 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
       assertThat(getConfiguration(first)).isNotNull();
       assertThat(getConfiguration(resultIterator.next())).isNull();
     }
+  }
+
+  // Regression test for b/235526333.
+  @Test
+  public void testImplicitToolchainBinding_containsToolchainTarget() throws Exception {
+    writeFile(
+        "q/BUILD",
+        "load(':q.bzl', 'r', 'tc')",
+        "genrule(",
+        "    name = 'gr',",
+        "    srcs = [],",
+        "    outs = ['gro'],",
+        "    cmd = 'echo GRO > $@',",
+        ")",
+        "tc(",
+        "    name = 'tc',",
+        "    dep = ':gr',",
+        ")",
+        "toolchain_type(name = 'type')",
+        "toolchain(",
+        "    name = 'tc.toolchain',",
+        "    toolchain = ':tc',",
+        "    toolchain_type = ':type',",
+        ")",
+        "r(name = 'r')");
+    writeFile(
+        "q/q.bzl",
+        "def _r_impl(ctx):",
+        "    gro = ctx.toolchains['//q:type'].gro",
+        "    o = ctx.actions.declare_file(ctx.label.name + '.output')",
+        "    ctx.actions.run_shell(",
+        "        inputs = depset([gro]),",
+        "        outputs = [o],",
+        "        command = 'cp ' + gro.path + ' ' + o.path,",
+        "    )",
+        "    return DefaultInfo(files = depset([o]))",
+        "def _tc_impl(ctx):",
+        "    gro = ctx.files.dep[0]",
+        "    return [platform_common.ToolchainInfo(gro = gro)]",
+        "tc = rule(",
+        "    implementation = _tc_impl,",
+        "    attrs = {'dep': attr.label()},",
+        ")",
+        "r = rule(",
+        "    implementation = _r_impl,",
+        "    toolchains = ['//q:type'],",
+        ")");
+    appendToWorkspace("register_toolchains('//q:tc.toolchain')");
+
+    Set<KeyedConfiguredTargetValue> result = eval("deps('//q:r')");
+
+    assertDoesNotContainEvent("Targets were missing from graph");
+    assertThat(
+            result.stream()
+                .map(x -> x.getConfiguredTarget().getOriginalLabel().getCanonicalForm())
+                .collect(toImmutableList()))
+        .contains("//q:tc");
   }
 }

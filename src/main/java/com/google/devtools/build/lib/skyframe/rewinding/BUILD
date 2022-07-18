@@ -53,6 +53,7 @@ java_library(
     srcs = ["RewindableGraphInconsistencyReceiver.java"],
     deps = [
         ":rewinding_inconsistency_utils",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

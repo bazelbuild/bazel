@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.Set;
@@ -80,11 +81,6 @@ public interface QueryableGraph {
       SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> previouslyRequestedDeps)
       throws InterruptedException {
     return null;
-  }
-
-  /** Checks whether this graph stores reverse dependencies. */
-  default boolean storesReverseDeps() {
-    return true;
   }
 
   default ImmutableSet<SkyKey> getAllKeysForTesting() {
@@ -154,8 +150,8 @@ public interface QueryableGraph {
     DONE_CHECKING,
 
     /**
-     * The node is being looked up so that it can be {@linkplain
-     * ThinNodeEntry.DirtyType#FORCE_REBUILD force rebuilt} by rewinding.
+     * The node is being looked up so that it can be {@linkplain DirtyType#FORCE_REBUILD force
+     * rebuilt} by rewinding.
      */
     REWINDING,
 

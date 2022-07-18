@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -89,6 +90,7 @@ public final class ConfigurationFragmentPolicy {
      *
      * <p>The value is inherited by subclasses.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragments(
         Collection<Class<? extends Fragment>> configurationFragments) {
       requiresConfigurationFragments(NoTransition.INSTANCE, configurationFragments);
@@ -102,6 +104,7 @@ public final class ConfigurationFragmentPolicy {
      *
      * <p>The value is inherited by subclasses.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragments(
         ConfigurationTransition transition,
         Collection<Class<? extends Fragment>> configurationFragments) {
@@ -122,6 +125,7 @@ public final class ConfigurationFragmentPolicy {
      *
      * <p>The value is inherited by subclasses.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         Collection<String> configurationFragmentNames) {
 
@@ -139,6 +143,7 @@ public final class ConfigurationFragmentPolicy {
      * Collection)}, this method takes the names of fragments (as determined by {@link
      * StarlarkBuiltin}) instead of their classes.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       // We can relax this assumption if needed. But it's already sketchy to let a rule see more
@@ -154,6 +159,7 @@ public final class ConfigurationFragmentPolicy {
      *
      * <p>Missing fragment policy is also copied over, overriding previously set values.
      */
+    @CanIgnoreReturnValue
     public Builder includeConfigurationFragmentsFrom(ConfigurationFragmentPolicy other) {
       requiredConfigurationFragments.addAll(other.requiredConfigurationFragments);
       starlarkRequiredConfigurationFragments.putAll(other.starlarkRequiredConfigurationFragments);
@@ -165,6 +171,7 @@ public final class ConfigurationFragmentPolicy {
      * Sets the policy for the case where the configuration is missing specified required fragment
      * class (see {@link #requiresConfigurationFragments}).
      */
+    @CanIgnoreReturnValue
     public Builder setMissingFragmentPolicy(
         Class<?> fragmentClass, MissingFragmentPolicy missingFragmentPolicy) {
       this.missingFragmentPolicy.put(fragmentClass, missingFragmentPolicy);

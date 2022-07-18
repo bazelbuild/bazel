@@ -401,6 +401,7 @@ public final class SandboxModule extends BlazeModule {
     }
   }
 
+  @Nullable
   private static Path getPathToDockerClient(CommandEnvironment cmdEnv) {
     String path = cmdEnv.getClientEnv().getOrDefault("PATH", "");
 

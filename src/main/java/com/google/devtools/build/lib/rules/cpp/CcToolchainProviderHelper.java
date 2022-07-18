@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -40,11 +41,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /** Helper responsible for creating CcToolchainProvider */
-public class CcToolchainProviderHelper {
+public final class CcToolchainProviderHelper {
 
   /**
    * These files (found under the sysroot) may be unconditionally included in every C/C++
@@ -59,6 +61,22 @@ public class CcToolchainProviderHelper {
   private static final String PACKAGE_START = "%package(";
   private static final String PACKAGE_END = ")%";
 
+  private static final ImmutableList<CppConfiguration.Tool> NEEDED_TOOLS =
+      EnumSet.allOf(CppConfiguration.Tool.class).stream()
+          // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
+          .filter(tool -> tool != CppConfiguration.Tool.DWP)
+          // TODO(tmsriram): Fix this to check if this is a llvm crosstool
+          // and return true.  This needs changes to crosstool_config.proto.
+          .filter(tool -> tool != CppConfiguration.Tool.LLVM_PROFDATA && tool != Tool.LLVM_COV)
+          // gcov-tool and objcopy are optional, don't check whether they're present
+          .filter(
+              tool ->
+                  tool != CppConfiguration.Tool.GCOVTOOL
+                      && tool != CppConfiguration.Tool.GCOV
+                      && tool != CppConfiguration.Tool.OBJCOPY)
+          .collect(toImmutableList());
+
+  @Nullable
   public static CcToolchainProvider getCcToolchainProvider(
       RuleContext ruleContext, CcToolchainAttributesProvider attributes)
       throws RuleErrorException, InterruptedException {
@@ -334,6 +352,7 @@ public class CcToolchainProviderHelper {
     return result.build();
   }
 
+  @Nullable
   private static CppModuleMap createCrosstoolModuleMap(CcToolchainAttributesProvider attributes) {
     if (attributes.getModuleMap() == null) {
       return null;
@@ -384,33 +403,14 @@ public class CcToolchainProviderHelper {
     }
 
     if (toolPathsCollector.isEmpty()) {
-      // If no paths are specified, we just use the names of the tools as the path.
-      for (CppConfiguration.Tool tool : CppConfiguration.Tool.values()) {
+      // If no paths are specified, then actions are most likely being used, so we just fill the
+      // collector with the names of required tools so legacy checks pass.
+      for (CppConfiguration.Tool tool : NEEDED_TOOLS) {
         toolPathsCollector.put(
             tool.getNamePart(), crosstoolTopPathFragment.getRelative(tool.getNamePart()));
       }
     } else {
-      Iterable<CppConfiguration.Tool> neededTools =
-          Iterables.filter(
-              EnumSet.allOf(CppConfiguration.Tool.class),
-              tool -> {
-                if (tool == CppConfiguration.Tool.DWP) {
-                  // TODO(hlopko): check dwp tool in analysis when per_object_debug_info is enabled.
-                  return false;
-                } else if (tool == CppConfiguration.Tool.LLVM_PROFDATA || tool == Tool.LLVM_COV) {
-                  // TODO(tmsriram): Fix this to check if this is a llvm crosstool
-                  // and return true.  This needs changes to crosstool_config.proto.
-                  return false;
-                } else if (tool == CppConfiguration.Tool.GCOVTOOL
-                    || tool == CppConfiguration.Tool.GCOV
-                    || tool == CppConfiguration.Tool.OBJCOPY) {
-                  // gcov-tool and objcopy are optional, don't check whether they're present
-                  return false;
-                } else {
-                  return true;
-                }
-              });
-      for (CppConfiguration.Tool tool : neededTools) {
+      for (CppConfiguration.Tool tool : NEEDED_TOOLS) {
         if (!toolPathsCollector.containsKey(tool.getNamePart())) {
           throw Starlark.errorf("Tool path for '%s' is missing", tool.getNamePart());
         }
@@ -461,4 +461,6 @@ public class CcToolchainProviderHelper {
 
     return legacyCcFlags;
   }
+
+  private CcToolchainProviderHelper() {}
 }

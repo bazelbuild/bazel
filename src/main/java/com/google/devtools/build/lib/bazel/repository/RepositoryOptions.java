@@ -257,7 +257,8 @@ public class RepositoryOptions extends OptionsBase {
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */
-  public static class RepositoryOverrideConverter implements Converter<RepositoryOverride> {
+  public static class RepositoryOverrideConverter
+      extends Converter.Contextless<RepositoryOverride> {
 
     @Override
     public RepositoryOverride convert(String input) throws OptionsParsingException {
@@ -266,15 +267,19 @@ public class RepositoryOptions extends OptionsBase {
         throw new OptionsParsingException(
             "Repository overrides must be of the form 'repository-name=path'", input);
       }
-      PathFragment path = PathFragment.create(pieces[1]);
-      if (!path.isAbsolute()) {
+      OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
+          new OptionsUtils.AbsolutePathFragmentConverter();
+      PathFragment path;
+      try {
+        path = absolutePathFragmentConverter.convert(pieces[1]);
+      } catch (OptionsParsingException e) {
         throw new OptionsParsingException(
-            "Repository override directory must be an absolute path", input);
+            "Repository override directory must be an absolute path", input, e);
       }
       try {
         return RepositoryOverride.create(RepositoryName.create(pieces[0]), path);
       } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException("Invalid repository name given to override", input);
+        throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
     }
 

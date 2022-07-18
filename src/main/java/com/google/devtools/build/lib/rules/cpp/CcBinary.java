@@ -756,6 +756,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(ccLauncherInfo);
   }
 
+  @Nullable
   private static Pair<CcLinkingOutputs, CcLauncherInfo> createTransitiveLinkingActions(
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder ruleBuilder,
@@ -1267,6 +1268,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
   }
 
+  @Nullable
   private static ImmutableList<CcSharedLibraryInfo> mergeCcSharedLibraryInfos(
       RuleContext ruleContext, CppSemantics cppSemantics) {
     ImmutableList.Builder<CcSharedLibraryInfo> directMergedCcSharedLibraryInfos =
@@ -1500,6 +1502,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  @Nullable
   private static ImmutableList<CcLinkingContext.LinkerInput> getPreloadedDepsFromDynamicDeps(
       RuleContext ruleContext, CppSemantics cppSemantics) {
     ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
@@ -1551,6 +1554,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     return ImmutableMap.copyOf(linkOnceStaticLibsMap);
   }
 
+  @Nullable
   private static CcLinkingContext filterLibrariesThatAreLinkedDynamically(
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder ruleBuilder,

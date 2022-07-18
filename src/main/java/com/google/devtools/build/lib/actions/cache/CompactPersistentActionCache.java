@@ -54,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 
 /**
  * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
@@ -333,6 +334,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
+  @Nullable
   public ActionCache.Entry get(String key) {
     int index = indexer.getIndex(key);
     if (index < 0) {

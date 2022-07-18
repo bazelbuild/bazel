@@ -21,7 +21,7 @@ import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -38,8 +38,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final Set<Entry<SkyKey, InMemoryNodeEntry>> getGraphEntries() {
-    return inMemoryGraph().getAllValuesMutable().entrySet();
+  public final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
+    return inMemoryGraph().getAllValuesMutable();
   }
 
   @Override
@@ -85,7 +85,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     long edges = 0;
     for (InMemoryNodeEntry entry : inMemoryGraph().getAllValues().values()) {
       nodes++;
-      if (entry.isDone() && entry.keepEdges() != NodeEntry.KeepEdgesPolicy.NONE) {
+      if (entry.isDone() && entry.keepsEdges()) {
         edges += Iterables.size(entry.getDirectDeps());
       }
     }
@@ -116,9 +116,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                 return;
               }
               printKey(key, out);
-              if (entry.keepEdges() == NodeEntry.KeepEdgesPolicy.NONE) {
-                out.println("  (direct deps not stored)");
-              } else {
+              if (entry.keepsEdges()) {
                 GroupedList<SkyKey> deps =
                     GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
                 for (int i = 0; i < deps.listSize(); i++) {
@@ -128,6 +126,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                     printKey(dep, out);
                   }
                 }
+              } else {
+                out.println("  (direct deps not stored)");
               }
               out.println();
             });

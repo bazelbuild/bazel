@@ -88,16 +88,6 @@ genrule(
     ".bz2",
 ]]
 
-[pkg_tar(
-    name = "test-tar-inclusion-%s" % ext,
-    build_tar = ":build_tar",
-    deps = [":test-tar-%s" % ext],
-) for ext in [
-    "",
-    "gz",
-    "bz2",
-]]
-
 pkg_tar(
     name = "test-tar-strip_prefix-empty",
     srcs = [
@@ -141,16 +131,6 @@ pkg_tar(
     },
 )
 
-pkg_tar(
-    name = "test-tar-mtime",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    mtime = 946684740,  # 1999-12-31, 23:59
-    portable_mtime = False,
-)
-
 sh_test(
     name = "build_test",
     size = "medium",
@@ -163,10 +143,6 @@ sh_test(
         ":test-tar-bz2.tar.bz2",
         ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
-        ":test-tar-inclusion-.tar",
-        ":test-tar-inclusion-bz2.tar",
-        ":test-tar-inclusion-gz.tar",
-        ":test-tar-mtime.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",

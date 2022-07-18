@@ -78,9 +78,9 @@ public class CppRuleClasses {
   }
 
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
-    // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-    // optional.
-    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(true).build();
+    // This is an optional dependency: if a toolchain cannot be found, CppHelper will give an
+    // appropriate error.
+    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(false).build();
   }
 
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {

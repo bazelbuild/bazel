@@ -166,7 +166,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Whether to run validation actions as part of the build.")
+      help =
+          "Whether to run validation actions as part of the build. See"
+              + " https://bazel.build/rules/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(
@@ -546,17 +548,6 @@ public class BuildRequestOptions extends OptionsBase {
               + " Bazel's output base, unless it's an absolute path.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
-
-  @Option(
-      name = "experimental_use_event_based_build_completion_status",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help =
-          "If this flag is set, use the event bus to keep track of whether a top-level target or"
-              + " its aspect is analyzed/built.")
-  public boolean useEventBasedBuildCompletionStatus;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

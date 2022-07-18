@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -248,6 +249,7 @@ public final class LtoBackendAction extends SpawnAction {
     private BitcodeFiles bitcodeFiles;
     private Artifact imports;
 
+    @CanIgnoreReturnValue
     public Builder addImportsInfo(BitcodeFiles allBitcodeFiles, Artifact importsFile) {
       this.bitcodeFiles = allBitcodeFiles;
       this.imports = importsFile;

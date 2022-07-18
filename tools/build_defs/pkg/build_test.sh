@@ -81,10 +81,6 @@ function test_tar() {
 ./usr/titi"
   for i in "" ".gz" ".bz2"; do
     assert_content "test-tar-${i:1}.tar$i"
-    # Test merging tar files
-    # We pass a second argument to not test for user and group
-    # names because tar merging ask for numeric owners.
-    assert_content "test-tar-inclusion-${i:1}.tar" "true"
   done;
 
   check_eq "./
@@ -99,10 +95,6 @@ function test_tar() {
   check_eq "./
 ./not-etc/
 ./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
-  check_eq \
-    "drwxr-xr-x 0/0               0 1999-12-31 23:59 ./
--r-xr-xr-x 0/0               2 1999-12-31 23:59 ./nsswitch.conf" \
-    "$(get_tar_verbose_listing test-tar-mtime.tar)"
 }
 
 

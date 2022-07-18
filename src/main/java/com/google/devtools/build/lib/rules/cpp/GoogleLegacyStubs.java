@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
-import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -175,7 +174,6 @@ public final class GoogleLegacyStubs {
           CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
           CcLinkingContextApi<FileApi>,
           GoConfigurationApi,
-          GoContextInfoApi,
           TransitiveInfoCollectionApi,
           CompilationInfoApi<FileApi>,
           CcCompilationContextApi<FileApi>,
@@ -184,17 +182,6 @@ public final class GoogleLegacyStubs {
     @Override
     public RunfilesApi starlarkGetGoRunfiles(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext) {
-      return null;
-    }
-
-    @Override
-    public GoContextInfoApi starlarkCollectTransitiveGoContextGopkg(
-        StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        FileApi export,
-        FileApi pkg,
-        FileApi gopkg,
-        Object starlarkWrapContext,
-        CcInfoApi<FileApi> ccInfo) {
       return null;
     }
 

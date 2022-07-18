@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -68,18 +69,21 @@ public final class PerBuildSyscallCache implements SyscallCache {
     private Builder() {}
 
     /** Sets the upper bound of the 'stat' cache. This cache is unbounded by default. */
+    @CanIgnoreReturnValue
     public Builder setMaxStats(int maxStats) {
       this.maxStats = maxStats;
       return this;
     }
 
     /** Sets the upper bound of the 'readdir' cache. This cache is unbounded by default. */
+    @CanIgnoreReturnValue
     public Builder setMaxReaddirs(int maxReaddirs) {
       this.maxReaddirs = maxReaddirs;
       return this;
     }
 
     /** Sets the concurrency level of the caches. */
+    @CanIgnoreReturnValue
     public Builder setInitialCapacity(int initialCapacity) {
       this.initialCapacity = initialCapacity;
       return this;
@@ -114,6 +118,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
     return (Collection<Dirent>) result; // unchecked cast
   }
 
+  @Nullable
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
     // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
@@ -133,6 +138,7 @@ public final class PerBuildSyscallCache implements SyscallCache {
     return (status == NO_STATUS) ? null : status;
   }
 
+  @Nullable
   @Override
   @SuppressWarnings("unchecked")
   public DirentTypeWithSkip getType(Path path, Symlinks symlinks) throws IOException {

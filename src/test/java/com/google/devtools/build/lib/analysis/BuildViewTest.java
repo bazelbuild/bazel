@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCoun
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -431,7 +430,7 @@ public class BuildViewTest extends BuildViewTestBase {
             ? analysisFailureCauses.get(0)
             : analysisFailureCauses.get(1);
     assertThat(missingPackageCause.getLabel())
-        .isEqualTo(Label.parseAbsolute("//nopackage:missing", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//nopackage:missing"));
     assertContainsEvent("missing value for mandatory attribute 'outs'");
     assertContainsEvent("no such package 'nopackage'");
     // Skyframe correctly reports the other root cause as the genrule itself (since it is
@@ -440,8 +439,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(loadingRecorder.events)
         .contains(
             new LoadingFailureEvent(
-                Label.parseAbsolute("//pkg:foo", ImmutableMap.of()),
-                Label.parseAbsolute("//pkg:foo", ImmutableMap.of())));
+                Label.parseCanonical("//pkg:foo"), Label.parseCanonical("//pkg:foo")));
   }
 
   @Test
@@ -461,13 +459,11 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(recorder.events)
         .contains(
             new LoadingFailureEvent(
-                Label.parseAbsolute("//gp", ImmutableMap.of()),
-                Label.parseAbsolute("//c1:not", ImmutableMap.of())));
+                Label.parseCanonical("//gp"), Label.parseCanonical("//c1:not")));
     assertThat(recorder.events)
         .contains(
             new LoadingFailureEvent(
-                Label.parseAbsolute("//gp", ImmutableMap.of()),
-                Label.parseAbsolute("//c2:not", ImmutableMap.of())));
+                Label.parseCanonical("//gp"), Label.parseCanonical("//c2:not")));
   }
 
   /**
@@ -507,8 +503,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<Label> labels = Iterables.transform(targets, TransitiveInfoCollection::getLabel);
     assertThat(labels)
         .containsExactly(
-            Label.parseAbsolute("//package:inner", ImmutableMap.of()),
-            Label.parseAbsolute("//package:file", ImmutableMap.of()));
+            Label.parseCanonical("//package:inner"), Label.parseCanonical("//package:file"));
   }
 
   @Test
@@ -535,12 +530,12 @@ public class BuildViewTest extends BuildViewTestBase {
 
     DependencyKey innerDependency =
         DependencyKey.builder()
-            .setLabel(Label.parseAbsolute("//package:inner", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//package:inner"))
             .setTransition(NoTransition.INSTANCE)
             .build();
     DependencyKey fileDependency =
         DependencyKey.builder()
-            .setLabel(Label.parseAbsolute("//package:file", ImmutableMap.of()))
+            .setLabel(Label.parseCanonical("//package:file"))
             .setTransition(NullTransition.INSTANCE)
             .build();
 
@@ -959,9 +954,7 @@ public class BuildViewTest extends BuildViewTestBase {
     List<Label> rootCauseLabels =
         event.getRootCauses().toList().stream().map(Cause::getLabel).collect(Collectors.toList());
     assertThat(rootCauseLabels)
-        .containsExactly(
-            Label.parseAbsolute("//cycles1", ImmutableMap.of()),
-            Label.parseAbsolute("//cycles2", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//cycles1"), Label.parseCanonical("//cycles2"));
   }
 
   /**

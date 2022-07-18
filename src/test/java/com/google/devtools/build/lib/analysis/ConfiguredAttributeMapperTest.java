@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -114,24 +113,21 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         "    srcs = ['defaultdep.sh'])");
 
     List<Label> visitedLabels = new ArrayList<>();
-    Label binSrc = Label.parseAbsolute("//a:bin.sh", ImmutableMap.of());
+    Label binSrc = Label.parseCanonical("//a:bin.sh");
 
     useConfiguration("--define", "mode=a");
     addRelevantLabels(getMapper("//a:bin"), visitedLabels);
-    assertThat(visitedLabels)
-        .containsExactly(binSrc, Label.parseAbsolute("//a:adep", ImmutableMap.of()));
+    assertThat(visitedLabels).containsExactly(binSrc, Label.parseCanonical("//a:adep"));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=b");
     addRelevantLabels(getMapper("//a:bin"), visitedLabels);
-    assertThat(visitedLabels)
-        .containsExactly(binSrc, Label.parseAbsolute("//a:bdep", ImmutableMap.of()));
+    assertThat(visitedLabels).containsExactly(binSrc, Label.parseCanonical("//a:bdep"));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=c");
     addRelevantLabels(getMapper("//a:bin"), visitedLabels);
-    assertThat(visitedLabels)
-        .containsExactly(binSrc, Label.parseAbsolute("//a:defaultdep", ImmutableMap.of()));
+    assertThat(visitedLabels).containsExactly(binSrc, Label.parseCanonical("//a:defaultdep"));
   }
 
   private static void addRelevantLabels(
@@ -175,7 +171,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
     // Target configuration is in dbg mode, so we should match //conditions:b:
     assertThat(getMapper("//a:gen").get("tools", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsolute("//a:bdep", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//a:bdep"));
 
     // Verify the "tools" dep uses a different configuration that's not also in "dbg":
     assertThat(
@@ -206,8 +202,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     useConfiguration("--define", "foo=a", "--define", "bar=d");
     assertThat(getMapper("//hello:gen").get("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            Label.parseAbsolute("//hello:a.in", ImmutableMap.of()),
-            Label.parseAbsolute("//hello:d.in", ImmutableMap.of()));
+            Label.parseCanonical("//hello:a.in"), Label.parseCanonical("//hello:d.in"));
   }
 
   @Test

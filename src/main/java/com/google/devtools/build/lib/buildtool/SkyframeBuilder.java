@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -96,8 +95,6 @@ public class SkyframeBuilder implements Builder {
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableSet<AspectKey> aspects,
       Executor executor,
-      Set<ConfiguredTargetKey> builtTargets,
-      Set<AspectKey> builtAspects,
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext,
@@ -116,8 +113,6 @@ public class SkyframeBuilder implements Builder {
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(
-            Preconditions.checkNotNull(builtTargets),
-            Preconditions.checkNotNull(builtAspects),
             countTestActions(exclusiveTests),
             skyframeExecutor.getEventBus());
     skyframeExecutor

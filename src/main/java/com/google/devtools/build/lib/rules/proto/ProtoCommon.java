@@ -111,7 +111,7 @@ public class ProtoCommon {
                 declareGeneratedFiles,
                 ImmutableList.of(
                     /* actions */ ruleContext.getStarlarkRuleContext().actions(),
-                    /* proto_library_target */ protoTarget,
+                    /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
                     /* extension */ extension),
                 ImmutableMap.of());
     try {
@@ -155,7 +155,7 @@ public class ProtoCommon {
                 declareGeneratedFiles,
                 ImmutableList.of(
                     /* actions */ ruleContext.getStarlarkRuleContext().actions(),
-                    /* proto_library_target */ protoTarget,
+                    /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
                     /* extension */ extension,
                     /* experimental_python_names */ pythonMapper),
                 ImmutableMap.of());
@@ -185,6 +185,7 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput,
@@ -195,8 +196,7 @@ public class ProtoCommon {
                 : Depset.of(
                     Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, additionalInputs)),
             /* resource_set */ resourceSet == null ? Starlark.NONE : resourceSet,
-            /* experimental_progress_message */ progressMessage,
-            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER)),
+            /* experimental_progress_message */ progressMessage),
         ImmutableMap.of());
   }
 
@@ -215,14 +215,11 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
-        ImmutableMap.of(
-            "experimental_progress_message",
-            progressMessage,
-            "proto_info",
-            protoTarget.get(ProtoInfo.PROVIDER)));
+        ImmutableMap.of("experimental_progress_message", progressMessage));
   }
 
   public static boolean shouldGenerateCode(
@@ -239,9 +236,10 @@ public class ProtoCommon {
         ruleContext.callStarlarkOrThrowRuleError(
             shouldGenerateCode,
             ImmutableList.of(
-                /* proto_library_target */ protoTarget,
+                /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
                 /* proto_lang_toolchain_info */ protoLangToolchainInfo,
-                /* rule_name */ ruleName),
+                /* rule_name */ ruleName,
+                /* target_label */ protoTarget.getLabel()),
             ImmutableMap.of());
   }
 
@@ -258,7 +256,7 @@ public class ProtoCommon {
                   ruleContext.callStarlarkOrThrowRuleError(
                       filterSources,
                       ImmutableList.of(
-                          /* proto_library_target */ protoTarget,
+                          /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
                           /* proto_lang_toolchain_info */ protoLangToolchainInfo),
                       ImmutableMap.of()))
               .get(0),

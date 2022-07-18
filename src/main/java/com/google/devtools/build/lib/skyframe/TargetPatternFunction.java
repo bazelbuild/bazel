@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * TargetPatternFunction translates a target pattern (eg, "foo/...") into a set of resolved Targets.
@@ -44,6 +45,7 @@ public class TargetPatternFunction implements SkyFunction {
   public TargetPatternFunction() {}
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey key, Environment env)
       throws TargetPatternFunctionException, InterruptedException {
     TargetPatternValue.TargetPatternKey patternKey =

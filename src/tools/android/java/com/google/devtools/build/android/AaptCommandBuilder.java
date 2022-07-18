@@ -18,6 +18,7 @@ import com.android.repository.Revision;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +43,7 @@ public class AaptCommandBuilder {
   }
 
   /** Sets the build tools version to be used for {@link #whenVersionIsAtLeast}. */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder forBuildToolsVersion(@Nullable Revision buildToolsVersion) {
     Preconditions.checkState(
         this.buildToolsVersion == null, "A build tools version was already specified.");
@@ -50,6 +52,7 @@ public class AaptCommandBuilder {
   }
 
   /** Sets the variant type to be used for {@link #whenVariantIs}. */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder forVariantType(VariantType variantType) {
     Preconditions.checkNotNull(variantType);
     Preconditions.checkState(this.variantType == null, "A variant type was already specified.");
@@ -58,6 +61,7 @@ public class AaptCommandBuilder {
   }
 
   /** Adds a single flag to the builder. */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder add(String flag) {
     flags.add(flag);
     return this;
@@ -68,6 +72,7 @@ public class AaptCommandBuilder {
    * in the final command line. If the value is {@code null}, neither the flag nor the value will be
    * added.
    */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder add(String flag, @Nullable String value) {
     Preconditions.checkNotNull(flag);
     if (!Strings.isNullOrEmpty(value)) {
@@ -84,6 +89,7 @@ public class AaptCommandBuilder {
    *
    * @see #add(String,String)
    */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder add(String flag, @Nullable Path path) {
     Preconditions.checkNotNull(flag);
     if (path != null) {
@@ -92,6 +98,7 @@ public class AaptCommandBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AaptCommandBuilder add(String flag, Optional<Path> optionalPath) {
     Preconditions.checkNotNull(flag);
     Preconditions.checkNotNull(optionalPath);
@@ -108,6 +115,7 @@ public class AaptCommandBuilder {
    * {@code null}, and {@code "gif"}, then four words will be added to the final command line:
    * {@code "-0", "png", "-0", "gif"}.
    */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder addRepeated(String flag, Collection<String> values) {
     Preconditions.checkNotNull(flag);
     for (String value : values) {
@@ -123,6 +131,7 @@ public class AaptCommandBuilder {
    * AaptCommandBuilder#addRepeated(String, Collection)} for more information. If the collection
    * exceed 200 items, the values will be written to a file and passed as &lt;flag&gt @&lt;file&gt;.
    */
+  @CanIgnoreReturnValue
   public AaptCommandBuilder addParameterableRepeated(
       final String flag, Collection<String> values, Path workingDirectory) throws IOException {
     Preconditions.checkNotNull(flag);

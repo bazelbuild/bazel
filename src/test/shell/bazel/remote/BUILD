@@ -33,6 +33,21 @@ sh_test(
 )
 
 sh_test(
+    name = "build_without_the_bytes_test",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["build_without_the_bytes_test.sh"],
+    data = [
+        ":remote_utils",
+        "//src/test/shell/bazel:test-deps",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "//src/tools/remote:worker",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 5,
+)
+
+sh_test(
     name = "remote_execution_http_test",
     size = "large",
     srcs = ["remote_execution_http_test.sh"],

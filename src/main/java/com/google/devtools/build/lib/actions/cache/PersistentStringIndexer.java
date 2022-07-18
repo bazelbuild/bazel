@@ -26,27 +26,26 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import javax.annotation.Nullable;
 
 /**
  * Persistent version of the CanonicalStringIndexer.
  *
- * <p>This class is backed by a PersistentMap that holds one direction of the
- * canonicalization mapping. The other direction is handled purely in memory
- * and reconstituted at load-time.
+ * <p>This class is backed by a PersistentMap that holds one direction of the canonicalization
+ * mapping. The other direction is handled purely in memory and reconstituted at load-time.
  *
- * <p>Thread-safety is ensured by locking on all mutating operations from the
- * superclass. Read-only operations are not locked, but rather backed by
- * ConcurrentMaps.
+ * <p>Thread-safety is ensured by locking on all mutating operations from the superclass. Read-only
+ * operations are not locked, but rather backed by ConcurrentMaps.
  */
 @ConditionallyThreadSafe // condition: each instance must instantiated with
-                         // different dataFile.
+// different dataFile.
 final class PersistentStringIndexer extends CanonicalStringIndexer {
 
   /**
-   * Persistent metadata map. Used as a backing map to provide a persistent
-   * implementation of the metadata cache.
+   * Persistent metadata map. Used as a backing map to provide a persistent implementation of the
+   * metadata cache.
    */
-  private static final class PersistentIndexMap extends PersistentMap<String, Integer>  {
+  private static final class PersistentIndexMap extends PersistentMap<String, Integer> {
     private static final int VERSION = 0x01;
     private static final long SAVE_INTERVAL_NS = 3L * 1000 * 1000 * 1000;
 
@@ -54,8 +53,11 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
     private long nextUpdate;
 
     public PersistentIndexMap(Path mapFile, Path journalFile, Clock clock) throws IOException {
-      super(VERSION, PersistentStringIndexer.<String, Integer>newConcurrentMap(INITIAL_ENTRIES),
-            mapFile, journalFile);
+      super(
+          VERSION,
+          PersistentStringIndexer.<String, Integer>newConcurrentMap(INITIAL_ENTRIES),
+          mapFile,
+          journalFile);
       this.clock = clock;
       nextUpdate = clock.nanoTime();
       load(/* failFast= */ true);
@@ -72,6 +74,7 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
     }
 
     @Override
+    @Nullable
     public Integer remove(Object object) {
       throw new UnsupportedOperationException();
     }

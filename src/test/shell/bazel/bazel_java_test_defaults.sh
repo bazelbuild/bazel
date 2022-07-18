@@ -186,23 +186,6 @@ EOF
   expect_log 'javabuilder = \["//:VanillaJavaBuilder"\]'
 }
 
-# JVM8_TOOLCHAIN_CONFIGURATION shall override Java 8 internal compiler classes.
-function test_default_java_toolchain_jvm8Toolchain() {
-  cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "JVM8_TOOLCHAIN_CONFIGURATION")
-default_java_toolchain(
-  name = "jvm8_toolchain",
-  configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-)
-EOF
-
-  bazel query //:jvm8_toolchain || fail "default_java_toolchain target failed to build"
-  bazel query 'deps(//:jvm8_toolchain)' >& $TEST_log || fail "failed to query //:jvm8_toolchain"
-
-  expect_log ":JavaBuilder"
-  expect_not_log ":VanillaJavaBuilder"
-}
-
 # DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.
 function test_default_java_toolchain_javabuilderToolchain() {
   cat > BUILD <<EOF

@@ -75,12 +75,6 @@ _BASE_TOOLCHAIN_CONFIGURATION = dict(
     ],
 )
 
-JVM8_TOOLCHAIN_CONFIGURATION = dict(
-    tools = ["@remote_java_tools//:javac_jar"],
-    jvm_opts = ["-Xbootclasspath/p:$(location @remote_java_tools//:javac_jar)"],
-    java_runtime = "@bazel_tools//tools/jdk:jdk_8",
-)
-
 DEFAULT_TOOLCHAIN_CONFIGURATION = dict(
     jvm_opts = [
         # Compact strings make JavaBuilder slightly slower.

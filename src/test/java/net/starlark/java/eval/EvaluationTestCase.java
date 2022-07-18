@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedList;
 import java.util.List;
 import net.starlark.java.syntax.FileOptions;
@@ -53,6 +54,7 @@ class EvaluationTestCase {
 
   /** Updates a global binding in the module. */
   // TODO(adonovan): rename setGlobal.
+  @CanIgnoreReturnValue
   final EvaluationTestCase update(String varname, Object value) throws Exception {
     getModule().setGlobal(varname, value);
     return this;
@@ -184,6 +186,7 @@ class EvaluationTestCase {
     }
 
     /** Allows the execution of several statements before each following test. */
+    @CanIgnoreReturnValue
     Scenario setUp(String... lines) {
       setup.registerExec(lines);
       return this;
@@ -196,6 +199,7 @@ class EvaluationTestCase {
      * @param value The new value of the variable
      * @return This {@code Scenario}
      */
+    @CanIgnoreReturnValue
     Scenario update(String name, Object value) {
       setup.registerUpdate(name, value);
       return this;
@@ -209,24 +213,28 @@ class EvaluationTestCase {
      * @return This {@code Scenario}
      * @throws Exception
      */
+    @CanIgnoreReturnValue
     Scenario testEval(String src, String expectedEvalString) throws Exception {
       runTest(createComparisonTestable(src, expectedEvalString, true));
       return this;
     }
 
     /** Evaluates an expression and compares its result to the expected object. */
+    @CanIgnoreReturnValue
     Scenario testExpression(String src, Object expected) throws Exception {
       runTest(createComparisonTestable(src, expected, false));
       return this;
     }
 
     /** Evaluates an expression and compares its result to the ordered list of expected objects. */
+    @CanIgnoreReturnValue
     Scenario testExactOrder(String src, Object... items) throws Exception {
       runTest(collectionTestable(src, items));
       return this;
     }
 
     /** Evaluates an expression and checks whether it fails with the expected error. */
+    @CanIgnoreReturnValue
     Scenario testIfExactError(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(true, expectedError, lines));
       return this;
@@ -241,6 +249,7 @@ class EvaluationTestCase {
      * @param failingLine 1-based line where the error is expected.
      * @param failingColumn 1-based column where the error is expected.
      */
+    @CanIgnoreReturnValue
     Scenario testIfExactErrorAtLocation(
         String expectedError, int failingLine, int failingColumn, String... lines)
         throws Exception {
@@ -249,12 +258,14 @@ class EvaluationTestCase {
     }
 
     /** Evaluates the expresson and checks whether it fails with the expected error. */
+    @CanIgnoreReturnValue
     Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
       return this;
     }
 
     /** Looks up the value of the specified variable and compares it to the expected value. */
+    @CanIgnoreReturnValue
     Scenario testLookup(String name, Object expected) throws Exception {
       runTest(createLookUpTestable(name, expected));
       return this;

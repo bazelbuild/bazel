@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A pair of a string to be substituted and a string to substitute it with. For simplicity, these
@@ -38,7 +40,18 @@ public abstract class Substitution {
 
   public abstract String getKey();
 
-  public abstract String getValue();
+  public abstract String getValue() throws EvalException;
+
+  /* Not intended for use in production code */
+  // TODO(hvd): migrate usages and delete
+  @VisibleForTesting
+  public final String getValueUnchecked() {
+    try {
+      return getValue();
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   private static final class StringSubstitution extends Substitution {
     private final String key;
@@ -118,19 +131,19 @@ public abstract class Substitution {
     if (object instanceof Substitution) {
       Substitution substitution = (Substitution) object;
       return substitution.getKey().equals(this.getKey())
-          && substitution.getValue().equals(this.getValue());
+          && substitution.getValueUnchecked().equals(this.getValueUnchecked());
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(getKey(), getValue());
+    return Objects.hashCode(getKey(), getValueUnchecked());
   }
 
   @Override
   public String toString() {
-    return "Substitution(" + getKey() + " -> " + getValue() + ")";
+    return "Substitution(" + getKey() + " -> " + getValueUnchecked() + ")";
   }
 
   /**
