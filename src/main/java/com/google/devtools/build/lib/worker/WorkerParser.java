@@ -51,8 +51,16 @@ class WorkerParser {
   private static final String REASON_NO_FINAL_FLAGFILE =
       "because the command-line arguments does not end with a @flagfile or --flagfile= argument";
 
-  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes. */
+  /**
+   * Pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes, those
+   * are checked for separately.
+   */
   private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
+
+  /**
+   * Legacy pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes.
+   */
+  private static final Pattern LEGACY_FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   /** The global execRoot. */
   private final Path execRoot;
@@ -151,6 +159,10 @@ class WorkerParser {
     return FLAG_FILE_PATTERN.matcher(arg).matches() && !arg.startsWith("@@");
   }
 
+  private static boolean isLegacyFlagFileArg(String arg) {
+    return LEGACY_FLAG_FILE_PATTERN.matcher(arg).matches();
+  }
+
   /**
    * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
    * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
@@ -160,11 +172,11 @@ class WorkerParser {
   ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
       Spawn spawn, List<String> flagFiles) throws UserExecException {
     ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
+    ImmutableList<String> args = spawn.getArguments();
+    if (args.isEmpty()) {
+      throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
+    }
     if (workerOptions.strictFlagfiles) {
-      ImmutableList<String> args = spawn.getArguments();
-      if (args.isEmpty()) {
-        throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
-      }
       if (!isFlagFileArg(Iterables.getLast(args))) {
         throwFlagFileFailure(REASON_NO_FINAL_FLAGFILE, spawn);
       }
@@ -177,17 +189,16 @@ class WorkerParser {
         }
       }
     } else {
-      for (String arg : spawn.getArguments()) {
-        if (isFlagFileArg(arg)) {
+      for (String arg : args) {
+        if (isLegacyFlagFileArg(arg)) {
           flagFiles.add(arg);
         } else {
           workerArgs.add(arg);
         }
       }
-    }
-
-    if (flagFiles.isEmpty()) {
-      throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
+      if (flagFiles.isEmpty()) {
+        throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
+      }
     }
 
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
@@ -200,9 +211,12 @@ class WorkerParser {
   }
 
   private void throwFlagFileFailure(String reason, Spawn spawn) throws UserExecException {
+    String message =
+        String.format(
+            ERROR_MESSAGE_PREFIX + reason + "%n%s", spawn.getMnemonic(), spawn.getArguments());
     throw new UserExecException(
         FailureDetails.FailureDetail.newBuilder()
-            .setMessage(String.format(ERROR_MESSAGE_PREFIX + reason, spawn.getMnemonic()))
+            .setMessage(message)
             .setWorker(
                 FailureDetails.Worker.newBuilder().setCode(FailureDetails.Worker.Code.NO_FLAGFILE))
             .build());
@@ -227,3 +241,4 @@ class WorkerParser {
     }
   }
 }
+
