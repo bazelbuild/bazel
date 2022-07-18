@@ -175,10 +175,11 @@ public class WorkerParserTest {
     List<String> flagFiles = new ArrayList<>();
     ImmutableList<String> args = parser.splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
 
-    assertThat(args)
-        .containsExactly("--foo", "@@escaped", "--final", "--persistent_worker")
+    assertThat(args).containsExactly("--foo", "--final", "--persistent_worker").inOrder();
+    // Yes, the legacy implementation allows multiple flagfiles and ignores escape sequences.
+    assertThat(flagFiles)
+        .containsExactly("--flagfile=bar", "@@escaped", "@bar", "@bartoo")
         .inOrder();
-    assertThat(flagFiles).containsExactly("--flagfile=bar", "@bar", "@bartoo").inOrder();
   }
 
   @Test
