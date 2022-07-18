@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -602,16 +603,14 @@ public final class RemoteModuleTest {
     CommandLinePathFactory commandLinePathFactory =
         new CommandLinePathFactory(
             fileSystem,
-            ImmutableMap.<String, Path>builder()
-                .put("workspace", workspace)
-                .build());
+            ImmutableMap.of("workspace", workspace));
 
     // Absolute paths.
     {
       RemoteModule.ScopedCredentialHelper helper1 =
           RemoteModule.parseCredentialHelperFlag(
               credentialHelperEnvironment, commandLinePathFactory, "/absolute/path");
-      assertThat(helper1.getScope().isPresent()).isFalse();
+      assertThat(helper1.getScope()).isEmpty();
       assertThat(helper1.getPath()).isEqualTo(fileSystem.getPath("/absolute/path"));
 
       RemoteModule.ScopedCredentialHelper helper2 =
@@ -632,7 +631,7 @@ public final class RemoteModuleTest {
       RemoteModule.ScopedCredentialHelper helper1 =
           RemoteModule.parseCredentialHelperFlag(
               credentialHelperEnvironment, commandLinePathFactory, "%workspace%/path");
-      assertThat(helper1.getScope().isPresent()).isFalse();
+      assertThat(helper1.getScope()).isEmpty();
       assertThat(helper1.getPath()).isEqualTo(workspace.getRelative("path"));
 
       RemoteModule.ScopedCredentialHelper helper2 =
@@ -655,7 +654,7 @@ public final class RemoteModuleTest {
       RemoteModule.ScopedCredentialHelper helper1 =
           RemoteModule.parseCredentialHelperFlag(
               credentialHelperEnvironment, commandLinePathFactory, "foo");
-      assertThat(helper1.getScope().isPresent()).isFalse();
+      assertThat(helper1.getScope()).isEmpty();
       assertThat(helper1.getPath()).isEqualTo(pathValue.getRelative("foo"));
 
       RemoteModule.ScopedCredentialHelper helper2 =
@@ -690,9 +689,7 @@ public final class RemoteModuleTest {
     CommandLinePathFactory commandLinePathFactory =
         new CommandLinePathFactory(
             fileSystem,
-            ImmutableMap.<String, Path>builder()
-                .put("workspace", workspace)
-                .build());
+            ImmutableMap.of("workspace", workspace));
 
     Path unusedHelper = createExecutable(fileSystem, "/unused/helper");
 
@@ -708,8 +705,8 @@ public final class RemoteModuleTest {
         credentialHelperEnvironment,
         commandLinePathFactory,
         ImmutableList.of());
-    assertThat(credentialHelperProvider1.findCredentialHelper(URI.create("https://example.com")).isPresent()).isFalse();
-    assertThat(credentialHelperProvider1.findCredentialHelper(URI.create("https://foo.example.com")).isPresent()).isFalse();
+    assertThat(credentialHelperProvider1.findCredentialHelper(URI.create("https://example.com"))).isEmpty();
+    assertThat(credentialHelperProvider1.findCredentialHelper(URI.create("https://foo.example.com"))).isEmpty();
 
     // Default helper only.
     CredentialHelperProvider credentialHelperProvider2 = RemoteModule.newCredentialHelperProvider(
@@ -735,7 +732,7 @@ public final class RemoteModuleTest {
         commandLinePathFactory,
         ImmutableList.of("example.com=" + exampleComHelper.getPathString()));
     assertThat(credentialHelperProvider4.findCredentialHelper(URI.create("https://example.com")).get().getPath()).isEqualTo(exampleComHelper);
-    assertThat(credentialHelperProvider4.findCredentialHelper(URI.create("https://foo.example.com")).isPresent()).isFalse();
+    assertThat(credentialHelperProvider4.findCredentialHelper(URI.create("https://foo.example.com"))).isEmpty();
 
     // Multiple scoped helpers with default.
     CredentialHelperProvider credentialHelperProvider5 = RemoteModule.newCredentialHelperProvider(

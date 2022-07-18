@@ -1148,7 +1148,12 @@ public final class RemoteModule extends BlazeModule {
     CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
     for (String input : inputs) {
       ScopedCredentialHelper helper = parseCredentialHelperFlag(environment, pathFactory, input);
-      builder.add(helper.getScope(), helper.getPath());
+      Optional<String> scope = helper.getScope();
+      if (scope.isPresent()) {
+        builder.add(scope.get(), helper.getPath());
+      } else {
+        builder.add(helper.getPath());
+      }
     }
     return builder.build();
   }
