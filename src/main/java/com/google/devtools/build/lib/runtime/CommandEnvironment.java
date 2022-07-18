@@ -275,22 +275,8 @@ public class CommandEnvironment {
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
 
-    ImmutableMap.Builder<String, Path> wellKnownRoots = ImmutableMap.builder();
-    // This is necessary because some tests don't have a workspace set.
-    putIfValueNotNull(wellKnownRoots, "workspace", directories.getWorkspace());
-
     this.commandLinePathFactory =
-        new CommandLinePathFactory(runtime.getFileSystem(), wellKnownRoots.build());
-  }
-
-  private static <K, V> void putIfValueNotNull(
-      ImmutableMap.Builder<K, V> map, K key, @Nullable V value) {
-    Preconditions.checkNotNull(map);
-    Preconditions.checkNotNull(key);
-
-    if (value != null) {
-      map.put(key, value);
-    }
+        CommandLinePathFactory.create(runtime.getFileSystem(), directories);
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)

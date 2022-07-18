@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -41,10 +43,26 @@ public final class CommandLinePathFactory {
 
   private static final Splitter PATH_SPLITTER = Splitter.on(File.pathSeparator);
 
+  static CommandLinePathFactory create(FileSystem fileSystem, BlazeDirectories directories) {
+    Preconditions.checkNotNull(fileSystem);
+    Preconditions.checkNotNull(directories);
+
+    ImmutableMap.Builder<String, Path> wellKnownRoots = ImmutableMap.builder();
+
+    // This is necessary because some tests don't have a workspace set.
+    Path workspace = directories.getWorkspace();
+    if (workspace != null) {
+      wellKnownRoots.put("workspace", workspace);
+    }
+
+    return new CommandLinePathFactory(fileSystem, wellKnownRoots.build());
+  }
+
   private final FileSystem fileSystem;
   private final ImmutableMap<String, Path> roots;
 
-  public CommandLinePathFactory(FileSystem fileSystem, ImmutableMap<String, Path> roots) {
+  @VisibleForTesting
+  CommandLinePathFactory(FileSystem fileSystem, ImmutableMap<String, Path> roots) {
     this.fileSystem = Preconditions.checkNotNull(fileSystem);
     this.roots = Preconditions.checkNotNull(roots);
   }
