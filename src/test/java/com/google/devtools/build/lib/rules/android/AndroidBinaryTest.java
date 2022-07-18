@@ -1066,6 +1066,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   /** Regression test for http://b/33173461. */
   @Test
   public void testIncrementalDexingUsesDexArchives_binaryDependingOnAliasTarget() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/com/google/android/BUILD",
         "android_library(",
@@ -1150,6 +1154,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testIncrementalDexingDisabledWithProguard() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/com/google/android/BUILD",
         "android_binary(",
@@ -1172,7 +1180,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testIncrementalDexing_incompatibleWithProguardWhenDisabled() throws Exception {
-    useConfiguration("--experimental_incremental_dexing_after_proguard=0"); // disable with Proguard
+    useConfiguration(
+        "--experimental_incremental_dexing_after_proguard=0", // disable with Proguard
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false");
     checkError(
         "java/com/google/android",
         "top",
@@ -2551,7 +2562,11 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexShardingLegacyAndProguardStructure_withNoDesugaring() throws Exception {
-    useConfiguration("--noexperimental_desugar_for_android");
+    useConfiguration(
+        "--noexperimental_desugar_for_android",
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/a/BUILD",
         "android_binary(",
@@ -2567,6 +2582,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexShardingLegacyAndProguardStructure() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/a/BUILD",
         "android_binary(",
@@ -2582,6 +2601,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexShardingNativeAndProguardStructure() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/a/BUILD",
         "android_binary(",
@@ -4098,6 +4121,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testOnlyProguardSpecs() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_library(name = 'l2',",
@@ -4255,6 +4282,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testProguardMapping() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'b',",
@@ -4312,7 +4343,11 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testLegacyOptimizationModeUsesExtraProguardSpecs() throws Exception {
-    useConfiguration("--extra_proguard_specs=java/com/google/android/hello:extra.pro");
+    useConfiguration(
+        "--extra_proguard_specs=java/com/google/android/hello:extra.pro",
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "exports_files(['extra.pro'])",
@@ -4345,7 +4380,11 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testExtraProguardSpecsDontDuplicateProguardInputFiles() throws Exception {
-    useConfiguration("--extra_proguard_specs=java/com/google/android/hello:proguard-spec.pro");
+    useConfiguration(
+        "--extra_proguard_specs=java/com/google/android/hello:proguard-spec.pro",
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'b',",
@@ -4653,6 +4692,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
    */
   @Test
   public void testConfigurableProguardSpecs() throws Exception {
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     scratch.file(
         "conditions/BUILD",
         "config_setting(",
