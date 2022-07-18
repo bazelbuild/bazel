@@ -21,7 +21,6 @@ import com.android.dx.dex.DexOptions;
 import com.android.dx.dex.cf.CfOptions;
 import com.android.dx.dex.file.DexFile;
 import com.google.common.io.ByteStreams;
-import java.io.IOException;
 import java.io.InputStream;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,7 +34,7 @@ public class DexLimitTrackerTest {
   private Dex dex;
 
   @Before
-  public void setUp() throws IOException {
+  public void setUp() throws Exception {
     dex = DexFiles.toDex(convertClass(DexLimitTrackerTest.class));
   }
 
@@ -47,7 +46,7 @@ public class DexLimitTrackerTest {
   }
 
   @Test
-  public void testOverLimit() throws IOException {
+  public void testOverLimit() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()) - 1);
     assertThat(tracker.track(dex)).isTrue();
@@ -56,7 +55,7 @@ public class DexLimitTrackerTest {
   }
 
   @Test
-  public void testRepeatedReferencesDeduped() throws IOException {
+  public void testRepeatedReferencesDeduped() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
     assertThat(tracker.track(dex)).isFalse();
@@ -68,7 +67,7 @@ public class DexLimitTrackerTest {
   }
 
   @Test
-  public void testGoOverLimit() throws IOException {
+  public void testGoOverLimit() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
     assertThat(tracker.track(dex)).isFalse();
@@ -76,7 +75,7 @@ public class DexLimitTrackerTest {
   }
 
   @Test
-  public void testClear() throws IOException {
+  public void testClear() throws Exception {
     DexLimitTracker tracker =
         new DexLimitTracker(Math.max(dex.methodIds().size(), dex.fieldIds().size()));
     assertThat(tracker.track(dex)).isFalse();
@@ -85,7 +84,7 @@ public class DexLimitTrackerTest {
     assertThat(tracker.track(dex)).isFalse();
   }
 
-  private static DexFile convertClass(Class<?> clazz) throws IOException {
+  private static DexFile convertClass(Class<?> clazz) throws Exception {
     String path = clazz.getName().replace('.', '/') + ".class";
     try (InputStream in =
         Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {

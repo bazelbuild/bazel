@@ -26,7 +26,6 @@ import com.android.dx.util.ByteArray;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -42,26 +41,17 @@ class Dexing {
 
   static final PrintStream nullout = new PrintStream(ByteStreams.nullOutputStream());
 
-  /** Parser for positions options based on the integer field names in {@link PositionList}. */
-  public static class PositionGranularityConverter extends Converter.Contextless<Integer> {
-    @Override
-    public Integer convert(String input) throws OptionsParsingException {
-      for (Field field : PositionList.class.getFields()) {
-        if (field.getName().equalsIgnoreCase(input)) {
-          try {
-            return field.getInt(null);
-          } catch (RuntimeException | IllegalAccessException e) {
-            throw new OptionsParsingException("Can't parse positions option", input, e);
-          }
+  private static int convertPositions(String input) throws OptionsParsingException {
+    for (Field field : PositionList.class.getFields()) {
+      if (field.getName().equalsIgnoreCase(input)) {
+        try {
+          return field.getInt(null);
+        } catch (RuntimeException | IllegalAccessException e) {
+          throw new OptionsParsingException("Can't parse positions option", input, e);
         }
       }
-      throw new OptionsParsingException("Unknown positions option", input);
     }
-
-    @Override
-    public String getTypeDescription() {
-      return "One of the options from dx's --positions flag";
-    }
+    throw new OptionsParsingException("Unknown positions option", input);
   }
 
   /**
@@ -92,18 +82,14 @@ class Dexing {
     public boolean optimize;
 
     @Option(
-      name = "positions",
-      defaultValue = "lines", // dx's default
-      category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      allowMultiple = false,
-      converter = PositionGranularityConverter.class,
-      help = "How densely to emit line number information."
-    )
-    // Note this field must be initialized (usually done by an options parser) since the implicit
-    // initial value 0 is not valid.
-    public int positionInfo;
+        name = "positions",
+        defaultValue = "lines", // dx's default
+        category = "semantics",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        allowMultiple = false,
+        help = "How densely to emit line number information.")
+    public String positionInfo;
 
     @Option(
       name = "warning",
@@ -126,7 +112,7 @@ class Dexing {
         help = "Min sdk version.")
     public int minSdkVersion;
 
-    public CfOptions toCfOptions(DxContext context) {
+    public CfOptions toCfOptions(DxContext context) throws OptionsParsingException {
       CfOptions result = new CfOptions();
       result.localInfo = this.localInfo;
       result.optimize = this.optimize;
@@ -134,7 +120,7 @@ class Dexing {
       // Use dx's defaults
       result.optimizeListFile = null;
       result.dontOptimizeListFile = null;
-      result.positionInfo = positionInfo;
+      result.positionInfo = convertPositions(positionInfo);
       result.strictNameCheck = true;
       result.statistics = false; // we're not supporting statistics anyways
       return result;
@@ -186,11 +172,11 @@ class Dexing {
   private final DexOptions dexOptions;
   private final CfOptions cfOptions;
 
-  public Dexing(DexingOptions options) {
+  public Dexing(DexingOptions options) throws OptionsParsingException {
     this(new DxContext(), options);
   }
 
-  public Dexing(DxContext context, DexingOptions options) {
+  public Dexing(DxContext context, DexingOptions options) throws OptionsParsingException {
     this(context, options.toDexOptions(), options.toCfOptions(context));
   }
 
