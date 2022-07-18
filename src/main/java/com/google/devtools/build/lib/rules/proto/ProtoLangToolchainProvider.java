@@ -15,14 +15,12 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -98,31 +96,20 @@ public abstract class ProtoLangToolchainProvider {
       ImmutableList<String> protocOpts,
       String progressMessage,
       String mnemonic) {
-
-    NestedSetBuilder<ProtoSource> providedProtoSourcesSet = NestedSetBuilder.stableOrder();
-    providedProtoSources.forEach(providedProtoSourcesSet::add);
-    NestedSetBuilder<String> protocOptsSet = NestedSetBuilder.stableOrder();
-    protocOpts.forEach(protocOptsSet::add);
-
     Map<String, Object> m = new LinkedHashMap<>();
     m.put("plugin", pluginExecutable == null ? Starlark.NONE : pluginExecutable);
-    m.put("plugin_format_flag", pluginFormatFlag);
+    m.put("plugin_format_flag", pluginFormatFlag == null ? Starlark.NONE : pluginFormatFlag);
     m.put("proto_compiler", protoc == null ? Starlark.NONE : protoc);
-    m.put(
-        "provided_proto_sources",
-        Depset.of(ElementType.of(ProtoSource.class), providedProtoSourcesSet.build()));
-    m.put("protoc_opts", Depset.of(ElementType.of(ProtoSource.class), protocOptsSet.build()));
+    m.put("provided_proto_sources", StarlarkList.immutableCopyOf(providedProtoSources));
+    m.put("protoc_opts", StarlarkList.immutableCopyOf(protocOpts));
     m.put("out_replacement_format_flag", outReplacementFormatFlag);
     m.put("progress_message", progressMessage);
     m.put("mnemonic", mnemonic);
     m.put("plugin", pluginExecutable == null ? Starlark.NONE : pluginExecutable);
     m.put("runtime", runtime == null ? Starlark.NONE : runtime);
 
-    StarlarkProvider.Builder builder =
-        StarlarkProvider.builder(
-            Location.fromFileLineColumn(protoc.getExecutable().getFilename(), 0, 0));
+    StarlarkProvider.Builder builder = StarlarkProvider.builder(Location.BUILTIN);
     builder.setExported(starlarkProtoLangToolchainKey);
-
     return StarlarkInfo.create(builder.build(), m, Location.BUILTIN);
   }
 
@@ -165,13 +152,15 @@ public abstract class ProtoLangToolchainProvider {
 
   @Nullable
   @SuppressWarnings("unchecked")
-  private static ProtoLangToolchainProvider wrapStarlarkProviderWithNativeProvider(
-      StarlarkInfo provider) {
+  @VisibleForTesting
+  static ProtoLangToolchainProvider wrapStarlarkProviderWithNativeProvider(StarlarkInfo provider) {
     if (provider != null) {
       try {
         return new AutoValue_ProtoLangToolchainProvider(
             provider.getValue("out_replacement_format_flag", String.class),
-            provider.getValue("plugin_format_flag", String.class),
+            provider.getValue("plugin_format_flag") instanceof NoneType
+                ? null
+                : provider.getValue("plugin_format_flag", String.class),
             provider.getValue("plugin") instanceof NoneType
                 ? null
                 : provider.getValue("plugin", FilesToRunProvider.class),
