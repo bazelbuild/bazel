@@ -120,7 +120,7 @@ def _impl(ctx):
 foo = rule(
     implementation = _impl,
     attrs = {
-        "tool": attr.label(allow_single_file = True, executable = True, cfg = "host"),
+        "tool": attr.label(allow_single_file = True, executable = True, cfg = "exec"),
         "out": attr.output(mandatory = True),
     },
 )

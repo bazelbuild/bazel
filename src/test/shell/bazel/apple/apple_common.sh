@@ -80,7 +80,7 @@ starlark_apple_binary = rule(
             ),
         ),
         "_xcrunwrapper": attr.label(
-            cfg = "host",
+            cfg = "exec",
             default = Label("@bazel_tools//tools/objc:xcrunwrapper"),
             executable = True,
         ),

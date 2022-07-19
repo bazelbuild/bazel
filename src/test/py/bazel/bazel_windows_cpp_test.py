@@ -857,7 +857,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  attrs = {',
         '    "_tool": attr.label(',
         '      executable = True,',
-        '      cfg = "host",',
+        '      cfg = "exec",',
         '      allow_files = True,',
         '      default = Label("//:genccs"),',
         '    )',
