@@ -303,7 +303,7 @@ def _impl(ctx):
 run_host_configured = rule(
     implementation = _impl,
     attrs = {
-        "tool": attr.label(executable = True, cfg = "host"),
+        "tool": attr.label(executable = True, cfg = "exec"),
         "out": attr.output(),
     },
 )

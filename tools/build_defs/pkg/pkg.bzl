@@ -105,7 +105,7 @@ _real_pkg_tar = rule(
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),

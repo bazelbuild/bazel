@@ -705,11 +705,11 @@ def _tree_art_impl(ctx):
 tree_art_rule = rule(implementation = _tree_art_impl,
     attrs = {
         "_makes_tree" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//${package}:makes_tree_artifacts.sh"),
         "_write" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//${package}:write.sh")})
 
