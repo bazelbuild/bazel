@@ -934,7 +934,6 @@ public final class RemoteModule extends BlazeModule {
     actionContextProvider = null;
     actionInputFetcher = null;
     remoteOptions = null;
-    remoteOutputService = null;
 
     if (failure != null) {
       throw createExitException(failureMessage, ExitCode.LOCAL_ENVIRONMENTAL_ERROR, failureCode);
