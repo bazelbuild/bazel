@@ -27,7 +27,7 @@ public class CredentialHelperCredentials extends Credentials {
 
   private final LoadingCache<URI, GetCredentialsResponse> cache =
       Caffeine.newBuilder()
-          .expireAfterWrite(Duration.ofSeconds(5))
+          .expireAfterWrite(Duration.ofMinutes(5))
           .build(new CacheLoader<URI, GetCredentialsResponse>() {
     @Override
     public GetCredentialsResponse load(URI uri) throws IOException, InterruptedException {
