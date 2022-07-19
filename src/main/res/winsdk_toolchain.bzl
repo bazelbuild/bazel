@@ -62,7 +62,7 @@ windows_resource_compiler_toolchain = rule(
         "rc_exe": attr.label(
             allow_files = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             doc = "Label of the resource compiler (or a wrapper script)",
         ),
     },
