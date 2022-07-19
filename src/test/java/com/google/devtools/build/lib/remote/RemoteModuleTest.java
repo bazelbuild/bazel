@@ -566,6 +566,8 @@ public final class RemoteModuleTest {
             clientEnv, fileSystem, reporter, authAndTLSOptions, remoteOptions);
 
     assertThat(credentials).isNotNull();
+    assertThat(credentials.getRequestMetadata(URI.create("https://foo.example.org"))).isNotEmpty();
+    assertThat(credentials.getRequestMetadata(URI.create("https://bar.example.org"))).isEmpty();
   }
 
   private static void assertRequestMetadata(
