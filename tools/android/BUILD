@@ -185,22 +185,6 @@ py_test(
     deps = [":instrumentation_test_check"],
 )
 
-py_binary(
-    name = "enforce_min_sdk_floor",
-    srcs = ["enforce_min_sdk_floor.py"],
-    deps = [
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "enforce_min_sdk_floor_test",
-    srcs = ["enforce_min_sdk_floor_test.py"],
-    deps = [
-        ":enforce_min_sdk_floor",
-    ],
-)
-
 py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
