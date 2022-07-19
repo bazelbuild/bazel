@@ -14,7 +14,7 @@
 """
 Constants for action names used for C++ rules.
 
-Duplicated from @bazel_tools//tools/build_defs/cc:action_names.bzl for use in builtins.
+Superset of @bazel_tools//tools/build_defs/cc:action_names.bzl for use in builtins.
 """
 
 # Name for the C compilation action.
@@ -98,6 +98,9 @@ OBJC_FULLY_LINK_ACTION_NAME = "objc-fully-link"
 # A string constant for the clif actions.
 CLIF_MATCH_ACTION_NAME = "clif-match"
 
+# A string constant for the obj copy actions.
+OBJ_COPY_ACTION_NAME = "objcopy_embed_data"
+
 ACTION_NAMES = struct(
     c_compile = C_COMPILE_ACTION_NAME,
     cpp_compile = CPP_COMPILE_ACTION_NAME,
@@ -126,4 +129,5 @@ ACTION_NAMES = struct(
     objcpp_compile = OBJCPP_COMPILE_ACTION_NAME,
     objcpp_executable = OBJCPP_EXECUTABLE_ACTION_NAME,
     clif_match = CLIF_MATCH_ACTION_NAME,
+    objcopy_embed_data = OBJ_COPY_ACTION_NAME,
 )
