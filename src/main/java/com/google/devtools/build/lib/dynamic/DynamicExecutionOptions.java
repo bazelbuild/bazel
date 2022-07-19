@@ -177,4 +177,15 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " This lessens the load on the local machine in the clean build case, where"
               + " the local machine does not contribute much.")
   public double localLoadFactor;
+
+  @Option(
+      name = "experimental_dynamic_exclude_tools",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "false",
+      help =
+          "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"
+              + " targets are extremely unlikely to be built incrementally and thus not worth"
+              + " spending local cycles on.")
+  public boolean excludeTools;
 }
