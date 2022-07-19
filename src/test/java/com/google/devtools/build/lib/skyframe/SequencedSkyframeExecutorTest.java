@@ -90,7 +90,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -1571,46 +1570,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     assertContainsEvent(
         "Test dir/cycleOutput failed: error reading file 'cyclesource': Symlink cycle");
     assertContainsEvent("Test dir/cycleOutput failed: 1 input file(s) are in error");
-  }
-
-  @Test
-  public void noEventOrPostStorageForNonIncrementalBuild() throws Exception {
-    SkyKey skyKey = GraphTester.skyKey("key");
-    extraSkyFunctions.put(
-        skyKey.functionName(),
-        (key, env) -> {
-          env.getListener().handle(Event.warn("warning"));
-          env.getListener()
-              .post(
-                  new Postable() {
-                    @Override
-                    public boolean storeForReplay() {
-                      return true;
-                    }
-                  });
-          return new SkyValue() {};
-        });
-    initializeSkyframeExecutor();
-    skyframeExecutor.setActive(false);
-    skyframeExecutor.decideKeepIncrementalState(
-        /*batch=*/ false,
-        /*keepStateAfterBuild=*/ true,
-        /*shouldTrackIncrementalState=*/ false,
-        /*discardAnalysisCache=*/ false,
-        reporter);
-    skyframeExecutor.setActive(true);
-    syncSkyframeExecutor();
-
-    EvaluationResult<?> result = evaluate(ImmutableList.of(skyKey));
-    assertThat(result.hasError()).isFalse();
-
-    SkyValue valueWithMetadata =
-        skyframeExecutor
-            .getEvaluator()
-            .getExistingEntryAtCurrentlyEvaluatingVersion(skyKey)
-            .getValueMaybeWithMetadata();
-    assertThat(ValueWithMetadata.getEvents(valueWithMetadata).toList()).isEmpty();
-    assertThat(ValueWithMetadata.getPosts(valueWithMetadata).toList()).isEmpty();
   }
 
   /**

@@ -23,3 +23,14 @@ check_license(
         "//src:bazel-bin_nojdk",
     ],
 )
+
+check_license(
+    name = "check_srcs",
+    check_conditions = False,
+    copyright_notices = "srcs_copyrights.txt",
+    license_texts = "srcs_licenses.txt",
+    report = "srcs_report",
+    deps = [
+        "//:bazel-srcs",
+    ],
+)

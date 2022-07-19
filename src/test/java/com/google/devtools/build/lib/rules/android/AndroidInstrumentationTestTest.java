@@ -110,6 +110,10 @@ public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTes
         "  ],",
         ")");
     setupTargetDevice();
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 

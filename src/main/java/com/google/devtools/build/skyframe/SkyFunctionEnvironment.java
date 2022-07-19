@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -56,14 +55,8 @@ import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
 final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   private static final SkyValue NULL_MARKER = new SkyValue() {};
-  private static final Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> NO_EVENTS_OR_POSTS =
-      Pair.of(
-          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   private boolean building = true;
   private SkyKey depErrorKey = null;
@@ -135,8 +128,30 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   /** The set of errors encountered while fetching children. */
   private final Set<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
 
-  // Null when not storing any events or posts.
-  @Nullable private final SkyFunctionEventHandler eventHandler;
+  private final StoredEventHandler eventHandler =
+      new StoredEventHandler() {
+        @Override
+        @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
+        public void handle(Event e) {
+          checkActive();
+          if (evaluatorContext.getStoredEventFilter().test(e)) {
+            super.handle(e);
+          } else {
+            evaluatorContext.getReporter().handle(e);
+          }
+        }
+
+        @Override
+        @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
+        public void post(Postable p) {
+          checkActive();
+          if (p.storeForReplay()) {
+            super.post(p);
+          } else {
+            evaluatorContext.getReporter().post(p);
+          }
+        }
+      };
 
   private final ParallelEvaluatorContext evaluatorContext;
 
@@ -188,10 +203,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     this.bubbleErrorInfo = bubbleErrorInfo;
     this.oldDeps = checkNotNull(oldDeps);
     this.evaluatorContext = checkNotNull(evaluatorContext);
-    this.eventHandler =
-        evaluatorContext.getStoredEventFilter().storeEventsAndPosts()
-            ? new SkyFunctionEventHandler()
-            : null;
     // Cycles can lead to a state where the versions of done children don't accurately reflect the
     // state that led to this node's value. Be conservative then.
     this.maxTransitiveSourceVersion =
@@ -252,7 +263,9 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       NodeEntry entry, boolean expectDoneDeps) throws InterruptedException {
     EventFilter eventFilter = evaluatorContext.getStoredEventFilter();
     if (!eventFilter.storeEventsAndPosts()) {
-      return NO_EVENTS_OR_POSTS;
+      return Pair.of(
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     }
 
     NestedSetBuilder<TaggedEvents> eventBuilder = NestedSetBuilder.stableOrder();
@@ -694,7 +707,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   @Override
   public ExtendedEventHandler getListener() {
     checkActive();
-    return firstNonNull(eventHandler, evaluatorContext.getReporter());
+    return eventHandler;
   }
 
   void doneBuilding() {
@@ -940,37 +953,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return encounteredErrorDuringBubbling;
   }
 
-  @Override
-  @Nullable
-  public Version getMaxTransitiveSourceVersionSoFar() {
-    return maxTransitiveSourceVersion;
-  }
-
-  private final class SkyFunctionEventHandler extends StoredEventHandler {
-
-    @Override
-    @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
-    public void handle(Event e) {
-      checkActive();
-      if (evaluatorContext.getStoredEventFilter().test(e)) {
-        super.handle(e);
-      } else {
-        evaluatorContext.getReporter().handle(e);
-      }
-    }
-
-    @Override
-    @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
-    public void post(Postable p) {
-      checkActive();
-      if (p.storeForReplay()) {
-        super.post(p);
-      } else {
-        evaluatorContext.getReporter().post(p);
-      }
-    }
-  }
-
   /** Thrown during environment construction if a previously requested dep is no longer done. */
   static final class UndonePreviouslyRequestedDep extends Exception {
     private final SkyKey depKey;
@@ -982,5 +964,11 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     SkyKey getDepKey() {
       return depKey;
     }
+  }
+
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return maxTransitiveSourceVersion;
   }
 }
