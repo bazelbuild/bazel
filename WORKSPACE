@@ -129,7 +129,7 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.24.0.tar.gz",
+        "android_tools_pkg-0.23.0.tar.gz",
         # for android_gmaven_r8
         "r8-3.3.28.jar",
     ],
