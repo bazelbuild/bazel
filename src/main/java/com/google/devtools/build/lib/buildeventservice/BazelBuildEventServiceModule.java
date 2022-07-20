@@ -80,7 +80,10 @@ public class BazelBuildEventServiceModule
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
               GoogleAuthUtils.newCallCredentials(
-                  env.getClientEnv(), env.getRuntime().getFileSystem(), config.authAndTLSOptions()),
+                  env.getReporter(),
+                  env.getClientEnv(),
+                  env.getRuntime().getFileSystem(),
+                  config.authAndTLSOptions()),
               makeGrpcInterceptor(config));
     }
     return client;

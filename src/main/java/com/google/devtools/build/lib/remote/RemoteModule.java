@@ -1073,7 +1073,8 @@ public final class RemoteModule extends BlazeModule {
       Reporter reporter,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions) throws IOException {
-    Credentials credentials = GoogleAuthUtils.newCredentials(clientEnv, fileSystem, authAndTlsOptions);
+    Credentials credentials =
+        GoogleAuthUtils.newCredentials(reporter, clientEnv, fileSystem, authAndTlsOptions);
 
     try {
       if (credentials != null

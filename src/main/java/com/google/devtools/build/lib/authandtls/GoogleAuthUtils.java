@@ -19,6 +19,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
@@ -196,10 +198,11 @@ public final class GoogleAuthUtils {
    */
   @Nullable
   public static CallCredentials newCallCredentials(
+      Reporter reporter,
       Map<String, String> clientEnv,
       FileSystem fileSystem,
       AuthAndTLSOptions options) throws IOException {
-    Credentials creds = newCredentials(clientEnv, fileSystem, options);
+    Credentials creds = newCredentials(reporter, clientEnv, fileSystem, options);
     if (creds != null) {
       return MoreCallCredentials.from(creds);
     }
@@ -250,8 +253,8 @@ public final class GoogleAuthUtils {
    *
    * @throws IOException in case the credentials can't be constructed.
    */
-  @VisibleForTesting
   public static Credentials newCredentials(
+      Reporter reporter,
       Map<String, String> clientEnv,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions)
@@ -260,7 +263,12 @@ public final class GoogleAuthUtils {
 
     if (credentials.isEmpty()) {
       // Fallback to .netrc if it exists.
-      credentials = newCredentialsFromNetrc(clientEnv, fileSystem);
+      try {
+        credentials = newCredentialsFromNetrc(clientEnv, fileSystem);
+      } catch (IOException e) {
+        // TODO(yannic): Make this fail the build.
+        reporter.handle(Event.warn(e.getMessage()));
+      }
     }
 
     return credentials.orElse(null);
