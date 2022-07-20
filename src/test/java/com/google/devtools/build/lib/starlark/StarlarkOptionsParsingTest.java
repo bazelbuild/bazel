@@ -478,4 +478,27 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
         .containsExactly("calico", "bengal");
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRepeatedStringListFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "repeated_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.string_list(flag=True, repeatable=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'repeated_flag')",
+        "repeated_flag(name = 'cats', build_setting_default = ['tabby'])");
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
+
+    assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
+    assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
+        .containsExactly("calico", "bengal");
+  }
 }

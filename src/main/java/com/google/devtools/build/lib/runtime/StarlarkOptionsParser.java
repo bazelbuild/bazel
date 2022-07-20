@@ -168,6 +168,9 @@ public class StarlarkOptionsParser {
             String.format("Unrecognized option: %s=%s", loadedFlag, unparsedValue));
       }
       Type<?> type = buildSetting.getType();
+      if (buildSetting.isRepeatableFlag()) {
+        type = Preconditions.checkNotNull(type.getListElementType());
+      }
       Converter<?> converter = BUILD_SETTING_CONVERTERS.get(type);
       Object value;
       try {
@@ -179,7 +182,7 @@ public class StarlarkOptionsParser {
                 loadedFlag, unparsedValue, unparsedValue, type),
             e);
       }
-      if (buildSetting.allowsMultiple()) {
+      if (buildSetting.allowsMultiple() || buildSetting.isRepeatableFlag()) {
         List<Object> newValue;
         if (buildSettingWithTargetAndValue.containsKey(loadedFlag)) {
           newValue =
@@ -371,7 +374,8 @@ public class StarlarkOptionsParser {
   }
 
   public boolean checkIfParsedOptionAllowsMultiple(String option) {
-    return parsedBuildSettings.get(option).allowsMultiple();
+    BuildSetting setting = parsedBuildSettings.get(option);
+    return setting.allowsMultiple() || setting.isRepeatableFlag();
   }
 
   public Type<?> getParsedOptionType(String option) {
