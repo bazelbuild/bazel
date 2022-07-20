@@ -213,6 +213,7 @@ public final class GoogleAuthUtils {
    *
    * @throws IOException in case the credentials can't be constructed.
    */
+  @Nullable
   public static Credentials newCredentials(
       Reporter reporter,
       Map<String, String> clientEnv,
