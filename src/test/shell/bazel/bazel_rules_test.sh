@@ -583,7 +583,7 @@ out_rule = rule(_out_rule, attrs = {
     "_hello_bin": attr.label(
         default = ":hello_bin",
         executable = True,
-        cfg = "host",
+        cfg = "exec",
     ),
 })
 EOF
