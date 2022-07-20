@@ -35,7 +35,7 @@ embedded_tools = rule(
         "out": attr.output(mandatory = True),
         "tool": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             allow_files = True,
             default = Label("//src:create_embedded_tools_sh"),
         ),

@@ -183,6 +183,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         ")",
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='2.0',repo_name='see')",
+        "register_toolchains('//my:toolchain3', '//my:toolchain4')",
+        "register_execution_platforms('//my:platform3', '//my:platform4')",
         "single_version_override(module_name='D',version='18')",
         "local_path_override(module_name='E',path='somewhere/else')",
         "multiple_version_override(module_name='F',versions=['1.0','2.0'])",
@@ -203,9 +205,12 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setVersion(Version.parse("0.1"))
                 .setKey(ModuleKey.ROOT)
                 .setCompatibilityLevel(4)
-                .setExecutionPlatformsToRegister(
-                    ImmutableList.of("//my:platform", "//my:platform2"))
-                .setToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
+                .addExecutionPlatformsToRegister(
+                    ImmutableList.of(
+                        "//my:platform", "//my:platform2", "//my:platform3", "//my:platform4"))
+                .addToolchainsToRegister(
+                    ImmutableList.of(
+                        "//my:toolchain", "//my:toolchain2", "//my:toolchain3", "//my:toolchain4"))
                 .addDep("B", createModuleKey("B", "1.0"))
                 .addDep("see", createModuleKey("C", "2.0"))
                 .build());

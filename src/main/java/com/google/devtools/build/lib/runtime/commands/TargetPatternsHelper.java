@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** Provides support for reading target patterns from a file or the command-line. */
 final class TargetPatternsHelper {
@@ -54,7 +56,12 @@ final class TargetPatternsHelper {
       Path residuePath =
           env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
       try {
-        targets = FileSystemUtils.readLines(residuePath, UTF_8);
+        targets =
+            FileSystemUtils.readLines(residuePath, UTF_8).stream()
+                .map(s -> s.split("#")[0])
+                .map(String::trim)
+                .filter(Predicate.not(String::isEmpty))
+                .collect(toImmutableList());
       } catch (IOException e) {
         throw new TargetPatternsHelperException(
             "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage(),
