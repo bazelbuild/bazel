@@ -44,13 +44,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -260,13 +257,12 @@ public class IncompatibleTargetChecker {
   /**
    * Generates visibility for an incompatible target.
    *
-   * The intent is for this function is to match ConfiguredTargetFactory.convertVisibility(). Since
-   * visibility is currently validated after incompatibility is evaluated, however, it doesn't
+   * <p>The intent is for this function is to match ConfiguredTargetFactory.convertVisibility().
+   * Since visibility is currently validated after incompatibility is evaluated, however, it doesn't
    * matter what visibility we set here. To keep it simple, we pretend that all incompatible targets
    * are public.
-   *
-   * TODO(phil): File a ticket and reference it here.
    */
+  // TODO(phil): File a ticket and reference it here.
   private static NestedSet<PackageGroupContents> convertVisibility() {
     return NestedSetBuilder.create(
         Order.STABLE_ORDER,
