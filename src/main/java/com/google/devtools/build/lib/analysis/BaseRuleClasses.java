@@ -403,7 +403,7 @@ public class BaseRuleClasses {
           .add(
               attr("distribs", DISTRIBUTIONS)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          // Any rule that has provides its own meaning for the "target_compatible_with" attribute
+          // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)

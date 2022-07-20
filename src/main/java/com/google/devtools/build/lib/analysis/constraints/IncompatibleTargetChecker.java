@@ -77,7 +77,7 @@ import javax.annotation.Nullable;
  * The intent of these helpers is that they get called as early in the analysis phase as possible.
  * That's why there are two helpers instead of just one. The first helper determines direct
  * incompatibility very early in the analysis phase. If a target is not directly incompatible, the
- * dependencies need to be analysed and then we can check for indirect compatibility. Doing these
+ * dependencies need to be analysed and then we can check for indirect incompatibility. Doing these
  * checks as early as possible allows us to skip analysing unused dependencies and ignore unused
  * toolchains.
  *
