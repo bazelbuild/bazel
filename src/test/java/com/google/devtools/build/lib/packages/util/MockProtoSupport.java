@@ -124,13 +124,10 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "py_library(name = 'proto1',",
         "           srcs = [ 'pyproto.py' ])");
-    config.create("net/rpc/no_stubby_rpc_libs_please_dont_depend_on_this.cc", "");
     config.create(
         "net/rpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'stubby12_proto_rpc_libs')",
-        "cc_library(name = 'no_stubby_rpc_libs_please_dont_depend_on_this',"
-            + " srcs=['no_stubby_rpc_libs_please_dont_depend_on_this.cc'])");
+        "cc_library(name = 'stubby12_proto_rpc_libs')");
     config.create("net/rpc4/public/core/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'stubby4_rpc_libs')");
