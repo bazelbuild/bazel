@@ -56,6 +56,11 @@ public class ThreadUtilsTest {
           }
 
           @Override
+          public void sendNonFatalBugReport(Exception exception) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
           public void handleCrash(Crash crash, CrashContext ctx) {
             BugReporter.defaultInstance().handleCrash(crash, ctx);
           }
