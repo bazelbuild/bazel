@@ -25,6 +25,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
