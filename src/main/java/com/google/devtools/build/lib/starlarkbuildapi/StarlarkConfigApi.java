@@ -19,6 +19,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -90,11 +91,13 @@ public interface StarlarkConfigApi extends StarlarkValue {
             name = "allow_multiple",
             defaultValue = "False",
             doc =
-                "If set, this flag is allowed to be set multiple times on the command line. The"
-                    + " Value of the flag as accessed in transitions and build setting"
-                    + " implementation function will be a list of strings. Insertion order and"
-                    + " repeated values are both maintained. This list can be post-processed in the"
-                    + " build setting implementation function if different behavior is desired.",
+                "Deprecated, use a <code>string_list</code> setting with"
+                    + " <code>repeatable = True</code> instead. If set, this flag is allowed to be"
+                    + " set multiple times on the command line. The Value of the flag as accessed"
+                    + " in transitions and build setting implementation function will be a list of"
+                    + " strings. Insertion order and repeated values are both maintained. This list"
+                    + " can be post-processed in the build setting implementation function if"
+                    + " different behavior is desired.",
             named = true,
             positional = false)
       })
@@ -111,9 +114,20 @@ public interface StarlarkConfigApi extends StarlarkValue {
             defaultValue = "False",
             doc = FLAG_ARG_DOC,
             named = true,
+            positional = false),
+        @Param(
+            name = "repeatable",
+            defaultValue = "False",
+            doc =
+                "If set, instead of expecting a comma-separated value, this flag is allowed to be"
+                    + " set multiple times on the command line with each individual value treated"
+                    + " as a single string to add to the list value. Insertion order and repeated"
+                    + " values are both maintained. This list can be post-processed in the build"
+                    + " setting implementation function if different behavior is desired.",
+            named = true,
             positional = false)
       })
-  BuildSettingApi stringListSetting(Boolean flag);
+  BuildSettingApi stringListSetting(Boolean flag, Boolean repeatable) throws EvalException;
 
   /** The API for build setting descriptors. */
   @StarlarkBuiltin(
