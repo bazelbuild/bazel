@@ -156,18 +156,18 @@ public class CommandLinePathFactoryTest {
     createExecutable("/home/yannic/bin/abc");
     createExecutable("/home/yannic/bin/true");
 
-    var path =
+    ImmutableMap<String, String> env =
         ImmutableMap.of(
             "PATH", PATH_JOINER.join("/bin", "/usr/bin", "/usr/local/bin", "/home/yannic/bin"));
-    assertThat(factory.create(path, "true")).isEqualTo(filesystem.getPath("/bin/true"));
-    assertThat(factory.create(path, "false")).isEqualTo(filesystem.getPath("/bin/false"));
-    assertThat(factory.create(path, "foo-bar.exe"))
+    assertThat(factory.create(env, "true")).isEqualTo(filesystem.getPath("/bin/true"));
+    assertThat(factory.create(env, "false")).isEqualTo(filesystem.getPath("/bin/false"));
+    assertThat(factory.create(env, "foo-bar.exe"))
         .isEqualTo(filesystem.getPath("/usr/bin/foo-bar.exe"));
-    assertThat(factory.create(path, "baz")).isEqualTo(filesystem.getPath("/usr/local/bin/baz"));
-    assertThat(factory.create(path, "abc")).isEqualTo(filesystem.getPath("/home/yannic/bin/abc"));
+    assertThat(factory.create(env, "baz")).isEqualTo(filesystem.getPath("/usr/local/bin/baz"));
+    assertThat(factory.create(env, "abc")).isEqualTo(filesystem.getPath("/home/yannic/bin/abc"));
 
     // `.exe` is required.
-    assertThrows(FileNotFoundException.class, () -> factory.create(path, "foo-bar"));
+    assertThrows(FileNotFoundException.class, () -> factory.create(env, "foo-bar"));
   }
 
   @Test
