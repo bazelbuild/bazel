@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
@@ -21,8 +25,11 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * Common options for authentication and TLS.
@@ -131,4 +138,53 @@ public class AuthAndTLSOptions extends OptionsBase {
               + "granularity; it is an error to set a value less than one second. If keep-alive "
               + "pings are disabled, then this setting is ignored.")
   public Duration grpcKeepaliveTimeout;
+
+  /** One of the values of the `--credential_helper` flag. */
+  @AutoValue
+  public abstract static class UnresolvedScopedCredentialHelper {
+    /** Returns the scope of the credential helper (if any). */
+    public abstract Optional<String> getScope();
+
+    /** Returns the (unparsed) path of the credential helper. */
+    public abstract String getPath();
+  }
+
+  /** A {@link Converter} for the `--credential_helper` flag. */
+  public static final class UnresolvedScopedCredentialHelperConverter
+      extends Converter.Contextless<UnresolvedScopedCredentialHelper> {
+    public static final UnresolvedScopedCredentialHelperConverter INSTANCE =
+        new UnresolvedScopedCredentialHelperConverter();
+
+    @Override
+    public String getTypeDescription() {
+      return "An (unresolved) path to a credential helper for a scope.";
+    }
+
+    @Override
+    public UnresolvedScopedCredentialHelper convert(String input) throws OptionsParsingException {
+      Preconditions.checkNotNull(input);
+
+      int pos = input.indexOf('=');
+      if (pos >= 0) {
+        String scope = input.substring(0, pos);
+        if (Strings.isNullOrEmpty(scope)) {
+          throw new OptionsParsingException("Scope of credential helper must not be empty");
+        }
+        String path = checkPath(input.substring(pos + 1));
+        return new AutoValue_AuthAndTLSOptions_UnresolvedScopedCredentialHelper(
+            Optional.of(scope), path);
+      }
+
+      // `input` does not specify a scope.
+      return new AutoValue_AuthAndTLSOptions_UnresolvedScopedCredentialHelper(
+          Optional.empty(), checkPath(input));
+    }
+
+    private String checkPath(@Nullable String input) throws OptionsParsingException {
+      if (Strings.isNullOrEmpty(input)) {
+        throw new OptionsParsingException("Path to credential helper must not be empty");
+      }
+      return input;
+    }
+  }
 }
