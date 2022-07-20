@@ -192,34 +192,6 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link CallCredentials} object.
-   *
-   * @throws IOException in case the call credentials can't be constructed.
-   */
-  @Nullable
-  public static CallCredentials newCallCredentials(
-      Reporter reporter,
-      Map<String, String> clientEnv,
-      FileSystem fileSystem,
-      AuthAndTLSOptions options) throws IOException {
-    Credentials creds = newCredentials(reporter, clientEnv, fileSystem, options);
-    if (creds != null) {
-      return MoreCallCredentials.from(creds);
-    }
-    return null;
-  }
-
-  @Nullable
-  @VisibleForTesting
-  public static CallCredentials newCallCredentialsForTesting(AuthAndTLSOptions options) throws IOException {
-    Credentials creds = newCredentials(options);
-    if (creds != null) {
-      return MoreCallCredentials.from(creds);
-    }
-    return null;
-  }
-
-  /**
    * Create a new {@link CallCredentialsProvider} object from {@link Credentials} or return {@link
    * CallCredentialsProvider#NO_CREDENTIALS} if it is {@code null}.
    */
@@ -228,18 +200,6 @@ public final class GoogleAuthUtils {
       return new GoogleAuthCallCredentialsProvider(creds);
     }
     return CallCredentialsProvider.NO_CREDENTIALS;
-  }
-
-  /**
-   * Create a new {@link Credentials} object, or {@code null} if no options are provided.
-   *
-   * @throws IOException in case the credentials can't be constructed.
-   */
-  @Nullable
-  public static Credentials newCredentials(@Nullable AuthAndTLSOptions options) throws IOException {
-    Optional<Credentials> credentials = newGoogleCredentials(options);
-
-    return credentials.orElse(null);
   }
 
   /**
@@ -274,14 +234,15 @@ public final class GoogleAuthUtils {
     return credentials.orElse(null);
   }
 
-  private static Optional<Credentials> newGoogleCredentials(
+  @VisibleForTesting
+  public static Optional<Credentials> newGoogleCredentials(
       @Nullable AuthAndTLSOptions options) throws IOException {
     if (options == null) {
       return Optional.empty();
     } else if (options.googleCredentials != null) {
       // Credentials from file
       try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
-        return Optional.of(newGoogleCredentials(authFile, options.googleAuthScopes));
+        return Optional.of(newGoogleCredentialsFromFile(authFile, options.googleAuthScopes));
       } catch (FileNotFoundException e) {
         String message =
             String.format(
@@ -290,7 +251,7 @@ public final class GoogleAuthUtils {
         throw new IOException(message, e);
       }
     } else if (options.useGoogleDefaultCredentials) {
-      return Optional.of(newGoogleCredentials(
+      return Optional.of(newGoogleCredentialsFromFile(
           null /* Google Application Default Credentials */, options.googleAuthScopes));
     }
     return Optional.empty();
@@ -302,7 +263,7 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the credentials can't be constructed.
    */
   @VisibleForTesting
-  public static Credentials newGoogleCredentials(
+  public static Credentials newGoogleCredentialsFromFile(
       @Nullable InputStream credentialsFile, List<String> authScopes) throws IOException {
     try {
       GoogleCredentials creds =
@@ -317,6 +278,17 @@ public final class GoogleAuthUtils {
       String message = "Failed to init auth credentials: " + e.getMessage();
       throw new IOException(message, e);
     }
+  }
+
+  @Nullable
+  @VisibleForTesting
+  public static CallCredentials newGoogleCallCredentialsForTesting(
+      AuthAndTLSOptions options) throws IOException {
+    Optional<Credentials> creds = newGoogleCredentials(options);
+    if (creds.isPresent()) {
+      return MoreCallCredentials.from(creds.get());
+    }
+    return null;
   }
 
   /**

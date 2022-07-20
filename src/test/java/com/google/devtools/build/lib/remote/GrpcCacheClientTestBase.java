@@ -141,7 +141,7 @@ class GrpcCacheClientTestBase {
     try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
       callCredentialsProvider =
           GoogleAuthUtils.newCallCredentialsProvider(
-              GoogleAuthUtils.newGoogleCredentials(in, authTlsOptions.googleAuthScopes));
+              GoogleAuthUtils.newGoogleCredentialsFromFile(in, authTlsOptions.googleAuthScopes));
     }
     CallCredentials creds = callCredentialsProvider.getCallCredentials();
 

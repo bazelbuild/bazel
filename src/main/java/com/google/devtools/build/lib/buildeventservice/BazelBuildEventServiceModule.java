@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
+import io.grpc.auth.MoreCallCredentials;
 import io.grpc.stub.MetadataUtils;
 import java.io.IOException;
 import java.util.Map;
@@ -79,11 +80,12 @@ public class BazelBuildEventServiceModule
       client =
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
-              GoogleAuthUtils.newCallCredentials(
-                  env.getReporter(),
-                  env.getClientEnv(),
-                  env.getRuntime().getFileSystem(),
-                  config.authAndTLSOptions()),
+              MoreCallCredentials.from(
+                  GoogleAuthUtils.newCredentials(
+                      env.getReporter(),
+                      env.getClientEnv(),
+                      env.getRuntime().getFileSystem(),
+                      config.authAndTLSOptions())),
               makeGrpcInterceptor(config));
     }
     return client;
