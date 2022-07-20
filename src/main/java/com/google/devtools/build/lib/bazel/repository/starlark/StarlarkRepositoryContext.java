@@ -561,8 +561,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       name = "download",
       doc =
           "Downloads a file to the output path for the provided url and returns a struct"
-              + " containing a hash of the file with the fields <code>sha256</code> and"
-              + " <code>integrity</code>.",
+              + " containing <code>success</code>, a flag which is <code>true</code> if the"
+              + " download completed successfully, and if successful, a hash of the file"
+              + " with the fields <code>sha256</code> and <code>integrity</code>.",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -788,9 +789,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          "Downloads a file to the output path for the provided url, extracts it, and returns"
-              + " a struct containing a hash of the downloaded file with the fields"
-              + " <code>sha256</code> and <code>integrity</code>.",
+          "Downloads a file to the output path for the provided url, extracts it, and returns a"
+              + " struct containing <code>success</code>, a flag which is <code>true</code> if the"
+              + " download completed successfully, and if successful, a hash of the file with the"
+              + " fields <code>sha256</code> and <code>integrity</code>.",
       useStarlarkThread = true,
       parameters = {
         @Param(

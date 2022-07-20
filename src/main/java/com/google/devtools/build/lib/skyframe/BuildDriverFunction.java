@@ -208,8 +208,8 @@ public class BuildDriverFunction implements SkyFunction {
           env,
           topLevelArtifactContext);
     } else {
-      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
-      requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
+      announceAspectAnalysisDoneAndRequestExecution(
+          buildDriverKey, (TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
 
     if (env.valuesMissing()) {
@@ -345,7 +345,8 @@ public class BuildDriverFunction implements SkyFunction {
     declareDependenciesAndCheckValues(env, artifactsToBuild.build());
   }
 
-  private void requestAspectExecution(
+  private void announceAspectAnalysisDoneAndRequestExecution(
+      BuildDriverKey buildDriverKey,
       TopLevelAspectsValue topLevelAspectsValue,
       Environment env,
       TopLevelArtifactContext topLevelArtifactContext)
@@ -362,6 +363,9 @@ public class BuildDriverFunction implements SkyFunction {
       env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
       aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
+    // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
+    // signaling that the analysis of this top level aspect has concluded.
+    env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
 
     declareDependenciesAndCheckValues(
         env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));

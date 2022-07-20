@@ -431,7 +431,9 @@ public class BuildView {
                 checkForActionConflicts,
                 loadingPhaseThreads,
                 viewOptions.cpuHeavySkyKeysThreadPoolSize,
-                mergedPhasesExecutionJobsCount);
+                mergedPhasesExecutionJobsCount,
+                /*shouldDiscardAnalysisCache=*/ viewOptions.discardAnalysisCache
+                    || !skyframeExecutor.tracksStateForIncrementality());
       }
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();

@@ -53,6 +53,8 @@ public final class BugReport {
 
   static final BugReporter REPORTER_INSTANCE = new DefaultBugReporter();
 
+  // TODO(b/232094803): Replace the static state with instance variables and allow custom overrides
+  //  for testing.
   private static final BlazeVersionInfo VERSION_INFO = BlazeVersionInfo.instance();
 
   private static BlazeRuntimeInterface runtime = null;
@@ -175,6 +177,16 @@ public final class BugReport {
    * @param values Additional string values to clarify the exception.
    */
   public static void sendBugReport(Throwable exception, List<String> args, String... values) {
+    sendBugReportInternal(exception, /*isFatal=*/ true, filterArgs(args), values);
+  }
+
+  /** Logs the bug report, indicating it is not a crash. */
+  public static void sendNonFatalBugReport(Throwable exception) {
+    sendBugReportInternal(exception, /*isFatal=*/ false, /*args=*/ ImmutableList.of());
+  }
+
+  private static void sendBugReportInternal(
+      Throwable exception, boolean isFatal, List<String> args, String... values) {
     if (SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST) {
       Throwables.throwIfUnchecked(exception);
       throw new IllegalStateException(
@@ -185,7 +197,7 @@ public final class BugReport {
       return;
     }
 
-    logException(exception, filterArgs(args), values);
+    logException(exception, isFatal, filterArgs(args), values);
   }
 
   /**
@@ -359,18 +371,23 @@ public final class BugReport {
     return filteredArgs.build();
   }
 
-  // Log the exception. Because this method is only called in a blaze release, this will result in a
-  // report being sent to a remote logging service.
+  /**
+   * Logs the exception. Because this method is only called in a blaze release, this will result in
+   * a report being sent to a remote logging service.
+   *
+   * <p>TODO(b/232094803): Make this method private and replace the tests with ones calling public
+   * methods like {@link #sendBugReport(Throwable)} directly.
+   */
   @VisibleForTesting
-  static void logException(Throwable exception, List<String> args, String... values) {
+  static void logException(
+      Throwable exception, boolean isCrash, List<String> args, String... values) {
     logger.atSevere().withCause(exception).log("Exception");
     String preamble = getProductName();
-    Level level = Level.SEVERE;
-    if (exception instanceof OutOfMemoryError) {
-      preamble += " OOMError: ";
-    } else if (exception instanceof NonFatalBugReport) {
+    Level level = isCrash ? Level.SEVERE : Level.WARNING;
+    if (!isCrash) {
       preamble += " had a non fatal error with args: ";
-      level = Level.WARNING;
+    } else if (exception instanceof OutOfMemoryError) {
+      preamble += " OOMError: ";
     } else {
       preamble += " crashed with args: ";
     }
@@ -378,17 +395,16 @@ public final class BugReport {
     LoggingUtil.logToRemote(level, preamble + Joiner.on(' ').join(args), exception, values);
   }
 
-  /**
-   * NonFatalBugReport is a marker interface for Throwables which should be reported when passed to
-   * sendBugReport, but don't represent a crash.
-   */
-  public static interface NonFatalBugReport {}
-
   private static final class DefaultBugReporter implements BugReporter {
 
     @Override
     public void sendBugReport(Throwable exception, List<String> args, String... values) {
       BugReport.sendBugReport(exception, args, values);
+    }
+
+    @Override
+    public void sendNonFatalBugReport(Exception exception) {
+      BugReport.sendNonFatalBugReport(exception);
     }
 
     @Override

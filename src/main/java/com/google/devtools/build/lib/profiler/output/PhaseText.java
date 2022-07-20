@@ -58,7 +58,7 @@ public final class PhaseText extends TextPrinter {
           prettyPercentage(relativeDuration));
     }
 
-    lnPrintf("------------------------------------------------");
+    lnPrintf("---------------------------------------------------------------------");
     long totalDurationInMs = Duration.ofNanos(phaseSummaryStats.getTotalDuration()).toMillis();
     lnPrintf(
         THREE_COLUMN_FORMAT,

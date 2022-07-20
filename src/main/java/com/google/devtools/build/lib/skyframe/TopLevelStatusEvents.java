@@ -40,7 +40,7 @@ public final class TopLevelStatusEvents {
    */
   @AutoValue
   public abstract static class TopLevelTargetAnalyzedEvent implements Postable {
-    abstract ConfiguredTarget configuredTarget();
+    public abstract ConfiguredTarget configuredTarget();
 
     public static TopLevelTargetAnalyzedEvent create(ConfiguredTarget configuredTarget) {
       return new AutoValue_TopLevelStatusEvents_TopLevelTargetAnalyzedEvent(configuredTarget);

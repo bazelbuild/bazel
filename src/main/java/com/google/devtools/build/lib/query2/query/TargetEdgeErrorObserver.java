@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.query2.query;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.bugreport.BugReport.NonFatalBugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -97,15 +96,9 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
         errorCode.compareAndSet(
             /*expectedValue=*/ null, /*newValue=*/ DetailedExitCode.of(failureDetail));
       } else {
-        BugReport.sendBugReport(new UndetailedErrorFromPackageException(node));
+        BugReport.sendNonFatalBugReport(
+            new IllegalStateException("Undetailed error from package: " + node));
       }
-    }
-  }
-
-  private static final class UndetailedErrorFromPackageException extends RuntimeException
-      implements NonFatalBugReport {
-    UndetailedErrorFromPackageException(Target node) {
-      super("Undetailed error from package: " + node);
     }
   }
 }

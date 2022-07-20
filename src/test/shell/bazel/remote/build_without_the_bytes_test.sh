@@ -1086,7 +1086,7 @@ test_rule = rule(
     attrs = {
         "inputs": attr.label_list(allow_files = True),
         "out": attr.output(),
-        "_executable": attr.label(executable = True, cfg = "host", default = "//:exe"),
+        "_executable": attr.label(executable = True, cfg = "exec", default = "//:exe"),
     },
 )
 EOF

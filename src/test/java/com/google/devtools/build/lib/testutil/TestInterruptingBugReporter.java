@@ -134,6 +134,11 @@ public final class TestInterruptingBugReporter
   }
 
   @Override
+  public void sendNonFatalBugReport(Exception exception) {
+    handle(exception, "call to sendNonFatalBugReport", Thread.currentThread());
+  }
+
+  @Override
   public void handleCrash(Crash crash, CrashContext ctx) {
     handle(crash.getThrowable(), "call to handleCrash", Thread.currentThread());
   }

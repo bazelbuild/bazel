@@ -166,12 +166,13 @@ level of the build, this might be the attribute definition:
 "worker": attr.label(
     default = Label("//work:worker"),
     executable = True,
-    cfg = "host",
+    cfg = "exec",
 )
 ```
 
-`cfg = "host"` indicates that the worker should be built to run on your host
-platform.
+`cfg = "exec"` indicates that the worker should be built to run on your
+execution platform rather than on the target platform (i.e., the worker is used
+as tool during the build).
 
 ### Work action requirements {:#work-action-requirements}
 

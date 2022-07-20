@@ -119,7 +119,7 @@ def _impl(ctx):
 build_rule = rule(
     attrs = {
         "inputs": attr.label(),
-        "executable": attr.label(executable = True, cfg = "host"),
+        "executable": attr.label(executable = True, cfg = "exec"),
         "out": attr.output(),
     },
     implementation = _impl,

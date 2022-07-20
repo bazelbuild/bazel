@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.TestLogHandler;
 import com.google.devtools.build.lib.bugreport.BugReport.BlazeRuntimeInterface;
-import com.google.devtools.build.lib.bugreport.BugReport.NonFatalBugReport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -113,23 +112,22 @@ public final class BugReportTest {
     abstract Throwable createThrowable();
   }
 
-  private static final class NonFatalException extends RuntimeException
-      implements NonFatalBugReport {
-    NonFatalException(String message) {
-      super(message);
-    }
-  }
-
   private enum ExceptionType {
     FATAL(
         new RuntimeException("fatal exception"),
+        /*isFatal=*/ true,
         Level.SEVERE,
         "myProductName crashed with args: arg foo"),
     NONFATAL(
-        new NonFatalException("bug report"),
+        new IllegalStateException("bug report"),
+        /*isFatal=*/ false,
         Level.WARNING,
         "myProductName had a non fatal error with args: arg foo"),
-    OOM(new OutOfMemoryError("Java heap space"), Level.SEVERE, "myProductName OOMError: arg foo");
+    OOM(
+        new OutOfMemoryError("Java heap space"),
+        /*isFatal=*/ true,
+        Level.SEVERE,
+        "myProductName OOMError: arg foo");
 
     @SuppressWarnings("ImmutableEnumChecker") // I'm pretty sure no one will mutate this Throwable.
     private final Throwable throwable;
@@ -137,10 +135,13 @@ public final class BugReportTest {
     @SuppressWarnings("ImmutableEnumChecker") // Same here.
     private final Level level;
 
+    private final boolean isFatal;
+
     private final String expectedMessage;
 
-    ExceptionType(Throwable throwable, Level level, String expectedMessage) {
+    ExceptionType(Throwable throwable, boolean isFatal, Level level, String expectedMessage) {
       this.throwable = throwable;
+      this.isFatal = isFatal;
       this.level = level;
       this.expectedMessage = expectedMessage;
     }
@@ -178,7 +179,8 @@ public final class BugReportTest {
     logger.addHandler(handler);
     LoggingUtil.installRemoteLoggerForTesting(immediateFuture(logger));
 
-    BugReport.logException(exceptionType.throwable, ImmutableList.of("arg", "foo"));
+    BugReport.logException(
+        exceptionType.throwable, exceptionType.isFatal, ImmutableList.of("arg", "foo"));
 
     LogRecord got = handler.getStoredLogRecords().get(0);
     assertThat(got.getThrown()).isSameInstanceAs(exceptionType.throwable);

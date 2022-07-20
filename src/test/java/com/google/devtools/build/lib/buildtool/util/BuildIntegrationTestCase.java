@@ -1018,6 +1018,11 @@ public abstract class BuildIntegrationTestCase {
       exceptions.add(exception);
     }
 
+    @Override
+    public synchronized void sendNonFatalBugReport(Exception exception) {
+      exceptions.add(exception);
+    }
+
     @FormatMethod
     @Override
     public void logUnexpected(String message, Object... args) {
