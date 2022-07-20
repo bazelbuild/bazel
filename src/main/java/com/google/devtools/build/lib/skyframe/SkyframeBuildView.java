@@ -362,7 +362,9 @@ public final class SkyframeBuildView {
       ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     // TODO(bazel-team): Consider clearing packages too to save more memory.
     skyframeAnalysisWasDiscarded = true;
-    skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
+    try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.clearAnalysisCache")) {
+      skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
+    }
   }
 
   /**
@@ -633,7 +635,8 @@ public final class SkyframeBuildView {
       boolean checkForActionConflicts,
       int numThreads,
       int cpuHeavySkyKeysThreadPoolSize,
-      int mergedPhasesExecutionJobsCount)
+      int mergedPhasesExecutionJobsCount,
+      boolean shouldDiscardAnalysisCache)
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
     enableAnalysis(true);
@@ -683,14 +686,11 @@ public final class SkyframeBuildView {
             Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys)),
             eventBus,
             /*finisher=*/ () ->
-                eventBus.post(
-                    AnalysisPhaseCompleteEvent.fromSkymeld(
-                        buildResultListener.getAnalyzedTargets(),
-                        getEvaluatedCounts(),
-                        getEvaluatedActionCounts(),
-                        analysisWorkTimer.stop().elapsed().toMillis(),
-                        skyframeExecutor.getPackageManager().getAndClearStatistics(),
-                        skyframeExecutor.wasAnalysisCacheInvalidatedAndResetBit())))) {
+                analysisFinishedCallback(
+                    eventBus,
+                    buildResultListener,
+                    shouldDiscardAnalysisCache,
+                    /*measuredAnalysisTime=*/ analysisWorkTimer.stop().elapsed().toMillis()))) {
 
       try {
         resourceManager.resetResourceUsage();
@@ -812,6 +812,27 @@ public final class SkyframeBuildView {
           /*packageRoots=*/ null,
           Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
     }
+  }
+
+  /** Handles the required steps after all analysis work in this build is done. */
+  private void analysisFinishedCallback(
+      EventBus eventBus,
+      BuildResultListener buildResultListener,
+      boolean shouldDiscardAnalysisCache,
+      long measuredAnalysisTime) {
+    if (shouldDiscardAnalysisCache) {
+      clearAnalysisCache(
+          buildResultListener.getAnalyzedTargets(),
+          buildResultListener.getAnalyzedAspects().keySet());
+    }
+    eventBus.post(
+        AnalysisPhaseCompleteEvent.fromSkymeld(
+            buildResultListener.getAnalyzedTargets(),
+            getEvaluatedCounts(),
+            getEvaluatedActionCounts(),
+            measuredAnalysisTime,
+            skyframeExecutor.getPackageManager().getAndClearStatistics(),
+            skyframeExecutor.wasAnalysisCacheInvalidatedAndResetBit()));
   }
 
   /**
