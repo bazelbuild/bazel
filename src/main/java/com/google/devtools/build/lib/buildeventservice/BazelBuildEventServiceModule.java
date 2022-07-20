@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
@@ -70,7 +71,7 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected BuildEventServiceClient getBesClient(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+      CommandEnvironment env, BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
     BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
@@ -78,7 +79,8 @@ public class BazelBuildEventServiceModule
       client =
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
-              GoogleAuthUtils.newCallCredentials(config.authAndTLSOptions()),
+              GoogleAuthUtils.newCallCredentials(
+                  env.getClientEnv(), env.getRuntime().getFileSystem(), config.authAndTLSOptions()),
               makeGrpcInterceptor(config));
     }
     return client;

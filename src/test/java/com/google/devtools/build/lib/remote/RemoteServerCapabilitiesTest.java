@@ -224,7 +224,7 @@ public class RemoteServerCapabilitiesTest {
               }
             });
     CallCredentials creds =
-        GoogleAuthUtils.newCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
+        GoogleAuthUtils.newCallCredentialsForTesting(Options.getDefaults(AuthAndTLSOptions.class));
     RemoteServerCapabilities client =
         new RemoteServerCapabilities("instance", channel.retain(), creds, 3, retrier);
 
