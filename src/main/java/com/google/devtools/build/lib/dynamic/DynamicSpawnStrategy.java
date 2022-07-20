@@ -77,6 +77,12 @@ import javax.annotation.Nullable;
 public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  /**
+   * String indicating that an action is for a tool. Defined in {@link
+   * com.google.devtools.build.lib.analysis.RuleContext}. I wish I could find a nicer way to check
+   * if something is for tool.
+   */
+  private static final String FOR_TOOL = "[for tool]";
 
   private final ListeningExecutorService executorService;
   private final DynamicExecutionOptions options;
@@ -324,7 +330,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    * @throws InterruptedException If we tried to execute and got interrupted.
    */
   @Nullable
-  private ImmutableList<SpawnResult> maybeExecuteNonDynamically(
+  @VisibleForTesting
+  ImmutableList<SpawnResult> maybeExecuteNonDynamically(
       Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     ExecutionPolicy executionPolicy = getExecutionPolicy.apply(spawn);
@@ -382,6 +389,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                         + " --experimental_dynamic_skip_first_build."));
       }
       return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
+    } else if (options.excludeTools) {
+      String msg = spawn.getResourceOwner().getProgressMessage();
+      if (msg != null && msg.contains(FOR_TOOL)) {
+        return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
+      }
     }
     return null;
   }

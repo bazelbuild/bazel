@@ -44,7 +44,7 @@ A list of dependencies.
             doc = "The location of the tool to use.",
             allow_files = True,
             default = Label("//foo/bar/baz:target"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
         "out": attr.output(

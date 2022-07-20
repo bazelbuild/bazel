@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
@@ -146,6 +147,10 @@ public class BuildDriverFunction implements SkyFunction {
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
       ConfiguredTarget configuredTarget =
           ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
+      // At this point, the target is considered "analyzed". It's important that this event is sent
+      // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
+      // concluded, we need to have the *complete* list of analyzed targets ready in
+      // BuildResultListener.
       env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
 
       BuildConfigurationValue buildConfigurationValue =
@@ -178,6 +183,9 @@ public class BuildDriverFunction implements SkyFunction {
                       TestAnalyzedEvent.create(
                           configuredTarget, buildConfigurationValue, /*isSkipped=*/ true));
             }
+            // Only send the event now to include the compatibility check in the measurement for
+            // time spent on analysis work.
+            env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
@@ -187,6 +195,7 @@ public class BuildDriverFunction implements SkyFunction {
         }
       }
 
+      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
       env.getListener()
           .post(
               TopLevelTargetPendingExecutionEvent.create(
@@ -199,6 +208,7 @@ public class BuildDriverFunction implements SkyFunction {
           env,
           topLevelArtifactContext);
     } else {
+      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
       requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
 

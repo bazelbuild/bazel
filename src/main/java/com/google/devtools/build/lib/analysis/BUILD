@@ -481,6 +481,16 @@ java_library(
 )
 
 java_library(
+    name = "analysis_operation_watcher",
+    srcs = ["AnalysisOperationWatcher.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "analysis_phase_complete_event",
     srcs = ["AnalysisPhaseCompleteEvent.java"],
     deps = [
@@ -625,6 +635,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",

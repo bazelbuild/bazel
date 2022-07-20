@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.PrepareAnalysisPhaseValue;
@@ -213,7 +214,8 @@ public class BuildView {
       BugReporter bugReporter,
       boolean includeExecutionPhase,
       int mergedPhasesExecutionJobsCount,
-      @Nullable ResourceManager resourceManager)
+      @Nullable ResourceManager resourceManager,
+      @Nullable BuildResultListener buildResultListener)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
           BuildFailedException, TestExecException {
     logger.atInfo().log("Starting analysis");
@@ -410,9 +412,6 @@ public class BuildView {
       } else {
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
-        // For the Skymeld code path, we expect action execution and hence a non-null resource
-        // manager.
-        Preconditions.checkNotNull(resourceManager);
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -425,7 +424,8 @@ public class BuildView {
                 explicitTargetPatterns,
                 eventBus,
                 bugReporter,
-                resourceManager,
+                Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
+                Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
                 keepGoing,
                 viewOptions.strictConflictChecks,
                 checkForActionConflicts,

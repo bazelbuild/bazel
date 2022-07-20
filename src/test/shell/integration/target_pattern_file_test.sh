@@ -73,7 +73,8 @@ sh_test(name = "y", srcs = ["x.out"])
 EOF
 
   cat >build.params <<'EOF'
-//:x
+# Test comment
+//:x # Trailing comment
 //:y
 EOF
 }

@@ -33,22 +33,4 @@ public interface EventFilter extends Predicate<Event> {
   default boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
     return true;
   }
-
-  EventFilter NO_STORAGE =
-      new EventFilter() {
-        @Override
-        public boolean storeEventsAndPosts() {
-          return false;
-        }
-
-        @Override
-        public boolean test(Event event) {
-          return false;
-        }
-
-        @Override
-        public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
-          throw new UnsupportedOperationException();
-        }
-      };
 }

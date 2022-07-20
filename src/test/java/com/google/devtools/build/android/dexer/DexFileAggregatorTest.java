@@ -27,7 +27,6 @@ import com.android.dx.dex.cf.CfOptions;
 import com.android.dx.dex.file.DexFile;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.ZipEntry;
 import org.junit.Before;
@@ -53,7 +52,7 @@ public class DexFileAggregatorTest {
   private Dex dex;
 
   @Before
-  public void setUp() throws IOException {
+  public void setUp() throws Exception {
     dex = DexFiles.toDex(convertClass(DexFileAggregatorTest.class));
     MockitoAnnotations.initMocks(this);
   }
@@ -182,7 +181,7 @@ public class DexFileAggregatorTest {
     assertThat(Iterables.size(written.getValue().classDefs())).isEqualTo(2);
   }
 
-  private static DexFile convertClass(Class<?> clazz) throws IOException {
+  private static DexFile convertClass(Class<?> clazz) throws Exception {
     String path = clazz.getName().replace('.', '/') + ".class";
     try (InputStream in =
         Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {

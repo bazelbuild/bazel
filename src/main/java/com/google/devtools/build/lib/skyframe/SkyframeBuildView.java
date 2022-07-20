@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +43,8 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
+import com.google.devtools.build.lib.analysis.AnalysisOperationWatcher;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -624,6 +627,7 @@ public final class SkyframeBuildView {
       EventBus eventBus,
       BugReporter bugReporter,
       ResourceManager resourceManager,
+      BuildResultListener buildResultListener,
       boolean keepGoing,
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
@@ -633,6 +637,7 @@ public final class SkyframeBuildView {
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
     enableAnalysis(true);
+    Stopwatch analysisWorkTimer = Stopwatch.createStarted();
     EvaluationResult<BuildDriverValue> evaluationResult;
 
     ImmutableSet<SkyKey> newKeys =
@@ -673,125 +678,140 @@ public final class SkyframeBuildView {
             .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
 
-    try {
-      resourceManager.resetResourceUsage();
-      try (SilentCloseable c =
-          Profiler.instance().profile("skyframeExecutor.evaluateBuildDriverKeys")) {
-        evaluationResult =
-            skyframeExecutor.evaluateBuildDriverKeys(
-                eventHandler,
-                buildDriverCTKeys,
-                buildDriverAspectKeys,
-                keepGoing,
-                numThreads,
-                cpuHeavySkyKeysThreadPoolSize,
-                mergedPhasesExecutionJobsCount);
-      } finally {
-        enableAnalysis(false);
-        skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
-      }
+    try (AnalysisOperationWatcher autoCloseableWatcher =
+        AnalysisOperationWatcher.createAndRegisterWithEventBus(
+            Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys)),
+            eventBus,
+            /*finisher=*/ () ->
+                eventBus.post(
+                    AnalysisPhaseCompleteEvent.fromSkymeld(
+                        buildResultListener.getAnalyzedTargets(),
+                        getEvaluatedCounts(),
+                        getEvaluatedActionCounts(),
+                        analysisWorkTimer.stop().elapsed().toMillis(),
+                        skyframeExecutor.getPackageManager().getAndClearStatistics(),
+                        skyframeExecutor.wasAnalysisCacheInvalidatedAndResetBit())))) {
 
-      // The exclusive tests whose analysis succeeded i.e. those that can be run.
-      ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
-      boolean continueWithExclusiveTests = !evaluationResult.hasError() || keepGoing;
+      try {
+        resourceManager.resetResourceUsage();
+        try (SilentCloseable c =
+            Profiler.instance().profile("skyframeExecutor.evaluateBuildDriverKeys")) {
+          evaluationResult =
+              skyframeExecutor.evaluateBuildDriverKeys(
+                  eventHandler,
+                  buildDriverCTKeys,
+                  buildDriverAspectKeys,
+                  keepGoing,
+                  numThreads,
+                  cpuHeavySkyKeysThreadPoolSize,
+                  mergedPhasesExecutionJobsCount);
+        } finally {
+          enableAnalysis(false);
+          skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+        }
 
-      if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
-        // Run exclusive tests sequentially.
-        Iterable<SkyKey> testCompletionKeys =
-            TestCompletionValue.keys(
-                exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
-        for (SkyKey testCompletionKey : testCompletionKeys) {
-          EvaluationResult<SkyValue> testRunResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, ImmutableSet.of(testCompletionKey), keepGoing);
-          if (testRunResult.hasError()) {
-            detailedExitCodes.add(
-                SkyframeErrorProcessor.processErrors(
-                        testRunResult,
-                        configurationLookupSupplier,
-                        skyframeExecutor.getCyclesReporter(),
-                        eventHandler,
-                        keepGoing,
-                        eventBus,
-                        bugReporter,
-                        /*includeExecutionPhase=*/ true)
-                    .executionDetailedExitCode());
+        // The exclusive tests whose analysis succeeded i.e. those that can be run.
+        ImmutableSet<ConfiguredTarget> exclusiveTestsToRun = getExclusiveTests(evaluationResult);
+        boolean continueWithExclusiveTests = !evaluationResult.hasError() || keepGoing;
+
+        if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
+          // Run exclusive tests sequentially.
+          Iterable<SkyKey> testCompletionKeys =
+              TestCompletionValue.keys(
+                  exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
+          for (SkyKey testCompletionKey : testCompletionKeys) {
+            EvaluationResult<SkyValue> testRunResult =
+                skyframeExecutor.evaluateSkyKeys(
+                    eventHandler, ImmutableSet.of(testCompletionKey), keepGoing);
+            if (testRunResult.hasError()) {
+              detailedExitCodes.add(
+                  SkyframeErrorProcessor.processErrors(
+                          testRunResult,
+                          configurationLookupSupplier,
+                          skyframeExecutor.getCyclesReporter(),
+                          eventHandler,
+                          keepGoing,
+                          eventBus,
+                          bugReporter,
+                          /*includeExecutionPhase=*/ true)
+                      .executionDetailedExitCode());
+            }
           }
         }
+      } finally {
+        // No more action execution beyond this point.
+        skyframeExecutor.clearExecutionStates(eventHandler);
+        // Also releases thread locks.
+        resourceManager.resetResourceUsage();
       }
-    } finally {
-      // No more action execution beyond this point.
-      skyframeExecutor.clearExecutionStates(eventHandler);
-      // Also releases thread locks.
-      resourceManager.resetResourceUsage();
-    }
 
-    if (!evaluationResult.hasError() && detailedExitCodes.isEmpty()) {
+      if (!evaluationResult.hasError() && detailedExitCodes.isEmpty()) {
+        ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
+            getSuccessfulAspectMap(
+                topLevelAspectsKeys.size(),
+                evaluationResult,
+                buildDriverAspectKeys,
+                /*topLevelActionConflictReport=*/ null);
+        ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
+            getSuccessfulConfiguredTargets(
+                ctKeys.size(),
+                evaluationResult,
+                buildDriverCTKeys,
+                /*topLevelActionConflictReport=*/ null);
+
+        return SkyframeAnalysisAndExecutionResult.success(
+            successfulConfiguredTargets,
+            evaluationResult.getWalkableGraph(),
+            successfulAspects,
+            /*packageRoots=*/ null);
+      }
+
+      ErrorProcessingResult errorProcessingResult =
+          SkyframeErrorProcessor.processErrors(
+              evaluationResult,
+              configurationLookupSupplier,
+              skyframeExecutor.getCyclesReporter(),
+              eventHandler,
+              keepGoing,
+              eventBus,
+              bugReporter,
+              /*includeExecutionPhase=*/ true);
+      detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
+
+      foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
+      TopLevelActionConflictReport topLevelActionConflictReport =
+          foundActionConflictInLatestCheck
+              ? handleActionConflicts(
+                  eventHandler,
+                  ctKeys,
+                  topLevelAspectsKeys,
+                  configurationLookupSupplier,
+                  topLevelArtifactContext,
+                  eventBus,
+                  keepGoing,
+                  errorProcessingResult)
+              : null;
+
       ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
           getSuccessfulAspectMap(
               topLevelAspectsKeys.size(),
               evaluationResult,
               buildDriverAspectKeys,
-              /*topLevelActionConflictReport=*/ null);
+              topLevelActionConflictReport);
       ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
           getSuccessfulConfiguredTargets(
-              ctKeys.size(),
-              evaluationResult,
-              buildDriverCTKeys,
-              /*topLevelActionConflictReport=*/ null);
+              ctKeys.size(), evaluationResult, buildDriverCTKeys, topLevelActionConflictReport);
 
-      return SkyframeAnalysisAndExecutionResult.success(
+      return SkyframeAnalysisAndExecutionResult.withErrors(
+          /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
+          /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
+          /*hasActionConflicts=*/ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
           evaluationResult.getWalkableGraph(),
           successfulAspects,
-          /*packageRoots=*/ null);
+          /*packageRoots=*/ null,
+          Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
     }
-
-    ErrorProcessingResult errorProcessingResult =
-        SkyframeErrorProcessor.processErrors(
-            evaluationResult,
-            configurationLookupSupplier,
-            skyframeExecutor.getCyclesReporter(),
-            eventHandler,
-            keepGoing,
-            eventBus,
-            bugReporter,
-            /*includeExecutionPhase=*/ true);
-    detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
-
-    foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
-    TopLevelActionConflictReport topLevelActionConflictReport =
-        foundActionConflictInLatestCheck
-            ? handleActionConflicts(
-                eventHandler,
-                ctKeys,
-                topLevelAspectsKeys,
-                configurationLookupSupplier,
-                topLevelArtifactContext,
-                eventBus,
-                keepGoing,
-                errorProcessingResult)
-            : null;
-
-    ImmutableMap<AspectKey, ConfiguredAspect> successfulAspects =
-        getSuccessfulAspectMap(
-            topLevelAspectsKeys.size(),
-            evaluationResult,
-            buildDriverAspectKeys,
-            topLevelActionConflictReport);
-    ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
-        getSuccessfulConfiguredTargets(
-            ctKeys.size(), evaluationResult, buildDriverCTKeys, topLevelActionConflictReport);
-
-    return SkyframeAnalysisAndExecutionResult.withErrors(
-        /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
-        /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
-        /*hasActionConflicts=*/ foundActionConflictInLatestCheck,
-        successfulConfiguredTargets,
-        evaluationResult.getWalkableGraph(),
-        successfulAspects,
-        /*packageRoots=*/ null,
-        Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
   }
 
   /**

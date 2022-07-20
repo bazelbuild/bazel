@@ -88,7 +88,7 @@ rule_with_implicit_outs_and_validation = rule(
         allow_single_file = True,
         default = Label("//validation_actions:validation_tool"),
         executable = True,
-        cfg = "host"),
+        cfg = "exec"),
   }
 )
 
@@ -103,7 +103,7 @@ rule_with_implicit_and_host_deps = rule(
     "host_dep": attr.label(
         allow_single_file = True,
         default = Label("//validation_actions:some_host_dep"),
-        cfg = "host"),
+        cfg = "exec"),
   }
 )
 EOF
