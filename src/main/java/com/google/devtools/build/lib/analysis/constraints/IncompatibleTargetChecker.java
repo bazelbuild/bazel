@@ -246,7 +246,7 @@ public class IncompatibleTargetChecker {
         new RuleConfiguredTarget(
             target.getLabel(),
             configuration.getKey(),
-            convertVisibility(target),
+            convertVisibility(),
             providerBuilder.build(),
             configConditions.asProviders(),
             ruleClassString);
@@ -257,20 +257,19 @@ public class IncompatibleTargetChecker {
             : transitivePackagesForPackageRootResolution.build());
   }
 
-  // Taken from ConfiguredTargetFactory.convertVisibility().
-  // TODO(phil): Figure out how to de-duplicate somehow.
-  private static NestedSet<PackageGroupContents> convertVisibility(Target target) {
-    RuleVisibility ruleVisibility = target.getVisibility();
-    if (ruleVisibility instanceof ConstantRuleVisibility) {
-      return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? NestedSetBuilder.create(
-              Order.STABLE_ORDER,
-              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
-          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-      throw new IllegalStateException("unsupported PackageGroupsRuleVisibility");
-    } else {
-      throw new IllegalStateException("unknown visibility");
-    }
+  /**
+   * Generates visibility for an incompatible target.
+   *
+   * The intent is for this function is to match ConfiguredTargetFactory.convertVisibility(). Since
+   * visibility is currently validated after incompatibility is evaluated, however, it doesn't
+   * matter what visibility we set here. To keep it simple, we pretend that all incompatible targets
+   * are public.
+   *
+   * TODO(phil): File a ticket and reference it here.
+   */
+  private static NestedSet<PackageGroupContents> convertVisibility() {
+    return NestedSetBuilder.create(
+        Order.STABLE_ORDER,
+        PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())));
   }
 }
