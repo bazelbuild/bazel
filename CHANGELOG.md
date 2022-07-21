@@ -1,3 +1,25 @@
+## Release 6.0.0-pre.20220706.4 (2022-07-21)
+
+```
+Baseline: ea8b99cf2a5914c67e4bd7651d83df98912bb1ed
+
+Cherry picks:
+
+   + 107a54edcf75dc026cf643df82c13fe32a1eb043:
+     Fix flag file regexp broken by
+     https://github.com/bazelbuild/bazel/commit/cb2cd9fd2b65311da92777
+     7c35939701add5b879.
+   + 1e7127dec96b69b8cd5d332551f8798433d6057e:
+     Reinstate legacy worker flag file behaviour when not using
+     --experimental_worker_strict_flagfiles.
+```
+
+Incompatible changes:
+
+  - Flag --experimental_local_memory_estimate removed.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Tomas Volf, Yannic Bonenberger.
+
 ## Release 6.0.0-pre.20220630.1 (2022-07-11)
 
 ```
