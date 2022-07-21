@@ -139,6 +139,36 @@ public class AuthAndTLSOptions extends OptionsBase {
               + "pings are disabled, then this setting is ignored.")
   public Duration grpcKeepaliveTimeout;
 
+  @Option(
+      name = "experimental_credential_helper",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = UnresolvedScopedCredentialHelperConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "TODO")
+  public List<UnresolvedScopedCredentialHelper> credentialHelpers;
+
+  @Option(
+      name = "credential_helper_timeout",
+      defaultValue = "5s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures the timeout for the Credential Helper.\n\n"
+              + "Credential Helpers failing to respond within this timeout will fail the invocation.")
+  public Duration credentialHelperTimeout;
+
+  @Option(
+      name = "credential_helper_cache_timeout",
+      defaultValue = "15m",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "TODO")
+  public Duration credentialHelperCacheTimeout;
+
   /** One of the values of the `--credential_helper` flag. */
   @AutoValue
   public abstract static class UnresolvedScopedCredentialHelper {

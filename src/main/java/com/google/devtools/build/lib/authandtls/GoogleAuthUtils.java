@@ -19,6 +19,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.events.Event;
@@ -234,24 +235,37 @@ public final class GoogleAuthUtils {
    */
   @Nullable
   public static Credentials newCredentials(
-      Reporter reporter,
-      Map<String, String> clientEnv,
+      CredentialHelperEnvironment credentialHelperEnvironment,
+      CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions)
       throws IOException {
+    Preconditions.checkNotNull(credentialHelperEnvironment);
+    Preconditions.checkNotNull(commandLinePathFactory);
+    Preconditions.checkNotNull(fileSystem);
+    Preconditions.checkNotNull(authAndTlsOptions);
+
     Optional<Credentials> credentials = newGoogleCredentials(authAndTlsOptions);
 
     if (credentials.isEmpty()) {
       // Fallback to .netrc if it exists.
       try {
-        credentials = newCredentialsFromNetrc(clientEnv, fileSystem);
+        credentials = newCredentialsFromNetrc(
+            credentialHelperEnvironment.getClientEnvironment(), fileSystem);
       } catch (IOException e) {
         // TODO(yannic): Make this fail the build.
-        reporter.handle(Event.warn(e.getMessage()));
+        credentialHelperEnvironment.getEventReporter().handle(Event.warn(e.getMessage()));
       }
     }
 
-    return credentials.orElse(null);
+    return new CredentialHelperCredentials(
+        newCredentialHelperProvider(
+            credentialHelperEnvironment,
+            commandLinePathFactory,
+            authAndTlsOptions.credentialHelpers),
+        credentialHelperEnvironment,
+        credentials,
+        authAndTlsOptions.credentialHelperCacheTimeout);
   }
 
   /**

@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -75,6 +76,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -214,9 +216,14 @@ public final class RemoteModule extends BlazeModule {
     try {
       creds =
           newCredentials(
-              env.getClientEnv(),
+              CredentialHelperEnvironment.newBuilder()
+                  .setEventReporter(env.getReporter())
+                  .setWorkspacePath(env.getWorkspace())
+                  .setClientEnvironment(env.getClientEnv())
+                  .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                  .build(),
+              env.getCommandLinePathFactory(),
               env.getRuntime().getFileSystem(),
-              env.getReporter(),
               authAndTlsOptions,
               remoteOptions);
     } catch (IOException e) {
@@ -429,9 +436,14 @@ public final class RemoteModule extends BlazeModule {
       callCredentialsProvider =
           GoogleAuthUtils.newCallCredentialsProvider(
               newCredentials(
-                  env.getClientEnv(),
+                  CredentialHelperEnvironment.newBuilder()
+                      .setEventReporter(env.getReporter())
+                      .setWorkspacePath(env.getWorkspace())
+                      .setClientEnvironment(env.getClientEnv())
+                      .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                      .build(),
+                  env.getCommandLinePathFactory(),
                   env.getRuntime().getFileSystem(),
-                  env.getReporter(),
                   authAndTlsOptions,
                   remoteOptions));
     } catch (IOException e) {
@@ -1040,14 +1052,18 @@ public final class RemoteModule extends BlazeModule {
   }
 
   static Credentials newCredentials(
-      Map<String, String> clientEnv,
+      CredentialHelperEnvironment credentialHelperEnvironment,
+      CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
-      Reporter reporter,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions)
       throws IOException {
     Credentials credentials =
-        GoogleAuthUtils.newCredentials(reporter, clientEnv, fileSystem, authAndTlsOptions);
+        GoogleAuthUtils.newCredentials(
+            credentialHelperEnvironment,
+            commandLinePathFactory,
+            fileSystem,
+            authAndTlsOptions);
 
     try {
       if (credentials != null
@@ -1055,11 +1071,13 @@ public final class RemoteModule extends BlazeModule {
           && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
           && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.
-        reporter.handle(
-            Event.warn(
-                "Credentials are transmitted in plaintext to "
-                    + remoteOptions.remoteCache
-                    + ". Please consider using an HTTPS endpoint."));
+        credentialHelperEnvironment
+            .getEventReporter()
+            .handle(
+                Event.warn(
+                    "Credentials are transmitted in plaintext to "
+                        + remoteOptions.remoteCache
+                        + ". Please consider using an HTTPS endpoint."));
       }
     } catch (URISyntaxException e) {
       throw new IOException(e.getMessage(), e);
