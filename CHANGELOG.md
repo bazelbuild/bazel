@@ -1,3 +1,59 @@
+## Release 6.0.0-pre.20220706.4 (2022-07-21)
+
+```
+Baseline: ea8b99cf2a5914c67e4bd7651d83df98912bb1ed
+
+Cherry picks:
+
+   + 107a54edcf75dc026cf643df82c13fe32a1eb043:
+     Fix flag file regexp broken by
+     https://github.com/bazelbuild/bazel/commit/cb2cd9fd2b65311da92777
+     7c35939701add5b879.
+   + 1e7127dec96b69b8cd5d332551f8798433d6057e:
+     Reinstate legacy worker flag file behaviour when not using
+     --experimental_worker_strict_flagfiles.
+```
+
+Incompatible changes:
+
+  - Flag --experimental_local_memory_estimate removed.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Tomas Volf, Yannic Bonenberger.
+
+## Release 6.0.0-pre.20220630.1 (2022-07-11)
+
+```
+Baseline: fbf9277975ceb7be5255fd5cf449e22706d25d3f
+```
+
+Important changes:
+
+  - Removed the obsolete --incompatible_applicable_licenses flag. The
+    feature is permanently enabled.
+  - embedded_tools packages R8 desugarer again
+  - Bazel now selects sh path based on execution platform instead of
+    host platform, making it possible to execute sh actions in
+    multiplatform builds. --shell_executable now only applies to
+    actions configured for host.
+  - labels in genquery.scope are no longer configured.
+  - When Bzlmod is enabled, all Bzlmod-generated repos will have an
+    extra '@' prepended to their names. This effectively enables the
+    canonical label literal syntax for Bzlmod-generated repos
+    (`@@canonicalRepoName//pkg:target`; see
+    https://docs.google.com/document/d/1N81qfCa8oskCk5LqTW-LNthy6EBrDo
+    t7bdUsjz6JFC4/edit?usp=sharing).
+  - Exposed `CcSharedLibraryInfo` to Starlark builtins.
+  - Enable --use_top_level_targets_for_symlinks by default.
+  - Singlejar accepts runtime Created-By field
+  - --noincompatible_disable_managed_directories, and with that,
+    workspace(managed_directories=) is not supported anymore.
+  - Bazel supports D8 desugaring, albeit without persistent workers
+  - Remove mtime options from pkg_tar. Users should migrate to
+    @rules_pkg.
+  - Test for experimental multiplexed persistent resource processor.
+
+This release contains contributions from many people at Google, as well as arun.sampathkumar, Benjamin Lee, Benjamin Peterson, Ed Schouten, Emil Kattainen, Fabian Brandstetter, Fabian Meumertzheim, hvadehra, Krishna Ersson, Philipp Schrader, Stephan Wolski, Steve Vermeulen, Xdng Yng.
+
 ## Release 6.0.0-pre.20220608.2 (2022-06-15)
 
 ```
