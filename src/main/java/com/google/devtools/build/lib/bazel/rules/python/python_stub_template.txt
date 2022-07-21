@@ -47,6 +47,13 @@ def GetWindowsPathWithUNCPrefix(path):
   if not IsWindows() or sys.version_info[0] < 3:
     return path
 
+  # Starting in Windows 10, version 1607(OS build 14393), MAX_PATH limitations have been
+  # removed from common Win32 file and directory functions.
+  # Related doc: https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=cmd#enable-long-paths-in-windows-10-version-1607-and-later
+  import platform
+  if platform.win32_ver()[1] >= '10.0.14393':
+    return path
+
   # import sysconfig only now to maintain python 2.6 compatibility
   import sysconfig
   if sysconfig.get_platform() == 'mingw':
