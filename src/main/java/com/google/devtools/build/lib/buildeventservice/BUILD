@@ -58,6 +58,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auth",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
