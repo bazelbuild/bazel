@@ -298,13 +298,14 @@ def Main():
   # keep first occurrence only.
   python_path_entries = [
     GetWindowsPathWithUNCPrefix(d)
-    for d in Deduplicate(python_path_entries)
+    for d in python_path_entries
   ]
 
   old_python_path = os.environ.get('PYTHONPATH')
-  python_path = os.pathsep.join(python_path_entries)
   if old_python_path:
-    python_path += os.pathsep + old_python_path
+    python_path_entries += old_python_path.split(os.pathsep)
+
+  python_path = os.pathsep.join(Deduplicate(python_path_entries))
 
   if IsWindows():
     python_path = python_path.replace('/', os.sep)
