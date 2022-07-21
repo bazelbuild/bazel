@@ -835,11 +835,7 @@ public class ExecutionTool {
     // iteration order as configuredTargets.
     ImmutableSet.Builder<ConfiguredTarget> successfulTargets = ImmutableSet.builder();
     for (ConfiguredTarget target : configuredTargets) {
-      if (builtTargets.contains(
-          ConfiguredTargetKey.builder()
-              .setConfiguredTarget(target)
-              .setConfigurationKey(target.getConfigurationKey())
-              .build())) {
+      if (builtTargets.contains(ConfiguredTargetKey.fromConfiguredTarget(target))) {
         successfulTargets.add(target);
       }
     }

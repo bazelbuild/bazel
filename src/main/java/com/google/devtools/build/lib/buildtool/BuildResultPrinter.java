@@ -119,7 +119,7 @@ class BuildResultPrinter {
           skipped.add(target);
         } else if (successfulTargets.contains(target)
             && validated.getOrDefault(
-                ConfiguredTargetKey.builder().setConfiguredTarget(target).build(), Boolean.TRUE)) {
+                ConfiguredTargetKey.fromConfiguredTarget(target), Boolean.TRUE)) {
           succeeded.add(target);
         } else {
           failed.add(target);

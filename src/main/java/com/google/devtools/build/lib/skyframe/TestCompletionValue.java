@@ -49,10 +49,7 @@ public final class TestCompletionValue implements SkyValue {
         targets,
         ct ->
             TestCompletionKey.create(
-                ConfiguredTargetKey.builder()
-                    .setConfiguredTarget(ct)
-                    .setConfigurationKey(ct.getConfigurationKey())
-                    .build(),
+                ConfiguredTargetKey.fromConfiguredTarget(ct),
                 topLevelArtifactContext,
                 exclusiveTesting));
   }

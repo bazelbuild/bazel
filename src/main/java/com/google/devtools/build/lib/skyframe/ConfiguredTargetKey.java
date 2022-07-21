@@ -200,6 +200,14 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return new Builder();
   }
 
+  /** Returns a new {@link ConfiguredTargetKey}. */
+  public static ConfiguredTargetKey fromConfiguredTarget(ConfiguredTarget configuredTarget) {
+    return builder()
+        .setLabel(configuredTarget.getOriginalLabel())
+        .setConfigurationKey(configuredTarget.getConfigurationKey())
+        .build();
+  }
+
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
   public static final class Builder {
     private Label label = null;
@@ -215,21 +223,8 @@ public class ConfiguredTargetKey implements ActionLookupKey {
       return this;
     }
 
-    /**
-     * Sets the {@link ConfiguredTarget} that we want a key for.
-     *
-     * <p>This sets both the label and configurationKey data.
-     */
-    @CanIgnoreReturnValue
-    public Builder setConfiguredTarget(ConfiguredTarget configuredTarget) {
-      setLabel(configuredTarget.getOriginalLabel());
-      if (this.configurationKey == null) {
-        setConfigurationKey(configuredTarget.getConfigurationKey());
-      }
-      return this;
-    }
-
     /** Sets the {@link BuildConfigurationValue} for the configured target. */
+    @CanIgnoreReturnValue
     public Builder setConfiguration(@Nullable BuildConfigurationValue buildConfiguration) {
       return setConfigurationKey(buildConfiguration == null ? null : buildConfiguration.getKey());
     }
