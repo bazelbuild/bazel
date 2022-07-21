@@ -303,6 +303,7 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " and 1 cpu.")
   public boolean experimentalActionResourceSet;
 
+
   @Option(
       name = "experimental_lazy_template_expansion",
       defaultValue = "false",
@@ -315,6 +316,17 @@ public final class BuildLanguageOptions extends OptionsBase {
           "If set to true, ctx.actions.expand_template() accepts a TemplateDict"
               + " parameter for deferred evaluation of substitution values.")
   public boolean experimentalLazyTemplateExpansion;
+
+  @Option(
+      name = "experimental_analysis_test_call",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help = "If set to true, analysis_test native call is available.")
+  public boolean experimentalAnalysisTestCall;
 
   @Option(
       name = "incompatible_struct_has_no_methods",
@@ -598,6 +610,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION, experimentalLazyTemplateExpansion)
+            .setBool(EXPERIMENTAL_ANALYSIS_TEST_CALL, experimentalAnalysisTestCall)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
@@ -676,6 +689,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ACTION_RESOURCE_SET = "+experimental_action_resource_set";
   public static final String EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION =
       "-experimental_lazy_template_expansion";
+  public static final String EXPERIMENTAL_ANALYSIS_TEST_CALL = "+experimental_analysis_test_call";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "-incompatible_allow_tags_propagation";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =

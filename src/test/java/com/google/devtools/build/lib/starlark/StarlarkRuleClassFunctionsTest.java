@@ -2635,4 +2635,190 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 .getDefaultValueUnchecked())
         .isEqualTo("v1");
   }
+
+  @Test
+  public void testAnalysisTest() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    getConfiguredTarget("//p:my_test_target");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAnalysisTestAttrs() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  ctx.attr.target_under_test",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  native.filegroup(name = 'my_subject', srcs = [])",
+        "  analysis_test(name = name,",
+        "    implementation = impl,",
+        "    attrs = {'target_under_test': attr.label_list()},",
+        "    attr_values = {'target_under_test': [':my_subject']},",
+        "  )");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    getConfiguredTarget("//p:my_test_target");
+
+    assertNoEvents();
+  }
+
+  /** Tests two analysis_test calls with same name. */
+  @Test
+  public void testAnalysisTestDuplicateName() throws Exception {
+    scratch.file(
+        "p/a.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro1(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro2(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':a.bzl','my_test_macro1')",
+        "load(':b.bzl','my_test_macro2')",
+        "my_test_macro1(name = 'my_test_target')",
+        "my_test_macro2(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my_test_target");
+
+    ev.assertContainsError(
+        "Error in analysis_test: my_test_target_test rule 'my_test_target' in package 'p' conflicts"
+            + " with existing my_test_target_test rule");
+  }
+
+  /**
+   * Tests analysis_test call with a name that is not Starlark identifier (but still a good target
+   * name).
+   */
+  @Test
+  public void testAnalysisTestBadName() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my+test+target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my+test+target");
+
+    ev.assertContainsError(
+        "Error in analysis_test: 'name' is limited to Starlark identifiers, got my+test+target");
+  }
+
+  @Test
+  public void testAnalysisTestBadArgs() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl, attr_values = {'notthere': []})");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my_test_target");
+
+    ev.assertContainsError("no such attribute 'notthere' in 'my_test_target_test' rule");
+  }
+
+  @Test
+  public void testAnalysisTestErrorOnExport() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl, attrs = {'name': attr.string()})");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my_test_target");
+
+    ev.assertContainsError(
+        "Error in analysis_test: Errors in exporting my_test_target: \n"
+            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
+            + " overridden.");
+  }
+
+  @Test
+  public void testAnalysisTestErrorOverridingName() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl, attr_values = {'name': 'override'})");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:override");
+
+    ev.assertContainsError(
+        "Error in analysis_test: 'name' cannot be set or overridden in 'attr_values'");
+  }
 }

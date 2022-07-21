@@ -100,6 +100,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -111,6 +112,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
@@ -121,6 +123,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   // A cache for base rule classes (especially tests).
   private static final LoadingCache<String, Label> labelCache =
       Caffeine.newBuilder().build(Label::parseCanonical);
+  private static final Pattern RULE_NAME_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
   // TODO(bazel-team): Remove the code duplication (BaseRuleClasses and this class).
   /** Parent rule class for non-executable non-test Starlark rules. */
@@ -276,7 +279,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   // TODO(bazel-team): implement attribute copy and other rule properties
   @Override
-  public StarlarkCallable rule(
+  public StarlarkRuleFunction rule(
       StarlarkFunction implementation,
       Boolean test,
       Object attrs,
@@ -492,6 +495,81 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
     }
     return starlarkRuleFunction;
+  }
+
+  @Override
+  public void analysisTest(
+      String name,
+      StarlarkFunction implementation,
+      Object attrs,
+      Sequence<?> fragments,
+      Sequence<?> toolchains,
+      Object attrValuesApi,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    if (!RULE_NAME_PATTERN.matcher(name).matches()) {
+      throw Starlark.errorf("'name' is limited to Starlark identifiers, got %s", name);
+    }
+    Dict<String, Object> attrValues =
+        Dict.cast(attrValuesApi, String.class, Object.class, "attr_values");
+    if (attrValues.containsKey("name")) {
+      throw Starlark.errorf("'name' cannot be set or overridden in 'attr_values'");
+    }
+
+    StarlarkRuleFunction starlarkRuleFunction =
+        rule(
+            implementation,
+            /*test=*/ true,
+            attrs,
+            /*implicitOutputs=*/ Starlark.NONE,
+            /*executable=*/ false,
+            /*outputToGenfiles=*/ false,
+            /*fragments=*/ fragments,
+            /*hostFragments=*/ StarlarkList.empty(),
+            /*starlarkTestable=*/ false,
+            /*toolchains=*/ toolchains,
+            /*useToolchainTransition=*/ false,
+            /*doc=*/ "",
+            /*providesArg=*/ StarlarkList.empty(),
+            /*execCompatibleWith=*/ StarlarkList.empty(),
+            /*analysisTest=*/ Boolean.TRUE,
+            /*buildSetting=*/ Starlark.NONE,
+            /*cfg=*/ Starlark.NONE,
+            /*execGroups=*/ Starlark.NONE,
+            /*compileOneFiletype=*/ Starlark.NONE,
+            /*name=*/ Starlark.NONE,
+            thread);
+
+    // Export the rule
+    // Because exporting can raise multiple errors, we need to accumulate them here into a single
+    // EvalException. This is a code smell because any non-ERROR events will be lost, and any
+    // location information in the events will be overwritten by the location of this rule's
+    // definition.
+    // However, this is currently fine because StarlarkRuleFunction#export only creates events that
+    // are ERRORs and that have the rule definition as their location.
+    // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
+    // BazelStarlarkContext, and exporting such rules after module evaluation in
+    // BzlLoadFunction#execAndExport.
+    PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
+    StoredEventHandler handler = new StoredEventHandler();
+    starlarkRuleFunction.export(
+        handler, pkgContext.getLabel(), name + "_test"); // export in BUILD thread
+    if (handler.hasErrors()) {
+      StringBuilder errors =
+          handler.getEvents().stream()
+              .filter(e -> e.getKind() == EventKind.ERROR)
+              .reduce(
+                  new StringBuilder(),
+                  (sb, ev) -> sb.append("\n").append(ev.getMessage()),
+                  StringBuilder::append);
+      throw Starlark.errorf("Errors in exporting %s: %s", name, errors.toString());
+    }
+
+    // Instantiate the target
+    Dict.Builder<String, Object> args = Dict.builder();
+    args.put("name", name);
+    args.putAll(attrValues);
+    starlarkRuleFunction.call(thread, Tuple.of(), args.buildImmutable());
   }
 
   /**
