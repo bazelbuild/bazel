@@ -550,6 +550,18 @@ public class BuildRequestOptions extends OptionsBase {
   public PathFragment aqueryDumpAfterBuildOutputFile;
 
   /**
+   * --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
+   * analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
+   * should be ignored.
+   *
+   * <p>This method should always be preferred over {@link mergedSkyframeAnalysisExecution} to
+   * determine whether analysis and execution should be merged.
+   */
+  public boolean shouldMergeSkyframeAnalysisExecution() {
+    return mergedSkyframeAnalysisExecution && performExecutionPhase;
+  }
+
+  /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
    */

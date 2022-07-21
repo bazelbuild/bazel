@@ -188,7 +188,7 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
-      if (request.getBuildOptions().mergedSkyframeAnalysisExecution) {
+      if (request.getBuildOptions().shouldMergeSkyframeAnalysisExecution()) {
         // Target pattern evaluation.
         TargetPatternPhaseValue loadingResult;
         Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);

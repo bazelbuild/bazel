@@ -369,8 +369,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           .register(
               new TargetSummaryPublisher(
                   cmdEnv.getEventBus(),
-                  parsingResult.getOptions(BuildRequestOptions.class)
-                      .mergedSkyframeAnalysisExecution));
+                  parsingResult
+                      .getOptions(BuildRequestOptions.class)
+                      .shouldMergeSkyframeAnalysisExecution()));
     }
 
     streamer =
