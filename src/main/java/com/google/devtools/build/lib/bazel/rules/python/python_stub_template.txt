@@ -315,6 +315,10 @@ def Main():
   if runfiles_envkey:
     new_env[runfiles_envkey] = runfiles_envvalue
 
+  # Don't prepend a potentially unsafe path to sys.path
+  # See: https://docs.python.org/3.11/using/cmdline.html#envvar-PYTHONSAFEPATH
+  new_env['PYTHONSAFEPATH'] = '1'
+
   # Now look for my main python source file.
   # The magic string percent-main-percent is replaced with the filename of the
   # main file of the Python binary in BazelPythonSemantics.java.
