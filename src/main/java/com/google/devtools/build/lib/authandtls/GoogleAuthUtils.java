@@ -19,8 +19,11 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
@@ -337,5 +340,28 @@ public final class GoogleAuthUtils {
       throw new IOException(
           "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), e);
     }
+  }
+
+  @VisibleForTesting
+  public static CredentialHelperProvider newCredentialHelperProvider(
+      CredentialHelperEnvironment environment,
+      CommandLinePathFactory pathFactory,
+      List<AuthAndTLSOptions.UnresolvedScopedCredentialHelper> helpers)
+      throws IOException {
+    Preconditions.checkNotNull(environment);
+    Preconditions.checkNotNull(pathFactory);
+    Preconditions.checkNotNull(helpers);
+
+    CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
+    for (AuthAndTLSOptions.UnresolvedScopedCredentialHelper helper : helpers) {
+      Optional<String> scope = helper.getScope();
+      Path path = pathFactory.create(environment.getClientEnvironment(), helper.getPath());
+      if (scope.isPresent()) {
+        builder.add(scope.get(), path);
+      } else {
+        builder.add(path);
+      }
+    }
+    return builder.build();
   }
 }
