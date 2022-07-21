@@ -49,9 +49,6 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.UnresolvedScopedCredentialHelper;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
-import com.google.devtools.build.lib.authandtls.Netrc;
-import com.google.devtools.build.lib.authandtls.NetrcCredentials;
-import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -1047,95 +1044,6 @@ public final class RemoteModule extends BlazeModule {
     return actionContextProvider;
   }
 
-  /**
-   * Create a new {@link Credentials} object by parsing the .netrc file with following order to
-   * search it:
-   *
-   * <ol>
-   *   <li>If environment variable $NETRC exists, use it as the path to the .netrc file
-   *   <li>Fallback to $HOME/.netrc
-   * </ol>
-   *
-   * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
-   * @throws IOException in case the credentials can't be constructed.
-   */
-  @Nullable
-  @VisibleForTesting
-  static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
-      throws IOException {
-    String netrcFileString =
-        Optional.ofNullable(clientEnv.get("NETRC"))
-            .orElseGet(
-                () ->
-                    Optional.ofNullable(clientEnv.get("HOME"))
-                        .map(home -> home + "/.netrc")
-                        .orElse(null));
-    if (netrcFileString == null) {
-      return null;
-    }
-
-    Path netrcFile = fileSystem.getPath(netrcFileString);
-    if (netrcFile.exists()) {
-      try {
-        Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
-        return new NetrcCredentials(netrc);
-      } catch (IOException e) {
-        throw new IOException(
-            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), e);
-      }
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * Create a new {@link Credentials} with following order:
-   *
-   * <ol>
-   *   <li>If authentication enabled by flags, use it to create credentials
-   *   <li>Use .netrc to provide credentials if exists
-   *   <li>Otherwise, return {@code null}
-   * </ol>
-   *
-   * @throws IOException in case the credentials can't be constructed.
-   */
-  @VisibleForTesting
-  static Credentials newCredentials(
-      Map<String, String> clientEnv,
-      FileSystem fileSystem,
-      Reporter reporter,
-      AuthAndTLSOptions authAndTlsOptions,
-      RemoteOptions remoteOptions)
-      throws IOException {
-    Credentials creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
-
-    // Fallback to .netrc if it exists
-    if (creds == null) {
-      try {
-        creds = newCredentialsFromNetrc(clientEnv, fileSystem);
-      } catch (IOException e) {
-        reporter.handle(Event.warn(e.getMessage()));
-      }
-
-      try {
-        if (creds != null
-            && remoteOptions.remoteCache != null
-            && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
-            && !creds.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
-          reporter.handle(
-              Event.warn(
-                  "Username and password from .netrc is transmitted in plaintext to "
-                      + remoteOptions.remoteCache
-                      + ". Please consider using an HTTPS endpoint."));
-        }
-      } catch (URISyntaxException e) {
-        throw new IOException(e.getMessage(), e);
-      }
-    }
-
-    return creds;
-  }
-
   @VisibleForTesting
   static CredentialHelperProvider newCredentialHelperProvider(
       CredentialHelperEnvironment environment,
@@ -1157,6 +1065,35 @@ public final class RemoteModule extends BlazeModule {
       }
     }
     return builder.build();
+  }
+
+  static Credentials newCredentials(
+      Map<String, String> clientEnv,
+      FileSystem fileSystem,
+      Reporter reporter,
+      AuthAndTLSOptions authAndTlsOptions,
+      RemoteOptions remoteOptions)
+      throws IOException {
+    Credentials credentials =
+        GoogleAuthUtils.newCredentials(reporter, clientEnv, fileSystem, authAndTlsOptions);
+
+    try {
+      if (credentials != null
+          && remoteOptions.remoteCache != null
+          && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
+          && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
+        // TODO(yannic): Make this a error aborting the build.
+        reporter.handle(
+            Event.warn(
+                "Credentials are transmitted in plaintext to "
+                    + remoteOptions.remoteCache
+                    + ". Please consider using an HTTPS endpoint."));
+      }
+    } catch (URISyntaxException e) {
+      throw new IOException(e.getMessage(), e);
+    }
+
+    return credentials;
   }
 
   @VisibleForTesting

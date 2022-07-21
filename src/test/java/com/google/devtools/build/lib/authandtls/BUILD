@@ -25,7 +25,11 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:auth",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

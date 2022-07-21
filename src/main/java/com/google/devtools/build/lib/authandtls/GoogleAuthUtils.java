@@ -19,6 +19,10 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
@@ -41,6 +45,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -186,15 +192,17 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link CallCredentials} object.
+   * Create a new {@link CallCredentials} object from the authentication flags, or null if no flags
+   * are set.
    *
-   * @throws IOException in case the call credentials can't be constructed.
+   * @throws IOException in case the credentials can't be constructed.
    */
   @Nullable
-  public static CallCredentials newCallCredentials(AuthAndTLSOptions options) throws IOException {
-    Credentials creds = newCredentials(options);
-    if (creds != null) {
-      return MoreCallCredentials.from(creds);
+  public static CallCredentials newGoogleCallCredentials(AuthAndTLSOptions options)
+      throws IOException {
+    Optional<Credentials> creds = newGoogleCredentials(options);
+    if (creds.isPresent()) {
+      return MoreCallCredentials.from(creds.get());
     }
     return null;
   }
@@ -211,18 +219,52 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link Credentials} object, or {@code null} if no options are provided.
+   * Create a new {@link Credentials} with following order:
+   *
+   * <ol>
+   *   <li>If authentication enabled by flags, use it to create credentials
+   *   <li>Use .netrc to provide credentials if exists
+   *   <li>Otherwise, return {@code null}
+   * </ol>
    *
    * @throws IOException in case the credentials can't be constructed.
    */
   @Nullable
-  public static Credentials newCredentials(@Nullable AuthAndTLSOptions options) throws IOException {
+  public static Credentials newCredentials(
+      Reporter reporter,
+      Map<String, String> clientEnv,
+      FileSystem fileSystem,
+      AuthAndTLSOptions authAndTlsOptions)
+      throws IOException {
+    Optional<Credentials> credentials = newGoogleCredentials(authAndTlsOptions);
+
+    if (credentials.isEmpty()) {
+      // Fallback to .netrc if it exists.
+      try {
+        credentials = newCredentialsFromNetrc(clientEnv, fileSystem);
+      } catch (IOException e) {
+        // TODO(yannic): Make this fail the build.
+        reporter.handle(Event.warn(e.getMessage()));
+      }
+    }
+
+    return credentials.orElse(null);
+  }
+
+  /**
+   * Create a new {@link Credentials} object from the authentication flags, or null if no flags are
+   * set.
+   *
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  public static Optional<Credentials> newGoogleCredentials(@Nullable AuthAndTLSOptions options)
+      throws IOException {
     if (options == null) {
-      return null;
+      return Optional.empty();
     } else if (options.googleCredentials != null) {
       // Credentials from file
       try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
-        return newCredentials(authFile, options.googleAuthScopes);
+        return Optional.of(newGoogleCredentialsFromFile(authFile, options.googleAuthScopes));
       } catch (FileNotFoundException e) {
         String message =
             String.format(
@@ -231,10 +273,11 @@ public final class GoogleAuthUtils {
         throw new IOException(message, e);
       }
     } else if (options.useGoogleDefaultCredentials) {
-      return newCredentials(
-          null /* Google Application Default Credentials */, options.googleAuthScopes);
+      return Optional.of(
+          newGoogleCredentialsFromFile(
+              null /* Google Application Default Credentials */, options.googleAuthScopes));
     }
-    return null;
+    return Optional.empty();
   }
 
   /**
@@ -243,7 +286,7 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the credentials can't be constructed.
    */
   @VisibleForTesting
-  public static Credentials newCredentials(
+  public static Credentials newGoogleCredentialsFromFile(
       @Nullable InputStream credentialsFile, List<String> authScopes) throws IOException {
     try {
       GoogleCredentials creds =
@@ -257,6 +300,42 @@ public final class GoogleAuthUtils {
     } catch (IOException e) {
       String message = "Failed to init auth credentials: " + e.getMessage();
       throw new IOException(message, e);
+    }
+  }
+
+  /**
+   * Create a new {@link Credentials} object by parsing the .netrc file with following order to
+   * search it:
+   *
+   * <ol>
+   *   <li>If environment variable $NETRC exists, use it as the path to the .netrc file
+   *   <li>Fallback to $HOME/.netrc
+   * </ol>
+   *
+   * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  @VisibleForTesting
+  static Optional<Credentials> newCredentialsFromNetrc(
+      Map<String, String> clientEnv, FileSystem fileSystem) throws IOException {
+    Optional<String> netrcFileString =
+        Optional.ofNullable(clientEnv.get("NETRC"))
+            .or(() -> Optional.ofNullable(clientEnv.get("HOME")).map(home -> home + "/.netrc"));
+    if (netrcFileString.isEmpty()) {
+      return Optional.empty();
+    }
+
+    Path netrcFile = fileSystem.getPath(netrcFileString.get());
+    if (!netrcFile.exists()) {
+      return Optional.empty();
+    }
+
+    try {
+      Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
+      return Optional.of(new NetrcCredentials(netrc));
+    } catch (IOException e) {
+      throw new IOException(
+          "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), e);
     }
   }
 }
