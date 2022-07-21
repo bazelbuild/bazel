@@ -19,11 +19,17 @@ import sys
 del sys.path[0]
 
 import os
-import re
-import shutil
 import subprocess
-import tempfile
-import zipfile
+
+def IsRunningFromZip():
+  return %is_zipfile%
+
+if IsRunningFromZip():
+  import shutil
+  import tempfile
+  import zipfile
+else:
+  import re
 
 # Return True if running on Windows
 def IsWindows():
@@ -70,9 +76,6 @@ def SearchPath(name):
       if os.path.isfile(path) and os.access(path, os.X_OK):
         return path
   return None
-
-def IsRunningFromZip():
-  return %is_zipfile%
 
 def FindPythonBinary(module_space):
   """Finds the real Python binary if it's not a normal absolute path."""
