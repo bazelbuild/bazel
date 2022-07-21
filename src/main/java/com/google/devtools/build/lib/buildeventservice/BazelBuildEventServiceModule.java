@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,16 +78,21 @@ public class BazelBuildEventServiceModule
     BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
+      Preconditions.checkState(config == null);
+      Preconditions.checkState(client == null);
+
+      Credentials credentials =
+          GoogleAuthUtils.newCredentials(
+              env.getReporter(),
+              env.getClientEnv(),
+              env.getRuntime().getFileSystem(),
+              newConfig.authAndTLSOptions());
+
       config = newConfig;
       client =
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
-              MoreCallCredentials.from(
-                  GoogleAuthUtils.newCredentials(
-                      env.getReporter(),
-                      env.getClientEnv(),
-                      env.getRuntime().getFileSystem(),
-                      config.authAndTLSOptions())),
+              credentials != null ? MoreCallCredentials.from(credentials) : null,
               makeGrpcInterceptor(config));
     }
     return client;
