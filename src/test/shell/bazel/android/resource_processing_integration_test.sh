@@ -123,7 +123,7 @@ function test_persistent_multiplex_resource_processor() {
   setup_font_resources
 
   assert_build //java/bazel:bin --persistent_android_resource_processor \
-    --experimental_persistent_multiplex_busybox_tools
+    --persistent_multiplex_android_resource_processor
 }
 
 run_suite "Resource processing integration tests"

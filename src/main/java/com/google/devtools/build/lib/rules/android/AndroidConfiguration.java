@@ -861,8 +861,40 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           "--strategy=AndroidManifestMerger=worker",
           "--strategy=Aapt2Optimize=worker",
           "--strategy=AARGenerator=worker",
+          "--strategy=Desugar=worker",
+          "--strategy=DexBuilder=worker",
         })
     public Void persistentResourceProcessor;
+
+    @Option(
+        name = "persistent_multiplex_android_resource_processor",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        help = "Enable the persistent Android resource processor by using workers.",
+        expansion = {
+          "--persistent_android_resource_processor",
+          "--modify_execution_info=AaptPackage=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceParser=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceValidator=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceCompiler=+supports-multiplex-workers",
+          "--modify_execution_info=RClassGenerator=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceLink=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidAapt2=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidAssetMerger=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidResourceMerger=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidCompiledResourceMerger=+supports-multiplex-workers",
+          "--modify_execution_info=ManifestMerger=+supports-multiplex-workers",
+          "--modify_execution_info=AndroidManifestMerger=+supports-multiplex-workers",
+          "--modify_execution_info=Aapt2Optimize=+supports-multiplex-workers",
+          "--modify_execution_info=AARGenerator=+supports-multiplex-workers",
+          "--modify_execution_info=Desugar=+supports-multiplex-workers",
+          "--modify_execution_info=DexBuilder=+supports-multiplex-workers",
+        })
+    public Void persistentMultiplexAndroidResourceProcessor;
 
     /**
      * We use this option to decide when to enable workers for busybox tools. This flag is also a
@@ -882,17 +914,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         help = "Tracking flag for when busybox workers are enabled.")
     public boolean persistentBusyboxTools;
-
-    @Option(
-        name = "experimental_persistent_multiplex_busybox_tools",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {
-          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
-          OptionEffectTag.EXECUTION,
-        },
-        defaultValue = "false",
-        help = "Tracking flag for when multiplex busybox workers are enabled.")
-    public boolean experimentalPersistentMultiplexBusyboxTools;
 
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
@@ -1019,8 +1040,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
-      host.experimentalPersistentMultiplexBusyboxTools =
-          experimentalPersistentMultiplexBusyboxTools;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
@@ -1066,7 +1085,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
-  private final boolean experimentalPersistentMultiplexBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
@@ -1126,8 +1144,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
-    this.experimentalPersistentMultiplexBusyboxTools =
-        options.experimentalPersistentMultiplexBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1377,11 +1393,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
-  }
-
-  @Override
-  public boolean persistentMultiplexBusyboxTools() {
-    return experimentalPersistentMultiplexBusyboxTools;
   }
 
   @Override
