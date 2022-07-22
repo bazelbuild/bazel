@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -202,6 +203,15 @@ public class ApkActionsBuilder {
     }
   }
 
+  /** Appends the --output_jar_creator flag to the singlejar command line. */
+  private void setSingleJarCreatedBy(RuleContext ruleContext, CustomCommandLine.Builder builder) {
+    if (ruleContext.getConfiguration().getFragment(BazelAndroidConfiguration.class) != null) {
+      // Only enabled for Bazel, not Blaze.
+      builder.add("--output_jar_creator");
+      builder.addDynamicString("Bazel " + BlazeVersionInfo.instance().getReleaseName());
+    }
+  }
+
   /** Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar. */
   private void buildApk(RuleContext ruleContext, Artifact outApk) {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
@@ -217,6 +227,7 @@ public class ApkActionsBuilder {
             .add("--compression")
             .add("--normalize")
             .addExecPath("--output", compressedApk);
+    setSingleJarCreatedBy(ruleContext, compressedApkCommandLine);
     setSingleJarAsExecutable(ruleContext, compressedApkActionBuilder);
 
     if (classesDex != null) {
@@ -259,6 +270,7 @@ public class ApkActionsBuilder {
         .add("--normalize")
         .addExecPath("--sources", compressedApk)
         .addExecPath("--output", outApk);
+    setSingleJarCreatedBy(ruleContext, singleJarCommandLine);
     setSingleJarAsExecutable(ruleContext, singleJarActionBuilder);
 
     if (javaResourceZip != null) {

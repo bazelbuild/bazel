@@ -44,6 +44,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/compilation_mode",
