@@ -19,6 +19,13 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
@@ -257,5 +264,64 @@ public final class GoogleAuthUtils {
       String message = "Failed to init auth credentials: " + e.getMessage();
       throw new IOException(message, e);
     }
+  }
+
+  /**
+   * Create a new {@link Credentials} object by parsing the .netrc file with following order to
+   * search it:
+   *
+   * <ol>
+   *   <li>If environment variable $NETRC exists, use it as the path to the .netrc file
+   *   <li>Fallback to $HOME/.netrc
+   * </ol>
+   *
+   * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  @VisibleForTesting
+  static Optional<Credentials> newCredentialsFromNetrc(
+      Map<String, String> clientEnv, FileSystem fileSystem) throws IOException {
+    Optional<String> netrcFileString =
+        Optional.ofNullable(clientEnv.get("NETRC"))
+            .or(() -> Optional.ofNullable(clientEnv.get("HOME")).map(home -> home + "/.netrc"));
+    if (netrcFileString.isEmpty()) {
+      return Optional.empty();
+    }
+
+    Path netrcFile = fileSystem.getPath(netrcFileString.get());
+    if (!netrcFile.exists()) {
+      return Optional.empty();
+    }
+
+    try {
+      Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
+      return Optional.of(new NetrcCredentials(netrc));
+    } catch (IOException e) {
+      throw new IOException(
+          "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), e);
+    }
+  }
+
+  @VisibleForTesting
+  public static CredentialHelperProvider newCredentialHelperProvider(
+      CredentialHelperEnvironment environment,
+      CommandLinePathFactory pathFactory,
+      List<AuthAndTLSOptions.UnresolvedScopedCredentialHelper> helpers)
+      throws IOException {
+    Preconditions.checkNotNull(environment);
+    Preconditions.checkNotNull(pathFactory);
+    Preconditions.checkNotNull(helpers);
+
+    CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
+    for (AuthAndTLSOptions.UnresolvedScopedCredentialHelper helper : helpers) {
+      Optional<String> scope = helper.getScope();
+      Path path = pathFactory.create(environment.getClientEnvironment(), helper.getPath());
+      if (scope.isPresent()) {
+        builder.add(scope.get(), path);
+      } else {
+        builder.add(path);
+      }
+    }
+    return builder.build();
   }
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,13 +28,11 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -568,12 +565,5 @@ public final class RemoteModuleTest {
     assertThat(credentials).isNotNull();
     assertThat(credentials.getRequestMetadata(URI.create("https://foo.example.org"))).isNotEmpty();
     assertThat(credentials.getRequestMetadata(URI.create("https://bar.example.org"))).isEmpty();
-  }
-
-  private static void assertRequestMetadata(
-      Map<String, List<String>> requestMetadata, String username, String password) {
-    assertThat(requestMetadata.keySet()).containsExactly("Authorization");
-    assertThat(Iterables.getOnlyElement(requestMetadata.values()))
-        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password, UTF_8));
   }
 }
