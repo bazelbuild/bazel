@@ -151,7 +151,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   /** A {@link Converter} for the `--credential_helper` flag. */
   public static final class UnresolvedScopedCredentialHelperConverter
-      extends Converter.Contextless<UnresolvedScopedCredentialHelper> {
+      implements Converter.Contextless<UnresolvedScopedCredentialHelper> {
     public static final UnresolvedScopedCredentialHelperConverter INSTANCE =
         new UnresolvedScopedCredentialHelperConverter();
 
