@@ -57,6 +57,7 @@ public final class CqueryBuildTool extends PostAnalysisQueryBuildTool<KeyedConfi
         env.getRelativeWorkingDirectory(),
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,
-        cqueryOptions);
+        cqueryOptions,
+        request.getTopLevelArtifactContext());
   }
 }
