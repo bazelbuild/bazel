@@ -297,11 +297,9 @@ http_archive(
     build_file_content = """
 java_library(
     name = "snakeyaml",
+    testonly = True,
     srcs = glob(["src/main/**/*.java"]),
-    visibility = [
-        "@io_bazel//src/main/java/com/google/devtools/build/docgen/release:__pkg__",
-        "@com_google_testparameterinjector//:__pkg__",
-    ],
+    visibility = ["@com_google_testparameterinjector//:__pkg__"],
 )
 """,
     sha256 = "fd0e0cc6c5974fc8f08be3a15fb4a59954c7dd958b5b68186a803de6420b6e40",
@@ -655,6 +653,27 @@ dist_http_archive(
 # Fixes https://github.com/bazelbuild/bazel/issues/15168
 dist_http_archive(
     name = "com_google_absl",
+)
+
+# for patching the "com_github_cncf_udpa" deps loaded by grpc_deps
+dist_http_archive(
+    name = "com_envoyproxy_protoc_gen_validate",
+)
+
+dist_http_archive(
+    name = "com_github_cncf_udpa",
+)
+
+dist_http_archive(
+    name = "com_google_googleapis",
+)
+
+dist_http_archive(
+    name = "upb",
+)
+
+dist_http_archive(
+    name = "bazel_gazelle",
 )
 
 # Projects using gRPC as an external dependency must call both grpc_deps() and
