@@ -46,8 +46,15 @@ public final class MetadataDigestUtils {
   }
 
   /**
+   * Computes an order-independent digest from the given (path, metadata) pairs.
+   *
+   * <p>Note that as discussed in https://github.com/bazelbuild/bazel/issues/15660, using {@link
+   * DigestUtils#xor} to achieve order-independence is questionable in case it is possible that
+   * multiple string keys map to the same bytes when passed through {@link Fingerprint#addString}
+   * (due to lossy conversion from UTF-16 to UTF-8). We expect however that paths are represented as
+   * latin1 bytes encoded as a string, so the concern does not apply.
+   *
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
-   * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
    */
   public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
     byte[] result = new byte[1]; // reserve the empty string
@@ -56,21 +63,6 @@ public final class MetadataDigestUtils {
     Fingerprint fp = new Fingerprint();
     for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
       result = DigestUtils.xor(result, getDigest(fp, entry.getKey(), entry.getValue()));
-    }
-    return result;
-  }
-
-  /**
-   * @param env A collection of (String, String) pairs.
-   * @return an order-independent digest of the given set of pairs.
-   */
-  public static byte[] fromEnv(Map<String, String> env) {
-    byte[] result = new byte[0];
-    Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, String> entry : env.entrySet()) {
-      fp.addString(entry.getKey());
-      fp.addString(entry.getValue());
-      result = DigestUtils.xor(result, fp.digestAndReset());
     }
     return result;
   }

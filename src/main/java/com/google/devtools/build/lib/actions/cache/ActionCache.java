@@ -31,10 +31,13 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,7 +86,7 @@ public interface ActionCache {
   final class Entry {
     /** Unique instance to represent a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new ActionCache.Entry(null, ImmutableMap.<String, String>of(), false);
+        new ActionCache.Entry(null, ImmutableMap.of(), false);
 
     private final String actionKey;
     @Nullable
@@ -135,7 +138,7 @@ public interface ActionCache {
                 .filter(ar -> ar.archivedFileValue().isRemote())
                 .map(ar -> (RemoteFileArtifactValue) ar.archivedFileValue());
 
-        if (childValues.isEmpty() && !archivedFileValue.isPresent()) {
+        if (childValues.isEmpty() && archivedFileValue.isEmpty()) {
           return Optional.empty();
         }
 
@@ -150,8 +153,8 @@ public interface ActionCache {
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
       actionKey = key;
-      this.usedClientEnvDigest = MetadataDigestUtils.fromEnv(usedClientEnv);
-      files = discoversInputs ? new ArrayList<String>() : null;
+      this.usedClientEnvDigest = digestClientEnv(usedClientEnv);
+      files = discoversInputs ? new ArrayList<>() : null;
       mdMap = new HashMap<>();
       outputFileMetadata = new HashMap<>();
       outputTreeMetadata = new HashMap<>();
@@ -171,6 +174,28 @@ public interface ActionCache {
       mdMap = null;
       this.outputFileMetadata = outputFileMetadata;
       this.outputTreeMetadata = outputTreeMetadata;
+    }
+
+    private static final byte[] EMPTY_CLIENT_ENV_DIGEST = new byte[0];
+
+    /**
+     * Computes an order-independent digest of a map of environment variables.
+     *
+     * <p>Note that as discussed in https://github.com/bazelbuild/bazel/issues/15660, using {@link
+     * DigestUtils#xor} to achieve order-independence is questionable in case it is possible that
+     * multiple string keys map to the same bytes when passed through {@link Fingerprint#addString}
+     * (due to lossy conversion from UTF-16 to UTF-8). We could instead use a sorted map, however
+     * changing the digest function would cause action cache misses across bazel versions.
+     */
+    private static byte[] digestClientEnv(Map<String, String> clientEnv) {
+      byte[] result = EMPTY_CLIENT_ENV_DIGEST;
+      Fingerprint fp = new Fingerprint();
+      for (Map.Entry<String, String> entry : clientEnv.entrySet()) {
+        fp.addString(entry.getKey());
+        fp.addString(entry.getValue());
+        result = DigestUtils.xor(result, fp.digestAndReset());
+      }
+      return result;
     }
 
     /** Adds metadata of an output file */
@@ -259,6 +284,11 @@ public interface ActionCache {
       return usedClientEnvDigest;
     }
 
+    /** Determines whether this entry used the same client environment as the one given. */
+    public boolean usedSameClientEnv(Map<String, String> clientEnv) {
+      return Arrays.equals(digestClientEnv(clientEnv), usedClientEnvDigest);
+    }
+
     /**
      * Returns the combined digest of the action's inputs and outputs.
      *
@@ -284,7 +314,7 @@ public interface ActionCache {
      * @return stored path strings, or null if the corresponding action does not discover inputs.
      */
     public Collection<String> getPaths() {
-      return discoversInputs() ? files : ImmutableList.<String>of();
+      return discoversInputs() ? files : ImmutableList.of();
     }
 
     /**
@@ -294,7 +324,7 @@ public interface ActionCache {
       return files != null;
     }
 
-    private static final String formatDigest(byte[] digest) {
+    private static String formatDigest(byte[] digest) {
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
 
