@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -198,15 +197,13 @@ public interface MemoizingEvaluator {
   void dumpDetailed(PrintStream out, Predicate<SkyKey> filter);
 
   /**
-   * Keeps track of already-emitted events. Users of the graph should instantiate an
-   * {@code EmittedEventState} first and pass it to the graph during creation. This allows them to
+   * Keeps track of already-emitted events. Users of the graph should instantiate an {@code
+   * EmittedEventState} first and pass it to the graph during creation. This allows them to
    * determine whether or not to replay events.
    */
-  class EmittedEventState {
-    final NestedSetVisitor.VisitedState<TaggedEvents> eventState =
-        new NestedSetVisitor.VisitedState<>();
-    final NestedSetVisitor.VisitedState<Postable> postableState =
-        new NestedSetVisitor.VisitedState<>();
+  final class EmittedEventState {
+    final NestedSetVisitor.VisitedState eventState = new NestedSetVisitor.VisitedState();
+    final NestedSetVisitor.VisitedState postableState = new NestedSetVisitor.VisitedState();
 
     public void clear() {
       eventState.clear();
