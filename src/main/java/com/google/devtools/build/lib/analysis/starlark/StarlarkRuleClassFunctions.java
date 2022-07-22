@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -170,7 +171,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
           .addAttribute(
-              attr("$is_executable", BOOLEAN)
+              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                   .value(true)
                   .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
                   .build())
@@ -268,7 +269,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                                     + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
             .add(attr(":run_under", LABEL).value(RUN_UNDER))
             .addAttribute(
-                attr("$is_executable", BOOLEAN)
+                attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                     .value(true)
                     .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
                     .build());

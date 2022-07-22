@@ -279,4 +279,20 @@ public class RuleTest extends PackageLoadingTestCase {
         ImmutableClassToInstanceMap.of(
             RuleClassProvider.class, skyframeExecutor.getRuleClassProviderForTesting()));
   }
+
+  @Test
+  public void testIsExecutable() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(name = 'cb')",
+        "cc_library(name = 'cl')",
+        "java_binary(name = 'jb')",
+        "java_library(name = 'jl')");
+    Package pkg = getTarget("//x:BUILD").getPackage();
+    assertThat(pkg.getRule("cb").isExecutable()).isTrue();
+    assertThat(pkg.getRule("jb").isExecutable()).isTrue();
+
+    assertThat(pkg.getRule("cl").isExecutable()).isFalse();
+    assertThat(pkg.getRule("jl").isExecutable()).isFalse();
+  }
 }

@@ -289,6 +289,9 @@ message Rule {
   // The rule class (e.g., java_library)
   required string rule_class = 2;
 
+  // Whether the rule can be `bazel run` (i.e. is a binary or test rule).
+  optional bool is_executable = 16;
+
   // The BUILD file and line number of the location (formatted as
   // <absolute_path>:<line_number>:<column_number>) in the rule's package's
   // BUILD file where the rule instance was instantiated. The line number will

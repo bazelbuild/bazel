@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
@@ -200,6 +201,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                 .setStringValue(
                     BaseEncoding.base16().lowerCase().encode(transitiveDigest))); // hexify
       }
+
+      rulePb.setIsExecutable(rule.isExecutable() || TargetUtils.isTestRule(target));
 
       ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> aspectsDependencies =
           aspectResolver.computeAspectDependencies(target, dependencyFilter);
