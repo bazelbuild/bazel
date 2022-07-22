@@ -122,7 +122,8 @@ function test_persistent_multiplex_resource_processor() {
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --persistent_android_resource_processor \
+  assert_build //java/bazel:bin --experimental_worker_multiplex \
+    --persistent_android_resource_processor \
     --persistent_multiplex_android_resource_processor
 }
 
