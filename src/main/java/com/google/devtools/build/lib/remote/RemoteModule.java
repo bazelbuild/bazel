@@ -19,7 +19,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auth.Credentials;
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
@@ -46,11 +45,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.UnresolvedScopedCredentialHelper;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
-import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
-import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -79,7 +75,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -1044,29 +1039,6 @@ public final class RemoteModule extends BlazeModule {
     return actionContextProvider;
   }
 
-  @VisibleForTesting
-  static CredentialHelperProvider newCredentialHelperProvider(
-      CredentialHelperEnvironment environment,
-      CommandLinePathFactory pathFactory,
-      List<UnresolvedScopedCredentialHelper> helpers)
-      throws IOException {
-    Preconditions.checkNotNull(environment);
-    Preconditions.checkNotNull(pathFactory);
-    Preconditions.checkNotNull(helpers);
-
-    CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
-    for (UnresolvedScopedCredentialHelper helper : helpers) {
-      Optional<String> scope = helper.getScope();
-      Path path = pathFactory.create(environment.getClientEnvironment(), helper.getPath());
-      if (scope.isPresent()) {
-        builder.add(scope.get(), path);
-      } else {
-        builder.add(path);
-      }
-    }
-    return builder.build();
-  }
-
   static Credentials newCredentials(
       Map<String, String> clientEnv,
       FileSystem fileSystem,
@@ -1094,15 +1066,5 @@ public final class RemoteModule extends BlazeModule {
     }
 
     return credentials;
-  }
-
-  @VisibleForTesting
-  @AutoValue
-  abstract static class ScopedCredentialHelper {
-    /** Returns the scope of the credential helper (if any). */
-    public abstract Optional<String> getScope();
-
-    /** Returns the path of the credential helper. */
-    public abstract Path getPath();
   }
 }
