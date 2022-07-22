@@ -89,11 +89,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @Override
   public void repr(Printer printer) {
-    Printer.format(
-        printer,
-        "ConstraintValueInfo(setting=%s, %s)",
-        constraint.label().toString(),
-        label.toString());
+    printer.append(String.format("ConstraintValueInfo(setting=%s, %s)", constraint.label(), label));
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */

@@ -206,9 +206,9 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   @Override
   public void repr(Printer printer) {
     if (step == 1) {
-      Printer.format(printer, "range(%d, %d)", start, stop);
+      printer.append(String.format("range(%d, %d)", start, stop));
     } else {
-      Printer.format(printer, "range(%d, %d, %d)", start, stop, step);
+      printer.append(String.format("range(%d, %d, %d)", start, stop, step));
     }
   }
 }

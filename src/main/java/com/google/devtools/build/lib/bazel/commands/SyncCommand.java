@@ -255,7 +255,9 @@ public final class SyncCommand implements BlazeCommand {
     String name = rule.getName();
     Label actual = (Label) rule.getAttr("actual");
     String nativeCommand =
-        Starlark.format("bind(name = %r, actual = %r)", name, actual.getCanonicalForm());
+        String.format(
+            "bind(name = %s, actual = %s)",
+            Starlark.repr(name), Starlark.repr(actual.getCanonicalForm()));
 
     return new ResolvedEvent() {
       @Override

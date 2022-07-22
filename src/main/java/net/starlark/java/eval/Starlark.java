@@ -441,8 +441,8 @@ public final class Starlark {
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */
-  public static String str(Object x) {
-    return new Printer().str(x).toString();
+  public static String str(Object x, StarlarkSemantics semantics) {
+    return new Printer().str(x, semantics).toString();
   }
 
   /** Returns the string form of a value as if by the Starlark expression {@code repr(x)}. */
@@ -451,16 +451,17 @@ public final class Starlark {
   }
 
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
-  public static String format(String pattern, Object... arguments) {
+  public static String format(StarlarkSemantics semantics, String pattern, Object... arguments) {
     Printer pr = new Printer();
-    Printer.format(pr, pattern, arguments);
+    Printer.format(pr, semantics, pattern, arguments);
     return pr.toString();
   }
 
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
-  public static String formatWithList(String pattern, List<?> arguments) {
+  public static String formatWithList(
+      StarlarkSemantics semantics, String pattern, List<?> arguments) {
     Printer pr = new Printer();
-    Printer.formatWithList(pr, pattern, arguments);
+    Printer.formatWithList(pr, semantics, pattern, arguments);
     return pr.toString();
   }
 
