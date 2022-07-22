@@ -27,22 +27,25 @@ public class BuildSetting implements BuildSettingApi {
   private final boolean isFlag;
   private final Type<?> type;
   private final boolean allowMultiple;
+  private final boolean repeatable;
 
-  private BuildSetting(boolean isFlag, Type<?> type, boolean allowMultiple) {
+  private BuildSetting(boolean isFlag, Type<?> type, boolean allowMultiple, boolean repeatable) {
     this.isFlag = isFlag;
     this.type = type;
     this.allowMultiple = allowMultiple;
+    this.repeatable = repeatable;
   }
 
-  public static BuildSetting create(boolean isFlag, Type<?> type, boolean allowMultiple) {
-    return new BuildSetting(isFlag, type, allowMultiple);
+  public static BuildSetting create(
+      boolean isFlag, Type<?> type, boolean allowMultiple, boolean repeatable) {
+    return new BuildSetting(isFlag, type, allowMultiple, repeatable);
   }
 
   public static BuildSetting create(boolean isFlag, Type<?> type) {
     Preconditions.checkState(
         type.getLabelClass() != LabelClass.DEPENDENCY,
         "Build settings should not create a dependency with their default attribute");
-    return new BuildSetting(isFlag, type, /* allowMultiple= */ false);
+    return new BuildSetting(isFlag, type, /* allowMultiple= */ false, false);
   }
 
   public Type<?> getType() {
@@ -56,6 +59,10 @@ public class BuildSetting implements BuildSettingApi {
 
   public boolean allowsMultiple() {
     return allowMultiple;
+  }
+
+  public boolean isRepeatableFlag() {
+    return repeatable;
   }
 
   @Override

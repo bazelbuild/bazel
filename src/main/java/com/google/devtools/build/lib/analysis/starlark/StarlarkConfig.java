@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 
@@ -40,12 +41,15 @@ public class StarlarkConfig implements StarlarkConfigApi {
 
   @Override
   public BuildSetting stringSetting(Boolean flag, Boolean allowMultiple) {
-    return BuildSetting.create(flag, STRING, allowMultiple);
+    return BuildSetting.create(flag, STRING, allowMultiple, false);
   }
 
   @Override
-  public BuildSetting stringListSetting(Boolean flag) {
-    return BuildSetting.create(flag, STRING_LIST);
+  public BuildSetting stringListSetting(Boolean flag, Boolean repeatable) throws EvalException {
+    if (repeatable && !flag) {
+      throw Starlark.errorf("'repeatable' can only be set for a setting with 'flag = True'");
+    }
+    return BuildSetting.create(flag, STRING_LIST, false, repeatable);
   }
 
   @Override
