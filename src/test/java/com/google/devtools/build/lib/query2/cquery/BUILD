@@ -163,3 +163,21 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "FilesOutputFormatterCallbackTest",
+    srcs = ["FilesOutputFormatterCallbackTest.java"],
+    shard_count = 4,
+    deps = [
+        ":configured_target_query_helper",
+        ":configured_target_query_test",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)

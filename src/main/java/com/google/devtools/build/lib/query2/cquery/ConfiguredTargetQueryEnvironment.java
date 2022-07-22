@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -80,6 +81,8 @@ public class ConfiguredTargetQueryEnvironment
 
   private CqueryOptions cqueryOptions;
 
+  private final TopLevelArtifactContext topLevelArtifactContext;
+
   private final KeyExtractor<KeyedConfiguredTarget, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
 
@@ -118,7 +121,8 @@ public class ConfiguredTargetQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings)
+      Set<Setting> settings,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     super(
         keepGoing,
@@ -134,6 +138,7 @@ public class ConfiguredTargetQueryEnvironment
     this.configuredTargetKeyExtractor = KeyedConfiguredTarget::getConfiguredTargetKey;
     this.transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
+    this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
   public ConfiguredTargetQueryEnvironment(
@@ -146,7 +151,8 @@ public class ConfiguredTargetQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      CqueryOptions cqueryOptions)
+      CqueryOptions cqueryOptions,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     this(
         keepGoing,
@@ -158,7 +164,8 @@ public class ConfiguredTargetQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
-        cqueryOptions.toSettings());
+        cqueryOptions.toSettings(),
+        topLevelArtifactContext);
     this.cqueryOptions = cqueryOptions;
   }
 
@@ -247,7 +254,9 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             kct -> getFwdDeps(ImmutableList.of(kct))),
         new StarlarkOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new FilesOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
   }
 
   @Override

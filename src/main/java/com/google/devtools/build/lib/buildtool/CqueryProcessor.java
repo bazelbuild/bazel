@@ -58,6 +58,7 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
         env.getRelativeWorkingDirectory(),
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,
-        cqueryOptions);
+        cqueryOptions,
+        request.getTopLevelArtifactContext());
   }
 }

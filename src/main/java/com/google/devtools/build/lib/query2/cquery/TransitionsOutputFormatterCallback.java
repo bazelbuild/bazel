@@ -66,7 +66,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       TargetAccessor<KeyedConfiguredTarget> accessor,
       BuildConfigurationValue hostConfiguration,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.hostConfiguration = hostConfiguration;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.partialResultMap = Maps.newHashMap();
