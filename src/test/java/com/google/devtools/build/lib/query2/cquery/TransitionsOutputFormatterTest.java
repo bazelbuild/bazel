@@ -155,6 +155,33 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                 + " or 'full'");
   }
 
+  @Test
+  public void nonAttributeDependencySkipped() throws Exception {
+    setUpRules();
+
+    // A visibility dependency on a package_group produces a
+    // DependencyKind.NonAttributeDependencyKind. This test checks that the existence of those
+    // attribute types doesn't crash cquery.
+
+    writeFile(
+        "test/BUILD",
+        "package_group(",
+        "    name = 'custom_visibility',",
+        "    packages = ['//test/...'],",
+        ")",
+        "simple_rule(",
+        "    name = 'child',",
+        ")",
+        "simple_rule(",
+        "    name = 'parent',",
+        "    deps = [':child'],",
+        "    visibility = [':custom_visibility'],",
+        ")");
+
+    assertThat(getOutput("deps(//test:parent)", Transitions.LITE)).isNotNull();
+    assertThat(events).isEmpty();
+  }
+
   private void setUpRules() throws Exception {
     TransitionFactory<RuleTransitionData> infixTrimmingTransitionFactory =
         (ruleData) -> {
