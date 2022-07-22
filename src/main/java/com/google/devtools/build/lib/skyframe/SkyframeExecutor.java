@@ -538,8 +538,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
-    map.put(
-        SkyFunctions.PREPARE_ANALYSIS_PHASE, new PrepareAnalysisPhaseFunction(ruleClassProvider));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
@@ -1429,7 +1427,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
    */
-  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   public BuildConfigurationCollection createConfigurations(
       ExtendedEventHandler eventHandler,
       BuildOptions buildOptions,
@@ -1443,10 +1440,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     ImmutableList<BuildConfigurationValue> topLevelTargetConfigs =
         getConfigurations(
-            eventHandler,
-            PrepareAnalysisPhaseFunction.getTopLevelBuildOptions(buildOptions, multiCpu),
-            buildOptions,
-            keepGoing);
+            eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), buildOptions, keepGoing);
 
     BuildConfigurationValue firstTargetConfig = topLevelTargetConfigs.get(0);
 
@@ -1467,6 +1461,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
     return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
+  }
+
+  /**
+   * Returns the {@link BuildOptions} to apply to the top-level build configurations. This can be
+   * plural because of {@code multiCpu}.
+   */
+  // TODO(b/239743533): Formally drop multipcpu and remove this?
+  private static ImmutableList<BuildOptions> getTopLevelBuildOptions(
+      BuildOptions buildOptions, Set<String> multiCpu) {
+    if (multiCpu.isEmpty()) {
+      return ImmutableList.of(buildOptions);
+    }
+    ImmutableList.Builder<BuildOptions> multiCpuOptions = ImmutableList.builder();
+    for (String cpu : multiCpu) {
+      BuildOptions clonedOptions = buildOptions.clone();
+      clonedOptions.get(CoreOptions.class).cpu = cpu;
+      multiCpuOptions.add(clonedOptions);
+    }
+    return multiCpuOptions.build();
   }
 
   /**
@@ -2997,43 +3010,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           e);
     }
     return evalResult.get(mainRepoMappingKey).getRepositoryMapping();
-  }
-
-  public PrepareAnalysisPhaseValue prepareAnalysisPhase(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu,
-      Collection<Label> labels)
-      throws InvalidConfigurationException, InterruptedException {
-    SkyKey key = PrepareAnalysisPhaseValue.key(buildOptions, multiCpu, labels);
-    EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
-        evaluate(
-            ImmutableList.of(key),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ DEFAULT_THREAD_COUNT,
-            eventHandler);
-    if (evalResult.hasError()) {
-      ErrorInfo errorInfo = evalResult.getError(key);
-      Exception e = errorInfo.getException();
-      if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
-        cyclesReporter.reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-        e =
-            new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle", Code.CYCLE);
-      } else if (e instanceof DetailedException) {
-        e = new InvalidConfigurationException(((DetailedException) e).getDetailedExitCode(), e);
-      }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
-    }
-
-    if (configuredTargetProgress != null) {
-      configuredTargetProgress.reset();
-    }
-
-    return evalResult.get(key);
   }
 
   @Nullable

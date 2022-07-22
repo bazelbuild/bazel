@@ -45,8 +45,6 @@ java_library(
         "PackageFunction.java",
         "PlatformLookupUtil.java",
         "PlatformMappingFunction.java",
-        "PrepareAnalysisPhaseFunction.java",
-        "PrepareAnalysisPhaseValue.java",
         "PrepareDepsOfPatternFunction.java",
         "RegisteredExecutionPlatformsFunction.java",
         "RegisteredExecutionPlatformsValue.java",
