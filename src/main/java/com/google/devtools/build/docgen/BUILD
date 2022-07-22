@@ -1,5 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
+# TEST - DO NOT SUBMIT
+
 # Description:
 #   Documentation generator for Bazel
 package(default_visibility = ["//src:__subpackages__"])
