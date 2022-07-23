@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
@@ -581,6 +582,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
+    map.put(
+        SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(
         WorkspaceFileValue.WORKSPACE_FILE,
@@ -1974,11 +1977,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       Collection<BuildOptions> toOptions;
       try {
-        Map<PackageValue.Key, PackageValue> buildSettingPackages =
-            getBuildSettingPackages(transition, eventHandler);
+        StarlarkBuildSettingsDetailsValue details =
+            getStarlarkBuildSettingsDetailsValue(eventHandler, transition);
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, transition, buildSettingPackages, eventHandler)
+                    fromOptions, transition, details, eventHandler)
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -2000,11 +2003,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       Collection<BuildOptions> toOptions;
       try {
-        Map<PackageValue.Key, PackageValue> buildSettingPackages =
-            getBuildSettingPackages(key.getTransition(), eventHandler);
+        StarlarkBuildSettingsDetailsValue details =
+            getStarlarkBuildSettingsDetailsValue(eventHandler, key.getTransition());
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, key.getTransition(), buildSettingPackages, eventHandler)
+                    fromOptions, key.getTransition(), details, eventHandler)
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -2031,6 +2034,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
     }
     return builder.build();
+  }
+
+  /** Must be in sync with {@link ConfigurationResolver.getStarlarkBuildSettingsDetailsValue} */
+  private StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
+      ExtendedEventHandler eventHandler, ConfigurationTransition transition)
+      throws TransitionException {
+    ImmutableSet<Label> starlarkBuildSettings =
+        StarlarkTransition.getAllStarlarkBuildSettings(transition);
+    // Quick escape if transition doesn't use any Starlark build settings
+    if (starlarkBuildSettings.isEmpty()) {
+      return StarlarkBuildSettingsDetailsValue.EMPTY;
+    }
+
+    // Evaluate the key into StarlarkBuildSettingsDetailsValue
+    StarlarkBuildSettingsDetailsValue.Key skyKey =
+        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings);
+    EvaluationResult<SkyValue> newlyLoaded =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(skyKey), true);
+    if (newlyLoaded.hasError()) {
+      Map.Entry<SkyKey, ErrorInfo> errorEntry =
+          Preconditions.checkNotNull(
+              Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
+      throw new TransitionException(
+          "Error when resolving transition build settings, "
+              + starlarkBuildSettings.toString()
+              + ": "
+              + errorEntry.getValue().getException());
+    }
+    return (StarlarkBuildSettingsDetailsValue) newlyLoaded.get(skyKey);
   }
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
@@ -2065,50 +2097,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
-  }
-
-  /** Keep in sync with {@link StarlarkTransition#getBuildSettingPackages} */
-  private Map<PackageValue.Key, PackageValue> getBuildSettingPackages(
-      ConfigurationTransition transition, ExtendedEventHandler eventHandler)
-      throws TransitionException {
-    HashMap<PackageValue.Key, PackageValue> buildSettingPackages = new HashMap<>();
-    // This happens before cycle detection so keep track of all seen build settings to ensure
-    // we don't get stuck in endless loops (e.g. //alias1->//alias2 && //alias2->alias1)
-    Set<Label> allSeenBuildSettings = new HashSet<>();
-    ImmutableSet<Label> unverifiedBuildSettings =
-        StarlarkTransition.getAllBuildSettings(transition);
-    while (!unverifiedBuildSettings.isEmpty()) {
-      for (Label buildSetting : unverifiedBuildSettings) {
-        if (!allSeenBuildSettings.add(buildSetting)) {
-          throw new TransitionException(
-              String.format(
-                  "Error with aliased build settings related to '%s'. Either your aliases form a"
-                      + " dependency cycle or you're attempting to set both an alias its actual"
-                      + " target in the same transition.",
-                  buildSetting));
-        }
-      }
-      ImmutableSet<PackageValue.Key> buildSettingPackageKeys =
-          StarlarkTransition.getPackageKeysFromLabels(unverifiedBuildSettings);
-      EvaluationResult<SkyValue> newlyLoaded =
-          evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
-      if (newlyLoaded.hasError()) {
-        Map.Entry<SkyKey, ErrorInfo> errorEntry =
-            Preconditions.checkNotNull(
-                Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
-        throw new TransitionException(
-            new NoSuchPackageException(
-                ((PackageValue.Key) errorEntry.getKey()).argument(),
-                "Unable to find build setting package",
-                errorEntry.getValue().getException()));
-      }
-      buildSettingPackageKeys.forEach(
-          k -> buildSettingPackages.put(k, (PackageValue) newlyLoaded.get(k)));
-      unverifiedBuildSettings =
-          StarlarkTransition.verifyBuildSettingsAndGetAliases(
-              buildSettingPackages, unverifiedBuildSettings);
-    }
-    return buildSettingPackages;
   }
 
   /**
