@@ -411,11 +411,11 @@ EOF
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "a")
 
-a(name="a", link_target="/somewhere/in/my/heart")
+a(name="a", link_target="../somewhere/in/my/heart")
 EOF
 
   bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
-  assert_contains "input link is /somewhere/in/my/heart" bazel-bin/a/a.file
+  assert_contains "input link is ../somewhere/in/my/heart" bazel-bin/a/a.file
 }
 
 function test_symlink_file_to_file_created_from_symlink_action() {
@@ -729,6 +729,128 @@ genrule(
 EOF
 
   bazel --windows_enable_symlinks build --experimental_allow_unresolved_symlinks //a:exec || fail "build failed"
+}
+
+function test_unresolved_symlink_hermetic_in_sandbox() {
+  if "$is_windows"; then
+    # TODO(#10298): Support unresolved symlinks on Windows.
+    return 0
+  fi
+
+  mkdir -p pkg
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+  symlink = ctx.actions.declare_symlink(ctx.label.name + "_s")
+  ctx.actions.symlink(output=symlink, target_path=ctx.file.file.basename)
+
+  output = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.run_shell(
+    command = "{ cat %s || true; } >  %s" % (symlink.path, output.path),
+    inputs = [symlink] + ([ctx.file.file] if ctx.attr.stage_target else []),
+    outputs = [output],
+  )
+  return DefaultInfo(files=depset([output]))
+
+r = rule(
+    implementation=_r,
+    attrs = {
+        "file": attr.label(allow_single_file=True),
+        "stage_target": attr.bool(),
+    }
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+genrule(name = "a", outs = ["file"], cmd = "echo hello >$@")
+r(name="b", file="file")
+r(name="c", file="file", stage_target=True)
+EOF
+
+  bazel build //pkg:b --experimental_allow_unresolved_symlinks --spawn_strategy=local
+  [ -s bazel-bin/pkg/b ] && fail "symlink should not resolve"
+
+  bazel clean
+  bazel build //pkg:a --spawn_strategy=sandboxed
+  bazel build //pkg:b --experimental_allow_unresolved_symlinks --spawn_strategy=local
+  [ -s bazel-bin/pkg/b ] || fail "symlink should resolve"
+
+  bazel clean
+  bazel build //pkg:c --experimental_allow_unresolved_symlinks --spawn_strategy=local
+  [ -s bazel-bin/pkg/c ] || fail "symlink should resolve"
+
+  bazel clean
+  bazel build //pkg:b --experimental_allow_unresolved_symlinks --spawn_strategy=sandboxed
+  [ -s bazel-bin/pkg/b ] && fail "sandboxed build is not hermetic"
+
+  bazel clean
+  bazel build //pkg:a --spawn_strategy=sandboxed
+  bazel build //pkg:b --experimental_allow_unresolved_symlinks --spawn_strategy=sandboxed
+  [ -s bazel-bin/pkg/b ] && fail "sandboxed build is not hermetic"
+
+  bazel clean
+  bazel build //pkg:c --experimental_allow_unresolved_symlinks --spawn_strategy=sandboxed
+  [ -s bazel-bin/pkg/c ] || fail "symlink should resolve"
+}
+
+
+function test_unresolved_symlink_in_runfiles() {
+  if "$is_windows"; then
+    # TODO(#10298): Support unresolved symlinks on Windows.
+    return 0
+  fi
+
+  mkdir -p pkg
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+  symlink = ctx.actions.declare_symlink(ctx.label.name + "_s")
+  target = ctx.file.file.basename
+  ctx.actions.symlink(output=symlink, target_path=target)
+
+  script = ctx.actions.declare_file(ctx.label.name)
+  content = """
+#!/usr/bin/env bash
+cd $0.runfiles/{workspace_name}
+[ -L {symlink} ] || {{ echo "runfile is not a symlink"; exit 1; }}
+[ $(cd $(dirname {symlink}) && readlink $(readlink $(basename {symlink}))) == "{target}" ] || {{ echo "runfile symlink does not point to a symlink pointing to the expected target"; exit 1; }}
+[ -s {symlink} ] || {{ echo "runfile not resolved"; exit 1; }}
+""".format(
+    symlink = symlink.short_path,
+    target = target,
+    workspace_name = ctx.workspace_name,
+  )
+  ctx.actions.write(script, content, is_executable=True)
+  return DefaultInfo(executable=script, runfiles=ctx.runfiles(files = [symlink]))
+
+r = rule(implementation=_r, attrs={"file":attr.label(allow_single_file=True)}, executable = True)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+genrule(name="a", outs=["file"], cmd="echo hello >$@")
+r(name="tool", file="file")
+genrule(
+    name = "use_tool",
+    outs = ["out"],
+    cmd = "$(location :tool) && touch $@",
+    tools = [":tool", "file"],
+)
+genrule(
+    name = "use_tool_non_hermetically",
+    outs = ["out_non_hermetic"],
+    cmd = "$(location :tool) && touch $@",
+    tools = [":tool"],
+)
+EOF
+
+  bazel build --experimental_allow_unresolved_symlinks --spawn_strategy=local //pkg:use_tool || fail "local build failed"
+  # Keep the implicitly built //pkg:a around to make the symlink resolve.
+  bazel build --experimental_allow_unresolved_symlinks --spawn_strategy=local //pkg:use_tool_non_hermetically || fail "local build failed"
+
+  bazel clean
+  bazel build --experimental_allow_unresolved_symlinks --spawn_strategy=sandboxed //pkg:use_tool || fail "sandboxed build failed"
+  # Keep the implicitly built //pkg:a around to make the symlink resolve outside the sandbox.
+  bazel build --experimental_allow_unresolved_symlinks --spawn_strategy=sandboxed //pkg:use_tool_non_hermetically && fail "sandboxed build is not hermetic" || true
 }
 
 run_suite "Tests for symlink artifacts"

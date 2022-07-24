@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -548,8 +549,7 @@ public final class SandboxHelpers {
             virtualInputsWithDelayedMaterialization.add((VirtualActionInput) actionInput);
           }
         } else if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+          stageSymlink(inputSymlinks, execRoot, actionInput, pathFragment);
         } else {
           Path inputPath = execRoot.getRelative(actionInput.getExecPath());
           inputFiles.put(pathFragment, inputPath);
@@ -563,8 +563,7 @@ public final class SandboxHelpers {
         }
 
         if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+          stageSymlink(inputSymlinks, execRoot, actionInput, pathFragment);
         } else {
           Path inputPath =
               actionInput instanceof EmptyActionInput
@@ -579,6 +578,26 @@ public final class SandboxHelpers {
         virtualInputsWithDelayedMaterialization,
         materializedVirtualInputs,
         inputSymlinks);
+  }
+
+  private void stageSymlink(Map<PathFragment, PathFragment> inputSymlinks, Path execRoot,
+      ActionInput symlink, PathFragment location) throws IOException {
+    // Symlinks may be relative and thus only resolve correctly from their original location under
+    // the exec root. Thus, always stage symlinks at their original location.
+    Path inputPath = execRoot.getRelative(symlink.getExecPath());
+    inputSymlinks.put(symlink.getExecPath(), inputPath.readSymbolicLink());
+    if (location.equals(symlink.getExecPath())) {
+      return;
+    }
+    // If the symlink has to be staged at a different location (e.g., in a runfiles tree),
+    // additionally emit a relative symlink pointing to the actual symlink. This closely mimics how
+    // the symlink would be staged for local execution.
+    // Note: It may seem simpler to use a symlink to the absolute path to the original symlink under
+    // the unsandboxed exec root, but that may result in the symlink resolving non-hermetically to
+    // undeclared input files.
+    int locationDepth = location.getParentDirectory().segmentCount();
+    PathFragment backToExecRoot = PathFragment.create(Strings.repeat("../", locationDepth));
+    inputSymlinks.put(location, backToExecRoot.getRelative(symlink.getExecPath()));
   }
 
   /** The file and directory outputs of a sandboxed spawn. */
