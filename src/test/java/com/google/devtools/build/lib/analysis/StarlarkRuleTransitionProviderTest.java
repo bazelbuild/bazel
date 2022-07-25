@@ -480,7 +480,9 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("no such package 'i-am-not-real': Unable to find build setting package");
+    assertContainsEvent(
+        "no such package 'i-am-not-real': BUILD file not found in any of the following"
+            + " directories");
   }
 
   @Test
@@ -792,7 +794,8 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("Error with aliased build settings related to '//test:alias1'.");
+    assertContainsEvent(
+        "Dependency cycle involving '//test:alias1' detected in aliased build settings");
   }
 
   @Test
@@ -826,7 +829,8 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("Error with aliased build settings related to '//test:actual'.");
+    assertContainsEvent(
+        "Dependency cycle involving '//test:actual' detected in aliased build settings");
   }
 
   @Test

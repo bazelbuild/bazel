@@ -164,16 +164,17 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       name = "symlink",
       doc =
           "Creates an action that writes a symlink in the file system."
-              + "<p>This function must be called with exactly one of <code>target_file</code> and "
+              + "<p>This function must be called with exactly one of <code>target_file</code> or "
               + "<code>target_path</code> specified.</p>"
               + "<p>If <code>target_file</code> is used, then <code>output</code> must be declared "
-              + "as a regular file (such as by using "
-              + "<a href=\"#declare_file\"><code>declare_file()</code></a>). It will actually be "
-              + "created as a symlink that points to the path of <code>target_file</code>.</p>"
-              + "<p>If <code>target_path</code> is used instead, then <code>output</code> must be "
-              + "declared as a symlink (such as by using "
+              + "by <a href=\"#declare_file\"><code>declare_file()</code></a> or "
+              + "<a href=\"#declare_directory\"><code>declare_directory()</code></a> and match the "
+              + "type of <code>target_file</code>. In this case, <code>output</code> will be a "
+              + "symlink whose contents are the path of <code>target_file</code>.</p>"
+              + "<p>Otherwise, if <code>target_path</code> is used, then <code>output</code> must "
+              + "be declared with "
               + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>). In this case, "
-              + "the symlink will point to whatever the content of <code>target_path</code> is. "
+              + "<code>output</code> will be a symlink whose contents are <code>target_path</code>."
               + "This can be used to create a dangling symlink.</p>",
       parameters = {
         @Param(

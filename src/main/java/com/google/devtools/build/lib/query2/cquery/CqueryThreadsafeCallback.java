@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
@@ -55,6 +56,7 @@ public abstract class CqueryThreadsafeCallback
   protected final ConfiguredTargetAccessor accessor;
 
   private final List<String> result = new ArrayList<>();
+  private final boolean uniquifyResults;
 
   @SuppressWarnings("DefaultCharset")
   CqueryThreadsafeCallback(
@@ -62,7 +64,8 @@ public abstract class CqueryThreadsafeCallback
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor) {
+      TargetAccessor<KeyedConfiguredTarget> accessor,
+      boolean uniquifyResults) {
     this.eventHandler = eventHandler;
     this.options = options;
     if (out != null) {
@@ -72,6 +75,7 @@ public abstract class CqueryThreadsafeCallback
     }
     this.skyframeExecutor = skyframeExecutor;
     this.accessor = (ConfiguredTargetAccessor) accessor;
+    this.uniquifyResults = uniquifyResults;
   }
 
   public void addResult(String string) {
@@ -86,7 +90,8 @@ public abstract class CqueryThreadsafeCallback
   @Override
   public void close(boolean failFast) throws InterruptedException, IOException {
     if (!failFast && printStream != null) {
-      for (String s : result) {
+      List<String> resultsToPrint = uniquifyResults ? ImmutableSet.copyOf(result).asList() : result;
+      for (String s : resultsToPrint) {
         // TODO(ulfjack): We should use queryOptions.getLineTerminator() instead.
         printStream.append(s).append("\n");
       }

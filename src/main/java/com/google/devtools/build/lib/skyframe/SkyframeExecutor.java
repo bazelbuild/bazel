@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
@@ -538,8 +539,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
-    map.put(
-        SkyFunctions.PREPARE_ANALYSIS_PHASE, new PrepareAnalysisPhaseFunction(ruleClassProvider));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
@@ -583,6 +582,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
+    map.put(
+        SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(
         WorkspaceFileValue.WORKSPACE_FILE,
@@ -1429,7 +1430,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
    */
-  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   public BuildConfigurationCollection createConfigurations(
       ExtendedEventHandler eventHandler,
       BuildOptions buildOptions,
@@ -1443,10 +1443,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     ImmutableList<BuildConfigurationValue> topLevelTargetConfigs =
         getConfigurations(
-            eventHandler,
-            PrepareAnalysisPhaseFunction.getTopLevelBuildOptions(buildOptions, multiCpu),
-            buildOptions,
-            keepGoing);
+            eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), buildOptions, keepGoing);
 
     BuildConfigurationValue firstTargetConfig = topLevelTargetConfigs.get(0);
 
@@ -1467,6 +1464,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
     return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
+  }
+
+  /**
+   * Returns the {@link BuildOptions} to apply to the top-level build configurations. This can be
+   * plural because of {@code multiCpu}.
+   */
+  // TODO(b/239743533): Formally drop multipcpu and remove this?
+  private static ImmutableList<BuildOptions> getTopLevelBuildOptions(
+      BuildOptions buildOptions, Set<String> multiCpu) {
+    if (multiCpu.isEmpty()) {
+      return ImmutableList.of(buildOptions);
+    }
+    ImmutableList.Builder<BuildOptions> multiCpuOptions = ImmutableList.builder();
+    for (String cpu : multiCpu) {
+      BuildOptions clonedOptions = buildOptions.clone();
+      clonedOptions.get(CoreOptions.class).cpu = cpu;
+      multiCpuOptions.add(clonedOptions);
+    }
+    return multiCpuOptions.build();
   }
 
   /**
@@ -1961,11 +1977,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       Collection<BuildOptions> toOptions;
       try {
-        Map<PackageValue.Key, PackageValue> buildSettingPackages =
-            getBuildSettingPackages(transition, eventHandler);
+        StarlarkBuildSettingsDetailsValue details =
+            getStarlarkBuildSettingsDetailsValue(eventHandler, transition);
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, transition, buildSettingPackages, eventHandler)
+                    fromOptions, transition, details, eventHandler)
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -1987,11 +2003,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       Collection<BuildOptions> toOptions;
       try {
-        Map<PackageValue.Key, PackageValue> buildSettingPackages =
-            getBuildSettingPackages(key.getTransition(), eventHandler);
+        StarlarkBuildSettingsDetailsValue details =
+            getStarlarkBuildSettingsDetailsValue(eventHandler, key.getTransition());
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, key.getTransition(), buildSettingPackages, eventHandler)
+                    fromOptions, key.getTransition(), details, eventHandler)
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -2018,6 +2034,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
     }
     return builder.build();
+  }
+
+  /** Must be in sync with {@link ConfigurationResolver.getStarlarkBuildSettingsDetailsValue} */
+  private StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
+      ExtendedEventHandler eventHandler, ConfigurationTransition transition)
+      throws TransitionException {
+    ImmutableSet<Label> starlarkBuildSettings =
+        StarlarkTransition.getAllStarlarkBuildSettings(transition);
+    // Quick escape if transition doesn't use any Starlark build settings
+    if (starlarkBuildSettings.isEmpty()) {
+      return StarlarkBuildSettingsDetailsValue.EMPTY;
+    }
+
+    // Evaluate the key into StarlarkBuildSettingsDetailsValue
+    StarlarkBuildSettingsDetailsValue.Key skyKey =
+        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings);
+    EvaluationResult<SkyValue> newlyLoaded =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(skyKey), true);
+    if (newlyLoaded.hasError()) {
+      Map.Entry<SkyKey, ErrorInfo> errorEntry =
+          Preconditions.checkNotNull(
+              Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
+      throw new TransitionException(
+          "Error when resolving transition build settings, "
+              + starlarkBuildSettings.toString()
+              + ": "
+              + errorEntry.getValue().getException());
+    }
+    return (StarlarkBuildSettingsDetailsValue) newlyLoaded.get(skyKey);
   }
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
@@ -2052,50 +2097,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
-  }
-
-  /** Keep in sync with {@link StarlarkTransition#getBuildSettingPackages} */
-  private Map<PackageValue.Key, PackageValue> getBuildSettingPackages(
-      ConfigurationTransition transition, ExtendedEventHandler eventHandler)
-      throws TransitionException {
-    HashMap<PackageValue.Key, PackageValue> buildSettingPackages = new HashMap<>();
-    // This happens before cycle detection so keep track of all seen build settings to ensure
-    // we don't get stuck in endless loops (e.g. //alias1->//alias2 && //alias2->alias1)
-    Set<Label> allSeenBuildSettings = new HashSet<>();
-    ImmutableSet<Label> unverifiedBuildSettings =
-        StarlarkTransition.getAllBuildSettings(transition);
-    while (!unverifiedBuildSettings.isEmpty()) {
-      for (Label buildSetting : unverifiedBuildSettings) {
-        if (!allSeenBuildSettings.add(buildSetting)) {
-          throw new TransitionException(
-              String.format(
-                  "Error with aliased build settings related to '%s'. Either your aliases form a"
-                      + " dependency cycle or you're attempting to set both an alias its actual"
-                      + " target in the same transition.",
-                  buildSetting));
-        }
-      }
-      ImmutableSet<PackageValue.Key> buildSettingPackageKeys =
-          StarlarkTransition.getPackageKeysFromLabels(unverifiedBuildSettings);
-      EvaluationResult<SkyValue> newlyLoaded =
-          evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
-      if (newlyLoaded.hasError()) {
-        Map.Entry<SkyKey, ErrorInfo> errorEntry =
-            Preconditions.checkNotNull(
-                Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
-        throw new TransitionException(
-            new NoSuchPackageException(
-                ((PackageValue.Key) errorEntry.getKey()).argument(),
-                "Unable to find build setting package",
-                errorEntry.getValue().getException()));
-      }
-      buildSettingPackageKeys.forEach(
-          k -> buildSettingPackages.put(k, (PackageValue) newlyLoaded.get(k)));
-      unverifiedBuildSettings =
-          StarlarkTransition.verifyBuildSettingsAndGetAliases(
-              buildSettingPackages, unverifiedBuildSettings);
-    }
-    return buildSettingPackages;
   }
 
   /**
@@ -2997,43 +2998,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           e);
     }
     return evalResult.get(mainRepoMappingKey).getRepositoryMapping();
-  }
-
-  public PrepareAnalysisPhaseValue prepareAnalysisPhase(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu,
-      Collection<Label> labels)
-      throws InvalidConfigurationException, InterruptedException {
-    SkyKey key = PrepareAnalysisPhaseValue.key(buildOptions, multiCpu, labels);
-    EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
-        evaluate(
-            ImmutableList.of(key),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ DEFAULT_THREAD_COUNT,
-            eventHandler);
-    if (evalResult.hasError()) {
-      ErrorInfo errorInfo = evalResult.getError(key);
-      Exception e = errorInfo.getException();
-      if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
-        cyclesReporter.reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-        e =
-            new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle", Code.CYCLE);
-      } else if (e instanceof DetailedException) {
-        e = new InvalidConfigurationException(((DetailedException) e).getDetailedExitCode(), e);
-      }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
-    }
-
-    if (configuredTargetProgress != null) {
-      configuredTargetProgress.reset();
-    }
-
-    return evalResult.get(key);
   }
 
   @Nullable

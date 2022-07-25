@@ -94,6 +94,8 @@ public final class SkyFunctions {
   static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.createHermetic("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
+  public static final SkyFunctionName STARLARK_BUILD_SETTINGS_DETAILS =
+      SkyFunctionName.createHermetic("STARLARK_BUILD_SETTINGS_DETAILS");
   // Action execution can be nondeterministic, so semi-hermetic.
   public static final SkyFunctionName ACTION_EXECUTION =
       SkyFunctionName.createSemiHermetic("ACTION_EXECUTION");

@@ -94,7 +94,7 @@ public final class NestedSetVisitor<E> {
   }
 
   /** A class that allows us to keep track of the seen nodes and transitive sets. */
-  public static class VisitedState<E> implements AbstractVisitedState {
+  public static final class VisitedState implements AbstractVisitedState {
     private final Set<Object> seenNodes = Sets.newConcurrentHashSet();
 
     @Override
@@ -104,10 +104,7 @@ public final class NestedSetVisitor<E> {
 
     @Override
     public boolean add(Object node) {
-      // Though it may look redundant, the contains call is much cheaper than the add and can
-      // greatly improve the performance and reduce the contention associated with checking
-      // seenNodes.
-      return !seenNodes.contains(node) && seenNodes.add(node);
+      return seenNodes.add(node);
     }
   }
 }

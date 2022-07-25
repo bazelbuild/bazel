@@ -128,6 +128,30 @@ EOF
 
 }
 
+function test_apk_manifest_created_by() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build //java/com/example/hello:hello || fail "build failed"
+  jar xf bazel-bin/java/com/example/hello/hello.apk
+  # Check that the apk manifest contains Created-By: Bazel. Note that for
+  # custom-built bazel binaries, the field will say "Bazel development version".
+  # For official releases, the field will reflect the build label specified, for
+  # example "Bazel 5.2.0.".
+  assert_contains "Created\-By: Bazel" META-INF/MANIFEST.MF
+  # Clean up the extracted manifest.
+  rm -rf META-INF/MANIFEST.MF
+}
+
 function test_d8_dexes_hello_android() {
   write_hello_android_files
   setup_android_sdk_support

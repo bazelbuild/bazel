@@ -311,7 +311,7 @@ EOF
   expect_log "a/bs is not a symlink"
 
   bazel build --experimental_allow_unresolved_symlinks //a:bwg >& $TEST_log && fail "build succeeded"
-  expect_log "symlink() with \"target_path\" param requires that \"output\" be declared as a symlink, not a regular file"
+  expect_log "symlink() with \"target_path\" param requires that \"output\" be declared as a symlink, not a file or directory"
 
   bazel build --experimental_allow_unresolved_symlinks //a:bg >& $TEST_log && fail "build succeeded"
   expect_log "declared output 'a/bgo' is a dangling symbolic link"
@@ -344,7 +344,7 @@ bad_symlink(name="bs")
 EOF
 
   bazel build --experimental_allow_unresolved_symlinks //a:bs >& $TEST_log && fail "build succeeded"
-  expect_log "symlink() with \"target_file\" param requires that \"output\" be declared as a regular file, not a symlink"
+  expect_log "symlink() with \"target_file\" param requires that \"output\" be declared as a file or directory, not a symlink"
 }
 
 function test_symlink_created_from_spawn() {
@@ -418,7 +418,7 @@ EOF
   assert_contains "input link is /somewhere/in/my/heart" bazel-bin/a/a.file
 }
 
-function test_symlink_created_from_symlink_action() {
+function test_symlink_file_to_file_created_from_symlink_action() {
   mkdir -p a
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
@@ -447,6 +447,101 @@ EOF
   bazel build //a:a || fail "build failed"
   assert_contains "Hello, World!" bazel-bin/a/a.link
   expect_symlink bazel-bin/a/a.link
+}
+
+function test_symlink_directory_to_directory_created_from_symlink_action() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_directory(ctx.label.name + ".target")
+    ctx.actions.run_shell(
+        outputs = [target],
+        command = "echo 'Hello, World!' > $1/inside.txt",
+        arguments = [target.path],
+    )
+
+    symlink = ctx.actions.declare_directory(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  # TODO(tjgq): This should build successfully.
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "failed to create symbolic link"
+}
+
+function test_symlink_file_to_directory_created_from_symlink_action() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_directory(ctx.label.name + ".target")
+    ctx.actions.run_shell(
+        outputs = [target],
+        command = "echo 'Hello, World!' > $1/inside.txt",
+        arguments = [target.path],
+    )
+
+    symlink = ctx.actions.declare_file(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  # TODO(tjgq): This should fail to build.
+  bazel build //a:a || fail "build failed"
+  assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
+  expect_symlink bazel-bin/a/a.link
+}
+
+function test_symlink_directory_to_file_created_from_symlink_action() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_file(ctx.label.name + ".target")
+    ctx.actions.run_shell(
+        outputs = [target],
+        command = "true",
+    )
+
+    symlink = ctx.actions.declare_directory(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name="a")
+EOF
+
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "symlink() with \"target_file\" file param requires that \"output\" be declared as a file"
 }
 
 function test_executable_dangling_symlink() {
@@ -549,6 +644,41 @@ EOF
 
   bazel build //a:a >& $TEST_log && fail "build succeeded"
   expect_log "failed to create symbolic link 'bazel-out/[^/]*/bin/a/a.link': file 'a/foo.txt' is not executable"
+}
+
+function test_executable_symlink_to_directory() {
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    target = ctx.actions.declare_directory(ctx.label.name + ".target")
+    ctx.actions.run_shell(
+        outputs = [target],
+        command = "true",
+    )
+
+    symlink = ctx.actions.declare_directory(ctx.label.name + ".link")
+    ctx.actions.symlink(
+        output = symlink,
+        target_file = target,
+        is_executable = True,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+a = rule(implementation = _a_impl)
+EOF
+
+  cat > a/BUILD <<'EOF'
+load(":a.bzl", "a")
+
+a(name = "a")
+EOF
+
+  cat > a/foo.txt <<'EOF'
+Hello, World!
+EOF
+
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "symlink() with \"output\" directory param cannot be executable"
 }
 
 function test_symlink_cycle() {

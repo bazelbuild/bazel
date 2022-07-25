@@ -264,7 +264,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     RuleContext ruleContext = getRuleContext();
 
     if ((targetFile == Starlark.NONE) == (targetPath == Starlark.NONE)) {
-      throw Starlark.errorf("Exactly one of \"target_file\" and \"target_path\" is required");
+      throw Starlark.errorf("Exactly one of \"target_file\" or \"target_path\" is required");
     }
 
     Artifact outputArtifact = (Artifact) output;
@@ -275,27 +275,35 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     SymlinkAction action;
     if (targetFile != Starlark.NONE) {
+      Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_file\" param requires that \"output\" be declared as a "
-                + "regular file, not a symlink (did you mean to use declare_file() instead of "
-                + "declare_symlink()?)");
+                + "file or directory, not a symlink (did you mean to use declare_file() or "
+                + "declare_directory() instead of declare_symlink()?)");
+      }
+      // TODO(tjgq): Enforce that input and output are either both files or both directories.
+      // This requires fixing callers passing a directory as the input and a file as the output.
+      if (!inputArtifact.isTreeArtifact() && outputArtifact.isTreeArtifact()) {
+        String inputType = inputArtifact.isTreeArtifact() ? "directory" : "file";
+        String outputType = outputArtifact.isTreeArtifact() ? "directory" : "file";
+        throw Starlark.errorf(
+            "symlink() with \"target_file\" %s param requires that \"output\" be declared as a %s "
+                + "(did you mean to use declare_%s() instead of declare_%s()?)",
+            inputType, inputType, inputType, outputType);
       }
 
       if (isExecutable) {
+        if (outputArtifact.isTreeArtifact()) {
+          throw Starlark.errorf("symlink() with \"output\" directory param cannot be executable");
+        }
         action =
             SymlinkAction.toExecutable(
-                ruleContext.getActionOwner(),
-                (Artifact) targetFile,
-                outputArtifact,
-                progressMessage);
+                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       } else {
         action =
             SymlinkAction.toArtifact(
-                ruleContext.getActionOwner(),
-                (Artifact) targetFile,
-                outputArtifact,
-                progressMessage);
+                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       }
     } else {
       if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
@@ -307,8 +315,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_path\" param requires that \"output\" be declared as a "
-                + "symlink, not a regular file (did you mean to use declare_symlink() instead of "
-                + "declare_file()?)");
+                + "symlink, not a file or directory (did you mean to use declare_symlink() instead "
+                + "of declare_file() or declare_directory()?)");
       }
 
       if (isExecutable) {
