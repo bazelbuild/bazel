@@ -119,8 +119,7 @@ public final class AnalysisAndExecutionPhaseRunner {
               TopLevelTargetAnalysisWatcher.createAndRegisterWithEventBus(
                   env.getRuntime().getBlazeModules(), env, request, buildOptions)) {
         analysisAndExecutionResult =
-            runAnalysisAndExecutionPhase(
-                env, request, loadingResult, buildOptions, request.getMultiCpus());
+            runAnalysisAndExecutionPhase(env, request, loadingResult, buildOptions);
       }
       BuildResultListener buildResultListener = env.getBuildResultListener();
       AnalysisPhaseRunner.reportTargets(
@@ -179,8 +178,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions,
-      Set<String> multiCpu)
+      BuildOptions targetOptions)
       throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
           BuildFailedException, TestExecException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
@@ -199,7 +197,6 @@ public final class AnalysisAndExecutionPhaseRunner {
         view.update(
             loadingResult,
             targetOptions,
-            multiCpu,
             explicitTargetPatterns,
             request.getAspects(),
             request.getAspectsParameters(),

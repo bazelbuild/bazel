@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -332,7 +331,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * configuration creation phase.
    */
   protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
-    return Iterables.getOnlyElement(universeConfig.getTargetConfigurations());
+    return universeConfig.getTargetConfiguration();
   }
 
   protected BuildConfigurationValue getHostConfiguration() {
@@ -398,13 +397,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             keepGoing,
             /*determineTests=*/ false);
 
-    BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
-    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
     analysisResult =
         buildView.update(
             loadingResult,
             buildOptions,
-            multiCpu,
             explicitTargetPatterns,
             aspects,
             aspectsParameters,

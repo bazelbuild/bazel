@@ -15,49 +15,29 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
-import java.util.HashMap;
 
 /**
  * Convenience container for top-level target and host configurations.
  *
- * <p>The target configuration is used for all targets specified on the command line. Multiple
- * target configurations are possible because of settings like {@link
- * com.google.devtools.build.lib.buildtool.BuildRequestOptions#multiCpus}.
+ * <p>The target configuration is used for all targets specified on the command line.
  *
- * <p>The host configuration is used for tools that are executed during the build, e.g. compilers.
- * Note that {@link #hashCode} and {@link #equals} do not directly incorporate the host
- * configuration since it is assumed to be derived from the target configuration.
+ * <p>The host configuration is used for tools that are executed during the build, e. g, compilers.
  */
 @ThreadSafe
 public final class BuildConfigurationCollection {
-  private final ImmutableList<BuildConfigurationValue> targetConfigurations;
+  private final BuildConfigurationValue targetConfiguration;
   private final BuildConfigurationValue hostConfiguration;
 
   public BuildConfigurationCollection(
-      ImmutableList<BuildConfigurationValue> targetConfigurations,
-      BuildConfigurationValue hostConfiguration)
+      BuildConfigurationValue targetConfiguration, BuildConfigurationValue hostConfiguration)
       throws InvalidConfigurationException {
-    this.targetConfigurations = targetConfigurations;
+    this.targetConfiguration = targetConfiguration;
     this.hostConfiguration = hostConfiguration;
-
-    // Except for the host configuration (which may be identical across target configs), the other
-    // configurations must all have different cache keys or we will end up with problems.
-    HashMap<String, BuildConfigurationValue> cacheKeyConflictDetector = new HashMap<>();
-    for (BuildConfigurationValue config : targetConfigurations) {
-      BuildConfigurationValue old = cacheKeyConflictDetector.put(config.checksum(), config);
-      if (old != null) {
-        throw new InvalidConfigurationException(
-            "Conflicting configurations: " + config + " & " + old, Code.CONFLICTING_CONFIGURATIONS);
-      }
-    }
   }
 
-  public ImmutableList<BuildConfigurationValue> getTargetConfigurations() {
-    return targetConfigurations;
+  public BuildConfigurationValue getTargetConfiguration() {
+    return targetConfiguration;
   }
 
   /**
@@ -80,20 +60,18 @@ public final class BuildConfigurationCollection {
       return false;
     }
     BuildConfigurationCollection that = (BuildConfigurationCollection) obj;
-    return this.targetConfigurations.equals(that.targetConfigurations);
+    return this.targetConfiguration.equals(that.targetConfiguration);
   }
 
   @Override
   public int hashCode() {
-    return targetConfigurations.hashCode();
+    return targetConfiguration.hashCode();
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add(
-            "targetConfigurations",
-            Lists.transform(targetConfigurations, BuildConfigurationValue::checksum))
+        .add("targetConfiguration", targetConfiguration.checksum())
         .add("hostConfiguration", hostConfiguration.checksum())
         .toString();
   }

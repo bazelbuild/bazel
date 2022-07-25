@@ -414,39 +414,6 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void autoTargetEnvironment_multi_cpu() throws Exception {
-    write(
-        "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
-
-    write(
-        "foo/bar.sh",
-        "echo Bar!");
-    write(
-        "foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'], restricted_to = ['//buildenv/auto_cpu:k8'])");
-
-    addOptions(
-        "--build",
-        "--auto_cpu_environment_group=//buildenv/auto_cpu:cpus",
-        "--experimental_multi_cpu=k8,ppc");
-    buildTarget("//foo:bar");
-
-    ConfiguredTarget successful = Iterables.getOnlyElement(getResult().getSuccessfulTargets());
-    assertThat(getConfiguration(successful).getCpu()).isEqualTo("k8");
-    assertThat(successful.getLabel().toString()).isEqualTo("//foo:bar");
-
-    ConfiguredTarget skipped = Iterables.getOnlyElement(getResult().getSkippedTargets());
-    assertThat(getConfiguration(skipped).getCpu()).isEqualTo("ppc");
-    assertThat(skipped.getLabel().toString()).isEqualTo("//foo:bar");
-  }
-
-  @Test
   public void autoTargetEnvironment_does_not_check_default_environments() throws Exception {
     write(
         "buildenv/auto_cpu/BUILD",

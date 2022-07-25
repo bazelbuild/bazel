@@ -64,11 +64,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -107,12 +105,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -204,20 +200,12 @@ public final class SkyframeBuildView {
       return null;
     }
 
-    ImmutableList<BuildConfigurationValue> oldTargetConfigs =
-        this.configurations.getTargetConfigurations();
-    ImmutableList<BuildConfigurationValue> newTargetConfigs =
-        configurations.getTargetConfigurations();
-
-    // TODO(schmitt): We are only checking the first of the new configurations, even though (through
-    //  split transitions) we could have more than one. There is some special handling for
-    //  --cpu changing below but other options may also be changed and should be covered.
-    BuildConfigurationValue oldConfig = oldTargetConfigs.get(0);
-    BuildConfigurationValue newConfig = newTargetConfigs.get(0);
+    BuildConfigurationValue oldConfig = this.configurations.getTargetConfiguration();
+    BuildConfigurationValue newConfig = configurations.getTargetConfiguration();
     OptionsDiff diff = BuildOptions.diff(oldConfig.getOptions(), newConfig.getOptions());
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
-        getNativeCacheInvalidatingDifferences(oldTargetConfigs, newTargetConfigs, newConfig, diff);
+        getNativeCacheInvalidatingDifferences(newConfig, diff);
     if (nativeCacheInvalidatingDifferences.isEmpty()
         && diff.getChangedStarlarkOptions().isEmpty()) {
       // The configuration may have changed, but none of the changes required a cache reset. For
@@ -263,46 +251,17 @@ public final class SkyframeBuildView {
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
   //  configurations is --cpu which (with the presence of split transitions) is no longer true.
   private ImmutableSet<OptionDefinition> getNativeCacheInvalidatingDifferences(
-      ImmutableList<BuildConfigurationValue> oldTargetConfigs,
-      ImmutableList<BuildConfigurationValue> newTargetConfigs,
       BuildConfigurationValue newConfig,
       OptionsDiff diff) {
-    Stream<OptionDefinition> nativeCacheInvalidatingDifferences =
-        diff.getFirst().keySet().stream()
-            .filter(
-                (definition) ->
-                    ruleClassProvider.shouldInvalidateCacheForOptionDiff(
-                        newConfig.getOptions(),
-                        definition,
-                        diff.getFirst().get(definition),
-                        Iterables.getOnlyElement(diff.getSecond().get(definition))));
-
-    // --experimental_multi_cpu is currently the only way to have multiple configurations, but this
-    // code is unable to see whether or how it is set, only infer it from the presence of multiple
-    // configurations before or after the values changed and look at what the cpus of those
-    // configurations are set to.
-    if (Math.max(oldTargetConfigs.size(), newTargetConfigs.size()) > 1) {
-      // Ignore changes to --cpu for consistency - depending on the old and new values of
-      // --experimental_multi_cpu and how the order of configurations falls, we may or may not
-      // register a --cpu change in the diff, and --experimental_multi_cpu overrides --cpu
-      // anyway so it's redundant information as long as we have --experimental_multi_cpu change
-      // detection.
-      nativeCacheInvalidatingDifferences =
-          nativeCacheInvalidatingDifferences.filter(
-              (definition) -> !CoreOptions.CPU.equals(definition));
-      ImmutableSet<String> oldCpus =
-          oldTargetConfigs.stream().map(BuildConfigurationValue::getCpu).collect(toImmutableSet());
-      ImmutableSet<String> newCpus =
-          newTargetConfigs.stream().map(BuildConfigurationValue::getCpu).collect(toImmutableSet());
-      if (!Objects.equals(oldCpus, newCpus)) {
-        // --experimental_multi_cpu has changed, so inject that in the diff stream.
-        nativeCacheInvalidatingDifferences =
-            Stream.concat(
-                Stream.of(BuildRequestOptions.EXPERIMENTAL_MULTI_CPU),
-                nativeCacheInvalidatingDifferences);
-      }
-    }
-    return nativeCacheInvalidatingDifferences.collect(toImmutableSet());
+    return diff.getFirst().keySet().stream()
+        .filter(
+            (definition) ->
+                ruleClassProvider.shouldInvalidateCacheForOptionDiff(
+                    newConfig.getOptions(),
+                    definition,
+                    diff.getFirst().get(definition),
+                    Iterables.getOnlyElement(diff.getSecond().get(definition))))
+        .collect(toImmutableSet());
   }
 
   /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */

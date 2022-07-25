@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
@@ -1430,26 +1431,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
    */
-  public BuildConfigurationCollection createConfigurations(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu,
-      boolean keepGoing)
+  public BuildConfigurationCollection createConfiguration(
+      ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
 
     if (configuredTargetProgress != null) {
       configuredTargetProgress.reset();
     }
 
-    ImmutableList<BuildConfigurationValue> topLevelTargetConfigs =
-        getConfigurations(
-            eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu), buildOptions, keepGoing);
-
-    BuildConfigurationValue firstTargetConfig = topLevelTargetConfigs.get(0);
+    BuildConfigurationValue topLevelTargetConfig =
+        getConfiguration(eventHandler, buildOptions, keepGoing);
 
     BuildOptionsView hostTransitionOptionsView =
         new BuildOptionsView(
-            firstTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
+            topLevelTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
     BuildOptions hostOptions =
         HostTransition.INSTANCE.patch(hostTransitionOptionsView, eventHandler);
     BuildConfigurationValue hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
@@ -1458,31 +1453,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // accessor (i.e. not the event handler) to trigger the exception below.
     ErrorSensingEventHandler<Void> nosyEventHandler =
         ErrorSensingEventHandler.withoutPropertyValueTracking(eventHandler);
-    topLevelTargetConfigs.forEach(config -> config.reportInvalidOptions(nosyEventHandler));
+    topLevelTargetConfig.reportInvalidOptions(nosyEventHandler);
     if (nosyEventHandler.hasErrors()) {
       throw new InvalidConfigurationException(
           "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
-    return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
-  }
-
-  /**
-   * Returns the {@link BuildOptions} to apply to the top-level build configurations. This can be
-   * plural because of {@code multiCpu}.
-   */
-  // TODO(b/239743533): Formally drop multipcpu and remove this?
-  private static ImmutableList<BuildOptions> getTopLevelBuildOptions(
-      BuildOptions buildOptions, Set<String> multiCpu) {
-    if (multiCpu.isEmpty()) {
-      return ImmutableList.of(buildOptions);
-    }
-    ImmutableList.Builder<BuildOptions> multiCpuOptions = ImmutableList.builder();
-    for (String cpu : multiCpu) {
-      BuildOptions clonedOptions = buildOptions.clone();
-      clonedOptions.get(CoreOptions.class).cpu = cpu;
-      multiCpuOptions.add(clonedOptions);
-    }
-    return multiCpuOptions.build();
+    return new BuildConfigurationCollection(topLevelTargetConfig, hostConfig);
   }
 
   /**
@@ -1866,20 +1842,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return cts.build();
   }
 
-  /**
-   * Returns the configuration corresponding to the given set of build options. Should not be used
-   * in a world with trimmed configurations.
-   *
-   * @throws InvalidConfigurationException if the build options produces an invalid configuration
-   */
-  @Deprecated
-  public BuildConfigurationValue getConfiguration(
-      ExtendedEventHandler eventHandler, BuildOptions options, boolean keepGoing)
-      throws InvalidConfigurationException {
-    return Iterables.getOnlyElement(
-        getConfigurations(eventHandler, ImmutableList.of(options), options, keepGoing));
-  }
-
   @Nullable
   public BuildConfigurationValue getConfiguration(
       ExtendedEventHandler eventHandler, BuildConfigurationKey configurationKey) {
@@ -1889,15 +1851,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return (BuildConfigurationValue)
         evaluateSkyKeys(eventHandler, ImmutableList.of(configurationKey)).get(configurationKey);
   }
-
-  public Map<BuildConfigurationKey, BuildConfigurationValue> getConfigurations(
-      ExtendedEventHandler eventHandler, Collection<BuildConfigurationKey> keys) {
-    EvaluationResult<SkyValue> evaluationResult = evaluateSkyKeys(eventHandler, keys);
-    return keys.stream()
-        .collect(
-            toMap(
-                Functions.identity(), key -> (BuildConfigurationValue) evaluationResult.get(key)));
-  }
   /**
    * Returns the configurations corresponding to the given sets of build options. Output order is
    * the same as input order.
@@ -1905,29 +1858,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  private ImmutableList<BuildConfigurationValue> getConfigurations(
-      ExtendedEventHandler eventHandler,
-      List<BuildOptions> optionsList,
-      BuildOptions referenceBuildOptions,
-      boolean keepGoing)
+  public BuildConfigurationValue getConfiguration(
+      ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
-    Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
-
     // Prepare the Skyframe inputs.
 
-    PlatformMappingValue platformMappingValue =
-        getPlatformMappingValue(eventHandler, referenceBuildOptions);
+    PlatformMappingValue platformMappingValue = getPlatformMappingValue(eventHandler, buildOptions);
 
-    ImmutableList.Builder<SkyKey> configSkyKeysBuilder =
-        ImmutableList.builderWithExpectedSize(optionsList.size());
-    for (BuildOptions options : optionsList) {
-      configSkyKeysBuilder.add(toConfigurationKey(platformMappingValue, options));
-    }
-
-    ImmutableList<SkyKey> configSkyKeys = configSkyKeysBuilder.build();
+    SkyKey configSkyKey = toConfigurationKey(platformMappingValue, buildOptions);
 
     // Skyframe-evaluate the configurations and throw errors if any.
-    EvaluationResult<SkyValue> evalResult = evaluateSkyKeys(eventHandler, configSkyKeys, keepGoing);
+    EvaluationResult<SkyValue> evalResult =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(configSkyKey), keepGoing);
     if (evalResult.hasError()) {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
@@ -1948,9 +1890,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     // Prepare and return the results.
-    return configSkyKeys.stream()
-        .map(key -> (BuildConfigurationValue) evalResult.get(key))
-        .collect(toImmutableList());
+    return (BuildConfigurationValue) evalResult.get(configSkyKey);
+  }
+
+  public Map<BuildConfigurationKey, BuildConfigurationValue> getConfigurations(
+      ExtendedEventHandler eventHandler, Collection<BuildConfigurationKey> keys) {
+    EvaluationResult<SkyValue> evaluationResult = evaluateSkyKeys(eventHandler, keys);
+    return keys.stream()
+        .collect(
+            toImmutableMap(
+                Functions.identity(), key -> (BuildConfigurationValue) evaluationResult.get(key)));
   }
 
   /**
