@@ -140,7 +140,7 @@ public class AuthAndTLSOptions extends OptionsBase {
   public Duration grpcKeepaliveTimeout;
 
   @Option(
-      name = "experimental_experimental_credential_helper",
+      name = "experimental_credential_helper",
       defaultValue = "null",
       allowMultiple = true,
       converter = UnresolvedScopedCredentialHelperConverter.class,
@@ -150,12 +150,13 @@ public class AuthAndTLSOptions extends OptionsBase {
           "Configures Credential Helpers to use for retrieving credentials for the provided scope "
               + "(domain).\n\n"
               + "Credentials from Credential Helpers take precedence over credentials from "
-              + "<code>--google_default_credentials</code> or <code>.netrc</code>.\n\n"
+              + "<code>--google_default_credentials</code>, `--google_credentials`, or <code>"
+              + ".netrc</code>.\n\n"
               + "See https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md for details.")
   public List<UnresolvedScopedCredentialHelper> credentialHelpers;
 
   @Option(
-      name = "credential_helper_timeout",
+      name = "experimental_credential_helper_timeout",
       defaultValue = "5s",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -167,7 +168,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   @Option(
       name = "experimental_credential_helper_cache_duration",
-      defaultValue = "15m",
+      defaultValue = "30m",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
