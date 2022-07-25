@@ -223,17 +223,16 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link Credentials} with following order:
+   * Create a new {@link Credentials} retrieving call credentials in the following order:
    *
    * <ol>
-   *   <li>If authentication enabled by flags, use it to create credentials
-   *   <li>Use .netrc to provide credentials if exists
-   *   <li>Otherwise, return {@code null}
+   *   <li>If a Credential Helper is configured for the scope, use the credentials provided by the helper.
+   *   <li>If (Google) authentication is enabled by flags, use it to create credentials.
+   *   <li>Use {@code .netrc} to provide credentials if exists.
    * </ol>
    *
    * @throws IOException in case the credentials can't be constructed.
    */
-  @Nullable
   public static Credentials newCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
       CommandLinePathFactory commandLinePathFactory,

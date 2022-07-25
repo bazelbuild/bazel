@@ -15,7 +15,7 @@ import java.util.Optional;
 
 /**
  * Implementation of {@link Credentials} which fetches credentials by invoking a {@code credential
- * helper} as subprocess.
+ * helper} as subprocess, falling back to another {@link Credentials} if no suitable helper exists.
  */
 public class CredentialHelperCredentials extends Credentials {
   private final Optional<Credentials> fallbackCredentials;
@@ -67,8 +67,7 @@ public class CredentialHelperCredentials extends Credentials {
     return ImmutableMap.of();
   }
 
-  private Optional<Map<String, List<String>>> getRequestMetadataFromCredentialHelper(
-      URI uri) throws IOException {
+  private Optional<Map<String, List<String>>> getRequestMetadataFromCredentialHelper(URI uri) {
     Preconditions.checkNotNull(uri);
 
     GetCredentialsResponse response = credentialCache.get(uri);
@@ -114,24 +113,13 @@ public class CredentialHelperCredentials extends Credentials {
     public GetCredentialsResponse load(URI uri) throws IOException, InterruptedException {
       Preconditions.checkNotNull(uri);
 
-      Optional<GetCredentialsResponse> response = loadInternal(uri);
-      if (response.isPresent()) {
-        return response.get();
-      }
-
-      return null;
-    }
-
-    private Optional<GetCredentialsResponse> loadInternal(URI uri) throws IOException, InterruptedException {
-      Preconditions.checkNotNull(uri);
-
       Optional<CredentialHelper> maybeCredentialHelper = credentialHelperProvider.findCredentialHelper(uri);
       if (!maybeCredentialHelper.isPresent()) {
-        return Optional.empty();
+        return null;
       }
       CredentialHelper credentialHelper = maybeCredentialHelper.get();
 
-      return Optional.of(credentialHelper.getCredentials(credentialHelperEnvironment, uri));
+      return credentialHelper.getCredentials(credentialHelperEnvironment, uri);
     }
   }
 }
