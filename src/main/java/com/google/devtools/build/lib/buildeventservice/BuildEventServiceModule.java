@@ -677,7 +677,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
 
     final BuildEventServiceClient besClient;
     try {
-      besClient = getBesClient(besOptions, authTlsOptions);
+      besClient = getBesClient(cmdEnv, besOptions, authTlsOptions);
     } catch (IOException | OptionsParsingException e) {
       reportError(
           reporter,
@@ -822,7 +822,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   protected abstract Class<BESOptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      CommandEnvironment env, BESOptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();
