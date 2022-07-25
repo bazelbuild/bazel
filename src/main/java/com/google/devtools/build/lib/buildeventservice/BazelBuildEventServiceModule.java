@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,9 +26,11 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
+import io.grpc.auth.MoreCallCredentials;
 import io.grpc.stub.MetadataUtils;
 import java.io.IOException;
 import java.util.Map;
@@ -70,15 +74,28 @@ public class BazelBuildEventServiceModule
 
   @Override
   protected BuildEventServiceClient getBesClient(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+      CommandEnvironment env,
+      BuildEventServiceOptions besOptions,
+      AuthAndTLSOptions authAndTLSOptions)
+      throws IOException {
     BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
+      Preconditions.checkState(config == null);
+      Preconditions.checkState(client == null);
+
+      Credentials credentials =
+          GoogleAuthUtils.newCredentials(
+              env.getReporter(),
+              env.getClientEnv(),
+              env.getRuntime().getFileSystem(),
+              newConfig.authAndTLSOptions());
+
       config = newConfig;
       client =
           new BuildEventServiceGrpcClient(
               newGrpcChannel(config),
-              GoogleAuthUtils.newCallCredentials(config.authAndTLSOptions()),
+              credentials != null ? MoreCallCredentials.from(credentials) : null,
               makeGrpcInterceptor(config));
     }
     return client;

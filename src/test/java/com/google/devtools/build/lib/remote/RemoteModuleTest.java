@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions.UnresolvedScopedCredentialHelper;
-import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
 import com.google.devtools.build.lib.events.Reporter;
@@ -77,7 +75,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -490,77 +487,6 @@ public final class RemoteModuleTest {
   }
 
   @Test
-  public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
-    Map<String, String> clientEnv = ImmutableMap.of();
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-
-    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
-
-    assertThat(credentials).isNull();
-  }
-
-  @Test
-  public void testNetrc_netrcNotExist_shouldIgnore() throws Exception {
-    String home = "/home/foo";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-
-    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
-
-    assertThat(credentials).isNull();
-  }
-
-  @Test
-  public void testNetrc_netrcExist_shouldUse() throws Exception {
-    String home = "/home/foo";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home);
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    Scratch scratch = new Scratch(fileSystem);
-    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
-
-    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
-
-    assertThat(credentials).isNotNull();
-    assertRequestMetadata(
-        credentials.getRequestMetadata(URI.create("https://foo.example.org")),
-        "foouser",
-        "foopass");
-  }
-
-  @Test
-  public void testNetrc_netrcFromNetrcEnvExist_shouldUse() throws Exception {
-    String home = "/home/foo";
-    String netrc = "/.netrc";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "NETRC", netrc);
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    Scratch scratch = new Scratch(fileSystem);
-    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
-    scratch.file(netrc, "machine foo.example.org login baruser password barpass");
-
-    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
-
-    assertThat(credentials).isNotNull();
-    assertRequestMetadata(
-        credentials.getRequestMetadata(URI.create("https://foo.example.org")),
-        "baruser",
-        "barpass");
-  }
-
-  @Test
-  public void testNetrc_netrcFromNetrcEnvNotExist_shouldIgnore() throws Exception {
-    String home = "/home/foo";
-    String netrc = "/.netrc";
-    Map<String, String> clientEnv = ImmutableMap.of("HOME", home, "NETRC", netrc);
-    FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    Scratch scratch = new Scratch(fileSystem);
-    scratch.file(home + "/.netrc", "machine foo.example.org login foouser password foopass");
-
-    Credentials credentials = RemoteModule.newCredentialsFromNetrc(clientEnv, fileSystem);
-
-    assertThat(credentials).isNull();
-  }
-
-  @Test
   public void testNetrc_netrcWithoutRemoteCache() throws Exception {
     String netrc = "/.netrc";
     Map<String, String> clientEnv = ImmutableMap.of("NETRC", netrc);
@@ -578,13 +504,6 @@ public final class RemoteModuleTest {
     assertThat(credentials).isNotNull();
     assertThat(credentials.getRequestMetadata(URI.create("https://foo.example.org"))).isNotEmpty();
     assertThat(credentials.getRequestMetadata(URI.create("https://bar.example.org"))).isEmpty();
-  }
-
-  private static void assertRequestMetadata(
-      Map<String, List<String>> requestMetadata, String username, String password) {
-    assertThat(requestMetadata.keySet()).containsExactly("Authorization");
-    assertThat(Iterables.getOnlyElement(requestMetadata.values()))
-        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password, UTF_8));
   }
 
   @Test
