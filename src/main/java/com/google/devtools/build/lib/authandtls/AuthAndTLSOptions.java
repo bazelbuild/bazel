@@ -139,6 +139,44 @@ public class AuthAndTLSOptions extends OptionsBase {
               + "pings are disabled, then this setting is ignored.")
   public Duration grpcKeepaliveTimeout;
 
+  @Option(
+      name = "experimental_credential_helper",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = UnresolvedScopedCredentialHelperConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures Credential Helpers to use for retrieving credentials for the provided scope"
+              + " (domain).\n\n"
+              + "Credentials from Credential Helpers take precedence over credentials from"
+              + " <code>--google_default_credentials</code>, `--google_credentials`, or"
+              + " <code>.netrc</code>.\n\n"
+              + "See https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md"
+              + " for details.")
+  public List<UnresolvedScopedCredentialHelper> credentialHelpers;
+
+  @Option(
+      name = "experimental_credential_helper_timeout",
+      defaultValue = "5s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures the timeout for the Credential Helper.\n\n"
+              + "Credential Helpers failing to respond within this timeout will fail the"
+              + " invocation.")
+  public Duration credentialHelperTimeout;
+
+  @Option(
+      name = "experimental_credential_helper_cache_duration",
+      defaultValue = "30m",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Configures the duration for which credentials from Credential Helpers are cached.")
+  public Duration credentialHelperCacheTimeout;
+
   /** One of the values of the `--credential_helper` flag. */
   @AutoValue
   public abstract static class UnresolvedScopedCredentialHelper {

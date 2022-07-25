@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -107,33 +108,69 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final void dumpDetailed(PrintStream out, Predicate<SkyKey> filter) {
-    inMemoryGraph()
-        .getAllValues()
-        .forEach(
-            (key, entry) -> {
-              if (!filter.test(key) || !entry.isDone()) {
-                return;
-              }
-              printKey(key, out);
-              if (entry.keepsEdges()) {
-                GroupedList<SkyKey> deps =
-                    GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
-                for (int i = 0; i < deps.listSize(); i++) {
-                  out.format("  Group %d:\n", i + 1);
-                  for (SkyKey dep : deps.get(i)) {
-                    out.print("    ");
-                    printKey(dep, out);
-                  }
-                }
-              } else {
-                out.println("  (direct deps not stored)");
-              }
-              out.println();
-            });
+  public final void dumpDeps(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    for (Map.Entry<SkyKey, InMemoryNodeEntry> x : inMemoryGraph().getAllValues().entrySet()) {
+      // This can be very long running on large graphs so check for user abort requests.
+      if (Thread.interrupted()) {
+        out.println("aborting");
+        throw new InterruptedException();
+      }
+
+      SkyKey key = x.getKey();
+      InMemoryNodeEntry entry = x.getValue();
+      String canonicalizedKey = canonicalizeKey(key);
+      if (!filter.test(canonicalizedKey) || !entry.isDone()) {
+        continue;
+      }
+      out.println(canonicalizedKey);
+      if (entry.keepsEdges()) {
+        GroupedList<SkyKey> deps = GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
+        for (int i = 0; i < deps.listSize(); i++) {
+          out.format("  Group %d:\n", i + 1);
+          for (SkyKey dep : deps.get(i)) {
+            out.print("    ");
+            out.println(canonicalizeKey(dep));
+          }
+        }
+      } else {
+        out.println("  (direct deps not stored)");
+      }
+      out.println();
+    }
   }
 
-  private static void printKey(SkyKey key, PrintStream out) {
-    out.format("%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
+  @Override
+  public final void dumpRdeps(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    for (Map.Entry<SkyKey, InMemoryNodeEntry> x : inMemoryGraph().getAllValues().entrySet()) {
+      // This can be very long running on large graphs so check for user abort requests.
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+
+      SkyKey key = x.getKey();
+      InMemoryNodeEntry entry = x.getValue();
+      String canonicalizedKey = canonicalizeKey(key);
+      if (!filter.test(canonicalizedKey) || !entry.isDone()) {
+        continue;
+      }
+      out.println(canonicalizedKey);
+      if (entry.keepsEdges()) {
+        Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
+        for (SkyKey rdep : rdeps) {
+          out.print("    ");
+          out.println(canonicalizeKey(rdep));
+        }
+      } else {
+        out.println("  (rdeps not stored)");
+      }
+      out.println();
+    }
+  }
+
+  private String canonicalizeKey(SkyKey key) {
+    return String.format(
+        "%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
   }
 }

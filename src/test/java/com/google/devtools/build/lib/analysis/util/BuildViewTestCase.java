@@ -1456,11 +1456,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ActionLookupKey actionLookupKey =
-        ConfiguredTargetKey.builder()
-            .setConfiguredTarget(owner)
-            .setConfigurationKey(owner.getConfigurationKey())
-            .build();
+    ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
@@ -1517,11 +1513,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.builder()
-            .setConfiguredTarget(owner)
-            .setConfiguration(
-                skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
-            .build());
+        ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 
   /**
@@ -1602,13 +1594,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
+    ConfiguredTargetKey configKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     BuildConfigurationValue configuration =
-        skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey());
-    ConfiguredTargetKey configKey =
-        ConfiguredTargetKey.builder()
-            .setConfiguredTarget(owner)
-            .setConfiguration(configuration)
-            .build();
+        skyframeExecutor.getConfiguration(reporter, configKey.getConfigurationKey());
     return getGenfilesArtifact(packageRelativePath, configKey, configuration);
   }
 
@@ -1693,11 +1681,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.builder()
-            .setConfiguredTarget(owner)
-            .setConfiguration(
-                skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
-            .build());
+        ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {

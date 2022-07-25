@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android.databinding;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -163,12 +164,16 @@ public final class DataBinding {
   }
 
   /** Returns an artifact for the specified output under a standardized data binding base dir. */
-  static Artifact getDataBindingArtifact(RuleContext ruleContext, String relativePath) {
-    PathFragment binRelativeBasePath =
+  static Artifact getDataBindingArtifact(
+      RuleContext ruleContext, String relativePath, boolean isDirectory) {
+    ArtifactRoot root = ruleContext.getBinOrGenfilesDirectory();
+    PathFragment rootRelativePath =
         getDataBindingExecPath(ruleContext)
-            .relativeTo(ruleContext.getBinOrGenfilesDirectory().getExecPath());
-    return ruleContext.getDerivedArtifact(
-        binRelativeBasePath.getRelative(relativePath), ruleContext.getBinOrGenfilesDirectory());
+            .relativeTo(ruleContext.getBinOrGenfilesDirectory().getExecPath())
+            .getRelative(relativePath);
+    return isDirectory
+        ? ruleContext.getTreeArtifact(rootRelativePath, root)
+        : ruleContext.getDerivedArtifact(rootRelativePath, root);
   }
 
   static ImmutableList<Artifact> getAnnotationFile(RuleContext ruleContext, boolean useAndroidX) {
@@ -187,7 +192,8 @@ public final class DataBinding {
               useAndroidX
                   ? "databinding_annotation_template_androidx.txt"
                   : "databinding_annotation_template_support_lib.txt");
-      Artifact annotationFile = getDataBindingArtifact(ruleContext, "DataBindingInfo.java");
+      Artifact annotationFile =
+          getDataBindingArtifact(ruleContext, "DataBindingInfo.java", /* isDirectory= */ false);
       ruleContext.registerAction(
           FileWriteAction.create(ruleContext, annotationFile, contents, false));
       return ImmutableList.of(annotationFile);
@@ -236,13 +242,15 @@ public final class DataBinding {
       if (useUpdatedArgs) {
         outputs.add(
             getDataBindingArtifact(
-                ruleContext, String.format("%s/%s-%s", METADATA_OUTPUT_DIR, javaPackage, suffix)));
+                ruleContext,
+                String.format("%s/%s-%s", METADATA_OUTPUT_DIR, javaPackage, suffix),
+                /* isDirectory= */ false));
       } else {
         outputs.add(
             getDataBindingArtifact(
                 ruleContext,
-                String.format(
-                    "%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, suffix)));
+                String.format("%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, suffix),
+                /* isDirectory= */ false));
       }
     }
     return outputs.build();
@@ -264,12 +272,14 @@ public final class DataBinding {
     if (useUpdatedArgs) {
       return getDataBindingArtifact(
           ruleContext,
-          String.format("%s/%s-%s", METADATA_OUTPUT_DIR, javaPackage, metadataOutputSuffix));
+          String.format("%s/%s-%s", METADATA_OUTPUT_DIR, javaPackage, metadataOutputSuffix),
+          /* isDirectory= */ false);
     } else {
       return getDataBindingArtifact(
           ruleContext,
           String.format(
-              "%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, metadataOutputSuffix));
+              "%s/%s-%s-%s", METADATA_OUTPUT_DIR, javaPackage, javaPackage, metadataOutputSuffix),
+          /* isDirectory= */ false);
     }
   }
 
@@ -287,8 +297,8 @@ public final class DataBinding {
     Artifact symlink =
         getDataBindingArtifact(
             ruleContext,
-            String.format(
-                "%s/%s", DEP_METADATA_INPUT_DIR, depMetadata.getRootRelativePathString()));
+            String.format("%s/%s", DEP_METADATA_INPUT_DIR, depMetadata.getRootRelativePathString()),
+            /* isDirectory= */ depMetadata.isTreeArtifact());
     ruleContext.registerAction(
         SymlinkAction.toArtifact(
             ruleContext.getActionOwner(),

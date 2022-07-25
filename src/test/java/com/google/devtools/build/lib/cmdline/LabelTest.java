@@ -426,7 +426,7 @@ public class LabelTest {
   @Test
   public void testStarlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");
-    assertThat(Starlark.str(label)).isEqualTo("//x:x");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
   }
 }

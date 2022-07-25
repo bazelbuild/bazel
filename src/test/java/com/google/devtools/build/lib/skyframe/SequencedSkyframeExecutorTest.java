@@ -691,10 +691,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             getDerivedArtifact(
                 PathFragment.create("conflict/_objs/x/foo.o"),
                 root,
-                ConfiguredTargetKey.builder()
-                    .setConfiguredTarget(conflict.getConfiguredTarget())
-                    .setConfiguration(conflict.getConfiguration())
-                    .build()));
+                ConfiguredTargetKey.fromConfiguredTarget(conflict.getConfiguredTarget())));
     assertThat(oldAction.getOwner().getLabel().toString()).isEqualTo("//conflict:x");
     skyframeExecutor.handleAnalysisInvalidatingChange();
     ConfiguredTargetAndData objsConflict =
@@ -706,10 +703,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             getDerivedArtifact(
                 PathFragment.create("conflict/_objs/x/foo.o"),
                 root,
-                ConfiguredTargetKey.builder()
-                    .setConfiguredTarget(objsConflict.getConfiguredTarget())
-                    .setConfiguration(objsConflict.getConfiguration())
-                    .build()));
+                ConfiguredTargetKey.fromConfiguredTarget(objsConflict.getConfiguredTarget())));
     assertThat(newAction.getOwner().getLabel().toString()).isEqualTo("//conflict:_objs/x/foo.o");
   }
 

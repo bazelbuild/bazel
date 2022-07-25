@@ -199,8 +199,17 @@ public final class SymlinkAction extends AbstractAction {
     } else {
       srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
     }
+
+    Path outputPath = getOutputPath(actionExecutionContext);
+
     try {
-      getOutputPath(actionExecutionContext).createSymbolicLink(srcPath);
+      // Delete the empty output directory created prior to the action execution when the output is
+      // a tree artifact. All other actions that produce tree artifacts expect it to exist prior to
+      // their execution. It's not worth complicating ActionOutputDirectoryHelper just to avoid this
+      // small amount of overhead.
+      outputPath.delete();
+
+      outputPath.createSymbolicLink(srcPath);
     } catch (IOException e) {
       String message =
           String.format(

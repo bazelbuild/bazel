@@ -1313,10 +1313,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             includes,
             excludes,
             excludeDirs,
-            Starlark.format(
-                "(result == sorted(%r)) or fail('incorrect glob result: got %%s, want %%s' %%"
-                    + " (result, sorted(%r)))",
-                result, result));
+            String.format(
+                "(result == sorted(%s)) or fail('incorrect glob result: got %%s, want %%s' %%"
+                    + " (result, sorted(%s)))",
+                Starlark.repr(result), Starlark.repr(result)));
     // Execution succeeded. Assert that there were no other errors in the package.
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -1345,9 +1345,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     }
     scratch.file(
         "globs/BUILD",
-        Starlark.format(
-            "result = glob(%r, exclude=%r, exclude_directories=%r)",
-            includes, excludes, excludeDirs ? 1 : 0),
+        String.format(
+            "result = glob(%s, exclude=%s, exclude_directories=%d)",
+            Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
     return loadPackage("globs");
   }

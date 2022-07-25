@@ -114,13 +114,13 @@ public class Printer {
    *
    * <p>Implementations of StarlarkValue may define their own behavior of {@code debugPrint}.
    */
-  public Printer debugPrint(Object o) {
+  public Printer debugPrint(Object o, StarlarkSemantics semantics) {
     if (o instanceof StarlarkValue) {
-      ((StarlarkValue) o).debugPrint(this);
+      ((StarlarkValue) o).debugPrint(this, semantics);
       return this;
     }
 
-    return this.str(o);
+    return this.str(o, semantics);
   }
 
   /**
@@ -130,12 +130,12 @@ public class Printer {
    *
    * <p>Implementations of StarlarkValue may define their own behavior of {@code str}.
    */
-  public Printer str(Object o) {
+  public Printer str(Object o, StarlarkSemantics semantics) {
     if (o instanceof String) {
       return this.append((String) o);
 
     } else if (o instanceof StarlarkValue) {
-      ((StarlarkValue) o).str(this);
+      ((StarlarkValue) o).str(this, semantics);
       return this;
 
     } else {
@@ -299,13 +299,15 @@ public class Printer {
    * @param arguments an array containing arguments to substitute into the format operators in order
    * @throws IllegalFormatException if the format string is invalid or the arguments do not match it
    */
-  public static void format(Printer printer, String format, Object... arguments) {
-    formatWithList(printer, format, Arrays.asList(arguments));
+  public static void format(
+      Printer printer, StarlarkSemantics semantics, String format, Object... arguments) {
+    formatWithList(printer, semantics, format, Arrays.asList(arguments));
   }
 
   /** Same as {@link #format}, but with a list instead of variadic args. */
   @SuppressWarnings("FormatString") // see b/178189609
-  public static void formatWithList(Printer printer, String pattern, List<?> arguments) {
+  public static void formatWithList(
+      Printer printer, StarlarkSemantics semantics, String pattern, List<?> arguments) {
     // N.B. MissingFormatWidthException is the only kind of IllegalFormatException
     // whose constructor can take and display arbitrary error message, hence its use below.
     // TODO(adonovan): this suggests we're using the wrong exception. Throw IAE?
@@ -370,7 +372,7 @@ public class Printer {
                   String.format(
                       "got %s for '%%%c' format, want int or float", Starlark.type(arg), conv));
             }
-            printer.str(
+            printer.append(
                 String.format(
                     conv == 'd' ? "%d" : conv == 'o' ? "%o" : conv == 'x' ? "%x" : "%X", n));
             continue;
@@ -394,7 +396,7 @@ public class Printer {
                 String.format(
                     "got %s for '%%%c' format, want int or float", Starlark.type(arg), conv));
           }
-          printer.str(StarlarkFloat.format(v, conv));
+          printer.append(StarlarkFloat.format(v, conv));
           continue;
 
         case 'r':
@@ -402,7 +404,7 @@ public class Printer {
           continue;
 
         case 's':
-          printer.str(arg);
+          printer.str(arg, semantics);
           continue;
 
         default:

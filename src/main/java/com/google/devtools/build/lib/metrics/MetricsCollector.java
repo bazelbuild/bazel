@@ -249,7 +249,6 @@ class MetricsCollector {
 
   private MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
-    long usedHeapSizePostBuild = 0;
     if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
       memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
@@ -258,10 +257,10 @@ class MetricsCollector {
         .map(PeakHeap::bytes)
         .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
 
-    if (memoryMetrics.getPeakPostGcHeapSize() < usedHeapSizePostBuild) {
+    if (memoryMetrics.getPeakPostGcHeapSize() < memoryMetrics.getUsedHeapSizePostBuild()) {
       // If we just did a GC and computed the heap size, update the one we got from the GC
       // notification (which may arrive too late for this specific GC).
-      memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
+      memoryMetrics.setPeakPostGcHeapSize(memoryMetrics.getUsedHeapSizePostBuild());
     }
 
     PostGCMemoryUseRecorder.get()

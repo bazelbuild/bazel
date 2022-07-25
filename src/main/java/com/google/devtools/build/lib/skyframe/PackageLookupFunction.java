@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -94,6 +95,15 @@ public class PackageLookupFunction implements SkyFunction {
     if (packageNameErrorMsg != null) {
       return PackageLookupValue.invalidPackageName(
           "Invalid package name '" + packageKey + "': " + packageNameErrorMsg);
+    }
+
+    RepositoryName repoName = packageKey.getRepository();
+    if (!repoName.isVisible()) {
+      return new PackageLookupValue.NoRepositoryPackageLookupValue(
+          repoName.getNameWithAt(),
+          String.format(
+              "Repository '%s' is not visible from repository '%s'",
+              repoName.getNameWithAt(), repoName.getOwnerRepoIfNotVisible().getNameWithAt()));
     }
 
     if (deletedPackages.get().contains(packageKey)) {

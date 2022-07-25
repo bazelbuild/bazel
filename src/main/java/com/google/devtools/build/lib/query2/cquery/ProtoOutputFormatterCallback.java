@@ -125,7 +125,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       AspectResolver resolver,
       OutputType outputType,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
