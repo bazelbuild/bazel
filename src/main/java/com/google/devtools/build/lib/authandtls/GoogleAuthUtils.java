@@ -195,14 +195,17 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link CallCredentials} object.
+   * Create a new {@link CallCredentials} object from the authentication flags, or null if no flags
+   * are set.
    *
-   * @throws IOException in case the call credentials can't be constructed.
+   * @throws IOException in case the credentials can't be constructed.
    */
-  public static CallCredentials newCallCredentials(AuthAndTLSOptions options) throws IOException {
-    Credentials creds = newCredentials(options);
-    if (creds != null) {
-      return MoreCallCredentials.from(creds);
+  @Nullable
+  public static CallCredentials newGoogleCallCredentials(AuthAndTLSOptions options)
+      throws IOException {
+    Optional<Credentials> creds = newGoogleCredentials(options);
+    if (creds.isPresent()) {
+      return MoreCallCredentials.from(creds.get());
     }
     return null;
   }
@@ -219,18 +222,52 @@ public final class GoogleAuthUtils {
   }
 
   /**
-   * Create a new {@link Credentials} object, or {@code null} if no options are provided.
+   * Create a new {@link Credentials} with following order:
+   *
+   * <ol>
+   *   <li>If authentication enabled by flags, use it to create credentials
+   *   <li>Use .netrc to provide credentials if exists
+   *   <li>Otherwise, return {@code null}
+   * </ol>
    *
    * @throws IOException in case the credentials can't be constructed.
    */
   @Nullable
-  public static Credentials newCredentials(@Nullable AuthAndTLSOptions options) throws IOException {
+  public static Credentials newCredentials(
+      Reporter reporter,
+      Map<String, String> clientEnv,
+      FileSystem fileSystem,
+      AuthAndTLSOptions authAndTlsOptions)
+      throws IOException {
+    Optional<Credentials> credentials = newGoogleCredentials(authAndTlsOptions);
+
+    if (credentials.isEmpty()) {
+      // Fallback to .netrc if it exists.
+      try {
+        credentials = newCredentialsFromNetrc(clientEnv, fileSystem);
+      } catch (IOException e) {
+        // TODO(yannic): Make this fail the build.
+        reporter.handle(Event.warn(e.getMessage()));
+      }
+    }
+
+    return credentials.orElse(null);
+  }
+
+  /**
+   * Create a new {@link Credentials} object from the authentication flags, or null if no flags are
+   * set.
+   *
+   * @throws IOException in case the credentials can't be constructed.
+   */
+  public static Optional<Credentials> newGoogleCredentials(@Nullable AuthAndTLSOptions options)
+      throws IOException {
     if (options == null) {
-      return null;
+      return Optional.empty();
     } else if (options.googleCredentials != null) {
       // Credentials from file
       try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
-        return newCredentials(authFile, options.googleAuthScopes);
+        return Optional.of(newGoogleCredentialsFromFile(authFile, options.googleAuthScopes));
       } catch (FileNotFoundException e) {
         String message =
             String.format(
@@ -239,10 +276,11 @@ public final class GoogleAuthUtils {
         throw new IOException(message, e);
       }
     } else if (options.useGoogleDefaultCredentials) {
-      return newCredentials(
-          null /* Google Application Default Credentials */, options.googleAuthScopes);
+      return Optional.of(
+          newGoogleCredentialsFromFile(
+              null /* Google Application Default Credentials */, options.googleAuthScopes));
     }
-    return null;
+    return Optional.empty();
   }
 
   /**
@@ -251,7 +289,7 @@ public final class GoogleAuthUtils {
    * @throws IOException in case the credentials can't be constructed.
    */
   @VisibleForTesting
-  public static Credentials newCredentials(
+  public static Credentials newGoogleCredentialsFromFile(
       @Nullable InputStream credentialsFile, List<String> authScopes) throws IOException {
     try {
       GoogleCredentials creds =
