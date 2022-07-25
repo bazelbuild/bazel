@@ -296,7 +296,9 @@ class DataBindingV2Context implements DataBindingContext {
 
     Artifact layoutInfo = getLayoutInfoFile();
     Artifact classInfoFile = getClassInfoFile(ruleContext);
-    Artifact srcOutFile = DataBinding.getDataBindingArtifact(ruleContext, "baseClassSrc.srcjar");
+    Artifact srcOutFile =
+        DataBinding.getDataBindingArtifact(
+            ruleContext, "baseClassSrc.srcjar", /* isDirectory= */ false);
 
     FilesToRunProvider exec =
         ruleContext.getExecutablePrerequisite(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR);

@@ -252,7 +252,7 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Starlark.str(this);
+    return Starlark.repr(this);
   }
 
   @Override

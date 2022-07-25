@@ -142,7 +142,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor)
       throws QueryException, InterruptedException {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
 
     ParserInput input = null;
     String exceptionMessagePrefix;
@@ -239,7 +239,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
             Starlark.fastcall(
                 thread, this.formatFn, new Object[] {target.getConfiguredTarget()}, NO_ARGS);
 
-        addResult(Starlark.str(result));
+        addResult(Starlark.str(result, thread.getSemantics()));
       } catch (EvalException ex) {
         eventHandler.handle(
             Event.error(

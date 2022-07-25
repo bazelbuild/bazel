@@ -424,6 +424,28 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBzlVisibility_enabledWhenAllowlistDisabled() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        // Put unrelated c in allowlist, but not b, to show that "everyone" disables checking when
+        // included as a list item
+        "--experimental_bzl_visibility_allowlist=c,everyone");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl", //
+        "visibility(\"public\")",
+        "x = 1");
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertNoEvents();
+  }
+
+  @Test
   public void testBzlVisibility_malformedAllowlist() throws Exception {
     setBuildLanguageOptions(
         "--experimental_bzl_visibility=true",
@@ -889,7 +911,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected InputStream getInputStream(PathFragment path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       if (badPathForRead != null && badPathForRead.asFragment().equals(path)) {
         throw new IOException("bad");
       }

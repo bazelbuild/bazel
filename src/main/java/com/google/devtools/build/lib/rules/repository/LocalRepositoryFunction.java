@@ -83,7 +83,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     } else {
       pathArg = Starlark.repr(path);
     }
-    String repr = Starlark.format("local_repository(name = %r, path = %s)", name, pathArg);
+    String repr =
+        String.format("local_repository(name = %s, path = %s)", Starlark.repr(name), pathArg);
     return new ResolvedEvent() {
       @Override
       public String getName() {

@@ -932,12 +932,11 @@ public final class ActionExecutionFunction implements SkyFunction {
         retrievedMetadata = nonMandatoryDiscovered.nextOrThrow(SourceArtifactException.class);
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          bugReporter.sendBugReport(
-              new IllegalStateException(
-                  String.format(
-                      "Non-source artifact had SourceArtifactException %s %s",
-                      input.toDebugString(), actionForError.prettyPrint()),
-                  e));
+          throw new IllegalStateException(
+              String.format(
+                  "Non-source artifact had SourceArtifactException %s %s",
+                  input.toDebugString(), actionForError.prettyPrint()),
+              e);
         }
 
         skyframeActionExecutor.printError(e.getMessage(), actionForError);

@@ -129,17 +129,17 @@ public class DumpCommand implements BlazeCommand {
         converter = SkyframeDumpEnumConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "Dump Skyframe graph: 'off', 'summary', 'count', or 'detailed'.")
+        help = "Dump Skyframe graph: 'off', 'summary', 'count', 'deps', or 'rdeps'.")
     public SkyframeDumpOption dumpSkyframe;
 
     @Option(
-        name = "skyfunction_filter",
+        name = "skykey_filter",
         defaultValue = ".*",
         converter = RegexFilterConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help = "Regex filter of SkyFunction names to output. Only used with --skyframe=detailed.")
-    public RegexFilter skyFunctionFilter;
+        help = "Regex filter of SkyKey names to output. Only used with --skyframe=deps, rdeps.")
+    public RegexFilter skyKeyFilter;
   }
 
   /**
@@ -149,7 +149,8 @@ public class DumpCommand implements BlazeCommand {
     OFF,
     SUMMARY,
     COUNT,
-    DETAILED
+    DEPS,
+    RDEPS
   }
 
   /**
@@ -216,18 +217,8 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.dumpRules) {
-        try {
-          dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
-          out.println();
-        } catch (InterruptedException e) {
-          env.getReporter().error(null, "Interrupted", e);
-          return BlazeCommandResult.failureDetail(
-              FailureDetail.newBuilder()
-                  .setInterrupted(
-                      FailureDetails.Interrupted.newBuilder()
-                          .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
-                  .build());
-        }
+        dumpRuleStats(env.getReporter(), env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
+        out.println();
       }
 
       if (dumpOptions.starlarkMemory != null) {
@@ -250,13 +241,23 @@ public class DumpCommand implements BlazeCommand {
         case COUNT:
           evaluator.dumpCount(out);
           break;
-        case DETAILED:
-          evaluator.dumpDetailed(
-              out, k -> dumpOptions.skyFunctionFilter.test(k.functionName().getName()));
+        case DEPS:
+          evaluator.dumpDeps(out, dumpOptions.skyKeyFilter);
+          break;
+        case RDEPS:
+          evaluator.dumpRdeps(out, dumpOptions.skyKeyFilter);
           break;
       }
 
       return failure.orElse(BlazeCommandResult.success());
+    } catch (InterruptedException e) {
+      env.getReporter().error(null, "Interrupted", e);
+      return BlazeCommandResult.failureDetail(
+          FailureDetail.newBuilder()
+              .setInterrupted(
+                  FailureDetails.Interrupted.newBuilder()
+                      .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
+              .build());
     } finally {
       out.flush();
     }

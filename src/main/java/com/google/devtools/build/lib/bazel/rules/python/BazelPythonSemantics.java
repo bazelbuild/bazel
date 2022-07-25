@@ -177,9 +177,6 @@ public class BazelPythonSemantics implements PythonSemantics {
                 Substitution.of("%is_zipfile%", boolToLiteral(isForZipFile)),
                 Substitution.of(
                     "%import_all%", boolToLiteral(bazelConfig.getImportAllRepositories())),
-                Substitution.of(
-                    "%enable_host_version_warning%",
-                    boolToLiteral(common.shouldWarnAboutHostVersionUponFailure())),
                 Substitution.of("%target%", ruleContext.getRule().getLabel().getCanonicalForm()),
                 Substitution.of(
                     "%python_version_from_config%", versionToLiteral(common.getVersion())),

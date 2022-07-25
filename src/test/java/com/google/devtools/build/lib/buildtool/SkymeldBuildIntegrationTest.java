@@ -123,6 +123,24 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void nobuild_warning() throws Exception {
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+    addOptions("--nobuild");
+
+    BuildResult result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and will"
+            + " be ignored");
+  }
+
+  @Test
   public void multiTargetBuild_success() throws Exception {
     writeMyRuleBzl();
     write(

@@ -43,7 +43,7 @@ public interface StarlarkBuildApiGlobals {
               + "<li>a list of package paths (e.g. <code>[\"//pkg1\", \"//pkg2/subpkg\","
               + " ...]</code>): the .bzl can be loaded by files in any of the listed packages. Only"
               + " packages in the current repository may be specified; the repository \"@\" syntax"
-              + " is disallowed."
+              + " is disallowed. Subpackage globs (<code>\"//pkg/...\"</code>) are not supported."
               + "</ul>"
               + "<p>Generally, <code>visibility()</code> is called at the top of the .bzl file,"
               + " immediately after its <code>load()</code> statements. (It is poor style to put"
@@ -59,8 +59,8 @@ public interface StarlarkBuildApiGlobals {
             name = "value",
             named = false,
             doc =
-                "The bzl-visibility level to set. May be <code>\"public\"</code> or"
-                    + " <code>\"private\"</code>.")
+                "The bzl-visibility level to set. May be <code>\"public\"</code>,"
+                    + " <code>\"private\"</code>, or a list of packages.")
       },
       // Ordinarily we'd use enableOnlyWithFlag here to gate access on
       // --experimental_bzl_visibility. However, the StarlarkSemantics isn't available at the point

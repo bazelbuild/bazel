@@ -144,15 +144,16 @@ final class StringModule implements StarlarkValue {
               + "joined by this string as a separator. Example:<br>"
               + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\""
               + "</pre>",
-      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")})
-  public String join(String self, Object elements) throws EvalException {
+      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")},
+      useStarlarkThread = true)
+  public String join(String self, Object elements, StarlarkThread thread) throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw Starlark.errorf(
             "expected string for sequence element %d, got '%s' of type %s",
-            i, Starlark.str(item), Starlark.type(item));
+            i, Starlark.str(item, thread.getSemantics()), Starlark.type(item));
       }
       i++;
     }
@@ -967,9 +968,11 @@ final class StringModule implements StarlarkValue {
       },
       extraPositionals = @Param(name = "args", defaultValue = "()", doc = "List of arguments."),
       extraKeywords =
-          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."))
-  public String format(String self, Tuple args, Dict<String, Object> kwargs) throws EvalException {
-    return new FormatParser().format(self, args, kwargs);
+          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
+      useStarlarkThread = true)
+  public String format(String self, Tuple args, Dict<String, Object> kwargs, StarlarkThread thread)
+      throws EvalException {
+    return new FormatParser().format(self, args, kwargs, thread.getSemantics());
   }
 
   @StarlarkMethod(

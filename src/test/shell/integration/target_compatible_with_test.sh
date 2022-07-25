@@ -1082,4 +1082,163 @@ function test_aquery_incompatible_target() {
   expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
 }
 
+# Use aspects to interact with incompatible targets and validate the behaviour.
+function test_aspect_skipping() {
+  cat >> target_skipping/BUILD <<EOF
+load(":defs.bzl", "basic_rule", "rule_with_aspect")
+# This target is compatible with all platforms and configurations. This target
+# exists to validate the behaviour of aspects running against incompatible
+# targets. The expectation is that the aspect should _not_ propagate to this
+# compatible target from an incomaptible target. I.e. an aspect should _not_
+# evaluate this target if "basic_foo3_target" is incompatible.
+basic_rule(
+    name = "basic_universal_target",
+)
+# An alias to validate that incompatible target skipping works as expected with
+# aliases and aspects.
+alias(
+    name = "aliased_basic_universal_target",
+    actual = ":basic_universal_target",
+)
+basic_rule(
+    name = "basic_foo3_target",
+    deps = [
+        ":aliased_basic_universal_target",
+    ],
+    target_compatible_with = [
+        ":foo3",
+    ],
+)
+# This target is only compatible when "basic_foo3_target" is compatible. This
+# target exists to validate the behaviour of aspects running against
+# incompatible targets. The expectation is that the aspect should _not_
+# evaluate this target when "basic_foo3_target" is incompatible.
+basic_rule(
+    name = "other_basic_target",
+    deps = [
+        ":basic_foo3_target",
+    ],
+)
+alias(
+    name = "aliased_other_basic_target",
+    actual = ":other_basic_target",
+)
+rule_with_aspect(
+    name = "inspected_foo3_target",
+    inspect = ":aliased_other_basic_target",
+)
+basic_rule(
+    name = "previously_inspected_basic_target",
+    deps = [
+        ":inspected_foo3_target",
+    ],
+)
+rule_with_aspect(
+    name = "twice_inspected_foo3_target",
+    inspect = ":previously_inspected_basic_target",
+)
+genrule(
+    name = "generated_file",
+    outs = ["generated_file.txt"],
+    cmd = "echo '' > \$(OUTS)",
+    target_compatible_with = [
+        ":foo1",
+    ],
+)
+rule_with_aspect(
+    name = "inspected_generated_file",
+    inspect = ":generated_file",
+)
+EOF
+  cat > target_skipping/defs.bzl <<EOF
+BasicProvider = provider()
+def _basic_rule_impl(ctx):
+    return [DefaultInfo(), BasicProvider()]
+basic_rule = rule(
+    implementation = _basic_rule_impl,
+    attrs = {
+        "deps": attr.label_list(
+            providers = [BasicProvider],
+        ),
+    },
+)
+def _inspecting_aspect_impl(target, ctx):
+    print("Running aspect on " + str(target))
+    return []
+_inspecting_aspect = aspect(
+    implementation = _inspecting_aspect_impl,
+    attr_aspects = ["deps"],
+)
+def _rule_with_aspect_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "")
+    return [
+        DefaultInfo(files=depset([out])),
+        BasicProvider(),
+    ]
+rule_with_aspect = rule(
+    implementation = _rule_with_aspect_impl,
+    attrs = {
+        "inspect": attr.label(
+            aspects = [_inspecting_aspect],
+        ),
+    },
+)
+EOF
+  cd target_skipping || fail "couldn't cd into workspace"
+  local debug_message1="Running aspect on <target //target_skipping:basic_universal_target>"
+  local debug_message2="Running aspect on <target //target_skipping:basic_foo3_target>"
+  local debug_message3="Running aspect on <target //target_skipping:other_basic_target>"
+  local debug_message4="Running aspect on <target //target_skipping:previously_inspected_basic_target>"
+  local debug_message5="Running aspect on <target //target_skipping:generated_file>"
+  # Validate that aspects run against compatible targets.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log "${debug_message1}"
+  expect_log "${debug_message2}"
+  expect_log "${debug_message3}"
+  expect_log "${debug_message4}"
+  expect_not_log "${debug_message5}"
+  # Invert the compatibility and validate that aspects run on the other targets
+  # now.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_not_log "${debug_message1}"
+  expect_not_log "${debug_message2}"
+  expect_not_log "${debug_message3}"
+  expect_not_log "${debug_message4}"
+  expect_log "${debug_message5}"
+  # Validate that explicitly trying to build a target with an aspect against an
+  # incompatible target produces the normal error message.
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:twice_inspected_foo3_target &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  # TODO(#15427): Should use expect_log_once here when the issue is fixed.
+  expect_log 'ERROR: Target //target_skipping:twice_inspected_foo3_target is incompatible and cannot be built, but was explicitly requested.'
+  expect_log '^Dependency chain:$'
+  expect_log '^    //target_skipping:twice_inspected_foo3_target '
+  expect_log '^    //target_skipping:previously_inspected_basic_target '
+  expect_log '^    //target_skipping:inspected_foo3_target '
+  expect_log '^    //target_skipping:aliased_other_basic_target '
+  expect_log '^    //target_skipping:other_basic_target '
+  expect_log "    //target_skipping:basic_foo3_target .*  <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3:"
+  expect_log 'FAILED: Build did NOT complete successfully'
+  expect_not_log "${debug_message1}"
+  expect_not_log "${debug_message2}"
+  expect_not_log "${debug_message3}"
+  expect_not_log "${debug_message4}"
+  expect_not_log "${debug_message5}"
+}
+
 run_suite "target_compatible_with tests"

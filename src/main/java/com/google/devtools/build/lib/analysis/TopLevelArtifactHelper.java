@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
@@ -234,6 +236,36 @@ public final class TopLevelArtifactHelper {
 
     return new ArtifactsToBuild(
         allOutputGroups.buildOrThrow(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
+  }
+
+  /**
+   * Returns false if the build outputs provided by the target should never be shown to users.
+   *
+   * <p>Always returns false for hidden rules and source file targets.
+   */
+  public static boolean shouldConsiderForDisplay(ConfiguredTarget configuredTarget) {
+    // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
+    if (configuredTarget instanceof InputFileConfiguredTarget) {
+      // Suppress display of source files (because we do no work to build them).
+      return false;
+    }
+    if (configuredTarget instanceof RuleConfiguredTarget) {
+      RuleConfiguredTarget ruleCt = (RuleConfiguredTarget) configuredTarget;
+      if (ruleCt.getRuleClassString().contains("$")) {
+        // Suppress display of hidden rules
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns true if the given artifact should be shown to users as a build output.
+   *
+   * <p>Always returns false for middleman and source artifacts.
+   */
+  public static boolean shouldDisplay(Artifact artifact) {
+    return !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact();
   }
 
   /**

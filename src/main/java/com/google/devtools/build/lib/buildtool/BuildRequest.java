@@ -394,6 +394,18 @@ public class BuildRequest implements OptionsProvider {
       warnings.add("--verbose_explanations has no effect when --explain=<file> is not enabled");
     }
 
+    // --nobuild means no execution will be carried out, hence it doesn't make sense to
+    // interleave analysis and execution in that case.
+    // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
+    // makes no different from the users' perspective.
+    if (getBuildOptions().mergedSkyframeAnalysisExecution
+        && !getBuildOptions().performExecutionPhase
+        && !("aquery".equals(commandName) || "cquery".equals(commandName))) {
+      warnings.add(
+          "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and"
+              + " will be ignored.");
+    }
+
     return warnings;
   }
 

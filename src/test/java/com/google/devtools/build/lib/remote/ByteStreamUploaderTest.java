@@ -105,7 +105,7 @@ public class ByteStreamUploaderTest {
 
   private final String serverName = "Server for " + this.getClass();
   private Server server;
-  private ChannelConnectionFactory channelConnectionFactory;
+  private ReferenceCountedChannel referenceCountedChannel;
   private RemoteActionExecutionContext context;
 
   @Mock private Retrier.Backoff mockBackoff;
@@ -119,19 +119,20 @@ public class ByteStreamUploaderTest {
             .fallbackHandlerRegistry(serviceRegistry)
             .build()
             .start();
-    channelConnectionFactory =
-        new ChannelConnectionFactory() {
-          @Override
-          public Single<? extends ChannelConnection> create() {
-            return Single.just(
-                new ChannelConnection(InProcessChannelBuilder.forName(serverName).build()));
-          }
+    referenceCountedChannel =
+        new ReferenceCountedChannel(
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                return Single.just(
+                    new ChannelConnection(InProcessChannelBuilder.forName(serverName).build()));
+              }
 
-          @Override
-          public int maxConcurrency() {
-            return 100;
-          }
-        };
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             "none",
@@ -145,6 +146,7 @@ public class ByteStreamUploaderTest {
 
   @After
   public void tearDown() throws Exception {
+    referenceCountedChannel.release();
     retryService.shutdownNow();
     retryService.awaitTermination(
         com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -160,7 +162,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -187,7 +189,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -252,7 +254,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
@@ -368,7 +370,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             300,
             retrier,
@@ -486,7 +488,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             1,
             retrier,
@@ -544,7 +546,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
@@ -614,7 +616,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
@@ -651,7 +653,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             3,
             retrier,
@@ -705,7 +707,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             300,
             retrier,
@@ -737,7 +739,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -769,7 +771,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -801,7 +803,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -839,7 +841,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -875,7 +877,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -984,25 +986,28 @@ public class ByteStreamUploaderTest {
     metadata.put(Metadata.Key.of("Key1", Metadata.ASCII_STRING_MARSHALLER), "Value1");
     metadata.put(Metadata.Key.of("Key2", Metadata.ASCII_STRING_MARSHALLER), "Value2");
 
+    referenceCountedChannel.release();
+    referenceCountedChannel =
+        new ReferenceCountedChannel(
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                return Single.just(
+                    new ChannelConnection(
+                        InProcessChannelBuilder.forName(serverName)
+                            .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
+                            .build()));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(
-                new ChannelConnectionFactory() {
-                  @Override
-                  public Single<? extends ChannelConnection> create() {
-                    return Single.just(
-                        new ChannelConnection(
-                            InProcessChannelBuilder.forName(serverName)
-                                .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
-                                .build()));
-                  }
-
-                  @Override
-                  public int maxConcurrency() {
-                    return 100;
-                  }
-                }),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1063,7 +1068,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1099,7 +1104,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1138,7 +1143,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             /* instanceName= */ null,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1182,7 +1187,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             /* instanceName= */ null,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1235,7 +1240,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             callCredentialsProvider,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1291,7 +1296,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             callCredentialsProvider,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1361,7 +1366,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
@@ -1420,7 +1425,7 @@ public class ByteStreamUploaderTest {
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
-            new ReferenceCountedChannel(channelConnectionFactory),
+            referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
             retrier,
