@@ -143,13 +143,10 @@ EOF
   bazel clean
   bazel build //java/com/example/hello:hello || fail "build failed"
   jar xf bazel-bin/java/com/example/hello/hello.apk
-  # Check that the apk manifest contains Created-By: Bazel. Note that for
-  # custom-built bazel binaries, the field will say "Bazel development version".
-  # For official releases, the field will reflect the build label specified, for
-  # example "Bazel 5.2.0.".
+  # Check that the apk manifest contains Created-By: Bazel.
   assert_contains "Created\-By: Bazel" META-INF/MANIFEST.MF
   # Clean up the extracted manifest.
-  rm -rf META-INF/MANIFEST.MF
+  rm META-INF/MANIFEST.MF
 }
 
 function test_d8_dexes_hello_android() {
