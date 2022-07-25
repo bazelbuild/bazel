@@ -104,6 +104,7 @@ public class CommandEnvironment {
   private final ImmutableList<Any> commandExtensions;
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
   private final Consumer<String> shutdownReasonConsumer;
+  private final CommandLinePathFactory commandLinePathFactory;
 
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
@@ -266,6 +267,9 @@ public class CommandEnvironment {
         repoEnvFromOptions.put(name, value);
       }
     }
+
+    this.commandLinePathFactory =
+        CommandLinePathFactory.create(runtime.getFileSystem(), directories);
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -839,5 +843,9 @@ public class CommandEnvironment {
 
   public void addResponseExtensions(Iterable<Any> extensions) {
     responseExtensions.addAll(extensions);
+  }
+
+  public CommandLinePathFactory getCommandLinePathFactory() {
+    return commandLinePathFactory;
   }
 }
