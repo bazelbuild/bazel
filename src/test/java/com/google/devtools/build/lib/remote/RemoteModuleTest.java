@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -63,8 +65,8 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -478,17 +480,24 @@ public final class RemoteModuleTest {
   @Test
   public void testNetrc_netrcWithoutRemoteCache() throws Exception {
     String netrc = "/.netrc";
-    Map<String, String> clientEnv = ImmutableMap.of("NETRC", netrc);
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Scratch scratch = new Scratch(fileSystem);
     scratch.file(netrc, "machine foo.example.org login baruser password barpass");
     AuthAndTLSOptions authAndTLSOptions = Options.getDefaults(AuthAndTLSOptions.class);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    Reporter reporter = new Reporter(new EventBus());
 
     Credentials credentials =
         RemoteModule.newCredentials(
-            clientEnv, fileSystem, reporter, authAndTLSOptions, remoteOptions);
+            CredentialHelperEnvironment.newBuilder()
+                .setEventReporter(new Reporter(new EventBus()))
+                .setWorkspacePath(fileSystem.getPath("/workspace"))
+                .setClientEnvironment(ImmutableMap.of("NETRC", netrc))
+                .setHelperExecutionTimeout(Duration.ZERO)
+                .build(),
+            new CommandLinePathFactory(fileSystem, ImmutableMap.of()),
+            fileSystem,
+            authAndTLSOptions,
+            remoteOptions);
 
     assertThat(credentials).isNotNull();
     assertThat(credentials.getRequestMetadata(URI.create("https://foo.example.org"))).isNotEmpty();
