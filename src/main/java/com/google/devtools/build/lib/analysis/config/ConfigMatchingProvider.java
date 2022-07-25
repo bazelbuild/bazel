@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -39,9 +38,6 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * @param label the build label corresponding to this matcher
    * @param settingsMap the condition settings that trigger this matcher
    * @param flagSettingsMap the label-keyed settings that trigger this matcher
-   * @param requiredFragmentOptions {@link FragmentOptions} required to match the options this
-   *     matcher checks. This provides comparable functionality to {@link
-   *     com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider}.
    * @param matches whether or not this matcher matches the configuration associated with its
    *     configured target
    */
@@ -49,14 +45,12 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       Label label,
       ImmutableMultimap<String, String> settingsMap,
       ImmutableMap<Label, String> flagSettingsMap,
-      RequiredConfigFragmentsProvider requiredFragmentOptions,
       ImmutableSet<Label> constraintValueSettings,
       boolean matches) {
     return new AutoValue_ConfigMatchingProvider(
         label,
         settingsMap,
         flagSettingsMap,
-        requiredFragmentOptions,
         constraintValueSettings,
         matches);
   }
@@ -67,8 +61,6 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
   abstract ImmutableMultimap<String, String> settingsMap();
 
   abstract ImmutableMap<Label, String> flagSettingsMap();
-
-  public abstract RequiredConfigFragmentsProvider requiredFragmentOptions();
 
   abstract ImmutableSet<Label> constraintValuesSetting();
 

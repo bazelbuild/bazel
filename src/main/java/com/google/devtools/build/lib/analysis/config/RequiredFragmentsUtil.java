@@ -194,13 +194,9 @@ public final class RequiredFragmentsUtil {
         // Fragments universally required by everything:
         .addFragmentClasses(universallyRequiredFragments);
     // Fragments required by attached select()s. Propagating fragments from the config conditions as
-    // configured targets is necessary in case of a dependency on an alias that resolves to a config
-    // setting. The providers only contain the resolved settings, which won't include fragments
-    // required to resolve a select within the alias rule.
-    // TODO(jhorvitz): Are the CTs themselves sufficient? Tests pass without the providers.
-    for (ConfigMatchingProvider provider : configConditions.asProviders().values()) {
-      requiredFragments.merge(provider.requiredFragmentOptions());
-    }
+    // configured targets (rather than as providers) is necessary in case of a dependency on an
+    // alias that resolves to a config setting. Providers only reflect the resolved settings, which
+    // won't include fragments required to resolve a select within the alias rule (b/237534193).
     for (ConfiguredTargetAndData targetAndData : configConditions.asConfiguredTargets().values()) {
       requiredFragments.merge(
           targetAndData.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class));
