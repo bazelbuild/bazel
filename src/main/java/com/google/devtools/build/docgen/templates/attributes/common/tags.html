@@ -42,10 +42,13 @@
     executed remotely (but it may be cached remotely).
   </li>
 
-  <li><code>no-remote</code> keyword prevents the action or test from being executed remotely
-    or cached remotely. This is equivalent to using both no-remote-cache and no-remote-exec.
+  <li><code>no-remote</code> keyword prevents the action or test from being executed remotely or
+    cached remotely. This is equivalent to using both
+    <code>no-remote-cache</code> and <code>no-remote-exec</code>.
+      </li>
+   <li><code>no-remote-cache-upload</code> keyword disables upload part of remote caching of a spawn.
+     it does not disable remote execution.
   </li>
-
     <li><code>local</code> keyword precludes the action or test from being remotely cached,
     remotely executed, or run inside the sandbox.
     For genrules and tests, marking the rule with the <code>local = True</code>
