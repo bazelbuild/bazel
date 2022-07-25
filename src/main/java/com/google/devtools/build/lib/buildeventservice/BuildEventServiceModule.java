@@ -91,7 +91,7 @@ import javax.annotation.Nullable;
  * Module responsible for the Build Event Transport (BEP) and Build Event Service (BES)
  * functionality.
  */
-public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServiceOptions>
+public abstract class BuildEventServiceModule<OptionsT extends BuildEventServiceOptions>
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -140,7 +140,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
   @Nullable private ConnectivityStatusProvider connectivityProvider;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
-  protected BESOptionsT besOptions;
+  protected OptionsT besOptions;
 
   protected void reportCommandLineError(EventHandler commandLineReporter, Exception exception) {
     // Don't hide unchecked exceptions as part of the error reporting.
@@ -163,7 +163,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
     // Don't hide unchecked exceptions as part of the error reporting.
     Throwables.throwIfUnchecked(exception);
 
-    logger.atSevere().withCause(exception).log("%s", msg);
+    logger.atSevere().withCause(exception).log(msg);
     reportCommandLineError(commandLineReporter, exception);
     moduleEnvironment.exit(createAbruptExitException(exception, msg, besCode));
   }
@@ -254,7 +254,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                   + "Cancelling and starting a new invocation...",
               waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(exception).log("%s", msg);
+      logger.atWarning().withCause(exception).log(msg);
       cancelCloseFutures = true;
     } catch (ExecutionException e) {
       String msg;
@@ -274,7 +274,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
                 e.getMessage());
       }
       reporter.handle(Event.warn(msg));
-      logger.atWarning().withCause(e).log("%s", msg);
+      logger.atWarning().withCause(e).log(msg);
       cancelCloseFutures = true;
     } finally {
       if (cancelCloseFutures) {
@@ -671,13 +671,13 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
           String.format(
               "Build Event Service uploads disabled due to a connectivity problem: %s", status);
       reporter.handle(Event.warn(message));
-      logger.atWarning().log("%s", message);
+      logger.atWarning().log(message);
       return null;
     }
 
     final BuildEventServiceClient besClient;
     try {
-      besClient = getBesClient(cmdEnv, besOptions, authTlsOptions);
+      besClient = getBesClient(besOptions, authTlsOptions);
     } catch (IOException | OptionsParsingException e) {
       reportError(
           reporter,
@@ -692,7 +692,7 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         new BuildEventServiceProtoUtil.Builder()
             .buildRequestId(buildRequestId)
             .invocationId(invocationId)
-            .projectId(besOptions.instanceName)
+            .projectId(besOptions.projectId)
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
             .build();
@@ -819,18 +819,18 @@ public abstract class BuildEventServiceModule<BESOptionsT extends BuildEventServ
         e);
   }
 
-  protected abstract Class<BESOptionsT> optionsClass();
+  protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      CommandEnvironment env, OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();
 
-  protected abstract Set<String> allowedCommands(BESOptionsT besOptions);
+  protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
   protected Set<String> getBesKeywords(
-      BESOptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
+      OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
     return besOptions.besKeywords.stream()
         .map(keyword -> "user_keyword=" + keyword)
         .collect(ImmutableSet.toImmutableSet());
