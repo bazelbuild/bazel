@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -86,8 +87,13 @@ public class BazelBuildEventServiceModule
 
       Credentials credentials =
           GoogleAuthUtils.newCredentials(
-              env.getReporter(),
-              env.getClientEnv(),
+              CredentialHelperEnvironment.newBuilder()
+                  .setEventReporter(env.getReporter())
+                  .setWorkspacePath(env.getWorkspace())
+                  .setClientEnvironment(env.getClientEnv())
+                  .setHelperExecutionTimeout(authAndTLSOptions.credentialHelperTimeout)
+                  .build(),
+              env.getCommandLinePathFactory(),
               env.getRuntime().getFileSystem(),
               newConfig.authAndTLSOptions());
 
