@@ -476,9 +476,9 @@ load(":a.bzl", "a")
 a(name="a")
 EOF
 
-  # TODO(tjgq): This should build successfully.
-  bazel build //a:a >& $TEST_log && fail "build succeeded"
-  expect_log "failed to create symbolic link"
+  bazel build //a:a || fail "build failed"
+  assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
+  expect_symlink bazel-bin/a/a.link
 }
 
 function test_symlink_file_to_directory_created_from_symlink_action() {
