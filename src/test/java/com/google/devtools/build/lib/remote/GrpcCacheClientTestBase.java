@@ -59,6 +59,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -79,6 +80,7 @@ class GrpcCacheClientTestBase {
   protected RemoteActionExecutionContext context;
   protected RemotePathResolver remotePathResolver;
   protected ListeningScheduledExecutorService retryService;
+  private final ArrayList<ReferenceCountedChannel> channels = new ArrayList<>();
 
   @Before
   public final void setUp() throws Exception {
@@ -110,6 +112,7 @@ class GrpcCacheClientTestBase {
 
   @After
   public void tearDown() throws Exception {
+    channels.forEach(ReferenceCountedChannel::release);
     retryService.shutdownNow();
     retryService.awaitTermination(
         com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -167,8 +170,9 @@ class GrpcCacheClientTestBase {
                 return 100;
               }
             });
+    channels.add(channel);
     return new GrpcCacheClient(
-        channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
+        channel, callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
   }
 
   protected static byte[] downloadBlob(
