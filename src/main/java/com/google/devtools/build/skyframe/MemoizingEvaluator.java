@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
@@ -205,19 +204,4 @@ public interface MemoizingEvaluator {
    */
   @ThreadHostile
   void dumpRdeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
-
-  /**
-   * Keeps track of already-emitted events. Users of the graph should instantiate an {@code
-   * EmittedEventState} first and pass it to the graph during creation. This allows them to
-   * determine whether or not to replay events.
-   */
-  final class EmittedEventState {
-    final NestedSetVisitor.VisitedState eventState = new NestedSetVisitor.VisitedState();
-    final NestedSetVisitor.VisitedState postableState = new NestedSetVisitor.VisitedState();
-
-    public void clear() {
-      eventState.clear();
-      postableState.clear();
-    }
-  }
 }

@@ -19,6 +19,7 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -260,8 +261,18 @@ public interface SkyFunction {
     boolean valuesMissing();
 
     /**
-     * Returns the {@link ExtendedEventHandler} that a SkyFunction should use to print any errors,
-     * warnings, or progress messages during execution of {@link SkyFunction#compute}.
+     * Returns the {@link ExtendedEventHandler} that a {@link SkyFunction} should use to print any
+     * errors, warnings, or progress messages during execution of {@link SkyFunction#compute}.
+     *
+     * <p>{@link Reportable#storeForReplay} is used to determine when to actually {@linkplain
+     * Reportable#reportTo report} events passed to the listener. A return of {@code false}
+     * indicates that the event's relevance is tied to the time at which it is created, so it is
+     * reported immediately. All other events are temporarily stored in the environment and only
+     * reported after the function completes. If the function returns {@code null} due to a missing
+     * dependency, these events are discarded. It is the responsibility of the function to emit the
+     * events again after it is restarted. Note that if using {@link #getState} to prune work, the
+     * function may need to store events in the {@link SkyKeyComputeState} so that they can be
+     * replayed on a subsequent invocation.
      */
     ExtendedEventHandler getListener();
 

@@ -2801,7 +2801,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "def _dep_impl(ctx):",
           "  return MyInfo(dep_ctx = ctx)",
           "dep_rule = rule(implementation = _dep_impl)");
-      invalidatePackages();
+      initializeSkyframeExecutor();
       AssertionError e =
           assertThrows(
               "Should have been unable to access dep_ctx." + attribute,

@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,12 +46,13 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -81,7 +83,6 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -95,15 +96,10 @@ public class ParallelEvaluatorTest {
   protected IntVersion graphVersion = IntVersion.of(0);
   protected GraphTester tester = new GraphTester();
 
-  private StoredEventHandler storedEventHandler;
+  private final StoredEventHandler reportedEvents = new StoredEventHandler();
 
   private DirtyTrackingProgressReceiver revalidationReceiver =
       new DirtyTrackingProgressReceiver(null);
-
-  @Before
-  public void initializeReporter() {
-    storedEventHandler = new StoredEventHandler();
-  }
 
   @After
   public void assertNoTrackedErrors() {
@@ -122,8 +118,8 @@ public class ParallelEvaluatorTest {
         oldGraphVersion,
         MinimalVersion.INSTANCE,
         builders,
-        storedEventHandler,
-        new MemoizingEvaluator.EmittedEventState(),
+        reportedEvents,
+        new NestedSetVisitor.VisitedState(),
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
         keepGoing,
@@ -140,8 +136,7 @@ public class ParallelEvaluatorTest {
       ProcessableGraph graph,
       ImmutableMap<SkyFunctionName, SkyFunction> builders,
       boolean keepGoing) {
-    return makeEvaluator(
-        graph, builders, keepGoing, InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER);
+    return makeEvaluator(graph, builders, keepGoing, EventFilter.FULL_STORAGE);
   }
 
   /** Convenience method for eval-ing a single value. */
@@ -176,8 +171,8 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate("ab").addDependency("a").addDependency("b").setComputedValue(CONCATENATE);
     StringValue value = (StringValue) eval(false, GraphTester.toSkyKey("ab"));
     assertThat(value.getValue()).isEqualTo("ab");
-    assertThat(storedEventHandler.getEvents()).isEmpty();
-    assertThat(storedEventHandler.getPosts()).isEmpty();
+    assertThat(reportedEvents.getEvents()).isEmpty();
+    assertThat(reportedEvents.getPosts()).isEmpty();
   }
 
   @Test
@@ -610,7 +605,7 @@ public class ParallelEvaluatorTest {
     set("a", "a").setWarning("warning on 'a'");
     StringValue value = (StringValue) eval(false, GraphTester.toSkyKey("a"));
     assertThat(value.getValue()).isEqualTo("a");
-    assertThatEvents(storedEventHandler.getEvents()).containsExactly("warning on 'a'");
+    assertThatEvents(reportedEvents.getEvents()).containsExactly("warning on 'a'");
   }
 
   /** Regression test: events from already-done value not replayed. */
@@ -623,15 +618,15 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
     // Build a so that it is already in the graph.
     eval(false, a);
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    storedEventHandler.clear();
+    assertThat(reportedEvents.getEvents()).hasSize(1);
+    reportedEvents.clear();
     // Build top. The warning from a should be printed.
     eval(false, top);
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    storedEventHandler.clear();
+    assertThat(reportedEvents.getEvents()).hasSize(1);
+    reportedEvents.clear();
     // Build top again. The warning should have been stored in the value.
     eval(false, top);
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
+    assertThat(reportedEvents.getEvents()).hasSize(1);
   }
 
   @Test
@@ -650,38 +645,15 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
     // Build a so that it is already in the graph.
     eval(false, a);
-    assertThat(storedEventHandler.getPosts()).containsExactly(post);
-    storedEventHandler.clear();
+    assertThat(reportedEvents.getPosts()).containsExactly(post);
+    reportedEvents.clear();
     // Build top. The post from a should be printed.
     eval(false, top);
-    assertThat(storedEventHandler.getPosts()).containsExactly(post);
-    storedEventHandler.clear();
+    assertThat(reportedEvents.getPosts()).containsExactly(post);
+    reportedEvents.clear();
     // Build top again. The post should have been stored in the value.
     eval(false, top);
-    assertThat(storedEventHandler.getPosts()).containsExactly(post);
-  }
-
-  @Test
-  public void eventReportedTimely() throws Exception {
-    graph = new InMemoryGraphImpl();
-    set("a", "a").setWarning("warning on 'a'");
-    SkyKey a = GraphTester.toSkyKey("a");
-    SkyKey top = GraphTester.toSkyKey("top");
-    tester
-        .getOrCreate(top)
-        .setBuilder(
-            (key, env) -> {
-              // The event from a should already have been posted.
-              assertThat(storedEventHandler.getEvents()).hasSize(1);
-              return new StringValue("foo");
-            });
-    // Build a so that it is already in the graph.
-    eval(false, a);
-    storedEventHandler.clear();
-    // Build top. The warning from a should be printed before evaluating top.
-    eval(false, ImmutableList.of(a, top));
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    storedEventHandler.clear();
+    assertThat(reportedEvents.getPosts()).containsExactly(post);
   }
 
   @Test
@@ -707,53 +679,266 @@ public class ParallelEvaluatorTest {
                   new SomeErrorException("bazbar"), Transience.PERSISTENT) {};
             });
     eval(false, a);
-    assertThat(storedEventHandler.getEvents()).containsExactly(errorEvent);
+    assertThat(reportedEvents.getEvents()).containsExactly(errorEvent);
+  }
+
+  private static final class ExamplePost implements Postable {
+    private final boolean storeForReplay;
+
+    ExamplePost(boolean storeForReplay) {
+      this.storeForReplay = storeForReplay;
+    }
+
+    @Override
+    public boolean storeForReplay() {
+      return storeForReplay;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("storeForReplay", storeForReplay).toString();
+    }
+  }
+
+  private enum SkyframeEventType {
+    EVENT {
+      @Override
+      Event createUnstored() {
+        return Event.progress("analyzing");
+      }
+
+      @Override
+      Reportable createStored() {
+        return Event.warn("deprecated");
+      }
+
+      @Override
+      ImmutableList<Event> getResults(StoredEventHandler reportedEvents) {
+        return reportedEvents.getEvents();
+      }
+    },
+    POST {
+      @Override
+      Postable createUnstored() {
+        return new ExamplePost(false);
+      }
+
+      @Override
+      Postable createStored() {
+        return new ExamplePost(true);
+      }
+
+      @Override
+      ImmutableList<Postable> getResults(StoredEventHandler reportedEvents) {
+        return reportedEvents.getPosts();
+      }
+    };
+
+    abstract Reportable createUnstored();
+
+    abstract Reportable createStored();
+
+    abstract ImmutableList<? extends Reportable> getResults(StoredEventHandler reportedEvents);
   }
 
   @Test
-  public void storedEventFilter() throws Exception {
+  public void fullEventStorage_unstoredEvent_reportedImmediately_notReplayed(
+      @TestParameter SkyframeEventType eventType) throws Exception {
     graph = new InMemoryGraphImpl();
-    SkyKey a = GraphTester.toSkyKey("a");
-    final AtomicBoolean evaluated = new AtomicBoolean(false);
+    SkyKey key = GraphTester.skyKey("key");
+    AtomicBoolean evaluated = new AtomicBoolean(false);
+    Reportable unstoredEvent = eventType.createUnstored();
+    assertThat(unstoredEvent.storeForReplay()).isFalse();
     tester
-        .getOrCreate(a)
+        .getOrCreate(key)
+        .setBuilder(
+            (skyKey, env) -> {
+              evaluated.set(true);
+              unstoredEvent.reportTo(env.getListener());
+              assertThat(eventType.getResults(reportedEvents)).containsExactly(unstoredEvent);
+              return new StringValue("value");
+            });
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.FULL_STORAGE);
+    evaluator.eval(ImmutableList.of(key));
+    assertThat(evaluated.get()).isTrue();
+    assertThat(eventType.getResults(reportedEvents)).containsExactly(unstoredEvent);
+
+    reportedEvents.clear();
+    evaluated.set(false);
+
+    evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.FULL_STORAGE);
+    evaluator.eval(ImmutableList.of(key));
+    assertThat(evaluated.get()).isFalse();
+    assertThat(eventType.getResults(reportedEvents)).isEmpty();
+  }
+
+  @Test
+  public void fullEventStorage_storedEvent_reportedAfterSkyFunctionCompletes_replayed(
+      @TestParameter SkyframeEventType eventType) throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey top = GraphTester.skyKey("top");
+    SkyKey mid = GraphTester.skyKey("mid");
+    SkyKey bottom = GraphTester.skyKey("bottom");
+    String tag = "this is the tag";
+    AtomicBoolean evaluatedMid = new AtomicBoolean(false);
+    Reportable storedEvent = eventType.createStored();
+    assertThat(storedEvent.storeForReplay()).isTrue();
+    Reportable taggedEvent = storedEvent.withTag(tag);
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            (skyKey, env) -> {
+              SkyValue midValue = env.getValue(mid);
+              if (midValue == null) {
+                return null;
+              }
+              assertThat(eventType.getResults(reportedEvents)).containsExactly(taggedEvent);
+              return new StringValue("topValue");
+            });
+    tester
+        .getOrCreate(mid)
         .setBuilder(
             new SkyFunction() {
               @Nullable
               @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) {
-                evaluated.set(true);
-                env.getListener().handle(Event.error(null, "boop"));
-                env.getListener().handle(Event.warn(null, "beep"));
-                return new StringValue("a");
-              }
-            });
-    ParallelEvaluator evaluator =
-        makeEvaluator(
-            graph,
-            tester.getSkyFunctionMap(),
-            /*keepGoing=*/ false,
-            new EventFilter() {
-              @Override
-              public boolean test(Event event) {
-                return event.getKind() == EventKind.ERROR;
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                evaluatedMid.set(true);
+                storedEvent.reportTo(env.getListener());
+                assertThat(eventType.getResults(reportedEvents)).isEmpty();
+                SkyValue bottomValue = env.getValue(bottom);
+                if (bottomValue == null) {
+                  return null;
+                }
+                return new StringValue("midValue");
               }
 
               @Override
-              public boolean storeEventsAndPosts() {
-                return true;
+              public String extractTag(SkyKey skyKey) {
+                assertThat(skyKey).isEqualTo(mid);
+                return tag;
               }
             });
-    evaluator.eval(ImmutableList.of(a));
+    tester.getOrCreate(bottom).setConstantValue(new StringValue("depValue"));
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.FULL_STORAGE);
+    evaluator.eval(ImmutableList.of(top));
+    assertThat(evaluatedMid.get()).isTrue();
+    assertThat(eventType.getResults(reportedEvents)).containsExactly(taggedEvent);
+
+    reportedEvents.clear();
+    evaluatedMid.set(false);
+
+    evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.FULL_STORAGE);
+    evaluator.eval(ImmutableList.of(top));
+    assertThat(evaluatedMid.get()).isFalse();
+    assertThat(eventType.getResults(reportedEvents)).containsExactly(taggedEvent);
+  }
+
+  @Test
+  public void noEventStorage_unstoredEvent_reportedImmediately_notReplayed(
+      @TestParameter SkyframeEventType eventType) throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey key = GraphTester.skyKey("key");
+    AtomicBoolean evaluated = new AtomicBoolean(false);
+    Reportable unstoredEvent = eventType.createUnstored();
+    assertThat(unstoredEvent.storeForReplay()).isFalse();
+    tester
+        .getOrCreate(key)
+        .setBuilder(
+            (skyKey, env) -> {
+              evaluated.set(true);
+              unstoredEvent.reportTo(env.getListener());
+              assertThat(eventType.getResults(reportedEvents)).containsExactly(unstoredEvent);
+              return new StringValue("value");
+            });
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.NO_STORAGE);
+    evaluator.eval(ImmutableList.of(key));
     assertThat(evaluated.get()).isTrue();
-    assertThat(storedEventHandler.getEvents()).hasSize(2);
-    assertThatEvents(storedEventHandler.getEvents()).containsExactly("boop", "beep");
-    storedEventHandler.clear();
-    evaluator = makeEvaluator(graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false);
+    assertThat(eventType.getResults(reportedEvents)).containsExactly(unstoredEvent);
+
+    reportedEvents.clear();
     evaluated.set(false);
-    evaluator.eval(ImmutableList.of(a));
+
+    evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.NO_STORAGE);
+    evaluator.eval(ImmutableList.of(key));
     assertThat(evaluated.get()).isFalse();
-    assertThatEvents(storedEventHandler.getEvents()).containsExactly("boop");
+    assertThat(eventType.getResults(reportedEvents)).isEmpty();
+  }
+
+  @Test
+  public void noEventStorage_storedEvent_reportedAfterSkyFunctionCompletes_notReplayed(
+      @TestParameter SkyframeEventType eventType) throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey top = GraphTester.skyKey("top");
+    SkyKey mid = GraphTester.skyKey("mid");
+    SkyKey bottom = GraphTester.skyKey("bottom");
+    String tag = "this is the tag";
+    AtomicBoolean evaluatedMid = new AtomicBoolean(false);
+    Reportable storedEvent = eventType.createStored();
+    assertThat(storedEvent.storeForReplay()).isTrue();
+    Reportable taggedEvent = storedEvent.withTag(tag);
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            (skyKey, env) -> {
+              SkyValue midValue = env.getValue(mid);
+              if (midValue == null) {
+                return null;
+              }
+              assertThat(eventType.getResults(reportedEvents)).containsExactly(taggedEvent);
+              return new StringValue("topValue");
+            });
+    tester
+        .getOrCreate(mid)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                evaluatedMid.set(true);
+                storedEvent.reportTo(env.getListener());
+                assertThat(eventType.getResults(reportedEvents)).isEmpty();
+                SkyValue bottomValue = env.getValue(bottom);
+                if (bottomValue == null) {
+                  return null;
+                }
+                return new StringValue("midValue");
+              }
+
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                assertThat(skyKey).isEqualTo(mid);
+                return tag;
+              }
+            });
+    tester.getOrCreate(bottom).setConstantValue(new StringValue("depValue"));
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.NO_STORAGE);
+    evaluator.eval(ImmutableList.of(top));
+    assertThat(evaluatedMid.get()).isTrue();
+    assertThat(eventType.getResults(reportedEvents)).containsExactly(taggedEvent);
+
+    reportedEvents.clear();
+    evaluatedMid.set(false);
+
+    evaluator =
+        makeEvaluator(
+            graph, tester.getSkyFunctionMap(), /*keepGoing=*/ false, EventFilter.NO_STORAGE);
+    evaluator.eval(ImmutableList.of(top));
+    assertThat(evaluatedMid.get()).isFalse();
+    assertThat(eventType.getResults(reportedEvents)).isEmpty();
   }
 
   @Test
@@ -3127,9 +3312,9 @@ public class ParallelEvaluatorTest {
             graphVersion,
             MinimalVersion.INSTANCE,
             tester.getSkyFunctionMap(),
-            storedEventHandler,
-            new MemoizingEvaluator.EmittedEventState(),
-            InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
+            reportedEvents,
+            new NestedSetVisitor.VisitedState(),
+            EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.
             /*keepGoing=*/ false,

@@ -118,6 +118,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.Sharder;
@@ -204,11 +205,9 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.ImmutableDiff;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -257,8 +256,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static final int PARALLELISM_THRESHOLD = 1024;
 
   protected MemoizingEvaluator memoizingEvaluator;
-  private final MemoizingEvaluator.EmittedEventState emittedEventState =
-      new MemoizingEvaluator.EmittedEventState();
+  private final NestedSetVisitor.VisitedState emittedEventState =
+      new NestedSetVisitor.VisitedState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final FileSystem fileSystem;
@@ -650,8 +649,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
               @Override
-              public ActionLookupValuesCollectionResult collect(ActionLookupKey key)
-                  throws InterruptedException {
+              public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
                 return collectTransitiveActionLookupValues(key);
               }
 
@@ -811,7 +809,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
       EventFilter eventFilter,
-      EmittedEventState emittedEventState);
+      NestedSetVisitor.VisitedState emittedEventState);
 
   /**
    * Use the fact that analysis of a target must occur before execution of that target, and in a
@@ -823,14 +821,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static final EventFilter DEFAULT_FILTER_WITH_ACTIONS =
       new EventFilter() {
         @Override
-        public boolean storeEventsAndPosts() {
+        public boolean storeEvents() {
           return true;
-        }
-
-        @Override
-        public boolean test(Event input) {
-          // Use the filtering defined in the default filter: no info/progress messages.
-          return InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER.test(input);
         }
 
         @Override

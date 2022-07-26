@@ -7090,7 +7090,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "  },",
           "  fragments = ['cpp'],",
           ");");
-      invalidatePackages();
+      initializeSkyframeExecutor();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
       assertThat(e).hasMessageThat().contains("cannot use private API");
     }
@@ -7188,7 +7188,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "  },",
           "  fragments = ['cpp'],",
           ")");
-      invalidatePackages();
+      initializeSkyframeExecutor();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }

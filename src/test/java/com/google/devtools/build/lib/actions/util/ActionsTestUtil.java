@@ -379,7 +379,7 @@ public final class ActionsTestUtil {
 
     @Override
     public ExtendedEventHandler getListener() {
-      return null;
+      throw new UnsupportedOperationException();
     }
 
     @Override
