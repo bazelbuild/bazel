@@ -246,6 +246,8 @@ public final class RemoteModule extends BlazeModule {
                      String msg = e.getMessage().toLowerCase();
                      if (msg.contains("connection reset by peer")) {
                        retry = true;
+                     } else if (msg.contains("operation timed out")) {
+                       retry = true;
                      }
                    }
                    return retry;
