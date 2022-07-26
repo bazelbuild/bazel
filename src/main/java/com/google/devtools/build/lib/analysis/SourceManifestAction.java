@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -129,7 +127,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       Artifact primaryOutput,
       Runfiles runfiles,
       boolean remotableSourceManifestActions) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
+    super(owner, runfiles.getSymlinkArtifacts(), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
@@ -227,7 +225,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
         if (symlink != null) {
-          manifestWriter.append(symlink.getPath().getPathString());
+          if (symlink.isSymlink()) {
+            manifestWriter.append(symlink.getPath().readSymbolicLink().getPathString());
+          } else {
+            manifestWriter.append(symlink.getPath().getPathString());
+          }
         }
         manifestWriter.append('\n');
       }

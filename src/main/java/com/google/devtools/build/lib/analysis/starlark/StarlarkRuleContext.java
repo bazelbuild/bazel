@@ -912,6 +912,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public Runfiles runfiles(
       Sequence<?> files,
       Object transitiveFiles,
+      Sequence<?> declaredSymlinks,
       Boolean collectData,
       Boolean collectDefault,
       Object symlinks,
@@ -929,7 +930,15 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
-      builder.addArtifacts(Sequence.cast(files, Artifact.class, "files"));
+      Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
+      for (Artifact artifact : artifacts) {
+        if (artifact.isSymlink()) {
+          throw Starlark.errorf(
+              "declared symlink '%s' is invalid for files, add via declared_symlinks instead",
+              artifact);
+        }
+      }
+      builder.addArtifacts(artifacts);
     }
     if (transitiveFiles != Starlark.NONE) {
       NestedSet<Artifact> transitiveArtifacts =
@@ -942,6 +951,22 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             transitiveArtifacts.getOrder().getStarlarkName());
       }
       builder.addTransitiveArtifacts(transitiveArtifacts);
+    }
+    if (!declaredSymlinks.isEmpty()) {
+      if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
+        throw Starlark.errorf(
+            "declared_symlink is not allowed; "
+                + "use the --experimental_allow_unresolved_symlinks command line option");
+      }
+      Sequence<Artifact> artifacts = Sequence.cast(declaredSymlinks, Artifact.class, "declared_symlinks");
+      for (Artifact artifact : artifacts) {
+        if (!artifact.isSymlink()) {
+          throw Starlark.errorf(
+              "file '%s' is invalid for declared_symlinks, add via files instead",
+              artifact);
+        }
+      }
+      builder.addSymlinkArtifacts(artifacts);
     }
     if (isDepset(symlinks)) {
       builder.addSymlinks(((Depset) symlinks).getSet(SymlinkEntry.class));

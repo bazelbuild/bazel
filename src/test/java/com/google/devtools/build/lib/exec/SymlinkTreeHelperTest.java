@@ -48,10 +48,11 @@ public final class SymlinkTreeHelperTest {
     assertThat(command.getEnvironment()).isEmpty();
     assertThat(command.getWorkingDirectory()).isEqualTo(execRoot.getPathFile());
     ImmutableList<String> commandLine = command.getArguments();
-    assertThat(commandLine).hasSize(3);
+    assertThat(commandLine).hasSize(4);
     assertThat(commandLine.get(0)).endsWith(SymlinkTreeHelper.BUILD_RUNFILES);
-    assertThat(commandLine.get(1)).isEqualTo("input_manifest");
-    assertThat(commandLine.get(2)).isEqualTo("output/MANIFEST");
+    assertThat(commandLine.get(1)).isEqualTo("--allow_relative");
+    assertThat(commandLine.get(2)).isEqualTo("input_manifest");
+    assertThat(commandLine.get(3)).isEqualTo("output/MANIFEST");
   }
 
   @Test

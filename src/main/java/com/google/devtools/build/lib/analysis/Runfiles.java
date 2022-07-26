@@ -172,6 +172,8 @@ public final class Runfiles implements RunfilesApi {
    */
   private final NestedSet<Artifact> artifacts;
 
+  private final NestedSet<Artifact> symlinkArtifacts;
+
   /**
    * A map of symlinks that should be present in the runfiles directory. In general, the symlink can
    * be determined from the artifact by using the output-dir-relative path, so this should only be
@@ -235,6 +237,7 @@ public final class Runfiles implements RunfilesApi {
   private Runfiles(
       PathFragment suffix,
       NestedSet<Artifact> artifacts,
+      NestedSet<Artifact> symlinkArtifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<Artifact> extraMiddlemen,
@@ -243,6 +246,7 @@ public final class Runfiles implements RunfilesApi {
       boolean legacyExternalRunfiles) {
     this.suffix = suffix;
     this.artifacts = Preconditions.checkNotNull(artifacts);
+    this.symlinkArtifacts = Preconditions.checkNotNull(symlinkArtifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
     this.extraMiddlemen = Preconditions.checkNotNull(extraMiddlemen);
@@ -275,6 +279,15 @@ public final class Runfiles implements RunfilesApi {
 
   public NestedSet<Artifact> getArtifacts() {
     return artifacts;
+  }
+
+  @Override
+  public Depset getSymlinkArtifactsForStarlark() {
+    return Depset.of(Artifact.TYPE, symlinkArtifacts);
+  }
+
+  public NestedSet<Artifact> getSymlinkArtifacts() {
+    return symlinkArtifacts;
   }
 
   /** Returns the symlinks. */
@@ -395,7 +408,20 @@ public final class Runfiles implements RunfilesApi {
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : artifacts.toList()) {
+      if (artifact.isSymlink()) {
+        eventHandler.handle(Event.of(EventKind.ERROR,
+            location,
+            String.format("symlink artifact unexpected in artifacts: %s", artifact)));
+      }
       checker.put(manifest, artifact.getRunfilesPath(), artifact);
+    }
+    for (Artifact symlinkArtifact : symlinkArtifacts.toList()) {
+      if (!symlinkArtifact.isSymlink()) {
+        eventHandler.handle(Event.of(EventKind.ERROR, location,
+            String.format("non-symlink artifact unexpected in symlinkArtifacts: %s",
+                symlinkArtifact)));
+      }
+      checker.put(manifest, symlinkArtifact.getRunfilesPath(), symlinkArtifact);
     }
 
     manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
@@ -556,6 +582,7 @@ public final class Runfiles implements RunfilesApi {
     NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
     allArtifacts
         .addTransitive(artifacts)
+        .addTransitive(symlinkArtifacts)
         .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
         .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact));
     return allArtifacts.build();
@@ -566,6 +593,7 @@ public final class Runfiles implements RunfilesApi {
    */
   public boolean isEmpty() {
     return artifacts.isEmpty()
+        && symlinkArtifacts.isEmpty()
         && symlinks.isEmpty()
         && rootSymlinks.isEmpty()
         && extraMiddlemen.isEmpty();
@@ -677,6 +705,7 @@ public final class Runfiles implements RunfilesApi {
      * entries with later ones, so we want a post-order iteration.
      */
     private final NestedSetBuilder<Artifact> artifactsBuilder = NestedSetBuilder.compileOrder();
+    private final NestedSetBuilder<Artifact> symlinkArtifactsBuilder = NestedSetBuilder.compileOrder();
 
     private final NestedSetBuilder<SymlinkEntry> symlinksBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<SymlinkEntry> rootSymlinksBuilder =
@@ -736,6 +765,7 @@ public final class Runfiles implements RunfilesApi {
       return new Runfiles(
           suffix,
           artifactsBuilder.build(),
+          symlinkArtifactsBuilder.build(),
           symlinksBuilder.build(),
           rootSymlinksBuilder.build(),
           extraMiddlemenBuilder.build(),
@@ -750,6 +780,8 @@ public final class Runfiles implements RunfilesApi {
       Preconditions.checkNotNull(artifact);
       Preconditions.checkArgument(
           !artifact.isMiddlemanArtifact(), "unexpected middleman artifact: %s", artifact);
+      Preconditions.checkArgument(
+          !artifact.isSymlink(), "unexpected symlink artifact: %s", artifact);
       artifactsBuilder.add(artifact);
       return this;
     }
@@ -782,6 +814,26 @@ public final class Runfiles implements RunfilesApi {
       NestedSet<Artifact> wrappedArtifacts =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(artifacts).build();
       artifactsBuilder.addTransitive(wrappedArtifacts);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addSymlinkArtifact(Artifact symlinkArtifact) {
+      Preconditions.checkNotNull(symlinkArtifact);
+      Preconditions.checkArgument(
+          symlinkArtifact.isSymlink(), "expected symlink artifact, got: %s", symlinkArtifact);
+      symlinkArtifactsBuilder.add(symlinkArtifact);
+      return this;
+    }
+
+    /**
+     * Adds several symlink artifacts to the internal collection.
+     */
+    @CanIgnoreReturnValue
+    public Builder addSymlinkArtifacts(Iterable<Artifact> symlinkArtifacts) {
+      for (Artifact artifact : symlinkArtifacts) {
+        addSymlinkArtifact(artifact);
+      }
       return this;
     }
 
@@ -875,6 +927,7 @@ public final class Runfiles implements RunfilesApi {
           suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
       if (includeArtifacts) {
         artifactsBuilder.addTransitive(runfiles.getArtifacts());
+        symlinkArtifactsBuilder.addTransitive(runfiles.getSymlinkArtifacts());
       }
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
@@ -1143,9 +1196,16 @@ public final class Runfiles implements RunfilesApi {
       fp.addPath(rootSymlink.getValue().getExecPath());
     }
 
+    fp.addInt(artifacts.toList().size());
     for (Artifact artifact : artifacts.toList()) {
       fp.addPath(artifact.getRunfilesPath());
       fp.addPath(artifact.getExecPath());
+    }
+
+    fp.addInt(symlinkArtifacts.toList().size());
+    for (Artifact symlinkArtifact : symlinkArtifacts.toList()) {
+      fp.addPath(symlinkArtifact.getRunfilesPath());
+      // Symlink targets are tracked as inputs of actions using this method.
     }
 
     for (String name : getEmptyFilenames().toList()) {
@@ -1178,6 +1238,11 @@ public final class Runfiles implements RunfilesApi {
       sb.append(
           String.format(
               "artifact: '%s' '%s'\n", artifact.getRunfilesPath(), artifact.getExecPath()));
+    }
+
+    for (Artifact symlinkArtifact : artifacts.toList()) {
+      sb.append(
+          String.format("symlinkArtifact: '%s'\n", symlinkArtifact.getRunfilesPath()));
     }
 
     for (String name : getEmptyFilenames().toList()) {

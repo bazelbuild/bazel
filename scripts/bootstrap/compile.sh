@@ -335,8 +335,9 @@ if [ "${PLATFORM}" = "windows" ]; then
   # We don't rely on runfiles trees on Windows
   cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 #!/bin/sh
-mkdir -p $2
-cp $1 $2/MANIFEST
+# Skip over --allow_relative.
+mkdir -p $3
+cp $2 $3/MANIFEST
 EOF
 else
   cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
@@ -350,8 +351,9 @@ else
 # bootstrap version of Bazel, but we'd still need a shell wrapper around it, so
 # it's not clear whether that would be a win over a few lines of Lovecraftian
 # code)
-MANIFEST="$1"
-TREE="$2"
+# Skip over --allow_relative.
+MANIFEST="$2"
+TREE="$3"
 
 rm -fr "$TREE"
 mkdir -p "$TREE"

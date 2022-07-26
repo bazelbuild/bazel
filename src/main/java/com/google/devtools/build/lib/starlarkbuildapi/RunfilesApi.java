@@ -41,6 +41,9 @@ public interface RunfilesApi extends StarlarkValue {
   @StarlarkMethod(name = "files", doc = "Returns the set of runfiles as files.", structField = true)
   Depset /*<? extends FileApi>*/ getArtifactsForStarlark();
 
+  @StarlarkMethod(name = "declared_symlinks", doc = "Returns the set of declared symlinks as files.", structField = true)
+  Depset /*<? extends FileApi>*/ getSymlinkArtifactsForStarlark();
+
   @StarlarkMethod(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
   Depset /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
 

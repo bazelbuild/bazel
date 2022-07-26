@@ -544,6 +544,17 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
                     + "use the <code>default</code> order (which, as the name implies, is the "
                     + "default)."),
         @Param(
+            name = "declared_symlinks",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "<p><b>Experimental</b>. This parameter is experimental and may change at any "
+                + "time. Please do not depend on it. It may be enabled on an experimental basis by "
+                + "setting <code>--experimental_allow_unresolved_symlinks</code>.</p>"
+                + "<p>The list of symlinks declared with ctx.actions.declare_symlink() to be added "
+                + "to the runfiles. The symlinks will be staged as they are without any processing "
+                + "applied to their targets or intermediate symlinks."),
+        @Param(
             name = "collect_data",
             defaultValue = "False",
             named = true,
@@ -590,6 +601,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   RunfilesApi runfiles(
       Sequence<?> files,
       Object transitiveFiles,
+      Sequence<?> declaredSymlinks,
       Boolean collectData,
       Boolean collectDefault,
       Object symlinks,
