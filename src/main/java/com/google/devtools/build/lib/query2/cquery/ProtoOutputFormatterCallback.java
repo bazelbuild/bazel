@@ -75,7 +75,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       TargetAccessor<KeyedConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
