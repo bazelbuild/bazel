@@ -66,7 +66,6 @@ def use_cpp_toolchain(mandatory = False):
 
     Args:
       mandatory: Whether or not it should be an error if the toolchain cannot be resolved.
-        Currently ignored, this will be enabled when optional toolchain types are added.
 
     Returns:
       A list that can be used as the value for `rule.toolchains`.
