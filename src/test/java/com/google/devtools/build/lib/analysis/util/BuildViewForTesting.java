@@ -190,7 +190,6 @@ public class BuildViewForTesting {
   public AnalysisResult update(
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      Set<String> multiCpu,
       ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
@@ -206,7 +205,6 @@ public class BuildViewForTesting {
     return buildView.update(
         loadingResult,
         targetOptions,
-        multiCpu,
         explicitTargetPatterns,
         aspects,
         aspectsParameters,

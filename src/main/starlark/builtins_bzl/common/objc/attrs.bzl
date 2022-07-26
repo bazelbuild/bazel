@@ -55,8 +55,12 @@ _COMPILING_RULE = {
     ),
     "non_arc_srcs": attr.label_list(
         allow_files = [".m", ".mm"],
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
-    "pch": attr.label(allow_single_file = [".pch"]),
+    "pch": attr.label(
+        allow_single_file = [".pch"],
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "runtime_deps": attr.label_list(
         providers = [AppleDynamicFrameworkInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
@@ -73,9 +77,11 @@ _COMPILING_RULE = {
 _COMPILE_DEPENDENCY_RULE = {
     "hdrs": attr.label_list(
         allow_files = True,
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "textual_hdrs": attr.label_list(
         allow_files = True,
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "includes": attr.string_list(),
     "sdk_includes": attr.string_list(),

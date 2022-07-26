@@ -20,17 +20,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -64,7 +63,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
+      NestedSetVisitor.VisitedState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
@@ -439,13 +438,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             new ReifiedSkyFunctionException(builderException);
         error =
             ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
-        Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
-            env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
+        NestedSet<Reportable> events =
+            env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
         ValueWithMetadata valueWithMetadata =
             ValueWithMetadata.error(
-                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                eventsAndPostables.first,
-                eventsAndPostables.second);
+                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
         replay(valueWithMetadata);
         bubbleErrorInfo.put(errorKey, valueWithMetadata);
         continue;
@@ -481,13 +478,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             errorKey, childErrorKey, error, bubbleErrorInfo);
       }
       // Builder didn't throw its own exception, so just propagate this one up.
-      Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
-          env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
+      NestedSet<Reportable> events =
+          env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
       ValueWithMetadata valueWithMetadata =
           ValueWithMetadata.error(
-              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              eventsAndPostables.first,
-              eventsAndPostables.second);
+              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
       replay(valueWithMetadata);
       bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }

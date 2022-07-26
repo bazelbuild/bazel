@@ -13,24 +13,47 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.events.Event;
-import java.util.function.Predicate;
-
 /** Filters out events which should not be stored during evaluation in {@link ParallelEvaluator}. */
-public interface EventFilter extends Predicate<Event> {
-  /**
-   * Returns true if any events/postables should be stored. Otherwise, optimizations may be made to
-   * avoid doing unnecessary work when evaluating node entries.
-   */
-  boolean storeEventsAndPosts();
+public interface EventFilter {
 
   /**
-   * Determines whether stored events and posts should propagate from {@code depKey} to {@code
-   * primaryKey}.
-   *
-   * <p>Only relevant if {@link #storeEventsAndPosts} returns {@code true}.
+   * Returns true if any {@linkplain com.google.devtools.build.lib.events.Reportable events} should
+   * be stored in skyframe nodes. Otherwise, optimizations may be made to avoid doing unnecessary
+   * work when evaluating node entries.
    */
-  default boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
-    return true;
-  }
+  boolean storeEvents();
+
+  /**
+   * Determines whether stored {@linkplain com.google.devtools.build.lib.events.Reportable events}
+   * should propagate from {@code depKey} to {@code primaryKey}.
+   *
+   * <p>Only relevant if {@link #storeEvents} returns {@code true}.
+   */
+  boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey);
+
+  EventFilter FULL_STORAGE =
+      new EventFilter() {
+        @Override
+        public boolean storeEvents() {
+          return true;
+        }
+
+        @Override
+        public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+          return true;
+        }
+      };
+
+  EventFilter NO_STORAGE =
+      new EventFilter() {
+        @Override
+        public boolean storeEvents() {
+          return false;
+        }
+
+        @Override
+        public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+          throw new UnsupportedOperationException();
+        }
+      };
 }

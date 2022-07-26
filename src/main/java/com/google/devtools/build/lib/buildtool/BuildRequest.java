@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -249,6 +248,17 @@ public class BuildRequest implements OptionsProvider {
   }
 
   /**
+   * Return whether this BuildRequest contains multiple top-level configs
+   *
+   * <p>Note: The ability to have a multi-top-level-config build is currently completely disabled.
+   * However, certain parts of the infra would fail horribly if it was ever enabled at all so
+   * keeping this flag for those parts to check as a sort of mild future-proofing.
+   */
+  public boolean isMultiConfigBuild() {
+    return false;
+  }
+
+  /**
    * Since the OptionsProvider interface is used by many teams, this method is String-keyed even
    * though it should always contain labels for our purposes. Consumers of this method should
    * probably use the {@link BuildOptions#labelizeStarlarkOptions} method before doing meaningful
@@ -418,10 +428,6 @@ public class BuildRequest implements OptionsProvider {
         getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
             buildOptions.outputGroups, validationMode(), /*shouldRunTests=*/ shouldRunTests()));
-  }
-
-  public ImmutableSortedSet<String> getMultiCpus() {
-    return ImmutableSortedSet.copyOf(getBuildOptions().multiCpus);
   }
 
   public ImmutableList<String> getAspects() {

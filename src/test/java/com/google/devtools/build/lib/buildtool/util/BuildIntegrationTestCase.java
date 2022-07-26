@@ -679,7 +679,7 @@ public abstract class BuildIntegrationTestCase {
    */
   protected BuildConfigurationValue getTargetConfiguration() {
     BuildConfigurationValue baseConfiguration =
-        Iterables.getOnlyElement(getConfigurationCollection().getTargetConfigurations());
+        getConfigurationCollection().getTargetConfiguration();
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;

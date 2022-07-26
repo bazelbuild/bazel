@@ -65,7 +65,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -133,8 +132,7 @@ public final class AnalysisPhaseRunner {
                       env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult =
-            runAnalysisPhase(env, request, loadingResult, buildOptions, request.getMultiCpus());
+        analysisResult = runAnalysisPhase(env, request, loadingResult, buildOptions);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
@@ -206,8 +204,7 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions,
-      Set<String> multiCpu)
+      BuildOptions targetOptions)
       throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException {
     Stopwatch timer = Stopwatch.createStarted();
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
@@ -227,7 +224,6 @@ public final class AnalysisPhaseRunner {
           view.update(
               loadingResult,
               targetOptions,
-              multiCpu,
               explicitTargetPatterns,
               request.getAspects(),
               request.getAspectsParameters(),

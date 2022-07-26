@@ -139,7 +139,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.TaggedEvents;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
 import com.google.devtools.common.options.OptionsParser;
@@ -1497,7 +1496,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ValueWithMetadata.normal(
             createActionLookupValue(action1, lc1),
             null,
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
@@ -1521,7 +1519,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ValueWithMetadata.normal(
             createActionLookupValue(slowAction, lc2),
             null,
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     skyframeExecutor
         .getEvaluator()
@@ -1590,10 +1587,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ValueWithMetadata.normal(
             createActionLookupValue(action1, lc1),
             null,
-            NestedSetBuilder.create(
-                Order.STABLE_ORDER,
-                new TaggedEvents(null, ImmutableList.of(Event.warn("analysis warning 1")))),
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+            NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 1")));
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
         DerivedArtifact.create(
@@ -1605,10 +1599,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         ValueWithMetadata.normal(
             createActionLookupValue(action2, lc2),
             null,
-            NestedSetBuilder.create(
-                Order.STABLE_ORDER,
-                new TaggedEvents(null, ImmutableList.of(Event.warn("analysis warning 2")))),
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+            NestedSetBuilder.create(Order.STABLE_ORDER, Event.warn("analysis warning 2")));
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));

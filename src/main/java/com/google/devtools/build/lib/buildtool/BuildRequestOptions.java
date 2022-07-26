@@ -25,12 +25,10 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
@@ -44,8 +42,6 @@ import javax.annotation.Nullable;
  * difference between these two sets of options.
  */
 public class BuildRequestOptions extends OptionsBase {
-  public static final OptionDefinition EXPERIMENTAL_MULTI_CPU =
-      OptionsParser.getOptionDefinitionByName(BuildRequestOptions.class, "experimental_multi_cpu");
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int JOBS_TOO_HIGH_WARNING = 2500;
   @VisibleForTesting public static final int MAX_JOBS = 5000;
@@ -265,15 +261,14 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_multi_cpu",
+      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "This flag allows specifying multiple target CPUs. If this is specified, "
-              + "the --cpu option is ignored.")
+      help = "Deprecated. No-op.")
   public List<String> multiCpus;
 
   @Option(

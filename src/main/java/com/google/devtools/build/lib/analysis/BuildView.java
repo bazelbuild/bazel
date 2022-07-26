@@ -198,7 +198,6 @@ public class BuildView {
   public AnalysisResult update(
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      Set<String> multiCpu,
       ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
@@ -239,8 +238,7 @@ public class BuildView {
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / host configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
-      configurations =
-          skyframeExecutor.createConfigurations(eventHandler, targetOptions, multiCpu, keepGoing);
+      configurations = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
     try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
       topLevelTargetsWithConfigsResult =
@@ -255,14 +253,9 @@ public class BuildView {
     skyframeBuildView.setConfigurations(
         eventHandler, configurations, viewOptions.maxConfigChangesToShow);
 
-    if (configurations.getTargetConfigurations().size() == 1) {
-      eventBus.post(
-          new MakeEnvironmentEvent(
-              configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
-    }
-    for (BuildConfigurationValue targetConfig : configurations.getTargetConfigurations()) {
-      eventBus.post(targetConfig.toBuildEvent());
-    }
+    eventBus.post(
+        new MakeEnvironmentEvent(configurations.getTargetConfiguration().getMakeEnvironment()));
+    eventBus.post(configurations.getTargetConfiguration().toBuildEvent());
 
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();

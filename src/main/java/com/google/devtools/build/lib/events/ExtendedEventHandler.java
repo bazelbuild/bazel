@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.events;
 
+import javax.annotation.Nullable;
+
 /**
  * Interface for reporting events during the build. It extends the {@link EventHandler} by also
  * allowing posting more structured information.
@@ -21,24 +23,16 @@ package com.google.devtools.build.lib.events;
 public interface ExtendedEventHandler extends EventHandler {
 
   /** An event that can be posted via the extended event handler. */
-  interface Postable {
+  interface Postable extends Reportable {
 
-    /**
-     * If this post originated from {@link
-     * com.google.devtools.build.skyframe.SkyFunction.Environment#getListener}, whether it should be
-     * stored in the corresponding Skyframe node to be replayed on incremental builds when the node
-     * is deemed up-to-date.
-     *
-     * <p>Posts which are crucial to the correctness of the evaluation should return {@code true} so
-     * that they are replayed when the {@link com.google.devtools.build.skyframe.SkyFunction}
-     * invocation is cached. On the other hand, posts that are merely informational (such as a
-     * progress update) should return {@code false} to avoid taking up memory.
-     *
-     * <p>This method is not relevant for posts which do not originate from {@link
-     * com.google.devtools.build.skyframe.SkyFunction} evaluation.
-     */
-    default boolean storeForReplay() {
-      return false;
+    @Override
+    default void reportTo(ExtendedEventHandler handler) {
+      handler.post(this);
+    }
+
+    @Override
+    default Postable withTag(@Nullable String tag) {
+      return this; // No tag-based filtering.
     }
   }
 
