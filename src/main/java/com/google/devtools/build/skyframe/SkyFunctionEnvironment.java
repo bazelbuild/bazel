@@ -31,15 +31,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -54,7 +53,8 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
-final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
+    implements ExtendedEventHandler {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final SkyValue NULL_MARKER = new SkyValue() {};
 
@@ -128,32 +128,9 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   /** The set of errors encountered while fetching children. */
   private final Set<ErrorInfo> childErrorInfos = new LinkedHashSet<>();
 
-  private final StoredEventHandler eventHandler =
-      new StoredEventHandler() {
-        @Override
-        @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
-        public void handle(Event e) {
-          checkActive();
-          if (evaluatorContext.getStoredEventFilter().test(e)) {
-            super.handle(e);
-          } else {
-            evaluatorContext.getReporter().handle(e);
-          }
-        }
-
-        @Override
-        @SuppressWarnings("UnsynchronizedOverridesSynchronized") // only delegates to thread-safe.
-        public void post(Postable p) {
-          checkActive();
-          if (p.storeForReplay()) {
-            super.post(p);
-          } else {
-            evaluatorContext.getReporter().post(p);
-          }
-        }
-      };
-
   private final ParallelEvaluatorContext evaluatorContext;
+
+  private final List<Reportable> eventsToReport = new ArrayList<>();
 
   static SkyFunctionEnvironment create(
       SkyKey skyKey,
@@ -259,43 +236,48 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     checkState(building, skyKey);
   }
 
-  Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> buildAndReportEventsAndPostables(
-      NodeEntry entry, boolean expectDoneDeps) throws InterruptedException {
+  /**
+   * Reports events which were temporarily stored in this environment per the specification of
+   * {@link SkyFunction.Environment#getListener}. Returns events that should be stored for potential
+   * replay on a future evaluation.
+   */
+  NestedSet<Reportable> reportEventsAndGetEventsToStore(NodeEntry entry, boolean expectDoneDeps)
+      throws InterruptedException {
     EventFilter eventFilter = evaluatorContext.getStoredEventFilter();
-    if (!eventFilter.storeEventsAndPosts()) {
-      return Pair.of(
-          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    if (!eventFilter.storeEvents()) {
+      if (!eventsToReport.isEmpty()) {
+        String tag = getTagFromKey();
+        for (Reportable event : eventsToReport) {
+          event.withTag(tag).reportTo(evaluatorContext.getReporter());
+        }
+      }
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-
-    NestedSetBuilder<TaggedEvents> eventBuilder = NestedSetBuilder.stableOrder();
-    ImmutableList<Event> events = eventHandler.getEvents();
-    if (!events.isEmpty()) {
-      eventBuilder.add(new TaggedEvents(getTagFromKey(), events));
-    }
-    NestedSetBuilder<Postable> postBuilder = NestedSetBuilder.stableOrder();
-    postBuilder.addAll(eventHandler.getPosts());
 
     GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
-    List<SkyValue> deps =
-        getDepValuesForDoneNodeFromErrorOrDepsOrGraph(
-            // When there's no boundary between analysis & execution, we don't filter any dep.
-            evaluatorContext.mergingSkyframeAnalysisExecutionPhases()
-                ? depKeys.getAllElementsAsIterable()
-                : Iterables.filter(
-                    depKeys.getAllElementsAsIterable(),
-                    depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
-            expectDoneDeps,
-            depKeys.numElements());
-    for (SkyValue value : deps) {
-      eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
-      postBuilder.addTransitive(ValueWithMetadata.getPosts(value));
+    if (eventsToReport.isEmpty() && depKeys.isEmpty()) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    NestedSet<TaggedEvents> taggedEvents = eventBuilder.buildInterruptibly();
-    NestedSet<Postable> postables = postBuilder.buildInterruptibly();
-    evaluatorContext.getReplayingNestedSetEventVisitor().visit(taggedEvents);
-    evaluatorContext.getReplayingNestedSetPostableVisitor().visit(postables);
-    return Pair.of(taggedEvents, postables);
+
+    NestedSetBuilder<Reportable> eventBuilder = NestedSetBuilder.stableOrder();
+    if (!eventsToReport.isEmpty()) {
+      String tag = getTagFromKey();
+      eventBuilder.addAll(Lists.transform(eventsToReport, event -> event.withTag(tag)));
+    }
+
+    addTransitiveEventsFromDepValuesForDoneNode(
+        eventBuilder,
+        // When there's no boundary between analysis & execution, we don't filter any dep.
+        evaluatorContext.mergingSkyframeAnalysisExecutionPhases()
+            ? depKeys.getAllElementsAsIterable()
+            : Iterables.filter(
+                depKeys.getAllElementsAsIterable(),
+                depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
+        expectDoneDeps);
+
+    NestedSet<Reportable> events = eventBuilder.buildInterruptibly();
+    evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
+    return events;
   }
 
   void setValue(SkyValue newValue) {
@@ -457,7 +439,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   }
 
   /**
-   * Returns the values of done deps in {@code depKeys}, by looking in order at:
+   * Adds transitive events from done deps in {@code depKeys}, by looking in order at:
    *
    * <ol>
    *   <li>{@link #bubbleErrorInfo}
@@ -474,9 +456,9 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    *
    * <p>If {@code assertDone}, this asserts that all deps in {@code depKeys} are done.
    */
-  private List<SkyValue> getDepValuesForDoneNodeFromErrorOrDepsOrGraph(
-      Iterable<SkyKey> depKeys, boolean assertDone, int keySize) throws InterruptedException {
-    List<SkyValue> result = new ArrayList<>(keySize);
+  private void addTransitiveEventsFromDepValuesForDoneNode(
+      NestedSetBuilder<Reportable> eventBuilder, Iterable<SkyKey> depKeys, boolean assertDone)
+      throws InterruptedException {
     // depKeys may contain keys in newlyRegisteredDeps whose values have not yet been retrieved from
     // the graph during this environment's lifetime.
     List<SkyKey> missingKeys =
@@ -497,11 +479,11 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       } else if (value == NULL_MARKER) {
         checkState(!assertDone, "%s had not done %s", skyKey, key);
       } else {
-        result.add(value);
+        eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
       }
     }
     if (missingKeys == null || missingKeys.isEmpty()) {
-      return result;
+      return;
     }
     Map<SkyKey, ? extends NodeEntry> missingEntries =
         evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
@@ -518,9 +500,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         continue;
       }
       maybeUpdateMaxTransitiveSourceVersion(depEntry);
-      result.add(valueOrNullMarker);
+      eventBuilder.addTransitive(ValueWithMetadata.getEvents(valueOrNullMarker));
     }
-    return result;
   }
 
   /**
@@ -704,10 +685,30 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return depErrorKey;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public ExtendedEventHandler getListener() {
     checkActive();
-    return eventHandler;
+    return this;
+  }
+
+  @Override
+  public void handle(Event event) {
+    reportEvent(event);
+  }
+
+  @Override
+  public void post(Postable obj) {
+    reportEvent(obj);
+  }
+
+  private void reportEvent(Reportable event) {
+    checkActive();
+    if (event.storeForReplay()) {
+      eventsToReport.add(event);
+    } else {
+      event.reportTo(evaluatorContext.getReporter());
+    }
   }
 
   void doneBuilding() {
@@ -799,18 +800,15 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // (2) value == null && enqueueParents happens for values that are found to have errors
     // during a --keep_going build.
 
-    Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
-        buildAndReportEventsAndPostables(primaryEntry, /*expectDoneDeps=*/ true);
+    NestedSet<Reportable> events =
+        reportEventsAndGetEventsToStore(primaryEntry, /*expectDoneDeps=*/ true);
 
     SkyValue valueWithMetadata;
     if (value == null) {
       checkNotNull(errorInfo, "%s %s", skyKey, primaryEntry);
-      valueWithMetadata =
-          ValueWithMetadata.error(errorInfo, eventsAndPostables.first, eventsAndPostables.second);
+      valueWithMetadata = ValueWithMetadata.error(errorInfo, events);
     } else {
-      valueWithMetadata =
-          ValueWithMetadata.normal(
-              value, errorInfo, eventsAndPostables.first, eventsAndPostables.second);
+      valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
     }
     GroupedList<SkyKey> temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
     if (!oldDeps.isEmpty()) {
@@ -953,6 +951,12 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return encounteredErrorDuringBubbling;
   }
 
+  @Override
+  @Nullable
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    return maxTransitiveSourceVersion;
+  }
+
   /** Thrown during environment construction if a previously requested dep is no longer done. */
   static final class UndonePreviouslyRequestedDep extends Exception {
     private final SkyKey depKey;
@@ -964,11 +968,5 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     SkyKey getDepKey() {
       return depKey;
     }
-  }
-
-  @Override
-  @Nullable
-  public Version getMaxTransitiveSourceVersionSoFar() {
-    return maxTransitiveSourceVersion;
   }
 }

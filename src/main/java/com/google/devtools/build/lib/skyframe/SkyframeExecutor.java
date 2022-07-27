@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
@@ -103,6 +104,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
@@ -116,6 +118,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.Sharder;
@@ -202,11 +205,9 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.ImmutableDiff;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -255,8 +256,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static final int PARALLELISM_THRESHOLD = 1024;
 
   protected MemoizingEvaluator memoizingEvaluator;
-  private final MemoizingEvaluator.EmittedEventState emittedEventState =
-      new MemoizingEvaluator.EmittedEventState();
+  private final NestedSetVisitor.VisitedState emittedEventState =
+      new NestedSetVisitor.VisitedState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final FileSystem fileSystem;
@@ -538,8 +539,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
-    map.put(
-        SkyFunctions.PREPARE_ANALYSIS_PHASE, new PrepareAnalysisPhaseFunction(ruleClassProvider));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
@@ -583,6 +582,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
+    map.put(
+        SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(
         WorkspaceFileValue.WORKSPACE_FILE,
@@ -648,8 +649,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
               @Override
-              public ActionLookupValuesCollectionResult collect(ActionLookupKey key)
-                  throws InterruptedException {
+              public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
                 return collectTransitiveActionLookupValues(key);
               }
 
@@ -788,9 +788,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   protected final void init() {
     progressReceiver = newSkyframeProgressReceiver();
-    memoizingEvaluator =
-        createEvaluator(
-            skyFunctions(), progressReceiver, DEFAULT_FILTER_WITH_ACTIONS, emittedEventState);
+    memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
     skyframeExecutorConsumerOnInit.accept(this);
 
     // Initialize the various conflict-finding states. This is unconditionally created but only used
@@ -808,8 +806,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected abstract MemoizingEvaluator createEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
-      EventFilter eventFilter,
-      EmittedEventState emittedEventState);
+      NestedSetVisitor.VisitedState emittedEventState);
 
   /**
    * Use the fact that analysis of a target must occur before execution of that target, and in a
@@ -818,17 +815,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * that if a node depends on an action lookup node and is not itself an action lookup node, then
    * it is an execution-phase node: the action lookup nodes are terminal in the analysis phase.
    */
-  private static final EventFilter DEFAULT_FILTER_WITH_ACTIONS =
+  protected static final EventFilter DEFAULT_EVENT_FILTER_WITH_ACTIONS =
       new EventFilter() {
         @Override
-        public boolean storeEventsAndPosts() {
+        public boolean storeEvents() {
           return true;
-        }
-
-        @Override
-        public boolean test(Event input) {
-          // Use the filtering defined in the default filter: no info/progress messages.
-          return InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER.test(input);
         }
 
         @Override
@@ -1429,30 +1420,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result.
    */
-  // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  public BuildConfigurationCollection createConfigurations(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu,
-      boolean keepGoing)
+  public BuildConfigurationCollection createConfiguration(
+      ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
 
     if (configuredTargetProgress != null) {
       configuredTargetProgress.reset();
     }
 
-    ImmutableList<BuildConfigurationValue> topLevelTargetConfigs =
-        getConfigurations(
-            eventHandler,
-            PrepareAnalysisPhaseFunction.getTopLevelBuildOptions(buildOptions, multiCpu),
-            buildOptions,
-            keepGoing);
-
-    BuildConfigurationValue firstTargetConfig = topLevelTargetConfigs.get(0);
+    BuildConfigurationValue topLevelTargetConfig =
+        getConfiguration(eventHandler, buildOptions, keepGoing);
 
     BuildOptionsView hostTransitionOptionsView =
         new BuildOptionsView(
-            firstTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
+            topLevelTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
     BuildOptions hostOptions =
         HostTransition.INSTANCE.patch(hostTransitionOptionsView, eventHandler);
     BuildConfigurationValue hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
@@ -1461,12 +1442,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // accessor (i.e. not the event handler) to trigger the exception below.
     ErrorSensingEventHandler<Void> nosyEventHandler =
         ErrorSensingEventHandler.withoutPropertyValueTracking(eventHandler);
-    topLevelTargetConfigs.forEach(config -> config.reportInvalidOptions(nosyEventHandler));
+    topLevelTargetConfig.reportInvalidOptions(nosyEventHandler);
     if (nosyEventHandler.hasErrors()) {
       throw new InvalidConfigurationException(
           "Build options are invalid", Code.INVALID_BUILD_OPTIONS);
     }
-    return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
+    return new BuildConfigurationCollection(topLevelTargetConfig, hostConfig);
   }
 
   /**
@@ -1850,20 +1831,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return cts.build();
   }
 
-  /**
-   * Returns the configuration corresponding to the given set of build options. Should not be used
-   * in a world with trimmed configurations.
-   *
-   * @throws InvalidConfigurationException if the build options produces an invalid configuration
-   */
-  @Deprecated
-  public BuildConfigurationValue getConfiguration(
-      ExtendedEventHandler eventHandler, BuildOptions options, boolean keepGoing)
-      throws InvalidConfigurationException {
-    return Iterables.getOnlyElement(
-        getConfigurations(eventHandler, ImmutableList.of(options), options, keepGoing));
-  }
-
   @Nullable
   public BuildConfigurationValue getConfiguration(
       ExtendedEventHandler eventHandler, BuildConfigurationKey configurationKey) {
@@ -1873,15 +1840,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return (BuildConfigurationValue)
         evaluateSkyKeys(eventHandler, ImmutableList.of(configurationKey)).get(configurationKey);
   }
-
-  public Map<BuildConfigurationKey, BuildConfigurationValue> getConfigurations(
-      ExtendedEventHandler eventHandler, Collection<BuildConfigurationKey> keys) {
-    EvaluationResult<SkyValue> evaluationResult = evaluateSkyKeys(eventHandler, keys);
-    return keys.stream()
-        .collect(
-            toMap(
-                Functions.identity(), key -> (BuildConfigurationValue) evaluationResult.get(key)));
-  }
   /**
    * Returns the configurations corresponding to the given sets of build options. Output order is
    * the same as input order.
@@ -1889,29 +1847,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * @throws InvalidConfigurationException if any build options produces an invalid configuration
    */
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
-  private ImmutableList<BuildConfigurationValue> getConfigurations(
-      ExtendedEventHandler eventHandler,
-      List<BuildOptions> optionsList,
-      BuildOptions referenceBuildOptions,
-      boolean keepGoing)
+  public BuildConfigurationValue getConfiguration(
+      ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
-    Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
-
     // Prepare the Skyframe inputs.
 
-    PlatformMappingValue platformMappingValue =
-        getPlatformMappingValue(eventHandler, referenceBuildOptions);
+    PlatformMappingValue platformMappingValue = getPlatformMappingValue(eventHandler, buildOptions);
 
-    ImmutableList.Builder<SkyKey> configSkyKeysBuilder =
-        ImmutableList.builderWithExpectedSize(optionsList.size());
-    for (BuildOptions options : optionsList) {
-      configSkyKeysBuilder.add(toConfigurationKey(platformMappingValue, options));
-    }
-
-    ImmutableList<SkyKey> configSkyKeys = configSkyKeysBuilder.build();
+    SkyKey configSkyKey = toConfigurationKey(platformMappingValue, buildOptions);
 
     // Skyframe-evaluate the configurations and throw errors if any.
-    EvaluationResult<SkyValue> evalResult = evaluateSkyKeys(eventHandler, configSkyKeys, keepGoing);
+    EvaluationResult<SkyValue> evalResult =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(configSkyKey), keepGoing);
     if (evalResult.hasError()) {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
@@ -1932,9 +1879,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     // Prepare and return the results.
-    return configSkyKeys.stream()
-        .map(key -> (BuildConfigurationValue) evalResult.get(key))
-        .collect(toImmutableList());
+    return (BuildConfigurationValue) evalResult.get(configSkyKey);
+  }
+
+  public Map<BuildConfigurationKey, BuildConfigurationValue> getConfigurations(
+      ExtendedEventHandler eventHandler, Collection<BuildConfigurationKey> keys) {
+    EvaluationResult<SkyValue> evaluationResult = evaluateSkyKeys(eventHandler, keys);
+    return keys.stream()
+        .collect(
+            toImmutableMap(
+                Functions.identity(), key -> (BuildConfigurationValue) evaluationResult.get(key)));
   }
 
   /**
@@ -1961,11 +1915,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       Collection<BuildOptions> toOptions;
       try {
-        Map<PackageValue.Key, PackageValue> buildSettingPackages =
-            getBuildSettingPackages(transition, eventHandler);
+        StarlarkBuildSettingsDetailsValue details =
+            getStarlarkBuildSettingsDetailsValue(eventHandler, transition);
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, transition, buildSettingPackages, eventHandler)
+                    fromOptions, transition, details, eventHandler)
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -1987,11 +1941,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       Collection<BuildOptions> toOptions;
       try {
-        Map<PackageValue.Key, PackageValue> buildSettingPackages =
-            getBuildSettingPackages(key.getTransition(), eventHandler);
+        StarlarkBuildSettingsDetailsValue details =
+            getStarlarkBuildSettingsDetailsValue(eventHandler, key.getTransition());
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, key.getTransition(), buildSettingPackages, eventHandler)
+                    fromOptions, key.getTransition(), details, eventHandler)
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -2018,6 +1972,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
     }
     return builder.build();
+  }
+
+  /** Must be in sync with {@link ConfigurationResolver.getStarlarkBuildSettingsDetailsValue} */
+  private StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
+      ExtendedEventHandler eventHandler, ConfigurationTransition transition)
+      throws TransitionException {
+    ImmutableSet<Label> starlarkBuildSettings =
+        StarlarkTransition.getAllStarlarkBuildSettings(transition);
+    // Quick escape if transition doesn't use any Starlark build settings
+    if (starlarkBuildSettings.isEmpty()) {
+      return StarlarkBuildSettingsDetailsValue.EMPTY;
+    }
+
+    // Evaluate the key into StarlarkBuildSettingsDetailsValue
+    StarlarkBuildSettingsDetailsValue.Key skyKey =
+        StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings);
+    EvaluationResult<SkyValue> newlyLoaded =
+        evaluateSkyKeys(eventHandler, ImmutableList.of(skyKey), true);
+    if (newlyLoaded.hasError()) {
+      Map.Entry<SkyKey, ErrorInfo> errorEntry =
+          Preconditions.checkNotNull(
+              Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
+      throw new TransitionException(
+          "Error when resolving transition build settings, "
+              + starlarkBuildSettings.toString()
+              + ": "
+              + errorEntry.getValue().getException());
+    }
+    return (StarlarkBuildSettingsDetailsValue) newlyLoaded.get(skyKey);
   }
 
   /** Returns every {@link BuildConfigurationKey} in the graph. */
@@ -2052,50 +2035,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
-  }
-
-  /** Keep in sync with {@link StarlarkTransition#getBuildSettingPackages} */
-  private Map<PackageValue.Key, PackageValue> getBuildSettingPackages(
-      ConfigurationTransition transition, ExtendedEventHandler eventHandler)
-      throws TransitionException {
-    HashMap<PackageValue.Key, PackageValue> buildSettingPackages = new HashMap<>();
-    // This happens before cycle detection so keep track of all seen build settings to ensure
-    // we don't get stuck in endless loops (e.g. //alias1->//alias2 && //alias2->alias1)
-    Set<Label> allSeenBuildSettings = new HashSet<>();
-    ImmutableSet<Label> unverifiedBuildSettings =
-        StarlarkTransition.getAllBuildSettings(transition);
-    while (!unverifiedBuildSettings.isEmpty()) {
-      for (Label buildSetting : unverifiedBuildSettings) {
-        if (!allSeenBuildSettings.add(buildSetting)) {
-          throw new TransitionException(
-              String.format(
-                  "Error with aliased build settings related to '%s'. Either your aliases form a"
-                      + " dependency cycle or you're attempting to set both an alias its actual"
-                      + " target in the same transition.",
-                  buildSetting));
-        }
-      }
-      ImmutableSet<PackageValue.Key> buildSettingPackageKeys =
-          StarlarkTransition.getPackageKeysFromLabels(unverifiedBuildSettings);
-      EvaluationResult<SkyValue> newlyLoaded =
-          evaluateSkyKeys(eventHandler, buildSettingPackageKeys, true);
-      if (newlyLoaded.hasError()) {
-        Map.Entry<SkyKey, ErrorInfo> errorEntry =
-            Preconditions.checkNotNull(
-                Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
-        throw new TransitionException(
-            new NoSuchPackageException(
-                ((PackageValue.Key) errorEntry.getKey()).argument(),
-                "Unable to find build setting package",
-                errorEntry.getValue().getException()));
-      }
-      buildSettingPackageKeys.forEach(
-          k -> buildSettingPackages.put(k, (PackageValue) newlyLoaded.get(k)));
-      unverifiedBuildSettings =
-          StarlarkTransition.verifyBuildSettingsAndGetAliases(
-              buildSettingPackages, unverifiedBuildSettings);
-    }
-    return buildSettingPackages;
   }
 
   /**
@@ -2997,43 +2936,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           e);
     }
     return evalResult.get(mainRepoMappingKey).getRepositoryMapping();
-  }
-
-  public PrepareAnalysisPhaseValue prepareAnalysisPhase(
-      ExtendedEventHandler eventHandler,
-      BuildOptions buildOptions,
-      Set<String> multiCpu,
-      Collection<Label> labels)
-      throws InvalidConfigurationException, InterruptedException {
-    SkyKey key = PrepareAnalysisPhaseValue.key(buildOptions, multiCpu, labels);
-    EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
-        evaluate(
-            ImmutableList.of(key),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ DEFAULT_THREAD_COUNT,
-            eventHandler);
-    if (evalResult.hasError()) {
-      ErrorInfo errorInfo = evalResult.getError(key);
-      Exception e = errorInfo.getException();
-      if (e == null && !errorInfo.getCycleInfo().isEmpty()) {
-        cyclesReporter.reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-        e =
-            new InvalidConfigurationException(
-                "cannot load build configuration because of this cycle", Code.CYCLE);
-      } else if (e instanceof DetailedException) {
-        e = new InvalidConfigurationException(((DetailedException) e).getDetailedExitCode(), e);
-      }
-      if (e != null) {
-        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
-      }
-      throw new IllegalStateException("Unknown error during configuration creation evaluation", e);
-    }
-
-    if (configuredTargetProgress != null) {
-      configuredTargetProgress.reset();
-    }
-
-    return evalResult.get(key);
   }
 
   @Nullable

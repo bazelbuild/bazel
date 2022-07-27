@@ -39,6 +39,7 @@ import com.google.common.truth.IterableSubject;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -81,7 +82,7 @@ public abstract class MemoizingEvaluatorTest {
   protected MemoizingEvaluatorTester tester;
   protected EventCollector eventCollector;
   protected ExtendedEventHandler reporter;
-  protected MemoizingEvaluator.EmittedEventState emittedEventState;
+  protected NestedSetVisitor.VisitedState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
   private static final int TEST_NODE_COUNT = 100;
@@ -95,7 +96,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void initializeTester(@Nullable TrackingProgressReceiver customProgressReceiver) {
-    emittedEventState = new MemoizingEvaluator.EmittedEventState();
+    emittedEventState = new NestedSetVisitor.VisitedState();
     tester = new MemoizingEvaluatorTester();
     if (customProgressReceiver != null) {
       tester.setProgressReceiver(customProgressReceiver);
@@ -4015,12 +4016,7 @@ public abstract class MemoizingEvaluatorTest {
     tester.setEventFilter(
         new EventFilter() {
           @Override
-          public boolean storeEventsAndPosts() {
-            return true;
-          }
-
-          @Override
-          public boolean test(Event input) {
+          public boolean storeEvents() {
             return true;
           }
 
@@ -4056,8 +4052,7 @@ public abstract class MemoizingEvaluatorTest {
                         .getExistingEntryAtCurrentlyEvaluatingVersion(parent)
                         .getValueMaybeWithMetadata())
                 .toList())
-        .containsExactly(
-            new TaggedEvents(null, ImmutableList.of(Event.warn("includedDep warning"))));
+        .containsExactly(Event.warn("includedDep warning"));
   }
 
   // Tests that we have a sane implementation of error transience.
@@ -5121,7 +5116,7 @@ public abstract class MemoizingEvaluatorTest {
         createTrackingProgressReceiver(/*checkEvaluationResults=*/ true);
     private GraphInconsistencyReceiver graphInconsistencyReceiver =
         GraphInconsistencyReceiver.THROWING;
-    private EventFilter eventFilter = InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
+    private EventFilter eventFilter = EventFilter.FULL_STORAGE;
 
     /** Constructs a new {@link #evaluator}, so call before injecting a transformer into it! */
     public void initialize() {

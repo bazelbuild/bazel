@@ -304,9 +304,9 @@ final class EvalUtils {
           String xs = (String) x;
           try {
             if (y instanceof Tuple) {
-              return Starlark.formatWithList(xs, (Tuple) y);
+              return Starlark.formatWithList(semantics, xs, (Tuple) y);
             } else {
-              return Starlark.format(xs, y);
+              return Starlark.format(semantics, xs, y);
             }
           } catch (IllegalFormatException ex) {
             throw new EvalException(ex);

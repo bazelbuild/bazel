@@ -467,7 +467,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // This is being done outside of BuildView, potentially even before the BuildView was
     // constructed and thus cannot rely on BuildView having injected this for us.
     skyframeExecutor.setBaselineConfiguration(buildOptions);
-    return skyframeExecutor.createConfigurations(reporter, buildOptions, ImmutableSet.of(), false);
+    return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
   protected Target getTarget(String label)
@@ -1939,7 +1939,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected BuildConfigurationValue getTargetConfiguration() {
-    return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
+    return masterConfig.getTargetConfiguration();
   }
 
   protected BuildConfigurationValue getHostConfiguration() {
@@ -2068,7 +2068,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.update(
         loadingResult,
         targetConfig.getOptions(),
-        /* multiCpu= */ ImmutableSet.of(),
         /*explicitTargetPatterns=*/ ImmutableSet.of(),
         aspects,
         /*aspectsParameters=*/ ImmutableMap.of(),

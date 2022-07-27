@@ -655,8 +655,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   private void assertMatches(String description, String expectedPattern, String computedValue)
       throws Exception {
     assertWithMessage(
-            Starlark.format(
-                "%s %r did not match pattern '%s'", description, computedValue, expectedPattern))
+            String.format(
+                "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern))
         .that(Pattern.matches(expectedPattern, computedValue))
         .isTrue();
   }
@@ -3119,7 +3119,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) ev.eval("args");
-    assertThat(new Printer().debugPrint(args).toString()).isEqualTo("--foo --bar");
+    assertThat(new Printer().debugPrint(args, getStarlarkSemantics()).toString())
+        .isEqualTo("--foo --bar");
   }
 
   @Test

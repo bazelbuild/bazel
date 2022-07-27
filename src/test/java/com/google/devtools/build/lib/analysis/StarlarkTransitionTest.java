@@ -162,4 +162,93 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     assertThat(starlarkOptions.get(Label.parseAbsoluteUnchecked("//test:formation")))
         .isEqualTo("canyon-transitioned");
   }
+
+  private void writeDefBzlWithStringFlagAndEaterRule() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _setting_impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _setting_impl,",
+        "  build_setting = config.string(flag=True),",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "  if settings['@//options:fruit'].endswith('-eaten'):",
+        "    return {'//options:fruit': settings['@//options:fruit']}",
+        "  return {'//options:fruit': settings['@//options:fruit'] + '-eaten'}",
+        "eating_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['@//options:fruit'],",
+        "  outputs = ['//options:fruit'],",
+        ")",
+        "def _impl(ctx):",
+        "  return []",
+        "eater = rule(",
+        "  implementation = _impl,",
+        "  cfg = eating_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+  }
+
+  @Test
+  public void testDifferentDefaultsRerunsTransitionTest() throws Exception {
+    writeAllowlistFile(scratch);
+    writeDefBzlWithStringFlagAndEaterRule();
+    scratch.file(
+        "options/BUILD",
+        "load('//test:defs.bzl', 'string_flag')",
+        "string_flag(name = 'fruit', build_setting_default = 'apple')");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'eater')", "eater(name = 'foo')");
+
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:foo"))
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseAbsoluteUnchecked("//options:fruit")))
+        .isEqualTo("apple-eaten");
+
+    scratch.overwriteFile(
+        "options/BUILD",
+        "load('//test:defs.bzl', 'string_flag')",
+        "string_flag(name = 'fruit', build_setting_default = 'orange')");
+    invalidatePackages();
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:foo"))
+                .getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseAbsoluteUnchecked("//options:fruit")))
+        .isEqualTo("orange-eaten");
+  }
+
+  @Test
+  public void testAliasChangeRerunsTransitionTest() throws Exception {
+    writeAllowlistFile(scratch);
+    writeDefBzlWithStringFlagAndEaterRule();
+    scratch.file(
+        "options/BUILD",
+        "load('//test:defs.bzl', 'string_flag')",
+        "string_flag(name = 'usually_apple', build_setting_default = 'apple')",
+        "string_flag(name = 'usually_orange', build_setting_default = 'orange')",
+        "alias(name = 'fruit', actual = ':usually_apple')");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'eater')", "eater(name = 'foo')");
+
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseAbsoluteUnchecked("//options:usually_apple"), "apple-eaten");
+
+    scratch.overwriteFile(
+        "options/BUILD",
+        "load('//test:defs.bzl', 'string_flag')",
+        "string_flag(name = 'usually_apple', build_setting_default = 'apple')",
+        "string_flag(name = 'usually_orange', build_setting_default = 'orange')",
+        "alias(name = 'fruit', actual = ':usually_orange')");
+    invalidatePackages();
+
+    assertThat(
+            getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseAbsoluteUnchecked("//options:usually_orange"), "orange-eaten");
+  }
 }

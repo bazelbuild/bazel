@@ -31,6 +31,7 @@ import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -130,7 +130,7 @@ abstract class AbstractParallelEvaluator {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
+      NestedSetVisitor.VisitedState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
@@ -894,9 +894,6 @@ abstract class AbstractParallelEvaluator {
     // Replaying actions is done on a small number of nodes, but potentially over a large dependency
     // graph. Under those conditions, using the regular NestedSet flattening with .toList() is more
     // efficient than using NestedSetVisitor's custom traversal logic.
-    evaluatorContext
-        .getReplayingNestedSetPostableVisitor()
-        .visit(valueWithMetadata.getTransitivePostables().toList());
     evaluatorContext
         .getReplayingNestedSetEventVisitor()
         .visit(valueWithMetadata.getTransitiveEvents().toList());

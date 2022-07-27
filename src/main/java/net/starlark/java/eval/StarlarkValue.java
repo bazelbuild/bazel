@@ -26,6 +26,10 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
+  // TODO(brandjon): We can consider adding a StarlarkSemantics param to repr(), to match str() and
+  // debugPrint(). Counterargument is that it's nice to have a supported way of stringifying a
+  // Starlark value independently of a Starlark evaluation environment. If necessary we could use
+  // toString for that purpose, or even define a separate semantics-independent repr-like method.
   default void repr(Printer printer) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
   }
@@ -37,7 +41,7 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void str(Printer printer) {
+  default void str(Printer printer, StarlarkSemantics semantics) {
     repr(printer);
   }
 
@@ -53,8 +57,8 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void debugPrint(Printer printer) {
-    str(printer);
+  default void debugPrint(Printer printer, StarlarkSemantics semantics) {
+    str(printer, semantics);
   }
 
   /** Returns the truth-value of this Starlark value. */

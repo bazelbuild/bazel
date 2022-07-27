@@ -250,8 +250,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
         eventHandler,
         dummyTarget,
         analysisEnv,
-        new BuildConfigurationCollection(
-            ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
+        new BuildConfigurationCollection(dummy.getConfiguration(), dummy.getHostConfiguration()));
   }
 
   /**

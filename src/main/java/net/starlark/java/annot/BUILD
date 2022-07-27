@@ -20,5 +20,8 @@ java_library(
     name = "annot_sans_processor",
     srcs = glob(["*.java"]),
     visibility = ["//src/main/java/net/starlark/java/annot/processor:__pkg__"],
-    deps = ["//third_party:jsr305"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )

@@ -545,7 +545,7 @@ EOF
       --remote_cache=http://localhost:${http_port} \
       //a:foo &> $TEST_log \
       || fail "Failed to build //a:foo"
-  expect_not_log "WARNING: Username and password from .netrc is transmitted in plaintext" "Should not print warning"
+  expect_not_log "WARNING: Credentials are transmitted in plaintext" "Should not print warning"
 }
 
 function test_remote_http_cache_with_netrc_warning() {
@@ -565,7 +565,7 @@ EOF
       --remote_cache=http://localhost:${http_port} \
       //a:foo &> $TEST_log \
       || fail "Failed to build //a:foo"
-  expect_log "WARNING: Username and password from .netrc is transmitted in plaintext"
+  expect_log "WARNING: Credentials are transmitted in plaintext"
 }
 
 run_suite "Remote execution and remote cache tests"

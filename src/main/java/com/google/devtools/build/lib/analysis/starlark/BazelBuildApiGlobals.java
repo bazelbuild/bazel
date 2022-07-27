@@ -112,6 +112,11 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
       // TODO(b/22193153): This seems incorrect since parse doesn't take into account any repository
       // map. (This shouldn't matter within Google's monorepo, which doesn't use a repo map.)
       try {
+        // Special constant to disable allowlisting. For migration to enable the feature globally.
+        if (allowedPkgString.equals("everyone")) {
+          foundMatch = true;
+          break;
+        }
         PackageIdentifier allowedPkgId = PackageIdentifier.parse(allowedPkgString);
         if (pkgId.equals(allowedPkgId)) {
           foundMatch = true;

@@ -69,7 +69,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public void debugPrint(Printer printer) {
+  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     try {
       printer.append(Joiner.on(" ").join(build().arguments()));
     } catch (CommandLineExpansionException e) {

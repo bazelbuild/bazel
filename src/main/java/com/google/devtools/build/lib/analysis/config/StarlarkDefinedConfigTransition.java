@@ -311,6 +311,45 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       return false;
     }
 
+    /** An exception for validating that a transition is properly constructed */
+    private static final class UnreadableInputSettingException extends Exception {
+      public UnreadableInputSettingException(String unreadableSetting, Class<?> unreadableClass) {
+        super(
+            String.format(
+                "Input build setting %s is of type %s, which is unreadable in Starlark."
+                    + " Please submit a feature request.",
+                unreadableSetting, unreadableClass));
+      }
+    }
+
+    /**
+     * Copy settings into Starlark-readable Dict.
+     *
+     * <p>The returned (outer) Dict will be immutable but all the underlying entries will have
+     * mutability given by the entryMu param.
+     *
+     * @param settings map os settings to copy over
+     * @param entryMu Mutability context to use when copying individual entries
+     * @throws UnreadableInputSettingException when entry in build setting is not convertable (using
+     *     {@link Starlark#fromJava})
+     */
+    private Dict<String, Object> createBuildSettingsDict(
+        Map<String, Object> settings, Mutability entryMu) throws UnreadableInputSettingException {
+
+      // Need to convert contained values into Starlark readable values.
+      Dict.Builder<String, Object> builder = Dict.builder();
+      for (Map.Entry<String, Object> entry : settings.entrySet()) {
+        try {
+          builder.put(entry.getKey(), Starlark.fromJava(entry.getValue(), entryMu));
+        } catch (Starlark.InvalidStarlarkValueException e) {
+          throw new UnreadableInputSettingException(entry.getKey(), e.getInvalidClass());
+        }
+      }
+
+      // Want the 'outer' build settings dictionary to be immutable
+      return builder.buildImmutable();
+    }
+
     /**
      * This method evaluates the implementation function of the transition.
      *
@@ -349,6 +388,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         //  are used as inputs to the configuration.
         SymbolGenerator<Object> dummySymbolGenerator = new SymbolGenerator<>(new Object());
 
+        Dict<String, Object> previousSettingsDict = createBuildSettingsDict(previousSettings, mu);
+
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
         // should be confined to a single thread.
@@ -364,7 +405,16 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         starlarkContext.storeInThread(thread);
         result =
             Starlark.fastcall(
-                thread, impl, new Object[] {previousSettings, attributeMapper}, new Object[0]);
+                thread, impl, new Object[] {previousSettingsDict, attributeMapper}, new Object[0]);
+      } catch (UnreadableInputSettingException ex) {
+        // TODO(blaze-configurability-team): Ideally, the error would happen (and thus location)
+        //   at the transition() call during loading phase. Instead, error happens at the impl
+        //  function call during the analysis phase.
+        handler.handle(
+            Event.error(
+                impl.getLocation(),
+                String.format("before calling %s: %s", impl.getName(), ex.getMessage())));
+        return null;
       } catch (EvalException ex) {
         handler.handle(Event.error(null, ex.getMessageWithStack()));
         return null;

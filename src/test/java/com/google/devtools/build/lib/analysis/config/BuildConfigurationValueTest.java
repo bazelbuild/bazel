@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
@@ -94,7 +93,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     }
 
     BuildConfigurationCollection configs = createCollection("--cpu=piii");
-    BuildConfigurationValue config = Iterables.getOnlyElement(configs.getTargetConfigurations());
+    BuildConfigurationValue config = configs.getTargetConfiguration();
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 
@@ -111,48 +110,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // different objects, if they were created with the same options (no options in this case).
     assertThat(b.toString()).isEqualTo(a.toString());
     assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
-  }
-
-  @Test
-  public void testConfigurationsHaveUniqueOutputDirectories() throws Exception {
-    assertConfigurationsHaveUniqueOutputDirectories(createCollection());
-    assertConfigurationsHaveUniqueOutputDirectories(createCollection("--compilation_mode=opt"));
-  }
-
-  @Test
-  public void testMultiCpu() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-
-    BuildConfigurationCollection master = createCollection("--multi_cpu=k8", "--multi_cpu=piii");
-    assertThat(master.getTargetConfigurations()).hasSize(2);
-    // Note: the cpus are sorted alphabetically.
-    assertThat(master.getTargetConfigurations().get(0).getCpu()).isEqualTo("k8");
-    assertThat(master.getTargetConfigurations().get(1).getCpu()).isEqualTo("piii");
-  }
-
-  /**
-   * Check that the cpus are sorted alphabetically regardless of the order in which they are
-   * specified.
-   */
-  @Test
-  public void testMultiCpuSorting() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-
-    for (int order = 0; order < 2; order++) {
-      BuildConfigurationCollection master;
-      if (order == 0) {
-        master = createCollection("--multi_cpu=k8", "--multi_cpu=piii");
-      } else {
-        master = createCollection("--multi_cpu=piii", "--multi_cpu=k8");
-      }
-      assertThat(master.getTargetConfigurations()).hasSize(2);
-      assertThat(master.getTargetConfigurations().get(0).getCpu()).isEqualTo("k8");
-      assertThat(master.getTargetConfigurations().get(1).getCpu()).isEqualTo("piii");
-    }
   }
 
   @Test

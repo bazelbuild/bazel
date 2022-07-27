@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.Event;
 import org.junit.Test;
@@ -378,10 +377,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
     assertThat(getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
-    assertThat(
-            getConfiguredTarget("//a:config")
-                .getProvider(ConfigMatchingProvider.class)
-                .requiredFragmentOptions())
-        .isEqualTo(RequiredConfigFragmentsProvider.EMPTY);
+    assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
+        .isNull();
   }
 }

@@ -32,7 +32,8 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link GroupedList}. */
 @RunWith(JUnit4.class)
-public class GroupedListTest {
+public final class GroupedListTest {
+
   @Test
   public void empty() {
     createSizeN(0);
@@ -53,7 +54,7 @@ public class GroupedListTest {
     createSizeN(10);
   }
 
-  private void createSizeN(int size) {
+  private static void createSizeN(int size) {
     List<String> list = new ArrayList<>();
     for (int i = 0; i < size; i++) {
       list.add("test" + i);
@@ -207,37 +208,6 @@ public class GroupedListTest {
     groupedList.append(helper);
     assertThat(groupedList.numElements()).isEqualTo(3);
     assertThat(groupedList.listSize()).isEqualTo(2);
-  }
-
-  @Test
-  public void createCompressedSingleton() {
-    GroupedList<String> groupedList = new GroupedList<>();
-    groupedList.appendGroup(ImmutableList.of("a"));
-    assertThat(GroupedList.createCompressedSingleton("a")).isEqualTo(groupedList.compress());
-  }
-
-  @Test
-  public void createCompressedWithTwoGroups() {
-    GroupedList<String> groupedList = new GroupedList<>();
-    groupedList.appendGroup(ImmutableList.of("a"));
-    groupedList.appendGroup(ImmutableList.of("b", "c"));
-    assertThat(GroupedList.createCompressedWithTwoGroups("a", ImmutableList.of("b", "c")))
-        .isEqualTo(groupedList.compress());
-    groupedList.remove(ImmutableSet.of("b"));
-    assertThat(GroupedList.createCompressedWithTwoGroups("a", ImmutableList.of("c")))
-        .isEqualTo(groupedList.compress());
-  }
-
-  @Test
-  public void createCompressedWithThreeGroups() {
-    GroupedList<String> groupedList = new GroupedList<>();
-    groupedList.appendGroup(ImmutableList.of("a"));
-    groupedList.appendGroup(ImmutableList.of("b", "c"));
-    groupedList.appendGroup(ImmutableList.of("d", "e", "f"));
-    assertThat(
-            GroupedList.createCompressedWithThreeGroups(
-                "a", ImmutableList.of("b", "c"), ImmutableList.of("d", "e", "f")))
-        .isEqualTo(groupedList.compress());
   }
 
   @Test

@@ -326,7 +326,7 @@ final class ActionMetadataHandler implements MetadataHandler {
 
     // Make sure the tree artifact root is a regular directory. Note that this is how the action is
     // initialized, so this should hold unless the action itself has deleted the root.
-    if (!treeDir.isDirectory(Symlinks.NOFOLLOW)) {
+    if (!treeDir.isDirectory(Symlinks.FOLLOW)) {
       if (chmod) {
         setPathReadOnlyAndExecutableIfFile(treeDir);
       }

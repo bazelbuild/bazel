@@ -657,6 +657,27 @@ dist_http_archive(
     name = "com_google_absl",
 )
 
+# for patching the "com_github_cncf_udpa" deps loaded by grpc_deps
+dist_http_archive(
+    name = "com_envoyproxy_protoc_gen_validate",
+)
+
+dist_http_archive(
+    name = "com_github_cncf_udpa",
+)
+
+dist_http_archive(
+    name = "com_google_googleapis",
+)
+
+dist_http_archive(
+    name = "upb",
+)
+
+dist_http_archive(
+    name = "bazel_gazelle",
+)
+
 # Projects using gRPC as an external dependency must call both grpc_deps() and
 # grpc_extra_deps().
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")

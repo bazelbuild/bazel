@@ -18,10 +18,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -58,9 +55,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.Before;
@@ -190,13 +185,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected BuildConfigurationCollection createCollection(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
 
-    Pair<BuildOptions, TestOptions> pair = parseBuildOptionsWithTestOptions(starlarkOptions, args);
+    BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
 
     skyframeExecutor.handleDiffsForTesting(reporter);
-    BuildOptions targetOptions = pair.getFirst();
-    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(pair.getSecond().multiCpus);
     skyframeExecutor.setBaselineConfiguration(targetOptions);
-    return skyframeExecutor.createConfigurations(reporter, targetOptions, multiCpu, false);
+    return skyframeExecutor.createConfiguration(reporter, targetOptions, false);
   }
 
   /** Parses purported commandline options into a BuildOptions (assumes default parsing context.) */
@@ -252,7 +245,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
   protected BuildConfigurationValue create(String... args) throws Exception {
-    return Iterables.getOnlyElement(createCollection(args).getTargetConfigurations());
+    return createCollection(args).getTargetConfiguration();
   }
 
   /**
@@ -264,8 +257,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    */
   protected BuildConfigurationValue create(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    return Iterables.getOnlyElement(
-        createCollection(starlarkOptions, args).getTargetConfigurations());
+    return createCollection(starlarkOptions, args).getTargetConfiguration();
   }
 
   /**
@@ -276,26 +268,5 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    */
   protected BuildConfigurationValue createHost(String... args) throws Exception {
     return createCollection(args).getHostConfiguration();
-  }
-
-  public static void assertConfigurationsHaveUniqueOutputDirectories(
-      BuildConfigurationCollection configCollection) {
-    Map<ArtifactRoot, BuildConfigurationValue> outputPaths = new HashMap<>();
-    for (BuildConfigurationValue config : configCollection.getTargetConfigurations()) {
-      BuildConfigurationValue otherConfig =
-          outputPaths.get(config.getOutputDirectory(RepositoryName.MAIN));
-      if (otherConfig != null) {
-        throw new IllegalStateException(
-            "The output path '"
-                + config.getOutputDirectory(RepositoryName.MAIN)
-                + "' is the same for configurations '"
-                + config
-                + "' and '"
-                + otherConfig
-                + "'");
-      } else {
-        outputPaths.put(config.getOutputDirectory(RepositoryName.MAIN), config);
-      }
-    }
   }
 }

@@ -357,6 +357,24 @@ This option generates output as a Graphviz-compatible .dot file. See `query`'s
 also supports [`--graph:node_limit`](/reference/query#graph-nodelimit) and
 [`--graph:factored`](/reference/query#graph-factored).
 
+### Files output {:#files-output}
+
+<pre>
+--output=files
+</pre>
+
+This option prints a list of the output files produced by each target matched
+by the query similar to the list printed at the end of a `bazel build`
+invocation. The output contains only the files advertised in the requested
+output groups as determined by the
+[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag
+and never contains source files.
+
+Note: The output of `bazel cquery --output=files //pkg:foo` contains the output
+files of `//pkg:foo` in *all* configurations that occur in the build (also see
+the [section on target pattern evaluation](#target-pattern-evaluation)). If that
+is not desired, wrap you query in [`config(..., target)`](#config).
+
 ### Defining the output format using Starlark {:#output-format-definition}
 
 <pre>

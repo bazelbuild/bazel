@@ -50,9 +50,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 
@@ -87,7 +84,7 @@ public final class FunctionTransitionUtil {
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
       ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(buildOptions);
-      Dict<String, Object> settings =
+      ImmutableMap<String, Object> settings =
           buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
       ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
@@ -157,7 +154,9 @@ public final class FunctionTransitionUtil {
   }
 
   /**
-   * Enter the options in buildOptions into a Starlark dictionary, and return the dictionary.
+   * Return an ImmutableMap containing only BuildOptions explicitly registered as transition inputs.
+   *
+   * <p>nulls are converted to Starlark.NONE but no other conversions are done.
    *
    * @throws IllegalArgumentException If the method is unable to look up the value in buildOptions
    *     corresponding to an entry in optionInfoMap
@@ -167,7 +166,7 @@ public final class FunctionTransitionUtil {
    * @throws ValidationException if any of the specified transition inputs do not correspond to a
    *     valid build setting
    */
-  private static Dict<String, Object> buildSettings(
+  private static ImmutableMap<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
@@ -177,57 +176,49 @@ public final class FunctionTransitionUtil {
     LinkedHashSet<String> remainingInputs =
         Sets.newLinkedHashSet(inputsCanonicalizedToGiven.keySet());
 
-    try (Mutability mutability = Mutability.create("build_settings")) {
-      Dict<String, Object> dict = Dict.of(mutability);
+    ImmutableMap.Builder<String, Object> optionsBuilder = ImmutableMap.builder();
 
-      // Add native options
-      for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
-        String optionName = entry.getKey();
-        String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
+    // Add native options
+    for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
+      String optionName = entry.getKey();
+      String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
 
-        if (!remainingInputs.remove(optionKey)) {
-          // This option was not present in inputs. Skip it.
-          continue;
-        }
-        OptionInfo optionInfo = entry.getValue();
-
-        Field field = optionInfo.getDefinition().getField();
-        FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-        try {
-          Object optionValue = field.get(options);
-          dict.putEntry(optionKey, optionValue == null ? Starlark.NONE : optionValue);
-        } catch (IllegalAccessException e) {
-          // These exceptions should not happen, but if they do, throw a RuntimeException.
-          throw new RuntimeException(e);
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex); // can't happen
-        }
+      if (!remainingInputs.remove(optionKey)) {
+        // This option was not present in inputs. Skip it.
+        continue;
       }
+      OptionInfo optionInfo = entry.getValue();
 
-      // Add Starlark options
-      for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
-        String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
-        if (!remainingInputs.remove(canonicalLabelForm)) {
-          continue;
-        }
-        // Convert the canonical form to the user requested form that they expect to see in this
-        // dict.
-        String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
-        try {
-          dict.putEntry(userRequestedLabelForm, starlarkOption.getValue());
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex); // can't happen
-        }
+      Field field = optionInfo.getDefinition().getField();
+      FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
+      try {
+        Object optionValue = field.get(options);
+        // convert nulls here b/c ImmutableMap bans null values
+        optionsBuilder.put(optionKey, optionValue == null ? Starlark.NONE : optionValue);
+      } catch (IllegalAccessException e) {
+        // These exceptions should not happen, but if they do, throw a RuntimeException.
+        throw new IllegalStateException(e);
       }
-
-      if (!remainingInputs.isEmpty()) {
-        throw ValidationException.format(
-            "transition inputs [%s] do not correspond to valid settings",
-            Joiner.on(", ").join(remainingInputs));
-      }
-
-      return dict;
     }
+
+    // Add Starlark options
+    for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
+      String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
+      if (!remainingInputs.remove(canonicalLabelForm)) {
+        continue;
+      }
+      // Convert the canonical form to the user requested form that they expect to see
+      String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
+      optionsBuilder.put(userRequestedLabelForm, starlarkOption.getValue());
+    }
+
+    if (!remainingInputs.isEmpty()) {
+      throw ValidationException.format(
+          "transition inputs [%s] do not correspond to valid settings",
+          Joiner.on(", ").join(remainingInputs));
+    }
+
+    return optionsBuilder.buildOrThrow();
   }
 
   /**

@@ -51,6 +51,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
@@ -179,8 +180,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getErrorMessageForUnknownField(String name) {
-    return Starlark.format(
-        "%r (rule '%s') doesn't have provider '%s'", this, getRuleClassString(), name);
+    return String.format(
+        "%s (rule '%s') doesn't have provider '%s'",
+        Starlark.repr(this), getRuleClassString(), name);
   }
 
   @Override
@@ -218,7 +220,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void debugPrint(Printer printer) {
+  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     // Show the names of the provider keys that this target propagates.
     // Provider key names might potentially be *private* information, and thus a comprehensive
     // list of provider keys should not be exposed in any way other than for debug information.

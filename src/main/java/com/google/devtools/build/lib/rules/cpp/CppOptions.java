@@ -707,7 +707,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_inmemory_dotd_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
