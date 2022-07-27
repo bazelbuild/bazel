@@ -86,6 +86,24 @@ public final class Starlark {
    */
   public static final ImmutableMap<String, Object> UNIVERSE = makeUniverse();
 
+  /**
+   * An {@code IllegalArgumentException} subclass for when a non-Starlark object is encountered in a
+   * context where a Starlark value ({@code String}, {@code Boolean}, or {@code StarlarkValue}) was
+   * expected.
+   */
+  public static final class InvalidStarlarkValueException extends IllegalArgumentException {
+    private final Class<?> invalidClass;
+
+    public Class<?> getInvalidClass() {
+      return invalidClass;
+    }
+
+    private InvalidStarlarkValueException(Class<?> invalidClass) {
+      super("invalid Starlark value: " + invalidClass);
+      this.invalidClass = invalidClass;
+    }
+  }
+
   private static ImmutableMap<String, Object> makeUniverse() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env //
@@ -105,11 +123,11 @@ public final class Starlark {
 
   /**
    * Returns {@code x} if it is a {@link #valid} Starlark value, otherwise throws
-   * IllegalArgumentException.
+   * InvalidStarlarkValueException.
    */
   public static <T> T checkValid(T x) {
     if (!valid(x)) {
-      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+      throw new InvalidStarlarkValueException(x.getClass());
     }
     return x;
   }
@@ -139,7 +157,7 @@ public final class Starlark {
     } else if (x instanceof StarlarkValue) {
       return ((StarlarkValue) x).isImmutable();
     } else {
-      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+      throw new InvalidStarlarkValueException(x.getClass());
     }
   }
 
@@ -162,7 +180,7 @@ public final class Starlark {
    * An Integer, Long, or BigInteger is converted to a Starlark int, a double is converted to a
    * Starlark float, a Java List or Map is converted to a Starlark list or dict, respectively, and
    * null becomes {@link #NONE}. Any other non-Starlark value causes the function to throw
-   * IllegalArgumentException.
+   * InvalidStarlarkValueException.
    *
    * <p>Elements of Lists and Maps must be valid Starlark values; they are not recursively
    * converted. (This avoids excessive unintended deep copying.)
@@ -189,7 +207,7 @@ public final class Starlark {
     } else if (x instanceof Map) {
       return Dict.copyOf(mutability, (Map<?, ?>) x);
     }
-    throw new IllegalArgumentException("cannot expose internal type to Starlark: " + x.getClass());
+    throw new InvalidStarlarkValueException(x.getClass());
   }
 
   /**
@@ -204,7 +222,7 @@ public final class Starlark {
     } else if (x instanceof String) {
       return !((String) x).isEmpty();
     } else {
-      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+      throw new InvalidStarlarkValueException(x.getClass());
     }
   }
 

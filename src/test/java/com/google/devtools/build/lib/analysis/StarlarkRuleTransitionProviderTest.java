@@ -37,6 +37,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -547,6 +548,50 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
     assertThat(configuration.getOptions().getStarlarkOptions())
         .doesNotContainKey(Label.parseAbsoluteUnchecked("//test:cute-animal-fact"));
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_readingUnreadableBuildSetting() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  old_value = settings['//command_line_option:unreadable_by_starlark']",
+        "  fail('This line should be unreachable.')",
+        "my_transition = transition(implementation = _transition_impl,",
+        "  inputs = ['//command_line_option:unreadable_by_starlark'],",
+        "  outputs = ['//command_line_option:unreadable_by_starlark'],",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent(
+        Pattern.compile(
+            "test/transitions.bzl:1:5: before calling _transition_impl: Input build setting"
+                + " //command_line_option:unreadable_by_starlark is of type class"
+                + " \\S*UnreadableStringBox, which is unreadable in Starlark. Please submit a"
+                + " feature request."));
+  }
+
+  @Test
+  public void testTransitionOnBuildSetting_writingUnreadableBuildSetting() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "    '//command_line_option:unreadable_by_starlark': 'post-transition',",
+        "  }",
+        "my_transition = transition(implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:unreadable_by_starlark'],",
+        ")");
+    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
+
+    useConfiguration("--unreadable_by_starlark=pre-transition");
+
+    BuildConfigurationValue configuration = getConfiguration(getConfiguredTarget("//test"));
+    assertThat(configuration.getOptions().get(DummyTestOptions.class).unreadableByStarlark)
+        .isEqualTo(DummyTestOptions.UnreadableStringBox.create("post-transition"));
   }
 
   @Test

@@ -1383,8 +1383,7 @@ public final class StarlarkEvaluationTest {
         .hasCauseThat()
         .hasMessageThat()
         .contains(
-            "cannot expose internal type to Starlark: class"
-                + " net.starlark.java.eval.StarlarkEvaluationTest$Bad");
+            "invalid Starlark value: class net.starlark.java.eval.StarlarkEvaluationTest$Bad");
   }
 
   @Test
