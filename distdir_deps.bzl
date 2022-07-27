@@ -210,6 +210,10 @@ DIST_DEPS = {
             "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/bef53686ec702607971bd3ea4d4fefd80c6cc6e8.tar.gz",
             "https://github.com/protocolbuffers/upb/archive/bef53686ec702607971bd3ea4d4fefd80c6cc6e8.tar.gz",
         ],
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party/upb:upb.patch",
+        ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
