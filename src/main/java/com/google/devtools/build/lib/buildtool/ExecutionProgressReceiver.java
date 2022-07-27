@@ -73,9 +73,7 @@ public final class ExecutionProgressReceiver
    * {@code builtTargets} is accessed through a synchronized set, and so no other access to it is
    * permitted while this receiver is active.
    */
-  ExecutionProgressReceiver(
-      int exclusiveTestsCount,
-      EventBus eventBus) {
+  public ExecutionProgressReceiver(int exclusiveTestsCount, EventBus eventBus) {
     this.exclusiveTestsCount = exclusiveTestsCount;
     this.eventBus = eventBus;
   }
