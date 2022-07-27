@@ -31,7 +31,7 @@ public interface Reportable {
 
   /**
    * If this event originated from {@link
-   * com.google.devtools.build.skyframe.SkyFunction.Environment#reportEvent}, whether it should be
+   * com.google.devtools.build.skyframe.SkyFunction.Environment#getListener}, whether it should be
    * stored in the corresponding Skyframe node to be replayed on incremental builds when the node is
    * deemed up-to-date.
    *
