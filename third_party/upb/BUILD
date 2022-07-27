@@ -16,6 +16,10 @@
 
 licenses(["notice"])  # Apache v2
 
+exports_files([
+    "upb.patch",
+])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**/*"]),
