@@ -76,6 +76,70 @@ function has_utf8_locale() {
   [[ "${charmap}" == "UTF-8" ]]
 }
 
+function setup_credential_helper() {
+  cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
+#!/usr/bin/env python3
+print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
+EOF
+  chmod +x "${TEST_TMPDIR}/credhelper"
+}
+
+function test_credential_helper_remote_cache() {
+  setup_credential_helper
+
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "a",
+  outs = ["a.txt"],
+  cmd = "touch $(OUTS)",
+)
+EOF
+
+  stop_worker
+  start_worker --expected_authorization_token=secret_token
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:a >& $TEST_log && fail "Build without credentials should have failed"
+  expect_log "Failed to query remote execution capabilities"
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+}
+
+function test_credential_helper_remote_execution() {
+  setup_credential_helper
+
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "a",
+  outs = ["a.txt"],
+  cmd = "touch $(OUTS)",
+)
+EOF
+
+  stop_worker
+  start_worker --expected_authorization_token=secret_token
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:a >& $TEST_log && fail "Build without credentials should have failed"
+  expect_log "Failed to query remote execution capabilities"
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+}
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a
