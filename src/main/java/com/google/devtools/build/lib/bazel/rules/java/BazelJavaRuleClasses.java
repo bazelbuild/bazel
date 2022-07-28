@@ -441,7 +441,6 @@ public class BazelJavaRuleClasses {
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER)) // blaze flag
           .add(
               attr("$launcher", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
                   .value(env.getToolsLabel("//tools/launcher:launcher")))
           .build();
     }
