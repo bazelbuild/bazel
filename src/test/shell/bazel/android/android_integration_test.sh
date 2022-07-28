@@ -343,4 +343,61 @@ EOF
   assert_multiple_dex_files
 }
 
+function test_reduce_merged_assets() {
+  write_hello_android_files
+  setup_android_sdk_support
+  mkdir -p java/com/example/hello/assets
+  echo hello > java/com/example/hello/assets/hello.txt
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_lib"],
+)
+android_library(
+    name = "hello_lib",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = "assets",
+    assets = glob(["assets/**"]),
+)
+EOF
+  # The standard behavior is to output the merged assets as assets.zip
+  bazel build //java/com/example/hello:hello_lib --output_library_merged_assets || fail "build failed"
+  local tmpdir=$(mktemp -d)
+  # Expect the assets.zip to exist.
+  unzip bazel-bin/java/com/example/hello/hello_lib_files/assets.zip -d $tmpdir
+  # Expect that hello.txt contains hello.
+  assert_contains "hello" $tmpdir/assets/hello.txt
+  rm -rf $tmpdir
+}
+
+function test_dont_reduce_merged_assets() {
+  write_hello_android_files
+  setup_android_sdk_support
+  mkdir -p java/com/example/hello/assets
+  echo hello > java/com/example/hello/assets/hello.txt
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_lib"],
+)
+android_library(
+    name = "hello_lib",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = "assets",
+    assets = glob(["assets/**"]),
+)
+EOF
+  bazel build //java/com/example/hello:hello --nooutput_library_merged_assets || fail "build failed"
+  # Expect assets.zip to NOT exist.
+  if [[ -f bazel-bin/java/com/example/hello/hello_lib_files/assets.zip ]]; then
+    fail "assets.zip should NOT exist!"
+  fi
+}
+
 run_suite "Android integration tests"
