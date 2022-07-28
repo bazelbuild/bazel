@@ -101,6 +101,22 @@ def _write_impl(ctx):
 write = rule(implementation = _write_impl, attrs = {"contents": attr.string()})
 EOF
 
+  # We use python rather than a simple ln since the latter doesn't handle dangling symlinks on
+  # Windows.
+  mkdir -p symlink_helper
+  cat > symlink_helper/BUILD <<EOF
+py_binary(
+    name = "symlink_helper",
+    srcs = ["symlink_helper.py"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > symlink_helper/symlink_helper.py <<EOF
+import os
+import sys
+os.symlink(*sys.argv[1:])
+EOF
 }
 
 function test_smoke() {
@@ -228,17 +244,6 @@ EOF
 
 function test_file_instead_of_symlink() {
   mkdir -p a
-  cat > a/MakeSymlink.java <<'EOF'
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-public class MakeSymlink {
-  public static void main(String[] args) throws IOException {
-    Files.createSymbolicLink(Paths.get(args[0]), Paths.get(args[1]));
-  }
-}
-EOF
-
   cat > a/a.bzl <<'EOF'
 def _bad_symlink_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name)
@@ -266,12 +271,6 @@ EOF
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "bad_symlink", "bad_write")
 
-java_binary(
-    name = "MakeSymlink",
-    srcs = ["MakeSymlink.java"],
-    main_class = "MakeSymlink",
-)
-
 bad_symlink(name="bs", link_target="bad/symlink")
 genrule(name="bsg", srcs=[":bs"], outs=["bsgo"], cmd="echo BSGO > $@")
 
@@ -282,8 +281,8 @@ genrule(
     name="bg",
     srcs=[],
     outs=["bgo"],
-    exec_tools = [":MakeSymlink"],
-    cmd = "$(execpath :MakeSymlink) $@ bad/symlink",
+    cmd = "$(location //symlink_helper) bad/symlink $@",
+    tools = ["//symlink_helper"],
 )
 EOF
 
@@ -329,25 +328,14 @@ EOF
 
 function test_symlink_created_from_spawn() {
   mkdir -p a
-  cat > a/MakeSymlink.java <<'EOF'
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-public class MakeSymlink {
-  public static void main(String[] args) throws IOException {
-    Files.createSymbolicLink(Paths.get(args[0]), Paths.get(args[1]));
-  }
-}
-EOF
-
   cat > a/a.bzl <<'EOF'
 def _a_impl(ctx):
     symlink = ctx.actions.declare_symlink(ctx.label.name + ".link")
     output = ctx.actions.declare_file(ctx.label.name + ".file")
     ctx.actions.run(
         outputs = [symlink],
-        executable = ctx.executable._make_symlink,
-        arguments = [symlink.path, ctx.attr.link_target],
+        executable = ctx.executable._link,
+        arguments = [ctx.attr.link_target, symlink.path],
         inputs = depset([]),
     )
     ctx.actions.run_shell(
@@ -361,11 +349,11 @@ a = rule(
     implementation = _a_impl, 
     attrs = {
         "link_target": attr.string(),
-        "_make_symlink": attr.label(
-            default = ":MakeSymlink",
+        "_link": attr.label(
+            default = "//symlink_helper",
             executable = True,
             cfg = "exec",
-        )
+        ),
     }
 )
 EOF
@@ -373,11 +361,6 @@ EOF
   cat > a/BUILD <<'EOF'
 load(":a.bzl", "a")
 
-java_binary(
-    name = "MakeSymlink",
-    srcs = ["MakeSymlink.java"],
-    main_class = "MakeSymlink",
-)
 a(name="a", link_target="somewhere/over/the/rainbow")
 EOF
 
