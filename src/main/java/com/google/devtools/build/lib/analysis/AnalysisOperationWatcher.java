@@ -57,7 +57,13 @@ public class AnalysisOperationWatcher implements AutoCloseable {
     }
     threadSafeExpectedKeys.remove(e.getAnalyzedTopLevelKey());
     if (threadSafeExpectedKeys.isEmpty()) {
-      finisher.sendAnalysisPhaseCompleteEvent();
+      try {
+        finisher.analysisFinishedCallback();
+      } catch (InterruptedException exception) {
+        // Subscribers in general shouldn't throw exceptions. We therefore try to preserve the
+        // interrupted status here.
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
@@ -69,6 +75,6 @@ public class AnalysisOperationWatcher implements AutoCloseable {
   /** A callback to be called when all the expected keys have been analyzed. */
   @FunctionalInterface
   public interface AnalysisOperationWatcherFinisher {
-    void sendAnalysisPhaseCompleteEvent();
+    void analysisFinishedCallback() throws InterruptedException;
   }
 }

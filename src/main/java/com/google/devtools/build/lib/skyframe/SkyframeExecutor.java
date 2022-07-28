@@ -2341,10 +2341,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
   public void resetIncrementalArtifactConflictFindingStates() throws InterruptedException {
     incrementalArtifactConflictFinder.shutdown();
+    incrementalTransitiveActionLookupKeysCollector.shutdown();
     incrementalArtifactConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(
             new MapBasedActionGraph(actionKeyContext));
-    incrementalTransitiveActionLookupKeysCollector.shutdown();
     conflictFreeActionLookupKeysGlobalSet = Sets.newConcurrentHashSet();
     incrementalTransitiveActionLookupKeysCollector =
         new IncrementalTransitiveActionLookupKeysCollector(
@@ -3198,7 +3198,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     void shutdown() throws InterruptedException {
-      if (ExecutorUtil.interruptibleShutdown(executorService)) {
+      if (!executorService.isShutdown() && ExecutorUtil.uninterruptibleShutdown(executorService)) {
         throw new InterruptedException();
       }
     }

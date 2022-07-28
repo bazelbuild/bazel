@@ -598,7 +598,6 @@ public final class SkyframeBuildView {
       boolean shouldDiscardAnalysisCache)
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
-    enableAnalysis(true);
     Stopwatch analysisWorkTimer = Stopwatch.createStarted();
     EvaluationResult<BuildDriverValue> evaluationResult;
 
@@ -648,6 +647,7 @@ public final class SkyframeBuildView {
                 analysisFinishedCallback(
                     eventBus,
                     buildResultListener,
+                    skyframeExecutor,
                     shouldDiscardAnalysisCache,
                     /*measuredAnalysisTime=*/ analysisWorkTimer.stop().elapsed().toMillis()))) {
 
@@ -655,6 +655,8 @@ public final class SkyframeBuildView {
         resourceManager.resetResourceUsage();
         try (SilentCloseable c =
             Profiler.instance().profile("skyframeExecutor.evaluateBuildDriverKeys")) {
+          // Will be disabled later by the AnalysisOperationWatcher upon conclusion of analysis.
+          enableAnalysis(true);
           evaluationResult =
               skyframeExecutor.evaluateBuildDriverKeys(
                   eventHandler,
@@ -665,7 +667,9 @@ public final class SkyframeBuildView {
                   cpuHeavySkyKeysThreadPoolSize,
                   mergedPhasesExecutionJobsCount);
         } finally {
-          enableAnalysis(false);
+          // Required for incremental correctness.
+          // We unconditionally reset the states here instead of in #analysisFinishedCallback since
+          // in case of --nokeep_going & analysis error, the analysis phase is never finished.
           skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
         }
 
@@ -777,13 +781,23 @@ public final class SkyframeBuildView {
   private void analysisFinishedCallback(
       EventBus eventBus,
       BuildResultListener buildResultListener,
+      SkyframeExecutor skyframeExecutor,
       boolean shouldDiscardAnalysisCache,
-      long measuredAnalysisTime) {
+      long measuredAnalysisTime)
+      throws InterruptedException {
     if (shouldDiscardAnalysisCache) {
       clearAnalysisCache(
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
     }
+
+    // At this point, it's safe to clear objects related to action conflict checking.
+    // Clearing the states here is a performance optimization (reduce peak heap size) and isn't
+    // required for correctness.
+    skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+
+    enableAnalysis(false);
+
     eventBus.post(
         AnalysisPhaseCompleteEvent.fromSkymeld(
             buildResultListener.getAnalyzedTargets(),
@@ -841,7 +855,6 @@ public final class SkyframeBuildView {
       return topLevelActionConflictReport;
     } finally {
       skyframeExecutor.resetActionConflictsStoredInSkyframe();
-      skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
     }
   }
 
