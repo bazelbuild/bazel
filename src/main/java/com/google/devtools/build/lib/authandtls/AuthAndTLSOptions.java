@@ -117,12 +117,13 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then "
-              + "Bazel sends pings after this much time of no read operations on the connection, "
-              + "but only if there is at least one pending gRPC call. Times are treated as second "
-              + "granularity; it is an error to set a value less than one second. By default, "
-              + "keep-alive pings are disabled. You should coordinate with the service owner "
-              + "before enabling this setting.")
+          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel"
+              + " sends pings after this much time of no read operations on the connection, but"
+              + " only if there is at least one pending gRPC call. Times are treated as second"
+              + " granularity; it is an error to set a value less than one second. By default,"
+              + " keep-alive pings are disabled. You should coordinate with the service owner"
+              + " before enabling this setting. For example to set a value of 30 seconds to this"
+              + " flag, it should be done as this --grpc_keepalive_time=30s ")
   public Duration grpcKeepaliveTime;
 
   @Option(

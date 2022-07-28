@@ -179,15 +179,23 @@ public final class UiEventHandler implements EventHandler {
     this.locationPrinter =
         new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
     // If we have cursor control, we try to fit in the terminal width to avoid having
-    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
+    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 2
     // characters to avoid depending on knowing whether the underlying terminal does the
     // line feed already when reaching the last character of the line, or only once an
     // additional character is written. Another column is lost for the continuation character
     // in the wrapping process.
-    this.stateTracker =
-        this.cursorControl
-            ? new UiStateTracker(clock, this.terminalWidth - 2)
-            : new UiStateTracker(clock);
+
+    if (options.skymeldUi) {
+      this.stateTracker =
+          this.cursorControl
+              ? new SkymeldUiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              : new SkymeldUiStateTracker(clock);
+    } else {
+      this.stateTracker =
+          this.cursorControl
+              ? new UiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              : new UiStateTracker(clock);
+    }
     this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
@@ -555,10 +563,6 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   public synchronized void analysisComplete(AnalysisPhaseCompleteEvent event) {
-    // TODO(b/215335350): Make this work with Skymeld. Ignore for now.
-    if (event.isOriginatedFromSkymeld()) {
-      return;
-    }
     String analysisSummary = stateTracker.analysisComplete();
     handle(Event.info(null, analysisSummary));
   }

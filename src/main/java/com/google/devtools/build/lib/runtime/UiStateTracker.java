@@ -72,7 +72,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Tracks state for the UI. */
-final class UiStateTracker {
+class UiStateTracker {
 
   private static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   private static final String ELLIPSIS = "...";
@@ -87,13 +87,13 @@ final class UiStateTracker {
   private int sampleSize = 3;
 
   private String status;
-  private String additionalMessage;
+  protected String additionalMessage;
 
-  private final Clock clock;
+  protected final Clock clock;
 
   // Desired maximal width of the progress bar, if positive.
   // Non-positive values indicate not to aim for a particular width.
-  private final int targetWidth;
+  protected final int targetWidth;
 
   /**
    * Tracker of strategy names to unique IDs and viceversa.
@@ -170,7 +170,7 @@ final class UiStateTracker {
    * <p>We cannot make assumptions on the order in which action state events come in, so this class
    * takes care of always "advancing" the state of an action.
    */
-  private static final class ActionState {
+  protected static final class ActionState {
     /**
      * The action this state belongs to.
      *
@@ -214,12 +214,10 @@ final class UiStateTracker {
 
     private static class ProgressState {
       final String id;
-      final long nanoStartTime;
       ActionProgressEvent latestEvent;
 
-      private ProgressState(String id, long nanoStartTime) {
+      private ProgressState(String id) {
         this.id = id;
-        this.nanoStartTime = nanoStartTime;
       }
     }
 
@@ -316,7 +314,7 @@ final class UiStateTracker {
     }
 
     /** Handles the progress event for the action. */
-    synchronized void onProgressEvent(ActionProgressEvent event, long nanoChangeTime) {
+    synchronized void onProgressEvent(ActionProgressEvent event) {
       String id = event.progressId();
       if (event.finished()) {
         // a progress is finished, clean it up
@@ -324,8 +322,7 @@ final class UiStateTracker {
         return;
       }
 
-      ProgressState state =
-          runningProgresses.computeIfAbsent(id, key -> new ProgressState(key, nanoChangeTime));
+      ProgressState state = runningProgresses.computeIfAbsent(id, key -> new ProgressState(key));
       state.latestEvent = event;
     }
 
@@ -352,7 +349,7 @@ final class UiStateTracker {
     }
   }
 
-  private final Map<Artifact, ActionState> activeActions;
+  protected final Map<Artifact, ActionState> activeActions;
   private final AtomicInteger activeActionUploads = new AtomicInteger(0);
   private final AtomicInteger activeActionDownloads = new AtomicInteger(0);
 
@@ -368,26 +365,22 @@ final class UiStateTracker {
    */
   private final Map<Label, Set<Artifact>> testActions;
 
-  private final AtomicInteger actionsCompleted;
-  private int totalTests;
-  private int completedTests;
+  protected final AtomicInteger actionsCompleted;
+  protected int totalTests;
+  protected int completedTests;
   private TestSummary mostRecentTest;
-  private int failedTests;
-  private boolean ok;
+  protected int failedTests;
+  protected boolean ok;
   private boolean buildComplete;
 
-  // These are only null between the completion of analysis and the beginning of execution.
-  @Nullable private String defaultStatus = "Loading";
-  @Nullable private String defaultActivity = "loading...";
-
-  private ExecutionProgressReceiver executionProgressReceiver;
-  private PackageProgressReceiver packageProgressReceiver;
-  private ConfiguredTargetProgressReceiver configuredTargetProgressReceiver;
+  @Nullable protected ExecutionProgressReceiver executionProgressReceiver;
+  @Nullable protected PackageProgressReceiver packageProgressReceiver;
+  @Nullable protected ConfiguredTargetProgressReceiver configuredTargetProgressReceiver;
 
   // Set of build event protocol transports that need yet to be closed.
   private final Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
   // The point in time when closing of BEP transports was started.
-  private Instant buildCompleteAt;
+  protected Instant buildCompleteAt;
 
   UiStateTracker(Clock clock, int targetWidth) {
     this.activeActions = new ConcurrentHashMap<>();
@@ -453,15 +446,11 @@ final class UiStateTracker {
     status = null;
     packageProgressReceiver = null;
     configuredTargetProgressReceiver = null;
-    defaultStatus = null;
-    defaultActivity = null;
     return workDone;
   }
 
   synchronized void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
     executionProgressReceiver = event.getExecutionProgressReceiver();
-    defaultStatus = "Building";
-    defaultActivity = "checking cached actions";
   }
 
   void buildComplete(BuildCompleteEvent event) {
@@ -475,24 +464,29 @@ final class UiStateTracker {
         additionalMessage =
             "Build completed successfully, "
                 + actionsCompleted
-                + " total action"
-                + (actionsCompleted == 1 ? "" : "s");
+                + pluralize(" total action", actionsCompleted);
       } else {
         additionalMessage =
             "Build completed, "
                 + failedTests
-                + " test"
-                + (failedTests == 1 ? "" : "s")
+                + pluralize(" test", failedTests)
                 + " FAILED, "
                 + actionsCompleted
-                + " total action"
-                + (actionsCompleted == 1 ? "" : "s");
+                + pluralize(" total action", actionsCompleted);
       }
     } else {
       ok = false;
       status = "FAILED";
       additionalMessage = "Build did NOT complete successfully";
     }
+  }
+
+  protected static String pluralize(String noun, int count) {
+    return String.format("%s%s", noun, count == 1 ? "" : "s");
+  }
+
+  protected boolean buildCompleted() {
+    return buildComplete;
   }
 
   synchronized void downloadProgress(FetchProgress event) {
@@ -578,10 +572,9 @@ final class UiStateTracker {
 
   void actionProgress(ActionProgressEvent event) {
     Artifact actionId = event.action().getPrimaryOutput();
-    long now = clock.nanoTime();
     ActionState actionState = getActionStateIfPresent(actionId);
     if (actionState != null) {
-      actionState.onProgressEvent(event, now);
+      actionState.onProgressEvent(event);
     }
   }
 
@@ -748,7 +741,7 @@ final class UiStateTracker {
   // Describe an action by a string of the desired length; if describing that action includes
   // describing other actions, add those to the to set of actions to skip in further samples of
   // actions.
-  private String describeAction(
+  protected String describeAction(
       ActionState actionState, long nanoTime, int desiredWidth, Set<Artifact> toSkip) {
     ActionExecutionMetadata action = actionState.action;
     if (action.getOwner() != null) {
@@ -862,7 +855,7 @@ final class UiStateTracker {
     return prefix + message + postfix;
   }
 
-  private ActionState getOldestAction() {
+  protected ActionState getOldestAction() {
     long minStart = Long.MAX_VALUE;
     ActionState result = null;
     for (ActionState action : activeActions.values()) {
@@ -874,7 +867,7 @@ final class UiStateTracker {
     return result;
   }
 
-  private String countActions() {
+  protected String countActions() {
     // TODO(djasper): Iterating over the actions here is slow, but it's only done once per refresh
     // and thus might be faster than trying to update these values in the critical path.
     // Re-investigate if this ever turns up in a profile.
@@ -894,7 +887,7 @@ final class UiStateTracker {
     }
   }
 
-  private void printActionState(AnsiTerminalWriter terminalWriter) throws IOException {
+  protected void printActionState(AnsiTerminalWriter terminalWriter) throws IOException {
     sampleOldestActions(terminalWriter);
   }
 
@@ -977,7 +970,7 @@ final class UiStateTracker {
   }
 
   synchronized boolean hasActivities() {
-    return !(buildComplete
+    return !(buildCompleted()
         && bepOpenTransports.isEmpty()
         && activeActionUploads.get() == 0
         && activeActionDownloads.get() == 0);
@@ -995,7 +988,7 @@ final class UiStateTracker {
     if (runningDownloads.size() >= 1) {
       return true;
     }
-    if (buildComplete && hasActivities()) {
+    if (buildCompleted() && hasActivities()) {
       return true;
     }
     if (status != null) {
@@ -1012,7 +1005,7 @@ final class UiStateTracker {
    * <p>The width parameter gives advice on to which length the description of the test should the
    * shortened to, if possible.
    */
-  private boolean maybeShowRecentTest(
+  protected boolean maybeShowRecentTest(
       AnsiTerminalWriter terminalWriter, boolean shortVersion, int width) throws IOException {
     final String prefix = "; last test: ";
     if (!shortVersion && mostRecentTest != null) {
@@ -1093,7 +1086,7 @@ final class UiStateTracker {
     terminalWriter.append(url + postfix);
   }
 
-  private void reportOnDownloads(AnsiTerminalWriter terminalWriter) throws IOException {
+  protected void reportOnDownloads(AnsiTerminalWriter terminalWriter) throws IOException {
     int count = 0;
     long nanoTime = clock.nanoTime();
     int downloadCount = runningDownloads.size();
@@ -1121,12 +1114,12 @@ final class UiStateTracker {
    * Display any action uploads/downloads that are still active after the build. Most likely,
    * because upload/download takes longer than the build itself.
    */
-  private void maybeReportActiveUploadsOrDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
+  protected void maybeReportActiveUploadsOrDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
     int uploads = activeActionUploads.get();
     int downloads = activeActionDownloads.get();
 
-    if (!buildComplete || (uploads == 0 && downloads == 0)) {
+    if (!buildCompleted() || (uploads == 0 && downloads == 0)) {
       return;
     }
 
@@ -1170,9 +1163,9 @@ final class UiStateTracker {
    * Display any BEP transports that are still open after the build. Most likely, because uploading
    * build events takes longer than the build itself.
    */
-  private void maybeReportBepTransports(PositionAwareAnsiTerminalWriter terminalWriter)
+  protected void maybeReportBepTransports(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
-    if (!buildComplete || bepOpenTransports.isEmpty()) {
+    if (!buildCompleted() || bepOpenTransports.isEmpty()) {
       return;
     }
     Duration waitTime =
@@ -1206,12 +1199,81 @@ final class UiStateTracker {
     }
   }
 
+  /** Write the progress of the execution phase to the terminal writer. */
+  protected void writeExecutionProgress(
+      PositionAwareAnsiTerminalWriter terminalWriter, boolean shortVersion) throws IOException {
+    int actionsCount = activeActions.size();
+
+    if (executionProgressReceiver != null) {
+      terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
+    }
+    if (completedTests > 0) {
+      terminalWriter.normal().append(" " + completedTests + " / " + totalTests + " tests");
+      if (failedTests > 0) {
+        terminalWriter.append(", ").failStatus().append(failedTests + " failed").normal();
+      }
+      terminalWriter.append(";");
+    }
+    // Get the oldest action. Note that actions might have finished in the meantime and thus there
+    // might not be one.
+    ActionState oldestAction = getOldestAction();
+    if (actionsCount == 0 || oldestAction == null) {
+      // TODO(b/239693084): Improve the message here.
+      terminalWriter.normal().append(" checking cached actions");
+      maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
+    } else if (actionsCount == 1) {
+      if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
+        // As we will break lines anyway, also show the number of running actions, to keep
+        // things stay roughly in the same place (also compensating for the missing plural-s
+        // in the word action).
+        terminalWriter.normal().append("  1 action");
+        maybeShowRecentTest(
+            terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
+        String statusMessage =
+            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, /*toSkip=*/ null);
+        terminalWriter.normal().newline().append("    " + statusMessage);
+      } else {
+        String statusMessage =
+            describeAction(
+                oldestAction,
+                clock.nanoTime(),
+                targetWidth - terminalWriter.getPosition() - 1,
+                /*toSkip=*/ null);
+        terminalWriter.normal().append(" " + statusMessage);
+      }
+    } else {
+      if (shortVersion) {
+        String statusMessage =
+            describeAction(
+                oldestAction,
+                clock.nanoTime(),
+                targetWidth - terminalWriter.getPosition(),
+                /*toSkip=*/ null);
+        statusMessage += " ... (" + countActions() + ")";
+        terminalWriter.normal().append(" " + statusMessage);
+      } else {
+        String statusMessage = countActions();
+        terminalWriter.normal().append(" " + statusMessage);
+        maybeShowRecentTest(
+            terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
+        printActionState(terminalWriter);
+      }
+    }
+  }
+
+  /**
+   * Main method that writes the progress of the build.
+   *
+   * @param rawTerminalWriter used to write to the terminal.
+   * @param shortVersion whether to write a short version of the output.
+   * @param timestamp null if the UiOptions specifies not to show timestamps.
+   * @throws IOException when attempting to write to the terminal writer.
+   */
   synchronized void writeProgressBar(
-      AnsiTerminalWriter rawTerminalWriter, boolean shortVersion, String timestamp)
+      AnsiTerminalWriter rawTerminalWriter, boolean shortVersion, @Nullable String timestamp)
       throws IOException {
     PositionAwareAnsiTerminalWriter terminalWriter =
         new PositionAwareAnsiTerminalWriter(rawTerminalWriter);
-    int actionsCount = activeActions.size();
     if (timestamp != null) {
       terminalWriter.append(timestamp);
     }
@@ -1251,61 +1313,9 @@ final class UiStateTracker {
       }
       return;
     }
-    if (executionProgressReceiver != null) {
-      terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
-    } else if (defaultStatus == null) {
-      return;
-    } else {
-      terminalWriter.okStatus().append(defaultStatus).append(":");
-    }
-    if (completedTests > 0) {
-      terminalWriter.normal().append(" " + completedTests + " / " + totalTests + " tests");
-      if (failedTests > 0) {
-        terminalWriter.append(", ").failStatus().append(failedTests + " failed").normal();
-      }
-      terminalWriter.append(";");
-    }
-    // Get the oldest action. Note that actions might have finished in the meantime and thus there
-    // might not be one.
-    ActionState oldestAction = getOldestAction();
-    if (actionsCount == 0 || oldestAction == null) {
-      terminalWriter.normal().append(" ").append(defaultActivity);
-      maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
-    } else if (actionsCount == 1) {
-      if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
-        // As we will break lines anyway, also show the number of running actions, to keep
-        // things stay roughly in the same place (also compensating for the missing plural-s
-        // in the word action).
-        terminalWriter.normal().append("  1 action");
-        maybeShowRecentTest(
-            terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
-        String statusMessage =
-            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, null);
-        terminalWriter.normal().newline().append("    " + statusMessage);
-      } else {
-        String statusMessage =
-            describeAction(
-                oldestAction,
-                clock.nanoTime(),
-                targetWidth - terminalWriter.getPosition() - 1,
-                null);
-        terminalWriter.normal().append(" " + statusMessage);
-      }
-    } else {
-      if (shortVersion) {
-        String statusMessage =
-            describeAction(
-                oldestAction, clock.nanoTime(), targetWidth - terminalWriter.getPosition(), null);
-        statusMessage += " ... (" + countActions() + ")";
-        terminalWriter.normal().append(" " + statusMessage);
-      } else {
-        String statusMessage = countActions();
-        terminalWriter.normal().append(" " + statusMessage);
-        maybeShowRecentTest(
-            terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
-        printActionState(terminalWriter);
-      }
-    }
+
+    writeExecutionProgress(terminalWriter, shortVersion);
+
     if (!shortVersion) {
       reportOnDownloads(terminalWriter);
       maybeReportActiveUploadsOrDownloads(terminalWriter);

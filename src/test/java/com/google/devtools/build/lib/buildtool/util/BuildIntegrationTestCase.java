@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
+import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -529,6 +530,7 @@ public abstract class BuildIntegrationTestCase {
             .setBugReporter(bugReporter)
             .setStartupOptionsProvider(startupOptionsParser)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
+            .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(getMockBazelRepositoryModule());
     getSpawnModules().forEach(builder::addBlazeModule);
