@@ -257,10 +257,10 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   /**
    * Executes a task.
    *
-   * @see #execute(Object, Single, Action, boolean).
+   * @see #execute(Object, Single, Action, Action, boolean).
    */
   public Single<ValueT> execute(KeyT key, Single<ValueT> task, boolean force) {
-    return execute(key, task, () -> {}, force);
+    return execute(key, task, () -> {}, () -> {}, force);
   }
 
   /**
@@ -270,12 +270,18 @@ public final class AsyncTaskCache<KeyT, ValueT> {
    * <p>If the cache is already shutdown, a {@link CancellationException} will be emitted.
    *
    * @param key identifies the task.
-   * @param onIgnored callback called when provided task is ignored.
+   * @param onAlreadyRunning callback called when provided task is already running.
+   * @param onAlreadyFinished callback called when provided task is already finished.
    * @param force re-execute a finished task if set to {@code true}.
    * @return a {@link Single} which turns to completed once the task is finished or propagates the
    *     error if any.
    */
-  public Single<ValueT> execute(KeyT key, Single<ValueT> task, Action onIgnored, boolean force) {
+  public Single<ValueT> execute(
+      KeyT key,
+      Single<ValueT> task,
+      Action onAlreadyRunning,
+      Action onAlreadyFinished,
+      boolean force) {
     return Single.create(
         emitter -> {
           synchronized (lock) {
@@ -285,7 +291,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             }
 
             if (!force && finished.containsKey(key)) {
-              onIgnored.run();
+              onAlreadyFinished.run();
               emitter.onSuccess(finished.get(key));
               return;
             }
@@ -294,7 +300,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
             Execution execution = inProgress.get(key);
             if (execution != null) {
-              onIgnored.run();
+              onAlreadyRunning.run();
             } else {
               execution = new Execution(key, task);
               inProgress.put(key, execution);
@@ -445,13 +451,23 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
     /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
     public Completable execute(KeyT key, Completable task, boolean force) {
-      return execute(key, task, () -> {}, force);
+      return execute(key, task, () -> {}, () -> {}, force);
     }
 
     /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
-    public Completable execute(KeyT key, Completable task, Action onIgnored, boolean force) {
+    public Completable execute(
+        KeyT key,
+        Completable task,
+        Action onAlreadyRunning,
+        Action onAlreadyFinished,
+        boolean force) {
       return Completable.fromSingle(
-          cache.execute(key, task.toSingleDefault(Optional.empty()), onIgnored, force));
+          cache.execute(
+              key,
+              task.toSingleDefault(Optional.empty()),
+              onAlreadyRunning,
+              onAlreadyFinished,
+              force));
     }
 
     /** Returns a set of keys for tasks which is finished. */

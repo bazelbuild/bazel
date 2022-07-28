@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
@@ -25,9 +26,11 @@ import static java.lang.String.format;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -36,16 +39,20 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.protobuf.Message;
+import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.CompletableObserver;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleEmitter;
+import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.concurrent.GuardedBy;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
@@ -85,13 +92,10 @@ public class RemoteExecutionCache extends RemoteCache {
       return;
     }
 
-    MissingDigestFinder missingDigestFinder = new MissingDigestFinder(context, allDigests.size());
     Flowable<TransferResult> uploads =
-        Flowable.fromIterable(allDigests)
-            .flatMapSingle(
-                digest ->
-                    uploadBlobIfMissing(
-                        context, merkleTree, additionalInputs, force, missingDigestFinder, digest));
+        createUploadTasks(context, merkleTree, additionalInputs, allDigests, force)
+            .flatMap(uploadTasks -> findMissingBlobs(context, uploadTasks))
+            .flatMapPublisher(this::waitForUploadTasks);
 
     try {
       mergeBulkTransfer(uploads).blockingAwait();
@@ -103,36 +107,6 @@ public class RemoteExecutionCache extends RemoteCache {
       }
       throw e;
     }
-  }
-
-  private Single<TransferResult> uploadBlobIfMissing(
-      RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
-      Map<Digest, Message> additionalInputs,
-      boolean force,
-      MissingDigestFinder missingDigestFinder,
-      Digest digest) {
-    Completable upload =
-        casUploadCache.execute(
-            digest,
-            Completable.defer(
-                () ->
-                    // Only reach here if the digest is missing and is not being uploaded.
-                    missingDigestFinder
-                        .registerAndCount(digest)
-                        .flatMapCompletable(
-                            missingDigests -> {
-                              if (missingDigests.contains(digest)) {
-                                return toCompletable(
-                                    () -> uploadBlob(context, digest, merkleTree, additionalInputs),
-                                    directExecutor());
-                              } else {
-                                return Completable.complete();
-                              }
-                            })),
-            /* onIgnored= */ missingDigestFinder::count,
-            force);
-    return toTransferResult(upload);
   }
 
   private ListenableFuture<Void> uploadBlob(
@@ -158,99 +132,159 @@ public class RemoteExecutionCache extends RemoteCache {
       return cacheProtocol.uploadBlob(context, digest, message.toByteString());
     }
 
-    return Futures.immediateFailedFuture(
+    return immediateFailedFuture(
         new IOException(
             format(
                 "findMissingDigests returned a missing digest that has not been requested: %s",
                 digest)));
   }
 
-  /**
-   * A missing digest finder that initiates the request when the internal counter reaches an
-   * expected count.
-   */
-  class MissingDigestFinder {
-    private final int expectedCount;
+  static class UploadTask {
+    Digest digest;
+    AtomicReference<Disposable> disposable;
+    SingleEmitter<Boolean> continuation;
+    Completable completion;
+  }
 
-    private final AsyncSubject<ImmutableSet<Digest>> digestsSubject;
-    private final Single<ImmutableSet<Digest>> resultSingle;
+  private Single<List<UploadTask>> createUploadTasks(
+      RemoteActionExecutionContext context,
+      MerkleTree merkleTree,
+      Map<Digest, Message> additionalInputs,
+      Iterable<Digest> allDigests,
+      boolean force) {
+    return Single.using(
+        () -> Profiler.instance().profile("collect digests"),
+        ignored ->
+            Flowable.fromIterable(allDigests)
+                .flatMapMaybe(
+                    digest ->
+                        maybeCreateUploadTask(context, merkleTree, additionalInputs, digest, force))
+                .collect(toImmutableList()),
+        SilentCloseable::close);
+  }
 
-    @GuardedBy("this")
-    private final Set<Digest> digests;
+  private Maybe<UploadTask> maybeCreateUploadTask(
+      RemoteActionExecutionContext context,
+      MerkleTree merkleTree,
+      Map<Digest, Message> additionalInputs,
+      Digest digest,
+      boolean force) {
+    return Maybe.create(
+        emitter -> {
+          AsyncSubject<Void> completion = AsyncSubject.create();
+          UploadTask uploadTask = new UploadTask();
+          uploadTask.digest = digest;
+          uploadTask.disposable = new AtomicReference<>();
+          uploadTask.completion =
+              Completable.fromObservable(
+                  completion.doOnDispose(
+                      () -> {
+                        Disposable d = uploadTask.disposable.getAndSet(null);
+                        if (d != null) {
+                          d.dispose();
+                        }
+                      }));
+          Completable upload =
+              casUploadCache.execute(
+                  digest,
+                  Single.<Boolean>create(
+                          continuation -> {
+                            uploadTask.continuation = continuation;
+                            emitter.onSuccess(uploadTask);
+                          })
+                      .flatMapCompletable(
+                          shouldUpload -> {
+                            if (!shouldUpload) {
+                              return Completable.complete();
+                            }
 
-    @GuardedBy("this")
-    private int currentCount = 0;
+                            return toCompletable(
+                                () ->
+                                    uploadBlob(
+                                        context, uploadTask.digest, merkleTree, additionalInputs),
+                                directExecutor());
+                          }),
+                  /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
+                  /* onAlreadyFinished= */ emitter::onComplete,
+                  force);
+          upload.subscribe(
+              new CompletableObserver() {
+                @Override
+                public void onSubscribe(@NonNull Disposable d) {
+                  uploadTask.disposable.set(d);
+                }
 
-    MissingDigestFinder(RemoteActionExecutionContext context, int expectedCount) {
-      checkArgument(expectedCount > 0, "expectedCount should be greater than 0");
-      this.expectedCount = expectedCount;
-      this.digestsSubject = AsyncSubject.create();
-      this.digests = new HashSet<>();
+                @Override
+                public void onComplete() {
+                  completion.onComplete();
+                }
 
-      AtomicBoolean findMissingDigestsCalled = new AtomicBoolean(false);
-      this.resultSingle =
-          Single.fromObservable(
-              digestsSubject
-                  .flatMapSingle(
-                      digests -> {
-                        boolean wasCalled = findMissingDigestsCalled.getAndSet(true);
-                        // Make sure we don't have re-subscription caused by refCount() below.
-                        checkState(!wasCalled, "FindMissingDigests is called more than once");
-                        return toSingle(
-                            () -> findMissingDigests(context, digests), directExecutor());
-                      })
-                  // Use replay here because we could have a race condition that downstream hasn't
-                  // been added to the subscription list (to receive the upstream result) while
-                  // upstream is completed.
-                  .replay(1)
-                  .refCount());
-    }
+                @Override
+                public void onError(@NonNull Throwable e) {
+                  Disposable d = uploadTask.disposable.get();
+                  if (d != null && d.isDisposed()) {
+                    return;
+                  }
 
-    /**
-     * Register the {@code digest} and increase the counter.
-     *
-     * <p>Returned Single cannot be subscribed more than once.
-     *
-     * @return Single that emits the result of the {@code FindMissingDigest} request.
-     */
-    Single<ImmutableSet<Digest>> registerAndCount(Digest digest) {
-      AtomicBoolean subscribed = new AtomicBoolean(false);
-      // count() will potentially trigger the findMissingDigests call. Adding and counting before
-      // returning the Single could introduce a race that the result of findMissingDigests is
-      // available but the consumer doesn't get it because it hasn't subscribed the returned
-      // Single. In this case, it subscribes after upstream is completed resulting a re-run of
-      // findMissingDigests (due to refCount()).
-      //
-      // Calling count() inside doOnSubscribe to ensure the consumer already subscribed to the
-      // returned Single to avoid a re-execution of findMissingDigests.
-      return resultSingle.doOnSubscribe(
-          d -> {
-            boolean wasSubscribed = subscribed.getAndSet(true);
-            checkState(!wasSubscribed, "Single is subscribed more than once");
-            synchronized (this) {
-              digests.add(digest);
-            }
-            count();
-          });
-    }
+                  completion.onError(e);
+                }
+              });
+        });
+  }
 
-    /** Increase the counter. */
-    void count() {
-      ImmutableSet<Digest> digestsResult = null;
+  private Single<List<UploadTask>> findMissingBlobs(
+      RemoteActionExecutionContext context, List<UploadTask> uploadTasks) {
+    return Single.using(
+        () -> Profiler.instance().profile("findMissingDigests"),
+        ignored ->
+            Single.fromObservable(
+                    Observable.fromSingle(
+                            toSingle(
+                                    () -> {
+                                      ImmutableList<Digest> digestsToQuery =
+                                          uploadTasks.stream()
+                                              .filter(uploadTask -> uploadTask.continuation != null)
+                                              .map(uploadTask -> uploadTask.digest)
+                                              .collect(toImmutableList());
+                                      if (digestsToQuery.isEmpty()) {
+                                        return immediateFuture(ImmutableSet.of());
+                                      }
+                                      return findMissingDigests(context, digestsToQuery);
+                                    },
+                                    directExecutor())
+                                .map(
+                                    missingDigests -> {
+                                      for (UploadTask uploadTask : uploadTasks) {
+                                        if (uploadTask.continuation != null) {
+                                          uploadTask.continuation.onSuccess(
+                                              missingDigests.contains(uploadTask.digest));
+                                        }
+                                      }
+                                      return uploadTasks;
+                                    }))
+                        // Use AsyncSubject so that if downstream is disposed, the
+                        // findMissingDigests call is not cancelled (because it may be needed by
+                        // other
+                        // threads).
+                        .subscribeWith(AsyncSubject.create()))
+                .doOnDispose(
+                    () -> {
+                      for (UploadTask uploadTask : uploadTasks) {
+                        Disposable d = uploadTask.disposable.getAndSet(null);
+                        if (d != null) {
+                          d.dispose();
+                        }
+                      }
+                    }),
+        SilentCloseable::close);
+  }
 
-      synchronized (this) {
-        if (currentCount < expectedCount) {
-          currentCount++;
-          if (currentCount == expectedCount) {
-            digestsResult = ImmutableSet.copyOf(digests);
-          }
-        }
-      }
-
-      if (digestsResult != null) {
-        digestsSubject.onNext(digestsResult);
-        digestsSubject.onComplete();
-      }
-    }
+  private Flowable<TransferResult> waitForUploadTasks(List<UploadTask> uploadTasks) {
+    return Flowable.using(
+        () -> Profiler.instance().profile("upload"),
+        ignored ->
+            Flowable.fromIterable(uploadTasks)
+                .flatMapSingle(uploadTask -> toTransferResult(uploadTask.completion)),
+        SilentCloseable::close);
   }
 }
