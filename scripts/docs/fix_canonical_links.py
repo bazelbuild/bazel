@@ -240,11 +240,11 @@ def maybe_create_dir(dest):
 
 
 def transform(src, dest):
-  with open(src, "rt") as f:
+  with open(src, "rt", encoding="utf-8") as f:
     content = f.read()
 
   fixed_content = _LINK_PATTERN.sub(repl, content, count=1)
-  with open(dest, "wt") as f:
+  with open(dest, "wt", encoding="utf-8") as f:
     f.write(fixed_content)
 
 
