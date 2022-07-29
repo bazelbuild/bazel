@@ -54,6 +54,8 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -88,6 +90,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -274,6 +277,19 @@ public class BuildView {
             .map(BuildView::getConfiguredTargetKey)
             .collect(Collectors.toList());
 
+    RepositoryMapping mainRepoMapping;
+    try {
+      mainRepoMapping = skyframeExecutor.getMainRepoMapping(eventHandler);
+    } catch (AbruptExitException e) {
+      String errorMessage =
+          String.format(
+              "Failed to get main repo mapping for aspect label canonicalization: %s",
+              e.getMessage());
+      throw new ViewCreationFailedException(
+          errorMessage,
+          createFailureDetail(errorMessage, Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION),
+          e);
+    }
     ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
     for (String aspect : aspects) {
       // Syntax: label%aspect
@@ -305,8 +321,9 @@ public class BuildView {
         Label starlarkFileLabel;
         try {
           starlarkFileLabel =
-              Label.parseAbsolute(
-                  bzlFileLoadLikeString, /* repositoryMapping= */ ImmutableMap.of());
+              Label.parseWithRepoContext(
+                  bzlFileLoadLikeString,
+                  Label.RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
         } catch (LabelSyntaxException e) {
           String errorMessage = String.format("Invalid aspect '%s': %s", aspect, e.getMessage());
           throw new ViewCreationFailedException(
