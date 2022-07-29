@@ -254,7 +254,7 @@ def repl(m):
 
 
 def get_new_page(old):
-  raw = old.removesuffix(".html")
+  raw = removesuffix(old, ".html")
   if raw.startswith("skylark/lib"):
     return raw.replace("skylark/lib", "rules/lib")
   elif raw.startswith("be/"):
@@ -265,6 +265,20 @@ def get_new_page(old):
   return _REDIRECTS.get(raw, "")
 
 
+def removesuffix(full_str, suffix):
+  if not full_str.endswith(suffix):
+    return full_str
+
+  return full_str[:-len(suffix)]
+
+
+def removeprefix(full_str, prefix):
+  if not full_str.startswith(prefix):
+    return full_str
+
+  return full_str[len(prefix):]
+
+
 def main(argv):
   src_dir = argv[1]
   dest_dir = argv[2]
@@ -273,7 +287,7 @@ def main(argv):
   for root, _, files in os.walk(src_dir):
     for f in files:
       src = os.path.join(root, f)
-      dest = os.path.join(dest_dir, src.removeprefix(src_dir).lstrip("/"))
+      dest = os.path.join(dest_dir, removeprefix(src, src_dir).lstrip("/"))
 
       maybe_create_dir(dest)
 
