@@ -157,7 +157,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
         ctx.actions.symlink(
             output = virtual_src,
             target_file = src,
-            progress_message = "Symlinking virtual .proto sources for %{label}",
+            progress_message = "Symlinking virtual .proto sources for %{label}".format(label = ctx.label),
         )
         direct_sources.append(native_proto_common.ProtoSource(virtual_src, src, proto_path))
     return proto_path, direct_sources
