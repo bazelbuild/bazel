@@ -364,6 +364,38 @@ class BazelModuleTest(test_base.TestBase):
             in line for line in stderr
         ]))
 
+  def testHttpfileModuleExtensionSuccess(self):
+      self.ScratchFile('MODULE.bazel', [
+          'file_ext = use_extension("//src/tools/build_defs/repo:http.bzl", "http_file_ext")',
+          'file_ext.file(',
+          '  name = "emojis",',
+          '  urls = ["https://raw.githubusercontent.com/datasets/emojis/4b470b8f873e47e7443b38ab1a1d8875d6f7253f/data/emojis.csv"],',
+          '  sha256 = "9768ed212d23668749c74c6a64d068ed818fda1ecb7aa6561655d58192db6382"',
+          ')',
+          'use_repo(file_ext, "emojis")',
+      ])
+      self.ScratchFile('BUILD.bazel', [
+          'genrule(',
+          '  name = "emoji_count",',
+          '  cmd = "wc -l < $< > $@",',
+          '  outs = ["emoji_number"],',
+          '  srcs = ["@emojis//file"],',
+          ')'
+      ])
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              # In ipv6 only network, this has to be enabled.
+              # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
+              'build --experimental_enable_bzlmod',
+              'build --registry=' + self.main_registry.getURL(),
+              # We need to have BCR here to make sure built-in modules like
+              # bazel_tools can work.
+              'build --registry=https://bcr.bazel.build',
+              'build --verbose_failures',
+              ])
+      exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count'])
+      self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   unittest.main()
