@@ -8418,6 +8418,30 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target, p = p_v1");
   }
 
+  @Test
+  public void testAspectLabelIsRepoMapped() throws Exception {
+    scratch.appendFile("WORKSPACE", "workspace(name = 'my_repo')");
+    scratch.file(
+        "test/aspect.bzl",
+        "load(':rule.bzl', 'MyInfo')",
+        "def _impl(target, ctx):",
+        "   if MyInfo not in target:",
+        "       fail('Provider identity mismatch')",
+        "   return struct()",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file(
+        "test/rule.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "    return [MyInfo()]",
+        "my_rule = rule(implementation=_impl)");
+    scratch.file("test/BUILD", "load(':rule.bzl', 'my_rule')", "my_rule(name = 'target')");
+
+    AnalysisResult result =
+        update(ImmutableList.of("@my_repo//test:aspect.bzl%MyAspect"), "//test:target");
+    assertThat(result.hasError()).isFalse();
+  }
+
   private ConfiguredAspect getConfiguredAspect(
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {

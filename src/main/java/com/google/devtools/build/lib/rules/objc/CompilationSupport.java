@@ -94,6 +94,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -495,6 +496,23 @@ public class CompilationSupport implements StarlarkValue {
 
     ImmutableSet<Artifact> forceLinkArtifacts = getForceLoadArtifacts(objcProvider);
 
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrReportRuleError(
+            ruleContext,
+            buildConfiguration,
+            ruleContext.getFeatures(),
+            ruleContext.getDisabledFeatures(),
+            Language.OBJC,
+            toolchain,
+            cppSemantics);
+
+    NestedSet<Artifact> staticRuntimes;
+    try {
+      staticRuntimes = toolchain.getStaticRuntimeLinkInputs(featureConfiguration);
+    } catch (EvalException e) {
+      throw ruleContext.throwWithRuleError(e);
+    }
+
     // Clang loads archives specified in filelists and also specified as -force_load twice,
     // resulting in duplicate symbol errors unless they are deduped.
     ImmutableSet<Artifact> objFiles =
@@ -503,7 +521,8 @@ public class CompilationSupport implements StarlarkValue {
                 Iterables.concat(
                     bazelBuiltLibraries,
                     objcProvider.get(IMPORTED_LIBRARY).toList(),
-                    objcProvider.getCcLibraries()),
+                    objcProvider.getCcLibraries(),
+                    staticRuntimes.toList()),
                 Predicates.not(Predicates.in(forceLinkArtifacts))));
 
     LinkTargetType linkType =
@@ -525,15 +544,6 @@ public class CompilationSupport implements StarlarkValue {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(
-            ruleContext,
-            buildConfiguration,
-            ruleContext.getFeatures(),
-            ruleContext.getDisabledFeatures(),
-            Language.OBJC,
-            toolchain,
-            cppSemantics);
 
     Label binaryLabel = null;
     try {
