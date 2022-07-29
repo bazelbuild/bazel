@@ -18,12 +18,10 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,10 +36,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -69,8 +65,8 @@ public class ObjcRuleClasses {
    */
   public static IntermediateArtifacts intermediateArtifacts(
       RuleContext ruleContext, BuildConfigurationValue buildConfiguration) {
-    return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix*/ "",
-        /*outputPrefix*/ "", buildConfiguration);
+    return new IntermediateArtifacts(
+        ruleContext, /* archiveFileNameSuffix= */ "", /* outputPrefix= */ "", buildConfiguration);
   }
 
   /**
@@ -535,194 +531,13 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of multiple
-   * architectures).
-   */
-  public static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
+  /** Attribute name for apple platform type (e.g. ios or watchos). */
+  static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
 
-  /**
-   * Common attributes for apple rules that produce outputs for a given platform type (such as ios
-   * or watchos).
-   */
-  public static class PlatformRule implements RuleDefinition {
+  /** Attribute name for the minimum OS version (e.g. "7.3"). */
+  static final String MINIMUM_OS_VERSION = "minimum_os_version";
 
-    /**
-     * Attribute name for apple platform type (e.g. ios or watchos).
-     */
-    static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
-
-    /**
-     * Attribute name for the minimum OS version (e.g. "7.3").
-     */
-    static final String MINIMUM_OS_VERSION = "minimum_os_version";
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(platform_type) -->
-          The type of platform for which to create artifacts in this rule.
-
-          This dictates which Apple platform SDK is used for compilation/linking and which flag is
-          used to determine the architectures for which to build. For example, if <code>ios</code>
-          is selected, then the output binaries/libraries will be created combining all
-          architectures specified in <code>--ios_multi_cpus</code>.
-
-          Options are:
-          <ul>
-            <li>
-              <code>ios</code>: architectures gathered from <code>--ios_multi_cpus</code>.
-            </li>
-            <li>
-              <code>macos</code>: architectures gathered from <code>--macos_cpus</code>.
-            </li>
-            <li>
-              <code>tvos</code>: architectures gathered from <code>--tvos_cpus</code>.
-            </li>
-            <li>
-              <code>watchos</code>: architectures gathered from <code>--watchos_cpus</code>.
-            </li>
-          </ul>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(PLATFORM_TYPE_ATTR_NAME, STRING)
-                  .mandatory())
-          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os_version) -->
-          The minimum OS version that this target and its dependencies should be built for.
-
-          This should be a dotted version string such as "7.3".
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(MINIMUM_OS_VERSION, STRING))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$apple_platform_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for apple rules that build multi-architecture outputs for a given platform
-   * type (such as ios or watchos).
-   */
-  public static class MultiArchPlatformRule implements RuleDefinition {
-    /**
-     * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
-     * rule.
-     */
-    static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
-        ImmutableSet.of("cc_library", "cc_inc_library");
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      MultiArchSplitTransitionProvider splitTransitionProvider =
-          new MultiArchSplitTransitionProvider();
-      return builder
-          // This is currently a hack to obtain all child configurations regardless of the attribute
-          // values of this rule -- this rule does not currently use the actual info provided by
-          // this attribute.
-          .add(
-              attr(CHILD_CONFIG_ATTR, LABEL)
-                  .cfg(splitTransitionProvider)
-                  .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(deps) -->
-          The list of targets that are linked together to form the final binary.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .override(
-              attr("deps", LABEL_LIST)
-                  .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
-                  .cfg(splitTransitionProvider)
-                  .allowedFileTypes())
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(linkopts) -->
-          Extra flags to pass to the linker.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("linkopts", STRING_LIST))
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(additional_linker_inputs) -->
-          Extra files to pass to the linker.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("additional_linker_inputs", LABEL_LIST)
-                  .orderIndependent()
-                  .direct_compile_time_input()
-                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-          .add(
-              // This attribute definition must be kept in sync with
-              // third_party/bazel_rules/rules_apple/apple/internal/rule_factory.bzl
-              attr("$j2objc_dead_code_pruner", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
-                  .exec()
-                  // Allow arbitrary executable files; this gives more flexibility for the
-                  // implementation of the underlying tool.
-                  .legacyAllowAnyFileType()
-                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner_binary")))
-          .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$apple_multiarch_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(
-              PlatformRule.class,
-              CrosstoolRule.class,
-              BaseRuleClasses.NativeActionCreatingRule.class,
-              CppRuleClasses.CcIncludeScanningRule.class,
-              XcrunRule.class,
-              SdkFrameworksDependerRule.class)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for apple rules that can depend on one or more dynamic libraries.
-   */
-  public static class DylibDependingRule implements RuleDefinition {
-    /**
-     * Attribute name for dylib dependencies.
-     */
-    static final String DYLIBS_ATTR_NAME = "dylibs";
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          /* <!-- #BLAZE_RULE($apple_dylib_depending_rule).ATTRIBUTE(dylibs) -->
-          <p>A list of dynamic library targets to be linked against in this rule and included
-          in the final binary. Libraries which are transitive dependencies of any such dylibs will
-          not be statically linked in this target (even if they are otherwise
-          transitively depended on via the <code>deps</code> attribute) to avoid duplicate symbols.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr(DYLIBS_ATTR_NAME, LABEL_LIST)
-                  .direct_compile_time_input()
-                  .mandatoryProviders(
-                      ImmutableList.of(
-                          StarlarkProviderIdentifier.forKey(
-                              AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.getKey())))
-                  .allowedFileTypes())
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$apple_dylib_depending_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
-   * Common attributes for {@code objc_*} rules that need to call xcrun.
-   */
+  /** Common attributes for {@code objc_*} rules that need to call xcrun. */
   public static class XcrunRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {

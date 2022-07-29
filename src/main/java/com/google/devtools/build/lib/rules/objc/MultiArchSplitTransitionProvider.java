@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.List;
 import java.util.Map;
@@ -81,14 +80,14 @@ public class MultiArchSplitTransitionProvider
    */
   public static PlatformType getPlatformType(RuleContext ruleContext) throws RuleErrorException {
     String attributeValue =
-        ruleContext.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
+        ruleContext.attributes().get(ObjcRuleClasses.PLATFORM_TYPE_ATTR_NAME, STRING);
     try {
       return getPlatformType(attributeValue);
     } catch (
         @SuppressWarnings("UnusedException")
         ApplePlatform.UnsupportedPlatformTypeException exception) {
       throw ruleContext.throwWithAttributeError(
-          PlatformRule.PLATFORM_TYPE_ATTR_NAME,
+          ObjcRuleClasses.PLATFORM_TYPE_ATTR_NAME,
           String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, attributeValue));
     }
   }
@@ -113,8 +112,10 @@ public class MultiArchSplitTransitionProvider
 
   @Override
   public SplitTransition create(AttributeTransitionData data) {
-    String platformTypeString = data.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
-    String minimumOsVersionString = data.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
+    String platformTypeString =
+        data.attributes().get(ObjcRuleClasses.PLATFORM_TYPE_ATTR_NAME, STRING);
+    String minimumOsVersionString =
+        data.attributes().get(ObjcRuleClasses.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;
     Optional<DottedVersion> minimumOsVersion;
     try {
