@@ -39,6 +39,10 @@ load(
     "use_netrc",
     "workspace_and_buildfile",
 )
+load(
+    "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
+    "auto_configure_warning",
+)
 
 # Shared between http_jar, http_file and http_archive.
 
@@ -522,4 +526,42 @@ Examples:
   examples, note the three slashes (`/`) -- the first two slashes belong to `file://` and the third
   one belongs to the absolute path to the file.
 """,
+)
+
+#///////////////////////////// -- Module Extensions -- ///////////////////////////////#
+
+def _http_file_ext_impl(module_ctx):
+    """Implementation of the http_file module extension."""
+    files = []
+    for mod in module_ctx.modules:
+        for file in mod.tags.file:
+            # Will use the first file that appears in the tree
+            if file.name in files:
+                #TODO is this correct for warning?
+                auto_configure_warning("File %s will be overriden", file.name)
+            else:
+                files.add(file.name)
+
+                #TODO What if some of them wasn't provided? Test with empty values
+                http_file(
+                    name = file.name,
+                    executable = file.executable,
+                    downloaded_file_path = file.downloaded_file_path,
+                    sha256 = file.sha256,
+                    canonical_id = file.canonical_id,
+                    url = file.url,
+                    urls = file.urls,
+                    netrc = file.netrc,
+                    auth_patterns = file.auth_patterns,
+                    #**kwargs //TODO try this
+                )
+
+file_atributes = tag_class(
+    #TODO Check if this works
+    attrs = _http_file_attrs,
+)
+
+http_file_ext = module_extension(
+    implementation = _http_file_ext_impl,
+    tag_classes = {"file": file_atributes},
 )
