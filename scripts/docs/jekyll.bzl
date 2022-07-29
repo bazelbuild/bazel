@@ -32,8 +32,8 @@ def _bucket_from_workspace_name(wname):
 def _impl(ctx):
     """Quick and non-hermetic rule to build a Jekyll site."""
     source = ctx.actions.declare_directory(ctx.attr.name + "-srcs")
-    build_output = ctx.actions.declare_directory(ctx.attr.name + "-build")
-    final_output = ctx.actions.declare_directory(ctx.attr.name + "-transformed")
+    build_output = ctx.actions.declare_directory(ctx.attr.name + "-tmp")
+    final_output = ctx.actions.declare_directory(ctx.attr.name + "-build")
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs,
