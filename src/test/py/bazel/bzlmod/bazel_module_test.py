@@ -337,7 +337,7 @@ class BazelModuleTest(test_base.TestBase):
 
   def testHttpfileModuleExtensionSuccess(self):
       self.ScratchFile('MODULE.bazel', [
-          'file_ext = use_extension("//src/tools/build_defs/repo:http.bzl", "http_file_ext")',
+          'file_ext = use_extension("//tools/build_defs/repo:http.bzl", "http_file_ext")',
           'file_ext.file(',
           '  name = "emojis",',
           '  urls = ["https://raw.githubusercontent.com/datasets/emojis/4b470b8f873e47e7443b38ab1a1d8875d6f7253f/data/emojis.csv"],',
