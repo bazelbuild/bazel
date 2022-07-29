@@ -653,6 +653,35 @@ public final class Crosstool {
                 "    ],",
                 ")");
     for (CcToolchainConfig toolchainConfig : ccToolchainConfigList) {
+      String staticRuntimeLabel =
+          toolchainConfig.hasStaticLinkCppRuntimesFeature()
+              ? "mock-static-runtimes-target-for-" + toolchainConfig.getToolchainIdentifier()
+              : null;
+      String dynamicRuntimeLabel =
+          toolchainConfig.hasStaticLinkCppRuntimesFeature()
+              ? "mock-dynamic-runtimes-target-for-" + toolchainConfig.getToolchainIdentifier()
+              : null;
+      if (staticRuntimeLabel != null) {
+        crosstoolBuild.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + staticRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libstatic-runtime-lib-source.a'])",
+                    ""));
+      }
+      if (dynamicRuntimeLabel != null) {
+        crosstoolBuild.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + dynamicRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libdynamic-runtime-lib-source.so'])",
+                    ""));
+      }
+
       crosstoolBuild.add(
           "apple_cc_toolchain(",
           "    name = 'cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
@@ -673,6 +702,12 @@ public final class Crosstool {
           "    strip_files = ':empty',",
           "    supports_param_files = 0,",
           supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
+          dynamicRuntimeLabel == null
+              ? ""
+              : "    dynamic_runtime_lib = '" + dynamicRuntimeLabel + "',",
+          staticRuntimeLabel == null
+              ? ""
+              : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
           ")",
           "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
           "    exec_compatible_with = [],",
