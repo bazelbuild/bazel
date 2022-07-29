@@ -14,11 +14,12 @@
 import os
 import re
 import shutil
+import sys
 
 from absl import app
 
 _LINK_PATTERN = re.compile(
-    r'^(\s*<link rel="canonical" href=")(/versions/[^/]+/)(.*)(">)$',
+    r'^(\s*<link rel="canonical" href=")(/versions/[^/]+/)([^"]*)(">)$',
     re.MULTILINE)
 _ROOT = "https://bazel.build/"
 _REDIRECTS = {
@@ -244,6 +245,9 @@ def transform(src, dest):
     content = f.read()
 
   fixed_content = _LINK_PATTERN.sub(repl, content, count=1)
+  if 'link rel="canonical"' in content and fixed_content == content:
+    print('[W] Failed to transform {}.'.format(src), file=sys.stderr)
+
   with open(dest, "wt", encoding="utf-8") as f:
     f.write(fixed_content)
 
