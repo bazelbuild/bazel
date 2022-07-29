@@ -945,6 +945,8 @@ message BuildMetrics {
     // The elapsed wall time in milliseconds during this build.
     int64 wall_time_in_ms = 2;
     // The elapsed wall time in milliseconds during the analysis phase.
+    // When analysis and execution phases are interleaved, this measures the
+    // elapsed time from the first analysis work to the last.
     int64 analysis_phase_time_in_ms = 3;
   }
   TimingMetrics timing_metrics = 5;
