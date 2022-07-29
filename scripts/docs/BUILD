@@ -6,6 +6,13 @@ filegroup(
     visibility = ["//scripts:__pkg__"],
 )
 
+py_binary(
+    name = "fix_canonical_links",
+    srcs = ["fix_canonical_links.py"],
+    visibility = ["//site:__pkg__"],
+    deps = ["//third_party/py/abseil"],
+)
+
 py_library(
     name = "dot-converter",
     srcs = ["dot_converter.py"],

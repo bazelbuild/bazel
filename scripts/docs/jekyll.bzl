@@ -32,7 +32,8 @@ def _bucket_from_workspace_name(wname):
 def _impl(ctx):
     """Quick and non-hermetic rule to build a Jekyll site."""
     source = ctx.actions.declare_directory(ctx.attr.name + "-srcs")
-    output = ctx.actions.declare_directory(ctx.attr.name + "-build")
+    build_output = ctx.actions.declare_directory(ctx.attr.name + "-build")
+    final_output = ctx.actions.declare_directory(ctx.attr.name + "-transformed")
 
     ctx.actions.run_shell(
         inputs = ctx.files.srcs,
@@ -45,16 +46,25 @@ def _impl(ctx):
     )
     ctx.actions.run(
         inputs = [source],
-        outputs = [output],
+        outputs = [build_output],
         executable = "jekyll",
         use_default_shell_env = True,
-        arguments = ["build", "-q", "-s", source.path, "-d", output.path],
+        arguments = ["build", "-q", "-s", source.path, "-d", build_output.path],
+    )
+
+
+    ctx.actions.run(
+        inputs = [build_output],
+        outputs = [final_output],
+        arguments = [build_output.path, final_output.path],
+        progress_message = "Fixing canonical links",
+        executable = ctx.executable._fixer,
     )
     ctx.actions.run(
-        inputs = [output],
+        inputs = [final_output],
         outputs = [ctx.outputs.out],
         executable = "tar",
-        arguments = ["cf", ctx.outputs.out.path, "-C", output.path, "."],
+        arguments = ["cf", ctx.outputs.out.path, "-C", final_output.path, "."],
     )
 
     # Create a shell script to serve the site locally or push with the --push
@@ -67,12 +77,12 @@ def _impl(ctx):
         substitutions = {
             "%{workspace_name}": ctx.workspace_name,
             "%{source_dir}": source.short_path,
-            "%{prod_dir}": output.short_path,
+            "%{prod_dir}": final_output.short_path,
             "%{bucket}": bucket,
         },
         is_executable = True,
     )
-    return [DefaultInfo(runfiles = ctx.runfiles(files = [source, output]))]
+    return [DefaultInfo(runfiles = ctx.runfiles(files = [source, final_output]))]
 
 jekyll_build = rule(
     implementation = _impl,
@@ -83,6 +93,11 @@ jekyll_build = rule(
         "_jekyll_build_tpl": attr.label(
             default = ":jekyll_build.sh.tpl",
             allow_single_file = True,
+        ),
+        "_fixer": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = Label("//scripts/docs:fix_canonical_links"),
         ),
     },
     outputs = {"out": "%{name}.tar"},
