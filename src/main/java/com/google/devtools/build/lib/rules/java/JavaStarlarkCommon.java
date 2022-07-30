@@ -371,11 +371,13 @@ public class JavaStarlarkCommon
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
+      JavaCompilationArgsProvider compilationArgsProvider =
+          javaInfo.getProvider(JavaCompilationArgsProvider.class);
       builder.addProvider(
           JavaCompilationInfoProvider.class,
           new JavaCompilationInfoProvider.Builder()
-              .setRuntimeClasspath(
-                  javaInfo.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars())
+              .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
+              .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
               .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
