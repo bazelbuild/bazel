@@ -238,8 +238,7 @@ For instructions for Unix-like systems, see
     of Visual Studio 2015 or newer, or by installing the latest [Build Tools
     for Visual Studio 2017](https://aka.ms/BuildTools).
 
-*   **JDK 8.** You must install version 8 of the JDK. Versions other than 8 are
-    *not* supported.
+*   **JDK.** Version 11 is required.
 
 *   **Python**. Versions 2 and 3 are supported, installing one of them is
     enough. You need the Windows-native version (downloadable from
