@@ -2884,6 +2884,13 @@ EOF
 }
 
 function test_external_cc_test() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
   cat >> WORKSPACE <<'EOF'
 local_repository(
   name = "other_repo",
