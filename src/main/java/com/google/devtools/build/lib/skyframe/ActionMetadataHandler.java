@@ -600,6 +600,12 @@ final class ActionMetadataHandler implements MetadataHandler {
     checkState(!artifact.isTreeArtifact() && !artifact.isMiddlemanArtifact(), artifact);
 
     Path pathNoFollow = artifactPathResolver.toPath(artifact);
+    // If we expect a symlink, we can readlink it directly and handle errors appropriately - there
+    // is no need for the stat below.
+    if (artifact.isSymlink()) {
+      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
+    }
+
     RootedPath rootedPathNoFollow =
         RootedPath.toRootedPath(
             artifactPathResolver.transformRoot(artifact.getRoot().getRoot()),
@@ -616,10 +622,6 @@ final class ActionMetadataHandler implements MetadataHandler {
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
       return fileArtifactValueFromStat(
           rootedPathNoFollow, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
-    }
-
-    if (artifact.isSymlink()) {
-      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat

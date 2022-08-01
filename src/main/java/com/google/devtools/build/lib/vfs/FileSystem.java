@@ -49,10 +49,8 @@ public abstract class FileSystem {
     return digestFunction;
   }
 
-  /**
-   * An exception thrown when attempting to resolve an ordinary file as a symlink.
-   */
-  protected static final class NotASymlinkException extends IOException {
+  /** An exception thrown when attempting to resolve an ordinary file as a symlink. */
+  public static final class NotASymlinkException extends IOException {
     public NotASymlinkException(PathFragment path) {
       super(path.getPathString() + " is not a symlink");
     }
