@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -407,7 +409,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           checkState(
               value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
           TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-          for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+          for (TreeChildArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+            if (treeFileArtifact instanceof TreeEmptyDirectoryArtifact) {
+              continue;
+            }
             pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
           }
         }

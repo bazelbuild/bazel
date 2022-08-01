@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -946,11 +947,18 @@ public class RemoteExecutionServiceTest {
     // Output Directory:
     // dir/file1
     // dir/a/file2
+    // dir/a/empty_dir
     Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
     Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
     FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
     FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
-    Directory a = Directory.newBuilder().addFiles(file2).build();
+    Directory emptyDir = Directory.newBuilder().build();
+    Digest emptyDirDigest = cache.addContents(remoteActionExecutionContext, emptyDir);
+    DirectoryNode emptyDirNode = DirectoryNode.newBuilder()
+        .setName("empty_dir")
+        .setDigest(emptyDirDigest)
+        .build();
+    Directory a = Directory.newBuilder().addFiles(file2).addDirectories(emptyDirNode).build();
     Digest da = cache.addContents(remoteActionExecutionContext, a);
     Directory root =
         Directory.newBuilder()
@@ -993,6 +1001,10 @@ public class RemoteExecutionServiceTest {
                 TreeFileArtifact.createTreeOutput(dir, "a/file2"),
                 new RemoteFileArtifactValue(
                     toBinaryDigest(d2), d2.getSizeBytes(), 1, action.getActionId()))
+            .putChild(
+                TreeEmptyDirectoryArtifact.create(dir, "a/empty_dir"),
+                new RemoteFileArtifactValue(
+                    toBinaryDigest(da), da.getSizeBytes(), 1, action.getActionId()))
             .build();
     verify(injector).injectTree(dir, tree);
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());

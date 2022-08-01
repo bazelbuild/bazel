@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -276,14 +277,16 @@ public class SpawnInputExpanderTest {
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
+    TreeEmptyDirectoryArtifact dir = TreeEmptyDirectoryArtifact.create(treeArtifact, "dir");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
+    dir.getPath().createDirectoryAndParents();
 
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
     ArtifactExpander artifactExpander =
         (Artifact artifact, Collection<? super Artifact> output) -> {
           if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
+            output.addAll(Arrays.asList(file1, file2, dir));
           }
         };
     RunfilesSupplier supplier =
@@ -291,14 +294,17 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
     fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
+    fakeCache.put(dir, FileArtifactValue.createForTesting(dir));
 
     expander.addRunfilesToInputs(
         inputMappings, supplier, fakeCache, artifactExpander, PathFragment.EMPTY_FRAGMENT);
-    assertThat(inputMappings).hasSize(2);
+    assertThat(inputMappings).hasSize(3);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/treeArtifact/file1"), file1);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/treeArtifact/file2"), file2);
+    assertThat(inputMappings)
+        .containsEntry(PathFragment.create("runfiles/workspace/treeArtifact/dir"), dir);
   }
 
   @Test
@@ -307,8 +313,10 @@ public class SpawnInputExpanderTest {
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
+    TreeEmptyDirectoryArtifact dir = TreeEmptyDirectoryArtifact.create(treeArtifact, "dir");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
+    dir.getPath().createDirectoryAndParents();
     Runfiles runfiles =
         new Runfiles.Builder("workspace")
             .addSymlink(PathFragment.create("symlink"), treeArtifact)
@@ -317,7 +325,7 @@ public class SpawnInputExpanderTest {
     ArtifactExpander artifactExpander =
         (Artifact artifact, Collection<? super Artifact> output) -> {
           if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
+            output.addAll(Arrays.asList(file1, file2, dir));
           }
         };
     RunfilesSupplier supplier =
@@ -325,14 +333,17 @@ public class SpawnInputExpanderTest {
     FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
     fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
+    fakeCache.put(dir, FileArtifactValue.createForTesting(dir));
 
     expander.addRunfilesToInputs(
         inputMappings, supplier, fakeCache, artifactExpander, PathFragment.EMPTY_FRAGMENT);
-    assertThat(inputMappings).hasSize(2);
+    assertThat(inputMappings).hasSize(3);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/symlink/file1"), file1);
     assertThat(inputMappings)
         .containsEntry(PathFragment.create("runfiles/workspace/symlink/file2"), file2);
+    assertThat(inputMappings)
+        .containsEntry(PathFragment.create("runfiles/workspace/symlink/dir"), dir);
   }
 
   @Test
@@ -341,25 +352,29 @@ public class SpawnInputExpanderTest {
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
     TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
     TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
+    TreeEmptyDirectoryArtifact dir = TreeEmptyDirectoryArtifact.create(treeArtifact, "dir");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
+    dir.getPath().createDirectoryAndParents();
 
     ArtifactExpander artifactExpander =
         (Artifact artifact, Collection<? super Artifact> output) -> {
           if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
+            output.addAll(Arrays.asList(file1, file2, dir));
           }
         };
     FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
     fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
+    fakeCache.put(dir, FileArtifactValue.createForTesting(dir));
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hello World").withInput(treeArtifact).build();
     inputMappings =
         expander.getInputMapping(spawn, artifactExpander, PathFragment.EMPTY_FRAGMENT, fakeCache);
-    assertThat(inputMappings).hasSize(2);
+    assertThat(inputMappings).hasSize(3);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file1"), file1);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file2"), file2);
+    assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/dir"), dir);
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {

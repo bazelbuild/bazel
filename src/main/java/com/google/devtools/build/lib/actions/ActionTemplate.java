@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import javax.annotation.Nullable;
@@ -56,21 +57,21 @@ import javax.annotation.Nullable;
  */
 public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata {
   /**
-   * Given a set of input TreeFileArtifacts resolved at execution time, returns a list of expanded
+   * Given a set of input TreeChildArtifacts resolved at execution time, returns a list of expanded
    * actions to be executed.
    *
    * <p>Each of the expanded actions' outputs must be a {@link TreeFileArtifact} owned by {@code
    * artifactOwner} with a parent in {@link #getOutputs}. This is generally satisfied by calling
    * {@link TreeFileArtifact#createTemplateExpansionOutput}.
    *
-   * @param inputTreeFileArtifacts the set of {@link TreeFileArtifact}s inside {@link
+   * @param inputTreeChildArtifacts the set of {@link TreeChildArtifact}s inside {@link
    *     #getInputTreeArtifact}
    * @param artifactOwner the {@link ArtifactOwner} of the generated output {@link
    *     TreeFileArtifact}s
    * @return a list of expanded {@link Action}s to execute
    */
   ImmutableList<T> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableSet<TreeChildArtifact> inputTreeChildArtifacts, ActionLookupKey artifactOwner)
       throws ActionExecutionException;
 
   /** Returns the input TreeArtifact. */

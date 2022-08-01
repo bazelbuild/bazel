@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -106,10 +107,14 @@ public final class SpawnActionTemplate extends ActionKeyCacher
 
   @Override
   public ImmutableList<SpawnAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+      ImmutableSet<TreeChildArtifact> inputTreeChildArtifacts, ActionLookupKey artifactOwner) {
     ImmutableList.Builder<SpawnAction> expandedActions =
-        ImmutableList.builderWithExpectedSize(inputTreeFileArtifacts.size());
-    for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
+        ImmutableList.builderWithExpectedSize(inputTreeChildArtifacts.size());
+    for (TreeChildArtifact inputTreeChildArtifact : inputTreeChildArtifacts) {
+      if (!(inputTreeChildArtifact instanceof TreeFileArtifact)) {
+        continue;
+      }
+      TreeFileArtifact inputTreeFileArtifact = (TreeFileArtifact) inputTreeChildArtifact;
       PathFragment parentRelativeOutputPath =
           outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact);
 

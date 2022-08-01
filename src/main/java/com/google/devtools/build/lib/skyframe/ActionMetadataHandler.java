@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -345,10 +347,12 @@ final class ActionMetadataHandler implements MetadataHandler {
           if (chmod && type != Dirent.Type.SYMLINK) {
             setPathReadOnlyAndExecutable(treeDir.getRelative(parentRelativePath));
           }
+          TreeChildArtifact child;
           if (type == Dirent.Type.DIRECTORY) {
-            return; // The final TreeArtifactValue does not contain child directories.
+            child = TreeEmptyDirectoryArtifact.create(parent, parentRelativePath);
+          } else {
+            child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
           }
-          TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
           FileArtifactValue metadata;
           try {
             metadata = constructFileArtifactValueFromFilesystem(child);
@@ -385,7 +389,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
+  public ImmutableSet<TreeChildArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
     checkArgument(treeArtifact.isTreeArtifact(), "%s is not a tree artifact", treeArtifact);
     TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
     return tree != null ? tree.getChildren() : ImmutableSet.of();

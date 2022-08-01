@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -44,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,11 +68,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
       (input1, input2) -> input1.getExecPath().compareTo(input2.getExecPath());
 
-  private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
+  private static final ImmutableSortedMap<TreeChildArtifact, FileArtifactValue> EMPTY_MAP =
       childDataBuilder().buildOrThrow();
 
   @SuppressWarnings("unchecked")
-  private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
+  private static ImmutableSortedMap.Builder<TreeChildArtifact, FileArtifactValue>
       childDataBuilder() {
     return new ImmutableSortedMap.Builder<>(EXEC_PATH_COMPARATOR);
   }
@@ -181,7 +184,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           /*entirelyRemote=*/ false);
 
   private final byte[] digest;
-  private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
+  private final ImmutableSortedMap<TreeChildArtifact, FileArtifactValue> childData;
   private final long totalChildSize;
 
   /**
@@ -194,7 +197,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private TreeArtifactValue(
       byte[] digest,
-      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
+      ImmutableSortedMap<TreeChildArtifact, FileArtifactValue> childData,
       long totalChildSize,
       @Nullable ArchivedRepresentation archivedRepresentation,
       boolean entirelyRemote) {
@@ -211,7 +214,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   ImmutableSet<PathFragment> getChildPaths() {
     return childData.keySet().stream()
-        .map(TreeFileArtifact::getParentRelativePath)
+        .map(TreeChildArtifact::getParentRelativePath)
         .collect(toImmutableSet());
   }
 
@@ -220,7 +223,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return digest.clone();
   }
 
-  public ImmutableSet<TreeFileArtifact> getChildren() {
+  public ImmutableSet<TreeChildArtifact> getChildren() {
     return childData.keySet();
   }
 
@@ -241,14 +244,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         : null;
   }
 
-  public ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+  public ImmutableSortedMap<TreeChildArtifact, FileArtifactValue> getChildValues() {
     return childData;
   }
 
   /** Returns an entry for child with given exec path or null if no such child is present. */
   @SuppressWarnings("unchecked")
   @Nullable
-  public Map.Entry<TreeFileArtifact, FileArtifactValue> findChildEntryByExecPath(
+  public Map.Entry<TreeChildArtifact, FileArtifactValue> findChildEntryByExecPath(
       PathFragment execPath) {
     ActionInput searchToken = ActionInputHelper.fromPath(execPath);
     // Not really a copy -- original map is already an ImmutableSortedMap using the same comparator.
@@ -257,11 +260,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     checkState(casted == (Object) childData, "Casting children resulted with a copy");
     Map.Entry<? extends ActionInput, FileArtifactValue> entry = casted.floorEntry(searchToken);
     return entry != null && entry.getKey().getExecPath().equals(execPath)
-        ? (Map.Entry<TreeFileArtifact, FileArtifactValue>) entry
+        ? (Map.Entry<TreeChildArtifact, FileArtifactValue>) entry
         : null;
   }
 
-  /** Returns true if the {@link TreeFileArtifact}s are only stored remotely. */
+  /** Returns true if the {@link TreeChildArtifact}s are only stored remotely. */
   public boolean isEntirelyRemote() {
     return entirelyRemote;
   }
@@ -315,12 +318,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return new TreeArtifactValue(
         null, EMPTY_MAP, 0L, /*archivedRepresentation=*/ null, /*entirelyRemote=*/ false) {
       @Override
-      public ImmutableSet<TreeFileArtifact> getChildren() {
+      public ImmutableSet<TreeChildArtifact> getChildren() {
         throw new UnsupportedOperationException(toString());
       }
 
       @Override
-      public ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+      public ImmutableSortedMap<TreeChildArtifact, FileArtifactValue> getChildValues() {
         throw new UnsupportedOperationException(toString());
       }
 
@@ -395,7 +398,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static void visitTree(Path parentDir, PathFragment subdir, TreeArtifactVisitor visitor)
       throws IOException {
-    for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
+    Collection<Dirent> dirents = parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW);
+    for (Dirent dirent : dirents) {
       PathFragment parentRelativePath = subdir.getChild(dirent.getName());
       Dirent.Type type = dirent.getType();
 
@@ -408,11 +412,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
       }
 
-      visitor.visit(parentRelativePath, type);
-
       if (type == Dirent.Type.DIRECTORY) {
         visitTree(parentDir, parentRelativePath, visitor);
+      } else {
+        visitor.visit(parentRelativePath, type);
       }
+    }
+    if (dirents.isEmpty()) {
+      visitor.visit(subdir, Dirent.Type.DIRECTORY);
     }
   }
 
@@ -445,7 +452,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   /** Builder for a {@link TreeArtifactValue}. */
   public static final class Builder {
-    private final ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> childData =
+    private final ImmutableSortedMap.Builder<TreeChildArtifact, FileArtifactValue> childData =
         childDataBuilder();
     private ArchivedRepresentation archivedRepresentation;
     private final SpecialArtifact parent;
@@ -458,7 +465,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     /**
      * Adds a child to this builder.
      *
-     * <p>The child's {@linkplain TreeFileArtifact#getParent parent} <em>must</em> match the parent
+     * <p>The child's {@linkplain TreeChildArtifact#getParent parent} <em>must</em> match the parent
      * with which this builder was initialized.
      *
      * <p>Children may be added in any order. The children are sorted prior to constructing the
@@ -472,7 +479,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * @return {@code this} for convenience
      */
     @CanIgnoreReturnValue
-    public Builder putChild(TreeFileArtifact child, FileArtifactValue metadata) {
+    public Builder putChild(TreeChildArtifact child, FileArtifactValue metadata) {
       checkArgument(
           child.getParent().equals(parent),
           "While building TreeArtifactValue for %s, got %s with parent %s",
@@ -516,7 +523,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     /** Builds the final {@link TreeArtifactValue}. */
     public TreeArtifactValue build() {
-      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
+      ImmutableSortedMap<TreeChildArtifact, FileArtifactValue> finalChildData =
           childData.buildOrThrow();
       if (finalChildData.isEmpty() && archivedRepresentation == null) {
         return EMPTY;
@@ -527,7 +534,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           archivedRepresentation == null || archivedRepresentation.archivedFileValue().isRemote();
 
       long totalChildSize = 0;
-      for (Map.Entry<TreeFileArtifact, FileArtifactValue> childData : finalChildData.entrySet()) {
+      for (Map.Entry<TreeChildArtifact, FileArtifactValue> childData : finalChildData.entrySet()) {
         // Digest will be deterministic because children are sorted.
         fingerprint.addPath(childData.getKey().getParentRelativePath());
         FileArtifactValue metadata = childData.getValue();

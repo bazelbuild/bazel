@@ -1268,6 +1268,43 @@ public abstract class Artifact
     }
   }
 
+  public static abstract class TreeChildArtifact extends DerivedArtifact {
+
+    protected final SpecialArtifact parent;
+    protected final PathFragment parentRelativePath;
+
+    private TreeChildArtifact(
+        SpecialArtifact parent, PathFragment parentRelativePath, Object owner) {
+      super(parent.getRoot(), parent.getExecPath().getRelative(parentRelativePath), owner);
+      Preconditions.checkArgument(
+          parent.isTreeArtifact(),
+          "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
+          parentRelativePath,
+          parent);
+      Preconditions.checkArgument(
+          !parentRelativePath.containsUplevelReferences() && !parentRelativePath.isAbsolute(),
+          "%s is not a proper normalized relative path",
+          parentRelativePath);
+      this.parent = parent;
+      this.parentRelativePath = parentRelativePath;
+    }
+
+    @Override
+    public SpecialArtifact getParent() {
+      return parent;
+    }
+
+    @Override
+    public PathFragment getParentRelativePath() {
+      return parentRelativePath;
+    }
+
+    @Override
+    public String getTreeRelativePathString() {
+      return parentRelativePath.getPathString();
+    }
+  }
+
   /**
    * A special kind of artifact that represents a concrete file created at execution time under its
    * associated parent TreeArtifact.
@@ -1291,9 +1328,7 @@ public abstract class Artifact
    *       return {@code false}.
    * </ol>
    */
-  public static final class TreeFileArtifact extends DerivedArtifact {
-    private final SpecialArtifact parent;
-    private final PathFragment parentRelativePath;
+  public static final class TreeFileArtifact extends TreeChildArtifact {
 
     /**
      * Creates a {@link TreeFileArtifact} representing a child of the given parent tree artifact.
@@ -1358,33 +1393,7 @@ public abstract class Artifact
 
     private TreeFileArtifact(
         SpecialArtifact parent, PathFragment parentRelativePath, Object owner) {
-      super(parent.getRoot(), parent.getExecPath().getRelative(parentRelativePath), owner);
-      Preconditions.checkArgument(
-          parent.isTreeArtifact(),
-          "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
-          parentRelativePath,
-          parent);
-      Preconditions.checkArgument(
-          !parentRelativePath.containsUplevelReferences() && !parentRelativePath.isAbsolute(),
-          "%s is not a proper normalized relative path",
-          parentRelativePath);
-      this.parent = parent;
-      this.parentRelativePath = parentRelativePath;
-    }
-
-    @Override
-    public SpecialArtifact getParent() {
-      return parent;
-    }
-
-    @Override
-    public PathFragment getParentRelativePath() {
-      return parentRelativePath;
-    }
-
-    @Override
-    public String getTreeRelativePathString() {
-      return parentRelativePath.getPathString();
+      super(parent, parentRelativePath, owner);
     }
 
     @Override
@@ -1421,6 +1430,68 @@ public abstract class Artifact
       PathFragment parentRelativePath = context.deserialize(codedIn);
       Object generatingActionKey = context.deserialize(codedIn);
       return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
+    }
+  }
+
+  public static final class TreeEmptyDirectoryArtifact extends TreeChildArtifact {
+
+    public static TreeEmptyDirectoryArtifact create(
+        SpecialArtifact parent, PathFragment parentRelativePath) {
+      Preconditions.checkArgument(
+          parent.hasGeneratingActionKey(),
+          "%s has no generating action key (parent owner: %s, parent relative path: %s)",
+          parent,
+          parent.getArtifactOwner(),
+          parentRelativePath);
+      return new TreeEmptyDirectoryArtifact(parent, parentRelativePath,
+          parent.getGeneratingActionKey());
+    }
+
+    public static TreeEmptyDirectoryArtifact create(
+        SpecialArtifact parent, String parentRelativePath) {
+      return create(parent, PathFragment.create(parentRelativePath));
+    }
+
+    private TreeEmptyDirectoryArtifact(
+        SpecialArtifact parent, PathFragment parentRelativePath, Object owner) {
+      super(parent, parentRelativePath, owner);
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return true;
+    }
+
+    @Override
+    public boolean isChildOfDeclaredDirectory() {
+      return true;
+    }
+  }
+
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class TreeEmptyDirectoryArtifactCodec implements ObjectCodec<TreeEmptyDirectoryArtifact> {
+
+    @Override
+    public Class<TreeEmptyDirectoryArtifact> getEncodedClass() {
+      return TreeEmptyDirectoryArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, TreeEmptyDirectoryArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.parent, codedOut);
+      context.serialize(obj.parentRelativePath, codedOut);
+      context.serialize(getGeneratingActionKeyForSerialization(obj, context), codedOut);
+    }
+
+    @Override
+    public TreeEmptyDirectoryArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SpecialArtifact parent = context.deserialize(codedIn);
+      PathFragment parentRelativePath = context.deserialize(codedIn);
+      Object generatingActionKey = context.deserialize(codedIn);
+      return new TreeEmptyDirectoryArtifact(parent, parentRelativePath, generatingActionKey);
     }
   }
 
@@ -1524,38 +1595,29 @@ public abstract class Artifact
    * Adds a collection of artifacts to a given collection, with middleman actions and tree artifacts
    * expanded once.
    *
-   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
-   * is true, a tree artifact will be included in the constructed list when it expands into zero
-   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
-   * included.
+   * <p>The constructed list never contains tree or middleman artifacts.
    */
   static void addExpandedArtifacts(
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,
-      ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
-    addExpandedArtifacts(
-        artifacts, output, Functions.identity(), artifactExpander, keepEmptyTreeArtifacts);
+      ArtifactExpander artifactExpander) {
+    addExpandedArtifacts(artifacts, output, Functions.identity(), artifactExpander);
   }
 
   /**
    * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
    * to a given collection. Middleman artifacts and tree artifacts are expanded once.
    *
-   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
-   * is true, a tree artifact will be included in the constructed list when it expands into zero
-   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
-   * included.
+   * <p>The constructed list never contains tree or middleman artifacts.
    */
   private static <E> void addExpandedArtifacts(
       Iterable<? extends Artifact> artifacts,
       Collection<? super E> output,
       Function<? super Artifact, E> outputFormatter,
-      ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
+      ArtifactExpander artifactExpander) {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
-        expandArtifact(artifact, output, outputFormatter, artifactExpander, keepEmptyTreeArtifacts);
+        expandArtifact(artifact, output, outputFormatter, artifactExpander);
       } else {
         output.add(outputFormatter.apply(artifact));
       }
@@ -1566,16 +1628,12 @@ public abstract class Artifact
       Artifact middleman,
       Collection<? super E> output,
       Function<? super Artifact, E> outputFormatter,
-      ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
+      ArtifactExpander artifactExpander) {
     Preconditions.checkArgument(middleman.isMiddlemanArtifact() || middleman.isTreeArtifact());
     List<Artifact> artifacts = new ArrayList<>();
     artifactExpander.expand(middleman, artifacts);
     for (Artifact artifact : artifacts) {
       output.add(outputFormatter.apply(artifact));
-    }
-    if (keepEmptyTreeArtifacts && middleman.isTreeArtifact() && artifacts.isEmpty()) {
-      output.add(outputFormatter.apply(middleman));
     }
   }
 

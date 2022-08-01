@@ -2192,7 +2192,7 @@ def _r(ctx):
     non_empty_dir = ctx.actions.declare_directory("%s/non_empty_dir" % ctx.label.name)
     ctx.actions.run_shell(
         outputs = [non_empty_dir],
-        command = "cd %s && pwd && touch out" % non_empty_dir.path,
+        command = "cd %s && pwd && touch out && mkdir empty_dir" % non_empty_dir.path,
     )
     return [DefaultInfo(files = depset([empty_dir, non_empty_dir]))]
 
@@ -2216,6 +2216,7 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:a &>$TEST_log || fail "expected build to succeed"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/non_empty_dir/empty_dir ]] || fail "expected tree artifact to contain an empty directory at $(pwd)/bazel-bin/pkg/a/non_empty_dir/empty_dir"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
   bazel clean --expunge
@@ -2225,6 +2226,7 @@ function test_create_tree_artifact_outputs() {
     --experimental_remote_merkle_tree_cache \
     //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/non_empty_dir/empty_dir ]] || fail "expected tree artifact to contain an empty directory"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
   bazel clean --expunge
@@ -2234,6 +2236,7 @@ function test_create_tree_artifact_outputs() {
     --experimental_sibling_repository_layout \
     //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/non_empty_dir/empty_dir ]] || fail "expected tree artifact to contain an empty directory"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
 
@@ -2254,6 +2257,7 @@ function test_create_tree_artifact_outputs_remote_cache() {
 
   expect_log "2 remote cache hit"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/non_empty_dir/empty_dir ]] || fail "expected tree artifact to contain an empty directory"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
 

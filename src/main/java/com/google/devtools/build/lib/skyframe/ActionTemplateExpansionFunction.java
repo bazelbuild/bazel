@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -90,10 +91,11 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
+    ImmutableSet<TreeChildArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
     ImmutableList<? extends Action> actions;
     try {
-      // Expand the action template using the list of expanded input TreeFileArtifacts.
+      // Expand the action template using the list of expanded input TreeChildArtifacts, skipping
+      // over TreeEmptyDirectoryArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
       actions = generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
@@ -152,7 +154,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
 
   private static ImmutableList<? extends Action> generateAndValidateActionsFromTemplate(
       ActionTemplate<?> actionTemplate,
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+      ImmutableSet<TreeChildArtifact> inputTreeChildArtifacts,
       ActionTemplateExpansionKey key)
       throws ActionExecutionException {
     Set<Artifact> outputs = actionTemplate.getOutputs();
@@ -164,7 +166,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
           output);
     }
     ImmutableList<? extends Action> actions =
-        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key);
+        actionTemplate.generateActionsForInputArtifacts(inputTreeChildArtifacts, key);
     for (Action action : actions) {
       for (Artifact output : action.getOutputs()) {
         Preconditions.checkState(

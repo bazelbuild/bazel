@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -261,6 +262,7 @@ public final class ArtifactTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             rootDir, rootDir.getExecPath().getRelative("tree"));
     TreeFileArtifact treeChild = TreeFileArtifact.createTreeOutput(tree, "child");
+    TreeEmptyDirectoryArtifact treeDirChild = TreeEmptyDirectoryArtifact.create(tree, "dir");
     ArchivedTreeArtifact archivedTree = ArchivedTreeArtifact.createForTree(tree);
     ArchivedTreeArtifact customArchivedTree =
         ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
@@ -283,6 +285,7 @@ public final class ArtifactTest {
                 anotherArtifact,
                 tree,
                 treeChild,
+                treeDirChild,
                 archivedTree,
                 customArchivedTree,
                 expansionOutput)

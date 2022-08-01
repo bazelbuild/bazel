@@ -852,6 +852,47 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function test_empty_dir_in_tree_artifact_as_inputs() {
+  # Test that when a tree artifact that is an input to an action contains an empty directory, that
+  # directory is actually available in the sandbox for the action to read.
+  create_workspace_with_default_repos WORKSPACE
+
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    dir = ctx.actions.declare_directory("%s/dir_with_empty_dirs" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [dir],
+        command = "mkdir -p {dir}/nested/empty/dir && mkdir -p {dir}/empty_dir".format(
+            dir = dir.path,
+        ),
+    )
+    f = ctx.actions.declare_file("%s/file" % ctx.label.name)
+    ctx.actions.run_shell(
+        inputs = [dir],
+        outputs = [f],
+        command = "touch {f} && cd {dir}/empty_dir && pwd && cd .. && cd nested/empty/dir && pwd".format(
+            f = f.path,
+            dir = dir.path,
+        ),
+    )
+    return [DefaultInfo(files = depset([f]))]
+
+r = rule(implementation = _r)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+EOF
+
+  bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
+  [[ -d bazel-bin/pkg/a/dir_with_empty_dirs/empty_dir ]] || fail "expected tree artifact to contain an empty directory"
+  [[ -d bazel-bin/pkg/a/dir_with_empty_dirs/nested/empty/dir ]] || fail "expected tree artifact to contain a nested empty directory"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 

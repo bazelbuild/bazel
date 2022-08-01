@@ -20,6 +20,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
@@ -179,16 +182,23 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         TreeArtifactValue value = (TreeArtifactValue) rootInfo.metadata;
         ImmutableList.Builder<RecursiveFilesystemTraversalValue> traversalValues =
             ImmutableList.builderWithExpectedSize(value.getChildValues().size());
-        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry
+        for (Map.Entry<TreeChildArtifact, FileArtifactValue> entry
             : value.getChildValues().entrySet()) {
           RootedPath path =
               RootedPath.toRootedPath(traversal.root().getRootPart(), entry.getKey().getPath());
-          traversalValues.add(
-              resultForFileRoot(
-                  path,
-                  // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
-                  // is always true.
-                  new FileInfo(FileType.FILE, entry.getValue(), path, null)));
+          if (entry.getKey() instanceof TreeEmptyDirectoryArtifact) {
+            traversalValues.add(
+                RecursiveFilesystemTraversalValue.of(ResolvedFileFactory.directory(path),
+                    NestedSetBuilder.emptySet(Order.STABLE_ORDER)));
+          } else {
+            Preconditions.checkState(entry.getKey() instanceof TreeFileArtifact);
+            traversalValues.add(
+                resultForFileRoot(
+                    path,
+                    // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
+                    // is always true.
+                    new FileInfo(FileType.FILE, entry.getValue(), path, null)));
+          }
         }
         return resultForDirectory(traversal, rootInfo, traversalValues.build());
       }

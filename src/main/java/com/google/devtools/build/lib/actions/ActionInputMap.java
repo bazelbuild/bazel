@@ -22,6 +22,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -175,9 +176,9 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
   @Nullable
   @Override
   public FileArtifactValue getMetadata(ActionInput input) {
-    if (input instanceof TreeFileArtifact) {
-      TreeFileArtifact treeFileArtifact = (TreeFileArtifact) input;
-      int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
+    if (input instanceof TreeChildArtifact) {
+      TreeChildArtifact treeChildArtifact = (TreeChildArtifact) input;
+      int treeIndex = getIndex(treeChildArtifact.getParent().getExecPathString());
       if (treeIndex != -1) {
         checkArgument(
             values[treeIndex] instanceof TrieArtifact,
@@ -186,7 +187,7 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
         return ((TrieArtifact) values[treeIndex])
             .treeArtifactValue
             .getChildValues()
-            .get(treeFileArtifact);
+            .get(treeChildArtifact);
       }
     }
     int index = getIndex(input.getExecPathString());
@@ -262,7 +263,7 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
 
     // We must return an entry from the map since a duplicate would not have the generating action
     // key set.
-    Map.Entry<TreeFileArtifact, ?> entry = tree.findChildEntryByExecPath(execPath);
+    Map.Entry<TreeChildArtifact, ?> entry = tree.findChildEntryByExecPath(execPath);
     return entry != null ? entry.getKey() : null;
   }
 

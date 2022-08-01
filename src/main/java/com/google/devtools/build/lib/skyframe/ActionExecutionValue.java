@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -82,7 +84,7 @@ public final class ActionExecutionValue implements SkyValue {
       if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(treeArtifact)) {
         continue;
       }
-      for (Map.Entry<TreeFileArtifact, FileArtifactValue> file :
+      for (Map.Entry<TreeChildArtifact, FileArtifactValue> file :
           treeArtifact.getChildValues().entrySet()) {
         // Tree artifacts can contain symlinks to directories, which don't have a digest.
         if (file.getValue().getType().isFile()) {
@@ -273,10 +275,16 @@ public final class ActionExecutionValue implements SkyValue {
     SpecialArtifact newParent = (SpecialArtifact) newArtifact;
     TreeArtifactValue.Builder newTree = TreeArtifactValue.newBuilder(newParent);
 
-    for (Map.Entry<TreeFileArtifact, FileArtifactValue> child : tree.getChildValues().entrySet()) {
-      newTree.putChild(
-          TreeFileArtifact.createTreeOutput(newParent, child.getKey().getParentRelativePath()),
-          child.getValue());
+    for (Map.Entry<TreeChildArtifact, FileArtifactValue> child : tree.getChildValues().entrySet()) {
+      if (child.getKey() instanceof TreeEmptyDirectoryArtifact) {
+        newTree.putChild(
+            TreeEmptyDirectoryArtifact.create(newParent, child.getKey().getParentRelativePath()),
+            child.getValue());
+      } else {
+        newTree.putChild(
+            TreeFileArtifact.createTreeOutput(newParent, child.getKey().getParentRelativePath()),
+            child.getValue());
+      }
     }
 
     tree.getArchivedRepresentation()

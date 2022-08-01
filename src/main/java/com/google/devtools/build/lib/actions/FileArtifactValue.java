@@ -539,12 +539,22 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final long size;
     private final int locationIndex;
     private final String actionId;
+    private final boolean isEmptyDirectory;
 
     public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
+      this(digest, size, locationIndex, actionId, /*isEmptyDirectory=*/false);
+    }
+
+    public RemoteFileArtifactValue(byte[] digest,
+        long size,
+        int locationIndex,
+        String actionId,
+        boolean isEmptyDirectory) {
       this.digest = Preconditions.checkNotNull(digest, actionId);
       this.size = size;
       this.locationIndex = locationIndex;
       this.actionId = actionId;
+      this.isEmptyDirectory = isEmptyDirectory;
     }
 
     public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
@@ -561,17 +571,18 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return Arrays.equals(digest, that.digest)
           && size == that.size
           && locationIndex == that.locationIndex
-          && Objects.equals(actionId, that.actionId);
+          && Objects.equals(actionId, that.actionId)
+          && isEmptyDirectory == that.isEmptyDirectory;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, actionId);
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, actionId, isEmptyDirectory);
     }
 
     @Override
     public FileStateType getType() {
-      return FileStateType.REGULAR_FILE;
+      return isEmptyDirectory ? FileStateType.DIRECTORY : FileStateType.REGULAR_FILE;
     }
 
     @Override
@@ -621,6 +632,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("digest", bytesToString(digest))
           .add("size", size)
           .add("locationIndex", locationIndex)
+          .add("actionId", actionId)
+          .add("isEmptyDirectory", isEmptyDirectory)
           .toString();
     }
   }

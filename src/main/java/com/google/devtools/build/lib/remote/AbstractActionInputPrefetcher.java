@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -127,15 +130,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-    Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
+    Map<SpecialArtifact, List<TreeChildArtifact>> trees = new HashMap<>();
     List<ActionInput> files = new ArrayList<>();
     for (ActionInput input : inputs) {
       if (input instanceof Artifact && ((Artifact) input).isSourceArtifact()) {
         continue;
       }
 
-      if (input instanceof TreeFileArtifact) {
-        TreeFileArtifact treeFile = (TreeFileArtifact) input;
+      if (input instanceof TreeChildArtifact) {
+        TreeChildArtifact treeFile = (TreeChildArtifact) input;
         SpecialArtifact treeArtifact = treeFile.getParent();
         trees.computeIfAbsent(treeArtifact, unusedKey -> new ArrayList<>()).add(treeFile);
         continue;
@@ -164,17 +167,22 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable prefetchInputTree(
-      MetadataProvider provider, SpecialArtifact tree, List<TreeFileArtifact> treeFiles) {
+      MetadataProvider provider, SpecialArtifact tree, List<TreeChildArtifact> treeChildren) {
     Path treeRoot = execRoot.getRelative(tree.getExecPath());
-    HashMap<TreeFileArtifact, Path> treeFileTmpPathMap = new HashMap<>();
+    HashMap<TreeChildArtifact, Path> treeFileTmpPathMap = new HashMap<>();
 
     Flowable<TransferResult> transfers =
-        Flowable.fromIterable(treeFiles)
+        Flowable.fromIterable(treeChildren)
             .flatMapSingle(
                 treeFile -> {
                   Path path = treeRoot.getRelative(treeFile.getParentRelativePath());
                   FileArtifactValue metadata = provider.getMetadata(treeFile);
                   if (!shouldDownloadFile(path, metadata)) {
+                    return Single.just(TransferResult.ok());
+                  }
+
+                  if (treeFile instanceof TreeEmptyDirectoryArtifact) {
+                    treeFileTmpPathMap.put(treeFile, null);
                     return Single.just(TransferResult.ok());
                   }
 
@@ -198,13 +206,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   treeRoot.setWritable(true);
                   dirs.add(treeRoot);
 
-                  for (Map.Entry<TreeFileArtifact, Path> entry : treeFileTmpPathMap.entrySet()) {
-                    TreeFileArtifact treeFile = entry.getKey();
+                  for (Map.Entry<TreeChildArtifact, Path> entry : treeFileTmpPathMap.entrySet()) {
+                    TreeChildArtifact treeChild = entry.getKey();
                     Path tempPath = entry.getValue();
 
-                    Path path = treeRoot.getRelative(treeFile.getParentRelativePath());
+                    Path path = treeRoot.getRelative(treeChild.getParentRelativePath());
                     Path dir = treeRoot;
-                    for (String segment : treeFile.getParentRelativePath().segments()) {
+                    for (String segment : treeChild.getParentRelativePath().segments()) {
                       dir = dir.getRelative(segment);
                       if (dir.equals(path)) {
                         break;
@@ -215,7 +223,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                       }
                     }
                     checkState(dir.equals(path));
-                    finalizeDownload(tempPath, path);
+                    if (treeChild instanceof TreeFileArtifact) {
+                      finalizeDownload(tempPath, path);
+                    } else {
+                      checkState(tempPath == null);
+                    }
                   }
 
                   for (Path dir : dirs) {
@@ -232,8 +244,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             .doFinally(
                 () -> {
                   if (!completed.get()) {
-                    for (Map.Entry<TreeFileArtifact, Path> entry : treeFileTmpPathMap.entrySet()) {
-                      deletePartialDownload(entry.getValue());
+                    for (Map.Entry<TreeChildArtifact, Path> entry : treeFileTmpPathMap.entrySet()) {
+                      if (entry.getValue() != null) {
+                        deletePartialDownload(entry.getValue());
+                      }
                     }
                   }
                 });

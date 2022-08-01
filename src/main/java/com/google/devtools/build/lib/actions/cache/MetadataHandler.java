@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -59,7 +60,7 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * Retrieves the children of a tree artifact, returning an empty set if there is no data
    * available.
    */
-  ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
+  ImmutableSet<TreeChildArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
 
   /** Retrieves the metadata for this tree artifact. Data should already be available. */
   TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException;

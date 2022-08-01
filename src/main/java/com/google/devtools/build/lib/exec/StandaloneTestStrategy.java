@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -361,7 +362,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     @Override
-    public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
+    public ImmutableSet<TreeChildArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
       return metadataHandler.getTreeArtifactChildren(treeArtifact);
     }
 

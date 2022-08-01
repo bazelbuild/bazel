@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -122,10 +123,13 @@ public final class ActionInputMapTest {
     FileArtifactValue child1Metadata = TestMetadata.create(1);
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     FileArtifactValue child2Metadata = TestMetadata.create(2);
+    TreeEmptyDirectoryArtifact child3 = TreeEmptyDirectoryArtifact.create(tree, "child3");
+    FileArtifactValue child3Metadata = TestMetadata.create(3);
     TreeArtifactValue treeValue =
         TreeArtifactValue.newBuilder(tree)
             .putChild(child1, child1Metadata)
             .putChild(child2, child2Metadata)
+            .putChild(child3, child3Metadata)
             .build();
 
     map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null);
@@ -134,6 +138,7 @@ public final class ActionInputMapTest {
     assertContainsEqualMetadata(tree, treeValue.getMetadata());
     assertContainsSameInstance(child1, child1Metadata);
     assertContainsSameInstance(child2, child2Metadata);
+    assertContainsSameInstance(child3, child3Metadata);
   }
 
   @Test
@@ -288,6 +293,29 @@ public final class ActionInputMapTest {
     assertContainsSameInstance(onlyOuterTreeFile, onlyOuterTreeFileMetadata);
   }
 
+  public void putTreeArtifact_nestedTree_returnsOuterEntryForOverlappingEmptyDirectory(
+      @TestParameter PutOrder putOrder) {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeEmptyDirectoryArtifact treeDir = TreeEmptyDirectoryArtifact.create(tree, "dir");
+    FileArtifactValue treeDirMetadata = TestMetadata.create(1);
+    TreeArtifactValue treeValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(treeDir, treeDirMetadata)
+            .build();
+    SpecialArtifact nestedTree = createTreeArtifact("tree/dir");
+    TreeArtifactValue nestedTreeValue = TreeArtifactValue.newBuilder(nestedTree).build();
+
+    putOrder.runPuts(
+        () -> map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null),
+        () -> map.putTreeArtifact(nestedTree, nestedTreeValue, /*depOwner=*/ null));
+
+    assertContainsEqualMetadata(tree, treeValue.getMetadata());
+    assertContainsEqualMetadata(nestedTree, nestedTreeValue.getMetadata());
+    assertThat(map.getMetadata(treeDir)).isSameInstanceAs(treeDirMetadata);
+    assertThat(map.getMetadata(treeDir.getExecPath())).isSameInstanceAs(treeDirMetadata);
+    assertThat(map.getInput(treeDir.getExecPathString())).isSameInstanceAs(nestedTree);
+  }
+
   @Test
   public void putTreeArtifact_omittedTree_addsEntryWithNoChildren() {
     SpecialArtifact tree = createTreeArtifact("tree");
@@ -306,6 +334,17 @@ public final class ActionInputMapTest {
     map.put(treeFile, metadata, /*depOwner=*/ null);
 
     assertContainsSameInstance(treeFile, metadata);
+  }
+
+  @Test
+  public void put_treeEmptyDirectoryArtifact_addsEntry() {
+    TreeEmptyDirectoryArtifact treeEmptyDirectory =
+        TreeEmptyDirectoryArtifact.create(createTreeArtifact("tree"), "file");
+    FileArtifactValue metadata = TestMetadata.create(1);
+
+    map.put(treeEmptyDirectory, metadata, /*depOwner=*/ null);
+
+    assertContainsSameInstance(treeEmptyDirectory, metadata);
   }
 
   @Test

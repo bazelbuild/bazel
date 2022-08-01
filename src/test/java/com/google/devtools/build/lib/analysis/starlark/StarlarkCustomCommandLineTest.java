@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -104,11 +106,12 @@ public class StarlarkCustomCommandLineTest {
     StarlarkCustomCommandLine commandLine =
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+    TreeEmptyDirectoryArtifact dir = TreeEmptyDirectoryArtifact.create(tree, "dir");
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
     ArtifactExpander artifactExpander =
         createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableList.of(child)),
+            ImmutableMap.of(tree, ImmutableList.of(child, dir)),
             /*filesetExpansions*/ ImmutableMap.of());
 
     commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
@@ -137,6 +140,7 @@ public class StarlarkCustomCommandLineTest {
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    TreeEmptyDirectoryArtifact dir = TreeEmptyDirectoryArtifact.create(tree, "dir");
     ArtifactExpander artifactExpander =
         createArtifactExpander(
             ImmutableMap.of(tree, ImmutableList.of(child1, child2)),
@@ -220,13 +224,13 @@ public class StarlarkCustomCommandLineTest {
   }
 
   private static ArtifactExpander createArtifactExpander(
-      ImmutableMap<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeExpansions,
+      ImmutableMap<SpecialArtifact, ImmutableList<TreeChildArtifact>> treeExpansions,
       ImmutableMap<SpecialArtifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions) {
     return new ArtifactExpander() {
       @Override
       public void expand(Artifact artifact, Collection<? super Artifact> output) {
         //noinspection SuspiciousMethodCalls
-        ImmutableList<TreeFileArtifact> expansion = treeExpansions.get(artifact);
+        ImmutableList<TreeChildArtifact> expansion = treeExpansions.get(artifact);
         if (expansion != null) {
           output.addAll(expansion);
         }

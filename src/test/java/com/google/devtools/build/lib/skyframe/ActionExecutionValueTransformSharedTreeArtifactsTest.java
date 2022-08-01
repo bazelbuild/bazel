@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -172,7 +173,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
         .getChildValues()
         .forEach(
             (artifact, metadata) -> {
-              TreeFileArtifact originalArtifact =
+              TreeChildArtifact originalArtifact =
                   originalValue.getChildren().stream()
                       .filter(
                           original ->

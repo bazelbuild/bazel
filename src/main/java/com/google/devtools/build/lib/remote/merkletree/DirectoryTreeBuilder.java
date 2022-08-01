@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -194,14 +195,16 @@ class DirectoryTreeBuilder {
       PathFragment path = e.getKey();
       T input = e.getValue();
 
-      if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
-        // SpawnInputExpander has already expanded non-empty tree artifacts into a collection of
-        // TreeFileArtifacts. Thus, at this point, tree artifacts represent empty directories, which
-        // we create together with their parents.
-        // Note: This also handles output directories of actions, which are explicitly included as
-        // inputs so that they are created by the executor before the action executes. Since such a
-        // directory must remain writeable, MetadataProvider#getMetadata must not be called on the
-        // tree artifact here as it would have the side effect of making it read only.
+      // SpawnInputExpander has already expanded tree artifacts into a collection of
+      // TreeChildArtifacts. Thus, at this point, tree artifacts represent output directories of
+      // actions, which are explicitly included as inputs so that they are created by the executor
+      // before the action executes. Since such a directory must remain writeable,
+      // MetadataProvider#getMetadata must not be called on the tree artifact here as it would have
+      // the side effect of making it read only.
+      boolean isEmptyDirectory =
+          (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact())
+              || input instanceof TreeEmptyDirectoryArtifact;
+      if (isEmptyDirectory) {
         DirectoryNode emptyDir = new DirectoryNode(path.getBaseName());
         tree.put(path, emptyDir);
         createParentDirectoriesIfNotExist(path, emptyDir, tree);

@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -294,7 +295,7 @@ public class FilesystemValueChecker {
               actionValue.getAllTreeArtifactValues().entrySet()) {
             Artifact treeArtifact = entry.getKey();
             TreeArtifactValue tree = entry.getValue();
-            for (TreeFileArtifact child : tree.getChildren()) {
+            for (TreeChildArtifact child : tree.getChildren()) {
               if (shouldCheckFile(knownModifiedOutputFiles, child)) {
                 fileToKeyAndValue.put(child, keyAndValue);
               }
@@ -489,7 +490,7 @@ public class FilesystemValueChecker {
       TreeArtifactValue tree = entry.getValue();
 
       if (!tree.isEntirelyRemote()) {
-        for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
+        for (Map.Entry<TreeChildArtifact, FileArtifactValue> childEntry :
             tree.getChildValues().entrySet()) {
           if (artifactIsDirtyWithDirectSystemCalls(
               knownModifiedOutputFiles,

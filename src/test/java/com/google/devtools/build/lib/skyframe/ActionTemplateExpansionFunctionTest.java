@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -218,7 +219,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableSet<TreeChildArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner) {
             return ImmutableList.of();
           }
@@ -251,9 +252,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableSet<TreeChildArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner) {
-            TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
+            TreeFileArtifact input = (TreeFileArtifact) Iterables.getOnlyElement(
+                inputTreeFileArtifacts);
             TreeFileArtifact outputWithWrongOwner =
                 TreeFileArtifact.createTemplateExpansionOutput(
                     outputTree, "child", ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
@@ -279,9 +281,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableSet<TreeChildArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner) {
-            TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
+            TreeFileArtifact input = (TreeFileArtifact) Iterables.getOnlyElement(
+                inputTreeFileArtifacts);
             Artifact notTreeFileArtifact =
                 DerivedArtifact.create(
                     input.getRoot(),
@@ -309,9 +312,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableSet<TreeChildArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner) {
-            TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
+            TreeFileArtifact input = (TreeFileArtifact) Iterables.getOnlyElement(
+                inputTreeFileArtifacts);
             TreeFileArtifact outputUnderWrongTree =
                 TreeFileArtifact.createTemplateExpansionOutput(
                     createTreeArtifact("undeclared"), "child", artifactOwner);
@@ -340,9 +344,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         new TestActionTemplate(inputTree, outputTree) {
           @Override
           public ImmutableList<DummyAction> generateActionsForInputArtifacts(
-              ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+              ImmutableSet<TreeChildArtifact> inputTreeFileArtifacts,
               ActionLookupKey artifactOwner) {
-            TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
+            TreeFileArtifact input = (TreeFileArtifact) Iterables.getOnlyElement(
+                inputTreeFileArtifacts);
             return ImmutableList.of(
                 new DummyAction(
                     input,

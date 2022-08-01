@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.ForbiddenRelativeSymlinkException;
@@ -130,13 +130,11 @@ public class SpawnInputExpander {
           if (localArtifact.isTreeArtifact()) {
             List<ActionInput> expandedInputs =
                 ActionInputHelper.expandArtifacts(
-                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact),
-                    artifactExpander,
-                    /* keepEmptyTreeArtifacts= */ false);
+                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
-                  location.getRelative(((TreeFileArtifact) input).getParentRelativePath()),
+                  location.getRelative(((TreeChildArtifact) input).getParentRelativePath()),
                   input,
                   baseDirectory);
             }
@@ -224,12 +222,7 @@ public class SpawnInputExpander {
       NestedSet<? extends ActionInput> inputFiles,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory) {
-    // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
-    // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
-    // here to signal consumers that they should create the directory.
-    List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(
-            inputFiles, artifactExpander, /* keepEmptyTreeArtifacts= */ true);
+    List<ActionInput> inputs = ActionInputHelper.expandArtifacts(inputFiles, artifactExpander);
     for (ActionInput input : inputs) {
       addMapping(inputMap, input.getExecPath(), input, baseDirectory);
     }

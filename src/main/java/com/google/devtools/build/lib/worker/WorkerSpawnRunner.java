@@ -240,11 +240,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       expandArgument(execRoot, flagfile, requestBuilder);
     }
 
-    List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(
-            spawn.getInputFiles(),
-            context.getArtifactExpander(),
-            /* keepEmptyTreeArtifacts= */ false);
+    List<ActionInput> inputs = ActionInputHelper.expandArtifacts(spawn.getInputFiles(),
+        context.getArtifactExpander());
 
     for (ActionInput input : inputs) {
       byte[] digestBytes;

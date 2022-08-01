@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.MiddlemanType;
@@ -95,13 +96,17 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
   @Override
   public ImmutableList<CppCompileAction> generateActionsForInputArtifacts(
-      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
+      ImmutableSet<TreeChildArtifact> inputTreeChildArtifacts, ActionLookupKey artifactOwner)
       throws ActionExecutionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
     ImmutableList.Builder<TreeFileArtifact> sourcesBuilder = ImmutableList.builder();
     NestedSetBuilder<Artifact> privateHeadersBuilder = NestedSetBuilder.stableOrder();
-    for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
+    for (TreeChildArtifact inputTreeChildArtifact : inputTreeChildArtifacts) {
+      if (!(inputTreeChildArtifact instanceof TreeFileArtifact)) {
+        continue;
+      }
+      TreeFileArtifact inputTreeFileArtifact = (TreeFileArtifact) inputTreeChildArtifact;
       boolean isHeader = CppFileTypes.CPP_HEADER.matches(inputTreeFileArtifact.getExecPath());
       boolean isTextualInclude =
           CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(inputTreeFileArtifact.getExecPath());

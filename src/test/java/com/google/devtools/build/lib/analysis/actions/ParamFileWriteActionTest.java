@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -149,17 +151,18 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   }
 
   private ActionExecutionContext actionExecutionContext() throws Exception {
-    List<TreeFileArtifact> treeFileArtifacts =
+    List<TreeChildArtifact> treeChildArtifacts =
         ImmutableList.of(
             TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact1"),
-            TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact2"));
+            TreeFileArtifact.createTreeOutput(treeArtifact, "artifacts/treeFileArtifact2"),
+            TreeEmptyDirectoryArtifact.create(treeArtifact, "artifacts/empty_dir"));
 
     ArtifactExpander artifactExpander = new ArtifactExpander() {
       @Override
       public void expand(Artifact artifact, Collection<? super Artifact> output) {
-        for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
-          if (treeFileArtifact.getParent().equals(artifact)) {
-            output.add(treeFileArtifact);
+        for (TreeChildArtifact treeChildArtifact : treeChildArtifacts) {
+          if (treeChildArtifact.getParent().equals(artifact)) {
+            output.add(treeChildArtifact);
           }
         }
       }

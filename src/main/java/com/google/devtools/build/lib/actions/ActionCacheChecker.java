@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeChildArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -337,13 +339,19 @@ public class ActionCacheChecker {
             localTreeMetadata != null
                 && !localTreeMetadata.equals(TreeArtifactValue.MISSING_TREE_ARTIFACT);
 
-        Map<TreeFileArtifact, FileArtifactValue> childValues = new HashMap<>();
+        Map<TreeChildArtifact, FileArtifactValue> childValues = new HashMap<>();
         // Load remote child file metadata from cache.
         cachedTreeMetadata
             .childValues()
             .forEach(
-                (key, value) ->
-                    childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
+                (key, value) -> {
+                  if (value.getType().isDirectory()) {
+                    childValues.put(TreeEmptyDirectoryArtifact.create(parent, key), value);
+                  } else {
+                    childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value);
+                  }
+                }
+            );
         // Or add local one.
         if (localTreeMetadataExists) {
           localTreeMetadata.getChildValues().forEach(childValues::put);

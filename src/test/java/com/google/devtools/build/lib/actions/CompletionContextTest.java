@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeEmptyDirectoryArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
@@ -56,22 +57,24 @@ public class CompletionContextTest {
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile1 = TreeFileArtifact.createTreeOutput(tree, "file1");
     TreeFileArtifact treeFile2 = TreeFileArtifact.createTreeOutput(tree, "file2");
+    TreeEmptyDirectoryArtifact treeDir = TreeEmptyDirectoryArtifact.create(tree, "dir");
     ActionInputMap inputMap = new ActionInputMap(0);
     inputMap.putTreeArtifact(
         tree,
         TreeArtifactValue.newBuilder(tree)
             .putChild(treeFile1, DUMMY_METADATA)
             .putChild(treeFile2, DUMMY_METADATA)
+            .putChild(treeDir, DUMMY_METADATA)
             .build(),
         /*depOwner=*/ null);
     CompletionContext completionContext =
         createNewCompletionContext(
-            ImmutableMap.of(tree, ImmutableList.of(treeFile1, treeFile2)), inputMap);
+            ImmutableMap.of(tree, ImmutableList.of(treeFile1, treeFile2, treeDir)), inputMap);
 
     List<Artifact> visited = new ArrayList<>();
     completionContext.visitArtifacts(ImmutableList.of(tree), createReceiver(visited));
 
-    assertThat(visited).containsExactly(treeFile1, treeFile2).inOrder();
+    assertThat(visited).containsExactly(treeFile1, treeFile2, treeDir).inOrder();
   }
 
   @Test
