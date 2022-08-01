@@ -26,6 +26,7 @@ java_library(
 
 java_test(
     name = "framework_tests",
+    data = [":blackbox.WORKSPACE"],
     tags = ["black_box_test"],
     test_class = "com.google.devtools.build.lib.AllTests",
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox/tests:__pkg__"],

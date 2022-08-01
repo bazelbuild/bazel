@@ -82,10 +82,10 @@ public abstract class BlackBoxTestEnvironment {
   }
 
   public static String getWorkspaceWithDefaultRepos() throws IOException {
-    try (InputStream workspace = Files.newInputStream(Paths.get(
-        "io_bazel/src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSPACE"))) {
+    final String workspace_path = "src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSPACE";
+    try (InputStream workspace = Files.newInputStream(Paths.get(workspace_path))) {
       if (workspace == null) {
-        throw new IOException("blackbox.WORKSPACE not found.");
+        throw new IOException(workspace_path + " not found.");
       }
       return new String(ByteStreams.toByteArray(workspace), UTF_8);
     }
