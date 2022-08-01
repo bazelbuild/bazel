@@ -154,7 +154,9 @@ public class BuildDriverFunction implements SkyFunction {
       env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
 
       BuildConfigurationValue buildConfigurationValue =
-          (BuildConfigurationValue) env.getValue(configuredTarget.getConfigurationKey());
+          configuredTarget.getConfigurationKey() == null
+              ? null
+              : (BuildConfigurationValue) env.getValue(configuredTarget.getConfigurationKey());
       if (env.valuesMissing()) {
         return null;
       }
@@ -181,7 +183,9 @@ public class BuildDriverFunction implements SkyFunction {
               env.getListener()
                   .post(
                       TestAnalyzedEvent.create(
-                          configuredTarget, buildConfigurationValue, /*isSkipped=*/ true));
+                          configuredTarget,
+                          Preconditions.checkNotNull(buildConfigurationValue),
+                          /*isSkipped=*/ true));
             }
             // Only send the event now to include the compatibility check in the measurement for
             // time spent on analysis work.
@@ -325,7 +329,9 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener()
         .post(
             TestAnalyzedEvent.create(
-                configuredTarget, buildConfigurationValue, /*isSkipped=*/ false));
+                configuredTarget,
+                Preconditions.checkNotNull(buildConfigurationValue),
+                /*isSkipped=*/ false));
 
     if (PARALLEL.equals(buildDriverKey.getTestType())) {
       // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
