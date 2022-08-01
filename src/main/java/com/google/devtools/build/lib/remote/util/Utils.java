@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -387,6 +388,7 @@ public final class Utils {
   public static String grpcAwareErrorMessage(IOException e) {
     io.grpc.Status errStatus = io.grpc.Status.fromThrowable(e);
     if (e.getCause() instanceof ExecutionStatusException) {
+      // Display error message returned by the remote service.
       try {
         return "Remote Execution Failure:\n"
             + executionStatusExceptionErrorMessage((ExecutionStatusException) e.getCause());
@@ -398,9 +400,20 @@ public final class Utils {
       }
     }
     if (!errStatus.getCode().equals(io.grpc.Status.UNKNOWN.getCode())) {
-      // If the error originated in the gRPC library then display it as "STATUS: error message"
-      // to the user
-      return String.format("%s: %s", errStatus.getCode().name(), errStatus.getDescription());
+      // Display error message returned by the gRPC library, prefixed by the status code.
+      StringBuilder sb = new StringBuilder();
+      sb.append(errStatus.getCode().name());
+      sb.append(": ");
+      sb.append(errStatus.getDescription());
+      // If the error originated from a credential helper, print additional debugging information.
+      for (Throwable t = errStatus.getCause(); t != null; t = t.getCause()) {
+        if (t instanceof CredentialHelperException) {
+          sb.append(": ");
+          sb.append(t.getMessage());
+          break;
+        }
+      }
+      return sb.toString();
     }
     return e.getMessage();
   }
