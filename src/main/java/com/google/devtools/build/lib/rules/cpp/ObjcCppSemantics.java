@@ -134,7 +134,5 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext) {
-    return false;
-  }
+  public void checkCanUseImplementationDeps(RuleContext ruleContext) {}
 }

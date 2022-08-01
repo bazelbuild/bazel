@@ -126,9 +126,12 @@ public final class LocationExpander {
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts
    */
-  public static LocationExpander withRunfilesPaths(RuleContext ruleContext) {
-    return new LocationExpander(ruleContext, null, false, false);
+  public static LocationExpander withRunfilesPaths(
+      RuleContext ruleContext,
+      @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    return new LocationExpander(ruleContext, labelMap, false, false);
   }
 
   /**

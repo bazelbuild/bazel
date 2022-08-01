@@ -168,7 +168,7 @@ public class TopLevelConstraintSemantics {
   @Nullable
   public static EnvironmentCompatibility compatibilityWithTargetEnvironment(
       ConfiguredTarget configuredTarget,
-      BuildConfigurationValue buildConfigurationValue,
+      @Nullable BuildConfigurationValue buildConfigurationValue,
       TargetLookup targetLookup,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, TargetCompatibilityCheckException {

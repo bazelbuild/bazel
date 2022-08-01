@@ -158,7 +158,7 @@ For Android builds, see details at the
 
 ## Implementing persistent workers {:#implementation}
 
-See the [creating persistent workers](/docs/creating-workers) page for
+See the [creating persistent workers](/docs/creating-workers) page for more
 information on how to make a worker.
 
 This example shows a Starlark configuration for a worker that uses JSON:
@@ -184,12 +184,19 @@ With this definition, the first use of this action would start with executing
 the command line `/bin/some_compiler -max_mem=4G --persistent_worker`. A request
 to compile `Foo.java` would then look like:
 
-```prototext
-arguments: [ "-g", "-source", "1.5", "Foo.java" ]
-inputs: [
-  {path: "symlinkfarm/input1" digest: "d49a..." },
-  {path: "symlinkfarm/input2", digest: "093d..."},
-]
+NOTE: While the protocol buffer specification uses "snake case" (`request_id`),
+the JSON protocol uses "camel case" (`requestId`). In this document, we will use
+camel case in the JSON examples, but snake case when talking about the field
+regardless of protocol.
+
+```json
+{
+  "arguments": [ "-g", "-source", "1.5", "Foo.java" ]
+  "inputs": [
+    { "path": "symlinkfarm/input1", "digest": "d49a..." },
+    { "path": "symlinkfarm/input2", "digest": "093d..." },
+  ],
+}
 ```
 
 The worker receives this on `stdin` in newline-delimited JSON format (because
@@ -262,6 +269,7 @@ For more information on persistent workers, see:
     {: .external}
 *   [Front End Development with Bazel: Angular/TypeScript and Persistent Workers
     w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo) {: .external}
-*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html) {: .external}
+*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html)
+    {: .external}
 *   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ)
     {: .external}

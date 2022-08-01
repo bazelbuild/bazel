@@ -6997,7 +6997,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "build_test_dwp()",
             "grte_top()",
             "enable_legacy_cc_provider()",
-            "experimental_cc_interface_deps()",
+            "experimental_cc_implementation_deps()",
             "share_native_deps()",
             "experimental_platform_cc_test()");
     scratch.file(

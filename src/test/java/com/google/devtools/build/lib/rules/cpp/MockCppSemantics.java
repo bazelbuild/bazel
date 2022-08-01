@@ -96,13 +96,13 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext) {
-    boolean experimentalCcInterfaceDeps =
-        ruleContext.getFragment(CppConfiguration.class).experimentalCcInterfaceDeps();
-    if (!experimentalCcInterfaceDeps
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("interface_deps")) {
-      ruleContext.attributeError("interface_deps", "requires --experimental_cc_interface_deps");
+  public void checkCanUseImplementationDeps(RuleContext ruleContext) {
+    boolean experimentalCcImplementationDeps =
+        ruleContext.getFragment(CppConfiguration.class).experimentalCcImplementationDeps();
+    if (!experimentalCcImplementationDeps
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
+      ruleContext.attributeError(
+          "implementation_deps", "requires --experimental_cc_implementation_deps");
     }
-    return experimentalCcInterfaceDeps;
   }
 }

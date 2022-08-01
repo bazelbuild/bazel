@@ -428,6 +428,15 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     }
   }
 
+  @Test
+  public void targetWithNoConfiguration_success() throws Exception {
+    write("foo/BUILD", "exports_files(['bar.txt'])");
+    write("foo/bar.txt", "This is just a test file to pretend to build.");
+    BuildResult result = buildTarget("//foo:bar.txt");
+
+    assertThat(result.getSuccess()).isTrue();
+  }
+
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
     assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
     AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =
