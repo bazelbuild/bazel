@@ -90,8 +90,5 @@ public abstract class BlackBoxTestEnvironment {
       }
       return new String(ByteStreams.toByteArray(workspace), UTF_8);
     }
-
-    // return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
-    // return ResourceFileLoader.readFromResources("blackbox.WORKSPACE");
   }
 }
