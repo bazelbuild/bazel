@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -93,6 +94,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -895,16 +897,33 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
+  public String expandLocation(
+      String input, Sequence<?> targets, boolean shortPaths, StarlarkThread thread)
       throws EvalException {
     checkMutable("expand_location");
     try {
-      return LocationExpander.withExecPaths(
-              ruleContext,
-              makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets")))
-          .expand(input);
+      ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
+          makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets"));
+      LocationExpander expander;
+      if (!shortPaths) {
+        expander = LocationExpander.withExecPaths(ruleContext, labelMap);
+      } else {
+        checkPrivateAccess(thread);
+        expander = LocationExpander.withRunfilesPaths(ruleContext, labelMap);
+      }
+      return expander.expand(input);
     } catch (IllegalStateException ise) {
       throw new EvalException(ise);
+    }
+  }
+
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!"test".equals(label.getPackageName()) // for tests
+        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
 

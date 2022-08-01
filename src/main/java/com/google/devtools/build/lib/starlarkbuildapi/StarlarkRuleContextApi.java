@@ -511,11 +511,17 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             defaultValue = "[]",
             named = true,
             doc = "List of targets for additional lookup information."),
+        @Param(
+            name = "short_paths",
+            named = true,
+            defaultValue = "False",
+            doc = "Use root relative paths instead of full exec paths"),
       },
       allowReturnNones = true,
       useStarlarkThread = true)
   @Nullable
-  String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
+  String expandLocation(
+      String input, Sequence<?> targets, boolean shortPaths, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
