@@ -79,5 +79,5 @@ public interface CppSemantics extends StarlarkValue {
 
   boolean createEmptyArchive();
 
-  boolean shouldUseInterfaceDepsBehavior(RuleContext ruleContext);
+  void checkCanUseImplementationDeps(RuleContext ruleContext);
 }

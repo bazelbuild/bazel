@@ -883,17 +883,17 @@ public final class CppConfiguration extends Fragment
   }
 
   @StarlarkMethod(
-      name = "experimental_cc_interface_deps",
+      name = "experimental_cc_implementation_deps",
       documented = false,
       useStarlarkThread = true)
-  public boolean experimentalCcInterfaceDepsForStarlark(StarlarkThread thread)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcInterfaceDeps();
+    return experimentalCcImplementationDeps();
   }
 
-  public boolean experimentalCcInterfaceDeps() {
-    return cppOptions.experimentalCcInterfaceDeps;
+  public boolean experimentalCcImplementationDeps() {
+    return cppOptions.experimentalCcImplementationDeps;
   }
 
   public boolean getExperimentalCppCompileResourcesEstimation() {
