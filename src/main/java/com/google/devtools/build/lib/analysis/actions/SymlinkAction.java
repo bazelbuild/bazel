@@ -274,7 +274,10 @@ public final class SymlinkAction extends AbstractAction {
         linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
-        actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
+        actionExecutionContext
+            .getExecRoot()
+            .getRelative(getInputPath())
+            .createDirectoryAndParents();
       }
     } catch (IOException e) {
       String message =
