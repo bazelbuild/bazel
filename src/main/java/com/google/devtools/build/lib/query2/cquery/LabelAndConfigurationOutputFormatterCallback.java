@@ -36,7 +36,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
       boolean showKind) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.showKind = showKind;
   }
 

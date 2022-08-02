@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
@@ -290,6 +291,20 @@ final class AspectFunction implements SkyFunction {
       target = targetPkg.getTarget(associatedTarget.getOriginalLabel().getName());
     } catch (NoSuchTargetException e) {
       throw new IllegalStateException("Name already verified", e);
+    }
+
+    // If the target is incompatible, then there's not much to do. The intent here is to create an
+    // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
+    // against this aspect.
+    if (associatedTarget.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+      return new AspectValue(
+          key,
+          aspect,
+          target.getLocation(),
+          ConfiguredAspect.forNonapplicableTarget(),
+          /*transitivePackagesForPackageRootResolution=*/ NestedSetBuilder
+              .<Package>stableOrder()
+              .build());
     }
 
     if (AliasProvider.isAlias(associatedTarget)) {

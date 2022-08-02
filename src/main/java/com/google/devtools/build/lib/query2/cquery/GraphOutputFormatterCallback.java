@@ -86,7 +86,7 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
       DepsRetriever depsRetriever) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.depsRetriever = depsRetriever;
   }
 

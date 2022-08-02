@@ -142,7 +142,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor)
       throws QueryException, InterruptedException {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
 
     ParserInput input = null;
     String exceptionMessagePrefix;

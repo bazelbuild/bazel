@@ -452,6 +452,26 @@ There are other options for exposing the results as well. </p>
 
 </p>
 
+<h3>Files output</h3>
+
+<pre>
+--output=files
+</pre>
+
+<p>
+  This option prints a list of the output files produced by each target matched
+  by the query similar to the list printed at the end of a <code>bazel build</code>
+  invocation. The output contains only the files advertised in the requested
+  output groups as determined by the
+  <a href="https://docs.bazel.build/version/main/reference/command-line-reference#flag--output_groups"><code>--output_groups</code></a>
+  flag and never contains source files.
+
+  Note: The output of <code>bazel cquery --output=files //pkg:foo</code> contains the output
+  files of <code>//pkg:foo</code> in <i>all</i> configurations that occur in the build (also
+  see the <a href="#target-pattern-evaluation">section on target pattern evaluation</a>. If that
+  is not desired, wrap you query in <a href="#config"><code>config(..., target)</code></a>.
+</p>
+
 <h3>Defining the output format using Starlark</h3>
 
 <pre>
