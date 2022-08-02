@@ -1,8 +1,21 @@
 load("@rules_java//java:defs.bzl", "java_library")
+load("@rules_license//rules:license.bzl", "license")
 
-package(default_visibility = ["//visibility:public"])
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
 
 licenses(["restricted"])  # GNU GPL v2 with Classpath exception
+
+license(
+    name = "license",
+    package_name = "jformatstring",
+    license_kinds = [
+        "@rules_license//licenses/spdx:GPL-2.0-with-classpath-exception",
+    ],
+    license_text = "LICENSE",
+)
 
 filegroup(
     name = "srcs",

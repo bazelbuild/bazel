@@ -13,15 +13,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+load("@rules_license//rules:license.bzl", "license")
 
 licenses(["notice"])  # Apache v2
+
+license(
+    name = "license",
+    package_name = "grpc",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+    package_version = "1.47",
+)
 
 exports_files([
     "grpc_1.47.0.patch",
     "grpc_1.47.0.win_arm64.patch",
 ])
 
-package(default_visibility = ["//visibility:public"])
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
 
 filegroup(
     name = "srcs",
