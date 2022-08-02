@@ -187,7 +187,6 @@ bool PropertyCombiner::Merge(const CDH * /*cdh*/, const LH * /*lh*/) {
 ManifestCombiner::~ManifestCombiner() {}
 
 static const char *MULTI_RELEASE = "Multi-Release: true";
-static const size_t MULTI_RELEASE_LENGTH = strlen(MULTI_RELEASE);
 
 static const char *MULTI_RELEASE_PREFIX = "Multi-Release: ";
 static const size_t MULTI_RELEASE_PREFIX_LENGTH = strlen(MULTI_RELEASE_PREFIX);
