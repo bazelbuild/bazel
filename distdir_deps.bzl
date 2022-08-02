@@ -48,10 +48,9 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
-    # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
-    # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-    # Note: This is not in sync with src/test/java/com/google/devtools/build/lib/blackbox/framework/BlackBoxTestEnvironment.java.
-    #       Perhaps it should be.
+    # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
+    # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+    # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
         "archive": "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         "sha256": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
@@ -78,8 +77,7 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    # TODO(aiuto): Update src/test/java/com/google/devtools/build/lib/blackbox/framework/BlackBoxTestEnvironment.java to use
-    # this dynamically.
+    # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
         "archive": "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         "sha256": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",

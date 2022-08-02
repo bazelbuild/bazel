@@ -741,7 +741,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION,
             valueWhenDisabled = "unbound",
-            doc = "Substitutions to make when expanding the template.")
+            doc = "Experimental: Substitutions to make when expanding the template.")
       })
   void expandTemplate(
       FileApi template,
@@ -759,6 +759,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "template_dict",
-      doc = "Returns a TemplateDict object for memory-efficient template expansion.")
+      doc = "Experimental: Returns a TemplateDict object for memory-efficient template expansion.",
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION)
   TemplateDictApi templateDict();
 }
