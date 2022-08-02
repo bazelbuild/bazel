@@ -304,10 +304,9 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " and 1 cpu.")
   public boolean experimentalActionResourceSet;
 
-
   @Option(
       name = "experimental_lazy_template_expansion",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -703,7 +702,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String EXPERIMENTAL_ACTION_RESOURCE_SET = "+experimental_action_resource_set";
   public static final String EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION =
-      "-experimental_lazy_template_expansion";
+      "+experimental_lazy_template_expansion";
   public static final String EXPERIMENTAL_ANALYSIS_TEST_CALL = "+experimental_analysis_test_call";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "-incompatible_allow_tags_propagation";
