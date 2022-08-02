@@ -44,7 +44,7 @@ public class NestDesugaringCoreLibTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
           .addSourceInputs(getRuntimePathsFromJvmFlag("input_srcs"))
-          .addJavacOptions("-source 11", "-target 11")
+          .addJavacOptions("--release 11")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .addCommandOptions("allow_empty_bootclasspath", "true")
           .addCommandOptions("core_library", "true")
