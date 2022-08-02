@@ -19,12 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.util.ResourceFileLoader;   // XXXX
+import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
-import java.io.InputStream;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -82,19 +78,7 @@ public abstract class BlackBoxTestEnvironment {
     executorService = null;
   }
 
-  // XXX Delete if the windows
-  public static String xXgetWorkspaceWithDefaultRepos() throws IOException {
-    final String workspace_path = "src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSPACE";
-    try (InputStream workspace = Files.newInputStream(Paths.get(workspace_path))) {
-      if (workspace == null) {
-        throw new IOException(workspace_path + " not found.");
-      }
-      return new String(ByteStreams.toByteArray(workspace), UTF_8);
-    }
+  public static String getWorkspaceWithDefaultRepos() throws IOException {
+    return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
   }
-
-   public static String getWorkspaceWithDefaultRepos() throws IOException {
-     return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
-     // return ResourceFileLoader.readFromResources("blackbox.WORKSPACE");
-   }
 }
