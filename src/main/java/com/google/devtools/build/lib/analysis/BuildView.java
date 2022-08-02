@@ -590,10 +590,19 @@ public class BuildView {
     buildInfoArtifacts.forEach(artifactsToBuild::add);
 
     // Tests.
-    Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> testsPair =
-        collectTests(topLevelOptions, allTargetsToTest, labelToTargetMap);
-    ImmutableSet<ConfiguredTarget> parallelTests = testsPair.first;
-    ImmutableSet<ConfiguredTarget> exclusiveTests = testsPair.second;
+    ImmutableSet.Builder<ConfiguredTarget> parallelTestsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<ConfiguredTarget> exclusiveTestsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<ConfiguredTarget> exclusiveIfLocalTestsBuilder = ImmutableSet.builder();
+    collectTests(
+        topLevelOptions,
+        allTargetsToTest,
+        labelToTargetMap,
+        parallelTestsBuilder,
+        exclusiveTestsBuilder,
+        exclusiveIfLocalTestsBuilder);
+    ImmutableSet<ConfiguredTarget> parallelTests = parallelTestsBuilder.build();
+    ImmutableSet<ConfiguredTarget> exclusiveTests = exclusiveTestsBuilder.build();
+    ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests = exclusiveIfLocalTestsBuilder.build();
 
     FailureDetail failureDetail =
         createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
@@ -608,6 +617,7 @@ public class BuildView {
           artifactsToBuild.build(),
           parallelTests,
           exclusiveTests,
+          exclusiveIfLocalTests,
           topLevelOptions,
           loadingResult.getWorkspaceName(),
           topLevelTargetsWithConfigs.getTargetsAndConfigs());
@@ -651,6 +661,7 @@ public class BuildView {
         artifactsToBuild.build(),
         parallelTests,
         exclusiveTests,
+        exclusiveIfLocalTests,
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
@@ -813,30 +824,33 @@ public class BuildView {
     return artifacts.build();
   }
 
-  private static Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> collectTests(
+  private static void collectTests(
       TopLevelArtifactContext topLevelOptions,
       @Nullable Iterable<ConfiguredTarget> allTestTargets,
-      ImmutableMap<Label, Target> labelToTargetMap) {
+      ImmutableMap<Label, Target> labelToTargetMap,
+      ImmutableSet.Builder<ConfiguredTarget> parallelTests,
+      ImmutableSet.Builder<ConfiguredTarget> exclusiveTests,
+      ImmutableSet.Builder<ConfiguredTarget> exclusiveIfLocalTests) {
     Set<String> outputGroups = topLevelOptions.outputGroups();
     if (!outputGroups.contains(OutputGroupInfo.FILES_TO_COMPILE)
         && !outputGroups.contains(OutputGroupInfo.COMPILATION_PREREQUISITES)
         && allTestTargets != null) {
       final boolean isExclusive = topLevelOptions.runTestsExclusively();
-      ImmutableSet.Builder<ConfiguredTarget> targetsToTest = ImmutableSet.builder();
-      ImmutableSet.Builder<ConfiguredTarget> targetsToTestExclusive = ImmutableSet.builder();
       for (ConfiguredTarget configuredTarget : allTestTargets) {
         Target target = labelToTargetMap.get(configuredTarget.getLabel());
         if (target instanceof Rule) {
           if (isExclusive || TargetUtils.isExclusiveTestRule((Rule) target)) {
-            targetsToTestExclusive.add(configuredTarget);
+            exclusiveTests.add(configuredTarget);
+          } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)
+              && TargetUtils.isLocalTestRule((Rule) target)) {
+            exclusiveTests.add(configuredTarget);
+          } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
+            exclusiveIfLocalTests.add(configuredTarget);
           } else {
-            targetsToTest.add(configuredTarget);
+            parallelTests.add(configuredTarget);
           }
         }
       }
-      return Pair.of(targetsToTest.build(), targetsToTestExclusive.build());
-    } else {
-      return Pair.of(ImmutableSet.of(), ImmutableSet.of());
     }
   }
 

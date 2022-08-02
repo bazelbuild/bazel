@@ -257,7 +257,7 @@ public class BuildTool {
       if (request.getBuildOptions().performAnalysisPhase) {
 
         if (!analysisResult.getExclusiveTests().isEmpty()
-            && executionTool.getTestActionContext().forceParallelTestExecution()) {
+            && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
           String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
           for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
             getReporter()
@@ -269,6 +269,10 @@ public class BuildTool {
                             + " forces parallel test execution."));
           }
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
+        }
+        if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
+            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+          analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
         result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());

@@ -47,7 +47,18 @@ public interface TestActionContext extends ActionContext {
    * <p>Returning {@code true} may make sense for certain forced remote test execution strategies
    * where running tests in sequence would be wasteful.
    */
-  default boolean forceParallelTestExecution() {
+  default boolean forceExclusiveTestsInParallel() {
+    return false;
+  }
+
+  /**
+   * Returns {@code true} to indicate that "exclusive-if-local" tests should be treated as regular
+   * parallel tests.
+   *
+   * <p>Returning {@code true} may make sense for certain remote test execution strategies where
+   * running tests in sequence would be wasteful.
+   */
+  default boolean forceExclusiveIfLocalTestsInParallel() {
     return false;
   }
 

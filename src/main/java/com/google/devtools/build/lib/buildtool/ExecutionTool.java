@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -460,7 +461,7 @@ public class ExecutionTool {
           env.getReporter(),
           analysisResult.getArtifactsToBuild(),
           analysisResult.getParallelTests(),
-          analysisResult.getExclusiveTests(),
+          Sets.union(analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
           analysisResult.getTargetsToBuild(),
           analysisResult.getTargetsToSkip(),
           analysisResult.getAspectsMap().keySet(),

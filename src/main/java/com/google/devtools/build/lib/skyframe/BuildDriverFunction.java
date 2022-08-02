@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.EXCLUSIVE;
+import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.EXCLUSIVE_IF_LOCAL;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.NOT_TEST;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PARALLEL;
 
@@ -222,7 +223,8 @@ public class BuildDriverFunction implements SkyFunction {
 
     // If we get to this point, the execution of this target/aspect succeeded.
 
-    if (EXCLUSIVE.equals(buildDriverKey.getTestType())) {
+    if (EXCLUSIVE.equals(buildDriverKey.getTestType())
+        || EXCLUSIVE_IF_LOCAL.equals(buildDriverKey.getTestType())) {
       Preconditions.checkState(topLevelSkyValue instanceof ConfiguredTargetValue);
       return new ExclusiveTestBuildDriverValue(
           topLevelSkyValue, ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget());
