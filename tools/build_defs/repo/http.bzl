@@ -141,6 +141,7 @@ def _http_archive_impl(ctx):
     )
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
+    finalize(ctx)
 
     return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
 
@@ -367,6 +368,14 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
     ),
+    "finalize_cmd": attr.label(
+        doc =
+            "A command to run in the repository after all patches are " +
+            "done, but before the repository is returned",
+    ),
+    "finalize_args": attr.string_list(
+        doc = "Args to pass to the finalize_cmd",
+    ),
 }
 
 http_archive = repository_rule(
@@ -561,3 +570,30 @@ Examples:
   one belongs to the absolute path to the file.
 """,
 )
+
+def finalize(ctx):
+    """Implementation of patching an already extracted repository.
+
+    This rule is intended to be used in the implementation function of
+    a repository rule.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+    """
+    if not ctx.attr.finalize_cmd:
+      return
+
+    print("FINALLY!!!!", ctx.attr.finalize_cmd)
+
+    # The Label for the tool is main repo relative. The path you get back is
+    # made absolute so it resolves even though we have cd'ed into the repo we
+    # are building.
+    cmd = [ctx.path(ctx.attr.finalize_cmd)]
+    cmd.extend(ctx.attr.finalize_args)
+    print("finalizing repo:", cmd)
+    st = ctx.execute(cmd)
+
+    if st.return_code:
+        fail("Error applying patch command %s:\n%s%s" %
+             (cmd, st.stdout, st.stderr))

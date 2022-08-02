@@ -91,6 +91,17 @@ def dist_http_archive(name, **kwargs):
         kwargs["patches"] = info.get("patches")
     if "strip_prefix" not in kwargs:
         kwargs["strip_prefix"] = info.get("strip_prefix")
+    license_args = []
+    if "license_kinds" in info:
+        for kind in info["license_kinds"]:
+            license_args.append("--license_kind='%s'" % kind)
+    if "package_version" in info:
+        license_args.append("--package_version='%s'" % info["package_version"])
+    if license_args:
+        kwargs["finalize_cmd"] = Label("//tools/compliance:add_license_attestation.py")
+        kwargs["finalize_args"] = license_args
+        print("repo", name, "=>", license_args)
+
     http_archive(
         name = name,
         sha256 = info["sha256"],

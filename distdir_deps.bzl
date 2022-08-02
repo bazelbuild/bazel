@@ -296,6 +296,11 @@ DIST_DEPS = {
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2.0",
+            "@rules_license//licenses/spdx:AND_ONE_MORE",
+            "@rules_license//licenses/spdx:TOAST1",
+        ],
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.7.0.tar.gz",
