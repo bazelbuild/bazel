@@ -32,6 +32,8 @@ replace the native rules.
 
 load(
     ":utils.bzl",
+    "full_repo_patch",
+    "get_repo_patcher",
     "patch",
     "read_netrc",
     "read_user_netrc",
@@ -140,7 +142,19 @@ def _http_archive_impl(ctx):
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
 
+    metadata = {
+        "sha256": download_info.sha256,
+        "integrity": download_info.integrity,
+        "type": ctx.attr.type,
+        "package_name": ctx.name,
+        "package_url": all_urls[0],
+        "urls": ','.join(all_urls),
+    }
+    metadata.update(ctx.attr.repo_patcher_args)
+    full_repo_patch(ctx, repo_metadata = metadata)
+
     return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
+
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
@@ -365,13 +379,20 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
     ),
+    "repo_patcher": attr.label(
+        doc =
+            "Program to patch the downloaded repository in any way needed. " +
+            "It assumes that it is running at the top of the newly " +
+            "downloaded repo, and it gets a set of name/value pairs on the " +
+            "command line.",
+    ),
+    "repo_patcher_args": attr.string_dict(
+        doc = "Collection of name/value pairs containing things we know " +
+              "about the repository.",
+    ),
 }
 
-http_archive = repository_rule(
-    implementation = _http_archive_impl,
-    attrs = _http_archive_attrs,
-    doc =
-        """Downloads a Bazel repository as a compressed archive file, decompresses it,
+_http_archive_doc = """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
 
 It supports the following file extensions: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`,
@@ -417,8 +438,21 @@ Examples:
   ```
 
   Then targets would specify `@my_ssl//:openssl-lib` as a dependency.
-""",
+"""
+
+_http_archive = repository_rule(
+    implementation = _http_archive_impl,
+    attrs = _http_archive_attrs,
+    doc = _http_archive_doc,
 )
+
+def http_archive(name, **kwargs):
+    # _http_archive_doc
+    _http_archive(
+        name = name,
+        repo_patcher = get_repo_patcher(),
+        **kwargs,
+    )
 
 _http_file_attrs = {
     "executable": attr.bool(

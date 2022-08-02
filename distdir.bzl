@@ -91,12 +91,40 @@ def dist_http_archive(name, **kwargs):
         kwargs["patches"] = info.get("patches")
     if "strip_prefix" not in kwargs:
         kwargs["strip_prefix"] = info.get("strip_prefix")
+
+    patcher_info = {}
+    if "package_name" in info:
+        patcher_info["package_name"] = info["package_name"]
+    if "package_version" in info:
+        patcher_info["package_version"] = info["package_version"]
+    if "license_kinds" in info:
+        patcher_info["license_kinds"] = ",".join(info["license_kinds"])
+
+    # XXX DNS - we may not need this
+    repo_patcher = None
+    # TODO(aiuto): Move this lookup into a wrapper around http_archive
+    patcher = native.existing_rule("bazel_module_patcher")
+    if patcher:
+        # print("=== have bazel_model_patcher for ", name)
+        # This is a hacky way to detect if the repo is local or got downloaded
+        # via a deps() style inclusion.
+        if 'urls' in patcher:
+             fail('module_patcher not locally loaded')
+        # TODO(aiuto): I don't like having the name here, but we can not load it
+        # from here.  Perhaps.. toolchain?, @bazel_module_patcher:patcher is alias to
+        # the program?
+        repo_patcher = Label("@bazel_module_patcher//:add_package_metadata.py")
+    # XXX DNS - we may not need this
     http_archive(
         name = name,
         sha256 = info["sha256"],
         urls = info["urls"],
+        # repo_patcher = repo_patcher,
+        # TODO(aiuto): Why not just pass info here?
+        repo_patcher_args = patcher_info,
         **kwargs
     )
+
 
 def dist_http_file(name, **kwargs):
     """Wraps http_file, providing attributes like sha and urls from the central list.

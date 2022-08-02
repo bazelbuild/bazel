@@ -6,7 +6,9 @@ licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//tools/compliance/module_patcher:srcs",
+    ],
     visibility = [
         "//tools:__subpackages__",
         "@bazel_tools//tools:__subpackages__",
