@@ -1,3 +1,26 @@
+## Release 6.0.0-pre.20220720.3 (2022-08-02)
+
+```
+Baseline: 4cd266aa1dfa53d8c8de44f7895edcfd46f74725
+
+Cherry picks:
+
+   + f706da832996ab30ddd8784f2af697a3bb62852b:
+     Requires delayed release
+```
+
+Important changes:
+
+  - Added new register_{execution_platforms,toolchains} directives to
+    the MODULE.bazel file, to replace the
+    {execution_platforms,toolchains}_to_register attributes on the
+    module() directive.
+  - The legacy pkg_tar no longer supports the ability to untar and
+    repackage an input tar file (`deps` attribute). Users needed that
+    capability must switch to github.com/bazelbuild/rules_pkg.
+
+This release contains contributions from many people at Google, as well as Emil Kattainen, Jason Tan, Keith Smiley, Luis Fernando Pino Duque, rustberry, Son Luong Ngoc, Yannic Bonenberger, Yannic.
+
 ## Release 6.0.0-pre.20220706.4 (2022-07-21)
 
 ```
