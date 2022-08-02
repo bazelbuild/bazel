@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.util.ResourceFileLoader;   // XXXX
 import java.io.IOException;
 import java.io.InputStream;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -81,7 +82,8 @@ public abstract class BlackBoxTestEnvironment {
     executorService = null;
   }
 
-  public static String getWorkspaceWithDefaultRepos() throws IOException {
+  // XXX Delete if the windows
+  public static String xXgetWorkspaceWithDefaultRepos() throws IOException {
     final String workspace_path = "src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSPACE";
     try (InputStream workspace = Files.newInputStream(Paths.get(workspace_path))) {
       if (workspace == null) {
@@ -90,4 +92,9 @@ public abstract class BlackBoxTestEnvironment {
       return new String(ByteStreams.toByteArray(workspace), UTF_8);
     }
   }
+
+   public static String getWorkspaceWithDefaultRepos() throws IOException {
+     return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
+     // return ResourceFileLoader.readFromResources("blackbox.WORKSPACE");
+   }
 }
