@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -384,6 +385,40 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
                         FailureDetails.TargetPatterns.newBuilder()
                             .setCode(FailureDetails.TargetPatterns.Code.PACKAGE_NOT_FOUND))
                     .build()));
+  }
+
+  @Test
+  public void noKeepGoingOnAllRulesBeneathForMultipleBrokenPackages() throws Exception {
+    // This test uses two broken packages beneath the "foo/..." target pattern because the Skyframe
+    // state for each package will be different during Skyframe error bubbling. Specifically, the
+    // first broken package encountered during standard Skyframe evaluation will have an associated
+    // PackageError node, but any subsequent broken package won't. This may affect error bubbling
+    // behavior (and did, in b/211901614).
+    scratch.file("foo/bar/bad1/BUILD", "invalid build file");
+    scratch.file("foo/bar/bad2/BUILD", "invalid build file");
+
+    reporter.removeHandler(failFastHandler);
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> parseList("foo/..."));
+    assertThat(e.getDetailedExitCode())
+        .isIn(
+            ImmutableList.of(1, 2).stream()
+                .map(
+                    i ->
+                        DetailedExitCode.of(
+                            FailureDetails.FailureDetail.newBuilder()
+                                .setMessage(
+                                    String.format(
+                                        "Error evaluating 'foo/...': error loading package"
+                                            + " 'foo/bar/bad%d': Package 'foo/bar/bad%d' contains"
+                                            + " errors",
+                                        i, i))
+                                .setTargetPatterns(
+                                    FailureDetails.TargetPatterns.newBuilder()
+                                        .setCode(
+                                            FailureDetails.TargetPatterns.Code.PACKAGE_NOT_FOUND))
+                                .build()))
+                .collect(toImmutableList()));
   }
 
   @Test
