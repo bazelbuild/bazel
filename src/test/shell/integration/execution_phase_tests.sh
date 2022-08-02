@@ -393,6 +393,21 @@ function test_track_directory_crossing_package() {
   expect_log "WARNING: Directory artifact foo/dir crosses package boundary into"
 }
 
+function test_source_directory_no_warning_with_directory_tracking() {
+  mkdir -p foo/dir
+  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
+  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
+      >& "$TEST_log" || fail "Expected success"
+  expect_not_log "WARNING: input 'foo/dir'"
+}
+
+function test_source_directory_warning_without_directory_tracking() {
+  mkdir -p foo/dir
+  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
+  bazel build //foo >& "$TEST_log" || fail "Expected success"
+  expect_log "WARNING: input 'foo/dir' is a directory; dependency checking of source directories is unsound."
+}
+
 # Regression test for b/174837755.
 # TODO(b/172462551) Clean this up after the experiment
 function test_skyframe_eval_with_ordered_list_incremental_with_error() {

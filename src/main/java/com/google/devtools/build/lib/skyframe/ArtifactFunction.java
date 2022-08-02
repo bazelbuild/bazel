@@ -278,6 +278,13 @@ public final class ArtifactFunction implements SkyFunction {
 
     if (fileValue.isDirectory()) {
       env.getListener().post(SourceDirectoryEvent.create(artifact.getExecPath()));
+      if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+        env.getListener().handle(Event.warn(String.format(
+            "input '%s' is a directory; dependency checking of source directories is unsound. "
+                + "Either use an archive instead or enable highly experimental source directory "
+                + "tracking via --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1.",
+            artifact.prettyPrint())));
+      }
     }
 
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
