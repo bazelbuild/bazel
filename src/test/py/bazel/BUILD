@@ -41,6 +41,7 @@ gen_workspace_stanza(
     name = "default_repos_stanza",
     out = "default_repos_stanza.txt",
     repos = [
+        "rules_license",
         "rules_cc",
     ],
 )

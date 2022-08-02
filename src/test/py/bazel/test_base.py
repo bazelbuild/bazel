@@ -54,6 +54,7 @@ class TestBase(unittest.TestCase):
   _cas_path = None
 
   _SHARED_REPOS = (
+      'rules_license',
       'rules_cc',
       'rules_java',
       'rules_proto',
