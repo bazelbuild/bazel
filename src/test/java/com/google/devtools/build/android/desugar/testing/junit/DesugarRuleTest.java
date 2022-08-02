@@ -45,7 +45,7 @@ public final class DesugarRuleTest {
       DesugarRule.builder(this, MethodHandles.lookup())
           .addInputs(Paths.get(System.getProperty("input_jar")))
           .addSourceInputsFromJvmFlag("input_srcs")
-          .addJavacOptions("-source 11", "-target 11")
+          .addJavacOptions("--release 11")
           .enableIterativeTransformation(3)
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
           .build();

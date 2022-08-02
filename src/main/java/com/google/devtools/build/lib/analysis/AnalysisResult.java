@@ -37,6 +37,7 @@ public class AnalysisResult {
   private final ImmutableSet<Artifact> artifactsToBuild;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
+  private final ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
   private final ImmutableMap<AspectKey, ConfiguredAspect> aspects;
   private final PackageRoots packageRoots;
@@ -54,6 +55,7 @@ public class AnalysisResult {
       ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
+      ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
@@ -68,6 +70,7 @@ public class AnalysisResult {
     this.artifactsToBuild = artifactsToBuild;
     this.parallelTests = parallelTests;
     this.exclusiveTests = exclusiveTests;
+    this.exclusiveIfLocalTests = exclusiveIfLocalTests;
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
@@ -122,6 +125,10 @@ public class AnalysisResult {
     return exclusiveTests;
   }
 
+  public ImmutableSet<ConfiguredTarget> getExclusiveIfLocalTests() {
+    return exclusiveIfLocalTests;
+  }
+
   public ImmutableSet<ConfiguredTarget> getParallelTests() {
     return parallelTests;
   }
@@ -171,6 +178,30 @@ public class AnalysisResult {
         artifactsToBuild,
         Sets.union(parallelTests, exclusiveTests).immutableCopy(),
         /*exclusiveTests=*/ ImmutableSet.of(),
+        exclusiveIfLocalTests,
+        topLevelContext,
+        packageRoots,
+        workspaceName,
+        topLevelTargetsWithConfigs);
+  }
+
+  /**
+   * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
+   * tests.
+   */
+  public AnalysisResult withExclusiveIfLocalTestsAsParallelTests() {
+    return new AnalysisResult(
+        configurations,
+        targetsToBuild,
+        aspects,
+        targetsToTest,
+        targetsToSkip,
+        failureDetail,
+        actionGraph,
+        artifactsToBuild,
+        Sets.union(parallelTests, exclusiveIfLocalTests).immutableCopy(),
+        exclusiveTests,
+        /*exclusiveIfLocalTests=*/ ImmutableSet.of(),
         topLevelContext,
         packageRoots,
         workspaceName,

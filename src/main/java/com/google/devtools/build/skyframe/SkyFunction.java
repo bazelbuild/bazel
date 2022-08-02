@@ -50,6 +50,13 @@ public interface SkyFunction {
    * another containing that additional context. If it has no such additional context, then it
    * should allow its dependency's exception to be thrown through it.
    *
+   * <p>Be aware that during error bubbling Skyframe will interpret a thrown {@link
+   * InterruptedException} to mean that this method has no additional context to contribute to a
+   * dependency's exception. Also note that Skyframe interrupts the evaluating thread when, during
+   * error bubbling, this method requests a dependency which failed with an exception. Prefer (if
+   * possible) exception enrichment logic simple enough to be insensitive to the evaluating thread's
+   * interrupt state.
+   *
    * <p>This method may return {@link Restart} in rare circumstances. See its docs. Do not return
    * values of this type unless you know exactly what you are doing.
    *

@@ -72,6 +72,26 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTestWithExclusiveIfRunLocally_notTaggedLocal() throws Exception {
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        "sh_test(",
+        "  name = 'test',",
+        "  size = 'small',",
+        "  srcs = ['test.sh'],",
+        "  tags = ['exclusive-if-local'],",
+        ")");
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    // "exclusive" tests become local when TestTargetProperties adds local executionInfo.
+    // Ensure this is not the case for "exclusive-if-local"
+    assertThat(testAction.getExecutionInfo()).isEmpty();
+  }
+
+  @Test
   public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
     useConfiguration("--incompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
@@ -89,6 +109,27 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
             getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
     assertThat(testAction.getExecutionInfo()).containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
     assertThat(testAction.getExecutionInfo()).hasSize(1);
+  }
+
+  @Test
+  public void testTestWithExclusiveIfRunLocally_notTaggedNoRemote() throws Exception {
+    useConfiguration("--incompatible_exclusive_test_sandboxed");
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        "sh_test(",
+        "  name = 'test',",
+        "  size = 'small',",
+        "  srcs = ['test.sh'],",
+        "  tags = ['exclusive-if-local'],",
+        ")");
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    // "exclusive" tests become local when TestTargetProperties adds a no-remote-exec requirement
+    // to the execution info. Ensure this is not the case for "exclusive-if-local"
+    assertThat(testAction.getExecutionInfo()).isEmpty();
   }
 
   @Test

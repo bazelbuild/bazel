@@ -380,6 +380,44 @@ public class MultiArchBinarySupport {
   }
 
   /**
+   * Returns a list of supported Apple CPUs given the minimum OS for the target platform.
+   *
+   * @param minimumOsVersionOption a minimum OS version represented to override command line
+   *     options, if one has been found
+   * @param cpus list of Apple CPUs requested by the build invocation
+   * @param platformType the platform type attribute found from the given rule being built
+   * @return a {@link List<String>} representing the supported list of Apple CPUs
+   */
+  private static List<String> supportedAppleCpusFromMinimumOs(
+      DottedVersion.Option minimumOsVersionOption, List<String> cpus, PlatformType platformType) {
+    List<String> supportedCpus = cpus;
+    DottedVersion actualMinimumOsVersion = DottedVersion.maybeUnwrap(minimumOsVersionOption);
+    DottedVersion unsupported32BitMinimumOs;
+    switch (platformType) {
+      case IOS:
+        unsupported32BitMinimumOs = DottedVersion.fromStringUnchecked("11.0");
+        break;
+      case WATCHOS:
+        unsupported32BitMinimumOs = DottedVersion.fromStringUnchecked("9.0");
+        break;
+      default:
+        return supportedCpus;
+    }
+
+    if (actualMinimumOsVersion != null
+        && actualMinimumOsVersion.compareTo(unsupported32BitMinimumOs) >= 0) {
+      ImmutableList<String> non32BitCpus =
+          cpus.stream()
+              .filter(cpu -> !ApplePlatform.is32Bit(platformType, cpu))
+              .collect(toImmutableList());
+      if (!non32BitCpus.isEmpty()) {
+        supportedCpus = non32BitCpus;
+      }
+    }
+    return supportedCpus;
+  }
+
+  /**
    * Creates a split transition mapping based on Apple cpu options.
    *
    * @param buildOptions the build's top-level options
@@ -407,26 +445,14 @@ public class MultiArchBinarySupport {
               ImmutableList.of(
                   AppleConfiguration.iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu));
         }
-        DottedVersion actualMinimumOsVersion = DottedVersion.maybeUnwrap(minimumOsVersionOption);
-        if (actualMinimumOsVersion != null
-            && actualMinimumOsVersion.compareTo(DottedVersion.fromStringUnchecked("11.0")) >= 0) {
-          List<String> non32BitCpus =
-              cpus.stream()
-                  .filter(cpu -> !ApplePlatform.is32Bit(PlatformType.IOS, cpu))
-                  .collect(Collectors.toList());
-          if (!non32BitCpus.isEmpty()) {
-            // TODO(b/65969900): Throw an exception here. Ideally, there would be an applicable
-            // exception to throw during configuration creation, but instead this validation needs
-            // to be deferred to later.
-            cpus = non32BitCpus;
-          }
-        }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;
       case WATCHOS:
         cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;
         if (cpus.isEmpty()) {
           cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU);
         }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;
       case TVOS:
         cpus = buildOptions.get(AppleCommandLineOptions.class).tvosCpus;

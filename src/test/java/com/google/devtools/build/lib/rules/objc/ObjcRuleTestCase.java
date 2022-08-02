@@ -1872,7 +1872,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains("-mios-simulator-version-min=9.0");
   }
 
-  protected void verifyDrops32BitArchitecture(RuleType ruleType) throws Exception {
+  protected void verifyDrops32BitIosArchitecture(RuleType ruleType) throws Exception {
     scratch.file(
         "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
 
@@ -1892,6 +1892,29 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     getSingleArchBinary(lipoAction, "arm64");
     getSingleArchBinary(lipoAction, "x86_64");
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7")).isNull();
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
+  }
+
+  protected void verifyDrops32BitWatchArchitecture(RuleType ruleType) throws Exception {
+    scratch.file(
+        "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
+
+    ruleType.scratchTarget(
+        scratch,
+        "deps",
+        "['//libs:objc_lib']",
+        "platform_type",
+        "'watchos'",
+        "minimum_os_version",
+        "'9.0'"); // Does not support 32-bit architectures.
+
+    useConfiguration("--watchos_cpus=armv7k,arm64_32,i386,x86_64");
+
+    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
+
+    getSingleArchBinary(lipoAction, "arm64_32");
+    getSingleArchBinary(lipoAction, "x86_64");
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7k")).isNull();
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
   }
 

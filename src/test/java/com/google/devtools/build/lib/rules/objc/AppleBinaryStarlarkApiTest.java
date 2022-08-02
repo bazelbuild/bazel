@@ -1006,8 +1006,13 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDrops32BitArchitecture() throws Exception {
-    verifyDrops32BitArchitecture(getRuleType());
+  public void testDrops32BitIosArchitecture() throws Exception {
+    verifyDrops32BitIosArchitecture(getRuleType());
+  }
+
+  @Test
+  public void testDrops32BitWatchArchitecture() throws Exception {
+    verifyDrops32BitWatchArchitecture(getRuleType());
   }
 
   @Test
