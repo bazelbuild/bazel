@@ -109,7 +109,7 @@ public class CommandLines {
    *
    * @param artifactExpander The artifact expander to use.
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
-   * @param stripPaths function to strip configuration prefixes from output paths, in accordance
+   * @param pathStripper function to strip configuration prefixes from output paths, in accordance
    *     with the logic in {@link PathStripper}
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
