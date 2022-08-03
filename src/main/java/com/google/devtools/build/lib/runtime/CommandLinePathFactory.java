@@ -39,7 +39,14 @@ import java.util.regex.Pattern;
  * (e.g., {@code %workspace%/foo} becomes {@code </path/to/workspace>/foo}).
  */
 public final class CommandLinePathFactory {
-  private static final Pattern REPLACEMENT_PATTERN = Pattern.compile("^(%([a-z_]+)%/)?([^%].*)$");
+  /** An exception thrown while attempting to resolve a path. */
+  public static class CommandLinePathFactoryException extends IOException {
+    public CommandLinePathFactoryException(String message) {
+      super(message);
+    }
+  }
+
+  private static final Pattern REPLACEMENT_PATTERN = Pattern.compile("^(%([a-z_]+)%/+)?([^%].*)$");
 
   private static final Splitter PATH_SPLITTER = Splitter.on(File.pathSeparator);
 
@@ -78,20 +85,17 @@ public final class CommandLinePathFactory {
     String rootName = matcher.group(2);
     PathFragment path = PathFragment.create(matcher.group(3));
     if (path.containsUplevelReferences()) {
-      throw new IllegalArgumentException(
+      throw new CommandLinePathFactoryException(
           String.format(
               Locale.US, "Path must not contain any uplevel references ('..'), got '%s'", value));
     }
 
     // Case 1: `path` is relative to a well-known root.
     if (!Strings.isNullOrEmpty(rootName)) {
-      // The regex above cannot check that `value` is not of form `%foo%//abc` (group 2 will be
-      // `foo` and group 3 will be `/abc`).
-      Preconditions.checkArgument(!path.isAbsolute());
-
       Path root = roots.get(rootName);
       if (root == null) {
-        throw new IllegalArgumentException(String.format(Locale.US, "Unknown root %s", rootName));
+        throw new CommandLinePathFactoryException(
+            String.format(Locale.US, "Unknown root %s", rootName));
       }
       return root.getRelative(path);
     }
@@ -108,7 +112,7 @@ public final class CommandLinePathFactory {
     // flag is from?), we only allow relative paths with a single segment (i.e., no `/`) and treat
     // it as relative to the user's `PATH`.
     if (path.segmentCount() > 1) {
-      throw new IllegalArgumentException(
+      throw new CommandLinePathFactoryException(
           "Path must either be absolute or not contain any path separators");
     }
 
