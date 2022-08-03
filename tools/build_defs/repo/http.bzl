@@ -530,19 +530,19 @@ Examples:
 
 #///////////////////////////// -- Module Extensions -- ///////////////////////////////#
 
-def _http_file_ext_impl(module_ctx):
-    """Implementation of the http_file module extension."""
+def _http_ext_impl(module_ctx):
+    """Implementation of the http module extension."""
     files = []
     for mod in module_ctx.modules:
         for file in mod.tags.file:
             # Will use the first file that appears in the tree
             if file.name in files:
                 #TODO is this correct for warning?
-                auto_configure_warning("File %s will be overriden", file.name)
+                auto_configure_warning("File {} will be overriden".format(file.name))
             else:
-                files.add(file.name)
+                files.append(file.name)
 
-                #TODO What if some of them wasn't provided? Test with empty values
+                #TODO is there a better way to pass attrs?
                 http_file(
                     name = file.name,
                     executable = file.executable,
@@ -553,15 +553,17 @@ def _http_file_ext_impl(module_ctx):
                     urls = file.urls,
                     netrc = file.netrc,
                     auth_patterns = file.auth_patterns,
-                    #**kwargs //TODO try this
                 )
 
+
+_file_tag_attrs = _http_file_attrs
+_file_tag_attrs["name"] = attr.string(doc = "Name of the repo")
 file_atributes = tag_class(
-    #TODO Check if this works
-    attrs = _http_file_attrs,
+    attrs = _file_tag_attrs,
+)
 )
 
-http_file_ext = module_extension(
-    implementation = _http_file_ext_impl,
+http_ext = module_extension(
+    implementation = _http_ext_impl,
     tag_classes = {"file": file_atributes},
 )

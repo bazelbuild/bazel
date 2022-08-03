@@ -364,15 +364,15 @@ class BazelModuleTest(test_base.TestBase):
             in line for line in stderr
         ]))
 
-  def testHttpfileModuleExtensionSuccess(self):
+  def testHttpModuleExtensionOneFileSuccess(self):
       self.ScratchFile('MODULE.bazel', [
-          'file_ext = use_extension("//tools/build_defs/repo:http.bzl", "http_file_ext")',
-          'file_ext.file(',
+          'http_ext = use_extension("@bazel_tools//tools/build_defs/repo:http.bzl", "http_ext")',
+          'http_ext.file(',
           '  name = "emojis",',
           '  urls = ["https://raw.githubusercontent.com/datasets/emojis/4b470b8f873e47e7443b38ab1a1d8875d6f7253f/data/emojis.csv"],',
           '  sha256 = "9768ed212d23668749c74c6a64d068ed818fda1ecb7aa6561655d58192db6382"',
           ')',
-          'use_repo(file_ext, "emojis")',
+          'use_repo(http_ext, "emojis")',
       ])
       self.ScratchFile('BUILD.bazel', [
           'genrule(',
@@ -382,19 +382,89 @@ class BazelModuleTest(test_base.TestBase):
           '  srcs = ["@emojis//file"],',
           ')'
       ])
-      self.ScratchFile(
-          '.bazelrc',
-          [
-              # In ipv6 only network, this has to be enabled.
-              # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-              'build --experimental_enable_bzlmod',
-              'build --registry=' + self.main_registry.getURL(),
-              # We need to have BCR here to make sure built-in modules like
-              # bazel_tools can work.
-              'build --registry=https://bcr.bazel.build',
-              'build --verbose_failures',
-              ])
       exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count'])
+      self.AssertExitCode(exit_code, 0, stderr)
+
+  def testHttpModuleExtensionFileRepeatedSuccess(self):
+      self.ScratchFile('A/WORKSPACE')
+      self.ScratchFile('A/MODULE.bazel', [
+       'module(',
+        '    name = "aa",',
+        '    version = "0.0.1",',
+        ')',
+        'http_ext = use_extension("@bazel_tools//tools/build_defs/repo:http.bzl", "http_ext")',
+        'http_ext.file(',
+        '    name = "emojis",',
+        '    urls = ["https://raw.githubusercontent.com/datasets/emojis/4b470b8f873e47e7443b38ab1a1d8875d6f7253f/data/emojis.csv"],',
+        '    sha256 = "9768ed212d23668749c74c6a64d068ed818fda1ecb7aa6561655d58192db6382"',
+        ')',
+        'use_repo(http_ext, "emojis")',
+      ])
+      self.ScratchFile('A/BUILD.bazel', [
+        'genrule(',
+        '    name = "emoji_count",',
+        '    cmd = "wc -l < $< > $@",',
+        '    outs = ["emoji_number"],',
+        '    srcs = ["@emojis//file"],',
+        ')'
+      ])
+
+      self.ScratchFile('MODULE.bazel', [
+        'http_ext = use_extension("@bazel_tools//tools/build_defs/repo:http.bzl", "http_ext")',
+        'http_ext.file(',
+        '    name = "emojis",',
+        '    urls = ["https://raw.githubusercontent.com/datasets/emojis/4b470b8f873e47e7443b38ab1a1d8875d6f7253f/data/emojis.csv"],',
+        '    sha256 = "9768ed212d23668749c74c6a64d068ed818fda1ecb7aa6561655d58192db6382"',
+        ')',
+        'use_repo(http_ext, "emojis")',
+        '',
+        'bazel_dep(name = "aa", version = "0.0.1")',
+        'local_path_override(',
+        '    module_name = "aa",',
+        '    path = "./A",',
+        ')',
+      ])
+      self.ScratchFile('BUILD.bazel', [
+        'genrule(',
+        '    name = "emoji_count2",',
+        '    cmd = "wc -l < $< > $@",',
+        '    outs = ["emoji_number2"],',
+        '    srcs = ["@emojis//file"],',
+        ')'
+      ])
+
+      exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count2'])
+      self.AssertExitCode(exit_code, 0, stderr)
+      self.assertIn(
+          'Auto-Configuration Warning: File emojis will be overriden', stderr)
+
+  def testHttpModuleExtensionOneArchiveSuccess(self):
+      self.ScratchFile('MODULE.bazel', [
+          'http_ext = use_extension("@bazel_tools//tools/build_defs/repo:http.bzl", "http_ext")',
+          'http_ext.archive(',
+          '    name = "com_github_google_glog",',
+          '    sha256 = "eede71f28371bf39aa69b45de23b329d37214016e2055269b3b5e7cfd40b59f5",',
+          '    strip_prefix = "glog-0.5.0",',
+          '    urls = ["https://github.com/google/glog/archive/refs/tags/v0.5.0.tar.gz"],'
+          ')',
+          'use_repo(http_ext, "com_github_google_glog")',
+      ])
+      self.ScratchFile('BUILD', [
+          'cc_binary(',
+          '  name = "main",',
+          '  srcs = ["main.cc"],',
+          '  deps = ["@com_github_google_glog//:glog"]',
+          ')',
+      ])
+      self.ScratchFile('main.cc', [
+          '#include <glog/logging.h>',
+          'int main(int argc, char* argv[]) {',
+          '    google::InitGoogleLogging(argv[0]);',
+          '    int num_cookies = 42;',
+          '    LOG(INFO) << "Found " << num_cookies << " cookies";',
+          '}',
+      ])
+      exit_code, _, stderr = self.RunBazel(['run', '//:main'])
       self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
