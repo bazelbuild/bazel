@@ -41,7 +41,7 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
   private static final String HELLO_FROM_MAIN_REPOSITORY = "Hello from main repository!";
 
   @Test
-  public void testPkgTar() throws Exception {
+  public void notestPkgTar() throws Exception {
     context().write("main/WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     context().write("main/foo.txt", "Hello World");
     context().write("main/bar.txt", "Hello World, again");
