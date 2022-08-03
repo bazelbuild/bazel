@@ -438,34 +438,7 @@ class BazelModuleTest(test_base.TestBase):
       self.assertIn(
           'Auto-Configuration Warning: File emojis will be overriden', stderr)
 
-  def testHttpModuleExtensionOneArchiveSuccess(self):
-      self.ScratchFile('MODULE.bazel', [
-          'http_ext = use_extension("@bazel_tools//tools/build_defs/repo:http.bzl", "http_ext")',
-          'http_ext.archive(',
-          '    name = "com_github_google_glog",',
-          '    sha256 = "eede71f28371bf39aa69b45de23b329d37214016e2055269b3b5e7cfd40b59f5",',
-          '    strip_prefix = "glog-0.5.0",',
-          '    urls = ["https://github.com/google/glog/archive/refs/tags/v0.5.0.tar.gz"],'
-          ')',
-          'use_repo(http_ext, "com_github_google_glog")',
-      ])
-      self.ScratchFile('BUILD', [
-          'cc_binary(',
-          '  name = "main",',
-          '  srcs = ["main.cc"],',
-          '  deps = ["@com_github_google_glog//:glog"]',
-          ')',
-      ])
-      self.ScratchFile('main.cc', [
-          '#include <glog/logging.h>',
-          'int main(int argc, char* argv[]) {',
-          '    google::InitGoogleLogging(argv[0]);',
-          '    int num_cookies = 42;',
-          '    LOG(INFO) << "Found " << num_cookies << " cookies";',
-          '}',
-      ])
-      exit_code, _, stderr = self.RunBazel(['run', '//:main'])
-      self.AssertExitCode(exit_code, 0, stderr)
+  
 
 #TODO add tests for archive tag
 if __name__ == '__main__':
