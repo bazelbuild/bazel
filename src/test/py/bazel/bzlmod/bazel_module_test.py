@@ -467,5 +467,6 @@ class BazelModuleTest(test_base.TestBase):
       exit_code, _, stderr = self.RunBazel(['run', '//:main'])
       self.AssertExitCode(exit_code, 0, stderr)
 
+#TODO add tests for archive tag
 if __name__ == '__main__':
   unittest.main()

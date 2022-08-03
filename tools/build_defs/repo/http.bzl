@@ -533,6 +533,7 @@ Examples:
 def _http_ext_impl(module_ctx):
     """Implementation of the http module extension."""
     files = []
+    archives = []
     for mod in module_ctx.modules:
         for file in mod.tags.file:
             # Will use the first file that appears in the tree
@@ -555,15 +556,49 @@ def _http_ext_impl(module_ctx):
                     auth_patterns = file.auth_patterns,
                 )
 
+        for archive in mod.tags.archive:
+            # Will use the first archive that appears in the tree
+            if archive.name in archives:
+                auto_configure_warning("Archive {} will be overriden".format(archive.name))
+            else:
+                archives.append(archive.name)
+                http_archive(
+                    name = archive.name,
+                    url = archive.url,
+                    urls = archive.urls,
+                    sha256 = archive.sha256,
+                    integrity = archive.integrity,
+                    netrc = archive.netrc,
+                    auth_patterns = archive.auth_patterns,
+                    canonical_id = archive.canonical_id,
+                    strip_prefix = archive.strip_prefix,
+                    type = archive.type,
+                    patches = archive.patches,
+                    remote_patches = archive.remote_patches,
+                    remote_patch_strip = archive.remote_patch_strip,
+                    patch_tool = archive.patch_tool,
+                    patch_args = archive.patch_args,
+                    patch_cmds = archive.patch_cmds,
+                    patch_cmds_win = archive.patch_cmds_win,
+                    build_file = archive.build_file,
+                    build_file_content = archive.build_file_content,
+                    workspace_file = archive.workspace_file,
+                    workspace_file_content = archive.workspace_file_content,
+                )
 
 _file_tag_attrs = _http_file_attrs
 _file_tag_attrs["name"] = attr.string(doc = "Name of the repo")
 file_atributes = tag_class(
     attrs = _file_tag_attrs,
 )
+
+_archive_tag_attrs = _http_archive_attrs
+_archive_tag_attrs["name"] = attr.string(doc = "Name of the repo")
+archive_attrs = tag_class(
+    attrs = _archive_tag_attrs,
 )
 
 http_ext = module_extension(
     implementation = _http_ext_impl,
-    tag_classes = {"file": file_atributes},
+    tag_classes = {"file": file_atributes, "archive": archive_attrs},
 )
