@@ -223,10 +223,8 @@ public class RemoteServerCapabilitiesTest {
                 return 100;
               }
             });
-    CallCredentials creds =
-        GoogleAuthUtils.newGoogleCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     RemoteServerCapabilities client =
-        new RemoteServerCapabilities("instance", channel.retain(), creds, 3, retrier);
+        new RemoteServerCapabilities("instance", channel.retain(), /*creds= */ null, 3, retrier);
 
     assertThat(client.get("build-req-id", "command-id")).isEqualTo(caps);
   }
