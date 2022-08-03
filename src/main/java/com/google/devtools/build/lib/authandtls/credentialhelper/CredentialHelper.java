@@ -77,7 +77,7 @@ public final class CredentialHelper {
 
       process.waitFor();
       if (process.timedout()) {
-        throw new IOException(
+        throw new CredentialHelperException(
             String.format(
                 Locale.US,
                 "Failed to get credentials for '%s' from helper '%s': process timed out",
@@ -85,7 +85,7 @@ public final class CredentialHelper {
                 path));
       }
       if (process.exitValue() != 0) {
-        throw new IOException(
+        throw new CredentialHelperException(
             String.format(
                 Locale.US,
                 "Failed to get credentials for '%s' from helper '%s': process exited with code %d."
@@ -99,7 +99,7 @@ public final class CredentialHelper {
       try {
         GetCredentialsResponse response = GSON.fromJson(stdout, GetCredentialsResponse.class);
         if (response == null) {
-          throw new IOException(
+          throw new CredentialHelperException(
               String.format(
                   Locale.US,
                   "Failed to get credentials for '%s' from helper '%s': process exited without"
@@ -110,7 +110,7 @@ public final class CredentialHelper {
         }
         return response;
       } catch (JsonSyntaxException e) {
-        throw new IOException(
+        throw new CredentialHelperException(
             String.format(
                 Locale.US,
                 "Failed to get credentials for '%s' from helper '%s': error parsing output. stderr:"
