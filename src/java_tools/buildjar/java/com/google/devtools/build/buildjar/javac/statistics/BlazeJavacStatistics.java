@@ -65,6 +65,10 @@ public abstract class BlazeJavacStatistics {
 
   public abstract ImmutableMap<String, Duration> bugpatternTiming();
 
+  public abstract Optional<Duration> totalProcessorTime();
+
+  public abstract ImmutableMap<String, Duration> processorTiming();
+
   public abstract ImmutableSet<String> processors();
 
   public abstract int transitiveClasspathLength();
@@ -100,7 +104,11 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder totalErrorProneTime(Duration totalErrorProneTime);
 
+    public abstract Builder totalProcessorTime(Duration totalProcessorTime);
+
     abstract ImmutableMap.Builder<String, Duration> bugpatternTimingBuilder();
+
+    abstract ImmutableMap.Builder<String, Duration> processorTimingBuilder();
 
     abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
 
@@ -117,6 +125,12 @@ public abstract class BlazeJavacStatistics {
     @CanIgnoreReturnValue
     public Builder addBugpatternTiming(String key, Duration value) {
       bugpatternTimingBuilder().put(key, value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProcessorTiming(String key, Duration value) {
+      processorTimingBuilder().put(key, value);
       return this;
     }
 
