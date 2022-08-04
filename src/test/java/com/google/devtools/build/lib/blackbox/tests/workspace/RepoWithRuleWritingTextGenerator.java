@@ -127,8 +127,8 @@ public class RepoWithRuleWritingTextGenerator {
   Path setupRepository() throws IOException {
     Path workspace = PathUtils.writeFileInDir(root, "WORKSPACE");
     PathUtils.writeFileInDir(root, HELPER_FILE, WRITE_TEXT_TO_FILE);
+    injectMiniTar(root);
     if (generateBuildFile) {
-      injectMiniTar(root);
       PathUtils.writeFileInDir(
           root,
           "BUILD",
