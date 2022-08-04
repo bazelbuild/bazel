@@ -183,6 +183,7 @@ sh_binary(
     ],
 )
 
+# Use this to let us change select() statements from the command line.
 config_setting(
   name = "setting1",
   define_values = {
