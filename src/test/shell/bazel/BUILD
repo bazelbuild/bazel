@@ -15,6 +15,14 @@ filegroup(
 )
 
 gen_workspace_stanza(
+    name = "rules_license_stanza",
+    out = "rules_license_stanza.txt",
+    repos = [
+        "rules_license",
+    ],
+)
+
+gen_workspace_stanza(
     name = "rules_proto_stanza",
     out = "rules_proto_stanza.txt",
     repos = [
@@ -26,6 +34,7 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        ":rules_license_stanza.txt",
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
