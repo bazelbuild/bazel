@@ -15,13 +15,15 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
-import static java.util.stream.Collectors.joining;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
@@ -80,6 +83,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   private final Location location;
   private final Label.PackageContext packageContext;
 
+  // The values in this cache should always be instances of StarlarkTransition, but referencing that
+  // here results in a circular dependency.
+  private final transient Cache<Rule, PatchTransition> ruleTransitionCache =
+      Caffeine.newBuilder().weakKeys().build();
+
   private StarlarkDefinedConfigTransition(
       List<String> inputs,
       List<String> outputs,
@@ -96,7 +104,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         getCanonicalizedSettings(repoMapping, parentLabel, inputs, Settings.INPUTS);
   }
 
-  public PackageContext getPackageContext() {
+  public final PackageContext getPackageContext() {
     return packageContext;
   }
 
@@ -156,17 +164,17 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * Returns true if this transition is for analysis testing. If true, then only attributes of rules
    * with {@code analysis_test=true} may use this transition object.
    */
-  public abstract Boolean isForAnalysisTesting();
+  public abstract boolean isForAnalysisTesting();
 
   /**
    * Returns the given input option keys for this transition. Only options contained in this list
    * will be provided in the 'settings' argument given to the transition implementation function.
    */
-  public List<String> getInputs() {
+  public final ImmutableList<String> getInputs() {
     return inputsCanonicalizedToGiven.values().asList();
   }
 
-  public ImmutableMap<String, String> getInputsCanonicalizedToGiven() {
+  public final ImmutableMap<String, String> getInputsCanonicalizedToGiven() {
     return inputsCanonicalizedToGiven;
   }
 
@@ -178,13 +186,35 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return outputsCanonicalizedToGiven.values().asList();
   }
 
-  public ImmutableMap<String, String> getOutputsCanonicalizedToGiven() {
+  public final ImmutableMap<String, String> getOutputsCanonicalizedToGiven() {
     return outputsCanonicalizedToGiven;
   }
 
   /** Returns the location of the Starlark code defining the transition. */
-  public Location getLocation() {
+  public final Location getLocation() {
     return location;
+  }
+
+  /**
+   * Returns a cache that can be used to ensure that this {@link StarlarkDefinedConfigTransition}
+   * results in at most one {@link
+   * com.google.devtools.build.lib.analysis.starlark.StarlarkTransition} instance per {@link Rule}.
+   *
+   * <p>The cache uses {@link Caffeine#weakKeys} to permit collection of transition objects when the
+   * corresponding {@link Rule} is collectable. As a consequence, it uses identity comparison for
+   * keys, but this is fine since {@link Rule} does not override {@link Object#equals}.
+   *
+   * <p>Profiling shows that constructing transitions and lazily computing their hash code
+   * contributes real CPU cost. For a build where every target applies a transition, this produces
+   * observable cost, particularly when the transition produces a noop (in which case the cost is
+   * pure overhead of the transition infrastructure).
+   *
+   * <p>Note that the transition instance is different from the transition's use. It's normal best
+   * practice to have few or even one transition invoke multiple times over multiple configured
+   * targets.
+   */
+  public final Cache<Rule, PatchTransition> getRuleTransitionCache() {
+    return ruleTransitionCache;
   }
 
   /**
@@ -230,7 +260,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   private static class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
     private final Map<String, Object> changedSettings;
 
-    public AnalysisTestTransition(
+    AnalysisTestTransition(
         Map<String, Object> changedSettings,
         RepositoryMapping repoMapping,
         Label parentLabel,
@@ -246,7 +276,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
-    public Boolean isForAnalysisTesting() {
+    public boolean isForAnalysisTesting() {
       return true;
     }
 
@@ -307,13 +337,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
-    public Boolean isForAnalysisTesting() {
+    public boolean isForAnalysisTesting() {
       return false;
     }
 
     /** An exception for validating that a transition is properly constructed */
     private static final class UnreadableInputSettingException extends Exception {
-      public UnreadableInputSettingException(String unreadableSetting, Class<?> unreadableClass) {
+      UnreadableInputSettingException(String unreadableSetting, Class<?> unreadableClass) {
         super(
             String.format(
                 "Input build setting %s is of type %s, which is unreadable in Starlark."
@@ -333,7 +363,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * @throws UnreadableInputSettingException when entry in build setting is not convertable (using
      *     {@link Starlark#fromJava})
      */
-    private Dict<String, Object> createBuildSettingsDict(
+    private static Dict<String, Object> createBuildSettingsDict(
         Map<String, Object> settings, Mutability entryMu) throws UnreadableInputSettingException {
 
       // Need to convert contained values into Starlark readable values.
@@ -423,7 +453,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (result instanceof NoneType) {
         return ImmutableMap.of();
       } else if (result instanceof Dict) {
-        if (((Dict) result).isEmpty()) {
+        if (((Dict<?, ?>) result).isEmpty()) {
           return ImmutableMap.of();
         }
         try {
@@ -459,7 +489,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         }
 
       } else if (result instanceof Sequence) {
-        if (((Sequence) result).isEmpty()) {
+        if (((Sequence<?>) result).isEmpty()) {
           return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
@@ -524,7 +554,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         throw new ValidationException(
             String.format(
                 "transition outputs [%s] were not defined by transition function",
-                remainingOutputs.stream().collect(joining(","))));
+                String.join(",", remainingOutputs)));
       }
     }
 
