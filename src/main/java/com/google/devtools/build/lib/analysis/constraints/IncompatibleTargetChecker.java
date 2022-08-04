@@ -262,7 +262,7 @@ public class IncompatibleTargetChecker {
    * matter what visibility we set here. To keep it simple, we pretend that all incompatible targets
    * are public.
    *
-   * TODO(#16044): Set up properly validated visibility here.
+   * <p>TODO(#16044): Set up properly validated visibility here.
    */
   private static NestedSet<PackageGroupContents> convertVisibility() {
     return NestedSetBuilder.create(
