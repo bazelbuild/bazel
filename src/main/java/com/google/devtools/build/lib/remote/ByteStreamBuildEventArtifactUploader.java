@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.XattrProvider;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import io.reactivex.rxjava3.core.Flowable;
@@ -71,7 +70,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private final Set<PathFragment> omittedFiles = Sets.newConcurrentHashSet();
   private final Set<PathFragment> omittedTreeRoots = Sets.newConcurrentHashSet();
-  private final XattrProvider xattrProvider;
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
