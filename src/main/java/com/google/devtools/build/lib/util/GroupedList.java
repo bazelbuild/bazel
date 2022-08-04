@@ -97,10 +97,11 @@ public final class GroupedList<T> implements Iterable<List<T>> {
   @SuppressWarnings("unchecked") // Cast to T and List<T>.
   public Set<T> append(GroupedListHelper<T> helper) {
     Preconditions.checkState(helper.currentGroup == null, "%s %s", this, helper);
-    // Do a check to make sure we don't have lists here. Note that if helper.elements is empty,
-    // Iterables.getFirst will return null, and null is not instanceof List.
-    Preconditions.checkState(!(Iterables.getFirst(helper.elements, null) instanceof List),
-        "Cannot make grouped list of lists: %s", helper);
+    // Do a check to make sure we don't have lists here.
+    Preconditions.checkState(
+        helper.elements.isEmpty() || !(helper.elements.get(0) instanceof List),
+        "Cannot make grouped list of lists: %s",
+        helper);
     Set<T> uniquifier = CompactHashSet.createWithExpectedSize(helper.elements.size());
     for (Object item : helper.groupedList) {
       if (item instanceof List) {
@@ -351,42 +352,6 @@ public final class GroupedList<T> implements Iterable<List<T>> {
     }
     // Just a single element.
     return new GroupedList<>(1, ImmutableList.of(compressed));
-  }
-
-  /** Creates an already compressed {@code GroupedList} of a single element. */
-  public static <E> @Compressed Object createCompressedSingleton(E singleton) {
-    return castAsCompressed(singleton);
-  }
-
-  /** Creates an already compressed {@code GroupedList} with two groups. */
-  public static <E> @Compressed Object createCompressedWithTwoGroups(
-      E singletonElementOfFirstGroup, List<? extends E> elementsOfSecondGroup) {
-    if (elementsOfSecondGroup.isEmpty()) {
-      return createCompressedSingleton(singletonElementOfFirstGroup);
-    }
-    return new Object[] {singletonElementOfFirstGroup, singleElementOrList(elementsOfSecondGroup)};
-  }
-
-  /** Creates an already compressed {@code GroupedList} with three groups. */
-  public static <E> @Compressed Object createCompressedWithThreeGroups(
-      E singletonElementOfFirstGroup,
-      List<? extends E> elementsOfSecondGroup,
-      List<? extends E> elementsOfThirdGroup) {
-    if (elementsOfSecondGroup.isEmpty()) {
-      return createCompressedWithTwoGroups(singletonElementOfFirstGroup, elementsOfThirdGroup);
-    }
-    if (elementsOfThirdGroup.isEmpty()) {
-      return createCompressedWithTwoGroups(singletonElementOfFirstGroup, elementsOfSecondGroup);
-    }
-    return new Object[] {
-      singletonElementOfFirstGroup,
-      singleElementOrList(elementsOfSecondGroup),
-      singleElementOrList(elementsOfThirdGroup)
-    };
-  }
-
-  private static Object singleElementOrList(List<?> list) {
-    return list.size() == 1 ? list.get(0) : list;
   }
 
   @Override

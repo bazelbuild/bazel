@@ -41,14 +41,9 @@ def _cc_library_impl(ctx):
     semantics.validate_attributes(ctx = ctx)
     _check_no_repeated_srcs(ctx)
 
-    interface_deps = None
-    implementation_deps = []
-    should_use_interface_deps_behavior = semantics.should_use_interface_deps_behavior(ctx)
-    if should_use_interface_deps_behavior:
-        interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.interface_deps)
-        implementation_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
-    else:
-        interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
+    semantics.check_can_use_implementation_deps(ctx)
+    interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
+    implementation_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
 
     if not _is_stl(ctx.attr.tags) and ctx.attr._stl != None:
         interface_deps.append(ctx.attr._stl[CcInfo].compilation_context)
@@ -113,7 +108,7 @@ def _cc_library_impl(ctx):
     is_google = True
 
     linking_contexts = cc_helper.get_linking_contexts_from_deps(ctx.attr.deps)
-    linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.interface_deps))
+    linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
     if ctx.file.linkstamp != None:
         linkstamps = []
         linkstamps.append(cc_internal.create_linkstamp(
@@ -575,7 +570,7 @@ attrs = {
     ),
     "alwayslink": attr.bool(default = False),
     "linkstatic": attr.bool(default = False),
-    "interface_deps": attr.label_list(providers = [CcInfo], allow_files = False),
+    "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
     "hdrs": attr.label_list(
         allow_files = True,
         flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
@@ -619,7 +614,7 @@ attrs = {
 }
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
-attrs.update(semantics.get_interface_deps_allowed_attr())
+attrs.update(semantics.get_implementation_deps_allowed_attr())
 
 cc_library = rule(
     implementation = _cc_library_impl,

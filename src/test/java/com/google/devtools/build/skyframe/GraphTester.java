@@ -140,12 +140,12 @@ public class GraphTester {
         }
 
         if (builder.hasTransientError) {
-          throw new GenericFunctionException(new SomeErrorException(key.toString()),
-              Transience.TRANSIENT);
+          throw new GenericFunctionException(
+              new SomeErrorException(key.toString()), Transience.TRANSIENT);
         }
         if (builder.hasError) {
-          throw new GenericFunctionException(new SomeErrorException(key.toString()),
-              Transience.PERSISTENT);
+          throw new GenericFunctionException(
+              new SomeErrorException(key.toString()), Transience.PERSISTENT);
         }
 
         if (builder.value != null) {
@@ -162,7 +162,11 @@ public class GraphTester {
       @Nullable
       @Override
       public String extractTag(SkyKey skyKey) {
-        return values.get(skyKey).tag;
+        TestFunction builder = values.get(skyKey);
+        if (builder.builder != null) {
+          return builder.builder.extractTag(skyKey);
+        }
+        return builder.tag;
       }
     };
   }
@@ -192,6 +196,7 @@ public class GraphTester {
 
     private String tag;
 
+    @CanIgnoreReturnValue
     public TestFunction addDependency(String name) {
       return addDependency(skyKey(name));
     }
@@ -202,6 +207,7 @@ public class GraphTester {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction removeDependency(String name) {
       return removeDependency(skyKey(name));
     }
@@ -212,6 +218,7 @@ public class GraphTester {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction addErrorDependency(String name, SkyValue altValue) {
       return addErrorDependency(skyKey(name), altValue);
     }
@@ -257,6 +264,7 @@ public class GraphTester {
       Preconditions.checkState(!hasError);
       Preconditions.checkState(warning == null);
       Preconditions.checkState(progress == null);
+      Preconditions.checkState(tag == null);
       this.builder = builder;
       return this;
     }
@@ -294,6 +302,7 @@ public class GraphTester {
 
     @CanIgnoreReturnValue
     public TestFunction setTag(String tag) {
+      Preconditions.checkState(builder == null);
       this.tag = tag;
       return this;
     }

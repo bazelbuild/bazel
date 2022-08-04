@@ -43,7 +43,9 @@
     cached remotely. This is equivalent to using both
     <code>no-remote-cache</code> and <code>no-remote-exec</code>.
       </li>
-
+   <li><code>no-remote-cache-upload</code> keyword disables upload part of remote caching of a spawn.
+     it does not disable remote execution.
+  </li>
     <li><code>local</code> keyword precludes the action or test from being remotely cached,
     remotely executed, or run inside the sandbox.
     For genrules and tests, marking the rule with the <code>local = True</code>
@@ -87,6 +89,11 @@
     activity and non-exclusive tests have been completed. Remote execution is
     disabled for such tests because Bazel doesn't have control over what's
     running on a remote machine.
+  </li>
+
+  <li><code>exclusive-if-local</code> will force the test to be run in the
+    &quot;exclusive&quot; mode if it is executed locally, but will run the test in parallel if it's
+    executed remotely.
   </li>
 
   <li><code>manual</code> keyword will exclude the target from expansion of target pattern wildcards

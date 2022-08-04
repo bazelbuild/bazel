@@ -17,8 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -72,7 +72,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   // re-evaluated even if none of their children are changed.
   private final InvalidationState invalidatorState = new DirtyingInvalidationState();
 
-  private final EmittedEventState emittedEventState;
+  private final NestedSetVisitor.VisitedState emittedEventState;
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
@@ -90,8 +90,8 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
         differencer,
         progressReceiver,
         GraphInconsistencyReceiver.THROWING,
-        DEFAULT_STORED_EVENT_FILTER,
-        new EmittedEventState(),
+        EventFilter.FULL_STORAGE,
+        new NestedSetVisitor.VisitedState(),
         /*keepEdges=*/ true);
   }
 
@@ -101,7 +101,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       @Nullable EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       EventFilter eventFilter,
-      EmittedEventState emittedEventState,
+      NestedSetVisitor.VisitedState emittedEventState,
       boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
@@ -320,23 +320,4 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionsForTesting() {
     return skyFunctions;
   }
-
-  public static final EventFilter DEFAULT_STORED_EVENT_FILTER =
-      new EventFilter() {
-        @Override
-        public boolean test(Event event) {
-          switch (event.getKind()) {
-            case INFO:
-            case PROGRESS:
-              return false;
-            default:
-              return true;
-          }
-        }
-
-        @Override
-        public boolean storeEventsAndPosts() {
-          return true;
-        }
-      };
 }

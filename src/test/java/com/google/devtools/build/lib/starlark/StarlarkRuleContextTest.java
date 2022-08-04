@@ -2801,7 +2801,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "def _dep_impl(ctx):",
           "  return MyInfo(dep_ctx = ctx)",
           "dep_rule = rule(implementation = _dep_impl)");
-      invalidatePackages();
+      initializeSkyframeExecutor();
       AssertionError e =
           assertThrows(
               "Should have been unable to access dep_ctx." + attribute,
@@ -3022,6 +3022,66 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
     assertThat((List<String>) buildSettingInfo.getValue("value"))
         .containsExactly("some-other-value", "some-other-other-value");
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testBuildSettingValue_isRepeatedSetting() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "BuildSettingInfo = provider(fields = ['name', 'value'])",
+        "def _impl(ctx):",
+        "  return [BuildSettingInfo(name = ctx.attr.name, value = ctx.build_setting_value)]",
+        "",
+        "string_list_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string_list(flag = True, repeatable = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_list_flag')",
+        "string_list_flag(name = 'string_list_flag', build_setting_default = ['some-value'])");
+
+    // from default
+    ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_list_flag");
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
+    assertThat((List<String>) buildSettingInfo.getValue("value")).containsExactly("some-value");
+
+    // Set multiple times
+    useConfiguration(
+        ImmutableMap.of(
+            "//test:string_list_flag",
+            ImmutableList.of("some-other-value", "some-other-other-value")));
+    buildSetting = getConfiguredTarget("//test:string_list_flag");
+    key =
+        new StarlarkProvider.Key(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
+    assertThat((List<String>) buildSettingInfo.getValue("value"))
+        .containsExactly("some-other-value", "some-other-other-value");
+
+    // No splitting on comma.
+    useConfiguration(
+        ImmutableMap.of("//test:string_list_flag", ImmutableList.of("a,b,c", "a", "b,c")));
+    buildSetting = getConfiguredTarget("//test:string_list_flag");
+    key =
+        new StarlarkProvider.Key(
+            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            "BuildSettingInfo");
+    buildSettingInfo = (StructImpl) buildSetting.get(key);
+
+    assertThat(buildSettingInfo.getValue("value")).isInstanceOf(List.class);
+    assertThat((List<String>) buildSettingInfo.getValue("value"))
+        .containsExactly("a,b,c", "a", "b,c");
   }
 
   @Test

@@ -40,7 +40,7 @@ public class LocalTypeAnnotationUseTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .addSourceInputsFromJvmFlag("input_srcs")
-          .addJavacOptions("-source 11", "-target 11")
+          .addJavacOptions("--release 11")
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.typeannotation")
           .addCommandOptions("desugar_try_with_resources_if_needed", "true")
           .build();

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -460,7 +461,7 @@ public class ExecutionTool {
           env.getReporter(),
           analysisResult.getArtifactsToBuild(),
           analysisResult.getParallelTests(),
-          analysisResult.getExclusiveTests(),
+          Sets.union(analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
           analysisResult.getTargetsToBuild(),
           analysisResult.getTargetsToSkip(),
           analysisResult.getAspectsMap().keySet(),
@@ -672,19 +673,22 @@ public class ExecutionTool {
   }
 
   /**
-   * Handles what action to perform on the convenience symlinks. If the the mode is {@link
+   * Handles what action to perform on the convenience symlinks. If the mode is {@link
    * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
    */
-  private void handleConvenienceSymlinks(AnalysisResult analysisResult) {
-    ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
-    if (request.getBuildOptions().experimentalConvenienceSymlinks
-        != ConvenienceSymlinksMode.IGNORE) {
-      convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
-    }
-    if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
-      env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+  public void handleConvenienceSymlinks(AnalysisResult analysisResult) {
+    try (SilentCloseable c =
+        Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
+      ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
+      if (request.getBuildOptions().experimentalConvenienceSymlinks
+          != ConvenienceSymlinksMode.IGNORE) {
+        convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+      }
+      if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
+        env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+      }
     }
   }
 
@@ -717,8 +721,7 @@ public class ExecutionTool {
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
-            : ImmutableSet.copyOf(
-                analysisResult.getConfigurationCollection().getTargetConfigurations());
+            : ImmutableSet.of(analysisResult.getConfigurationCollection().getTargetConfiguration());
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =
@@ -835,11 +838,7 @@ public class ExecutionTool {
     // iteration order as configuredTargets.
     ImmutableSet.Builder<ConfiguredTarget> successfulTargets = ImmutableSet.builder();
     for (ConfiguredTarget target : configuredTargets) {
-      if (builtTargets.contains(
-          ConfiguredTargetKey.builder()
-              .setConfiguredTarget(target)
-              .setConfigurationKey(target.getConfigurationKey())
-              .build())) {
+      if (builtTargets.contains(ConfiguredTargetKey.fromConfiguredTarget(target))) {
         successfulTargets.add(target);
       }
     }

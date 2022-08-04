@@ -23,6 +23,7 @@ officially support them. Contact the package maintainers for support.
 *   [openSUSE](/install/suse)
 *   [Parabola](https://www.parabola.nu/packages/?q=bazel){: .external}
 *   [Scoop](https://github.com/scoopinstaller/scoop-main/blob/master/bucket/bazel.json){: .external}
+*   [Raspberry Pi](https://github.com/koenvervloesem/bazel-on-arm/blob/master/README.md){: .external}
 
 ## Community-supported architectures {:#community-supported-architectures}
 

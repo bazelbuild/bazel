@@ -1117,6 +1117,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutable(TransitiveInfoCollection executable) {
       FilesToRunProvider provider = executable.getProvider(FilesToRunProvider.class);
       Preconditions.checkArgument(provider != null);
@@ -1130,6 +1131,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutable(FilesToRunProvider executableProvider) {
       Preconditions.checkArgument(
           executableProvider.getExecutable() != null, "The target does not have an executable");
@@ -1185,6 +1187,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
+    @CanIgnoreReturnValue
     public Builder setJavaExecutable(
         PathFragment javaExecutable,
         Artifact deployJar,
@@ -1204,6 +1207,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
+    @CanIgnoreReturnValue
     public Builder setJarExecutable(
         PathFragment javaExecutable, Artifact deployJar, NestedSet<String> jvmArgs) {
       return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-jar",
@@ -1324,6 +1328,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @FormatMethod
     @Deprecated
+    @CanIgnoreReturnValue
     public Builder setProgressMessage(@FormatString String progressMessage, Object subject) {
       return setProgressMessage(
           new OnDemandString() {
@@ -1344,6 +1349,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @FormatMethod
     @Deprecated
+    @CanIgnoreReturnValue
     public Builder setProgressMessage(
         @FormatString String progressMessage, Object subject0, Object subject1) {
       return setProgressMessage(
@@ -1366,6 +1372,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @FormatMethod
     @Deprecated
+    @CanIgnoreReturnValue
     public Builder setProgressMessage(
         @FormatString String progressMessage, Object subject0, Object subject1, Object subject2) {
       return setProgressMessage(
@@ -1373,33 +1380,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             @Override
             public String toString() {
               return String.format(progressMessage, subject0, subject1, subject2);
-            }
-          });
-    }
-
-    /**
-     * Sets the progress message. The string is lazily evaluated.
-     *
-     * @param progressMessage The message to display
-     * @param subject0 Passed to {@link String#format}
-     * @param subject1 Passed to {@link String#format}
-     * @param subject2 Passed to {@link String#format}
-     * @param subject3 Passed to {@link String#format}
-     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
-     */
-    @FormatMethod
-    @Deprecated
-    public Builder setProgressMessage(
-        @FormatString String progressMessage,
-        Object subject0,
-        Object subject1,
-        Object subject2,
-        Object subject3) {
-      return setProgressMessage(
-          new OnDemandString() {
-            @Override
-            public String toString() {
-              return String.format(progressMessage, subject0, subject1, subject2, subject3);
             }
           });
     }

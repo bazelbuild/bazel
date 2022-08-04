@@ -123,6 +123,24 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void nobuild_warning() throws Exception {
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+    addOptions("--nobuild");
+
+    BuildResult result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and will"
+            + " be ignored");
+  }
+
+  @Test
   public void multiTargetBuild_success() throws Exception {
     writeMyRuleBzl();
     write(
@@ -408,6 +426,15 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
           ViewCreationFailedException.class, () -> buildTarget("//foo:good_bar", "//foo:bad_bar"));
       assertThat(analysisEventsSubscriber.getAnalysisPhaseCompleteEvents()).isEmpty();
     }
+  }
+
+  @Test
+  public void targetWithNoConfiguration_success() throws Exception {
+    write("foo/BUILD", "exports_files(['bar.txt'])");
+    write("foo/bar.txt", "This is just a test file to pretend to build.");
+    BuildResult result = buildTarget("//foo:bar.txt");
+
+    assertThat(result.getSuccess()).isTrue();
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {

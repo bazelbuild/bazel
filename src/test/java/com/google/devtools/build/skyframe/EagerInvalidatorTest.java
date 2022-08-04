@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -140,8 +141,8 @@ public class EagerInvalidatorTest {
             MinimalVersion.INSTANCE,
             tester.getSkyFunctionMap(),
             reporter,
-            new MemoizingEvaluator.EmittedEventState(),
-            InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
+            new NestedSetVisitor.VisitedState(),
+            EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             keepGoing,
             new DirtyTrackingProgressReceiver(null),

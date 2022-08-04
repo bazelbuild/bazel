@@ -123,7 +123,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    boolean shouldUseInterfaceDepsBehavior = semantics.shouldUseInterfaceDepsBehavior(ruleContext);
+    semantics.checkCanUseImplementationDeps(ruleContext);
 
     final CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
@@ -158,18 +158,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     ImmutableList.Builder<CcCompilationContext> interfaceDeps = ImmutableList.builder();
     ImmutableList.Builder<CcCompilationContext> implementationDeps = ImmutableList.builder();
 
-    if (shouldUseInterfaceDepsBehavior) {
-      interfaceDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))));
-      implementationDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    } else {
-      interfaceDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    }
+    interfaceDeps.addAll(
+        CppHelper.getCompilationContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
+    implementationDeps.addAll(
+        CppHelper.getCompilationContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))));
     interfaceDeps.add(CcCompilationHelper.getStlCcCompilationContext(ruleContext));
 
     CcCompilationHelper compilationHelper =
@@ -212,7 +206,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .fromCommon(ruleContext, common)
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))))
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))))
+            .addCcLinkingContexts(
+                CppHelper.getLinkingContextsFromDeps(
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())

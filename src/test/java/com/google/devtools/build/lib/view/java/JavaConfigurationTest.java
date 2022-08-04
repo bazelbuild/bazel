@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.view.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
@@ -51,7 +50,7 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
   @Test
   public void testHostCrosstoolTop() throws Exception {
     BuildConfigurationCollection configs = createCollection();
-    BuildConfigurationValue config = Iterables.getOnlyElement(configs.getTargetConfigurations());
+    BuildConfigurationValue config = configs.getTargetConfiguration();
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
             Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
@@ -60,14 +59,5 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
             Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
-  }
-
-
-  @Test
-  public void testConfigurationsHaveUniqueOutputDirectories() throws Exception {
-    assertConfigurationsHaveUniqueOutputDirectories(createCollection("--cpu=k8"));
-
-    assertConfigurationsHaveUniqueOutputDirectories(
-        createCollection("--cpu=k8", "--compilation_mode=opt"));
   }
 }

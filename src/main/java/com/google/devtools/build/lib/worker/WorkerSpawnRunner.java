@@ -602,6 +602,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
             handle,
             workerAsResource);
         workerOwner.setWorker(null);
+        if (workerAsResource) {
+          resourceManager.releaseResourceOwnership();
+        }
       } else if (!context.speculating()) {
         // Non-sandboxed workers interrupted outside of dynamic execution can only mean that
         // the user interrupted the build, and we don't want to delay finishing. Instead we
@@ -662,6 +665,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
     Thread reaper =
         new Thread(
             () -> {
+              if (workerAsResource) {
+                resourceManager.acquireResourceOwnership();
+              }
+
               Worker w = worker;
               try {
                 if (canCancel) {
@@ -692,10 +699,18 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 }
               } finally {
                 if (w != null) {
-                  try {
-                    workers.returnObject(key, w);
-                  } catch (IllegalStateException e3) {
-                    // The worker already not part of the pool
+                  if (workerAsResource) {
+                    try {
+                      resourceHandle.close();
+                    } catch (IOException | InterruptedException | IllegalStateException e) {
+                      // Error while returning worker to the pool. Could not do anythinng.
+                    }
+                  } else {
+                    try {
+                      workers.returnObject(key, w);
+                    } catch (IllegalStateException e3) {
+                      // The worker already not part of the pool
+                    }
                   }
                 }
               }

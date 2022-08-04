@@ -778,21 +778,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheNotClearedWhenOptionsStaySameWithMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc", "--definitely_relevant=Testing");
-    update("//test:top");
-    update("//test:top");
-    // these targets were cached and did not need to be reanalyzed
-    assertNoTargetsVisited();
-  }
-
-  @Test
   public void cacheClearedWhenNonAllowedOptionsChange() throws Exception {
     setupDiffResetTesting();
     scratch.file(
@@ -839,69 +824,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearedWhenMultiCpuChanges() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc");
-    update("//test:top");
-    useConfiguration("--experimental_multi_cpu=k8,armeabi-v7a");
-    update("//test:top");
-    // we needed to reanalyze these in both k8 and armeabi-v7a even though we did the k8 analysis
-    // just a moment ago as part of the previous build
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 2)
-            .put("//test:shared", 2)
-            .build());
-  }
-
-  @Test
-  public void cacheClearedWhenMultiCpuGetsBigger() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc");
-    update("//test:top");
-    useConfiguration("--experimental_multi_cpu=k8,ppc,armeabi-v7a");
-    update("//test:top");
-    // we needed to reanalyze these in all of {k8,ppc,armeabi-v7a} even though we did the k8 and ppc
-    // analysis just a moment ago as part of the previous build
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 3)
-            .put("//test:shared", 3)
-            .build());
-  }
-
-  @Test
-  public void cacheClearedWhenMultiCpuGetsSmaller() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc,armeabi-v7a");
-    update("//test:top");
-    useConfiguration("--experimental_multi_cpu=k8,ppc");
-    update("//test:top");
-    // we needed to reanalyze these in both k8 and ppc even though we did the k8 and ppc
-    // analysis just a moment ago as part of the previous build
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 2)
-            .put("//test:shared", 2)
-            .build());
-  }
-
-  @Test
   public void cacheNotClearedWhenAllowedOptionsChange() throws Exception {
     setupDiffResetTesting();
     scratch.file(
@@ -923,44 +845,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 1");
     update("//test:top");
     // now we're back to the old configuration with no cache clears, so no work needed to be done
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 0)
-            .put("//test:shared", 0)
-            .build());
-  }
-
-  @Test
-  public void cacheNotClearedWhenAllowedOptionsChangeWithMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration(
-        "--experimental_multi_cpu=k8,ppc",
-        "--definitely_relevant=Testing",
-        "--probably_irrelevant=Test 1");
-    update("//test:top");
-    useConfiguration(
-        "--experimental_multi_cpu=k8,ppc",
-        "--definitely_relevant=Testing",
-        "--probably_irrelevant=Test 2");
-    update("//test:top");
-    // the shared library got to reuse the cached value, while the entry point had to be rebuilt in
-    // the new configurations
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 2)
-            .put("//test:shared", 0)
-            .build());
-    useConfiguration(
-        "--experimental_multi_cpu=k8,ppc",
-        "--definitely_relevant=Testing",
-        "--probably_irrelevant=Test 1");
-    update("//test:top");
-    // now we're back to the old configurations with no cache clears, so no work needed to be done
     assertNumberOfAnalyzedConfigurationsOfTargets(
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 0)
@@ -1097,76 +981,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearMessageAfterNumberOfConfigurationsIncreases() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterNumberOfConfigurationsDecreases() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingExperimentalMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void noCacheClearMessageAfterOnlyChangingExperimentalMultiCpuOrder() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=k8,armeabi-v7a");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8");
-    eventCollector.clear();
-    update("//test:top");
-    assertNoEvents();
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingFirstCpuOnMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=k8,piii");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
   public void cacheClearMessageAfterChangingCpu() throws Exception {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
@@ -1177,79 +991,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent("Build option --cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterTurningOnExperimentalMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=armeabi-v7a");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterTurningOffExperimentalMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=armeabi-v7a");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingExperimentalMultiCpuAndOtherRelevantOption()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=armeabi-v7a,k8,ppc",
-        "--definitely_relevant=old");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=armeabi-v7a,k8",
-        "--definitely_relevant=new");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build options --definitely_relevant and --experimental_multi_cpu have changed, "
-            + "discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingExperimentalMultiCpuOrderAndOtherRelevantOption()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=k8,armeabi-v7a",
-        "--definitely_relevant=old");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=armeabi-v7a,k8",
-        "--definitely_relevant=new");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
   }
 
   @Test

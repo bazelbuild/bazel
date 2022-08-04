@@ -1457,4 +1457,53 @@ EOF
   FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
 }
 
+function test_getting_compile_action_env_with_cctoolchain_config_features() {
+  [ "$PLATFORM" != "darwin" ] || return 0
+
+  mkdir -p package
+
+  cat > "package/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+
+    for action in target.actions:
+      if action.mnemonic in ["CppCompile", "ObjcCompile"]:
+        compile_action = action
+
+    print(compile_action.env)
+    return []
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  cat > "package/x.cc" <<EOF
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+
+  cat > "package/BUILD" <<EOF
+cc_binary(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  # Without the flag, the env should not return extra fixed variables
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  expect_not_log "\"PWD\": \"/proc/self/cwd\""
+
+  # With the flag, the env should return extra fixed variables
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" \
+      --experimental_get_fixed_configured_action_env &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  expect_log "\"PWD\": \"/proc/self/cwd\""
+}
+
 run_suite "cc_integration_test"

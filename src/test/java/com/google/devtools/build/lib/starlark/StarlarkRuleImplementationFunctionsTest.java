@@ -628,6 +628,35 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "ruleContext.expand_location('$(locations :abc)')");
   }
 
+  @Test
+  public void testExpandLocationWithShortPathsIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.expand_location('', short_paths = True)",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in expand_location: Rule in 'abc' cannot use private API");
+  }
+
+  @Test
+  public void testExpandLocationWithShortPaths() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:bar");
+    setRuleContext(ruleContext);
+
+    Object loc = ev.eval("ruleContext.expand_location('$(location :jl)', short_paths = True)");
+
+    assertThat(loc).isEqualTo("foo/libjl.jar");
+  }
+
   /** Regression test to check that expand_location allows ${var} and $$. */
   @Test
   public void testExpandLocationWithDollarSignsAndCurlys() throws Exception {
@@ -655,8 +684,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   private void assertMatches(String description, String expectedPattern, String computedValue)
       throws Exception {
     assertWithMessage(
-            Starlark.format(
-                "%s %r did not match pattern '%s'", description, computedValue, expectedPattern))
+            String.format(
+                "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern))
         .that(Pattern.matches(expectedPattern, computedValue))
         .isTrue();
   }
@@ -3119,7 +3148,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) ev.eval("args");
-    assertThat(new Printer().debugPrint(args).toString()).isEqualTo("--foo --bar");
+    assertThat(new Printer().debugPrint(args, getStarlarkSemantics()).toString())
+        .isEqualTo("--foo --bar");
   }
 
   @Test

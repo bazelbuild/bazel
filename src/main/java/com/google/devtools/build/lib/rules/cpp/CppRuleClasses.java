@@ -110,7 +110,7 @@ public class CppRuleClasses {
               FileTypeSet.of(
                   CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
           .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("interface_deps", "deps", "data");
+          .withDependencyAttributes("implementation_deps", "deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -486,9 +486,6 @@ public class CppRuleClasses {
    * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
    */
   public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
-
-  /** Tag used to opt in into interface_deps behavior. */
-  public static final String INTERFACE_DEPS_TAG = "__INTERFACE_DEPS__";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

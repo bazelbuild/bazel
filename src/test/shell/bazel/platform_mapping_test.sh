@@ -144,26 +144,6 @@ EOF
   expect_log "copts: \[\"foo\"\]"
 }
 
-function test_top_level_multi_platform_mapping() {
-  cat > platform_mappings <<EOF
-flags:
-  --cpu=k8
-    //plat:platform1
-  --cpu=arm64
-    //plat:platform2
-EOF
-
-  cat > package/BUILD <<EOF
-load("//report:report.bzl", "report_flags")
-report_flags(name = "report")
-EOF
-
-  bazel build --experimental_multi_cpu=k8,arm64 package:report &> $TEST_log \
-      || fail "Build failed unexpectedly"
-  expect_log "platform: //plat:platform1"
-  expect_log "platform: //plat:platform2"
-}
-
 function test_transition_platform_mapping() {
   cat > platform_mappings <<EOF
 flags:

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
@@ -46,11 +47,18 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
 import com.google.devtools.build.lib.runtime.UiStateTracker.StrategyIds;
+import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetProgressReceiver;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -62,6 +70,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.net.URL;
 import java.time.Duration;
@@ -71,11 +81,28 @@ import java.util.concurrent.TimeUnit;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests {@link UiStateTracker}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class UiStateTrackerTest extends FoundationTestCase {
+
+  @TestParameter boolean isSkymeld;
+
+  private UiStateTracker getUiStateTracker(ManualClock clock) {
+    if (isSkymeld) {
+      return new SkymeldUiStateTracker(clock);
+    } else {
+      return new UiStateTracker(clock);
+    }
+  }
+
+  private UiStateTracker getUiStateTracker(ManualClock clock, int targetWidth) {
+    if (isSkymeld) {
+      return new SkymeldUiStateTracker(clock, targetWidth);
+    } else {
+      return new UiStateTracker(clock, targetWidth);
+    }
+  }
 
   @Test
   public void testStrategyIds_getId_idsAreBitmasks() {
@@ -162,6 +189,35 @@ public class UiStateTrackerTest extends FoundationTestCase {
     return action;
   }
 
+  private ActionOwner dummyActionOwner() throws LabelSyntaxException {
+    return ActionOwner.create(
+        Label.parseCanonical("//foo:a"),
+        ImmutableList.of(),
+        new Location("dummy-file", 0, 0),
+        /*mnemonic=*/ "",
+        /*targetKind=*/ "",
+        /*configurationChecksum=*/ "",
+        new BuildConfigurationEvent(
+            BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+            BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+        /*additionalProgressInfo=*/ "",
+        ImmutableMap.of(),
+        /*executionPlatform=*/ null);
+  }
+
+  private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
+    if (this.isSkymeld) {
+      // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
+      ((SkymeldUiStateTracker) uiStateTracker).buildStatus = BuildStatus.ANALYSIS_COMPLETE;
+    }
+    uiStateTracker.progressReceiverAvailable(
+        new ExecutionProgressReceiverAvailableEvent(dummyExecutionProgressReceiver()));
+  }
+
+  private ExecutionProgressReceiver dummyExecutionProgressReceiver() {
+    return new ExecutionProgressReceiver(0, null);
+  }
+
   private static int longestLine(String output) {
     int maxLength = 0;
     for (String line : output.split("\n")) {
@@ -174,30 +230,49 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void testLoadingActivity() throws IOException {
     // During loading phase, state and activity, as reported by the PackageProgressReceiver,
     // should be visible in the progress bar.
-    String state = "42 packages loaded";
-    String activity = "currently loading //src/foo/bar and 17 more";
+    String loadingState = "42 packages loaded";
+    String loadingActivity = "currently loading //src/foo/bar and 17 more";
     PackageProgressReceiver progress = mock(PackageProgressReceiver.class);
-    when(progress.progressState()).thenReturn(new Pair<>(state, activity));
+    when(progress.progressState()).thenReturn(new Pair<>(loadingState, loadingActivity));
 
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
 
     stateTracker.loadingStarted(new LoadingPhaseStartedEvent(progress));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-    stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getTranscript();
+    // When it is just loading packages.
+    LoggingTerminalWriter terminalWriterLoading =
+        new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriterLoading);
+    String loadingOutput = terminalWriterLoading.getTranscript();
 
-    assertWithMessage(
-            "Output should indicate that we are in the loading phase, but was:\n" + output)
-        .that(output.contains("Loading"))
-        .isTrue();
-    assertWithMessage("Output should contain loading state '" + state + "', but was:\n" + output)
-        .that(output.contains(state))
-        .isTrue();
-    assertWithMessage("Output should contain loading state '" + activity + "', but was:\n" + output)
-        .that(output.contains(activity))
-        .isTrue();
+    assertThat(loadingOutput).contains("Loading");
+    assertThat(loadingOutput).contains(loadingState);
+    assertThat(loadingOutput).contains(loadingActivity);
+
+    // When it is configuring targets.
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of()));
+    String additionalMessage = "5 targets";
+    stateTracker.additionalMessage = additionalMessage;
+    String configuredTargetProgressString = "5 targets configured";
+    ConfiguredTargetProgressReceiver configuredTargetProgressReceiver =
+        mock(ConfiguredTargetProgressReceiver.class);
+    when(configuredTargetProgressReceiver.getProgressString())
+        .thenReturn(configuredTargetProgressString);
+    stateTracker.configurationStarted(
+        new ConfigurationPhaseStartedEvent(configuredTargetProgressReceiver));
+
+    LoggingTerminalWriter terminalWriterLoadingConfiguration =
+        new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriterLoadingConfiguration);
+    String loadingConfigurationOutput = terminalWriterLoadingConfiguration.getTranscript();
+    assertThat(loadingConfigurationOutput).contains("Analyzing");
+    assertThat(loadingConfigurationOutput).contains(additionalMessage);
+    assertThat(loadingConfigurationOutput).contains(loadingState);
+    assertThat(loadingConfigurationOutput).contains(loadingActivity);
+    // It should contain the configured target progress string along with the loading information.
+    assertThat(loadingConfigurationOutput).contains(configuredTargetProgressString);
   }
 
   @Test
@@ -209,7 +284,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(120000);
 
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimick being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -240,11 +317,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(120000);
     Action fastAction = mockAction(messageFast, "foo/fast");
     Action slowAction = mockAction(messageSlow, "bar/slow");
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(fastAction, 123456789));
     stateTracker.actionStarted(new ActionStartedEvent(slowAction, 123456999));
-    stateTracker.actionCompletion(
-        new ActionCompletionEvent(20, fastAction, mock(ActionLookupData.class)));
+
+    ActionLookupData actionLookupData = ActionLookupData.create(mock(ActionLookupKey.class), 1);
+    stateTracker.actionCompletion(new ActionCompletionEvent(20, fastAction, actionLookupData));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
@@ -286,7 +366,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     clock.advanceMillis(120000);
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction(messageOld, "bar/foo"), 123456789));
     for (int i = 0; i < 30; i++) {
@@ -320,7 +402,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Verify that the number of actions shown in the progress bar can be set as sample size.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
 
     // Start 10 actions (numbered 0 to 9).
@@ -361,7 +445,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
 
     stateTracker.actionStarted(
@@ -393,7 +479,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void initialProgressBarTimeIndependent() {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    stateTracker.buildStarted();
 
     assertWithMessage("Initial progress status should be time independent")
         .that(stateTracker.progressBarTimeDependent())
@@ -404,8 +491,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void runningActionTimeIndependent() {
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction("Some action", "foo"), clock.nanoTime()));
 
@@ -418,7 +506,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void testCountVisible() throws Exception {
     // The test count should be visible in the status bar, as well as the short status bar
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
     Label labelA = Label.parseCanonical("//foo/bar:baz");
     ConfiguredTarget targetA = mock(ConfiguredTarget.class);
@@ -451,7 +541,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void testPassedVisible() throws Exception {
     // The last test should still be visible in the long status bar, and colored as ok if it passed.
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
     Label labelA = Label.parseCanonical("//foo/bar:baz");
     ConfiguredTarget targetA = mock(ConfiguredTarget.class);
@@ -482,7 +574,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // The last test should still be visible in the long status bar, and colored as fail if it
     // did not pass.
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
     Label labelA = Label.parseCanonical("//foo/bar:baz");
     ConfiguredTarget targetA = mock(ConfiguredTarget.class);
@@ -514,7 +608,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // the path implicit in it, that can also be extracted from the label. In particular,
     // the parts
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock, 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     Action action =
         mockAction(
             "Building some/very/very/long/path/for/some/library/directory/foo.jar (42 source"
@@ -567,10 +663,12 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Artifact artifact =
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
     Action action = mockAction("Some random action", primaryOutput);
-    when(action.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action.getOwner()).thenReturn(dummyActionOwner());
     when(action.getPrimaryOutput()).thenReturn(artifact);
 
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.runningAction(new RunningActionEvent(action, strategy));
 
@@ -583,13 +681,13 @@ public class UiStateTrackerTest extends FoundationTestCase {
         .isTrue();
   }
 
-  private Action createDummyAction(String progressMessage) {
+  private Action createDummyAction(String progressMessage) throws LabelSyntaxException {
     String primaryOutput = "some/path/to/a/file";
     Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
     Artifact artifact =
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
     Action action = mockAction(progressMessage, primaryOutput);
-    when(action.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action.getOwner()).thenReturn(dummyActionOwner());
     when(action.getPrimaryOutput()).thenReturn(artifact);
     return action;
   }
@@ -599,7 +697,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // arrange
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
-    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
@@ -618,7 +718,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // arrange
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
-    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 30);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 30);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
@@ -636,8 +738,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void actionProgress_withSmallWidth_progressShortened() throws Exception {
     // arrange
     ManualClock clock = new ManualClock();
-    Action action = createDummyAction("Some random action");
-    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 50);
+    Action action = createDummyAction("some action");
+    // The targetWidth needs to be small enough to cause shortening to occur.
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 40);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
@@ -648,7 +753,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // assert
     String output = terminalWriter.getTranscript();
-    assertThat(output).contains("action pro...");
+    assertThat(output).contains("action p...");
   }
 
   @Test
@@ -656,7 +761,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // arrange
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
-    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id1", "action progress 1", false));
@@ -684,10 +791,12 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Artifact artifact =
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
     Action action = mockAction("Some random action", primaryOutput);
-    when(action.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action.getOwner()).thenReturn(dummyActionOwner());
     when(action.getPrimaryOutput()).thenReturn(artifact);
 
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.runningAction(new RunningActionEvent(action, strategy1));
     stateTracker.runningAction(new RunningActionEvent(action, strategy2));
@@ -713,14 +822,16 @@ public class UiStateTrackerTest extends FoundationTestCase {
     String primaryOutput2 = "some/path/to/b/file";
 
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
     Path path1 = outputBase.getRelative(PathFragment.create(primaryOutput1));
     Artifact artifact1 =
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path1);
     Action action1 = mockAction("First random action", primaryOutput1);
-    when(action1.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action1.getOwner()).thenReturn(dummyActionOwner());
     when(action1.getPrimaryOutput()).thenReturn(artifact1);
     stateTracker.actionStarted(new ActionStartedEvent(action1, clock.nanoTime()));
 
@@ -728,7 +839,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Artifact artifact2 =
         ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path2);
     Action action2 = mockAction("First random action", primaryOutput1);
-    when(action2.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action2.getOwner()).thenReturn(dummyActionOwner());
     when(action2.getPrimaryOutput()).thenReturn(artifact2);
     stateTracker.actionStarted(new ActionStartedEvent(action2, clock.nanoTime()));
 
@@ -759,7 +870,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // keep the line limit, and show the local part of the running actions and
     // the passed test.
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock, 70);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
 
     Action foobuildAction =
         mockAction(
@@ -838,12 +951,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // more than one active action and not all are running.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(120000);
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     Action actionFoo = mockAction("Building foo", "foo/foo");
-    ActionOwner ownerFoo = mock(ActionOwner.class);
+    ActionOwner ownerFoo = dummyActionOwner();
     when(actionFoo.getOwner()).thenReturn(ownerFoo);
     Action actionBar = mockAction("Building bar", "bar/bar");
-    ActionOwner ownerBar = mock(ActionOwner.class);
+    ActionOwner ownerBar = dummyActionOwner();
     when(actionBar.getOwner()).thenReturn(ownerBar);
     LoggingTerminalWriter terminalWriter;
     String output;
@@ -910,16 +1025,18 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
     LoggingTerminalWriter terminalWriter;
     String output;
 
     Action actionFoo = mockAction("Building foo", "foo/foo");
-    ActionOwner ownerFoo = mock(ActionOwner.class);
+    ActionOwner ownerFoo = dummyActionOwner();
     when(actionFoo.getOwner()).thenReturn(ownerFoo);
     Action actionBar = mockAction("Building bar", "bar/bar");
-    ActionOwner ownerBar = mock(ActionOwner.class);
+    ActionOwner ownerBar = dummyActionOwner();
     when(actionBar.getOwner()).thenReturn(ownerBar);
 
     stateTracker.actionStarted(new ActionStartedEvent(actionFoo, clock.nanoTime()));
@@ -967,9 +1084,11 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // On the event bus, events sometimes are sent out of order; verify that we handle an
     // early message that an action is running gracefully.
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     Action actionFoo = mockAction("Building foo", "foo/foo");
-    ActionOwner ownerFoo = mock(ActionOwner.class);
+    ActionOwner ownerFoo = dummyActionOwner();
     when(actionFoo.getOwner()).thenReturn(ownerFoo);
     LoggingTerminalWriter terminalWriter;
     String output;
@@ -999,12 +1118,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void testExecutingActionsFirst() throws Exception {
     // Verify that executing actions, even if started late, are visible.
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     clock.advanceMillis(120000);
 
     for (int i = 0; i < 30; i++) {
       Action action = mockAction("Takes long to schedule number " + i, "long/startup" + i);
-      ActionOwner owner = mock(ActionOwner.class);
+      ActionOwner owner = dummyActionOwner();
       when(action.getOwner()).thenReturn(owner);
       stateTracker.actionStarted(new ActionStartedEvent(action, 123456789 + i));
       stateTracker.schedulingAction(new SchedulingActionEvent(action, "xyz-sandbox"));
@@ -1012,7 +1133,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     for (int i = 0; i < 3; i++) {
       Action action = mockAction("quickstart" + i, "pkg/quickstart" + i);
-      ActionOwner owner = mock(ActionOwner.class);
+      ActionOwner owner = dummyActionOwner();
       when(action.getOwner()).thenReturn(owner);
       stateTracker.actionStarted(new ActionStartedEvent(action, 123457000 + i));
       stateTracker.runningAction(new RunningActionEvent(action, "xyz-sandbox"));
@@ -1035,7 +1156,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // is still shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
 
     Label labelFooTest = Label.parseCanonical("//foo/bar:footest");
     ConfiguredTarget targetFooTest = mock(ConfiguredTarget.class);
@@ -1126,7 +1249,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // bar.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
 
     URL url = new URL("http://example.org/first/dep");
 
@@ -1182,7 +1305,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Also verify that the length is respected, even if only a download sample is shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = new UiStateTracker(clock, 60);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 60);
     URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted();
@@ -1229,7 +1352,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
 
-    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
@@ -1297,7 +1420,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
-    UiStateTracker stateTracker = new UiStateTracker(clock, 60);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 60);
     stateTracker.buildStarted();
     stateTracker.buildEventTransportsAnnounced(
         new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
@@ -1335,7 +1458,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
   @Test
   public void testTotalFetchesReported() throws IOException {
     ManualClock clock = new ManualClock();
-    UiStateTracker stateTracker = new UiStateTracker(clock, 80);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
 
     stateTracker.buildStarted();
     for (int i = 0; i < 30; i++) {
@@ -1378,7 +1501,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void waitingRemoteCacheMessage_beforeBuildComplete_invisible() throws IOException {
     ManualClock clock = new ManualClock();
     Action action = mockAction("Some action", "foo");
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
@@ -1392,7 +1517,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void waitingRemoteCacheMessage_afterBuildComplete_visible() throws IOException {
     ManualClock clock = new ManualClock();
     Action action = mockAction("Some action", "foo");
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
@@ -1411,7 +1538,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
   public void waitingRemoteCacheMessage_multipleUploadEvents_countCorrectly() throws IOException {
     ManualClock clock = new ManualClock();
     Action action = mockAction("Some action", "foo");
-    UiStateTracker stateTracker = new UiStateTracker(clock);
+    UiStateTracker stateTracker = getUiStateTracker(clock);
     stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "a"));
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());

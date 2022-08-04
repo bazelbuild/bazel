@@ -130,9 +130,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
-                ? ruleContext.getRequiredConfigFragments()
-                : RequiredConfigFragmentsProvider.EMPTY,
             ImmutableSet.copyOf(constraintValueSettings),
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 

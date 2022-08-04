@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.NonAttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -145,6 +146,11 @@ public class CqueryTransitionResolver {
             trimmingTransitionFactory);
     for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
       DependencyKey dep = attributeAndDep.getValue();
+
+      if (attributeAndDep.getKey() instanceof NonAttributeDependencyKind) {
+        // No attribute edge to report.
+        continue;
+      }
 
       String dependencyName;
       if (DependencyKind.isToolchain(attributeAndDep.getKey())) {

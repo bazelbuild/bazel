@@ -417,7 +417,7 @@ EOF
 function test_dump_after_discard_incrementality_data() {
   bazel build --notrack_incremental_state //testing:mytest >& "$TEST_log" \
        || fail "Expected success"
-  bazel dump --skyframe=detailed >& "$TEST_log" || fail "Expected success"
+  bazel dump --skyframe=deps >& "$TEST_log" || fail "Expected success"
   expect_log "//testing:mytest"
 }
 

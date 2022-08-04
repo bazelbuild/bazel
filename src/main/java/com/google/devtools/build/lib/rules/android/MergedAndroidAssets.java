@@ -28,7 +28,9 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
       throws InterruptedException {
 
     Artifact mergedAssets =
-        dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSETS_ZIP);
+        dataContext.getAndroidConfig().outputLibraryMergedAssets()
+            ? dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_ASSETS_ZIP)
+            : null;
 
     BusyBoxActionBuilder builder = BusyBoxActionBuilder.create(dataContext, "MERGE_ASSETS");
     if (dataContext.throwOnResourceConflict()) {
@@ -36,7 +38,7 @@ public class MergedAndroidAssets extends ParsedAndroidAssets {
     }
 
     builder
-        .addOutput("--assetsOutput", mergedAssets)
+        .maybeAddOutput("--assetsOutput", mergedAssets)
         .addInput(
             "--primaryData",
             AndroidDataConverter.PARSED_ASSET_CONVERTER.map(parsed),

@@ -248,7 +248,6 @@ java_library(
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
         "starlark/StarlarkRuleContext.java",
         "starlark/StarlarkRuleTransitionProvider.java",
-        "starlark/StarlarkTransition.java",
         "test/AnalysisTestActionBuilder.java",
         "test/BaselineCoverageAction.java",
         "test/CoverageCommon.java",
@@ -344,10 +343,12 @@ java_library(
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_command_line",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":starlark/starlark_transition",
         ":starlark/template_dict",
         ":target_and_configuration",
         ":template_variable_info",
@@ -418,7 +419,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -641,6 +641,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
@@ -1256,6 +1257,23 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/protobuf:xcode_java_proto",
+    ],
+)
+
+java_library(
+    name = "starlark/starlark_build_settings_details_value",
+    srcs = [
+        "starlark/StarlarkBuildSettingsDetailsValue.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
     ],
 )
 
@@ -2398,6 +2416,23 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "starlark/starlark_transition",
+    srcs = ["starlark/StarlarkTransition.java"],
+    deps = [
+        ":config/build_option_details",
+        ":config/build_options",
+        ":config/fragment_options",
+        ":config/starlark_defined_config_transition",
+        ":config/transitions/configuration_transition",
+        ":required_config_fragments_provider",
+        ":starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:guava",
     ],
 )
 

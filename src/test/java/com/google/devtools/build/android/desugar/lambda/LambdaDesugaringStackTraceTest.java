@@ -35,7 +35,7 @@ public final class LambdaDesugaringStackTraceTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .addSourceInputsFromJvmFlag("input_srcs")
-          .addJavacOptions("-source 11", "-target 11")
+          .addJavacOptions("--release 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.lambda.testsrc.stacktrace")
           .enableIterativeTransformation(2)

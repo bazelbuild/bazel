@@ -1775,6 +1775,51 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void buildsettings_repeatableWorks() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_list_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string_list(flag = True, repeatable = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_list_flag')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':cheese': 'pepperjack',",
+        "    },",
+        ")",
+        "string_list_flag(name = 'cheese', build_setting_default = ['gouda'])");
+
+    useConfiguration(ImmutableMap.of("//test:cheese", ImmutableList.of("pepperjack", "brie")));
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void buildsettings_repeatableWithoutFlagErrors() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_list_setting = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string_list(repeatable = True),",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_list_setting')",
+        "string_list_setting(name = 'cheese', build_setting_default = ['gouda'])");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:cheese");
+    assertContainsEvent("'repeatable' can only be set for a setting with 'flag = True'");
+  }
+
+  @Test
   public void notBuildSettingOrFeatureFlag() throws Exception {
     scratch.file(
         "test/rules.bzl",

@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -92,6 +93,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -111,6 +113,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -162,7 +165,7 @@ public class RemoteExecutionServiceTest {
     checkNotNull(stderr.getParentDirectory()).createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
 
-    cache = spy(new InMemoryRemoteCache(remoteOptions, digestUtil));
+    cache = spy(new InMemoryRemoteCache(spy(new InMemoryCacheClient()), remoteOptions, digestUtil));
     executor = mock(RemoteExecutionClient.class);
 
     RequestMetadata metadata =
@@ -1546,8 +1549,16 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void uploadInputsIfNotPresent_interrupted_requestCancelled() throws Exception {
+    CountDownLatch uploadBlobCalled = new CountDownLatch(1);
+    CountDownLatch interrupted = new CountDownLatch(1);
     SettableFuture<ImmutableSet<Digest>> future = SettableFuture.create();
-    doReturn(future).when(cache).findMissingDigests(any(), any());
+    doAnswer(
+            invocationOnMock -> {
+              uploadBlobCalled.countDown();
+              return future;
+            })
+        .when(cache.cacheProtocol)
+        .uploadBlob(any(), any(), any());
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     fakeFileCache.createScratchInput(input, "input-foo");
     RemoteExecutionService service = newRemoteExecutionService();
@@ -1558,13 +1569,22 @@ public class RemoteExecutionServiceTest {
             NestedSetBuilder.create(Order.STABLE_ORDER, input));
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteAction action = service.buildRemoteAction(spawn, context);
+    Thread thread =
+        new Thread(
+            () -> {
+              try {
+                service.uploadInputsIfNotPresent(action, /*force=*/ false);
+              } catch (InterruptedException ignored) {
+                interrupted.countDown();
+              } catch (IOException ignored) {
+                // intentionally ignored
+              }
+            });
 
-    try {
-      Thread.currentThread().interrupt();
-      service.uploadInputsIfNotPresent(action, /*force=*/ false);
-    } catch (InterruptedException ignored) {
-      // Intentionally left empty
-    }
+    thread.start();
+    uploadBlobCalled.await();
+    thread.interrupt();
+    interrupted.await();
 
     assertThat(future.isCancelled()).isTrue();
   }

@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
 import com.google.devtools.build.lib.analysis.ConfigurationsResult;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,7 +48,6 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -99,9 +100,13 @@ public final class ConfigurationResolver {
   private static class StarlarkTransitionCacheKey {
     private final ConfigurationTransition transition;
     private final BuildOptions fromOptions;
+    private final StarlarkBuildSettingsDetailsValue details;
     private final int hashCode;
 
-    StarlarkTransitionCacheKey(ConfigurationTransition transition, BuildOptions fromOptions) {
+    StarlarkTransitionCacheKey(
+        ConfigurationTransition transition,
+        BuildOptions fromOptions,
+        StarlarkBuildSettingsDetailsValue details) {
       // For rule self-transitions, the transition instance encapsulates both the transition logic
       // and attributes of the target it's attached to. This is important: the same transition in
       // the same configuration applied to distinct targets may produce different outputs. See
@@ -112,7 +117,8 @@ public final class ConfigurationResolver {
       // of an interning contract there is.
       this.transition = transition;
       this.fromOptions = fromOptions;
-      this.hashCode = Objects.hash(transition, fromOptions);
+      this.details = details;
+      this.hashCode = Objects.hash(transition, fromOptions, details);
     }
 
     @Override
@@ -124,7 +130,8 @@ public final class ConfigurationResolver {
         return false;
       }
       return (this.transition.equals(((StarlarkTransitionCacheKey) other).transition)
-          && this.fromOptions.equals(((StarlarkTransitionCacheKey) other).fromOptions));
+          && this.fromOptions.equals(((StarlarkTransitionCacheKey) other).fromOptions)
+          && this.details.equals(((StarlarkTransitionCacheKey) other).details));
     }
 
     @Override
@@ -423,8 +430,8 @@ public final class ConfigurationResolver {
    * Applies a configuration transition over a set of build options.
    *
    * <p>This is only for callers that can't use {@link #applyTransitionWithSkyframe}. The difference
-   * is {@link #applyTransitionWithSkyframe} internally computes {@code buildSettingPackages} with
-   * Skyframe, while this version requires it as a precomputed input.
+   * is {@link #applyTransitionWithSkyframe} internally computes {@code details} with Skyframe,
+   * while this version requires it as a precomputed input.
    *
    * <p>prework - load all default values for reading build settings in Starlark transitions (by
    * design, {@link BuildOptions} never holds default values of build settings)
@@ -437,11 +444,11 @@ public final class ConfigurationResolver {
   public static Map<String, BuildOptions> applyTransitionWithoutSkyframe(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
-      Map<PackageValue.Key, PackageValue> buildSettingPackages,
+      StarlarkBuildSettingsDetailsValue details,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
     if (StarlarkTransition.doesStarlarkTransition(transition)) {
-      return applyStarlarkTransition(fromOptions, transition, buildSettingPackages, eventHandler);
+      return applyStarlarkTransition(fromOptions, transition, details, eventHandler);
     }
     return transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
   }
@@ -467,14 +474,32 @@ public final class ConfigurationResolver {
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
     if (StarlarkTransition.doesStarlarkTransition(transition)) {
-      // TODO(blaze-team): find a way to dedupe this with SkyframeExecutor.getBuildSettingPackages.
-      Map<PackageValue.Key, PackageValue> buildSettingPackages =
-          StarlarkTransition.getBuildSettingPackages(env, transition);
-      return buildSettingPackages == null
-          ? null
-          : applyStarlarkTransition(fromOptions, transition, buildSettingPackages, eventHandler);
+      StarlarkBuildSettingsDetailsValue details =
+          getStarlarkBuildSettingsDetailsValue(transition, env);
+      if (details == null) {
+        return null;
+      }
+      return applyStarlarkTransition(fromOptions, transition, details, eventHandler);
     }
     return transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
+  }
+
+  /** Must be in sync with {@link SkyframeExecutor.getStarlarkBuildSettingsDetailsValue} */
+  @Nullable
+  private static StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
+      ConfigurationTransition transition, SkyFunction.Environment env)
+      throws TransitionException, InterruptedException {
+    ImmutableSet<Label> starlarkBuildSettings =
+        StarlarkTransition.getAllStarlarkBuildSettings(transition);
+    // Quick escape if transition doesn't use any Starlark build settings
+    if (starlarkBuildSettings.isEmpty()) {
+      return StarlarkBuildSettingsDetailsValue.EMPTY;
+    }
+    // Evaluate the key into StarlarkBuildSettingsDetailsValue
+    return (StarlarkBuildSettingsDetailsValue)
+        env.getValueOrThrow(
+            StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings),
+            TransitionException.class);
   }
 
   /**
@@ -482,18 +507,18 @@ public final class ConfigurationResolver {
    *
    * @param fromOptions source options before the transition
    * @param transition the transition itself
-   * @param buildSettingPackages packages for build_settings read by the transition. This is used to
-   *     read default values for build_settings that aren't explicitly set on the build.
+   * @param details information from packages about Starlark build settings needed by transition
    * @param eventHandler handler for errors evaluating the transition.
    * @return transition output
    */
   private static Map<String, BuildOptions> applyStarlarkTransition(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
-      Map<PackageValue.Key, PackageValue> buildSettingPackages,
+      StarlarkBuildSettingsDetailsValue details,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
-    StarlarkTransitionCacheKey cacheKey = new StarlarkTransitionCacheKey(transition, fromOptions);
+    StarlarkTransitionCacheKey cacheKey =
+        new StarlarkTransitionCacheKey(transition, fromOptions, details);
     StarlarkTransitionCacheValue cachedResult = starlarkTransitionCache.getIfPresent(cacheKey);
     if (cachedResult != null) {
       if (cachedResult.nonErrorEvents != null) {
@@ -501,8 +526,11 @@ public final class ConfigurationResolver {
       }
       return cachedResult.result;
     }
+    // All code below here only executes on a cache miss and thus should rely only on values that
+    // are part of the above cache key or constants that exist throughout the lifetime of the
+    // Blaze server instance.
     BuildOptions adjustedOptions =
-        StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, buildSettingPackages);
+        StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, details);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
@@ -520,7 +548,7 @@ public final class ConfigurationResolver {
     if (handlerWithErrorStatus.hasErrors()) {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
-    result = StarlarkTransition.validate(transition, buildSettingPackages, result);
+    result = StarlarkTransition.validate(transition, details, result);
     // If the transition errored (like bad Starlark code), this method already exited with an
     // exception so the results won't go into the cache. We still want to collect non-error events
     // like print() output.

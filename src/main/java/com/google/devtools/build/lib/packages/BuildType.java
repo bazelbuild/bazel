@@ -280,7 +280,7 @@ public final class BuildType {
           errorMessage.append(',');
         }
         errorMessage.append(' ');
-        errorMessage.str(entry.getKey());
+        errorMessage.append(entry.getKey().getCanonicalForm());
         errorMessage.append(" (as ");
         errorMessage.repr(entry.getValue());
         errorMessage.append(')');

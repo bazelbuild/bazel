@@ -53,7 +53,7 @@ public final class NestDesugaringFieldAccessTest {
           .addSourceInputsFromJvmFlag("input_srcs")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.field")
-          .addJavacOptions("-source 11", "-target 11")
+          .addJavacOptions("--release 11")
           .addCommandOptions("desugar_nest_based_private_access", "true")
           .build();
 

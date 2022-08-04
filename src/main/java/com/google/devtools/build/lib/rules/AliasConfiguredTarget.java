@@ -150,9 +150,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
 
   @Override
   public BuildConfigurationKey getConfigurationKey() {
-    // This does not return actual.getConfigurationKey() because actual might be an input file, in
-    // which case its configurationKey is null and we don't want to have rules that have a null
-    // configurationKey.
+    // It would be incorrect to return actual.getConfigurationKey() because of two cases:
+    // 1) actual might be an input file, in which case its configuration key is null, and we don't
+    //    want to have rules with a null configuration key.
+    // 2) actual has a self transition. Self transitions don't get applied to the alias rule, and so
+    //    the configuration keys actually differ.
     return configurationKey;
   }
 

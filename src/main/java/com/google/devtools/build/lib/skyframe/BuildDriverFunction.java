@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.EXCLUSIVE;
+import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.EXCLUSIVE_IF_LOCAL;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.NOT_TEST;
 import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PARALLEL;
 
@@ -154,7 +155,9 @@ public class BuildDriverFunction implements SkyFunction {
       env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
 
       BuildConfigurationValue buildConfigurationValue =
-          (BuildConfigurationValue) env.getValue(configuredTarget.getConfigurationKey());
+          configuredTarget.getConfigurationKey() == null
+              ? null
+              : (BuildConfigurationValue) env.getValue(configuredTarget.getConfigurationKey());
       if (env.valuesMissing()) {
         return null;
       }
@@ -181,7 +184,9 @@ public class BuildDriverFunction implements SkyFunction {
               env.getListener()
                   .post(
                       TestAnalyzedEvent.create(
-                          configuredTarget, buildConfigurationValue, /*isSkipped=*/ true));
+                          configuredTarget,
+                          Preconditions.checkNotNull(buildConfigurationValue),
+                          /*isSkipped=*/ true));
             }
             // Only send the event now to include the compatibility check in the measurement for
             // time spent on analysis work.
@@ -208,8 +213,8 @@ public class BuildDriverFunction implements SkyFunction {
           env,
           topLevelArtifactContext);
     } else {
-      env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
-      requestAspectExecution((TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
+      announceAspectAnalysisDoneAndRequestExecution(
+          buildDriverKey, (TopLevelAspectsValue) topLevelSkyValue, env, topLevelArtifactContext);
     }
 
     if (env.valuesMissing()) {
@@ -218,7 +223,8 @@ public class BuildDriverFunction implements SkyFunction {
 
     // If we get to this point, the execution of this target/aspect succeeded.
 
-    if (EXCLUSIVE.equals(buildDriverKey.getTestType())) {
+    if (EXCLUSIVE.equals(buildDriverKey.getTestType())
+        || EXCLUSIVE_IF_LOCAL.equals(buildDriverKey.getTestType())) {
       Preconditions.checkState(topLevelSkyValue instanceof ConfiguredTargetValue);
       return new ExclusiveTestBuildDriverValue(
           topLevelSkyValue, ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget());
@@ -325,7 +331,9 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener()
         .post(
             TestAnalyzedEvent.create(
-                configuredTarget, buildConfigurationValue, /*isSkipped=*/ false));
+                configuredTarget,
+                Preconditions.checkNotNull(buildConfigurationValue),
+                /*isSkipped=*/ false));
 
     if (PARALLEL.equals(buildDriverKey.getTestType())) {
       // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
@@ -345,7 +353,8 @@ public class BuildDriverFunction implements SkyFunction {
     declareDependenciesAndCheckValues(env, artifactsToBuild.build());
   }
 
-  private void requestAspectExecution(
+  private void announceAspectAnalysisDoneAndRequestExecution(
+      BuildDriverKey buildDriverKey,
       TopLevelAspectsValue topLevelAspectsValue,
       Environment env,
       TopLevelArtifactContext topLevelArtifactContext)
@@ -362,6 +371,9 @@ public class BuildDriverFunction implements SkyFunction {
       env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
       aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
+    // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
+    // signaling that the analysis of this top level aspect has concluded.
+    env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
 
     declareDependenciesAndCheckValues(
         env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));

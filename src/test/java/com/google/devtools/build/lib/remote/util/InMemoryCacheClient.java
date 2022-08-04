@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
-public final class InMemoryCacheClient implements RemoteCacheClient {
+public class InMemoryCacheClient implements RemoteCacheClient {
 
   private final ListeningExecutorService executorService =
       MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(100));

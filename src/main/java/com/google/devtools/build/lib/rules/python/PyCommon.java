@@ -581,68 +581,6 @@ public final class PyCommon {
   }
 
   /**
-   * Returns whether, in the case that a user Python program fails, the stub script should emit a
-   * warning that the failure may have been caused by the host configuration using the wrong Python
-   * version.
-   *
-   * <p>This method should only be called for executable Python rules.
-   *
-   * <p>Background: Historically, Bazel did not necessarily launch a Python interpreter whose
-   * version corresponded to the one determined by the analysis phase (#4815). Enabling Python
-   * toolchains fixed this bug. However, this caused some builds to break due to targets that
-   * contained Python-2-only code yet got analyzed for (and now run with) Python 3. This is
-   * particularly problematic for the host configuration, where the value of {@code
-   * --host_force_python} overrides the declared or implicit Python version of the target.
-   *
-   * <p>Our mitigation for this is to warn users when a Python target has a non-zero exit code and
-   * the failure could be due to a bad Python version in the host configuration. In this case,
-   * instead of just giving the user a confusing traceback of a PY2 vs PY3 error, we append a
-   * diagnostic message to stderr. See #7899 and especially #8549 for context.
-   *
-   * <p>This method returns true when all of the following hold:
-   *
-   * <ol>
-   *   <li>Python toolchains are enabled. (The warning is needed the most when toolchains are
-   *       enabled, since that's an incompatible change likely to cause breakages. At the same time,
-   *       warning when toolchains are disabled could be misleading, since we don't actually know
-   *       whether the interpreter invoked at runtime is correct.)
-   *   <li>The target is built in the host configuration. This avoids polluting stderr with spurious
-   *       warnings for non-host-configured targets, while covering the most problematic case.
-   *   <li>Either the value of {@code --host_force_python} overrode the target's normal Python
-   *       version to a different value (in which case we know a mismatch occurred), or else {@code
-   *       --host_force_python} is in agreement with the target's version but the target's version
-   *       was set by default instead of explicitly (in which case we suspect the target may have
-   *       been defined incorrectly).
-   * </ol>
-   *
-   * @throws IllegalArgumentException if there is a problem parsing the Python version from the
-   *     attributes; see {@link #readPythonVersionFromAttribute}.
-   */
-  // TODO(#6443): Remove this logic and the corresponding stub script logic once we no longer have
-  // the possibility of Python binaries appearing in the host configuration.
-  public boolean shouldWarnAboutHostVersionUponFailure() {
-    // Only warn when toolchains are used.
-    PythonConfiguration config = ruleContext.getFragment(PythonConfiguration.class);
-    if (!config.useToolchains()) {
-      return false;
-    }
-    // Only warn in the host config.
-    if (!ruleContext.getConfiguration().isToolConfiguration()) {
-      return false;
-    }
-
-    PythonVersion configVersion = config.getPythonVersion();
-    PythonVersion attrVersion = readPythonVersionFromAttribute(ruleContext.attributes());
-    if (attrVersion == null) {
-      // Warn if the version wasn't set explicitly.
-      return true;
-    } else {
-      // Warn if the explicit version is different from the host config's version.
-      return configVersion != attrVersion;
-    }
-  }
-
-  /**
    * Returns the transitive Python sources collected from the deps attribute, not including sources
    * from the srcs attribute (unless they were separately reached via deps).
    */

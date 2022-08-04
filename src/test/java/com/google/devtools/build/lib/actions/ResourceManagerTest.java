@@ -115,7 +115,7 @@ public final class ResourceManagerTest {
   }
 
   private void release(double ram, double cpu, int tests) throws IOException, InterruptedException {
-    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests), /* worker=*/ null);
   }
 
   private void validate(int count) {

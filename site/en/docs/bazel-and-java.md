@@ -231,7 +231,7 @@ LCOV format.
 The `TestRunner` tool executes JUnit 4 tests in a controlled environment.
 
 You can reconfigure the compilation by adding `default_java_toolchain` macro to
-a `BUILD` file and registering it either by adding `register_toolchain` rule to
+a `BUILD` file and registering it either by adding `register_toolchains` rule to
 the `WORKSPACE` file or by using
 [`--extra_toolchains`](/docs/user-manual#extra-toolchains) flag.
 
@@ -258,7 +258,7 @@ default_java_toolchain(
 ```
 
 which can be used using `--extra_toolchains=//:repository_default_toolchain_definition`
-or by adding `register_toolchain("//:repository_default_toolchain_definition")`
+or by adding `register_toolchains("//:repository_default_toolchain_definition")`
 to the workpace.
 
 Predefined configurations:

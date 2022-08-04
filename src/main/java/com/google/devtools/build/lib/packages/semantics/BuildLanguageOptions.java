@@ -147,7 +147,8 @@ public final class BuildLanguageOptions extends OptionsBase {
           "A comma-separated list of packages (sans \"//\") which, if --experimental_bzl_visibility"
               + " is enabled, are permitted to contain .bzl files that set a bzl-visibility by"
               + " calling the `visibility()` function. (Known issue: This flag may not work"
-              + " correctly in the presence of repository remapping, which is used by bzlmod.)")
+              + " correctly in the presence of repository remapping, which is used by bzlmod.)"
+              + " If the list includes the special item \"everyone\", all packages are permitted.")
   public List<String> experimentalBzlVisibilityAllowlist;
 
   @Option(
@@ -305,7 +306,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_lazy_template_expansion",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -315,6 +316,17 @@ public final class BuildLanguageOptions extends OptionsBase {
           "If set to true, ctx.actions.expand_template() accepts a TemplateDict"
               + " parameter for deferred evaluation of substitution values.")
   public boolean experimentalLazyTemplateExpansion;
+
+  @Option(
+      name = "experimental_analysis_test_call",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help = "If set to true, analysis_test native call is available.")
+  public boolean experimentalAnalysisTestCall;
 
   @Option(
       name = "incompatible_struct_has_no_methods",
@@ -572,6 +584,17 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "'cfg = \"exec\"' instead.")
   public boolean incompatibleDisableStarlarkHostTransitions;
 
+  @Option(
+      name = "experimental_get_fixed_configured_action_env",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, action.env will also return fixed environment variables"
+              + " specified through features configuration.")
+  public boolean experimentalGetFixedConfiguredEnvironment;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -598,6 +621,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION, experimentalLazyTemplateExpansion)
+            .setBool(EXPERIMENTAL_ANALYSIS_TEST_CALL, experimentalAnalysisTestCall)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
@@ -644,6 +668,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 incompatibleDisableStarlarkHostTransitions)
+            .setBool(
+                EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV,
+                experimentalGetFixedConfiguredEnvironment)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -675,7 +702,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String EXPERIMENTAL_ACTION_RESOURCE_SET = "+experimental_action_resource_set";
   public static final String EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION =
-      "-experimental_lazy_template_expansion";
+      "+experimental_lazy_template_expansion";
+  public static final String EXPERIMENTAL_ANALYSIS_TEST_CALL = "+experimental_analysis_test_call";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "-incompatible_allow_tags_propagation";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
@@ -715,6 +743,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
+  public static final String EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV =
+      "-experimental_get_fixed_configured_action_env";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

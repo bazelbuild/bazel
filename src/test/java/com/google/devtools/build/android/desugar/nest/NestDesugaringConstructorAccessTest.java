@@ -48,7 +48,7 @@ public final class NestDesugaringConstructorAccessTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, lookup)
           .addSourceInputsFromJvmFlag("input_srcs")
-          .addJavacOptions("-source 11", "-target 11")
+          .addJavacOptions("--release 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.constructor")
           .addCommandOptions("desugar_nest_based_private_access", "true")

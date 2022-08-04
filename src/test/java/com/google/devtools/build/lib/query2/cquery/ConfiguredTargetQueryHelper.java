@@ -49,7 +49,8 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<KeyedCo
         parserPrefix,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
-        this.settings);
+        this.settings,
+        null);
   }
 
   @Override

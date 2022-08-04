@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -90,6 +91,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -215,6 +217,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addExtraPrecomputedValues(PrecomputedValue.Injected... extraPrecomputedValues) {
       return this.addExtraPrecomputedValues(Arrays.asList(extraPrecomputedValues));
     }
@@ -422,8 +425,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         preinjectedDifferencer,
         EvaluationProgressReceiver.NULL,
         GraphInconsistencyReceiver.THROWING,
-        InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
-        new MemoizingEvaluator.EmittedEventState(),
+        EventFilter.FULL_STORAGE,
+        new NestedSetVisitor.VisitedState(),
         /*keepEdges=*/ false);
   }
 

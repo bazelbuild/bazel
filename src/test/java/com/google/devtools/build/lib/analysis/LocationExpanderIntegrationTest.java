@@ -46,7 +46,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   private LocationExpander makeExpander(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
     RuleContext ruleContext = getRuleContext(target);
-    return LocationExpander.withRunfilesPaths(ruleContext);
+    return LocationExpander.withRunfilesPaths(ruleContext, null);
   }
 
   @Test

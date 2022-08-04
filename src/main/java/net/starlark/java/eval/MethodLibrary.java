@@ -285,9 +285,10 @@ class MethodLibrary {
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  public String str(Object x) throws EvalException {
-    return Starlark.str(x);
+      parameters = {@Param(name = "x", doc = "The object to convert.")},
+      useStarlarkThread = true)
+  public String str(Object x, StarlarkThread thread) throws EvalException {
+    return Starlark.str(x, thread.getSemantics());
   }
 
   @StarlarkMethod(
@@ -679,15 +680,17 @@ class MethodLibrary {
               name = "args",
               doc =
                   "A list of values, formatted with str and joined with spaces, that appear in the"
-                      + " error message."))
-  public void fail(Object msg, Object attr, Tuple args) throws EvalException {
+                      + " error message."),
+      useStarlarkThread = true)
+  public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
+      throws EvalException {
     List<String> elems = new ArrayList<>();
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
-      elems.add(Starlark.str(msg));
+      elems.add(Starlark.str(msg, thread.getSemantics()));
     }
     for (Object arg : args) {
-      elems.add(Starlark.str(arg));
+      elems.add(Starlark.str(arg, thread.getSemantics()));
     }
     String str = Joiner.on(" ").join(elems);
     if (attr != Starlark.NONE) {
@@ -724,7 +727,7 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      p.debugPrint(x);
+      p.debugPrint(x, thread.getSemantics());
       separator = sep;
     }
     // The PRINT_TEST_MARKER key is used in tests to verify the effects of command-line options.

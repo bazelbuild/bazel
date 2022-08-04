@@ -218,6 +218,19 @@ java_library(
 )
 
 java_library(
+    name = "runtime/command_line_path_factory",
+    srcs = [
+        "runtime/CommandLinePathFactory.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -229,6 +242,7 @@ java_library(
             "buildtool/BuildRequestOptions.java",
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
+            "runtime/CommandLinePathFactory.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
         ],
@@ -239,6 +253,7 @@ java_library(
         ":loading-phase-threads-option",
         ":runtime/blaze_command_result",
         ":runtime/command_dispatcher",
+        ":runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

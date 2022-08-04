@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -265,6 +266,21 @@ public abstract class BlazeModule {
       BuildRequest request,
       BuildOptions buildOptions,
       AnalysisResult analysisResult)
+      throws InterruptedException, ViewCreationFailedException {}
+
+  /**
+   * Called after Bazel analyzes a single top-level target.
+   *
+   * @param env the command environment
+   * @param request the build request
+   * @param buildOptions the build's top-level options
+   * @param configuredTarget the analyzed top-level target
+   */
+  public void afterTopLevelTargetAnalysis(
+      CommandEnvironment env,
+      BuildRequest request,
+      BuildOptions buildOptions,
+      ConfiguredTarget configuredTarget)
       throws InterruptedException, ViewCreationFailedException {}
 
   /**

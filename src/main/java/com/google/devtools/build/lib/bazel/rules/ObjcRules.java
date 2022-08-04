@@ -64,10 +64,7 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new ObjcImportBaseRule());
     builder.addRuleDefinition(new ObjcLibraryBaseRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.PlatformRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());

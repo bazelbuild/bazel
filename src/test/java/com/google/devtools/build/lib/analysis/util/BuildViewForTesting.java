@@ -190,7 +190,6 @@ public class BuildViewForTesting {
   public AnalysisResult update(
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      Set<String> multiCpu,
       ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
@@ -206,7 +205,6 @@ public class BuildViewForTesting {
     return buildView.update(
         loadingResult,
         targetOptions,
-        multiCpu,
         explicitTargetPatterns,
         aspects,
         aspectsParameters,
@@ -304,8 +302,7 @@ public class BuildViewForTesting {
 
       // Load the keys of the dependencies of the target, based on data currently in skyframe.
       Iterable<SkyKey> directPrerequisites =
-          walkableGraph.getDirectDeps(
-              ConfiguredTargetKey.builder().setConfiguredTarget(ct).build());
+          walkableGraph.getDirectDeps(ConfiguredTargetKey.fromConfiguredTarget(ct));
 
       // Turn the keys back into ConfiguredTarget instances, possibly merging in aspects that were
       // propagated from the original target.
@@ -663,11 +660,7 @@ public class BuildViewForTesting {
         .setHostConfiguration(configurations.getHostConfiguration())
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
-        .setActionOwnerSymbol(
-            ConfiguredTargetKey.builder()
-                .setConfiguredTarget(configuredTarget)
-                .setConfigurationKey(configuredTarget.getConfigurationKey())
-                .build())
+        .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))
         .setMutability(Mutability.create("configured target"))
         .setVisibility(
             NestedSetBuilder.create(
