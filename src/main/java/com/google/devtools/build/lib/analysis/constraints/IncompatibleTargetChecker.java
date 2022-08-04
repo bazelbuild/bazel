@@ -261,8 +261,9 @@ public class IncompatibleTargetChecker {
    * Since visibility is currently validated after incompatibility is evaluated, however, it doesn't
    * matter what visibility we set here. To keep it simple, we pretend that all incompatible targets
    * are public.
+   *
+   * TODO(#16044): Set up properly validated visibility here.
    */
-  // TODO(phil): File a ticket and reference it here.
   private static NestedSet<PackageGroupContents> convertVisibility() {
     return NestedSetBuilder.create(
         Order.STABLE_ORDER,
