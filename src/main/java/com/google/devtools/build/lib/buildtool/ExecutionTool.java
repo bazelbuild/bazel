@@ -673,19 +673,22 @@ public class ExecutionTool {
   }
 
   /**
-   * Handles what action to perform on the convenience symlinks. If the the mode is {@link
+   * Handles what action to perform on the convenience symlinks. If the mode is {@link
    * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
    */
-  private void handleConvenienceSymlinks(AnalysisResult analysisResult) {
-    ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
-    if (request.getBuildOptions().experimentalConvenienceSymlinks
-        != ConvenienceSymlinksMode.IGNORE) {
-      convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
-    }
-    if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
-      env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+  public void handleConvenienceSymlinks(AnalysisResult analysisResult) {
+    try (SilentCloseable c =
+        Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
+      ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
+      if (request.getBuildOptions().experimentalConvenienceSymlinks
+          != ConvenienceSymlinksMode.IGNORE) {
+        convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+      }
+      if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
+        env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+      }
     }
   }
 

@@ -248,7 +248,6 @@ java_library(
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
         "starlark/StarlarkRuleContext.java",
         "starlark/StarlarkRuleTransitionProvider.java",
-        "starlark/StarlarkTransition.java",
         "test/AnalysisTestActionBuilder.java",
         "test/BaselineCoverageAction.java",
         "test/CoverageCommon.java",
@@ -349,6 +348,7 @@ java_library(
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":starlark/starlark_transition",
         ":starlark/template_dict",
         ":target_and_configuration",
         ":template_variable_info",
@@ -2381,6 +2381,23 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "starlark/starlark_transition",
+    srcs = ["starlark/StarlarkTransition.java"],
+    deps = [
+        ":config/build_option_details",
+        ":config/build_options",
+        ":config/fragment_options",
+        ":config/starlark_defined_config_transition",
+        ":config/transitions/configuration_transition",
+        ":required_config_fragments_provider",
+        ":starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:guava",
     ],
 )
 

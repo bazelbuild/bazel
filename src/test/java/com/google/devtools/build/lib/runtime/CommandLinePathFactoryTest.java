@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory.CommandLinePathFactoryException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -99,6 +100,9 @@ public class CommandLinePathFactoryTest {
         .isEqualTo(filesystem.getPath("/path/to/output/base/foo"));
     assertThat(factory.create(ImmutableMap.of(), "%output_base%/foo/bar"))
         .isEqualTo(filesystem.getPath("/path/to/output/base/foo/bar"));
+
+    assertThat(factory.create(ImmutableMap.of(), "%workspace%//foo//bar"))
+        .isEqualTo(filesystem.getPath("/path/to/workspace/foo/bar"));
   }
 
   @Test
@@ -108,9 +112,11 @@ public class CommandLinePathFactoryTest {
             filesystem, ImmutableMap.of("a", filesystem.getPath("/path/to/a")));
 
     assertThrows(
-        IllegalArgumentException.class, () -> factory.create(ImmutableMap.of(), "%a%/../foo"));
+        CommandLinePathFactoryException.class,
+        () -> factory.create(ImmutableMap.of(), "%a%/../foo"));
     assertThrows(
-        IllegalArgumentException.class, () -> factory.create(ImmutableMap.of(), "%a%/b/../.."));
+        CommandLinePathFactoryException.class,
+        () -> factory.create(ImmutableMap.of(), "%a%/b/../.."));
   }
 
   @Test
@@ -120,29 +126,21 @@ public class CommandLinePathFactoryTest {
             filesystem, ImmutableMap.of("a", filesystem.getPath("/path/to/a")));
 
     assertThrows(
-        IllegalArgumentException.class, () -> factory.create(ImmutableMap.of(), "%workspace%/foo"));
+        CommandLinePathFactoryException.class,
+        () -> factory.create(ImmutableMap.of(), "%workspace%/foo"));
     assertThrows(
-        IllegalArgumentException.class,
+        CommandLinePathFactoryException.class,
         () -> factory.create(ImmutableMap.of(), "%output_base%/foo"));
-  }
-
-  @Test
-  public void rootWithDoubleSlash() {
-    CommandLinePathFactory factory =
-        new CommandLinePathFactory(
-            filesystem, ImmutableMap.of("a", filesystem.getPath("/path/to/a")));
-
-    assertThrows(
-        IllegalArgumentException.class, () -> factory.create(ImmutableMap.of(), "%a%//foo"));
   }
 
   @Test
   public void relativePathWithMultipleSegments() {
     CommandLinePathFactory factory = new CommandLinePathFactory(filesystem, ImmutableMap.of());
 
-    assertThrows(IllegalArgumentException.class, () -> factory.create(ImmutableMap.of(), "a/b"));
     assertThrows(
-        IllegalArgumentException.class, () -> factory.create(ImmutableMap.of(), "a/b/c/d"));
+        CommandLinePathFactoryException.class, () -> factory.create(ImmutableMap.of(), "a/b"));
+    assertThrows(
+        CommandLinePathFactoryException.class, () -> factory.create(ImmutableMap.of(), "a/b/c/d"));
   }
 
   @Test

@@ -309,23 +309,22 @@ public class ResourceManager {
     return threadLocked.get();
   }
 
-  void releaseResources(ActionExecutionMetadata owner, ResourceSet resources)
-      throws IOException, InterruptedException {
-    releaseResources(owner, resources, /* worker= */ null);
-    return;
-  }
-
   /**
-   * Releases previously requested resource =.
+   * Releases previously requested resource.
    *
    * <p>NB! This method must be thread-safe!
+   *
+   * @param owner action metadata, which resources should ve released
+   * @param resources resources should be released
+   * @param worker the worker, which used during execution
+   * @throws java.io.IOException if could not return worker to the workerPool
    */
-  @VisibleForTesting
   void releaseResources(
       ActionExecutionMetadata owner, ResourceSet resources, @Nullable Worker worker)
       throws IOException, InterruptedException {
     Preconditions.checkNotNull(
         resources, "releaseResources called with resources == NULL during %s", owner);
+
     Preconditions.checkState(
         threadHasResources(), "releaseResources without resource lock during %s", owner);
 
@@ -341,6 +340,15 @@ public class ResourceManager {
         p.complete();
       }
     }
+  }
+
+  // TODO (b/241066751) find better way to change resource ownership
+  public void releaseResourceOwnership() {
+    threadLocked.set(false);
+  }
+
+  public void acquireResourceOwnership() {
+    threadLocked.set(true);
   }
 
   /**
@@ -436,7 +444,17 @@ public class ResourceManager {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
-    if (usedCpu == 0.0 && usedRam == 0.0 && usedLocalTestCount == 0) {
+
+    WorkerKey workerKey = resources.getWorkerKey();
+    int availableWorkers = 0;
+    int activeWorkers = 0;
+    if (workerKey != null) {
+      availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
+      activeWorkers = this.workerPool.getNumActive(workerKey);
+    }
+    boolean workerIsAvailable = workerKey == null || activeWorkers < availableWorkers;
+
+    if (usedCpu == 0.0 && usedRam == 0.0 && usedLocalTestCount == 0 && workerIsAvailable) {
       return true;
     }
     // Use only MIN_NECESSARY_???_RATIO of the resource value to check for
@@ -454,14 +472,6 @@ public class ResourceManager {
 
     double remainingRam = availableRam - usedRam;
 
-    WorkerKey workerKey = resources.getWorkerKey();
-    int availableWorkers = 0;
-    int activeWorkers = 0;
-    if (workerKey != null) {
-      availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
-      activeWorkers = this.workerPool.getNumActive(workerKey);
-    }
-
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
     // 2) If resource is not used at the moment, it is considered to be
@@ -471,9 +481,10 @@ public class ResourceManager {
     // 3) If used resource amount is less than total available resource amount.
     boolean cpuIsAvailable = cpu == 0.0 || usedCpu == 0.0 || usedCpu + cpu <= availableCpu;
     boolean ramIsAvailable = ram == 0.0 || usedRam == 0.0 || ram <= remainingRam;
-    boolean localTestCountIsAvailable = localTestCount == 0 || usedLocalTestCount == 0
-        || usedLocalTestCount + localTestCount <= availableLocalTestCount;
-    boolean workerIsAvailable = workerKey == null || activeWorkers < availableWorkers;
+    boolean localTestCountIsAvailable =
+        localTestCount == 0
+            || usedLocalTestCount == 0
+            || usedLocalTestCount + localTestCount <= availableLocalTestCount;
     return cpuIsAvailable && ramIsAvailable && localTestCountIsAvailable && workerIsAvailable;
   }
 

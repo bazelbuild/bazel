@@ -199,6 +199,7 @@ public class BuildTool {
             buildCompleted = true;
             result.setBuildConfigurationCollection(
                 analysisAndExecutionResult.getConfigurationCollection());
+            executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
           } catch (InvalidConfigurationException
               | TargetParsingException
               | LoadingFailedException
