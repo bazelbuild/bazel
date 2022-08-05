@@ -25,7 +25,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -583,33 +582,6 @@ public final class Utils {
     return String.format("%s %s", BYTE_COUNT_FORMAT.format(value / 1024.0), UNITS.get(unitIndex));
   }
 
-  public static boolean shouldAcceptCachedResultFromRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
-  }
-
-  public static boolean shouldAcceptCachedResultFromDiskCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return spawn == null || Spawns.mayBeCached(spawn);
-    } else {
-      return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCached(spawn));
-    }
-  }
-
-  public static boolean shouldAcceptCachedResultFromCombinedCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      // --incompatible_remote_results_ignore_disk is set. Disk cache is treated as local cache.
-      // Actions which are tagged with `no-remote-cache` can still hit the disk cache.
-      return spawn == null || Spawns.mayBeCached(spawn);
-    } else {
-      // Disk cache is treated as a remote cache and disabled for `no-remote-cache`.
-      return remoteOptions.remoteAcceptCached
-          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
-    }
-  }
-
   public static boolean shouldUploadLocalResultsToRemoteCache(
       RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
@@ -618,52 +590,45 @@ public final class Utils {
                 && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD)));
   }
 
-  public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    ImmutableMap<String, String> executionInfo = null;
-    if (spawn != null) {
-      executionInfo = spawn.getExecutionInfo();
+  public static void waitForBulkTransfer(
+      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
+      throws BulkTransferException, InterruptedException {
+    BulkTransferException bulkTransferException = null;
+    InterruptedException interruptedException = null;
+    boolean interrupted = Thread.currentThread().isInterrupted();
+    for (ListenableFuture<?> transfer : transfers) {
+      try {
+        if (interruptedException == null) {
+          // Wait for all transfers to finish.
+          getFromFuture(transfer, cancelRemainingOnInterrupt);
+        } else {
+          transfer.cancel(true);
+        }
+      } catch (IOException e) {
+        if (bulkTransferException == null) {
+          bulkTransferException = new BulkTransferException();
+        }
+        bulkTransferException.add(e);
+      } catch (InterruptedException e) {
+        interrupted = Thread.interrupted() || interrupted;
+        interruptedException = e;
+        if (!cancelRemainingOnInterrupt) {
+          // leave the rest of the transfers alone
+          break;
+        }
+      }
     }
-    return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
-  }
-
-  public static boolean shouldUploadLocalResultsToDiskCache(
-      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return executionInfo == null || Spawns.mayBeCached(executionInfo);
-    } else {
-      return remoteOptions.remoteUploadLocalResults
-          && (executionInfo == null || Spawns.mayBeCached(executionInfo));
+    if (interrupted) {
+      Thread.currentThread().interrupt();
     }
-  }
-
-  public static boolean shouldUploadLocalResultsToDiskCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    ImmutableMap<String, String> executionInfo = null;
-    if (spawn != null) {
-      executionInfo = spawn.getExecutionInfo();
+    if (interruptedException != null) {
+      if (bulkTransferException != null) {
+        interruptedException.addSuppressed(bulkTransferException);
+      }
+      throw interruptedException;
     }
-    return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
-  }
-
-  public static boolean shouldUploadLocalResultsToCombinedDisk(
-      RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
-      // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
-    } else {
-      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-      return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
+    if (bulkTransferException != null) {
+      throw bulkTransferException;
     }
-  }
-
-  public static boolean shouldUploadLocalResultsToCombinedDisk(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    ImmutableMap<String, String> executionInfo = null;
-    if (spawn != null) {
-      executionInfo = spawn.getExecutionInfo();
-    }
-    return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
   }
 }
