@@ -585,9 +585,8 @@ public final class Utils {
   public static boolean shouldUploadLocalResultsToRemoteCache(
       RemoteOptions remoteOptions, @Nullable Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
-        && (executionInfo == null
-            || (Spawns.mayBeCachedRemotely(executionInfo)
-                && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD)));
+        && Spawns.mayBeCachedRemotely(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
   public static void waitForBulkTransfer(
