@@ -276,10 +276,10 @@ public class CommandLines {
 
   /** An in-memory param file virtual action input. */
   public static final class ParamFileActionInput implements VirtualActionInput {
-    final PathFragment paramFileExecPath;
-    final Iterable<String> arguments;
-    final ParameterFileType type;
-    final Charset charset;
+    private final PathFragment paramFileExecPath;
+    private final Iterable<String> arguments;
+    private final ParameterFileType type;
+    private final Charset charset;
 
     public ParamFileActionInput(
         PathFragment paramFileExecPath,
