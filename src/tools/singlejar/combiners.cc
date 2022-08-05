@@ -266,7 +266,7 @@ void ManifestCombiner::OutputModuleFlags(std::vector<std::string> &flags,
     bool first = true;
     for (const auto &flag : flags) {
       if (!first) {
-        concatenator_->Append(" ");
+        concatenator_->Append("\r\n ");
       }
       concatenator_->Append(flag);
       first = false;
