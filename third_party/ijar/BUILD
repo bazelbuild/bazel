@@ -1,7 +1,4 @@
-load("@rules_license//rules:license.bzl", "license")
-
 package(
-    default_applicable_licenses = [":license"],
     default_visibility = [
         "//src:__subpackages__",
         "//third_party/ijar:__subpackages__",
@@ -9,17 +6,6 @@ package(
 )
 
 licenses(["notice"])  # Apache 2.0
-
-license(
-    name = "license",
-    package_name = "ijar",
-    copyright_notice = "Copyright 2015 The Bazel Authors. All rights reserved.",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "LICENSE",
-    package_version = "last update: 2022-04-15",
-)
 
 cc_library(
     name = "zip",

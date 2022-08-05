@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -285,9 +284,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
     CallCredentialsProvider callCredentialsProvider =
-        GoogleAuthUtils.newCallCredentialsProvider(
-            GoogleAuthUtils.newGoogleCredentials(Options.getDefaults(AuthAndTLSOptions.class))
-                .orElse(null));
+        GoogleAuthUtils.newCallCredentialsProvider(null);
     GrpcCacheClient cacheProtocol =
         new GrpcCacheClient(
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
