@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
@@ -25,9 +25,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.Step;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -43,24 +41,22 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
   private final RemoteCacheClient remoteCache;
   private final DiskCacheClient diskCache;
-  private final RemoteOptions options;
 
-  public DiskAndRemoteCacheClient(
-      DiskCacheClient diskCache, RemoteCacheClient remoteCache, RemoteOptions options) {
+  public DiskAndRemoteCacheClient(DiskCacheClient diskCache, RemoteCacheClient remoteCache) {
     this.diskCache = Preconditions.checkNotNull(diskCache);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
-    this.options = options;
   }
 
   @Override
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
-    ListenableFuture<Void> future = diskCache.uploadActionResult(context, actionKey, actionResult);
-    // Only upload action result to remote cache if we are uploading local outputs. This method
-    // could be called when we are downloading outputs from remote executor if disk cache is enabled
-    // because we want to upload the action result to it.
-    if (context.getStep() == Step.UPLOAD_OUTPUTS
-        && shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    ListenableFuture<Void> future = Futures.immediateVoidFuture();
+
+    if (context.getWriteCachePolicy().allowDiskCache()) {
+      future = diskCache.uploadActionResult(context, actionKey, actionResult);
+    }
+
+    if (context.getWriteCachePolicy().allowRemoteCache()) {
       future =
           Futures.transformAsync(
               future,
@@ -79,20 +75,13 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
-    RemoteActionExecutionContext.Step step = context.getStep();
+    ListenableFuture<Void> future = Futures.immediateVoidFuture();
 
-    // For UPLOAD_INPUTS, only upload to remote cache.
-    if (step == Step.UPLOAD_INPUTS) {
-      return remoteCache.uploadFile(context, digest, file);
+    if (context.getWriteCachePolicy().allowDiskCache()) {
+      future = diskCache.uploadFile(context, digest, file);
     }
 
-    // For UPLOAD_BES_FILES, only upload to remote cache.
-    if (step == Step.UPLOAD_BES_FILES) {
-      return remoteCache.uploadFile(context, digest, file);
-    }
-
-    ListenableFuture<Void> future = diskCache.uploadFile(context, digest, file);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (context.getWriteCachePolicy().allowRemoteCache()) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadFile(context, digest, file), directExecutor());
@@ -103,20 +92,13 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    RemoteActionExecutionContext.Step step = context.getStep();
+    ListenableFuture<Void> future = Futures.immediateVoidFuture();
 
-    // For UPLOAD_INPUTS, only upload to remote cache.
-    if (step == Step.UPLOAD_INPUTS) {
-      return remoteCache.uploadBlob(context, digest, data);
+    if (context.getWriteCachePolicy().allowDiskCache()) {
+      future = diskCache.uploadBlob(context, digest, data);
     }
 
-    // For BES upload, only upload to the remote cache.
-    if (step == Step.UPLOAD_BES_FILES) {
-      return remoteCache.uploadBlob(context, digest, data);
-    }
-
-    ListenableFuture<Void> future = diskCache.uploadBlob(context, digest, data);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (context.getWriteCachePolicy().allowRemoteCache()) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadBlob(context, digest, data), directExecutor());
@@ -127,38 +109,27 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    RemoteActionExecutionContext.Step step = context.getStep();
-
-    // For UPLOAD_INPUTS, find missing digests should only look at
-    // the remote cache, not the disk cache because the remote executor only
-    // has access to the remote cache, not the disk cache.
-    // Also, the DiskCache always returns all digests as missing
-    // and we don't want to transfer all the files all the time.
-    if (step == Step.UPLOAD_INPUTS) {
-      return remoteCache.findMissingDigests(context, digests);
+    ListenableFuture<ImmutableSet<Digest>> diskQuery = immediateFuture(ImmutableSet.of());
+    if (context.getWriteCachePolicy().allowDiskCache()) {
+      diskQuery = diskCache.findMissingDigests(context, digests);
     }
 
-    // For UPLOAD_BES_FILES, we only check the remote cache.
-    if (step == Step.UPLOAD_BES_FILES) {
-      return remoteCache.findMissingDigests(context, digests);
+    ListenableFuture<ImmutableSet<Digest>> remoteQuery = immediateFuture(ImmutableSet.of());
+    if (context.getWriteCachePolicy().allowRemoteCache()) {
+      remoteQuery = remoteCache.findMissingDigests(context, digests);
     }
 
-    ListenableFuture<ImmutableSet<Digest>> diskQuery =
-        diskCache.findMissingDigests(context, digests);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
-      ListenableFuture<ImmutableSet<Digest>> remoteQuery =
-          remoteCache.findMissingDigests(context, digests);
-      return Futures.whenAllSucceed(remoteQuery, diskQuery)
-          .call(
-              () ->
-                  ImmutableSet.<Digest>builder()
-                      .addAll(remoteQuery.get())
-                      .addAll(diskQuery.get())
-                      .build(),
-              directExecutor());
-    } else {
-      return diskQuery;
-    }
+    ListenableFuture<ImmutableSet<Digest>> diskQueryFinal = diskQuery;
+    ListenableFuture<ImmutableSet<Digest>> remoteQueryFinal = remoteQuery;
+
+    return Futures.whenAllSucceed(remoteQueryFinal, diskQueryFinal)
+        .call(
+            () ->
+                ImmutableSet.<Digest>builder()
+                    .addAll(remoteQueryFinal.get())
+                    .addAll(diskQueryFinal.get())
+                    .build(),
+            directExecutor());
   }
 
   private Path newTempPath() {
@@ -176,7 +147,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
           } catch (IOException e) {
             rootCause.addSuppressed(e);
           }
-          return Futures.immediateFailedFuture(rootCause);
+          return immediateFailedFuture(rootCause);
         },
         directExecutor());
   }
@@ -184,7 +155,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
-    if (diskCache.contains(digest)) {
+    if (context.getReadCachePolicy().allowDiskCache() && diskCache.contains(digest)) {
       return diskCache.downloadBlob(context, digest, out);
     }
 
@@ -192,9 +163,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     final OutputStream tempOut;
     tempOut = new LazyFileOutputStream(tempPath);
 
-    // Always download outputs for just remotely executed action.
-    if (context.getExecuteResponse() != null
-        || shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
+    if (context.getReadCachePolicy().allowRemoteCache()) {
       ListenableFuture<Void> download =
           closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
       return Futures.transformAsync(
@@ -204,29 +173,30 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
               tempOut.close();
               diskCache.captureFile(tempPath, digest, /* isActionCache= */ false);
             } catch (IOException e) {
-              return Futures.immediateFailedFuture(e);
+              return immediateFailedFuture(e);
             }
             return diskCache.downloadBlob(context, digest, out);
           },
           directExecutor());
     } else {
-      return Futures.immediateFuture(null);
+      return immediateFuture(null);
     }
   }
 
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    if (diskCache.containsActionResult(actionKey)) {
+    if (context.getReadCachePolicy().allowDiskCache()
+        && diskCache.containsActionResult(actionKey)) {
       return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
     }
 
-    if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
+    if (context.getReadCachePolicy().allowRemoteCache()) {
       return Futures.transformAsync(
           remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
           (cachedActionResult) -> {
             if (cachedActionResult == null) {
-              return Futures.immediateFuture(null);
+              return immediateFuture(null);
             } else {
               return Futures.transform(
                   diskCache.uploadActionResult(
@@ -237,7 +207,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
           },
           directExecutor());
     } else {
-      return Futures.immediateFuture(null);
+      return immediateFuture(null);
     }
   }
 }
