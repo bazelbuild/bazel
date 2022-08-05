@@ -20,7 +20,7 @@ Estimated completion time: 30 minutes.
 ### Prerequisites
 
 Start by [installing Bazel](https://bazel.build/install), if you haven’t
-already. This tutorial uses Git for file management, so for best results
+already. This tutorial uses Git for source control, so for best results
 [install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) as
 well.
 
@@ -67,7 +67,7 @@ There are three sets of files, each set representing a stage in this tutorial.
 In the first stage, you will build a single [target]
 (https://bazel.build/reference/glossary#target) residing in a single [package]
 (https://bazel.build/reference/glossary#package). In the second stage, you will
-use a split project with multiple targets but keep it in a single package. In
+you will build both a binary and a library from a single package. In
 the third and final stage, you will build a project with multiple packages and
 build it with multiple targets.
 
@@ -75,30 +75,30 @@ build it with multiple targets.
 
 By installing Bazel (and Git) and cloning the repository for this tutorial, you
 have laid the foundation for your first build with Bazel. Continue to the next
-section to define some terms and set up your workspace.
+section to define some terms and set up your [workspace](https://bazel.build/reference/glossary#workspace).
 
 ## Getting started
 
 ### Set up the workspace
 
-Before you can build a project, you need to set up its workspace. A workspace is
+  Before you can build a project, you need to set up its workspace. A workspace is
 a directory that holds your project's source files and Bazel's build outputs. It
 also contains these significant files:
 
-*   The <code>[WORKSPACE file](https://bazel.build/reference/glossary#workspace-file)
+*   The <code>[`WORKSPACE` file](https://bazel.build/reference/glossary#workspace-file)
 </code>, which identifies the directory and its contents as a Bazel workspace and
-lives at the root of the project's directory structure
-*   One or more <code>[BUILD files](https://bazel.build/reference/glossary#build-file)
+lives at the root of the project's directory structure.
+*   One or more <code>[`BUILD` files](https://bazel.build/reference/glossary#build-file)
 </code>, which tell Bazel how to build different parts of the project. A
 directory within the workspace that contains a <code>BUILD</code> file is a
 [package](https://bazel.build/reference/glossary#package). (More on packages
 later in this tutorial.)
 
 In future projects, to designate a directory as a Bazel workspace, create an
-empty file named WORKSPACE in that directory. For the purposes of this tutorial,
-WORKSPACE files are already present.
+empty file named `WORKSPACE` in that directory. For the purposes of this tutorial,
+a `WORKSPACE` file is already present in each stage.
 
-**NOTE**: When Bazel builds the project, all inputs and dependencies must be in
+**NOTE**: When Bazel builds the project, all inputs must be in
 the same workspace. Files residing in different workspaces are independent of
 one another unless linked. More detailed information about workspace rules can
 be found in [this guide](https://bazel.build/reference/be/workspace).
@@ -108,7 +108,7 @@ be found in [this guide](https://bazel.build/reference/be/workspace).
 
 
 A `BUILD` file contains several different types of instructions for Bazel. Each
-BUILD file requires at least one build [rule](https://bazel.build/reference/glossary#rule)
+`BUILD` file requires at least one [rule](https://bazel.build/reference/glossary#rule)
 as a set of instructions, which tells Bazel how to build the desired outputs,
 such as executable binaries or libraries. Each instance of a build rule in the
 `BUILD` file is called a [target](https://bazel.build/reference/glossary#target)
@@ -128,11 +128,6 @@ In our example, the `hello-world` target instantiates Bazel's built-in
 <code>[cc_binary rule](https://bazel.build/reference/be/c-cpp#cc_binary)</code>.
 The rule tells Bazel to build a self-contained executable binary from the 
 <code>hello-world.cc</code> source file with no dependencies.
-
-The attributes in the target explicitly state its dependencies and options. While
-the `name` attribute is mandatory, other attributes are optional. For example, in
-the `hello-world` target, `name` is required and self-explanatory, and `srcs` is
-optional and specifies the source file(s) from which Bazel builds the target.
 
 ### Summary: getting started
 
@@ -156,7 +151,7 @@ examples
        └── WORKSPACE
 ```
 
-Run the following to select the `cpp-tutorial/stage1` directory:
+Run the following to move to the `cpp-tutorial/stage1` directory:
 
 ```
 $ cd  ../cpp-tutorial/stage1
@@ -183,7 +178,7 @@ INFO: Elapsed time: 2.267s, Critical Path: 0.25s
 
 You just built your first Bazel target. Bazel places build outputs in the
 `bazel-bin` directory at the root of the
-[workspace](https://bazel.build/reference/glossary#workspace).
+workspace.
 
 Now test your freshly built binary, which is:
 
@@ -210,11 +205,11 @@ target.
 
 While a single target is sufficient for small projects, you may want to split
 larger projects into multiple targets and packages. This allows for fast
-incremental builds – that is, only rebuilds what's changed – and speeds up your
+incremental builds – that is, Bazel only rebuilds what's changed – and speeds up your
 builds by building multiple parts of a project at once. This stage of the
 tutorial adds a target, and the next adds a package.
 
-This is the directory you will work with for Stage 2:
+This is the directory you are working with for Stage 2:
 
 ```
     ├──stage2
@@ -357,8 +352,8 @@ graph:
 For the build to succeed, you make the `//lib:hello-time` target in `lib/BUILD`
 explicitly visible to targets in `main/BUILD` using the visibility attribute.
 This is because by default targets are only visible to other targets in the same
-`BUILD` file. (Bazel uses target visibility to prevent issues such as libraries
-containing implementation details leaking into public APIs.)
+`BUILD` file. Bazel uses target visibility to prevent issues such as libraries
+containing implementation details leaking into public APIs.
 
 Now build this final version of the project. Switch to the `cpp-tutorial/stage3`
 directory by running:
@@ -382,7 +377,7 @@ Target //main:hello-world up-to-date:
 INFO: Elapsed time: 0.167s, Critical Path: 0.00s
 ```
 
-Now test the final binary of this tutorial for a final `Hello world` message:
+Now test the last binary of this tutorial for a final `Hello world` message:
 
 ```
 $ bazel-bin/main/hello-world

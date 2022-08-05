@@ -8,6 +8,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/android_dex:srcs",
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/bazel-toolchains:srcs",

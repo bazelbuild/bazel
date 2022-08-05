@@ -9,6 +9,12 @@ package(
 
 licenses(["notice"])
 
+filegroup(
+  name = "srcs",
+  srcs = glob(["**"]),
+  visibility = ["//third_party:__pkg__"],
+)
+
 java_library(
     name = "android_dex",
     srcs = glob(["java/**/*.java"]),
