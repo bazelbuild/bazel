@@ -750,7 +750,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
         @Param(
-            name = "renameFiles",
+            name = "rename_files",
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -777,7 +777,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     checkInOutputDirectory("write", outputPath);
 
     Map<String, String> renameFilesMap =
-        Dict.cast(renameFiles, String.class, String.class, "renameFiles");
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(
@@ -901,7 +901,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " field will make your build non-hermetic. It is optional to make development"
                     + " easier but should be set before shipping."),
         @Param(
-            name = "renameFiles",
+            name = "rename_files",
             defaultValue = "{}",
             named = true,
             positional = false,
@@ -941,7 +941,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
 
     Map<String, String> renameFilesMap =
-        Dict.cast(renameFiles, String.class, String.class, "renameFiles");
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
 
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadAndExtractEvent(

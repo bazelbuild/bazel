@@ -432,7 +432,7 @@ function test_extract_rename_files() {
   popd
 
   set_workspace_command "
-  repository_ctx.extract('${archive_tar}', 'out_dir', 'prefix/', renameFiles={
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'prefix/', rename_files={
     'prefix/A.txt': 'prefix/renamed-A.txt',
   })"
 
