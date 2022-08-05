@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
@@ -499,29 +500,32 @@ public class ExecutionTool {
         saveActionCache(actionCache);
       }
 
+      BuildResultListener buildResultListener = env.getBuildResultListener();
       try (SilentCloseable c = Profiler.instance().profile("Show results")) {
         buildResult.setSuccessfulTargets(
             determineSuccessfulTargets(
-                configuredTargets, env.getBuildResultListener().getBuiltTargets()));
+                buildResultListener.getAnalyzedTargets(), buildResultListener.getBuiltTargets()));
         buildResult.setSuccessfulAspects(
             determineSuccessfulAspects(
-                analysisResult.getAspectsMap().keySet(),
-                env.getBuildResultListener().getBuiltAspects()));
-        buildResult.setSkippedTargets(analysisResult.getTargetsToSkip());
+                buildResultListener.getAnalyzedAspects().keySet(),
+                buildResultListener.getBuiltAspects()));
+        buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
         buildResultPrinter.showBuildResult(
             request,
             buildResult,
-            configuredTargets,
-            analysisResult.getTargetsToSkip(),
-            analysisResult.getAspectsMap());
+            buildResultListener.getAnalyzedTargets(),
+            buildResultListener.getSkippedTargets(),
+            buildResultListener.getAnalyzedAspects());
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
         if (request.getBuildOptions().showArtifacts) {
           BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
           buildResultPrinter.showArtifacts(
-              request, configuredTargets, analysisResult.getAspectsMap().values());
+              request,
+              buildResultListener.getAnalyzedTargets(),
+              buildResultListener.getAnalyzedAspects().values());
         }
       }
 
