@@ -15,6 +15,7 @@ cc_library(
     name = "process-tools",
     srcs = ["process-tools.cc"] + select({
         "//src/conditions:darwin": ["process-tools-darwin.cc"],
+        "//src/conditions:openbsd": ["process-tools-darwin.cc"],
         "//conditions:default": ["process-tools-linux.cc"],
     }),
     hdrs = ["process-tools.h"],
