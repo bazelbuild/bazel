@@ -364,6 +364,19 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public int remoteMaxRetryAttempts;
 
   @Option(
+      name = "remote_retry_max_delay",
+      defaultValue = "5s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteTimeoutConverter.class,
+      help =
+          "The maximum backoff delay between remote retry attempts. Following units can be used:"
+              + " Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
+              + " the unit is omitted, the value is interpreted as seconds."
+          )
+  public Duration remoteRetryMaxDelay;
+
+  @Option(
       name = "disk_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
