@@ -133,29 +133,6 @@ EOF
       || fail "Failed to build with --remote_download_minimal"
 }
 
-function test_downloads_minimal_failure() {
-  # Test that outputs of failing actions are downloaded when using
-  # --remote_download_minimal
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "fail",
-  srcs = [],
-  outs = ["fail.txt"],
-  cmd = "echo \"foo\" > \"$@\" && exit 1",
-)
-EOF
-
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:fail && fail "Expected test failure" || true
-
-  [[ -f bazel-bin/a/fail.txt ]] \
-  || fail "Expected fail.txt of failing target //a:fail to be downloaded"
-}
-
 function test_downloads_minimal_prefetch() {
   # Test that when using --remote_download_minimal a remote-only output that's
   # an input to a local action is downloaded lazily before executing the local action.

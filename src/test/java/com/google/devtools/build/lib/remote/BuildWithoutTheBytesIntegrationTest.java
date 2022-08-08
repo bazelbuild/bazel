@@ -15,14 +15,19 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import java.io.IOException;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,6 +56,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
     worker.stop();
   }
 
+  private void addDownloadMinimalOptions() {
+    addOptions(
+        "--remote_executor=grpc://localhost:" + worker.getPort(), "--remote_download_minimal");
+  }
+
   @Test
   public void downloadMinimal_outputsAreNotDownloaded() throws Exception {
     write(
@@ -68,9 +78,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
         "  outs = ['foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
         ")");
+    addDownloadMinimalOptions();
 
-    addOptions(
-        "--remote_executor=grpc://localhost:" + worker.getPort(), "--remote_download_minimal");
     buildTarget("//a:foobar");
 
     ImmutableList<Artifact> outputs =
@@ -81,5 +90,25 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
     for (Artifact output : outputs) {
       assertThat(output.getPath().exists()).isFalse();
     }
+  }
+
+  @Test
+  public void downloadMinimal_actionFails_outputsAreDownloadedForDebugPurpose() throws Exception {
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'fail',",
+        "  srcs = [],",
+        "  outs = ['fail.txt'],",
+        "  cmd = 'echo foo > $@ && exit 1',",
+        ")");
+    addDownloadMinimalOptions();
+
+    Assert.assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
+
+    Artifact output = Iterables.getOnlyElement(getArtifacts("//a:fail"));
+    assertThat(output.getFilename()).isEqualTo("fail.txt");
+    assertThat(output.getPath().exists()).isTrue();
+    assertThat(readContent(output.getPath(), UTF_8)).isEqualTo("foo\n");
   }
 }
