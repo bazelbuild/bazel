@@ -861,6 +861,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           "--strategy=AndroidManifestMerger=worker",
           "--strategy=Aapt2Optimize=worker",
           "--strategy=AARGenerator=worker",
+          "--strategy=ProcessDatabinding=worker",
+          "--strategy=GenerateDataBindingBaseClasses=worker"
         })
     public Void persistentResourceProcessor;
 
