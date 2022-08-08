@@ -62,6 +62,11 @@ android/ @ahumesky @ted-xie
 
 /src/tools/singlejar/ @asmundak
 
+# Python
+
+/src/main/java/com/google/devtools/build/lib/bazel/rules/python/ @comius @rickeylev
+/src/main/java/com/google/devtools/build/lib/rules/python/ @comius @rickeylev
+
 # Execution and I/O related code
 
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
