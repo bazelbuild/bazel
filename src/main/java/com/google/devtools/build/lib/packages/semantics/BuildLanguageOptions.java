@@ -64,6 +64,16 @@ public final class BuildLanguageOptions extends OptionsBase {
   // <== Add new options here in alphabetic order ==>
 
   @Option(
+      name = "incompatible_disallow_symlink_file_to_dir",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, `ctx.actions.symlink` will disallow symlinking a file into a directory.")
+  public boolean incompatibleAllowSymlinkFileToDir;
+
+  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -609,6 +619,7 @@ public final class BuildLanguageOptions extends OptionsBase {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
+            .setBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleAllowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
@@ -684,6 +695,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
+      "-incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";

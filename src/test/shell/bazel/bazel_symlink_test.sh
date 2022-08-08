@@ -492,6 +492,13 @@ EOF
   bazel build //a:a || fail "build failed"
   assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
   expect_symlink bazel-bin/a/a.link
+
+  bazel build --noincompatible_disallow_symlink_file_to_dir || fail "build failed"
+  assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
+  expect_symlink bazel-bin/a/a.link
+
+  bazel build --incompatible_disallow_symlink_file_to_dir //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "symlink() with \"target_file\" directory param requires that \"output\" be declared as a directory"
 }
 
 function test_symlink_directory_to_file_created_from_symlink_action() {
