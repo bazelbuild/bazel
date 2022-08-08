@@ -240,7 +240,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
       - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
-      - "-//src/test/java/com/google/devtools/build/lib/remote/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
   rbe_ubuntu1804:
