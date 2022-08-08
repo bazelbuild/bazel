@@ -133,36 +133,6 @@ EOF
       || fail "Failed to build with --remote_download_minimal"
 }
 
-function test_downloads_minimal() {
-  # Test that genrule outputs are not downloaded when using
-  # --remote_download_minimal
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "foo",
-  srcs = [],
-  outs = ["foo.txt"],
-  cmd = "echo \"foo\" > \"$@\"",
-)
-
-genrule(
-  name = "foobar",
-  srcs = [":foo"],
-  outs = ["foobar.txt"],
-  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:foobar || fail "Failed to build //a:foobar"
-
-  (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
-  || fail "Expected no files to have been downloaded"
-}
-
 function test_downloads_minimal_failure() {
   # Test that outputs of failing actions are downloaded when using
   # --remote_download_minimal
