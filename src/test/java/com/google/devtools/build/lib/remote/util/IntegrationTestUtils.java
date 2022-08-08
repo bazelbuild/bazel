@@ -71,13 +71,18 @@ public final class IntegrationTestUtils {
   }
 
   public static WorkerInstance startWorker() throws IOException, InterruptedException {
+    return startWorker(/* useHttp= */ false);
+  }
+
+  public static WorkerInstance startWorker(boolean useHttp)
+      throws IOException, InterruptedException {
     PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
     PathFragment workPath = testTmpDir.getRelative("remote.work_path");
     PathFragment casPath = testTmpDir.getRelative("remote.cas_path");
     PathFragment pidPath = testTmpDir.getRelative("remote.pid_file");
     int workerPort = pickUnusedRandomPort();
-    new File(workPath.getSafePathString()).mkdir();
-    new File(casPath.getSafePathString()).mkdir();
+    ensureMkdir(workPath);
+    ensureMkdir(casPath);
     String workerPath = Runfiles.create().rlocation(WORKER_PATH.getSafePathString());
     Subprocess workerProcess =
         new SubprocessBuilder()
@@ -86,7 +91,7 @@ public final class IntegrationTestUtils {
                     workerPath,
                     "--work_path=" + workPath.getSafePathString(),
                     "--cas_path=" + casPath.getSafePathString(),
-                    "--listen_port=" + workerPort,
+                    (useHttp ? "--http_listen_port=" : "--listen_port=") + workerPort,
                     "--pid_file=" + pidPath))
             .start();
 
@@ -100,6 +105,16 @@ public final class IntegrationTestUtils {
     }
 
     return new WorkerInstance(workerProcess, workerPort, workPath, casPath, pidPath);
+  }
+
+  private static void ensureMkdir(PathFragment path) throws IOException {
+    File dir = new File(path.getSafePathString());
+    if (dir.exists()) {
+      throw new IOException(path + " already exists");
+    }
+    if (!dir.mkdir()) {
+      throw new IOException("Failed to create directory " + path);
+    }
   }
 
   public static class WorkerInstance {

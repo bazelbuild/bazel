@@ -13,30 +13,74 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
 
 /** Integration tests for Build without the Bytes. */
-@RunWith(JUnit4.class)
+@RunWith(Parameterized.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCase {
+  public enum RemoteMode {
+    REMOTE_EXECUTION,
+    REMOTE_CACHE;
+
+    public boolean executeRemotely() {
+      return this == REMOTE_EXECUTION;
+    }
+  }
+
+  public enum OutputMode {
+    DOWNLOAD_TOPLEVEL,
+    DOWNLOAD_MINIMAL;
+
+    public boolean minimal() {
+      return this == DOWNLOAD_MINIMAL;
+    }
+  }
+
   private WorkerInstance worker;
+  private final RemoteMode remoteMode;
+  private final OutputMode outputMode;
+
+  @Parameterized.Parameters(name = "{0}-{1}")
+  public static List<Object[]> configs() {
+    ArrayList<Object[]> params = new ArrayList<>();
+    for (RemoteMode remoteMode : RemoteMode.values()) {
+      for (OutputMode outputMode : OutputMode.values()) {
+        params.add(new Object[] {remoteMode, outputMode});
+      }
+    }
+    return params;
+  }
+
+  public BuildWithoutTheBytesIntegrationTest(RemoteMode remoteMode, OutputMode outputMode) {
+    this.remoteMode = remoteMode;
+    this.outputMode = outputMode;
+  }
+
+  @Override
+  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
+    return super.getRuntimeBuilder().addBlazeModule(new BuildSummaryStatsModule());
+  }
 
   @Override
   protected ImmutableList<BlazeModule> getSpawnModules() {
@@ -46,23 +90,46 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
         .build();
   }
 
-  @Before
-  public void setUp() throws IOException, InterruptedException {
-    worker = startWorker();
-  }
-
   @After
   public void tearDown() throws IOException {
-    worker.stop();
+    if (worker != null) {
+      worker.stop();
+    }
   }
 
-  private void addDownloadMinimalOptions() {
-    addOptions(
-        "--remote_executor=grpc://localhost:" + worker.getPort(), "--remote_download_minimal");
+  private void addRemoteModeOptions() throws IOException, InterruptedException {
+    if (worker == null) {
+      worker = startWorker();
+    }
+
+    switch (remoteMode) {
+      case REMOTE_EXECUTION:
+        addOptions("--remote_executor=grpc://localhost:" + worker.getPort());
+        break;
+      case REMOTE_CACHE:
+        addOptions("--remote_cache=grpc://localhost:" + worker.getPort());
+        break;
+    }
+  }
+
+  private void addOutputModeOptions() {
+    switch (outputMode) {
+      case DOWNLOAD_TOPLEVEL:
+        addOptions("--remote_download_toplevel");
+        break;
+      case DOWNLOAD_MINIMAL:
+        addOptions("--remote_download_minimal");
+        break;
+    }
   }
 
   @Test
-  public void downloadMinimal_outputsAreNotDownloaded() throws Exception {
+  public void executeRemotely_unnecessaryOutputsAreNotDownloaded() throws Exception {
+    if (!remoteMode.executeRemotely()) {
+      return;
+    }
+    addRemoteModeOptions();
+    addOutputModeOptions();
     write(
         "a/BUILD",
         "genrule(",
@@ -78,22 +145,29 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
         "  outs = ['foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
         ")");
-    addDownloadMinimalOptions();
 
     buildTarget("//a:foobar");
 
-    ImmutableList<Artifact> outputs =
-        ImmutableList.<Artifact>builder()
-            .addAll(getArtifacts("//a:foo"))
-            .addAll(getArtifacts("//a:foobar"))
-            .build();
-    for (Artifact output : outputs) {
+    assertOutputsDoNotExist("//a:foo");
+    if (outputMode.minimal()) {
+      assertOutputsDoNotExist("//a:foobar");
+    }
+  }
+
+  private void assertOutputsDoNotExist(String target) throws Exception {
+    for (Artifact output : getArtifacts(target)) {
       assertThat(output.getPath().exists()).isFalse();
     }
   }
 
   @Test
-  public void downloadMinimal_actionFails_outputsAreDownloadedForDebugPurpose() throws Exception {
+  public void executeRemotely_actionFails_outputsAreAvailableLocallyForDebuggingPurpose()
+      throws Exception {
+    if (!remoteMode.executeRemotely()) {
+      return;
+    }
+    addRemoteModeOptions();
+    addOutputModeOptions();
     write(
         "a/BUILD",
         "genrule(",
@@ -102,13 +176,73 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
         "  outs = ['fail.txt'],",
         "  cmd = 'echo foo > $@ && exit 1',",
         ")");
-    addDownloadMinimalOptions();
 
-    Assert.assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
 
-    Artifact output = Iterables.getOnlyElement(getArtifacts("//a:fail"));
+    Artifact output = getOnlyElement(getArtifacts("//a:fail"));
     assertThat(output.getFilename()).isEqualTo("fail.txt");
     assertThat(output.getPath().exists()).isTrue();
     assertThat(readContent(output.getPath(), UTF_8)).isEqualTo("foo\n");
+  }
+
+  @Test
+  public void
+      executeRemotely_intermediateOutputsAreInputForLocalActions_downloadIntermediateOutputs()
+          throws Exception {
+    // Test that a remotely stored output that's an input to a native action
+    // (ctx.actions.expand_template) is staged lazily for action execution.
+    if (!remoteMode.executeRemotely()) {
+      return;
+    }
+    addRemoteModeOptions();
+    addOutputModeOptions();
+    write(
+        "a/substitute_username.bzl",
+        "def _substitute_username_impl(ctx):",
+        "    ctx.actions.expand_template(",
+        "        template = ctx.file.template,",
+        "        output = ctx.outputs.out,",
+        "        substitutions = {",
+        "            '{USERNAME}': ctx.attr.username,",
+        "        },",
+        "    )",
+        "",
+        "substitute_username = rule(",
+        "    implementation = _substitute_username_impl,",
+        "    attrs = {",
+        "        'username': attr.string(mandatory = True),",
+        "        'template': attr.label(",
+        "            allow_single_file = True,",
+        "            mandatory = True,",
+        "        ),",
+        "    },",
+        "    outputs = {'out': '%{name}.txt'},",
+        ")");
+    write(
+        "a/BUILD",
+        "load(':substitute_username.bzl', 'substitute_username')",
+        "genrule(",
+        "    name = 'generate-template',",
+        "    cmd = 'echo -n \"Hello {USERNAME}!\" > $@',",
+        "    outs = ['template.txt'],",
+        "    srcs = [],",
+        ")",
+        "",
+        "substitute_username(",
+        "    name = 'substitute-buchgr',",
+        "    username = 'buchgr',",
+        "    template = ':generate-template',",
+        ")");
+
+    buildTarget("//a:substitute-buchgr");
+
+    // The genrule //a:generate-template should run remotely and //a:substitute-buchgr should be a
+    // native action running locally.
+    events.assertContainsInfo("3 processes: 2 internal, 1 remote");
+    Artifact intermediateOutput = getOnlyElement(getArtifacts("//a:generate-template"));
+    assertThat(intermediateOutput.getPath().exists()).isTrue();
+    Artifact output = getOnlyElement(getArtifacts("//a:substitute-buchgr"));
+    assertThat(output.getFilename()).isEqualTo("substitute-buchgr.txt");
+    assertThat(readContent(output.getPath(), UTF_8)).isEqualTo("Hello buchgr!");
   }
 }
