@@ -298,6 +298,7 @@ java_library(
         ":config/per_label_options",
         ":config/run_under",
         ":config/starlark_defined_config_transition",
+        ":config/starlark_transition_cache",
         ":config/toolchain_type_requirement",
         ":config/transition_factories",
         ":config/transitions/composing_transition",
@@ -1936,6 +1937,20 @@ java_library(
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "config/starlark_transition_cache",
+    srcs = ["config/StarlarkTransitionCache.java"],
+    deps = [
+        ":config/build_options",
+        ":config/transitions/configuration_transition",
+        ":starlark/starlark_build_settings_details_value",
+        ":starlark/starlark_transition",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:caffeine",
+        "//third_party:jsr305",
     ],
 )
 

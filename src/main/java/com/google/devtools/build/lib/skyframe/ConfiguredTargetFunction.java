@@ -281,7 +281,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
-    ExecGroupCollection.Builder execGroupCollectionBuilder = null;
+    ExecGroupCollection.Builder execGroupCollectionBuilder;
 
     // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
@@ -350,7 +350,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
               ruleClassProvider,
-              view.getHostConfiguration());
+              view);
       if (!state.transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = state.transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -464,7 +464,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   @Nullable
-  private TargetAndConfiguration getTargetAndConfiguration(
+  private static TargetAndConfiguration getTargetAndConfiguration(
       ConfiguredTargetKey configuredTargetKey, State state, Environment env)
       throws InterruptedException, ReportedException {
     if (state.targetAndConfiguration != null) {
@@ -745,9 +745,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
    *     to apply to deps
-   * @param hostConfiguration the host configuration. There's a noticeable performance hit from
-   *     instantiating this on demand for every dependency that wants it, so it's best to compute
-   *     the host configuration as early as possible and pass this reference to all consumers
+   * @param buildView the build's {@link SkyframeBuildView}
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
@@ -763,7 +761,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       RuleClassProvider ruleClassProvider,
-      BuildConfigurationValue hostConfiguration)
+      SkyframeBuildView buildView)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
           AspectCreationException, InterruptedException {
     try {
@@ -813,7 +811,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         // Trim each dep's configuration so it only includes the fragments needed by its transitive
         // closure.
         ConfigurationResolver configResolver =
-            new ConfigurationResolver(env, ctgValue, hostConfiguration, configConditions);
+            new ConfigurationResolver(
+                env,
+                ctgValue,
+                buildView.getHostConfiguration(),
+                configConditions,
+                buildView.getStarlarkTransitionCache());
         StoredEventHandler storedEventHandler = new StoredEventHandler();
         try {
           depValueNames =
@@ -1261,7 +1264,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * {@link ConfiguredTargetFunction#compute} exception that has already had its error reported to
-   * the user. Callers (like {@link BuildTool}) won't also report the error.
+   * the user. Callers (like {@link com.google.devtools.build.lib.buildtool.BuildTool}) won't also
+   * report the error.
    */
   private static class ReportedException extends SkyFunctionException {
     ReportedException(ConfiguredValueCreationException e) {
@@ -1283,7 +1287,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * {@link ConfiguredTargetFunction#compute} exception that has not had its error reported to the
-   * user. Callers (like {@link BuildTool}) are responsible for reporting the error.
+   * user. Callers (like {@link com.google.devtools.build.lib.buildtool.BuildTool}) are responsible
+   * for reporting the error.
    */
   private static class UnreportedException extends SkyFunctionException {
     UnreportedException(ConfiguredValueCreationException e) {

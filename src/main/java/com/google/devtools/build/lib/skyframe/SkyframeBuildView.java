@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
@@ -150,6 +151,8 @@ public final class SkyframeBuildView {
 
   private ImmutableSet<SkyKey> largestTopLevelKeySetCheckedForConflicts = ImmutableSet.of();
   private boolean foundActionConflictInLatestCheck;
+
+  private final StarlarkTransitionCache starlarkTransitionCache = new StarlarkTransitionCache();
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -324,6 +327,7 @@ public final class SkyframeBuildView {
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.clearAnalysisCache")) {
       skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
     }
+    starlarkTransitionCache.clear();
   }
 
   /**
@@ -831,7 +835,7 @@ public final class SkyframeBuildView {
       // required.
       Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting =
           Iterables.concat(ctKeys, getDerivedAspectKeysForConflictReporting(topLevelAspectsKeys));
-      TopLevelActionConflictReport topLevelActionConflictReport = null;
+      TopLevelActionConflictReport topLevelActionConflictReport;
       enableAnalysis(true);
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
@@ -863,7 +867,7 @@ public final class SkyframeBuildView {
    *
    * <p>Throw a ViewCreationFailedException in case of --nokeep_going.
    */
-  private void reportActionConflictErrors(
+  private static void reportActionConflictErrors(
       TopLevelActionConflictReport topLevelActionConflictReport,
       Iterable<ActionLookupKey> effectiveTopLevelKeysForConflictReporting,
       ExtendedEventHandler eventHandler,
@@ -1000,7 +1004,7 @@ public final class SkyframeBuildView {
     return cts.build();
   }
 
-  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<BuildDriverValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
@@ -1220,6 +1224,7 @@ public final class SkyframeBuildView {
    */
   void clearLegacyData() {
     artifactFactory.clear();
+    starlarkTransitionCache.clear();
   }
 
   /**
@@ -1257,6 +1262,10 @@ public final class SkyframeBuildView {
 
   public ActionKeyContext getActionKeyContext() {
     return skyframeExecutor.getActionKeyContext();
+  }
+
+  public StarlarkTransitionCache getStarlarkTransitionCache() {
+    return starlarkTransitionCache;
   }
 
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {
