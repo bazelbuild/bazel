@@ -177,38 +177,6 @@ EOF
   || fail "Expected bazel-bin/a/remote.txt to be downloaded"
 }
 
-function test_download_outputs_invalidation() {
-  # Test that when changing values of --remote_download_minimal all actions are
-  # invalidated.
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "remote",
-  srcs = [],
-  outs = ["remote.txt"],
-  cmd = "echo -n \"remote\" > \"$@\"",
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:remote >& $TEST_log || fail "Failed to build //a:remote"
-
-  expect_log "2 processes: 1 internal, 1 remote"
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_outputs=all \
-    //a:remote >& $TEST_log || fail "Failed to build //a:remote"
-
-  # Changing --remote_download_outputs to "all" should invalidate SkyFrames in-memory
-  # caching and make it re-run the action.
-  expect_log "2 processes: 1 remote cache hit, 1 internal"
-}
-
 function test_downloads_minimal_hit_action_cache() {
   # Test that remote metadata is saved and action cache is hit across server restarts when using
   # --remote_download_minimal

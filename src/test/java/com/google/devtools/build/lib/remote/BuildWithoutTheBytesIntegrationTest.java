@@ -21,13 +21,19 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
+import com.google.devtools.build.lib.sandbox.SandboxModule;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,13 +85,16 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    return super.getRuntimeBuilder().addBlazeModule(new BuildSummaryStatsModule());
+    return super.getRuntimeBuilder()
+        .addBlazeModule(new BuildSummaryStatsModule())
+        .addBlazeModule(new BlockWaitingModule());
   }
 
   @Override
   protected ImmutableList<BlazeModule> getSpawnModules() {
     return ImmutableList.<BlazeModule>builder()
         .addAll(super.getSpawnModules())
+        .add(new SandboxModule())
         .add(new RemoteModule())
         .build();
   }
@@ -120,6 +129,22 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
       case DOWNLOAD_MINIMAL:
         addOptions("--remote_download_minimal");
         break;
+    }
+  }
+
+  private String getSpawnStrategy() {
+    if (remoteMode.executeRemotely()) {
+      return "remote";
+    } else {
+      OS currentOS = OS.getCurrent();
+      switch (currentOS) {
+        case LINUX:
+          return "linux-sandbox";
+        case DARWIN:
+          return "processwrapper-sandbox";
+        default:
+          return "local";
+      }
     }
   }
 
@@ -244,5 +269,87 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
     Artifact output = getOnlyElement(getArtifacts("//a:substitute-buchgr"));
     assertThat(output.getFilename()).isEqualTo("substitute-buchgr.txt");
     assertThat(readContent(output.getPath(), UTF_8)).isEqualTo("Hello buchgr!");
+  }
+
+  @Test
+  public void changeOutputMode_invalidateActions() throws Exception {
+    addRemoteModeOptions();
+    addOutputModeOptions();
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
+        ")");
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    runtimeWrapper.registerSubscriber(actionEventCollector);
+    buildTarget("//a:foobar");
+    // 3 = workspace status action + //:foo + //:foobar
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
+    actionEventCollector.clear();
+    events.assertContainsInfo("3 processes: 1 internal, 2 " + getSpawnStrategy());
+    events.clear();
+
+    addOptions("--remote_download_outputs=all");
+    buildTarget("//a:foobar");
+
+    // Changing output mode should invalidate SkyFrame's in-memory caching and make it re-evaluate
+    // the action nodes.
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(3);
+    if (remoteMode.executeRemotely()) {
+      // The dummy workspace status action does not re-executed, so wouldn't be displayed here
+      if (outputMode.minimal()) {
+        events.assertContainsInfo("2 processes: 2 remote cache hit");
+      } else {
+        // output of toplevel target are on the local disk, so the action can hit the action cache,
+        // hence not shown here
+        events.assertContainsInfo("1 process: 1 remote cache hit");
+      }
+    } else {
+      // all actions can hit action cache since all outputs are on the local disk due to they were
+      // executed locally.
+      events.assertContainsInfo("0 processes");
+    }
+  }
+
+  private static class ActionEventCollector {
+    private final List<ActionExecutedEvent> actionExecutedEvents = new ArrayList<>();
+    private final List<CachedActionEvent> cachedActionEvents = new ArrayList<>();
+
+    @Subscribe
+    public void onActionExecuted(ActionExecutedEvent event) {
+      actionExecutedEvents.add(event);
+    }
+
+    @Subscribe
+    public void onCachedAction(CachedActionEvent event) {
+      cachedActionEvents.add(event);
+    }
+
+    public int getNumActionNodesEvaluated() {
+      return getActionExecutedEvents().size() + getCachedActionEvents().size();
+    }
+
+    public void clear() {
+      this.actionExecutedEvents.clear();
+      this.cachedActionEvents.clear();
+    }
+
+    public List<ActionExecutedEvent> getActionExecutedEvents() {
+      return actionExecutedEvents;
+    }
+
+    public List<CachedActionEvent> getCachedActionEvents() {
+      return cachedActionEvents;
+    }
   }
 }
