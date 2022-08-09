@@ -385,7 +385,7 @@ public final class NestedSetCodecTest {
     NestedSetStorageEndpoint nestedSetStorageEndpoint = mock(NestedSetStorageEndpoint.class);
     NestedSetSerializationCache nestedSetCache =
         spy(new NestedSetSerializationCache(BugReporter.defaultInstance()));
-    NestedSetStore nestedSetStore = createStore(nestedSetStorageEndpoint);
+    NestedSetStore nestedSetStore = createStoreWithCache(nestedSetStorageEndpoint, nestedSetCache);
     SerializationContext serializationContext = mock(SerializationContext.class);
     Object[] contents = {new Object()};
     when(serializationContext.getNewMemoizingContext()).thenReturn(serializationContext);
