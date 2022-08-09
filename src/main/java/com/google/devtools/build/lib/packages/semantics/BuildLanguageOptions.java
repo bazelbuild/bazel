@@ -71,7 +71,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, `ctx.actions.symlink` will disallow symlinking a file into a directory.")
-  public boolean incompatibleAllowSymlinkFileToDir;
+  public boolean incompatibleDisallowSymlinkFileToDir;
 
   @Option(
       name = "experimental_build_setting_api",
@@ -619,7 +619,8 @@ public final class BuildLanguageOptions extends OptionsBase {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
-            .setBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleAllowSymlinkFileToDir)
+            .setBool(
+                INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
