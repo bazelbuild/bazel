@@ -382,8 +382,7 @@ class BazelModuleTest(test_base.TestBase):
           '  srcs = ["@emojis//file"],',
           ')'
       ])
-      exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count'])
-      self.AssertExitCode(exit_code, 0, stderr)
+      exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count'], allow_failure=False)
 
   def testHttpModuleExtensionFileRepeatedSuccess(self):
       self.ScratchFile('A/WORKSPACE')
@@ -433,13 +432,11 @@ class BazelModuleTest(test_base.TestBase):
         ')'
       ])
 
-      exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count2'])
-      self.AssertExitCode(exit_code, 0, stderr)
+      exit_code, _, stderr = self.RunBazel(['build', '//:emoji_count2'], allow_failure=False)
       self.assertIn(
-          'Auto-Configuration Warning: File emojis will be overriden', stderr)
+          'Warning: File emojis will be overridden', stderr)
 
-  
 
-#TODO add tests for archive tag
+    # TODO(salmasamy) add tests for archive tag
 if __name__ == '__main__':
   unittest.main()

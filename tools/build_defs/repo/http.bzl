@@ -532,18 +532,19 @@ Examples:
 
 def _http_ext_impl(module_ctx):
     """Implementation of the http module extension."""
+
+    #TODO change to dict for faster search
     files = []
-    archives = []
     for mod in module_ctx.modules:
+        # TODO Search if we can convert file attributes to dict
         for file in mod.tags.file:
             # Will use the first file that appears in the tree
             if file.name in files:
-                #TODO is this correct for warning?
-                auto_configure_warning("File {} will be overriden".format(file.name))
+                print("Warning: File {} will be overridden".format(file.name))
             else:
                 files.append(file.name)
 
-                #TODO is there a better way to pass attrs?
+                # TODO(salmasamy) is there a better way to pass attrs?
                 http_file(
                     name = file.name,
                     executable = file.executable,
@@ -558,10 +559,10 @@ def _http_ext_impl(module_ctx):
 
         for archive in mod.tags.archive:
             # Will use the first archive that appears in the tree
-            if archive.name in archives:
-                auto_configure_warning("Archive {} will be overriden".format(archive.name))
+            if archive.name in files:
+                print("Warning: Archive {} will be overridden".format(archive.name))
             else:
-                archives.append(archive.name)
+                files.append(archive.name)
                 http_archive(
                     name = archive.name,
                     url = archive.url,
@@ -587,13 +588,13 @@ def _http_ext_impl(module_ctx):
                 )
 
 _file_tag_attrs = _http_file_attrs
-_file_tag_attrs["name"] = attr.string(doc = "Name of the repo")
+_file_tag_attrs["name"] = attr.string(mandatory = True, doc = "Name of the repo")
 file_atributes = tag_class(
     attrs = _file_tag_attrs,
 )
 
 _archive_tag_attrs = _http_archive_attrs
-_archive_tag_attrs["name"] = attr.string(doc = "Name of the repo")
+_archive_tag_attrs["name"] = attr.string(mandatory = True, doc = "Name of the repo")
 archive_attrs = tag_class(
     attrs = _archive_tag_attrs,
 )
