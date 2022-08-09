@@ -118,6 +118,7 @@ sh_binary(
     name = "desugar_java8",
     srcs = ["desugar.sh"],
     data = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 alias(
