@@ -53,6 +53,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
