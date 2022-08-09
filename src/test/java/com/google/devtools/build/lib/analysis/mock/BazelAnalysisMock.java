@@ -119,6 +119,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
     /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
+    config.create(
+        "local_config_platform_workspace/WORKSPACE", "workspace(name = 'local_config_platform')");
+    config.create(
+        "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
@@ -216,14 +220,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")",
         "java_plugins_flag_alias(name = 'java_plugins_flag_alias')");
 
-    // Create a default Android target platform.
-    // Any tests that create platforms should inherit from this.
     config.create(
-        TestConstants.PLATFORMS_PATH + "/android/BUILD",
+        TestConstants.CONSTRAINTS_PATH + "/android/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "platform(",
         "  name = 'armeabi-v7a',",
-        "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
+        "  parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
@@ -242,7 +244,36 @@ public final class BazelAnalysisMock extends AnalysisMock {
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
     // Create a dummy toolchain to make toolchain resolution happy.
     config.create(
+        "embedded_tools/tools/android/dummy_sdk/dummy-cc-toolchain-config.bzl",
+        "def _impl(ctx):",
+        "    out = ctx.actions.declare_file(ctx.label.name)",
+        "    ctx.actions.write(out, 'Fake executable')",
+        "    return [",
+        "        cc_common.create_cc_toolchain_config_info(",
+        "            ctx = ctx,",
+        "            toolchain_identifier = 'dummy-toolchain',",
+        "            host_system_name = 'nothing',",
+        "            target_system_name = 'nothing',",
+        "            target_cpu = 'nothing',",
+        "            target_libc = 'nothing',",
+        "            cc_target_os = 'nothing',",
+        "            compiler = 'bin-false',",
+        "            abi_version = 'nothing',",
+        "            abi_libc_version = 'eleventy',",
+        "        ),",
+        "        DefaultInfo(",
+        "            executable = out,",
+        "        ),",
+        "    ]",
+        "dummy_cc_toolchain_config = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo],",
+        "    executable = True,",
+        ")");
+    config.create(
         "embedded_tools/tools/android/dummy_sdk/BUILD",
+        "load(':dummy-cc-toolchain-config.bzl'," + " 'dummy_cc_toolchain_config')",
         "package(default_visibility=['//visibility:public'])",
         "toolchain(",
         "    name = 'dummy-sdk',",
@@ -276,6 +307,25 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    shrinked_android_jar = 'dummy.jar',",
         "    zipalign = ':empty_binary',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")",
+        "toolchain(",
+        "    name = 'dummy-cc_toolchain',",
+        "    toolchain = ':dummy_cc_toolchain_impl',",
+        "    toolchain_type = '@bazel_tools//tools/cpp:toolchain_type',",
+        ")",
+        "cc_toolchain(",
+        "    name = 'dummy_cc_toolchain_impl',",
+        "    all_files = ':nothing',",
+        "    as_files = ':nothing',",
+        "    compiler_files = ':nothing',",
+        "    dwp_files = ':nothing',",
+        "    linker_files = ':nothing',",
+        "    objcopy_files = ':nothing',",
+        "    strip_files = ':nothing',",
+        "    toolchain_config = ':dummy-cc-toolchain-config',",
+        ")",
+        "dummy_cc_toolchain_config(",
+        "    name = 'dummy-cc-toolchain-config',",
         ")");
     config.create(
         "android_gmaven_r8/jar/BUILD",

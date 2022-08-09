@@ -72,8 +72,8 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     assertThat(darwinToolchainInfo.toolchainType()).isEqualTo(CPP_TOOLCHAIN_TYPE);
 
     // Verify the macOS platform.
-    ConfiguredTarget darwinPlatform = getConfiguredTarget(
-        TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:darwin_x86_64");
+    ConfiguredTarget darwinPlatform =
+        getConfiguredTarget(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:darwin_x86_64");
     PlatformInfo darwinPlatformInfo = PlatformProviderUtils.platform(darwinPlatform);
     assertThat(darwinPlatformInfo).isNotNull();
   }
@@ -92,8 +92,8 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     assertThat(iosDeviceToolchainInfo.toolchainType()).isEqualTo(CPP_TOOLCHAIN_TYPE);
 
     // Verify the iOS 64 bit device platform.
-    ConfiguredTarget iosDevicePlatform = getConfiguredTarget(
-        TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:ios_arm64");
+    ConfiguredTarget iosDevicePlatform =
+        getConfiguredTarget(TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:ios_arm64");
     PlatformInfo iosDevicePlatformInfo = PlatformProviderUtils.platform(iosDevicePlatform);
     assertThat(iosDevicePlatformInfo).isNotNull();
   }
@@ -105,16 +105,18 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     useConfiguration(
         EXTRA_SDK_TOOLCHAINS_FLAG,
         "--apple_platform_type=macos",
-        "--apple_platforms=" + TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:darwin_x86_64",
-        "--platforms=" + TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:darwin_x86_64");
+        "--apple_platforms=" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:darwin_x86_64",
+        "--platforms=" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:darwin_x86_64");
     createLibraryTargetWriter("//a:lib").write();
 
     BuildConfigurationValue config = getAppleCrosstoolConfiguration();
     BuildOptions crosstoolBuildOptions = config.getOptions();
     assertThat(crosstoolBuildOptions.contains(PlatformOptions.class)).isNotNull();
     List<Label> platforms = crosstoolBuildOptions.get(PlatformOptions.class).platforms;
-    assertThat(platforms).containsExactly(Label.parseAbsoluteUnchecked(
-        TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:darwin_x86_64"));
+    assertThat(platforms)
+        .containsExactly(
+            Label.parseAbsoluteUnchecked(
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:darwin_x86_64"));
 
     ConfiguredTarget darwinPlatform = getConfiguredTarget(platforms.get(0).toString());
     PlatformInfo darwinPlatformInfo = PlatformProviderUtils.platform(darwinPlatform);
@@ -144,16 +146,18 @@ public class ApplePlatformsToolchainSelectionTest extends ObjcRuleTestCase {
     useConfiguration(
         EXTRA_SDK_TOOLCHAINS_FLAG,
         "--apple_platform_type=ios",
-        "--apple_platforms=" + TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:ios_arm64",
-        "--platforms=" + TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:ios_arm64");
+        "--apple_platforms=" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:ios_arm64",
+        "--platforms=" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:ios_arm64");
     createLibraryTargetWriter("//a:lib").write();
 
     BuildConfigurationValue config = getAppleCrosstoolConfiguration();
     BuildOptions crosstoolBuildOptions = config.getOptions();
     assertThat(crosstoolBuildOptions.contains(PlatformOptions.class)).isNotNull();
     List<Label> platforms = crosstoolBuildOptions.get(PlatformOptions.class).platforms;
-    assertThat(platforms).containsExactly(Label.parseAbsoluteUnchecked(
-        TestConstants.PLATFORM_PACKAGE_ROOT + "/apple:ios_arm64"));
+    assertThat(platforms)
+        .containsExactly(
+            Label.parseAbsoluteUnchecked(
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "apple:ios_arm64"));
 
     ConfiguredTarget iosPlatform = getConfiguredTarget(platforms.get(0).toString());
     PlatformInfo iosPlatformInfo = PlatformProviderUtils.platform(iosPlatform);
