@@ -519,6 +519,19 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleUseCcConfigureFromRulesCc;
 
   @Option(
+      name = "incompatible_unambiguous_label_stringification",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Bazel will stringify the label @//foo:bar to @//foo:bar, instead of"
+              + " //foo:bar. This only affects the behavior of str(), the % operator, and so on;"
+              + " the behavior of repr() is unchanged. See"
+              + " https://github.com/bazelbuild/bazel/issues/15916 for more information.")
+  public boolean incompatibleUnambiguousLabelStringification;
+
+  @Option(
       name = "incompatible_depset_for_libraries_to_link_getter",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -668,6 +681,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, incompatibleUseCcConfigureFromRulesCc)
             .setBool(
+                INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
+                incompatibleUnambiguousLabelStringification)
+            .setBool(
                 INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
                 incompatibleDepsetForLibrariesToLinkGetter)
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
@@ -751,6 +767,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_struct_has_no_methods";
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
+  public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
+      "-incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
