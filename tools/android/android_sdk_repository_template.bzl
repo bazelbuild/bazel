@@ -139,7 +139,7 @@ def create_android_sdk_rules(
                 "dx_standalone_dexer": ":dx_binary",
                 "//conditions:default": ":d8_compat_dx",
             }),
-            main_dex_list_creator = ":main_dex_list_creator",
+            legacy_main_dex_list_generator = ":generate_main_dex_list",
             adb = select({
                 ":windows": "platform-tools/adb.exe",
                 "//conditions:default": "platform-tools/adb",
@@ -295,6 +295,18 @@ def create_android_sdk_rules(
     java_import(
         name = "dx_jar_import",
         jars = ["build-tools/%s/lib/dx.jar" % build_tools_directory],
+    )
+    java_binary(
+        name = "generate_main_dex_list",
+        jvm_flags = [
+            "-XX:+TieredCompilation",
+            "-XX:TieredStopAtLevel=1",
+            # Consistent with what we use for desugar.
+            "-Xms8g",
+            "-Xmx8g",
+        ],
+        main_class = "com.android.tools.r8.GenerateMainDexList",
+        runtime_deps = ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8"],
     )
     java_binary(
         name = "d8_compat_dx",
