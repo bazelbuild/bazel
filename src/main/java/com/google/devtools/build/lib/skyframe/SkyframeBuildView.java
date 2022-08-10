@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -603,7 +604,7 @@ public final class SkyframeBuildView {
       throws InterruptedException, ViewCreationFailedException, BuildFailedException,
           TestExecException {
     Stopwatch analysisWorkTimer = Stopwatch.createStarted();
-    EvaluationResult<BuildDriverValue> evaluationResult;
+    EvaluationResult<SkyValue> evaluationResult;
 
     ImmutableSet<SkyKey> newKeys =
         ImmutableSet.<SkyKey>builderWithExpectedSize(ctKeys.size() + topLevelAspectsKeys.size())
@@ -614,6 +615,9 @@ public final class SkyframeBuildView {
     if (checkingForConflict) {
       largestTopLevelKeySetCheckedForConflicts = newKeys;
     }
+
+    ImmutableList<Artifact> workspaceStatusArtifacts =
+        skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
 
     ImmutableSet<BuildDriverKey> buildDriverCTKeys =
         ctKeys.stream()
@@ -664,6 +668,7 @@ public final class SkyframeBuildView {
           evaluationResult =
               skyframeExecutor.evaluateBuildDriverKeys(
                   eventHandler,
+                  /*additionalArtifacts=*/ workspaceStatusArtifacts,
                   buildDriverCTKeys,
                   buildDriverAspectKeys,
                   keepGoing,
@@ -923,9 +928,9 @@ public final class SkyframeBuildView {
   }
 
   private static ImmutableSet<ConfiguredTarget> getExclusiveTests(
-      EvaluationResult<BuildDriverValue> evaluationResult) {
+      EvaluationResult<SkyValue> evaluationResult) {
     ImmutableSet.Builder<ConfiguredTarget> exclusiveTests = ImmutableSet.builder();
-    for (BuildDriverValue value : evaluationResult.values()) {
+    for (SkyValue value : evaluationResult.values()) {
       if (value instanceof ExclusiveTestBuildDriverValue) {
         exclusiveTests.add(
             ((ExclusiveTestBuildDriverValue) value).getExclusiveTestConfiguredTarget());
@@ -984,7 +989,7 @@ public final class SkyframeBuildView {
 
   private static ImmutableSet<ConfiguredTarget> getSuccessfulConfiguredTargets(
       int expectedSize,
-      EvaluationResult<BuildDriverValue> evaluationResult,
+      EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverCTKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
     ImmutableSet.Builder<ConfiguredTarget> cts = ImmutableSet.builderWithExpectedSize(expectedSize);
@@ -993,7 +998,7 @@ public final class SkyframeBuildView {
           && !topLevelActionConflictReport.isErrorFree(bdCTKey.getActionLookupKey())) {
         continue;
       }
-      BuildDriverValue value = evaluationResult.get(bdCTKey);
+      BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdCTKey);
       if (value == null) {
         continue;
       }
@@ -1006,7 +1011,7 @@ public final class SkyframeBuildView {
 
   private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
-      EvaluationResult<BuildDriverValue> evaluationResult,
+      EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
     // There can't be duplicate Aspects after resolving --aspects, so this is safe.
@@ -1017,7 +1022,7 @@ public final class SkyframeBuildView {
           && !topLevelActionConflictReport.isErrorFree(bdAspectKey.getActionLookupKey())) {
         continue;
       }
-      BuildDriverValue value = evaluationResult.get(bdAspectKey);
+      BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdAspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;

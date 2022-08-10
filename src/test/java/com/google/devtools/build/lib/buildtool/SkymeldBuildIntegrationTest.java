@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
@@ -162,6 +163,12 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     assertThat(analysisEventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
     assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
+
+    assertThat(directories.getOutputPath(WORKSPACE_NAME).getRelative("build-info.txt").isFile())
+        .isTrue();
+    assertThat(
+            directories.getOutputPath(WORKSPACE_NAME).getRelative("build-changelist.txt").isFile())
+        .isTrue();
   }
 
   @Test
