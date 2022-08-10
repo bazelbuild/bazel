@@ -57,6 +57,8 @@ import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -156,7 +158,32 @@ public final class NestedSetCodecTest {
   }
 
   @Test
-  public void unexpectedException_hiddenUntilNestedSetIsConsumed() throws Exception {
+  public void exceptionOnPut_propagatedToFutureToBlockWritesOn() throws Exception {
+    Exception e = new Exception("Something went wrong");
+    NestedSetStorageEndpoint storageEndpoint =
+        new NestedSetStorageEndpoint() {
+          @Override
+          public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+            return immediateFailedFuture(e);
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(ByteString fingerprint) {
+            throw new UnsupportedOperationException();
+          }
+        };
+    ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
+
+    NestedSet<?> serialized = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    SerializationResult<ByteString> result = serializer.serializeMemoizedAndBlocking(serialized);
+    Future<Void> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
+    Exception thrown = assertThrows(ExecutionException.class, futureToBlockWritesOn::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(e);
+  }
+
+  @Test
+  public void exceptionOnGet_hiddenUntilNestedSetIsConsumed() throws Exception {
+    Exception e = new Exception("Something went wrong");
     NestedSetStorageEndpoint storageEndpoint =
         new NestedSetStorageEndpoint() {
           @Override
@@ -166,7 +193,7 @@ public final class NestedSetCodecTest {
 
           @Override
           public ListenableFuture<byte[]> get(ByteString fingerprint) {
-            return immediateFailedFuture(new RuntimeException("Something went wrong"));
+            return immediateFailedFuture(e);
           }
         };
     ObjectCodecs serializer = createCodecs(createStore(storageEndpoint));
@@ -177,8 +204,8 @@ public final class NestedSetCodecTest {
     Object deserialized = deserializer.deserializeMemoized(result.getObject());
 
     assertThat(deserialized).isInstanceOf(NestedSet.class);
-    Exception e = assertThrows(RuntimeException.class, ((NestedSet<?>) deserialized)::toList);
-    assertThat(e).hasMessageThat().contains("Something went wrong");
+    Exception thrown = assertThrows(RuntimeException.class, ((NestedSet<?>) deserialized)::toList);
+    assertThat(thrown).hasMessageThat().contains("Something went wrong");
   }
 
   /**
