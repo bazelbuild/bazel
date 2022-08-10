@@ -1,3 +1,20 @@
+## Release 6.0.0-pre.20220801.1 (2022-08-10)
+
+```
+Baseline: 39125beac00d697de5e319d2b81143aa50068fa6
+```
+
+Important changes:
+
+  - `cquery`'s new output mode
+    [`--output=files`](https://bazel.build/docs/cquery#files-output)
+    lists the output files of the targets matching the query. It
+    takes the current value of `--output_groups` into account.
+  - Change singlejar metadata to report Created-By Bazel
+  - Add support for fetching RPC credentials from credential helper.
+
+This release contains contributions from many people at Google, as well as Adam Azarchs, Ara Nguyen, Benjamin Peterson, dhmemi, Eric Song, Fabian Meumertzheim, Greg Roodt, Jeremy Volkman, jheaff1, Jonathan Gerrish, Jon Shea, Keith Smiley, Patrick Balestra, Philipp Schrader, Pras Velagapudi, Roman Salvador, Yannic Bonenberger.
+
 ## Release 6.0.0-pre.20220720.3 (2022-08-02)
 
 ```
