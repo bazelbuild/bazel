@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -69,7 +70,8 @@ public class LibrariesToLinkCollector {
       boolean allowLtoIndexing,
       Iterable<LinkerInput> linkerInputs,
       boolean needWholeArchive,
-      RuleErrorConsumer ruleErrorConsumer) {
+      RuleErrorConsumer ruleErrorConsumer,
+      String workspaceName) {
     this.isNativeDeps = isNativeDeps;
     this.cppConfiguration = cppConfiguration;
     this.ccToolchainProvider = toolchain;
@@ -106,10 +108,20 @@ public class LibrariesToLinkCollector {
       // there's no *one* RPATH setting that fits all targets involved in the sharing.
       rpathRoot = ccToolchainProvider.getSolibDirectory() + "/";
     } else {
-      rpathRoot =
-          "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
-              + ccToolchainProvider.getSolibDirectory()
-              + "/";
+      // When executed from within a runfiles directory, the binary lies under a path such as
+      // target.runfiles/some_repo/pkg/file, whereas the solib directory is located under
+      // target.runfiles/main_repo.
+      PathFragment runfilesPath = outputArtifact.getRunfilesPath();
+      String runfilesExecRoot;
+      if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
+        // runfilesPath is of the form ../some_repo/pkg/file, walk back some_repo/pkg and then
+        // descend into the main workspace.
+        runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 2) + workspaceName + "/";
+      } else {
+        // runfilesPath is of the form pkg/file, walk back pkg to reach the main workspace.
+        runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 1);
+      }
+      rpathRoot = runfilesExecRoot + ccToolchainProvider.getSolibDirectory() + "/";
     }
 
     ltoMap = generateLtoMap();

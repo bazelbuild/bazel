@@ -2906,4 +2906,62 @@ EOF
       || fail "Remote execution generated different result"
 }
 
+function test_external_cc_test() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/lib
+  cat > other_repo/lib/BUILD <<'EOF'
+cc_library(
+  name = "lib",
+  srcs = ["lib.cpp"],
+  hdrs = ["lib.h"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > other_repo/lib/lib.h <<'EOF'
+void print_greeting();
+EOF
+  cat > other_repo/lib/lib.cpp <<'EOF'
+#include <cstdio>
+void print_greeting() {
+  printf("Hello, world!\n");
+}
+EOF
+
+  mkdir -p other_repo/test
+  cat > other_repo/test/BUILD <<'EOF'
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = ["//lib"],
+)
+EOF
+  cat > other_repo/test/test.cpp <<'EOF'
+#include "lib/lib.h"
+int main() {
+  print_greeting();
+}
+EOF
+
+  bazel test \
+      --test_output=errors \
+      --remote_executor=grpc://localhost:${worker_port} \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
 run_suite "Remote execution and remote cache tests"
