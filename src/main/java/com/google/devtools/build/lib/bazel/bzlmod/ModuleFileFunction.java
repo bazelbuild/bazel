@@ -293,7 +293,7 @@ public class ModuleFileFunction implements SkyFunction {
     try {
       return FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
     } catch (IOException e) {
-      throw new ModuleFileFunctionException(e);
+      throw errorf(Code.MODULE_NOT_FOUND, "MODULE.bazel expected but not found at %s", path);
     }
   }
 
