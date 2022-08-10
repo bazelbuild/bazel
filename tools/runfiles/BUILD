@@ -11,6 +11,9 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = ["BUILD.tools"],
+    srcs = [
+        "BUILD.tools",
+        "runfiles.bzl",
+    ],
     visibility = ["//tools:__pkg__"],
 )
