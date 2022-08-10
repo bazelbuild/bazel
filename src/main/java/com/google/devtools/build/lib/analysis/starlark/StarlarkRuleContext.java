@@ -956,7 +956,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
-      builder.addArtifacts(Sequence.cast(files, Artifact.class, "files"));
+      Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
+      checkForMiddlemanArtifacts(artifacts);
+      builder.addArtifacts(artifacts);
     }
     if (transitiveFiles != Starlark.NONE) {
       NestedSet<Artifact> transitiveArtifacts =
@@ -968,6 +970,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             "order '%s' is invalid for transitive_files",
             transitiveArtifacts.getOrder().getStarlarkName());
       }
+      checkForMiddlemanArtifacts(transitiveArtifacts.toList());
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {
@@ -994,6 +997,16 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
+  }
+
+  private void checkForMiddlemanArtifacts(Iterable<Artifact> artifacts) throws EvalException {
+    for (Artifact artifact : artifacts) {
+      if (artifact.isMiddlemanArtifact()) {
+        throw Starlark.errorf(
+            "Middleman artifacts are forbidden here. Artifact: %s, owner: %s",
+            artifact, artifact.getOwner());
+      }
+    }
   }
 
   private static boolean isNonEmptyDict(Object o) {
