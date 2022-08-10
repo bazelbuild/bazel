@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.runfiles.Runfiles;
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import org.junit.Test;
@@ -94,20 +95,18 @@ public class CredentialHelperTest {
 
   @Test
   public void unknownUri() {
-    CredentialHelperException e =
+    IOException ioException =
         assertThrows(
-            CredentialHelperException.class,
-            () -> getCredentialsFromHelper("https://unknown.example.com"));
-    assertThat(e).hasMessageThat().contains("Unknown uri 'https://unknown.example.com'");
+            IOException.class, () -> getCredentialsFromHelper("https://unknown.example.com"));
+    assertThat(ioException).hasMessageThat().contains("Unknown uri 'https://unknown.example.com'");
   }
 
   @Test
   public void credentialHelperOutputsNothing() throws Exception {
-    CredentialHelperException e =
+    IOException ioException =
         assertThrows(
-            CredentialHelperException.class,
-            () -> getCredentialsFromHelper("https://printnothing.example.com"));
-    assertThat(e).hasMessageThat().contains("exited without output");
+            IOException.class, () -> getCredentialsFromHelper("https://printnothing.example.com"));
+    assertThat(ioException).hasMessageThat().contains("exited without output");
   }
 
   @Test
@@ -136,10 +135,9 @@ public class CredentialHelperTest {
 
   @Test
   public void helperTimeout() throws Exception {
-    CredentialHelperException e =
+    IOException ioException =
         assertThrows(
-            CredentialHelperException.class,
-            () -> getCredentialsFromHelper("https://timeout.example.com"));
-    assertThat(e).hasMessageThat().contains("process timed out");
+            IOException.class, () -> getCredentialsFromHelper("https://timeout.example.com"));
+    assertThat(ioException).hasMessageThat().contains("process timed out");
   }
 }
