@@ -214,6 +214,10 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
   public void
       executeRemotely_intermediateOutputsAreInputForLocalActions_downloadIntermediateOutputs()
           throws Exception {
+    // Disable on Windows since it seems that template is not supported there.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
     // Test that a remotely stored output that's an input to a native action
     // (ctx.actions.expand_template) is staged lazily for action execution.
     if (!remoteMode.executeRemotely()) {

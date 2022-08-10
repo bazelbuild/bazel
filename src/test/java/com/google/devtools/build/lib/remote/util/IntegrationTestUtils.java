@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
@@ -33,7 +34,9 @@ public final class IntegrationTestUtils {
   private IntegrationTestUtils() {}
 
   private static final PathFragment WORKER_PATH =
-      PathFragment.create("io_bazel/src/tools/remote/worker");
+      PathFragment.create(
+          "io_bazel/src/tools/remote/worker"
+              + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
 
   private static boolean isPortAvailable(int port) {
     if (port < 1024 || port > 65535) {

@@ -240,7 +240,9 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
       - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
-      - "-//src/test/java/com/google/devtools/build/lib/remote/..."
+      - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
+      # disable zstd test on Windows due to unsatisfied link error. https://github.com/bazelbuild/bazel/issues/16041
+      - "-//src/test/java/com/google/devtools/build/lib/remote/zstd/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
   rbe_ubuntu1804:
