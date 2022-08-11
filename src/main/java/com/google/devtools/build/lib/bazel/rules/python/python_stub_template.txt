@@ -226,6 +226,71 @@ def Deduplicate(items):
           seen.add(it)
           yield it
 
+def ExecuteFile(python_program, main_filename, args, env, module_space,
+                coverage_tool=None, workspace=None):
+  """Executes the given python file using the various environment settings.
+
+  This will not return, and acts much like os.execv, except is much
+  more restricted, and handles bazel-related edge cases.
+
+  Args:
+    python_program: Path to the python binary to use for execution
+    main_filename: The python file to execute
+    args: Additional args to pass to the python file
+    env: A dict of environment variables to set for the execution
+    module_space: The module space/runfiles tree
+    coverage_tool: The coverage tool to execute with
+    workspace: The workspace to execute in. This is expected to be a
+               directory under the runfiles tree, and will recursively
+               delete the runfiles directory if set.
+  """
+  # We want to use os.execv instead of subprocess.call, which causes
+  # problems with signal passing (making it difficult to kill
+  # bazel). However, these conditions force us to run via
+  # subprocess.call instead:
+  #
+  # - On Windows, os.execv doesn't handle arguments with spaces
+  #   correctly, and it actually starts a subprocess just like
+  #   subprocess.call.
+  # - When running in a workspace (i.e., if we're running from a zip),
+  #   we need to clean up the workspace after the process finishes so
+  #   control must return here.
+  # - If we may need to emit a host config warning after execution, we
+  #   can't execv because we need control to return here. This only
+  #   happens for targets built in the host config.
+  # - For coverage targets, at least coveragepy requires running in
+  #   two invocations, which also requires control to return here.
+  #
+  if not (IsWindows() or workspace or %enable_host_version_warning% or coverage_tool):
+    os.environ.update(env)
+    os.execv(python_program, [python_program, main_filename] + args)
+
+  if coverage_tool is not None:
+    # Coveragepy wants to frst create a .coverage database file, from
+    # which we can then export lcov.
+    subprocess.call(
+      [python_program, coverage_tool, "run", "--append", "--branch", main_filename] + args,
+      env=env,
+      cwd=workspace
+    )
+    output_filename = os.environ.get('COVERAGE_DIR') + '/pylcov.dat'
+    ret_code = subprocess.call(
+      [python_program, coverage_tool, "lcov", "-o", output_filename] + args,
+      env=env,
+      cwd=workspace
+    )
+  else:
+    ret_code = subprocess.call(
+      [python_program, main_filename] + args,
+      env=env,
+      cwd=workspace
+    )
+
+  if workspace:
+    shutil.rmtree(os.path.dirname(module_space), True)
+  MaybeEmitHostVersionWarning(ret_code)
+  sys.exit(ret_code)
+
 def Main():
   args = sys.argv[1:]
 
@@ -282,14 +347,22 @@ def Main():
   if python_program is None:
     raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
 
-  cov_tool = FindCoverageTool(module_space)
-  if cov_tool:
+  # COVERAGE_DIR is set iff the instrumentation is configured for the
+  # file and coverage is enabled.
+  if os.environ.get('COVERAGE_DIR'):
+    cov_tool = FindCoverageTool(module_space)
+    if cov_tool is None:
+      raise EnvironmentError(
+        'No python coverage tool set, '
+        'set PYTHON_COVERAGE '
+        'to configure the coverage tool'
+      )
     # Inhibit infinite recursion:
     if 'PYTHON_COVERAGE' in os.environ:
       del os.environ['PYTHON_COVERAGE']
-    if cov_tool is None or not os.path.exists(cov_tool):
+    if not os.path.exists(cov_tool):
       raise EnvironmentError('Python coverage tool %s not found.' % cov_tool)
-    args = [python_program, cov_tool, 'run', '-a', '--branch', main_filename] + args
+
     # coverage library expects sys.path[0] to contain the library, and replaces
     # it with the directory of the program it starts. Our actual sys.path[0] is
     # the runfiles directory, which must not be replaced.
@@ -297,33 +370,29 @@ def Main():
     #
     # Update sys.path such that python finds the coverage package. The coverage
     # entry point is coverage.coverage_main, so we need to do twice the dirname.
-    new_env['PYTHONPATH'] = \
-        new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
-    new_env['PYTHON_LCOV_FILE'] = os.environ.get('COVERAGE_DIR') + '/pylcov.dat'
+    new_env['PYTHONPATH'] = (
+      new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
+    )
   else:
-    args = [python_program, main_filename] + args
+    cov_tool = None
 
-  os.environ.update(new_env)
+  new_env.update((key, val) for key, val in os.environ.items() if key not in new_env)
+
+  workspace = None
+  if IsRunningFromZip():
+    # If RUN_UNDER_RUNFILES equals 1, it means we need to
+    # change directory to the right runfiles directory.
+    # (So that the data files are accessible)
+    if os.environ.get('RUN_UNDER_RUNFILES') == '1':
+      workspace = os.path.join(module_space, '%workspace_name%')
 
   try:
     sys.stdout.flush()
-    if IsRunningFromZip():
-      # If RUN_UNDER_RUNFILES equals 1, it means we need to
-      # change directory to the right runfiles directory.
-      # (So that the data files are accessible)
-      if os.environ.get('RUN_UNDER_RUNFILES') == '1':
-        os.chdir(os.path.join(module_space, '%workspace_name%'))
-      ret_code = subprocess.call(args)
-      shutil.rmtree(os.path.dirname(module_space), True)
-      sys.exit(ret_code)
-    else:
-      # On Windows, os.execv doesn't handle arguments with spaces correctly,
-      # and it actually starts a subprocess just like subprocess.call.
-      if IsWindows():
-        ret_code = subprocess.call(args)
-        sys.exit(ret_code)
-      else:
-        os.execv(args[0], args)
+    ExecuteFile(
+      python_program, main_filename, args, new_env, module_space,
+      cov_tool, workspace
+    )
+
   except EnvironmentError:
     # This works from Python 2.4 all the way to 3.x.
     e = sys.exc_info()[1]
