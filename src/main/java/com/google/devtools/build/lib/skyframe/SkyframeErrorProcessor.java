@@ -27,7 +27,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
@@ -429,17 +428,6 @@ public final class SkyframeErrorProcessor {
           actionConflicts,
           executionDetailedExitCode,
           /*rootCauses=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /*loadingRootCauses=*/ ImmutableSet.of());
-    }
-
-    // Only possible with actions generating build-info.txt and build-changelist.txt.
-    if (errorKey.argument() instanceof ActionLookupData) {
-      return IndividualErrorProcessingResult.create(
-          /*actionConflicts=*/ ImmutableMap.of(),
-          getExecutionDetailedExitCodeFromCause(result, cause),
-          /*rootCauses=*/ cause instanceof ActionExecutionException
-              ? ((ActionExecutionException) cause).getRootCauses()
-              : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           /*loadingRootCauses=*/ ImmutableSet.of());
     }
 
