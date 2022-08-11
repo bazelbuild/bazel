@@ -434,9 +434,9 @@ def Main():
       #
       # Update sys.path such that python finds the coverage package. The coverage
       # entry point is coverage.coverage_main, so we need to do twice the dirname.
-      new_env['PYTHONPATH'] = (
-        new_env['PYTHONPATH'] + ':' + os.path.dirname(os.path.dirname(cov_tool))
-      )
+      python_path_entries = new_env['PYTHONPATH'].split(os.pathsep)
+      python_path_entries.append(os.path.dirname(os.path.dirname(cov_tool)))
+      new_env['PYTHONPATH'] = os.pathsep.join(Deduplicate(python_path_entries))
   else:
     cov_tool = None
 
