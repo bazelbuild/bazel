@@ -1,7 +1,7 @@
-## Release 6.0.0-pre.20220801.1 (2022-08-10)
+## Release 6.0.0-pre.20220804.3 (2022-08-11)
 
 ```
-Baseline: 39125beac00d697de5e319d2b81143aa50068fa6
+Baseline: 8152657c82b542a3da2ed39333941beefdeeeece
 ```
 
 Important changes:
@@ -12,8 +12,15 @@ Important changes:
     takes the current value of `--output_groups` into account.
   - Change singlejar metadata to report Created-By Bazel
   - Add support for fetching RPC credentials from credential helper.
+  - Revert interface_deps back to implementation_deps after problem
+    reported in. Use `buildozer 'rename deps implementation_deps'
+    //...:%cc_library; buildozer 'rename interface_deps deps'
+    //...:%cc_library`
+  - Fix for desugaring failure on Bazel+Android+Windows build
+    scenario.
+  - D8 is the default desugarer
 
-This release contains contributions from many people at Google, as well as Adam Azarchs, Ara Nguyen, Benjamin Peterson, dhmemi, Eric Song, Fabian Meumertzheim, Greg Roodt, Jeremy Volkman, jheaff1, Jonathan Gerrish, Jon Shea, Keith Smiley, Patrick Balestra, Philipp Schrader, Pras Velagapudi, Roman Salvador, Yannic Bonenberger.
+This release contains contributions from many people at Google, as well as Adam Azarchs, Ara Nguyen, Benjamin Peterson, David Sanderson, dhmemi, Eric Song, Fabian Meumertzheim, Greg Roodt, Jeremy Volkman, jheaff1, Jonathan Gerrish, Jon Shea, Keith Smiley, Patrick Balestra, Philipp Schrader, Pras Velagapudi, Roman Salvador, Yannic Bonenberger.
 
 ## Release 6.0.0-pre.20220720.3 (2022-08-02)
 
