@@ -14,6 +14,7 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,10 +33,16 @@ public interface OptionsParsingResult extends OptionsProvider {
   OptionValueDescription getOptionValueDescription(String name);
 
   /**
+   * Returns an immutable copy of all arguments that were skipped because they matched a skipped
+   * prefix.
+   */
+  ImmutableList<String> getSkippedArgs();
+
+  /**
    * Returns an immutable copy of the residue, that is, the arguments that
    * have not been parsed.
    */
-  List<String> getResidue();
+  ImmutableList<String> getResidue();
 
   /**
    * Returns an immutable copy of the residue before the " -- " signals the remainder of the

@@ -771,12 +771,13 @@ public class OptionsParser implements OptionsParsingResult {
     return ImmutableMap.copyOf(aliases);
   }
 
-  public List<String> getSkippedArgs() {
-    return impl.getSkippedArgs();
+  @Override
+  public ImmutableList<String> getSkippedArgs() {
+    return ImmutableList.copyOf(impl.getSkippedArgs());
   }
 
   @Override
-  public List<String> getResidue() {
+  public ImmutableList<String> getResidue() {
     return ImmutableList.copyOf(residue);
   }
 

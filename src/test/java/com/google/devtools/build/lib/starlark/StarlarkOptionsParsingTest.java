@@ -380,35 +380,6 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         .isEqualTo(StarlarkInt.of(15));
   }
 
-  @Test
-  public void testRemoveStarlarkOptionsWorks() throws Exception {
-    Pair<ImmutableList<String>, ImmutableList<String>> residueAndStarlarkOptions =
-        StarlarkOptionsParser.removeStarlarkOptions(
-            ImmutableList.of(
-                "--//local/starlark/option",
-                "--//local/starlark/option=with_value",
-                "--@some_repo//external/starlark/option",
-                "--@some_repo//external/starlark/option=with_value",
-                "--@//main/repo/option",
-                "--@//main/repo/option=with_value",
-                "some-random-residue",
-                "--mangled//external/starlark/option",
-                "--mangled//external/starlark/option=with_value"));
-    assertThat(residueAndStarlarkOptions.getFirst())
-        .containsExactly(
-            "--//local/starlark/option",
-            "--//local/starlark/option=with_value",
-            "--@some_repo//external/starlark/option",
-            "--@some_repo//external/starlark/option=with_value",
-            "--@//main/repo/option",
-            "--@//main/repo/option=with_value");
-    assertThat(residueAndStarlarkOptions.getSecond())
-        .containsExactly(
-            "some-random-residue",
-            "--mangled//external/starlark/option",
-            "--mangled//external/starlark/option=with_value");
-  }
-
   /**
    * When Starlark flags are only set as flags, they shouldn't produce {@link
    * TargetParsingCompleteEvent}s. That's intended to communicate (to the build event protocol)

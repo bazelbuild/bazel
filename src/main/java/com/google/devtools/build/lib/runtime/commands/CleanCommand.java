@@ -132,17 +132,15 @@ public final class CleanCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    // Assert that the only residue is starlark options and ignore them.
-    Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
-        StarlarkOptionsParser.removeStarlarkOptions(options.getResidue());
-    ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
-    ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
-    if (!removedStarlarkOptions.isEmpty()) {
+    // Assert that there is no residue and warn about Starlark options.
+    ImmutableList<String> starlarkOptions = options.getSkippedArgs();
+    ImmutableList<String> residue = options.getResidue();
+    if (!starlarkOptions.isEmpty()) {
       env.getReporter()
           .handle(
               Event.warn(
                   "Blaze clean does not support starlark options. Ignoring options: "
-                      + removedStarlarkOptions));
+                      + starlarkOptions));
     }
     if (!residue.isEmpty()) {
       String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
