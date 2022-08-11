@@ -133,50 +133,6 @@ EOF
       || fail "Failed to build with --remote_download_minimal"
 }
 
-function test_downloads_minimal_prefetch() {
-  # Test that when using --remote_download_minimal a remote-only output that's
-  # an input to a local action is downloaded lazily before executing the local action.
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "remote",
-  srcs = [],
-  outs = ["remote.txt"],
-  cmd = "echo -n \"remote\" > \"$@\"",
-)
-
-genrule(
-  name = "local",
-  srcs = [":remote"],
-  outs = ["local.txt"],
-  cmd = "cat $(location :remote) > \"$@\" && echo -n \"local\" >> \"$@\"",
-  tags = ["no-remote"],
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:remote || fail "Failed to build //a:remote"
-
-  (! [[ -f bazel-bin/a/remote.txt ]]) \
-  || fail "Expected bazel-bin/a/remote.txt to have not been downloaded"
-
-  bazel build \
-    --genrule_strategy=remote,local \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:local || fail "Failed to build //a:local"
-
-  localtxt="bazel-bin/a/local.txt"
-  [[ $(< ${localtxt}) == "remotelocal" ]] \
-  || fail "Unexpected contents in " ${localtxt} ": " $(< ${localtxt})
-
-  [[ -f bazel-bin/a/remote.txt ]] \
-  || fail "Expected bazel-bin/a/remote.txt to be downloaded"
-}
-
 function test_downloads_minimal_hit_action_cache() {
   # Test that remote metadata is saved and action cache is hit across server restarts when using
   # --remote_download_minimal

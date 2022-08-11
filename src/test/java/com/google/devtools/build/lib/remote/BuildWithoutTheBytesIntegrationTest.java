@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
@@ -107,6 +108,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
   }
 
   private void addRemoteModeOptions() throws IOException, InterruptedException {
+    addRemoteModeOptions(remoteMode);
+  }
+
+  private void addRemoteModeOptions(RemoteMode remoteMode)
+      throws IOException, InterruptedException {
     if (worker == null) {
       worker = startWorker();
     }
@@ -149,12 +155,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
   }
 
   @Test
-  public void executeRemotely_unnecessaryOutputsAreNotDownloaded() throws Exception {
-    if (!remoteMode.executeRemotely()) {
-      return;
-    }
-    addRemoteModeOptions();
-    addOutputModeOptions();
+  public void unnecessaryOutputsAreNotDownloaded() throws Exception {
     write(
         "a/BUILD",
         "genrule(",
@@ -170,18 +171,17 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
         "  outs = ['foobar.txt'],",
         "  cmd = 'cat $(location :foo) > $@ && echo bar > $@',",
         ")");
+    if (!remoteMode.executeRemotely()) {
+      warmUpRemoteCache("//a:foobar");
+    }
+    addRemoteModeOptions();
+    addOutputModeOptions();
 
     buildTarget("//a:foobar");
 
     assertOutputsDoNotExist("//a:foo");
     if (outputMode.minimal()) {
       assertOutputsDoNotExist("//a:foobar");
-    }
-  }
-
-  private void assertOutputsDoNotExist(String target) throws Exception {
-    for (Artifact output : getArtifacts(target)) {
-      assertThat(output.getPath().exists()).isFalse();
     }
   }
 
@@ -204,27 +204,55 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//a:fail"));
 
-    Artifact output = getOnlyElement(getArtifacts("//a:fail"));
-    assertThat(output.getFilename()).isEqualTo("fail.txt");
-    assertThat(output.getPath().exists()).isTrue();
-    assertThat(readContent(output.getPath(), UTF_8)).isEqualTo("foo\n");
+    assertOnlyOutputContent("//a:fail", "fail.txt", "foo\n");
   }
 
   @Test
-  public void
-      executeRemotely_intermediateOutputsAreInputForLocalActions_downloadIntermediateOutputs()
-          throws Exception {
+  public void intermediateOutputsAreInputForLocalActions_prefetchIntermediateOutputs()
+      throws Exception {
+    // Test that a remote-only output that's an input to a local action is downloaded lazily before
+    // executing the local action.
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'remote',",
+        "  srcs = [],",
+        "  outs = ['remote.txt'],",
+        "  cmd = 'echo -n remote > $@',",
+        ")",
+        "",
+        "genrule(",
+        "  name = 'local',",
+        "  srcs = [':remote'],",
+        "  outs = ['local.txt'],",
+        "  cmd = 'cat $(location :remote) > $@ && echo -n local >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+    if (!remoteMode.executeRemotely()) {
+      warmUpRemoteCache("//a:local");
+    }
+    addRemoteModeOptions();
+    addOutputModeOptions();
+
+    if (outputMode.minimal()) {
+      buildTarget("//a:remote");
+      assertOutputsDoNotExist("//a:remote");
+    }
+    buildTarget("//a:local");
+
+    assertOnlyOutputContent("//a:remote", "remote.txt", "remote");
+    assertOnlyOutputContent("//a:local", "local.txt", "remotelocal");
+  }
+
+  @Test
+  public void intermediateOutputsAreInputForInternalActions_prefetchIntermediateOutputs()
+      throws Exception {
     // Disable on Windows since it seems that template is not supported there.
     if (OS.getCurrent() == OS.WINDOWS) {
       return;
     }
-    // Test that a remotely stored output that's an input to a native action
+    // Test that a remotely stored output that's an input to a internal action
     // (ctx.actions.expand_template) is staged lazily for action execution.
-    if (!remoteMode.executeRemotely()) {
-      return;
-    }
-    addRemoteModeOptions();
-    addOutputModeOptions();
     write(
         "a/substitute_username.bzl",
         "def _substitute_username_impl(ctx):",
@@ -262,17 +290,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
         "    username = 'buchgr',",
         "    template = ':generate-template',",
         ")");
+    if (!remoteMode.executeRemotely()) {
+      warmUpRemoteCache("//a:substitute-buchgr");
+    }
+    addRemoteModeOptions();
+    addOutputModeOptions();
 
     buildTarget("//a:substitute-buchgr");
 
     // The genrule //a:generate-template should run remotely and //a:substitute-buchgr should be a
-    // native action running locally.
-    events.assertContainsInfo("3 processes: 2 internal, 1 remote");
+    // internal action running locally.
+    if (remoteMode.executeRemotely()) {
+      events.assertContainsInfo("3 processes: 2 internal, 1 remote");
+    } else {
+      events.assertContainsInfo("3 processes: 1 remote cache hit, 2 internal");
+    }
     Artifact intermediateOutput = getOnlyElement(getArtifacts("//a:generate-template"));
     assertThat(intermediateOutput.getPath().exists()).isTrue();
-    Artifact output = getOnlyElement(getArtifacts("//a:substitute-buchgr"));
-    assertThat(output.getFilename()).isEqualTo("substitute-buchgr.txt");
-    assertThat(readContent(output.getPath(), UTF_8)).isEqualTo("Hello buchgr!");
+    assertOnlyOutputContent("//a:substitute-buchgr", "substitute-buchgr.txt", "Hello buchgr!");
   }
 
   @Test
@@ -355,5 +390,31 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildIntegrationTestCas
     public List<CachedActionEvent> getCachedActionEvents() {
       return cachedActionEvents;
     }
+  }
+
+  private void assertOutputsDoNotExist(String target) throws Exception {
+    for (Artifact output : getArtifacts(target)) {
+      assertThat(output.getPath().exists()).isFalse();
+    }
+  }
+
+  private void assertOnlyOutputContent(String target, String filename, String content)
+      throws Exception {
+    Artifact output = getOnlyElement(getArtifacts(target));
+    assertThat(output.getFilename()).isEqualTo(filename);
+    assertThat(output.getPath().exists()).isTrue();
+    assertThat(readContent(output.getPath(), UTF_8)).isEqualTo(content);
+  }
+
+  private void warmUpRemoteCache(String target) throws Exception {
+    checkState(worker == null, "Call 'warmUpRemoteCache' before 'addRemoteModeOptions'");
+    addRemoteModeOptions(RemoteMode.REMOTE_EXECUTION);
+    ImmutableList<String> originalOptions = getRuntimeWrapper().getOptions();
+
+    buildTarget(target);
+
+    getDirectories().getOutputPath(getWorkspace().getBaseName()).deleteTreesBelow();
+    resetOptions();
+    addOptions(originalOptions);
   }
 }
