@@ -302,7 +302,7 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
   # - For coverage targets, at least coveragepy requires running in
   #   two invocations, which also requires control to return here.
   #
-  if not (IsWindows() or workspace or %enable_host_version_warning% or coverage_tool):
+  if not (IsWindows() or workspace or coverage_tool):
     os.environ.update(env)
     os.execv(python_program, [python_program, main_filename] + args)
 
@@ -354,7 +354,6 @@ relative_files = True
 
   if workspace:
     shutil.rmtree(os.path.dirname(module_space), True)
-  MaybeEmitHostVersionWarning(ret_code)
   sys.exit(ret_code)
 
 def Main():
