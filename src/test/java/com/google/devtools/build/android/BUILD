@@ -335,6 +335,29 @@ java_test(
     ],
 )
 
+filegroup(
+    name = "testdata",
+    srcs = glob(["testing/**"]),
+)
+
+java_test(
+    name = "AndroidDataBindingProcessingActionTest",
+    size = "small",
+    srcs = ["AndroidDataBindingProcessingActionTest.java"],
+    data = [
+        ":testdata",
+    ],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "test_utils",
     testonly = 1,

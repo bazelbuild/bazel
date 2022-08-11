@@ -16,24 +16,28 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.io.MoreFiles;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import com.google.common.io.RecursiveDeleteOption;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+
 /** Tests for {@link AndroidDataBindingProcessingAction}. */
 @RunWith(JUnit4.class)
 public class AndroidDataBindingProcessingActionTest {
 
-  private final String testDataPrefix =
-      System.getProperty("AndroidDataBindingProcessingActionTest.testDataPrefix", "");
+  private final Path testDataPrefix =
+      Paths.get(System.getenv("TEST_BINARY")).resolveSibling("testing");
 
   private Path tempDir;
   private Path dataBindingInfoOut;
@@ -47,7 +51,7 @@ public class AndroidDataBindingProcessingActionTest {
   @After
   public void deletePaths() throws Exception {
     Files.deleteIfExists(dataBindingInfoOut);
-    MoreFiles.deleteRecursively(tempDir);
+    MoreFiles.deleteRecursively(tempDir, RecursiveDeleteOption.ALLOW_INSECURE);
   }
 
   @Test
@@ -69,8 +73,7 @@ public class AndroidDataBindingProcessingActionTest {
   @Test
   public void testOneResourceRoot() throws Exception {
 
-    String resourceRoot =
-        testDataPrefix + "src/test/java/com/google/devtools/build/android/testing/databinding/res";
+    String resourceRoot = testDataPrefix.resolve("databinding/res").toString();
 
     String[] args = {
       "--output_resource_directory=" + tempDir.resolve("res"),
@@ -85,15 +88,19 @@ public class AndroidDataBindingProcessingActionTest {
     ZipFile layoutInfo = new ZipFile(dataBindingInfoOut.toFile());
     List<? extends ZipEntry> zipEntries = Collections.list(layoutInfo.entries());
     assertThat(zipEntries).hasSize(1);
+    assertThat(
+            zipEntries.stream()
+                .allMatch(
+                    entry ->
+                        entry.getLastModifiedTime().toMillis()
+                            == AarGeneratorAction.DEFAULT_TIMESTAMP))
+        .isTrue();
   }
 
   @Test
   public void testTwoResourceRoots() throws Exception {
-
-    String resourceRoot =
-        testDataPrefix + "src/test/java/com/google/devtools/build/android/testing/databinding/res";
-    String resourceRoot2 =
-        testDataPrefix + "src/test/java/com/google/devtools/build/android/testing/databinding/res2";
+    String resourceRoot = testDataPrefix.resolve("databinding/res").toString();
+    String resourceRoot2 = testDataPrefix.resolve("databinding/res2").toString();
 
     String[] args = {
       "--output_resource_directory=" + tempDir.resolve("res"),
