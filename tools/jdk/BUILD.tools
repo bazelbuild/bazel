@@ -463,6 +463,7 @@ _JDKS = [
     "remotejdk17_macos_aarch64",
     "remotejdk17_win",
     "remotejdk17_win_arm64",
+    "remotejdk17_linux_aarch64",
     "remotejdk17_linux",
 ]
 

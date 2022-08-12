@@ -301,6 +301,21 @@ maybe(
     version = "17",
 )
 
+maybe(
+    remote_java_repository,
+    name = "remotejdk17_linux_aarch64",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    sha256 = "e92a9676c8f6939fd4f2a0e8d55f93e787b1296793a1808d76afec8ba32e9344",
+    strip_prefix = "zulu17.28.13-ca-jdk17.0.0-linux_aarch64",
+    urls = [
+        "https://cdn.azul.com/zulu/bin/zulu17.28.13-ca-jdk17.0.0-linux_aarch64.tar.gz",
+    ],
+    version = "17",
+)
+
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
