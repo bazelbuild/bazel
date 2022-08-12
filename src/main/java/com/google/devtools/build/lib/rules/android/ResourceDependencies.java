@@ -243,7 +243,7 @@ public final class ResourceDependencies {
    * Creates a new AndroidResourcesInfo with the supplied ResourceContainer as the direct dep.
    *
    * <p>When a library produces a new resource container the AndroidResourcesInfo should use that
-   * container as a the direct dependency for that library. This makes the consuming rule to
+   * container as a direct dependency for that library. This makes the consuming rule to
    * identify the new container and merge appropriately. The previous direct dependencies are then
    * added to the transitive dependencies.
    *

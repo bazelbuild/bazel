@@ -906,7 +906,7 @@ public final class UiEventHandler implements EventHandler {
     long intervalMillis = cursorControl ? SHORT_REFRESH_MILLIS : LONG_REFRESH_MILLIS;
     if (lastRefreshMillis < mustRefreshAfterMillis
         && mustRefreshAfterMillis < nowMillis + minimalDelayMillis) {
-      // Within the a smal interval from now, an update is scheduled anyway,
+      // Within the smal interval from now, an update is scheduled anyway,
       // so don't do a time-based update of the progress bar now, to avoid
       // updates too close to each other.
       return false;

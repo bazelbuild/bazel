@@ -418,7 +418,7 @@ function test_does_not_create_executable_when_not_asked_for() {
 
 }
 
-# Assert that the a deploy jar can be a dependency of another java_binary.
+# Assert that a deploy jar can be a dependency of another java_binary.
 function test_building_deploy_jar_dependent_on_deploy_jar() {
  local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/deploy || fail "mkdir"

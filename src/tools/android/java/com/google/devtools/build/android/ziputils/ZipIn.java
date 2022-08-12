@@ -217,7 +217,7 @@ public class ZipIn {
    * Provides a {@code LocalFileHeader} view of a local header located at the offset indicated
    * by the given {@code dirEntry}.
    *
-   * @param offset offset a which the a header is presumed to exist.
+   * @param offset offset which header is presumed to exist.
    * @return the requested header, or {@code null} if the given location can't possibly contain a
    * valid file header (e.g. missing header signature).
    * @throws IOException
