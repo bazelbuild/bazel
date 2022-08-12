@@ -624,9 +624,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       if (workerOwner.getWorker() != null) {
         try {
           workers.invalidateObject(key, workerOwner.getWorker());
-        } catch (IOException e1) {
-          // The original exception is more important / helpful, so we'll just ignore this one.
-          restoreInterrupt(e1);
         } finally {
           workerOwner.setWorker(null);
         }
@@ -729,8 +726,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
         if (!workerAsResource) {
           try {
             workers.invalidateObject(key, workerOwner.getWorker());
-          } catch (IOException e1) {
-            // Nothing useful we can do here, in fact it may not be possible to get here.
           } finally {
             workerOwner.setWorker(null);
           }
