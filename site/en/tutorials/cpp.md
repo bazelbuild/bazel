@@ -27,7 +27,7 @@ well.
 Next, retrieve the sample project from Bazel's GitHub repository by running the
 following in your command-line tool of choice:
 
-```
+```posix-terminal
 $ git clone https://github.com/bazelbuild/examples
 ```
 
@@ -153,13 +153,13 @@ examples
 
 Run the following to move to the `cpp-tutorial/stage1` directory:
 
-```
-$ cd  ../cpp-tutorial/stage1
+```posix-terminal
+$ cd  cpp-tutorial/stage1
 ```
 
 Next, run:
 
-```
+```posix-terminal
 $ bazel build //main:hello-world
 ```
 
@@ -182,7 +182,7 @@ workspace.
 
 Now test your freshly built binary, which is:
 
-```
+```posix-terminal
 $ bazel-bin/main/hello-world
 ```
 
@@ -248,13 +248,13 @@ library is required to build the <code>hello-world</code> binary.
 Before you can build this new version of the project, you need to change
 directories, switching to the `cpp-tutorial/stage2` directory by running:
 
-```
-$ cd  ../cpp-tutorial/stage2
+```posix-terminal
+$ cd  ../stage2
 ```
 
 Now you can build the new binary using the following familiar command:
 
-```
+```posix-terminal
 $ bazel build //main:hello-world
 ```
 
@@ -269,7 +269,7 @@ INFO: Elapsed time: 2.399s, Critical Path: 0.30s
 
 Now you can test your freshly built binary, which returns another “`Hello world`”:
 
-```
+```posix-terminal
 $ bazel-bin/main/hello-world
 ```
 
@@ -358,13 +358,13 @@ containing implementation details leaking into public APIs.
 Now build this final version of the project. Switch to the `cpp-tutorial/stage3`
 directory by running:
 
-```
-$ cd  ../cpp-tutorial/stage3
+```posix-terminal
+$ cd  ../stage3
 ```
 
 Once again, run the following command:
 
-```
+```posix-terminal
 $ bazel build //main:hello-world
 ```
 
@@ -379,7 +379,7 @@ INFO: Elapsed time: 0.167s, Critical Path: 0.00s
 
 Now test the last binary of this tutorial for a final `Hello world` message:
 
-```
+```posix-terminal
 $ bazel-bin/main/hello-world
 ```
 
