@@ -190,4 +190,51 @@ EOF
       &> $TEST_log || fail "bazel run failed"
 }
 
+# When invoking a Python binary using the runfiles manifest, the stub
+# script's argv[0] will point to a location in the execroot; not the
+# runfiles directory of the caller. The stub script should still be
+# capable of finding its runfiles directory by considering RUNFILES_DIR
+# and RUNFILES_MANIFEST_FILE set by the caller.
+function test_python_through_bash_without_runfile_links() {
+  mkdir -p python_through_bash
+
+  cat > python_through_bash/BUILD << EOF
+py_binary(
+    name = "inner",
+    srcs = ["inner.py"],
+)
+
+sh_binary(
+    name = "outer",
+    srcs = ["outer.sh"],
+    data = [":inner"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+EOF
+
+  cat > python_through_bash/outer.sh << EOF
+#!/bin/bash
+
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "\${RUNFILES_DIR:-/dev/null}/\$f" 2>/dev/null || \
+  source "\$(grep -sm1 "^\$f " "\${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "\$0.runfiles/\$f" 2>/dev/null || \
+  source "\$(grep -sm1 "^\$f " "\$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "\$(grep -sm1 "^\$f " "\$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find \$f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+
+exec "\$(rlocation main/python_through_bash/inner${EXE_EXT})"
+EOF
+  chmod +x python_through_bash/outer.sh
+
+  touch python_through_bash/inner.py
+
+  bazel run --nobuild_runfile_links //python_through_bash:outer \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python"
+}
+
 run_suite "Tests for the Python rules without Python execution"
