@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Map;
 import java.util.Set;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -108,23 +107,13 @@ public class RuleFactory {
     callstack = callstack.subList(0, callstack.size() - 1); // pop
 
     try {
-      // Examines --incompatible_disable_third_party_license_checking to see if we should check
-      // third party targets for license existence.
-      //
-      // This flag is overridable by RuleClass.ThirdPartyLicenseEnforcementPolicy (which is checked
-      // in RuleClass). This lets Bazel and Blaze migrate away from license logic on independent
-      // timelines. See --incompatible_disable_third_party_license_checking comments for details.
-      boolean checkThirdPartyLicenses =
-          !semantics.getBool(
-              BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING);
       return ruleClass.createRule(
           pkgBuilder,
           label,
           generator.attributes,
           eventHandler,
           generator.location, // see b/23974287 for rationale
-          callstack,
-          checkThirdPartyLicenses);
+          callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }

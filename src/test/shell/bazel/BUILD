@@ -1042,14 +1042,6 @@ sh_test(
 )
 
 sh_test(
-    name = "license_checking_test",
-    size = "medium",
-    srcs = ["license_checking_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "bazel_bootstrap_distfile_test",
     timeout = "eternal",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
