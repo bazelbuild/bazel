@@ -141,8 +141,9 @@ public final class MockObjcSupport {
     // Any device, simulator or maccatalyst platforms created by Apple tests should consider
     // building on one of these targets as parents, to ensure that the proper constraints are set.
     config.create(
-        TestConstants.PLATFORMS_PATH + "/apple/BUILD",
+        TestConstants.CONSTRAINTS_PATH + "/apple/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
         "platform(",
         "  name = 'darwin_x86_64',",
         "  constraint_values = [",

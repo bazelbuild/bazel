@@ -670,7 +670,10 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     // Delete the symlink's target to make it dangling.
     // Exclude the symlink and make sure it's not included.
     linkTarget.getPath().delete();
-    differencer.invalidate(ImmutableList.of(FileStateValue.key(rootedPath(linkTarget))));
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(rootedPath(linkTarget)),
+            DirectoryListingStateValue.key(rootedPath(linkTarget).getParentDirectory())));
     params =
         FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
             /* ownerLabel */ label("//foo"),

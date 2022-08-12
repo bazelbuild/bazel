@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -209,34 +208,19 @@ public class BuildTool {
             // These are non-catastrophic.
             buildCompleted = true;
             throw e;
+          } catch (Error | RuntimeException e) {
+            // These are catastrophic.
+            catastrophe = true;
+            throw e;
           } finally {
             executionTool.unconditionalExecutionPhaseFinalizations(
                 timer, env.getSkyframeExecutor());
-
-            BuildResultListener buildResultListener =
-                Preconditions.checkNotNull(env.getBuildResultListener());
-            result.setActualTargets(buildResultListener.getAnalyzedTargets());
-            result.setTestTargets(buildResultListener.getAnalyzedTests());
-            try (SilentCloseable c = Profiler.instance().profile("Show results")) {
-              result.setSuccessfulTargets(
-                  ExecutionTool.determineSuccessfulTargets(
-                      buildResultListener.getAnalyzedTargets(),
-                      buildResultListener.getBuiltTargets()));
-              result.setSuccessfulAspects(
-                  ExecutionTool.determineSuccessfulAspects(
-                      buildResultListener.getAnalyzedAspects().keySet(),
-                      buildResultListener.getBuiltAspects()));
-              result.setSkippedTargets(buildResultListener.getSkippedTargets());
-              if (buildCompleted) {
-                getReporter().handle(Event.progress("Building complete."));
-              }
-              BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-              buildResultPrinter.showBuildResult(
-                  request,
+            if (!catastrophe) {
+              executionTool.nonCatastrophicFinalizations(
                   result,
-                  buildResultListener.getAnalyzedTargets(),
-                  buildResultListener.getSkippedTargets(),
-                  buildResultListener.getAnalyzedAspects());
+                  executionTool.getActionCache(),
+                  /*explanationHandler=*/ null,
+                  buildCompleted);
             }
           }
           FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue.ActionTransformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.errorprone.annotations.DoNotCall;
@@ -125,7 +126,12 @@ final class ActionExecutionState {
       result = state.get();
     }
     sharedActionCallback.actionCompleted();
-    return result.transformForSharedAction(action);
+    try {
+      return result.transformForSharedAction(action);
+    } catch (ActionTransformException e) {
+      throw new IllegalStateException(
+          String.format("Cannot share %s and %s", this.actionLookupData, actionLookupData), e);
+    }
   }
 
   private static void scheduleRestart(Environment env) {

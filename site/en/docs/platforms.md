@@ -245,3 +245,8 @@ def format(target):
 
 $ bazel cquery //... --output=starlark --starlark:file=example.cquery
 ```
+
+### Known Issues
+
+Incompatible targets [ignore visibility
+restrictions](https://github.com/bazelbuild/bazel/issues/16044).

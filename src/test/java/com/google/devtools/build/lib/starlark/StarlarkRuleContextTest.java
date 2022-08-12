@@ -2085,6 +2085,50 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void runfiles_failOnMiddlemanInFiles() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  internal_output_group = ctx.attr.bin[OutputGroupInfo]._hidden_top_level_INTERNAL_",
+        "  ctx.runfiles(files = internal_output_group.to_list())",
+        "bad_runfiles = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'bin' : attr.label()}",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'bad_runfiles')",
+        "cc_binary(name = 'bin')",
+        "bad_runfiles(name = 'test', bin = ':bin')");
+
+    reporter.removeHandler(failFastHandler); // Error expected.
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent("Error in runfiles: Middleman artifacts are forbidden here");
+  }
+
+  @Test
+  public void runfiles_failOnMiddlemanInTransitiveFiles() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  internal_output_group = ctx.attr.bin[OutputGroupInfo]._hidden_top_level_INTERNAL_",
+        "  ctx.runfiles(transitive_files = internal_output_group)",
+        "bad_runfiles = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'bin' : attr.label()}",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'bad_runfiles')",
+        "cc_binary(name = 'bin')",
+        "bad_runfiles(name = 'test', bin = ':bin')");
+
+    reporter.removeHandler(failFastHandler); // Error expected.
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent("Error in runfiles: Middleman artifacts are forbidden here");
+  }
+
+  @Test
   public void testExternalShortPath() throws Exception {
     scratch.file("/bar/WORKSPACE");
     scratch.file("/bar/bar.txt");

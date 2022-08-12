@@ -151,7 +151,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
+  public RecursiveFilesystemTraversalValue compute(SkyKey skyKey, Environment env)
       throws RecursiveFilesystemTraversalFunctionException, InterruptedException {
     TraversalRequest traversal = (TraversalRequest) skyKey.argument();
     try (SilentCloseable c =
@@ -381,44 +381,51 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
-        SkyKey uniquenessKey =
-            FileSymlinkInfiniteExpansionUniquenessFunction.key(
-                fileValue.unboundedAncestorSymlinkExpansionChain());
-        env.getValue(uniquenessKey);
-        if (env.valuesMissing()) {
-          return null;
-        }
-
-        throw new FileSymlinkInfiniteExpansionException(
-            fileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
-            fileValue.unboundedAncestorSymlinkExpansionChain());
-      }
-      if (fileValue.exists()) {
-        // If it exists, it may either be a symlink or a file/directory.
-        PathFragment unresolvedLinkTarget = null;
-        FileType type;
-        if (fileValue.isSymlink()) {
-          unresolvedLinkTarget = fileValue.getUnresolvedLinkTarget();
-          type = fileValue.isDirectory() ? FileType.SYMLINK_TO_DIRECTORY : FileType.SYMLINK_TO_FILE;
-        } else {
-          type = fileValue.isDirectory() ? FileType.DIRECTORY : FileType.FILE;
-        }
-        Path path = traversal.root().asPath();
-        return new FileInfo(
-            type,
-            withDigest(fileValue.realFileStateValue(), path, syscallCache),
-            fileValue.realRootedPath(),
-            unresolvedLinkTarget);
-      } else {
-        // If it doesn't exist, or it's a dangling symlink, we still want to handle that gracefully.
-        return new FileInfo(
-            fileValue.isSymlink() ? FileType.DANGLING_SYMLINK : FileType.NONEXISTENT,
-            withDigest(fileValue.realFileStateValue(), null, syscallCache),
-            null,
-            fileValue.isSymlink() ? fileValue.getUnresolvedLinkTarget() : null);
-      }
+      return toFileInfo(fileValue, env, traversal.root().asPath(), syscallCache);
     }
+  }
+
+  @Nullable
+  private static FileInfo toFileInfo(
+      FileValue fileValue, Environment env, Path path, SyscallCache syscallCache)
+      throws IOException, InterruptedException {
+    if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+      SkyKey uniquenessKey =
+          FileSymlinkInfiniteExpansionUniquenessFunction.key(
+              fileValue.unboundedAncestorSymlinkExpansionChain());
+      env.getValue(uniquenessKey);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      throw new FileSymlinkInfiniteExpansionException(
+          fileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
+          fileValue.unboundedAncestorSymlinkExpansionChain());
+    }
+
+    if (!fileValue.exists()) {
+      // If it doesn't exist, or it's a dangling symlink, we still want to handle that gracefully.
+      return new FileInfo(
+          fileValue.isSymlink() ? FileType.DANGLING_SYMLINK : FileType.NONEXISTENT,
+          withDigest(fileValue.realFileStateValue(), null, syscallCache),
+          null,
+          fileValue.isSymlink() ? fileValue.getUnresolvedLinkTarget() : null);
+    }
+
+    // If it exists, it may either be a symlink or a file/directory.
+    PathFragment unresolvedLinkTarget = null;
+    FileType type;
+    if (fileValue.isSymlink()) {
+      unresolvedLinkTarget = fileValue.getUnresolvedLinkTarget();
+      type = fileValue.isDirectory() ? FileType.SYMLINK_TO_DIRECTORY : FileType.SYMLINK_TO_FILE;
+    } else {
+      type = fileValue.isDirectory() ? FileType.DIRECTORY : FileType.FILE;
+    }
+    return new FileInfo(
+        type,
+        withDigest(fileValue.realFileStateValue(), path, syscallCache),
+        fileValue.realRootedPath(),
+        unresolvedLinkTarget);
   }
 
   /**
@@ -578,10 +585,10 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
    * <p>A symlink may be direct (points to a file) or transitive (points at a direct or transitive
    * symlink).
    */
-  private static RecursiveFilesystemTraversalValue resultForFileRoot(RootedPath path,
-      FileInfo info) {
-    Preconditions.checkState(info.type.isFile() && info.type.exists(), "{%s} {%s}", path,
-        info.type);
+  private static RecursiveFilesystemTraversalValue resultForFileRoot(
+      RootedPath path, FileInfo info) {
+    Preconditions.checkState(
+        info.type.isFile() && info.type.exists(), "{%s} {%s}", path, info.type);
     if (info.type.isSymlink()) {
       return RecursiveFilesystemTraversalValue.of(
           ResolvedFileFactory.symlinkToFile(
@@ -638,71 +645,83 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   private ImmutableList<RecursiveFilesystemTraversalValue> traverseChildren(
       Environment env, TraversalRequest traversal)
       throws InterruptedException, RecursiveFilesystemTraversalFunctionException, IOException {
-    // Use the traversal's path, even if it's a symlink. The contents of the directory, as listed
-    // in the result, must be relative to it.
-    Iterable<Dirent> direntsIterable;
-    int direntsSize;
-    if (traversal.isRootGenerated()) {
-      // If we're dealing with an output file, read the directory directly instead of creating
-      // filesystem nodes under the output tree.
-      Collection<Dirent> dirents = traversal.root().asPath().readdir(Symlinks.FOLLOW);
-      if (dirents.isEmpty()) {
-        return ImmutableList.of();
-      }
-      List<Dirent> direntsList = new ArrayList<>(dirents);
-      Collections.sort(direntsList);
-      direntsIterable = direntsList;
-      direntsSize = direntsList.size();
-    } else {
-      DirectoryListingValue dirListingValue =
-          (DirectoryListingValue)
-              env.getValueOrThrow(
-                  DirectoryListingValue.key(traversal.root().asRootedPath()), IOException.class);
-      if (dirListingValue == null) {
-        return null;
-      }
-      Dirents dirents = dirListingValue.getDirents();
-      direntsSize = dirents.size();
-      if (direntsSize == 0) {
-        return ImmutableList.of();
-      }
-      direntsIterable = dirents;
-    }
-
-    ImmutableList.Builder<TraversalRequest> keysBuilder =
-        ImmutableList.builderWithExpectedSize(direntsSize);
-    for (Dirent dirent : direntsIterable) {
-      keysBuilder.add(traversal.forChildEntry(dirent.getName()));
-    }
-    ImmutableList<TraversalRequest> keys = keysBuilder.build();
-
-    ImmutableList.Builder<RecursiveFilesystemTraversalValue> values =
-        ImmutableList.builderWithExpectedSize(keys.size());
-    if (traversal.isRootGenerated()) {
-      // Don't create Skyframe nodes for a recursive traversal over the output tree.
-      // Instead, inline the recursion in the top-level request.
-      for (TraversalRequest traversalRequest : keys) {
-        SkyValue computeValue = compute(traversalRequest, env);
-        if (computeValue == null) {
-          continue;
-        }
-        values.add((RecursiveFilesystemTraversalValue) computeValue);
-      }
-    } else {
-      SkyframeIterableResult result = env.getOrderedValuesAndExceptions(keys);
-      while (result.hasNext()) {
-        var iterateValue = (RecursiveFilesystemTraversalValue) result.next();
-        if (iterateValue == null) {
-          break;
-        }
-        values.add(iterateValue);
-      }
-    }
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    return values.build();
+    return traversal.isRootGenerated()
+        ? traverseGeneratedChildren(env, traversal)
+        : traverseSourceChildren(env, traversal);
   }
 
+  @Nullable
+  private ImmutableList<RecursiveFilesystemTraversalValue> traverseGeneratedChildren(
+      Environment env, TraversalRequest traversal)
+      throws InterruptedException, RecursiveFilesystemTraversalFunctionException, IOException {
+    // If we're dealing with an output file, read the directory directly instead of creating
+    // filesystem nodes under the output tree.
+    Collection<Dirent> dirents = traversal.root().asPath().readdir(Symlinks.FOLLOW);
+    if (dirents.isEmpty()) {
+      return ImmutableList.of();
+    }
+    List<Dirent> sortedDirents = new ArrayList<>(dirents);
+    Collections.sort(sortedDirents);
+
+    ImmutableList.Builder<RecursiveFilesystemTraversalValue> childValues =
+        ImmutableList.builderWithExpectedSize(dirents.size());
+    for (Dirent dirent : sortedDirents) {
+      RecursiveFilesystemTraversalValue childValue =
+          compute(traversal.forChildEntry(dirent.getName()), env);
+      if (childValue != null) {
+        childValues.add(childValue);
+      }
+    }
+    return env.valuesMissing() ? null : childValues.build();
+  }
+
+  @Nullable
+  private ImmutableList<RecursiveFilesystemTraversalValue> traverseSourceChildren(
+      Environment env, TraversalRequest traversal) throws InterruptedException, IOException {
+    DirectoryListingValue dirListingValue =
+        (DirectoryListingValue)
+            env.getValueOrThrow(
+                DirectoryListingValue.key(traversal.root().asRootedPath()), IOException.class);
+    if (dirListingValue == null) {
+      return null;
+    }
+    Dirents dirents = dirListingValue.getDirents();
+    if (dirents.size() == 0) {
+      return ImmutableList.of();
+    }
+
+    List<SkyKey> childKeys = new ArrayList<>(dirents.size());
+    for (Dirent dirent : dirents) {
+      TraversalRequest childRequest = traversal.forChildEntry(dirent.getName());
+      // For source files, request the FileValue directly instead of another TraversalRequest. This
+      // makes the base case of the recursive traversal a directory with no subdirectories instead
+      // of a file, greatly reducing the number of skyframe nodes for directories with many files.
+      if (dirent.getType() == Dirent.Type.FILE) {
+        childKeys.add(FileValue.key(childRequest.root().asRootedPath()));
+      } else {
+        childKeys.add(childRequest);
+      }
+    }
+
+    SkyframeIterableResult result = env.getOrderedValuesAndExceptions(childKeys);
+    ImmutableList.Builder<RecursiveFilesystemTraversalValue> childValues =
+        ImmutableList.builderWithExpectedSize(childKeys.size());
+    for (SkyKey key : childKeys) {
+      SkyValue value = result.next();
+      if (value == null) {
+        continue;
+      }
+      if (key instanceof FileValue.Key) {
+        FileValue.Key fileKey = (FileValue.Key) key;
+        FileInfo fileInfo =
+            toFileInfo((FileValue) value, env, fileKey.argument().asPath(), syscallCache);
+        if (fileInfo != null) {
+          childValues.add(resultForFileRoot(fileKey.argument(), fileInfo));
+        }
+      } else {
+        childValues.add((RecursiveFilesystemTraversalValue) value);
+      }
+    }
+    return env.valuesMissing() ? null : childValues.build();
+  }
 }

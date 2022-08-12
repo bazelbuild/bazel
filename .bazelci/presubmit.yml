@@ -234,19 +234,15 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/android/desugar/nest/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/stringconcat/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/testing/junit/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/covariantreturn/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/scan/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/typeannotation/..."
       - "-//src/test/java/com/google/devtools/build/android/r8/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
       - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
-      - "-//src/test/java/com/google/devtools/build/lib/remote/..."
+      - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
+      # disable zstd test on Windows due to unsatisfied link error. https://github.com/bazelbuild/bazel/issues/16041
+      - "-//src/test/java/com/google/devtools/build/lib/remote/zstd/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
   rbe_ubuntu1804:

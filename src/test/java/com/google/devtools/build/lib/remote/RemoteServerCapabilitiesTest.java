@@ -30,8 +30,6 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
-import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -223,10 +220,9 @@ public class RemoteServerCapabilitiesTest {
                 return 100;
               }
             });
-    CallCredentials creds =
-        GoogleAuthUtils.newGoogleCallCredentials(Options.getDefaults(AuthAndTLSOptions.class));
     RemoteServerCapabilities client =
-        new RemoteServerCapabilities("instance", channel.retain(), creds, 3, retrier);
+        new RemoteServerCapabilities(
+            "instance", channel.retain(), /* callCredentials= */ null, 3, retrier);
 
     assertThat(client.get("build-req-id", "command-id")).isEqualTo(caps);
   }

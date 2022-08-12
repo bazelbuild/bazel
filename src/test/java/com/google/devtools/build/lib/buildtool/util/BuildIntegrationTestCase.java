@@ -955,6 +955,10 @@ public abstract class BuildIntegrationTestCase {
     return outputBase;
   }
 
+  protected BlazeDirectories getDirectories() {
+    return directories;
+  }
+
   protected Path getWorkspace() {
     return workspace;
   }

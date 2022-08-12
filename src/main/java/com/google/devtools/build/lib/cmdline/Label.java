@@ -613,6 +613,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   @Override
   public void repr(Printer printer) {
+    // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
     printer.append("Label(");
     printer.repr(getCanonicalForm());
     printer.append(")");
@@ -620,11 +621,16 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   @Override
   public void str(Printer printer, StarlarkSemantics semantics) {
-    printer.append(getCanonicalForm());
+    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
+      printer.append(getUnambiguousCanonicalForm());
+    } else {
+      printer.append(getCanonicalForm());
+    }
   }
 
   @Override
   public String expandToCommandLine() {
+    // TODO(wyv): Consider using StarlarkSemantics here too for optional unambiguity.
     return getCanonicalForm();
   }
 }

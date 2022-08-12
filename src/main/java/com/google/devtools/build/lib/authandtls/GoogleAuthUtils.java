@@ -273,11 +273,10 @@ public final class GoogleAuthUtils {
    *
    * @throws IOException in case the credentials can't be constructed.
    */
-  public static Optional<Credentials> newGoogleCredentials(@Nullable AuthAndTLSOptions options)
+  private static Optional<Credentials> newGoogleCredentials(AuthAndTLSOptions options)
       throws IOException {
-    if (options == null) {
-      return Optional.empty();
-    } else if (options.googleCredentials != null) {
+    Preconditions.checkNotNull(options);
+    if (options.googleCredentials != null) {
       // Credentials from file
       try (InputStream authFile = new FileInputStream(options.googleCredentials)) {
         return Optional.of(newGoogleCredentialsFromFile(authFile, options.googleAuthScopes));

@@ -298,6 +298,7 @@ java_library(
         ":config/per_label_options",
         ":config/run_under",
         ":config/starlark_defined_config_transition",
+        ":config/starlark_transition_cache",
         ":config/toolchain_type_requirement",
         ":config/transition_factories",
         ":config/transitions/composing_transition",
@@ -383,7 +384,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -1939,6 +1939,20 @@ java_library(
     ],
 )
 
+java_library(
+    name = "config/starlark_transition_cache",
+    srcs = ["config/StarlarkTransitionCache.java"],
+    deps = [
+        ":config/build_options",
+        ":config/transitions/configuration_transition",
+        ":starlark/starlark_build_settings_details_value",
+        ":starlark/starlark_transition",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:caffeine",
+        "//third_party:jsr305",
+    ],
+)
+
 # TODO(b/144899336): This should be config/transitions/BUILD
 java_library(
     name = "config/transitions/composing_transition",
@@ -2205,6 +2219,39 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "constraints/incompatible_target_checker",
+    srcs = ["constraints/IncompatibleTargetChecker.java"],
+    deps = [
+        ":analysis_cluster",
+        ":file_provider",
+        ":incompatible_platform_provider",
+        ":test/test_configuration",
+        ":transitive_info_provider_map_builder",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

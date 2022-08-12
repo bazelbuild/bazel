@@ -78,10 +78,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If true, the target platform is used in the output directory name instead of the CPU.")
   public boolean platformInOutputDir;
 
-  // TODO(b/231200175): @aranguyen flip this flag
   @Option(
       name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

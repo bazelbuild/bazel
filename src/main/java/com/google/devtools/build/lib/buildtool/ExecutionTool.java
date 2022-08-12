@@ -484,66 +484,78 @@ public class ExecutionTool {
         Throwables.throwIfUnchecked(catastrophe);
       }
       // NOTE: No finalization activities below will run in the event of a catastrophic error!
+      nonCatastrophicFinalizations(buildResult, actionCache, explanationHandler, buildCompleted);
+    }
+  }
 
-      env.recordLastExecutionTime();
+  /** These steps get performed after execution, if there's no catastrophic exception. */
+  void nonCatastrophicFinalizations(
+      BuildResult buildResult,
+      ActionCache actionCache,
+      @Nullable ExplanationHandler explanationHandler,
+      boolean buildCompleted)
+      throws BuildFailedException, AbruptExitException, InterruptedException {
+    env.recordLastExecutionTime();
 
-      if (request.isRunningInEmacs()) {
-        request
-            .getOutErr()
-            .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
-      }
-      if (buildCompleted) {
-        getReporter().handle(Event.progress("Building complete."));
-      }
+    if (request.isRunningInEmacs()) {
+      request
+          .getOutErr()
+          .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
+    }
+    if (buildCompleted) {
+      getReporter().handle(Event.progress("Building complete."));
+    }
 
-      if (buildCompleted) {
-        saveActionCache(actionCache);
-      }
+    if (buildCompleted) {
+      saveActionCache(actionCache);
+    }
 
-      BuildResultListener buildResultListener = env.getBuildResultListener();
-      try (SilentCloseable c = Profiler.instance().profile("Show results")) {
-        buildResult.setSuccessfulTargets(
-            determineSuccessfulTargets(
-                buildResultListener.getAnalyzedTargets(), buildResultListener.getBuiltTargets()));
-        buildResult.setSuccessfulAspects(
-            determineSuccessfulAspects(
-                buildResultListener.getAnalyzedAspects().keySet(),
-                buildResultListener.getBuiltAspects()));
-        buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
+    BuildResultListener buildResultListener = env.getBuildResultListener();
+    try (SilentCloseable c = Profiler.instance().profile("Show results")) {
+      buildResult.setSuccessfulTargets(
+          determineSuccessfulTargets(
+              buildResultListener.getAnalyzedTargets(), buildResultListener.getBuiltTargets()));
+      buildResult.setSuccessfulAspects(
+          determineSuccessfulAspects(
+              buildResultListener.getAnalyzedAspects().keySet(),
+              buildResultListener.getBuiltAspects()));
+      buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
+      buildResult.setActualTargets(buildResultListener.getAnalyzedTargets());
+      buildResult.setTestTargets(buildResultListener.getAnalyzedTests());
+      BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+      buildResultPrinter.showBuildResult(
+          request,
+          buildResult,
+          buildResultListener.getAnalyzedTargets(),
+          buildResultListener.getSkippedTargets(),
+          buildResultListener.getAnalyzedAspects());
+    }
+
+    try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
+      if (request.getBuildOptions().showArtifacts) {
         BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-        buildResultPrinter.showBuildResult(
+        buildResultPrinter.showArtifacts(
             request,
-            buildResult,
             buildResultListener.getAnalyzedTargets(),
-            buildResultListener.getSkippedTargets(),
-            buildResultListener.getAnalyzedAspects());
+            buildResultListener.getAnalyzedAspects().values());
       }
+    }
 
-      try (SilentCloseable c = Profiler.instance().profile("Show artifacts")) {
-        if (request.getBuildOptions().showArtifacts) {
-          BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-          buildResultPrinter.showArtifacts(
-              request,
-              buildResultListener.getAnalyzedTargets(),
-              buildResultListener.getAnalyzedAspects().values());
-        }
+    if (explanationHandler != null) {
+      uninstallExplanationHandler(explanationHandler);
+      try {
+        explanationHandler.close();
+      } catch (IOException ignored) {
+        // Ignored
       }
-
-      if (explanationHandler != null) {
-        uninstallExplanationHandler(explanationHandler);
-        try {
-          explanationHandler.close();
-        } catch (IOException _ignored) {
-          // Ignored
-        }
-      }
-      // Finalize output service last, so that if we do throw an exception, we know all the other
-      // code has already run.
-      if (env.getOutputService() != null) {
-        boolean isBuildSuccessful =
-            buildResult.getSuccessfulTargets().size() == configuredTargets.size();
-        env.getOutputService().finalizeBuild(isBuildSuccessful);
-      }
+    }
+    // Finalize output service last, so that if we do throw an exception, we know all the other
+    // code has already run.
+    if (env.getOutputService() != null) {
+      boolean isBuildSuccessful =
+          buildResult.getSuccessfulTargets().size()
+              == buildResultListener.getAnalyzedTargets().size();
+      env.getOutputService().finalizeBuild(isBuildSuccessful);
     }
   }
 
@@ -856,7 +868,7 @@ public class ExecutionTool {
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  private ActionCache getActionCache() throws AbruptExitException {
+  ActionCache getActionCache() throws AbruptExitException {
     try {
       return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
     } catch (IOException e) {

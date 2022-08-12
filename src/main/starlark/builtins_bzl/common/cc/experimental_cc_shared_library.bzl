@@ -268,6 +268,7 @@ def _filter_inputs(
     exports = {}
     linker_inputs_seen = {}
     dynamic_only_roots = {}
+    linked_statically_but_not_exported = {}
     for linker_input in dependency_linker_inputs:
         stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
         if stringified_linker_input in linker_inputs_seen:
@@ -279,8 +280,7 @@ def _filter_inputs(
             linker_inputs.append(dynamic_linker_input)
         elif owner in link_statically_labels:
             if owner in link_once_static_libs_map:
-                fail(owner + " is already linked statically in " +
-                     link_once_static_libs_map[owner] + " but not exported")
+                linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
 
             is_direct_export = owner in direct_exports
             dynamic_only_libraries = []
@@ -345,8 +345,26 @@ def _filter_inputs(
             message += dynamic_only_root + "\n"
         fail(message)
 
+    _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
     return (exports, linker_inputs, curr_link_once_static_libs_map.keys(), precompiled_only_dynamic_libraries)
+
+def _throw_linked_but_not_exported_errors(error_libs_dict):
+    if not error_libs_dict:
+        return
+
+    error_builder = ["The following libraries were linked statically by different cc_shared_libraries but not exported:\n"]
+    for cc_shared_library_target, error_libs in error_libs_dict.items():
+        error_builder.append("cc_shared_library %s:\n" % str(cc_shared_library_target))
+        for error_lib in error_libs:
+            error_builder.append("  \"%s\",\n" % str(error_lib))
+
+    error_builder.append("If you are sure that the previous libraries are exported by the cc_shared_libraries because:\n")
+    error_builder.append("  1. You have visibility declarations in the source code\n")
+    error_builder.append("  2. Or you are passing a visibility script to the linker to export symbols from them\n")
+    error_builder.append("then add those libraries to roots or exports_filter for each cc_shared_library.\n")
+
+    fail("".join(error_builder))
 
 def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
     if not unaccounted_for_libs:
@@ -654,3 +672,4 @@ for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path
 merge_cc_shared_library_infos = _merge_cc_shared_library_infos
 build_link_once_static_libs_map = _build_link_once_static_libs_map
 build_exports_map_from_only_dynamic_deps = _build_exports_map_from_only_dynamic_deps
+throw_linked_but_not_exported_errors = _throw_linked_but_not_exported_errors

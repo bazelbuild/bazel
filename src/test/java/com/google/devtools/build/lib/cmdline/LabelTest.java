@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Starlark;
@@ -428,5 +429,15 @@ public class LabelTest {
     Label label = Label.parseCanonical("//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
+  }
+
+  @Test
+  public void testStarlarkStr_unambiguous() throws Exception {
+    Label label = Label.parseCanonical("//x");
+    StarlarkSemantics semantics =
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, true)
+            .build();
+    assertThat(Starlark.str(label, semantics)).isEqualTo("@//x:x");
   }
 }

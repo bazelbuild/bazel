@@ -549,46 +549,8 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     checkActive();
     Map<SkyKey, SkyValue> values = getValuesFromErrorOrDepsOrGraph(depKeys);
     for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
-      SkyKey depKey = depEntry.getKey();
-      SkyValue depValue = depEntry.getValue();
-
-      if (depValue == NULL_MARKER) {
-        valuesMissing = true;
-        if (previouslyRequestedDepsValues.containsKey(depKey)) {
-          checkState(
-              bubbleErrorInfo != null,
-              "Undone key %s was already in deps of %s( dep: %s, parent: %s )",
-              depKey,
-              skyKey,
-              evaluatorContext.getGraph().get(skyKey, Reason.OTHER, depKey),
-              evaluatorContext.getGraph().get(null, Reason.OTHER, skyKey));
-        }
-        continue;
-      }
-
-      ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depValue);
-      if (errorInfo != null) {
-        errorMightHaveBeenFound = true;
-        childErrorInfos.add(errorInfo);
-        if (bubbleErrorInfo != null) {
-          encounteredErrorDuringBubbling = true;
-          // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
-          // fancy after this. SkyFunctions executed during error bubbling are supposed to
-          // (quickly) rethrow errors or return a value/null (but there's currently no way to
-          // enforce this).
-          Thread.currentThread().interrupt();
-        }
-        if ((!evaluatorContext.keepGoing() && bubbleErrorInfo == null)
-            || errorInfo.getException() == null) {
-          valuesMissing = true;
-          // We arbitrarily record the first child error if we are about to abort.
-          if (!evaluatorContext.keepGoing() && depErrorKey == null) {
-            depErrorKey = depKey;
-          }
-        }
-      }
+      processDepValue(depEntry.getKey(), depEntry.getValue());
     }
-
     return Maps.transformValues(values, this::transformToValueOrUntypedException);
   }
 
@@ -599,46 +561,47 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     List<SkyValue> values = getOrderedValuesFromErrorOrDepsOrGraph(depKeys);
     int i = 0;
     for (SkyKey depKey : depKeys) {
-      SkyValue depValue = values.get(i++);
+      processDepValue(depKey, values.get(i++));
+    }
+    return Lists.transform(values, this::transformToValueOrUntypedException);
+  }
 
-      if (depValue == NULL_MARKER) {
-        valuesMissing = true;
-        if (previouslyRequestedDepsValues.containsKey(depKey)) {
-          checkState(
-              bubbleErrorInfo != null,
-              "Undone key %s was already in deps of %s( dep: %s, parent: %s )",
-              depKey,
-              skyKey,
-              evaluatorContext.getGraph().get(skyKey, Reason.OTHER, depKey),
-              evaluatorContext.getGraph().get(null, Reason.OTHER, skyKey));
-        }
-        continue;
+  private void processDepValue(SkyKey depKey, SkyValue depValue) throws InterruptedException {
+    if (depValue == NULL_MARKER) {
+      valuesMissing = true;
+      if (bubbleErrorInfo == null && previouslyRequestedDepsValues.containsKey(depKey)) {
+        throw new IllegalStateException(
+            String.format(
+                "Undone key %s was already in deps of %s (dep=%s, parent=%s)",
+                depKey,
+                skyKey,
+                evaluatorContext.getGraph().get(skyKey, Reason.OTHER, depKey),
+                evaluatorContext.getGraph().get(null, Reason.OTHER, skyKey)));
       }
-
-      ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depValue);
-      if (errorInfo != null) {
-        errorMightHaveBeenFound = true;
-        childErrorInfos.add(errorInfo);
-        if (bubbleErrorInfo != null) {
-          encounteredErrorDuringBubbling = true;
-          // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
-          // fancy after this. SkyFunctions executed during error bubbling are supposed to
-          // (quickly) rethrow errors or return a value/null (but there's currently no way to
-          // enforce this).
-          Thread.currentThread().interrupt();
-        }
-        if ((!evaluatorContext.keepGoing() && bubbleErrorInfo == null)
-            || errorInfo.getException() == null) {
-          valuesMissing = true;
-          // We arbitrarily record the first child error if we are about to abort.
-          if (!evaluatorContext.keepGoing() && depErrorKey == null) {
-            depErrorKey = depKey;
-          }
-        }
-      }
+      return;
     }
 
-    return Lists.transform(values, this::transformToValueOrUntypedException);
+    ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depValue);
+    if (errorInfo == null) {
+      return;
+    }
+    errorMightHaveBeenFound = true;
+    childErrorInfos.add(errorInfo);
+    if (bubbleErrorInfo != null) {
+      encounteredErrorDuringBubbling = true;
+      // Set interrupted status, to try to prevent the calling SkyFunction from doing anything fancy
+      // after this. SkyFunctions executed during error bubbling are supposed to (quickly) rethrow
+      // errors or return a value/null (but there's currently no way to enforce this).
+      Thread.currentThread().interrupt();
+    }
+    if ((!evaluatorContext.keepGoing() && bubbleErrorInfo == null)
+        || errorInfo.getException() == null) {
+      valuesMissing = true;
+      // We arbitrarily record the first child error if we are about to abort.
+      if (!evaluatorContext.keepGoing() && depErrorKey == null) {
+        depErrorKey = depKey;
+      }
+    }
   }
 
   private ValueOrUntypedException transformToValueOrUntypedException(SkyValue maybeWrappedValue) {

@@ -555,8 +555,7 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
-                  cacheClient,
-                  remoteOptions);
+                  cacheClient);
         } catch (IOException e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -614,8 +613,7 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
-                  cacheClient,
-                  remoteOptions);
+                  cacheClient);
         } catch (IOException e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;

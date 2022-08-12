@@ -37,7 +37,7 @@ java_test(
     size = "small",
     srcs = glob(
         ["**/*.java"],
-        exclude = NATIVE_SSL_TEST,
+        exclude = NATIVE_SSL_TEST + ["BuildWithoutTheBytesIntegrationTest.java"],
     ) + NATIVE_SSL_TEST_MAYBE,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -115,5 +115,29 @@ java_test(
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
         "@zstd-jni//:zstd-jni",
+    ],
+)
+
+java_test(
+    name = "BuildWithoutTheBytesIntegrationTest",
+    size = "large",
+    srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
+    shard_count = 5,
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
