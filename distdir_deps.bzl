@@ -589,6 +589,20 @@ DIST_DEPS = {
         ],
         "used_in": [],
     },
+    "remotejdk17_linux_aarch64": {
+        "aliases": [
+            "remotejdk17_linux_aarch64_for_testing",
+            "openjdk17_linux_aarch64_archive",
+        ],
+        "archive": "zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
+        "sha256": "2b8066bbdbc5cff422bb6b6db1b8f8d362b576340cce8492f1255502af632b06",
+        "strip_prefix": "zulu17.32.13-ca-jdk17.0.2-linux_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-linux_aarch64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
+    },
     "remotejdk17_macos": {
         "aliases": [
             "remotejdk17_macos_for_testing",
@@ -627,6 +641,20 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.32.13-ca-jdk17.0.2-win_x64.zip",
         ],
         "used_in": [],
+    },
+    "remotejdk18_linux_aarch64": {
+        "aliases": [
+            "remotejdk18_linux_for_testing",
+            "openjdk18_linux_archive",
+        ],
+        "archive": "zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
+        "sha256": "a1d5f78172f32f819d08e9043b0f82fa7af738b37c55c6ca8d6092c61d204d53",
+        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-linux_aarch64",
+        "urls": [
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
+        ],
+        "used_in": ["test_WORKSPACE_files"],
     },
     "remotejdk18_linux": {
         "aliases": [
