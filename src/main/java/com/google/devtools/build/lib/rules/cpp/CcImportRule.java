@@ -68,7 +68,9 @@ public final class CcImportRule implements RuleDefinition {
         .add(
             attr("interface_library", LABEL)
                 .allowedFileTypes(
-                    CppFileTypes.INTERFACE_SHARED_LIBRARY, CppFileTypes.UNIX_SHARED_LIBRARY))
+                    CppFileTypes.INTERFACE_SHARED_LIBRARY,
+                    CppFileTypes.UNIX_SHARED_LIBRARY,
+                    CppFileTypes.VERSIONED_SHARED_LIBRARY))
         /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(hdrs) -->
           The list of header files published by
           this precompiled library to be directly included by sources in dependent rules.

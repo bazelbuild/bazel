@@ -633,7 +633,9 @@ public abstract class CcModule
     }
     if (interfaceLibrary != null) {
       String filename = interfaceLibrary.getFilename();
-      if (!FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY, CppFileTypes.UNIX_SHARED_LIBRARY)
+      if (!FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY,
+                  CppFileTypes.UNIX_SHARED_LIBRARY,
+                  CppFileTypes.VERSIONED_SHARED_LIBRARY)
           .matches(filename)) {
         extensionErrorsBuilder.append(
             String.format(

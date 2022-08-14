@@ -558,7 +558,7 @@ def _build_precompiled_files(ctx):
         shared_libraries,
     )
 
-def _is_versioned_shared_library_extension_valid(shared_library_name):
+def _is_versioned_library_extension_valid(shared_library_name):
     # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
     # must match VERSIONED_SHARED_LIBRARY.
     for ext in (".so.", ".dylib."):
@@ -583,7 +583,7 @@ def _is_valid_shared_library_name(shared_library_name):
         shared_library_name.endswith(".dylib")):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library_name)
+    return _is_versioned_library_extension_valid(shared_library_name)
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib"]
 
@@ -591,7 +591,7 @@ def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+    return _is_versioned_library_extension_valid(shared_library.basename)
 
 def _get_providers(deps, provider):
     providers = []

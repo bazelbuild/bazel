@@ -301,6 +301,31 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
   }
 
   @Test
+  public void testCcImportWithVersionedInterfaceSharedLibrary() throws Exception {
+    useConfiguration("--cpu=k8");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "a",
+            "foo",
+            starlarkImplementationLoadStatement,
+            "cc_import(name = 'foo', interface_library = 'libfoo.so.1ab2.1_a2', system_provided = 1)");
+    Artifact library =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getLibraries()
+            .getSingleton()
+            .getResolvedSymlinkInterfaceLibrary();
+    assertThat(artifactsToStrings(ImmutableList.of(library))).containsExactly("src a/libfoo.so.1ab2.1_a2");
+    Iterable<Artifact> dynamicLibrariesForRuntime =
+        target
+            .get(CcInfo.PROVIDER)
+            .getCcLinkingContext()
+            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false);
+    assertThat(artifactsToStrings(dynamicLibrariesForRuntime)).isEmpty();
+  }
+
+  @Test
   public void testCcImportWithBothStaticAndSharedLibraries() throws Exception {
     useConfiguration("--cpu=k8", "--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target =

@@ -57,6 +57,10 @@ def _perform_error_checks(
         not cc_helper.is_valid_shared_library_artifact(shared_library_artifact)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
 
+    if (interface_library_artifact != None and
+        not cc_helper.is_interface_library_extension_valid(interface_library_artifact.basename)):
+        fail("'interface_library' does not produce any cc_import interface_library files (expected .ifso, .tbd, .dll.a, .dylib, .so, or .lib)")
+
 def _create_archive_action(
         ctx,
         feature_configuration,
@@ -194,9 +198,7 @@ cc_import = rule(
         "static_library": attr.label(allow_single_file = [".a", ".lib"]),
         "pic_static_library": attr.label(allow_single_file = [".pic.a", ".pic.lib"]),
         "shared_library": attr.label(allow_single_file = True),
-        "interface_library": attr.label(
-            allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],
-        ),
+        "interface_library": attr.label(allow_single_file = True),
         "pic_objects": attr.label_list(
             allow_files = [".o", ".pic.o"],
         ),

@@ -5303,7 +5303,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib or .dll.a");
+            "'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib, .dll.a, .so or .dylib");
   }
 
   @Test
