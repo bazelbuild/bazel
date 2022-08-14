@@ -59,9 +59,7 @@ filegroup(
 # and LGPL code that we use in Bazel.
 filegroup(
     name = "gpl-srcs",
-    srcs = [
-        "//third_party/jformatstring:srcs",
-    ],
+    srcs = [],
 )
 
 # This target only contains the jars that are used for building / running Bazel.
