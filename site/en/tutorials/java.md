@@ -48,8 +48,8 @@ you don't have it installed already.
 
 Retrieve the sample project from Bazel's GitHub repository:
 
-```sh
-git clone https://github.com/bazelbuild/examples
+```posix-terminal
+$ git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in the `examples/java-tutorial`
@@ -128,8 +128,8 @@ instead of listing them one by one.)
 To build your sample project, navigate to the `java-tutorial` directory
 and run:
 
-```
-bazel build //:ProjectRunner
+```posix-terminal
+$ bazel build //:ProjectRunner
 ```
 In the target label, the `//` part is the location of the `BUILD` file
 relative to the root of the workspace (in this case, the root itself),
@@ -152,8 +152,8 @@ through its contents to get an idea for Bazel's output structure.
 
 Now test your freshly built binary:
 
-```sh
-bazel-bin/ProjectRunner
+```posix-terminal
+$ bazel-bin/ProjectRunner
 ```
 
 ### Review the dependency graph
@@ -166,8 +166,8 @@ To visualize the sample project's dependencies, you can generate a text
 representation of the dependency graph by running this command at the
 workspace root:
 
-```
-bazel query  --notool_deps --noimplicit_deps "deps(//:ProjectRunner)" --output graph
+```posix-terminal
+$ bazel query  --notool_deps --noimplicit_deps "deps(//:ProjectRunner)" --output graph
 ```
 
 The above command tells Bazel to look for all dependencies for the target
@@ -175,7 +175,6 @@ The above command tells Bazel to look for all dependencies for the target
 output as a graph.
 
 Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
-
 
 As you can see, the project has a single target that build two source files with
 no additional dependencies:
@@ -217,8 +216,8 @@ the `greeter` library is required to build the `ProjectRunner` binary.
 
 To build this new version of the project, run the following command:
 
-```
-bazel build //:ProjectRunner
+```posix-terminal
+$ bazel build //:ProjectRunner
 ```
 
 Bazel produces output similar to the following:
@@ -233,8 +232,8 @@ INFO: Elapsed time: 2.454s, Critical Path: 1.58s
 
 Now test your freshly built binary:
 
-```
-bazel-bin/ProjectRunner
+```posix-terminal
+$ bazel-bin/ProjectRunner
 ```
 
 If you now modify `ProjectRunner.java` and rebuild the project, Bazel only
@@ -296,8 +295,8 @@ java_library(
 Now you can build the new package by running the following command at the root
 of the workspace:
 
-```
-bazel build //src/main/java/com/example/cmdline:runner
+```posix-terminal
+$ bazel build //src/main/java/com/example/cmdline:runner
 ```
 
 Bazel produces output similar to the following:
@@ -312,8 +311,8 @@ Target //src/main/java/com/example/cmdline:runner up-to-date:
 
 Now test your freshly built binary:
 
-```
-./bazel-bin/src/main/java/com/example/cmdline/runner
+```posix-terminal
+$ ./bazel-bin/src/main/java/com/example/cmdline/runner
 ```
 
 You've now modified the project to build as two packages, each containing one
@@ -359,8 +358,8 @@ As you remember, the [java_binary](/reference/be/java#java_binary) build rule
 produces a `.jar` and a wrapper shell script. Take a look at the contents of
 `runner.jar` using this command:
 
-```
-jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
+```posix-terminal
+$ jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
 ```
 
 The contents are:
@@ -380,8 +379,8 @@ won't run standalone on another machine. Fortunately, the `java_binary` rule
 allows you to build a self-contained, deployable binary. To build it, append
 `_deploy.jar` to the target name:
 
-```
-bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
+```posix-terminal
+$ bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
 ```
 
 Bazel produces output similar to the following:
@@ -394,7 +393,25 @@ INFO: Elapsed time: 1.700s, Critical Path: 0.23s
 ```
 You have just built `runner_deploy.jar`, which you can run standalone away from
 your development environment since it contains the required runtime
-dependencies.
+dependencies. Take a look at the contents of this standalone JAR using the
+same command as before:
+
+```posix-terminal
+$ jar tf bazel-bin/src/main/java/com/example/cmdline/runner_deploy.jar
+```
+
+The contents include all of the necessary classes to run:
+
+```
+META-INF/
+META-INF/MANIFEST.MF
+build-data.properties
+com/
+com/example/
+com/example/cmdline/
+com/example/cmdline/Runner.class
+com/example/Greeting.class
+```
 
 ## Further reading
 

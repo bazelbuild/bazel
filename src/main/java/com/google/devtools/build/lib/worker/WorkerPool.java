@@ -161,14 +161,14 @@ public final class WorkerPool {
     getPool(key).returnObject(key, obj);
   }
 
-  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
+  public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
       decrementHighPriorityWorkerCount();
     }
     try {
       getPool(key).invalidateObject(key, obj);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      Throwables.propagateIfPossible(t, InterruptedException.class);
       throw new RuntimeException("unexpected", t);
     }
   }

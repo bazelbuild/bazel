@@ -745,8 +745,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new BuildLangTypedAttributeValuesMap(attributeValues),
         reporter,
         location,
-        callstack,
-        /*checkThirdPartyRulesHaveLicenses=*/ true);
+        callstack);
   }
 
   @Test

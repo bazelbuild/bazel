@@ -800,10 +800,17 @@ abstract class AbstractParallelEvaluator {
         // an evaluation and those that were introduced in this evaluation. To be clear, the prefix
         // "newDeps" refers to newly discovered this time around after a SkyFunction#compute call
         // and not to be confused with the oldDeps variable which refers to the last evaluation,
-        // (ie) a prior call to ParallelEvaluator#eval).
-        Set<SkyKey> newDepsThatWerentInTheLastEvaluation = Sets.difference(uniqueNewDeps, oldDeps);
-        Set<SkyKey> newDepsThatWereInTheLastEvaluation =
-            Sets.difference(uniqueNewDeps, newDepsThatWerentInTheLastEvaluation);
+        // i.e. a prior call to ParallelEvaluator#eval.
+        Set<SkyKey> newDepsThatWerentInTheLastEvaluation;
+        Set<SkyKey> newDepsThatWereInTheLastEvaluation;
+        if (oldDeps.isEmpty()) {
+          // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
+          newDepsThatWerentInTheLastEvaluation = uniqueNewDeps;
+          newDepsThatWereInTheLastEvaluation = ImmutableSet.of();
+        } else {
+          newDepsThatWerentInTheLastEvaluation = Sets.difference(uniqueNewDeps, oldDeps);
+          newDepsThatWereInTheLastEvaluation = Sets.intersection(uniqueNewDeps, oldDeps);
+        }
 
         int childEvaluationPriority = determineChildPriority();
         InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>>
@@ -1063,8 +1070,16 @@ abstract class AbstractParallelEvaluator {
     }
 
     Set<SkyKey> uniqueNewDeps = entry.addTemporaryDirectDeps(env.getNewlyRequestedDeps());
-    Set<SkyKey> newlyAddedNewDeps = Sets.difference(uniqueNewDeps, oldDeps);
-    Set<SkyKey> previouslyRegisteredNewDeps = Sets.difference(uniqueNewDeps, newlyAddedNewDeps);
+    Set<SkyKey> newlyAddedNewDeps;
+    Set<SkyKey> previouslyRegisteredNewDeps;
+    if (oldDeps.isEmpty()) {
+      // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
+      newlyAddedNewDeps = uniqueNewDeps;
+      previouslyRegisteredNewDeps = ImmutableSet.of();
+    } else {
+      newlyAddedNewDeps = Sets.difference(uniqueNewDeps, oldDeps);
+      previouslyRegisteredNewDeps = Sets.intersection(uniqueNewDeps, oldDeps);
+    }
 
     InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> newlyAddedNewDepNodes =
         graph.getBatchAsync(skyKey, Reason.RDEP_ADDITION, newlyAddedNewDeps);

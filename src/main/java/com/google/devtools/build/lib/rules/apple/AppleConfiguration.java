@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -109,10 +108,11 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @AutoValue
   public abstract static class AppleCpus {
     public static AppleCpus create(AppleCommandLineOptions options, CoreOptions coreOptions) {
-      String iosCpu = iosCpuFromCpu(coreOptions.cpu);
       String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
       ImmutableList<String> iosMultiCpus =
-          ImmutableList.copyOf(Preconditions.checkNotNull(options.iosMultiCpus, "iosMultiCpus"));
+          (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
+              ? ImmutableList.of(iosCpuFromCpu(coreOptions.cpu))
+              : ImmutableList.copyOf(options.iosMultiCpus);
       ImmutableList<String> watchosCpus =
           (options.watchosCpus == null || options.watchosCpus.isEmpty())
               ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
@@ -131,10 +131,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
               : ImmutableList.copyOf(options.catalystCpus);
 
       return new AutoValue_AppleConfiguration_AppleCpus(
-          iosCpu, appleSplitCpu, iosMultiCpus, watchosCpus, tvosCpus, macosCpus, catalystCpus);
+          appleSplitCpu, iosMultiCpus, watchosCpus, tvosCpus, macosCpus, catalystCpus);
     }
-
-    abstract String iosCpu();
 
     abstract String appleSplitCpu();
 
@@ -211,12 +209,15 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * <p>Single effective architecture is determined using the following rules:
    *
    * <ol>
-   * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then that is
-   *     the effective architecture.
-   * <li>If the multi cpus flag (e.g. {@code --ios_multi_cpus}) is set and non-empty, then the first
-   *     such architecture is returned.
-   * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.
-   * <li>Use the default.
+   *   <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then that
+   *       is the effective architecture.
+   *   <li>If the multi cpus flag (e.g. {@code --ios_multi_cpus}) is set and non-empty, then the
+   *       first such architecture is returned.
+   *   <li>In the case of iOS, use {@code --cpu} if it leads with "ios_" for backwards
+   *       compatibility.
+   *   <li>In the case of macOS, use {@code --cpu} if it leads with "darwin_" for backwards
+   *       compatibility.
+   *   <li>Use the default.
    * </ol>
    */
   @Override
@@ -246,7 +247,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     }
     switch (applePlatformType) {
       case IOS:
-        return Iterables.getFirst(appleCpus.iosMultiCpus(), appleCpus.iosCpu());
+        return appleCpus.iosMultiCpus().get(0);
       case WATCHOS:
         return appleCpus.watchosCpus().get(0);
       case TVOS:
@@ -261,19 +262,24 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   }
 
   /**
-   * Gets the "effective" architecture(s) for the given {@link PlatformType}. For example,
-   * "i386" or "arm64". At least one architecture is always returned. Prefer this over
-   * {@link #getSingleArchitecture} in rule logic which may support multiple architectures, such
-   * as bundling rules.
+   * Gets the "effective" architecture(s) for the given {@link PlatformType}. For example, "i386" or
+   * "arm64". At least one architecture is always returned. Prefer this over {@link
+   * #getSingleArchitecture} in rule logic which may support multiple architectures, such as
+   * bundling rules.
    *
    * <p>Effective architecture(s) is determined using the following rules:
+   *
    * <ol>
-   * <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then
-   * that is the effective architecture.</li>
-   * <li>If the multi-cpu flag (for example, {@code --ios_multi_cpus}) is non-empty, then, return
-   * all architectures from that flag.</li>
-   * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.</li>
-   * <li>Use the default.</li></ol>
+   *   <li>If {@code --apple_split_cpu} is set (done via prior configuration transition), then that
+   *       is the effective architecture.
+   *   <li>If the multi cpus flag (e.g. {@code --ios_multi_cpus}) is set and non-empty, return all
+   *       architectures from that flag.
+   *   <li>In the case of iOS, use {@code --cpu} if it leads with "ios_" for backwards
+   *       compatibility.
+   *   <li>In the case of macOS, use {@code --cpu} if it leads with "darwin_" for backwards
+   *       compatibility.
+   *   <li>Use the default.
+   * </ol>
    *
    * @throws IllegalArgumentException if {@code --apple_platform_type} is set (via prior
    *     configuration transition) yet does not match {@code platformType}
@@ -289,12 +295,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     }
     switch (platformType) {
       case IOS:
-        ImmutableList<String> cpus = appleCpus.iosMultiCpus();
-        if (cpus.isEmpty()) {
-          return ImmutableList.of(appleCpus.iosCpu());
-        } else {
-          return cpus;
-        }
+        return appleCpus.iosMultiCpus();
       case WATCHOS:
         return appleCpus.watchosCpus();
       case TVOS:

@@ -53,8 +53,8 @@ This app has a single button that prints a greeting when clicked:
 Clone the repository with `git` (or [download the ZIP file
 directly](https://github.com/bazelbuild/examples/archive/master.zip){: .external}):
 
-``` bash
-git clone https://github.com/bazelbuild/examples
+```posix-terminal
+$ git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in `examples/android/tutorial`. For
@@ -106,6 +106,7 @@ The `WORKSPACE` file may be empty or may contain references to [external
 dependencies](/docs/external) required to build your project.
 
 First, run the following command to create an empty `WORKSPACE` file:
+
 |          OS              |              Command                |
 | ------------------------ | ----------------------------------- |
 | Linux, macOS             | `touch WORKSPACE`                   |
@@ -116,8 +117,8 @@ First, run the following command to create an empty `WORKSPACE` file:
 
 You can now check if Bazel is running correctly with the command:
 
-```bash
-bazel info workspace
+```posix-terminal
+$ bazel info workspace
 ```
 
 If Bazel prints the path of the current directory, you're good to go! If the
@@ -317,8 +318,8 @@ Now, save and close the file.
 Try building the app! Run the following command to build the
 `android_binary` target:
 
-```bash
-bazel build //src/main:app
+```posix-terminal
+$ bazel build //src/main:app
 ```
 
 The [`build`](/docs/user-manual#build) subcommand instructs Bazel to build the
@@ -382,7 +383,7 @@ Studio. Make sure the emulator is running before executing the command below.
 
 Enter the following:
 
-```bash
+```posix-terminal
 bazel mobile-install //src/main:app
 ```
 
