@@ -88,25 +88,25 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+    public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatchMap(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
       }
       return Maps.transformEntries(
-          delegate.createIfAbsentBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
+          delegate.createIfAbsentBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Override
-    public Map<SkyKey, ? extends NodeEntry> getBatch(
+    public Map<SkyKey, ? extends NodeEntry> getBatchMap(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
       }
       return Maps.transformEntries(
-          delegate.getBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
+          delegate.getBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Override

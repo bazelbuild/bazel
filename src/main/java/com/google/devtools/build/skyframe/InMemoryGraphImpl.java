@@ -54,7 +54,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(
+  public Map<SkyKey, NodeEntry> getBatchMap(
       SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
@@ -81,7 +81,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   private final Function<SkyKey, InMemoryNodeEntry> newNodeEntryFunction = this::newNodeEntry;
 
   @Override
-  public Map<SkyKey, NodeEntry> createIfAbsentBatch(
+  public Map<SkyKey, NodeEntry> createIfAbsentBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     Map<SkyKey, NodeEntry> result = CompactHashMap.createWithExpectedSize(Iterables.size(keys));
     for (SkyKey key : keys) {

@@ -282,7 +282,7 @@ public class SimpleCycleDetector implements CycleDetector {
       // have to change this.
       Iterable<SkyKey> children = temporaryDirectDeps.getAllElementsAsIterable();
       Map<SkyKey, ? extends NodeEntry> childNodes =
-          evaluatorContext.getGraph().getBatch(key, Reason.EXISTENCE_CHECKING, children);
+          evaluatorContext.getGraph().getBatchMap(key, Reason.EXISTENCE_CHECKING, children);
 
       // This marker flag will tell us when all this node's children have been processed.
       toVisit.push(CHILDREN_FINISHED);
@@ -372,7 +372,7 @@ public class SimpleCycleDetector implements CycleDetector {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
     Map<SkyKey, ? extends NodeEntry> childNodes =
-        evaluatorContext.getBatchValues(parent, Reason.CYCLE_CHECKING, children);
+        evaluatorContext.getGraph().getBatchMap(parent, Reason.CYCLE_CHECKING, children);
     for (SkyKey childKey : children) {
       NodeEntry childEntry =
           checkNotNull(
@@ -408,7 +408,7 @@ public class SimpleCycleDetector implements CycleDetector {
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
     Set<? extends Map.Entry<SkyKey, ? extends NodeEntry>> childEntries =
-        evaluatorContext.getBatchValues(null, Reason.CYCLE_CHECKING, children).entrySet();
+        evaluatorContext.getGraph().getBatchMap(null, Reason.CYCLE_CHECKING, children).entrySet();
     for (Map.Entry<SkyKey, ? extends NodeEntry> childMapEntry : childEntries) {
       SkyKey childKey = childMapEntry.getKey();
       NodeEntry childNodeEntry = childMapEntry.getValue();

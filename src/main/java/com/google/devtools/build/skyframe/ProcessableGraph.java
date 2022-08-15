@@ -34,22 +34,24 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public interface ProcessableGraph extends QueryableGraph {
+
   /** Remove the value with given name from the graph. */
   void remove(SkyKey key);
+
   /**
-   * Like {@link QueryableGraph#getBatch}, except it creates a new node for each key not already
+   * Like {@link QueryableGraph#getBatchMap}, except it creates a new node for each key not already
    * present in the graph. Thus, the returned map will have an entry for each key in {@code keys}.
    *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
-  Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+  Map<SkyKey, ? extends NodeEntry> createIfAbsentBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
       throws InterruptedException;
 
   /**
-   * Like {@link QueryableGraph#getBatchAsync}, except it creates a new node for each key not
+   * Like {@link QueryableGraph#getBatchMapAsync}, except it creates a new node for each key not
    * already present in the graph. Thus, the returned map will have an entry for each key in {@code
    * keys}.
    *
@@ -58,9 +60,9 @@ public interface ProcessableGraph extends QueryableGraph {
    * @param reason the reason the nodes are being requested.
    */
   @CanIgnoreReturnValue
-  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> createIfAbsentBatchAsync(
+  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> createIfAbsentBatchMapAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    return MemoizingInterruptibleSupplier.of(() -> createIfAbsentBatch(requestor, reason, keys));
+    return MemoizingInterruptibleSupplier.of(() -> createIfAbsentBatchMap(requestor, reason, keys));
   }
 
   /**

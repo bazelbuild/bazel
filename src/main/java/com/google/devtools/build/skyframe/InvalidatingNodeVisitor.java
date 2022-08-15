@@ -325,7 +325,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
       final Map<SkyKey, ? extends NodeEntry> entries =
-          graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
+          graph.getBatchMap(null, Reason.INVALIDATION, unvisitedKeys);
       for (SkyKey key : unvisitedKeys) {
         executor.execute(
             () -> {
@@ -367,7 +367,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                 // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
                 // anyway.
                 Map<SkyKey, ? extends NodeEntry> depMap =
-                    graph.getBatch(
+                    graph.getBatchMap(
                         key,
                         Reason.INVALIDATION,
                         Iterables.filter(
@@ -501,7 +501,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       }
       Map<SkyKey, ? extends NodeEntry> entries;
       try {
-        entries = graph.getBatch(null, Reason.INVALIDATION, keysToGet);
+        entries = graph.getBatchMap(null, Reason.INVALIDATION, keysToGet);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         // This can only happen if the main thread has been interrupted, and so the

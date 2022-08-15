@@ -38,7 +38,7 @@ public interface InMemoryGraph extends ProcessableGraph {
   }
 
   @Override
-  Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+  Map<SkyKey, ? extends NodeEntry> createIfAbsentBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 
   @Nullable
@@ -46,7 +46,7 @@ public interface InMemoryGraph extends ProcessableGraph {
   NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key);
 
   @Override
-  Map<SkyKey, ? extends NodeEntry> getBatch(
+  Map<SkyKey, ? extends NodeEntry> getBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 
   /**

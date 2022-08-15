@@ -80,7 +80,8 @@ public abstract class GraphTest {
 
   @Test
   public void createIfAbsentBatchSanity() throws InterruptedException {
-    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key("cat"), key("dog")));
+    var unused =
+        graph.createIfAbsentBatchMap(null, Reason.OTHER, ImmutableList.of(key("cat"), key("dog")));
   }
 
   @Test
@@ -102,7 +103,8 @@ public abstract class GraphTest {
                     }
                   }));
       t.start();
-      assertThat(graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key))).isNotEmpty();
+      assertThat(graph.createIfAbsentBatchMap(null, Reason.OTHER, ImmutableList.of(key)))
+          .isNotEmpty();
       graph.remove(key);
     }
   }
@@ -119,7 +121,7 @@ public abstract class GraphTest {
             TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
                 startThreads, "threads not started");
             try {
-              graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key));
+              var unused = graph.createIfAbsentBatchMap(null, Reason.OTHER, ImmutableList.of(key));
             } catch (InterruptedException e) {
               throw new IllegalStateException(e);
             }
@@ -160,7 +162,7 @@ public abstract class GraphTest {
     SkyKey key = key("foo");
     final NodeEntry entry =
         Iterables.getOnlyElement(
-            graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key)).values());
+            graph.createIfAbsentBatchMap(null, Reason.OTHER, ImmutableList.of(key)).values());
     // These numbers are arbitrary.
     int numThreads = 50;
     int numKeys = numThreads;
@@ -186,7 +188,7 @@ public abstract class GraphTest {
     for (int i = 0; i < numKeys; i++) {
       rdepKeys.add(key("rdep" + i));
     }
-    graph.createIfAbsentBatch(null, Reason.OTHER, rdepKeys);
+    var unused = graph.createIfAbsentBatchMap(null, Reason.OTHER, rdepKeys);
     for (int i = 0; i < numKeys; i++) {
       final int j = i;
       Runnable r =
@@ -276,7 +278,7 @@ public abstract class GraphTest {
                   }
                   Map<SkyKey, ? extends NodeEntry> entries;
                   try {
-                    entries = graph.createIfAbsentBatch(null, Reason.OTHER, keys);
+                    entries = graph.createIfAbsentBatchMap(null, Reason.OTHER, keys);
                   } catch (InterruptedException e) {
                     throw new IllegalStateException(e);
                   }
@@ -299,7 +301,7 @@ public abstract class GraphTest {
                   }
                   // This shouldn't cause any problems from the other threads.
                   try {
-                    graph.createIfAbsentBatch(null, Reason.OTHER, keys);
+                    var unused = graph.createIfAbsentBatchMap(null, Reason.OTHER, keys);
                   } catch (InterruptedException e) {
                     throw new IllegalStateException(e);
                   }
@@ -324,7 +326,7 @@ public abstract class GraphTest {
 
   /**
    * Initially calling {@link NodeEntry#setValue} and then making sure concurrent calls to {@link
-   * QueryableGraph#get} and {@link QueryableGraph#getBatch} do not interfere with the node.
+   * QueryableGraph#get} and {@link QueryableGraph#getBatchMap} do not interfere with the node.
    */
   @Test
   public void testDoneToDirty() throws Exception {
@@ -337,7 +339,8 @@ public abstract class GraphTest {
     for (int i = 0; i < numKeys; i++) {
       keys.add(key("foo" + i));
     }
-    Map<SkyKey, ? extends NodeEntry> entries = graph.createIfAbsentBatch(null, Reason.OTHER, keys);
+    Map<SkyKey, ? extends NodeEntry> entries =
+        graph.createIfAbsentBatchMap(null, Reason.OTHER, keys);
     for (int i = 0; i < numKeys; i++) {
       NodeEntry entry = entries.get(key("foo" + i));
       startEvaluation(entry);
@@ -443,7 +446,7 @@ public abstract class GraphTest {
               }
               Map<SkyKey, ? extends NodeEntry> batchMap;
               try {
-                batchMap = graph.getBatch(null, Reason.OTHER, batch);
+                batchMap = graph.getBatchMap(null, Reason.OTHER, batch);
               } catch (InterruptedException e) {
                 throw new IllegalStateException(e);
               }

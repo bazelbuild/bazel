@@ -201,7 +201,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     Iterable<SkyKey> keysToPrefetch =
         excludedKeys != null ? excludedKeys : previouslyRequestedDeps.getAllElementsAsIterable();
     Map<SkyKey, ? extends NodeEntry> batchMap =
-        evaluatorContext.getBatchValues(skyKey, Reason.PREFETCH, keysToPrefetch);
+        evaluatorContext.getGraph().getBatchMap(skyKey, Reason.PREFETCH, keysToPrefetch);
     ImmutableMap.Builder<SkyKey, SkyValue> depValuesBuilder =
         ImmutableMap.builderWithExpectedSize(batchMap.size());
     for (SkyKey depKey : keysToPrefetch) {
@@ -327,7 +327,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       return;
     }
     Map<SkyKey, ? extends NodeEntry> missingEntries =
-        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
+        evaluatorContext.getGraph().getBatchMap(skyKey, Reason.DEP_REQUESTED, missingKeys);
     for (SkyKey key : missingKeys) {
       NodeEntry depEntry = missingEntries.get(key);
       SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
@@ -466,7 +466,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     }
 
     Map<SkyKey, ? extends NodeEntry> missingEntries =
-        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
+        evaluatorContext.getGraph().getBatchMap(skyKey, Reason.DEP_REQUESTED, missingKeys);
     for (SkyKey key : missingKeys) {
       NodeEntry depEntry = missingEntries.get(key);
       SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
@@ -514,7 +514,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     }
 
     Map<SkyKey, ? extends NodeEntry> missingEntries =
-        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
+        evaluatorContext.getGraph().getBatchMap(skyKey, Reason.DEP_REQUESTED, missingKeys);
     int i = -1;
     for (SkyKey key : depKeys) {
       i++;
@@ -745,7 +745,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
       Set<SkyKey> depsToRemove = Sets.difference(oldDeps, temporaryDirectDeps.toSet());
       Collection<? extends NodeEntry> oldDepEntries =
-          evaluatorContext.getGraph().getBatch(skyKey, Reason.RDEP_REMOVAL, depsToRemove).values();
+          evaluatorContext
+              .getGraph()
+              .getBatchMap(skyKey, Reason.RDEP_REMOVAL, depsToRemove)
+              .values();
       for (NodeEntry oldDepEntry : oldDepEntries) {
         oldDepEntry.removeReverseDep(skyKey);
       }

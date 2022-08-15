@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * Context object holding sufficient information for {@link SkyFunctionEnvironment} to perform its
@@ -101,12 +100,6 @@ class ParallelEvaluatorContext {
     this.stateCache = stateCache;
   }
 
-  Map<SkyKey, ? extends NodeEntry> getBatchValues(
-      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-      throws InterruptedException {
-    return graph.getBatch(requestor, reason, keys);
-  }
-
   /**
    * Signals all parents that this node is finished.
    *
@@ -115,7 +108,7 @@ class ParallelEvaluatorContext {
    */
   void signalParentsOnAbort(SkyKey skyKey, Iterable<SkyKey> parents, Version version)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
+    Map<SkyKey, ? extends NodeEntry> batch = graph.getBatchMap(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
       NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
       if (!entry.isDone()) { // In cycles, we can have parents that are already done.
@@ -131,7 +124,7 @@ class ParallelEvaluatorContext {
   void signalParentsAndEnqueueIfReady(
       SkyKey skyKey, Iterable<SkyKey> parents, Version version, int evaluationPriority)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
+    Map<SkyKey, ? extends NodeEntry> batch = graph.getBatchMap(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
       NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
       if (entry.signalDep(version, skyKey)) {

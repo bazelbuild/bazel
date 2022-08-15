@@ -376,7 +376,7 @@ abstract class AbstractParallelEvaluator {
           // is done, then it is the parent's responsibility to notice that, which we do here.
           // We check the deps for errors so that we don't continue building this node if it has
           // a child error.
-          entriesToCheck = graph.getBatch(skyKey, Reason.OTHER, directDepsToCheck);
+          entriesToCheck = graph.getBatchMap(skyKey, Reason.OTHER, directDepsToCheck);
           for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entriesToCheck.entrySet()) {
             NodeEntry nodeEntryToCheck = entry.getValue();
             SkyValue valueMaybeWithMetadata = nodeEntryToCheck.getValueMaybeWithMetadata();
@@ -433,7 +433,7 @@ abstract class AbstractParallelEvaluator {
           continue;
         }
         if (entriesToCheck == null || depsReport.hasInformation()) {
-          entriesToCheck = graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, unknownStatusDeps);
+          entriesToCheck = graph.getBatchMap(skyKey, Reason.ENQUEUING_CHILD, unknownStatusDeps);
         }
         boolean parentIsSignalledAndReady =
             handleKnownChildrenForDirtyNode(
@@ -814,11 +814,11 @@ abstract class AbstractParallelEvaluator {
         int childEvaluationPriority = determineChildPriority();
         InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>>
             newDepsThatWerentInTheLastEvaluationNodes =
-                graph.createIfAbsentBatchAsync(
+                graph.createIfAbsentBatchMapAsync(
                     skyKey, Reason.RDEP_ADDITION, newDepsThatWerentInTheLastEvaluation);
         handleKnownChildrenForDirtyNode(
             newDepsThatWereInTheLastEvaluation,
-            graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
+            graph.getBatchMap(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
             nodeEntry,
             childEvaluationPriority,
             /*enqueueParentIfReady=*/ true);
@@ -972,7 +972,7 @@ abstract class AbstractParallelEvaluator {
               key, childrenToRestart, Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
 
       Map<SkyKey, ? extends NodeEntry> children =
-          evaluatorContext.getBatchValues(key, Reason.REWINDING, childrenToRestart);
+          evaluatorContext.getGraph().getBatchMap(key, Reason.REWINDING, childrenToRestart);
 
       for (SkyKey childToRestart : childrenToRestart) {
         NodeEntry childEntry =
@@ -1080,7 +1080,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> newlyAddedNewDepNodes =
-        graph.getBatchAsync(skyKey, Reason.RDEP_ADDITION, newlyAddedNewDeps);
+        graph.getBatchMapAsync(skyKey, Reason.RDEP_ADDITION, newlyAddedNewDeps);
 
     // Dep entries in the following two loops may not be done, but they must be present. In a
     // keep-going build, we normally expect all deps to be done. In a non-keep-going build, if
@@ -1091,7 +1091,7 @@ abstract class AbstractParallelEvaluator {
     boolean selfSignalled = false;
 
     Map<SkyKey, ? extends NodeEntry> previouslyRegisteredEntries =
-        graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
+        graph.getBatchMap(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
     for (SkyKey newDep : previouslyRegisteredNewDeps) {
       NodeEntry depEntry =
           checkNotNull(

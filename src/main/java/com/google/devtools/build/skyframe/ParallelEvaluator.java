@@ -140,7 +140,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     injectErrorTransienceValue();
     try {
       for (Map.Entry<SkyKey, ? extends NodeEntry> e :
-          graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
+          graph.createIfAbsentBatchMap(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
         SkyKey skyKey = e.getKey();
         NodeEntry entry = e.getValue();
         // This must be equivalent to the code in AbstractParallelEvaluator.Evaluate#enqueueChild,
@@ -190,7 +190,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     NodeEntry errorTransienceEntry =
         Iterables.getOnlyElement(
             graph
-                .createIfAbsentBatch(
+                .createIfAbsentBatchMap(
                     null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
                 .values());
     if (!errorTransienceEntry.isDone()) {
@@ -591,7 +591,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       DirtyTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> prevNodeEntries =
-        graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());
+        graph.createIfAbsentBatchMap(null, Reason.OTHER, injectionMap.keySet());
     for (Map.Entry<SkyKey, SkyValue> injectionEntry : injectionMap.entrySet()) {
       SkyKey key = injectionEntry.getKey();
       SkyValue value = injectionEntry.getValue();
@@ -632,7 +632,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
     boolean allAreDone = true;
     Map<SkyKey, ? extends NodeEntry> batch =
-        evaluatorContext.getBatchValues(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
+        evaluatorContext.getGraph().getBatchMap(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
     for (SkyKey key : skyKeySet) {
       if (!isDoneForBuild(batch.get(key))) {
         allAreDone = false;

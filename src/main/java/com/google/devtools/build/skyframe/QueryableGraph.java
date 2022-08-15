@@ -52,18 +52,18 @@ public interface QueryableGraph {
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
-  Map<SkyKey, ? extends NodeEntry> getBatch(
+  Map<SkyKey, ? extends NodeEntry> getBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
       throws InterruptedException;
 
   /**
-   * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
+   * A version of {@link #getBatchMap} that returns an {@link InterruptibleSupplier} to possibly
    * retrieve the results later.
    */
   @CanIgnoreReturnValue
-  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchAsync(
+  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchMapAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
-    return MemoizingInterruptibleSupplier.of(() -> getBatch(requestor, reason, keys));
+    return MemoizingInterruptibleSupplier.of(() -> getBatchMap(requestor, reason, keys));
   }
 
   /**
