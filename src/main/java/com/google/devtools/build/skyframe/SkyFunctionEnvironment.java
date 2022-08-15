@@ -515,11 +515,10 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     Map<SkyKey, ? extends NodeEntry> missingEntries =
         evaluatorContext.getGraph().getBatchMap(skyKey, Reason.DEP_REQUESTED, missingKeys);
-    int i = -1;
-    for (SkyKey key : depKeys) {
-      i++;
-      if (result.get(i) != null) {
-        continue;
+    int i = 0;
+    for (SkyKey key : missingKeys) {
+      while (result.get(i) != null) {
+        i++; // Fast-forward to the next null placeholder.
       }
       NodeEntry depEntry = missingEntries.get(key);
       SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
