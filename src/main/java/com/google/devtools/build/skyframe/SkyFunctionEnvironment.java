@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
@@ -280,164 +279,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     return events;
   }
 
-  void setValue(SkyValue newValue) {
-    checkState(
-        errorInfo == null && bubbleErrorInfo == null,
-        "%s %s %s %s",
-        skyKey,
-        newValue,
-        errorInfo,
-        bubbleErrorInfo);
-    checkState(value == null, "%s %s %s", skyKey, value, newValue);
-    value = newValue;
-  }
-
-  /**
-   * Set this node to be in error. The node's value must not have already been set. However, all
-   * dependencies of this node <i>must</i> already have been registered, since this method may
-   * register a dependence on the error transience node, which should always be the last dep.
-   */
-  void setError(NodeEntry state, ErrorInfo errorInfo) throws InterruptedException {
-    checkState(value == null, "%s %s %s", skyKey, value, errorInfo);
-    checkState(this.errorInfo == null, "%s %s %s", skyKey, this.errorInfo, errorInfo);
-
-    if (errorInfo.isDirectlyTransient()) {
-      NodeEntry errorTransienceNode =
-          checkNotNull(
-              evaluatorContext
-                  .getGraph()
-                  .get(skyKey, Reason.RDEP_ADDITION, ErrorTransienceValue.KEY),
-              "Null error value? %s",
-              skyKey);
-      DependencyState triState;
-      if (oldDeps.contains(ErrorTransienceValue.KEY)) {
-        triState = errorTransienceNode.checkIfDoneForDirtyReverseDep(skyKey);
-      } else {
-        triState = errorTransienceNode.addReverseDepAndCheckIfDone(skyKey);
-      }
-      checkState(triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
-      state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
-      state.signalDep(evaluatorContext.getGraphVersion(), ErrorTransienceValue.KEY);
-      maxTransitiveSourceVersion = null;
-    }
-
-    this.errorInfo = checkNotNull(errorInfo, skyKey);
-  }
-
-  /**
-   * Returns a map of {@code keys} to values or {@link #NULL_MARKER}s, populating the map's contents
-   * by looking in order at:
-   *
-   * <ol>
-   *   <li>{@link #bubbleErrorInfo}
-   *   <li>{@link #previouslyRequestedDepsValues}
-   *   <li>{@link #newlyRequestedDepsValues}
-   *   <li>{@link #evaluatorContext}'s graph accessing methods
-   * </ol>
-   *
-   * <p>All {@code keys} not previously requested will be added to a new group in {@link
-   * #newlyRequestedDeps}. The new group will mirror the order of {@code keys}, minus duplicates.
-   *
-   * <p>Any key whose {@link NodeEntry}--or absence thereof--had to be read from the graph will also
-   * be entered into {@link #newlyRequestedDepsValues} with its value or a {@link #NULL_MARKER}.
-   */
-  private Map<SkyKey, SkyValue> getValuesFromErrorOrDepsOrGraph(Iterable<? extends SkyKey> keys)
-      throws InterruptedException {
-    // Do not use an ImmutableMap.Builder, because we have not yet deduplicated these keys
-    // and ImmutableMap.Builder does not tolerate duplicates.
-    Map<SkyKey, SkyValue> result =
-        keys instanceof Collection
-            ? CompactHashMap.createWithExpectedSize(((Collection<?>) keys).size())
-            : new HashMap<>();
-    Set<SkyKey> missingKeys = new HashSet<>();
-    newlyRequestedDeps.startGroup();
-    for (SkyKey key : keys) {
-      checkState(
-          !key.equals(ErrorTransienceValue.KEY),
-          "Error transience key cannot be in requested deps of %s",
-          skyKey);
-      SkyValue value = maybeGetValueFromErrorOrDeps(key);
-      boolean duplicate;
-      if (value == null) {
-        duplicate = !missingKeys.add(key);
-      } else {
-        duplicate = result.put(key, value) != null;
-      }
-      if (!duplicate && !previouslyRequestedDepsValues.containsKey(key)) {
-        newlyRequestedDeps.add(key);
-      }
-    }
-    newlyRequestedDeps.endGroup();
-
-    if (missingKeys.isEmpty()) {
-      return result;
-    }
-    Map<SkyKey, ? extends NodeEntry> missingEntries =
-        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
-    for (SkyKey key : missingKeys) {
-      NodeEntry depEntry = missingEntries.get(key);
-      SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
-      result.put(key, valueOrNullMarker);
-      newlyRequestedDepsValues.put(key, valueOrNullMarker);
-      if (valueOrNullMarker != NULL_MARKER) {
-        maybeUpdateMaxTransitiveSourceVersion(depEntry);
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Similar to {@link #getValuesFromErrorOrDepsOrGraph}, but instead of a Map, return a List of
-   * SkyValue ordered by the given order of SkyKeys.
-   */
-  private List<SkyValue> getOrderedValuesFromErrorOrDepsOrGraph(Iterable<? extends SkyKey> keys)
-      throws InterruptedException {
-    int capacity = keys instanceof Collection ? ((Collection<?>) keys).size() : 16;
-    List<SkyValue> result = new ArrayList<>(capacity);
-
-    // Ignoring duplication check here since it's done in GroupedList.
-    List<SkyKey> missingKeys = new ArrayList<>();
-    newlyRequestedDeps.startGroup();
-    for (SkyKey key : keys) {
-      checkState(
-          !key.equals(ErrorTransienceValue.KEY),
-          "Error transience key cannot be in requested deps of %s",
-          skyKey);
-      SkyValue value = maybeGetValueFromErrorOrDeps(key);
-      if (value == null) {
-        missingKeys.add(key);
-      }
-      // To maintain the ordering.
-      result.add(value);
-      if (!previouslyRequestedDepsValues.containsKey(key)) {
-        newlyRequestedDeps.add(key);
-      }
-    }
-    newlyRequestedDeps.endGroup();
-
-    if (missingKeys.isEmpty()) {
-      return result;
-    }
-
-    Map<SkyKey, ? extends NodeEntry> missingEntries =
-        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
-    int i = -1;
-    for (SkyKey key : keys) {
-      i++;
-      if (result.get(i) != null) {
-        continue;
-      }
-      NodeEntry depEntry = missingEntries.get(key);
-      SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
-      result.set(i, valueOrNullMarker);
-      newlyRequestedDepsValues.put(key, valueOrNullMarker);
-      if (valueOrNullMarker != NULL_MARKER) {
-        maybeUpdateMaxTransitiveSourceVersion(depEntry);
-      }
-    }
-    return result;
-  }
-
   /**
    * Adds transitive events from done deps in {@code depKeys}, by looking in order at:
    *
@@ -504,11 +345,55 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     }
   }
 
+  void setValue(SkyValue newValue) {
+    checkState(
+        errorInfo == null && bubbleErrorInfo == null,
+        "%s %s %s %s",
+        skyKey,
+        newValue,
+        errorInfo,
+        bubbleErrorInfo);
+    checkState(value == null, "%s %s %s", skyKey, value, newValue);
+    value = newValue;
+  }
+
+  /**
+   * Set this node to be in error. The node's value must not have already been set. However, all
+   * dependencies of this node <i>must</i> already have been registered, since this method may
+   * register a dependence on the error transience node, which should always be the last dep.
+   */
+  void setError(NodeEntry state, ErrorInfo errorInfo) throws InterruptedException {
+    checkState(value == null, "%s %s %s", skyKey, value, errorInfo);
+    checkState(this.errorInfo == null, "%s %s %s", skyKey, this.errorInfo, errorInfo);
+
+    if (errorInfo.isDirectlyTransient()) {
+      NodeEntry errorTransienceNode =
+          checkNotNull(
+              evaluatorContext
+                  .getGraph()
+                  .get(skyKey, Reason.RDEP_ADDITION, ErrorTransienceValue.KEY),
+              "Null error value? %s",
+              skyKey);
+      DependencyState triState;
+      if (oldDeps.contains(ErrorTransienceValue.KEY)) {
+        triState = errorTransienceNode.checkIfDoneForDirtyReverseDep(skyKey);
+      } else {
+        triState = errorTransienceNode.addReverseDepAndCheckIfDone(skyKey);
+      }
+      checkState(triState == DependencyState.DONE, "%s %s %s", skyKey, triState, errorInfo);
+      state.addTemporaryDirectDeps(GroupedListHelper.create(ErrorTransienceValue.KEY));
+      state.signalDep(evaluatorContext.getGraphVersion(), ErrorTransienceValue.KEY);
+      maxTransitiveSourceVersion = null;
+    }
+
+    this.errorInfo = checkNotNull(errorInfo, skyKey);
+  }
+
   /**
    * Returns a value or a {@link #NULL_MARKER} associated with {@code key} by looking in order at:
    *
    * <ol>
-   *   <li>{@code bubbleErrorInfo}
+   *   <li>{@link #bubbleErrorInfo}
    *   <li>{@link #previouslyRequestedDepsValues}
    *   <li>{@link #newlyRequestedDepsValues}
    * </ol>
@@ -517,7 +402,7 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * (Note that none of the maps can have {@code null} as a value.)
    */
   @Nullable
-  SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) throws InterruptedException {
+  SkyValue maybeGetValueFromErrorOrDeps(SkyKey key) {
     if (bubbleErrorInfo != null) {
       ValueWithMetadata bubbleErrorInfoValue = bubbleErrorInfo.get(key);
       if (bubbleErrorInfoValue != null) {
@@ -547,23 +432,105 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
-    Map<SkyKey, SkyValue> values = getValuesFromErrorOrDepsOrGraph(depKeys);
-    for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
-      processDepValue(depEntry.getKey(), depEntry.getValue());
+    // Do not use an ImmutableMap.Builder, because we have not yet deduplicated these keys
+    // and ImmutableMap.Builder does not tolerate duplicates.
+    Map<SkyKey, ValueOrUntypedException> result =
+        depKeys instanceof Collection
+            ? CompactHashMap.createWithExpectedSize(((Collection<?>) depKeys).size())
+            : new HashMap<>();
+    Set<SkyKey> missingKeys = new HashSet<>();
+    newlyRequestedDeps.startGroup();
+    for (SkyKey key : depKeys) {
+      checkState(
+          !key.equals(ErrorTransienceValue.KEY),
+          "Error transience key cannot be in requested deps of %s",
+          skyKey);
+      SkyValue value = maybeGetValueFromErrorOrDeps(key);
+      boolean duplicate;
+      if (value == null) {
+        duplicate = !missingKeys.add(key);
+      } else {
+        duplicate = result.put(key, transformToValueOrUntypedException(value)) != null;
+        if (!duplicate) {
+          processDepValue(key, value);
+        }
+      }
+      if (!duplicate && !previouslyRequestedDepsValues.containsKey(key)) {
+        newlyRequestedDeps.add(key);
+      }
     }
-    return Maps.transformValues(values, this::transformToValueOrUntypedException);
+    newlyRequestedDeps.endGroup();
+
+    if (missingKeys.isEmpty()) {
+      return result;
+    }
+
+    Map<SkyKey, ? extends NodeEntry> missingEntries =
+        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
+    for (SkyKey key : missingKeys) {
+      NodeEntry depEntry = missingEntries.get(key);
+      SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
+      result.put(key, transformToValueOrUntypedException(valueOrNullMarker));
+      processDepValue(key, valueOrNullMarker);
+      newlyRequestedDepsValues.put(key, valueOrNullMarker);
+      if (valueOrNullMarker != NULL_MARKER) {
+        maybeUpdateMaxTransitiveSourceVersion(depEntry);
+      }
+    }
+    return result;
   }
 
   @Override
   protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
-    List<SkyValue> values = getOrderedValuesFromErrorOrDepsOrGraph(depKeys);
-    int i = 0;
-    for (SkyKey depKey : depKeys) {
-      processDepValue(depKey, values.get(i++));
+    int capacity = depKeys instanceof Collection ? ((Collection<?>) depKeys).size() : 16;
+    List<ValueOrUntypedException> result = new ArrayList<>(capacity);
+
+    // Ignoring duplication check here since it's done in GroupedList.
+    List<SkyKey> missingKeys = new ArrayList<>();
+    newlyRequestedDeps.startGroup();
+    for (SkyKey key : depKeys) {
+      checkState(
+          !key.equals(ErrorTransienceValue.KEY),
+          "Error transience key cannot be in requested deps of %s",
+          skyKey);
+      SkyValue value = maybeGetValueFromErrorOrDeps(key);
+      if (value == null) {
+        missingKeys.add(key);
+        result.add(null); // Add null as a placeholder to maintain the ordering.
+      } else {
+        result.add(transformToValueOrUntypedException(value));
+        processDepValue(key, value);
+      }
+      if (!previouslyRequestedDepsValues.containsKey(key)) {
+        newlyRequestedDeps.add(key);
+      }
     }
-    return Lists.transform(values, this::transformToValueOrUntypedException);
+    newlyRequestedDeps.endGroup();
+
+    if (missingKeys.isEmpty()) {
+      return result;
+    }
+
+    Map<SkyKey, ? extends NodeEntry> missingEntries =
+        evaluatorContext.getBatchValues(skyKey, Reason.DEP_REQUESTED, missingKeys);
+    int i = -1;
+    for (SkyKey key : depKeys) {
+      i++;
+      if (result.get(i) != null) {
+        continue;
+      }
+      NodeEntry depEntry = missingEntries.get(key);
+      SkyValue valueOrNullMarker = getValueOrNullMarker(depEntry);
+      result.set(i, transformToValueOrUntypedException(valueOrNullMarker));
+      processDepValue(key, valueOrNullMarker);
+      newlyRequestedDepsValues.put(key, valueOrNullMarker);
+      if (valueOrNullMarker != NULL_MARKER) {
+        maybeUpdateMaxTransitiveSourceVersion(depEntry);
+      }
+    }
+    return result;
   }
 
   private void processDepValue(SkyKey depKey, SkyValue depValue) throws InterruptedException {
