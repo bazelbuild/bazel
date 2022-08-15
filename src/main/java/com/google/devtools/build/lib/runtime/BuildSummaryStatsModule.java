@@ -64,10 +64,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private SpawnStats spawnStats;
   private Path profilePath;
   private static final long UNKNOWN_CPU_TIME = -1;
-  //If anyone of the CPU time below is UNKNOWN, the total CPU time will be UNKNOWN. 
-  private long cpuUserTimeForActions = 0;
-  private long cpuSystemTimeForActions = 0;
-  private long cpuTimeForBazelJvm = UNKNOWN_CPU_TIME;
+  //If anyone of the CPU time below is UNKNOWN, then the total CPU time become UNKNOWN. 
+  private Duration cpuUserTimeForActions = Duration.ofMillis(0);
+  private Duration cpuSystemTimeForActions = Duration.ofMillis(0);
+  private Duration cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -118,19 +118,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
     Optional<Duration> cpuUserTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionUserTime();
-
-    if(cpuUserTimeForActionsDuration.isPresent() && cpuUserTimeForActions != UNKNOWN_CPU_TIME) {
-      cpuUserTimeForActions += cpuUserTimeForActionsDuration.get().toMillis();
-    } else {
-      cpuUserTimeForActions = UNKNOWN_CPU_TIME;
-    }
+    cpuUserTimeForActions = addCPUTime(cpuUserTimeForActionsDuration, cpuUserTimeForActions);
     Optional<Duration> cpuSystemTimeForActionsDuration = event.getActionResult().cumulativeCommandExecutionSystemTime();
-    if(cpuSystemTimeForActionsDuration.isPresent() && cpuSystemTimeForActions != UNKNOWN_CPU_TIME){
-      cpuSystemTimeForActions += cpuSystemTimeForActionsDuration.get().toMillis();
-    } else {
-      cpuSystemTimeForActions = UNKNOWN_CPU_TIME;
-    }
- }
+    cpuSystemTimeForActions = addCPUTime(cpuSystemTimeForActionsDuration, cpuSystemTimeForActions);
+  }
 
   @Subscribe
   @AllowConcurrentEvents
@@ -182,7 +173,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // the BuildToolLogs to afterCommand of this module.
         try {
           if(Profiler.getProcessCpuTimeMaybe() != null) {
-            cpuTimeForBazelJvm = Profiler.getProcessCpuTimeMaybe().toMillis();
+            cpuTimeForBazelJvm = Duration.ofMillis(Profiler.getProcessCpuTimeMaybe().toMillis());
           }
           Profiler.instance().stop();
           event
@@ -218,11 +209,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
         reporter.handle(
             Event.info(
                 String.format(
-                    "CPU time %s (user %s, system %s, bazel %s)",
-                    formatCpuTime(sumCpuTimes(cpuUserTimeForActions, cpuSystemTimeForActions, cpuTimeForBazelJvm)),
-                    formatCpuTime(cpuUserTimeForActions),
-                    formatCpuTime(cpuSystemTimeForActions),
-                    formatCpuTime(cpuTimeForBazelJvm))));
+                    "CPU time %s (user %s, system %s, bazel jvm %s)",
+                    formatCpuTime(sumCpuTimes(cpuUserTimeForActions.toMillis(), cpuSystemTimeForActions.toMillis(), cpuTimeForBazelJvm.toMillis())),
+                    formatCpuTime(cpuUserTimeForActions.toMillis()),
+                    formatCpuTime(cpuSystemTimeForActions.toMillis()),
+                    formatCpuTime(cpuTimeForBazelJvm.toMillis()))));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummaryString));
@@ -238,9 +229,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
         criticalPathComputer = null;
       }
       profilePath = null;
-      cpuUserTimeForActions = 0;
-      cpuSystemTimeForActions = 0;
-      cpuTimeForBazelJvm = UNKNOWN_CPU_TIME;
+      cpuUserTimeForActions = Duration.ofMillis(0);
+      cpuSystemTimeForActions = Duration.ofMillis(0);
+      cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
     }
   }
 
@@ -258,5 +249,14 @@ public class BuildSummaryStatsModule extends BlazeModule {
     } else {
       return cpuUserTimeActions + cpuSystemTimeActions + cpuTimeBazelJvm;
     }
+  }
+  
+  private static Duration addCPUTime(Optional<Duration> sumDuration, Duration termDuration) {
+    if(sumDuration.isPresent() && (termDuration.toMillis() !=  UNKNOWN_CPU_TIME)) {
+      termDuration = termDuration.plus(sumDuration.get());
+    } else {
+      termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
+    }
+    return termDuration;
   }
 }
