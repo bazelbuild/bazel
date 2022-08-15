@@ -64,7 +64,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private SpawnStats spawnStats;
   private Path profilePath;
   private static final long UNKNOWN_CPU_TIME = -1;
-  //If anyone of the CPU time below is UNKNOWN, then the total CPU time become UNKNOWN. 
+  //If anyone of the CPU time below is UNKNOWN, then the total CPU time become UNKNOWN.
   private Duration cpuUserTimeForActions = Duration.ofMillis(0);
   private Duration cpuSystemTimeForActions = Duration.ofMillis(0);
   private Duration cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
