@@ -28,7 +28,7 @@ Next, retrieve the sample project from Bazel's GitHub repository by running the
 following in your command-line tool of choice:
 
 ```posix-terminal
-$ git clone https://github.com/bazelbuild/examples
+git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in the `examples/cpp-tutorial` directory.
@@ -154,13 +154,13 @@ examples
 Run the following to move to the `cpp-tutorial/stage1` directory:
 
 ```posix-terminal
-$ cd  cpp-tutorial/stage1
+cd cpp-tutorial/stage1
 ```
 
 Next, run:
 
 ```posix-terminal
-$ bazel build //main:hello-world
+bazel build //main:hello-world
 ```
 
 In the target label, the `//main:` part is the location of the `BUILD` file
@@ -183,7 +183,7 @@ workspace.
 Now test your freshly built binary, which is:
 
 ```posix-terminal
-$ bazel-bin/main/hello-world
+bazel-bin/main/hello-world
 ```
 
 This results in a printed “`Hello world`” message.
@@ -249,13 +249,13 @@ Before you can build this new version of the project, you need to change
 directories, switching to the `cpp-tutorial/stage2` directory by running:
 
 ```posix-terminal
-$ cd  ../stage2
+cd ../stage2
 ```
 
 Now you can build the new binary using the following familiar command:
 
 ```posix-terminal
-$ bazel build //main:hello-world
+bazel build //main:hello-world
 ```
 
 Once again, Bazel produces something that looks like this:
@@ -270,7 +270,7 @@ INFO: Elapsed time: 2.399s, Critical Path: 0.30s
 Now you can test your freshly built binary, which returns another “`Hello world`”:
 
 ```posix-terminal
-$ bazel-bin/main/hello-world
+bazel-bin/main/hello-world
 ```
 
 If you now modify `hello-greet.cc` and rebuild the project, Bazel only recompiles
@@ -359,13 +359,13 @@ Now build this final version of the project. Switch to the `cpp-tutorial/stage3`
 directory by running:
 
 ```posix-terminal
-$ cd  ../stage3
+cd  ../stage3
 ```
 
 Once again, run the following command:
 
 ```posix-terminal
-$ bazel build //main:hello-world
+bazel build //main:hello-world
 ```
 
 Bazel produces something that looks like this:
@@ -380,7 +380,7 @@ INFO: Elapsed time: 0.167s, Critical Path: 0.00s
 Now test the last binary of this tutorial for a final `Hello world` message:
 
 ```posix-terminal
-$ bazel-bin/main/hello-world
+bazel-bin/main/hello-world
 ```
 
 ### Summary: stage 3

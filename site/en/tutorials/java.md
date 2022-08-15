@@ -49,7 +49,7 @@ you don't have it installed already.
 Retrieve the sample project from Bazel's GitHub repository:
 
 ```posix-terminal
-$ git clone https://github.com/bazelbuild/examples
+git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in the `examples/java-tutorial`
@@ -129,7 +129,7 @@ To build your sample project, navigate to the `java-tutorial` directory
 and run:
 
 ```posix-terminal
-$ bazel build //:ProjectRunner
+bazel build //:ProjectRunner
 ```
 In the target label, the `//` part is the location of the `BUILD` file
 relative to the root of the workspace (in this case, the root itself),
@@ -153,7 +153,7 @@ through its contents to get an idea for Bazel's output structure.
 Now test your freshly built binary:
 
 ```posix-terminal
-$ bazel-bin/ProjectRunner
+bazel-bin/ProjectRunner
 ```
 
 ### Review the dependency graph
@@ -167,7 +167,7 @@ representation of the dependency graph by running this command at the
 workspace root:
 
 ```posix-terminal
-$ bazel query  --notool_deps --noimplicit_deps "deps(//:ProjectRunner)" --output graph
+bazel query  --notool_deps --noimplicit_deps "deps(//:ProjectRunner)" --output graph
 ```
 
 The above command tells Bazel to look for all dependencies for the target
@@ -217,7 +217,7 @@ the `greeter` library is required to build the `ProjectRunner` binary.
 To build this new version of the project, run the following command:
 
 ```posix-terminal
-$ bazel build //:ProjectRunner
+bazel build //:ProjectRunner
 ```
 
 Bazel produces output similar to the following:
@@ -233,7 +233,7 @@ INFO: Elapsed time: 2.454s, Critical Path: 1.58s
 Now test your freshly built binary:
 
 ```posix-terminal
-$ bazel-bin/ProjectRunner
+bazel-bin/ProjectRunner
 ```
 
 If you now modify `ProjectRunner.java` and rebuild the project, Bazel only
@@ -296,7 +296,7 @@ Now you can build the new package by running the following command at the root
 of the workspace:
 
 ```posix-terminal
-$ bazel build //src/main/java/com/example/cmdline:runner
+bazel build //src/main/java/com/example/cmdline:runner
 ```
 
 Bazel produces output similar to the following:
@@ -312,7 +312,7 @@ Target //src/main/java/com/example/cmdline:runner up-to-date:
 Now test your freshly built binary:
 
 ```posix-terminal
-$ ./bazel-bin/src/main/java/com/example/cmdline/runner
+./bazel-bin/src/main/java/com/example/cmdline/runner
 ```
 
 You've now modified the project to build as two packages, each containing one
@@ -359,7 +359,7 @@ produces a `.jar` and a wrapper shell script. Take a look at the contents of
 `runner.jar` using this command:
 
 ```posix-terminal
-$ jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
+jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
 ```
 
 The contents are:
@@ -380,7 +380,7 @@ allows you to build a self-contained, deployable binary. To build it, append
 `_deploy.jar` to the target name:
 
 ```posix-terminal
-$ bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
+bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
 ```
 
 Bazel produces output similar to the following:
@@ -397,7 +397,7 @@ dependencies. Take a look at the contents of this standalone JAR using the
 same command as before:
 
 ```posix-terminal
-$ jar tf bazel-bin/src/main/java/com/example/cmdline/runner_deploy.jar
+jar tf bazel-bin/src/main/java/com/example/cmdline/runner_deploy.jar
 ```
 
 The contents include all of the necessary classes to run:

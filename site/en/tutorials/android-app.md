@@ -54,7 +54,7 @@ Clone the repository with `git` (or [download the ZIP file
 directly](https://github.com/bazelbuild/examples/archive/master.zip){: .external}):
 
 ```posix-terminal
-$ git clone https://github.com/bazelbuild/examples
+git clone https://github.com/bazelbuild/examples
 ```
 
 The sample project for this tutorial is in `examples/android/tutorial`. For
@@ -118,7 +118,7 @@ First, run the following command to create an empty `WORKSPACE` file:
 You can now check if Bazel is running correctly with the command:
 
 ```posix-terminal
-$ bazel info workspace
+bazel info workspace
 ```
 
 If Bazel prints the path of the current directory, you're good to go! If the
@@ -319,7 +319,7 @@ Try building the app! Run the following command to build the
 `android_binary` target:
 
 ```posix-terminal
-$ bazel build //src/main:app
+bazel build //src/main:app
 ```
 
 The [`build`](/docs/user-manual#build) subcommand instructs Bazel to build the
