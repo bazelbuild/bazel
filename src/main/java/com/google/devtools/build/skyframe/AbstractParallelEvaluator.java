@@ -55,7 +55,6 @@ import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1059,8 +1058,7 @@ abstract class AbstractParallelEvaluator {
       SkyFunctionEnvironment env,
       boolean keepGoing)
       throws InterruptedException {
-    Iterator<SkyKey> it = env.getNewlyRequestedDeps().iterator();
-    if (!it.hasNext()) {
+    if (env.getNewlyRequestedDeps().isEmpty()) {
       return false;
     }
 

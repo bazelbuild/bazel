@@ -371,7 +371,7 @@ public final class ActionRewindStrategy {
         addSkyframeAwareDepsAndGetNewlyVisitedArtifactsAndActions(
             rewindGraph,
             actionKey,
-            (SkyframeAwareAction<?>) action,
+            (SkyframeAwareAction) action,
             artifactsToCheck,
             newlyDiscoveredActions);
       }
@@ -411,7 +411,7 @@ public final class ActionRewindStrategy {
   private static void addSkyframeAwareDepsAndGetNewlyVisitedArtifactsAndActions(
       MutableGraph<SkyKey> rewindGraph,
       ActionLookupData actionKey,
-      SkyframeAwareAction<?> action,
+      SkyframeAwareAction action,
       ArrayList<DerivedArtifact> newlyVisitedArtifacts,
       ArrayList<ActionLookupData> newlyVisitedActions) {
 
