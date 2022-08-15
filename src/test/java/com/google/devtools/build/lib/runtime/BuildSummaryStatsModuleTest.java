@@ -84,7 +84,7 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.actionResultReceived(action2);
     Field field1 = tBSSM.getDeclaredField("cpuTimeForBazelJvm");
     field1.setAccessible(true);
-    field1.setLong(buildSummaryStatsModule, 11000);
+    field1.set(buildSummaryStatsModule, Duration.ofMillis(11000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel %.2fs)",88.00, 55.00, 22.00, 11.00)));
   }
@@ -116,7 +116,7 @@ public class BuildSummaryStatsModuleTest {
     buildSummaryStatsModule.actionResultReceived(action1);
     Field field1 = tBSSM.getDeclaredField("cpuTimeForBazelJvm");
     field1.setAccessible(true);
-    field1.setLong(buildSummaryStatsModule, 10000);
+    field1.setLong(buildSummaryStatsModule, Duration.ofMillis(10000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel %.2fs)",80.00, 50.00, 20.00, 10.00)));
     // One more build, and verify that previous values are not preserved.
