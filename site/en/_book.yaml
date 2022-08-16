@@ -105,7 +105,7 @@ upper_tabs:
       contents:
       - heading: Getting started with BUILD files
       - title: BUILD style guide
-        path: /build/build-style
+        path: /build/style-guide
       - title: Share variables
         path: /build/share-variables
       - title: External dependencies

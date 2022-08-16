@@ -67,7 +67,7 @@ landing_page:
     items_across: 4
     items:
     - heading: BUILD style guide
-      path: /build/build-style
+      path: /build/style-guide
     - heading: Share variables
       path: /build/share-variables
     - heading: External dependencies
