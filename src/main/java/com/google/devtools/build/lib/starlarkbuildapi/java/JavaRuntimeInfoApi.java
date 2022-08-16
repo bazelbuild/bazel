@@ -86,4 +86,11 @@ public interface JavaRuntimeInfoApi extends StructApi {
       allowReturnNones = true)
   @Nullable
   FileApi libModules();
+
+  /** The JDK static libraries needed for hermetic deployments. */
+  @StarlarkMethod(
+      name = "hermetic_static_libs",
+      doc = "Returns the JDK static libraries.",
+      structField = true)
+  Depset starlarkHermeticStaticLibs();
 }
