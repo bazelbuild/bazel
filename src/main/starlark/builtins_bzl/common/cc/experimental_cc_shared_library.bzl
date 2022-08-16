@@ -267,6 +267,7 @@ def _filter_inputs(
     unaccounted_for_libs = []
     exports = {}
     owners_seen = {}
+    linked_statically_but_not_exported = {}
     for linker_input in dependency_linker_inputs:
         owner = str(linker_input.owner)
         if owner in owners_seen:
@@ -277,8 +278,7 @@ def _filter_inputs(
             linker_inputs.append(dynamic_linker_input)
         elif owner in link_statically_labels:
             if owner in link_once_static_libs_map:
-                fail(owner + " is already linked statically in " +
-                     link_once_static_libs_map[owner] + " but not exported")
+                linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
 
             is_direct_export = owner in direct_exports
 
@@ -337,8 +337,26 @@ def _filter_inputs(
                 else:
                     unaccounted_for_libs.append(linker_input.owner)
 
+    _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
     return (exports, linker_inputs, link_once_static_libs, precompiled_only_dynamic_libraries)
+
+def _throw_linked_but_not_exported_errors(error_libs_dict):
+    if not error_libs_dict:
+        return
+
+    error_builder = ["The following libraries were linked statically by different cc_shared_libraries but not exported:\n"]
+    for cc_shared_library_target, error_libs in error_libs_dict.items():
+        error_builder.append("cc_shared_library %s:\n" % str(cc_shared_library_target))
+        for error_lib in error_libs:
+            error_builder.append("  \"%s\",\n" % str(error_lib))
+
+    error_builder.append("If you are sure that the previous libraries are exported by the cc_shared_libraries because:\n")
+    error_builder.append("  1. You have visibility declarations in the source code\n")
+    error_builder.append("  2. Or you are passing a visibility script to the linker to export symbols from them\n")
+    error_builder.append("then add those libraries to roots or exports_filter for each cc_shared_library.\n")
+
+    fail("".join(error_builder))
 
 def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
     if not unaccounted_for_libs:

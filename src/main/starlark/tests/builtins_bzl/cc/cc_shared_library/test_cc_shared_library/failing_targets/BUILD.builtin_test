@@ -18,6 +18,25 @@ cc_binary(
 )
 
 cc_shared_library(
+    name = "should_fail_shared_lib",
+    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
+    roots = [
+        ":intermediate",
+    ],
+    static_deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
+    ],
+    tags = TAGS,
+)
+
+cc_library(
+    name = "intermediate",
+    deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
+    ],
+)
+
+cc_shared_library(
     name = "permissions_fail_so",
     roots = [
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:bar",
