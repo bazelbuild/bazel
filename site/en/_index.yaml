@@ -151,7 +151,7 @@ landing_page:
       description: >
         Announcing Bazel & JetBrains co-maintenance of IntelliJ IDEA Bazel Plugin.
     - heading: SIGs
-      path: /contribute/sig
+      path: /community/sig
       image_path: /images/new_1.svg
       description: >
         Join or start a Special Interest Group (SIG) to focus collaboration on particular areas of
