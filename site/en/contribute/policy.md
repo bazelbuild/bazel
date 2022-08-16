@@ -1,6 +1,9 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
+translation: human
+page_type: lcat
+
 # Contribution policy
 
 This page covers Bazel's governance model and contribution policy.
