@@ -109,7 +109,7 @@ landing_page:
     items:
     - image_left: true
       image_path: /images/basics.svg
-      heading: <br><br>Build system basics<br><b>—</b>
+      heading: Build system basics<br><b>—</b>
       path: ''
       description: >
         Curious about build systems like Bazel and whether they are right for your project? Read up

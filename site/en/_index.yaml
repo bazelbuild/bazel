@@ -104,7 +104,7 @@ landing_page:
       - label: Search the guide
         path: /reference/
         classname: button bazel-button-dark
-    - heading: <br><br>Essential Bazel<br><b>—</b>
+    - heading: Essential Bazel<br><b>—</b>
       path: ''
       description: >
         Build and test software of any size, quickly and reliably. Industry leaders like Google,
@@ -137,7 +137,7 @@ landing_page:
     - large-headings
     classname: bazel-body-light-cards
     items:
-    - heading: <br><br>What's new?<br><b>—</b>
+    - heading: What's new?<br><b>—</b>
       description: >
         Catch up on the latest documentation, community events, and programs.
     - heading: Community updates

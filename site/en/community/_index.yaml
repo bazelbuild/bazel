@@ -30,7 +30,7 @@ landing_page:
     - large-headings
     classname: bazel-body-light-cards
     items:
-    - heading: <br><br>Quicklinks<br><b>—</b>
+    - heading: Quicklinks<br><b>—</b>
       description: >
         Shortcuts to your favorite parts of the community guide.
     - heading: Get help
