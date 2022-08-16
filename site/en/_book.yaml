@@ -309,10 +309,8 @@ upper_tabs:
     other:
     - name: Contributing
       contents:
-      - title: Overview
+      - title: Contributor's guide
         path: /contribute/
-      - title: Contributor guide
-        path: /contribute/guide
       - title: Contribution policy
         path: /contribute/policy
       - title: Patch acceptance process

@@ -75,4 +75,4 @@ contribution policies for Google-managed and Community-managed areas of code.
     documentation updates.
 
 For more details on contributing to Bazel, see our
-[contribution guidelines](/contribute/guide).
+[contribution guidelines](/contribute/).
