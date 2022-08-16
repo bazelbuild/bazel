@@ -35,7 +35,7 @@ landing_page:
     items_across: 4
     items:
     - heading: Build encyclopedia
-      path: /reference/build-encyclopedia
+      path: /reference/be
       image_path: /images/essential_reference.svg
       description: >
         Use the Build Encyclopedia as the source of truth for all Bazel functions, as it autogenerates with each new build.
@@ -45,7 +45,7 @@ landing_page:
       description: >
         Learn about the runtime environment for and expected behavior of Bazel tests.
     - heading: Command line reference
-      path: /reference/cli
+      path: /reference/command-line-reference
       image_path: /images/why_overview.svg
       description: >
         Find options and syntax for working in a command line environment.
