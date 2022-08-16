@@ -31,6 +31,9 @@ You can engage with the Bazel community by:
 
 ## Contribute code {:#contribute-code}
 
+Bazel is a large project and making a change to the Bazel source code
+can be difficult.
+
 You can contribute to the Bazel ecosystem by:
 
    - Helping rules maintainers by contributing pull requests.
@@ -38,5 +41,41 @@ You can contribute to the Bazel ecosystem by:
    - Contributing to Bazel-related tools, for example, migration tools.
    - Improving Bazel integration with other IDEs and tools.
 
-To learn how to work on the Bazel code base, see
-[getting started](/contribute/getting-started).
+Before making a change, [create a GitHub
+issue](http://github.com/bazelbuild/bazel/issues){: .external}
+or email [bazel-dev@](mailto:bazel-dev@googlegroups.com){: .external}.
+
+The most helpful contributions fix bugs or add features (as opposed
+to stylistic, refactoring, or "cleanup" changes). Your change should
+include tests and documentation, keeping in mind backward-compatibility,
+portability, and the impact on memory usage and performance.
+
+To learn about how to submit a change, see the
+[patch acceptance process](/contribute/patch-acceptance).
+
+## Bazel's code description {:#code-description}
+
+Bazel has a large codebase with code in multiple locations. See the [codebase guide](/contribute/codebase) for more details.
+
+Bazel is organized as follows:
+
+*  Client code is in `src/main/cpp` and provides the command-line interface.
+*  Protocol buffers are in `src/main/protobuf`.
+*  Server code is in `src/main/java` and `src/test/java`.
+   *  Core code which is mostly composed of [SkyFrame](/reference/skyframe)
+      and some utilities.
+   *  Built-in rules are in `com.google.devtools.build.lib.rules` and in
+     `com.google.devtools.build.lib.bazel.rules`. You might want to read about
+     the [Challenges of Writing Rules](/docs/rule-challenges) first.
+*  Java native interfaces are in `src/main/native`.
+*  Various tooling for language support are described in the list in the
+   [compiling Bazel](#compile-bazel) section.
+
+
+### Searching Bazel's source code {:#search-code}
+
+To quickly search through Bazel's source code, use
+[Bazel Code Search](https://source.bazel.build/). You can navigate Bazel's
+repositories, branches, and files. You can also view history, diffs, and blame
+information. To learn more, see the
+[Bazel Code Search User Guide](/contribute/searching-codebase).

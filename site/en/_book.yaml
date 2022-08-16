@@ -1,114 +1,78 @@
 upper_tabs:
-- name: Versions
-  menu:
-  - column:
-    - links:
-      - include: /versions/_toc.yaml
-  - column:
-    - links:
-      - label: "Nightly"
-        path: /
-      - label: "More…"
-        path: /versions/
-- name: Getting started
-  heading: Getting started with Bazel
+
+- name: About Bazel
+  heading: What Bazel is and why it is right for your project
+  path: /about/
   lower_tabs:
     other:
     - name: Why Bazel?
       contents:
-      - title: Overview
-        path: /start/
-      - title: Intro to Bazel
-        path: /start/bazel-intro
+      - title: Bazel overview
+        path: /about/intro
       - title: Bazel vision
-        path: /start/bazel-vision
-      - title: Get started
-        path: /start/getting-started
+        path: /about/vision
+      - title: Roadmap
+        path: /about/roadmap
       - title: FAQ
-        path: /faq
+        path: /about/faq
+    - name: Build system basics
+      contents:
+      - title: Overview
+        path: /basics/
+      - title: Why a build system?
+        path: /basics/build-systems
+      - title: Task-based builds
+        path: /basics/task-based-builds
+      - title: Artifact-based builds
+        path: /basics/artifact-based-builds
+      - title: Distributed builds
+        path: /basics/distributed-builds
+      - title: Dependency management
+        path: /basics/dependencies
+      - title: Hermeticity
+        path: /basics/hermeticity
+
+- name: Getting started
+  heading: Get started with Bazel quickly
+  path: /start/
+  lower_tabs:
+    other:
     - name: Install
       contents:
       - title: Overview
-        path: /install
+        path: /install/
       - title: Install with Bazelisk
         path: /install/bazelisk
-      - title: Fedora/CentOS
-        path: /install/redhat
       - title: macOS
         path: /install/os-x
-      - title: openSUSE
-        path: /install/suse
-      - title: Ubuntu
-        path: /install/ubuntu
       - title: Windows
         path: /install/windows
+      - title: Fedora/CentOS
+        path: /install/redhat
+      - title: Ubuntu
+        path: /install/ubuntu
+      - title: openSUSE
+        path: /install/suse
+      - title: Try Bazel in a Docker container
+        path: /install/bazel-container
       - title: Compile from source
         path: /install/compile-source
-      - heading: Setting up your environment
       - title: Command-line completion
         path: /install/completion
       - title: Integrate with IDEs
         path: /install/ide
-    - name: Migrate
+    - name: First build tutorials
       contents:
-      - title: Overview
-        path: /migrate/
-      - title: Maven
-        path: /migrate/maven
-      - title: Xcode
-        path: /migrate/xcode
-      - title: CocoaPods
-        path: /migrate/cocoapods
-    - name: Tutorials
-      contents:
-      - heading: Build a project
       - title: C++
-        path: /tutorials/cpp
-      - title: C++ use cases
-        path: /tutorials/cpp-use-cases
+        path: /start/cpp
       - title: Java
-        path: /tutorials/java
-      - heading: Build an app
-      - title: Android
-        path: /tutorials/android-app
-      - title: iOS
-        path: /tutorials/ios-app
-      - heading: Configure toolchains
-      - title: Configure C++ toolchain
-        path: /tutorials/cc-toolchain-config
-- name: Basics
-  heading: Build Basics
-  lower_tabs:
-    other:
-    - name: Basics
+        path: /start/java
+      - title: Android App
+        path: /start/android-app
+      - title: iOS App
+        path: /start/ios-app
+    - name: Concepts
       contents:
-      - title: Overview
-        path: /basics/
-        status: new
-      - title: Why a build system?
-        path: /basics/build-systems
-        status: new
-      - title: Task-based builds
-        path: /basics/task-based-builds
-        status: new
-      - title: Artifact-based builds
-        path: /basics/artifact-based-builds
-        status: new
-      - title: Distributed builds
-        path: /basics/distributed-builds
-        status: new
-      - title: Dependency management
-        path: /basics/dependencies
-        status: new
-- name: Using
-  heading: Using Bazel
-  lower_tabs:
-    other:
-    - name: Build
-      contents:
-      - title: Overview
-        path: /docs/
-      - heading: Concepts
       - title: Workspaces, packages, & targets
         path: /concepts/build-ref
       - title: Labels
@@ -120,255 +84,284 @@ upper_tabs:
       - title: Visibility
         path: /concepts/visibility
       - title: Platforms
-        path: /concepts/platforms-intro
+        path: /concepts/platforms
       - title: Hermeticity
         path: /concepts/hermeticity
-      - heading: Work with BUILD files
-      - title: BUILD style guide
-        path: /rules/build-style
-      - title: Share variables
-        path: /rules/tutorial-sharing-variables
-      - title: Work with external dependencies
-        path: /docs/external
-      - title: Manage dependencies with Bzlmod
-        path: /docs/bzlmod
-        status: new
-      - heading: Run Bazel
-      - title: Build with Bazel
-        path: /docs/build
-      - title: Commands and options
-        path: /docs/user-manual
-      - title: Write bazelrc files
-        path: /docs/bazelrc
-      - title: Call Bazel from scripts
-        path: /docs/scripts
-      - title: Client/server implementation
-        path: /docs/client-server
-      - heading: Configure your build
-      - title: Configurable attributes
-        path: /docs/configurable-attributes
-      - title: Integrate with C++ rules
-        path: /docs/integrating-with-rules-cc
-      - title: Toolchain resolution implementation
-        path: /docs/toolchain_resolution_implementation
-      - title: Code coverage with Bazel
-        path: /docs/coverage
-      - heading: Query your build
-      - title: Query quickstart
-        path: /docs/query-how-to
-      - title: Query reference
-        path: /reference/query
-      - title: Action graph query (aquery)
-        path: /docs/aquery
-      - title: Configurable query (cquery)
-        path: /docs/cquery
-      - heading: Optimizing Bazel
-      - title: Best practices
-        path: /docs/best-practices
-      - title: Optimize memory
-        path: /docs/memory-saving-mode
-      - title: Using Bazel on Windows
-        path: /docs/windows
-    - name: Extending Bazel
-      contents:
-      - title: Overview
-        path: /rules/concepts
-      - title: Recommended rules
-        path: /rules/
-      - heading: Rules concepts
-      - title: Rules
-        path: /rules/rules
-      - title: Macros
-        path: /rules/macros
-      - title: Depsets
-        path: /rules/depsets
-      - title: Aspects
-        path: /rules/aspects
-      - title: Repository rules
-        path: /rules/repository_rules
-      - title: Configuring
-        path: /rules/config
-      - heading: Write rules
-      - title: Rules tutorial
-        path: /rules/rules-tutorial
-      - title: Write rules on Windows
-        path: /rules/windows_tips
-      - title: Example rules
-        path: https://github.com/bazelbuild/examples/tree/HEAD/rules
-        status: external
-      - title: Challenges
-        path: /docs/rule-challenges
-      - heading: Write macros
-      - title: Create a macro
-        path: /rules/tutorial-creating-a-macro
-      - title: Create custom verbs
-        path: /rules/tutorial-custom-verbs
-      - heading: Test
-      - title: Test rules
-        path: /rules/testing
-      - title: Lint
-        path: https://github.com/bazelbuild/buildtools/tree/master/buildifier
-        status: external
-      - title: Optimize performance
-        path: /rules/performance
-      - heading: Rules authors
-      - title: Deploy rules
-        path: /rules/deploying
-      - title: Document rules with Stardoc
-        path: https://github.com/bazelbuild/stardoc
-        status: external
-    - name: Distributed builds
-      contents:
-      - heading: Remote execution
-      - title: Overview
-        path: /docs/remote-execution
-      - title: Guidelines
-        path: /docs/remote-execution-rules
-      - title: Configure Bazel CI with remote execution
-        path: /docs/remote-execution-ci
-      - title: Dynamic execution
-        path: /docs/dynamic-execution
-      - heading: Troubleshooting
-      - title: Troubleshoot with Docker Sandbox
-        path: /docs/remote-execution-sandbox
-      - title: Non-hermetic WORKSPACE rules
-        path: /docs/workspace-log
-      - title: Remote—Debug remote caching
-        path: /docs/remote-execution-caching-debug
-      - heading: Remote caching
-      - title: Overview
-        path: /docs/remote-caching
-      - title: Local—Debug remote caching
-        path: /docs/remote-caching-debug
-      - heading: Persistent workers
-      - title: Overview
-        path: /docs/persistent-workers
-      - title: Multiplex workers
-        path: /docs/multiplex-worker
-      - title: Create workers
-        path: /docs/creating-workers
-      - heading: Build Event Protocol
-      - title: Overview
-        path: /docs/build-event-protocol
-      - title: BEP examples
-        path: /docs/bep-examples
-      - title: BEP glossary
-        path: /docs/bep-glossary
-- name: Reference
-  heading: Reference
+
+- name: User guide
+  heading: Guides and tutorials for learning to use Bazel
+  path: /docs/
   lower_tabs:
     other:
-    - name: Reference
+    - name: Releases
       contents:
       - title: Overview
-        path: /reference
-      - title: Build encyclopedia
-        include: /reference/be/_toc.yaml
-      - title: Test encyclopedia
-        path: /reference/test-encyclopedia
-      - title: Command line reference
-        path: /reference/command-line-reference
-      - title: Query reference
-        path: /reference/query
-      - title: Execution groups
-        path: /reference/exec-groups
-      - title: Output directory layout
-        path: /docs/output_directories
-      - title: Platforms
-        path: /docs/platforms
-      - title: Toolchains
-        path: /docs/toolchains
-      - title: Skyframe
-        path: /reference/skyframe
-        status: new
-      - title: Glossary
-        path: /reference/glossary
-    - name: Language
-      contents:
-      - heading: Build language
-      - title: Starlark
-        path: /rules/language
-      - title: Starlark style guide
-        path: /rules/bzl-style
-      - title: Build API
-        include: /rules/lib/_toc.yaml
-    - name: Releases & Versions
-      contents:
-      - heading: Release
-      - title: Understand releases
         path: /release/
       - title: Release versioning
         path: /release/versioning
       - title: Backward compatibility
         path: /release/backward-compatibility
-      - heading: Versions
-      - title: Choose a version
-        path: /versions/
-      - title: Update versions with Bazelisk
-        path: /versions/updating-bazel
-- name: Contributing
-  heading: Contributing to Bazel
+    - name: Basics
+      contents:
+      - heading: Getting started with BUILD files
+      - title: BUILD style guide
+        path: /build/build-style
+      - title: Share variables
+        path: /build/share-variables
+      - title: External dependencies
+        path: /build/external
+      - title: Manage dependencies with Bzlmod
+        path: /build/bzlmod
+      - title: Recommended rules
+        path: /build/rules/
+      - heading: Running Bazel
+      - title: Build with Bazel
+        path: /run/build
+      - title: Commands and options
+        path: /docs/user-manual
+      - title: Write bazelrc files
+        path: /run/bazelrc
+      - title: Call Bazel from scripts
+        path: /run/scripts
+      - title: Client/server implementation
+        path: /run/client-server
+      - heading: Querying your build
+      - title: Query quickstart
+        path: /query/quickstart
+      - title: Query language
+        path: /query/language
+      - title: Action graph query (aquery)
+        path: /query/aquery
+      - title: Configurable query (cquery)
+        path: /query/cquery
+    - name: Advanced
+      contents:
+      - heading: Configuring your build
+      - title: Configurable attributes
+        path: /configure/attributes
+      - title: Integrating with C++ rules
+        path: /configure/integrate-cpp
+      - title: Implementing toolchain resolution
+        path: /configure/toolchain-resolution
+      - title: Code coverage with Bazel
+        path: /configure/coverage
+      - heading: Optimizing Bazel
+      - title: Best practices
+        path: /configure/best-practices
+      - title: Optimize memory
+        path: /configure/memory
+      - title: Using Bazel on Windows
+        path: /configure/windows
+    - name: Remote distrubution
+      contents:
+      - heading: Remote build execution (RBE)
+      - title: Overview
+        path: /remote/rbe/
+      - title: RBE rules
+        path: /remote/rules
+      - title: RBE CI
+        path: /remote/ci
+      - title: Dynamic execution
+        path: /remote/dynamic
+      - title: Remote caching
+        path: /remote/caching
+      - heading: Troubleshooting
+      - title: Docker Sandbox
+        path: /remote/sandbox
+      - title: Non-hermetic WORKSPACE rules
+        path: /remote/workspace
+      - title: Remote cache hits
+        path: /remote/cache-remote
+      - title: Local cache hits
+        path: /remote/cache-local
+      - title: Output directory layout
+        path: /remote/output-directories
+      - heading: Persistent workers
+      - title: Overview
+        path: /remote/persistent/
+      - title: Multiplex workers
+        path: /remote/multiplex
+      - title: Creating workers
+        path: /remote/creating
+      - heading: Build Event Protocol
+      - title: Overview
+        path: /remote/bep/
+      - title: BEP examples
+        path: /remote/bep-examples
+      - title: BEP glossary
+        path: /remote/bep-glossary
+    - name: Tutorials
+      contents:
+      - title: C++ use cases
+        path: /tutorials/cpp-use-cases
+      - title: Configuring C++ toolchains
+        path: /tutorials/ccp-toolchain-config
+      - title: C++ dependency graphs
+        path: /tutorials/cpp-dependency
+      - title: C++ labels
+        path: /tutorials/cpp-labels
+    - name: Migrate
+      contents:
+      - title: Overview
+        path: /migrate/
+      - title: Maven
+        path: /migrate/maven
+      - title: Xcode
+        path: /migrate/xcode
+
+- name: Reference
+  heading: Searchable reference documents generated from Bazel's code
+  path: /reference/
   lower_tabs:
     other:
-    - name: Contributors
+    - name: Build encyclopedia
+      contents:
+      - title: Build encyclopedia
+        include: /reference/be/_toc.yaml
+      - title: Test encyclopedia
+        path: /reference/test-encyclopedia
+    - name: Command line reference
+      contents:
+      - title: Command line reference
+        path: /reference/cli
+    - name: Query language
+      contents:
+      - title: Query reference
+        path: /reference/query
+    - name: Glossary
+      contents:
+      - title: Glossary
+        path: /reference/glossary
+
+- name: Extending
+  heading: Guides to maximize Bazel's power through advanced concepts and extensions
+  path: /extending/
+  lower_tabs:
+    other:
+    - name: Concepts
+      contents:
+      - title: Overview
+        path: /extending/concepts/
+      - title: Rules
+        path: /extending/rules
+      - title: Macros
+        path: /extending/macros
+      - title: Depsets
+        path: /extending/depsets
+      - title: Aspects
+        path: /extending/aspects
+      - title: Repository rules
+        path: /extending/repo
+      - title: Configuring
+        path: /extending/config
+    - name: Writing rules
+      contents:
+      - title: Creating a rule
+        path: /rules/rules-tutorial
+      - title: Creating a macro
+        path: /rules/macro-tutorial
+      - title: Creating custom verbs
+        path: /rules/verbs-tutorial
+      - title: Starlark language
+        path: /rules/language
+      - title: Starlark style guide
+        path: /rules/bzl-style
+      - title: Challenges
+        path: /rules/challenges
+      - title: Writing rules for Windows
+        path: /rules/windows
+      - title: Example rules
+        path: https://github.com/bazelbuild/examples/tree/HEAD/rules
+        status: external
+    - name: Distributing rules
+      contents:
+      - heading: Testing
+      - title: Testing rules
+        path: /rules/testing
+      - title: Lint
+        path: https://github.com/bazelbuild/buildtools/tree/master/buildifier
+        status: external
+      - title: Optimizing performance
+        path: /rules/performance
+      - heading: Packaging
+      - title: Deploy rules
+        path: /rules/deploying
+      - title: Document rules with Stardoc
+        path: https://github.com/bazelbuild/stardoc
+        status: external
+    - name: Design docs
+      contents:
+      - title: Platforms
+        path: /extending/platforms
+      - title: Execution groups
+        path: /extending/exec-groups
+      - title: Toolchains
+        path: /extending/toolchains
+    - name: APIs
+      contents:
+      - title: Build file API
+        include: /rules/lib/_toc.yaml
+
+- name: Community
+  heading: Receive support from and contribute to the Bazel open source project
+  path: /community/
+  lower_tabs:
+    other:
+    - name: Contributing
       contents:
       - title: Overview
         path: /contribute/
       - title: Contributor guide
         path: /contribute/guide
-      - title: Start contributing
-        path: /contribute/getting-started
       - title: Contribution policy
-        path: /contribute/contribution-policy
+        path: /contribute/policy
       - title: Patch acceptance process
         path: /contribute/patch-acceptance
-      - title: Special Interest Groups
-        path: /contribute/sig
+      - title: Maintainer's guide
+        path: /contribute/maintainers-guide
       - heading: Understand the codebase
       - title: Codebase guide
-        path: https://github.com/bazelbuild/bazel/blob/master/CODEBASE.md
-        status: external
-      - title: Search the codebase
-        path: /contribute/searching-codebase
+        path: /contribute/codebase
+      - title: Searching the codebase
+        path: /contribute/search
       - heading: Contribute documentation
-      - title: Contribute documentation
+      - title: Overview
         path: /contribute/docs
       - title: Documentation style guide
         path: /contribute/docs-style-guide
-    - name: Propose changes
-      contents:
-      - title: Write design documents
+      - title: Writing design documents
         path: /contribute/design-documents
-      - title: Write release notes
+      - title: Writing release notes
         path: /contribute/release-notes
-      - title: Nominate recommended rules
-        path: /contribute/recommended-rules
-      - title: Name Bazel projects
-        path: /contribute/naming
-      - title: Roll out breaking changes
-        path: /contribute/breaking-changes
-    - name: Support
+    - name: Programs
       contents:
-      - title: Get help
-        path: /help
-      - title: Support policy
-        path: /contribute/support
-      - heading: Community support
       - title: Community updates
         path: /community/update
-      - title: Community experts
+      - title: Special Interest Groups
+        path: /community/sig
+      - title: Bazel experts
         path: /community/experts/
       - title: Bazel users
         path: /community/users
+      - title: Nominate a recommended rule
+        path: /contribute/recommended-rules
       - title: Remote execution services
         path: /community/remote-execution-services
-      - title: Roadmaps
-        path: /community/roadmaps
-    - name: Maintainers
+    - name: Getting help
       contents:
-      - title: Maintainer guide
-        path: /contribute/maintainers-guide
-      - title: Maintaining Chocolatey on Windows
-        path: /contribute/windows-chocolatey-maintenance
-      - title: Bazel Scoop on Windows
-        path: /contribute/windows-scoop-maintenance
+      - title: Support channels
+        path: /help
+      - title: Support policy
+        path: /contribute/policy
+
+- name: Versions
+  menu:
+  - column:
+    - links:
+      - include: /versions/_toc.yaml
+  - column:
+    - links:
+      - label: "Nightly"
+        path: /
+      - label: "More…"
+        path: /versions/
