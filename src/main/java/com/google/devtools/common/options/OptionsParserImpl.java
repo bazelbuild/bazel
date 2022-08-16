@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -162,6 +163,32 @@ class OptionsParserImpl {
   private final boolean ignoreInternalOptions;
   @Nullable private final String aliasFlag;
 
+  /**
+   * This option is used to collect skipped arguments while preserving the relative ordering between
+   * those given explicitly on the command line and those expanded by {@code ConfigExpander}. The
+   * field itself is not used for any purpose other than retrieving its {@link Option} annotation.
+   */
+  @Option(
+      name = "skipped args",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "Only used internally by OptionsParserImpl")
+  private final List<String> skippedArgs = new ArrayList<>();
+
+  private static final OptionDefinition skippedArgsDefinition;
+
+  static {
+    try {
+      skippedArgsDefinition =
+          OptionDefinition.extractOptionDefinition(
+              OptionsParserImpl.class.getDeclaredField("skippedArgs"));
+    } catch (NoSuchFieldException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   OptionsParserImpl(
       OptionsData optionsData,
       ArgsPreProcessor argsPreProcessor,
@@ -220,6 +247,7 @@ class OptionsParserImpl {
   /** Implements {@link OptionsParser#canonicalize}. */
   List<ParsedOptionDescription> asCanonicalizedListOfParsedOptions() {
     return optionValues.keySet().stream()
+        .filter(k -> !Objects.equals(k, skippedArgsDefinition))
         .map(optionDefinition -> optionValues.get(optionDefinition).getCanonicalInstances())
         .flatMap(Collection::stream)
         // Return the effective (canonical) options in the order they were applied.
@@ -356,6 +384,15 @@ class OptionsParserImpl {
     return optionValues.get(optionDefinition) != null;
   }
 
+  @SuppressWarnings("unchecked")
+  List<String> getSkippedArgs() {
+    OptionValueDescription value = optionValues.get(skippedArgsDefinition);
+    if (value == null) {
+      return ImmutableList.of();
+    }
+    return (List<String>) value.getValue();
+  }
+
   /**
    * Parses the args, and returns what it doesn't parse. May be called multiple times, and may be
    * called recursively. The option's definition dictates how it reacts to multiple settings. By
@@ -403,19 +440,32 @@ class OptionsParserImpl {
 
       arg = swapShorthandAlias(arg);
 
-      if (containsSkippedPrefix(arg)) {
-        unparsedArgs.add(arg);
-        continue;
-      }
-
       if (arg.equals("--")) { // "--" means all remaining args aren't options
         Iterators.addAll(unparsedPostDoubleDashArgs, argsIterator);
         break;
       }
 
-      ParsedOptionDescription parsedOption =
-          identifyOptionAndPossibleArgument(
-              arg, argsIterator, priority, sourceFunction, implicitDependent, expandedFrom);
+      ParsedOptionDescription parsedOption;
+      if (containsSkippedPrefix(arg)) {
+        // Parse the skipped arg into a synthetic allowMultiple option to preserve its order
+        // relative to skipped args coming from expansions. Simply adding it to the residue would
+        // end up placing expanded skipped args after all explicitly given skipped args, which isn't
+        // correct.
+        parsedOption =
+            ParsedOptionDescription.newParsedOptionDescription(
+                skippedArgsDefinition,
+                arg,
+                arg,
+                new OptionInstanceOrigin(
+                    priority,
+                    sourceFunction.apply(skippedArgsDefinition),
+                    implicitDependent,
+                    expandedFrom));
+      } else {
+        parsedOption =
+            identifyOptionAndPossibleArgument(
+                arg, argsIterator, priority, sourceFunction, implicitDependent, expandedFrom);
+      }
       handleNewParsedOption(parsedOption);
       priority = OptionPriority.nextOptionPriority(priority);
     }
@@ -560,7 +610,11 @@ class OptionsParserImpl {
     // As much as possible, we want the behaviors of these different types of flags to be
     // identical, as this minimizes the number of edge cases, but we do not yet track these values
     // in the same way.
-    if (parsedOption.getImplicitDependent() == null) {
+
+    // Do not list the internal "skipped args" option that is only used to accumulate skipped
+    // arguments.
+    if (parsedOption.getImplicitDependent() == null
+        && !Objects.equals(parsedOption.getOptionDefinition(), skippedArgsDefinition)) {
       // Log explicit options and expanded options in the order they are parsed (can be sorted
       // later). This information is needed to correctly canonicalize flags.
       parsedOptions.add(parsedOption);
@@ -603,7 +657,7 @@ class OptionsParserImpl {
     } else if (arg.startsWith("--")) { // --long_option
 
       int equalsAt = arg.indexOf('=');
-      int nameStartsAt = arg.startsWith("--") ? 2 : 1;
+      int nameStartsAt = 2;
       String name =
           equalsAt == -1 ? arg.substring(nameStartsAt) : arg.substring(nameStartsAt, equalsAt);
       if (name.trim().isEmpty()) {

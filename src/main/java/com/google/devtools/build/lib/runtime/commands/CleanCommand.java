@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -49,6 +46,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.logging.LogManager;
 
@@ -132,17 +130,15 @@ public final class CleanCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    // Assert that the only residue is starlark options and ignore them.
-    Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
-        StarlarkOptionsParser.removeStarlarkOptions(options.getResidue());
-    ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
-    ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
-    if (!removedStarlarkOptions.isEmpty()) {
+    // Assert that there is no residue and warn about Starlark options.
+    List<String> starlarkOptions = options.getSkippedArgs();
+    List<String> residue = options.getResidue();
+    if (!starlarkOptions.isEmpty()) {
       env.getReporter()
           .handle(
               Event.warn(
                   "Blaze clean does not support starlark options. Ignoring options: "
-                      + removedStarlarkOptions));
+                      + starlarkOptions));
     }
     if (!residue.isEmpty()) {
       String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
