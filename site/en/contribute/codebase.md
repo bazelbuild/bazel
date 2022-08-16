@@ -92,7 +92,7 @@ from the client are handled by `GrpcServerImpl.run()`.
 ## Directory layout {:#directory-layout}
 
 Bazel creates a somewhat complicated set of directories during a build. A full
-description is available in [Output directory layout](/remote/output_directories).
+description is available in [Output directory layout](/remote/output-directories).
 
 The "workspace" is the source tree Bazel is run in. It usually corresponds to
 something you checked out from source control.

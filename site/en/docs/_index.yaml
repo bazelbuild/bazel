@@ -75,11 +75,11 @@ landing_page:
     - heading: Manage dependencies with Bzlmod
       path: /build/bzlmod
     - heading: Recommended rules
-      path: /build/rules/
+      path: /community/recommended-rules
     - heading: Build with Bazel
       path: /run/build
     - heading: Commands and options
-      path: /run/commands
+      path: /docs/user-manual
     - heading: Write bazelrc files
       path: /run/bazelrc
     - heading: Call Bazel from scripts

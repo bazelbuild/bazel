@@ -293,7 +293,7 @@ To force a re-download, use `bazel sync`.
 ## Layout {:#layout}
 
 External dependencies are all downloaded to a directory under the subdirectory
-`external` in the [output base](/remote/output_directories). In case of a
+`external` in the [output base](/remote/output-directories). In case of a
 [local repository](/reference/be/workspace#local_repository), a symlink is created
 there instead of creating a new directory.
 You can see the `external` directory by running:
