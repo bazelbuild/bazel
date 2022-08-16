@@ -24,39 +24,7 @@ landing_page:
         &#123; Fast, Correct &#125; — Choose two
 
   # CTO Pitch Row
-  - options:
-    - no-image-background
-    - large-headings
-    classname: bazel-hero-full-bleed-dark bazel-hero
-    items:
-    - heading: Build better
-      description: >
-        Rebuild only what is necessary. Get fast, incremental builds with Bazel's advanced local and distributed caching, optimized dependency analysis, and parallel execution.
-      icon:
-        name: speed
-        position: top
-        size: medium
-    - heading: Multilangual magic
-      description: >
-        Build and test using Java, C++, Go, Android, iOS and many other languages and platforms. Bazel runs on Windows, macOS, and Linux.
-      icon:
-        name: language
-        position: top
-        size: medium
-    - heading: Simply scalable
-      description: >
-        Scale your organization, codebase, and Continuous Integration systems. Bazel handles codebases of any size, whether in multiple repositories or a huge monorepo.
-      icon:
-        name: fit_screen
-        position: top
-        size: medium
-    - heading: Endlessly extensible
-      description: >
-        Add support for new languages and platforms with Bazel's extension language. Share and re-use language rules written by the growing Bazel community.
-      icon:
-        name: hub
-        position: top
-        size: medium
+  # Add brag numbers here
 
   # Why Bazel? Row
   - options:
