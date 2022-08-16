@@ -243,12 +243,6 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/android/desugar/nest/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/stringconcat/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/testing/junit/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/covariantreturn/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/scan/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/typeannotation/..."
       - "-//src/test/java/com/google/devtools/build/android/r8/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
