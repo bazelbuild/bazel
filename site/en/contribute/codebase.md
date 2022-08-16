@@ -92,7 +92,7 @@ from the client are handled by `GrpcServerImpl.run()`.
 ## Directory layout {:#directory-layout}
 
 Bazel creates a somewhat complicated set of directories during a build. A full
-description is available in [Output directory layout](/docs/output_directories).
+description is available in [Output directory layout](/remote/output_directories).
 
 The "workspace" is the source tree Bazel is run in. It usually corresponds to
 something you checked out from source control.
@@ -1426,7 +1426,7 @@ interested in. For example, the following things are represented as events:
 *   A test was run (`TestAttempt`, `TestSummary`)
 
 Some of these events are represented outside of Bazel in the
-[Build Event Protocol](/docs/build-event-protocol)
+[Build Event Protocol](/remote/bep)
 (they are `BuildEvent`s). This allows not only `BlazeModule`s, but also things
 outside the Bazel process to observe the build. They are accessible either as a
 file that contains protocol messages or Bazel can connect to a server (called

@@ -1030,7 +1030,7 @@ Historically, the approach was to have the validation action output an empty
 file, and artificially add that output to the inputs of some other important
 action in the build:
 
-<img src="validation_action_historical.svg" width="35%" />
+<img src="/rules/validation_action_historical.svg" width="35%" />
 
 This works, because Bazel will always run the validation action when the compile
 action is run, but this has significant drawbacks:
@@ -1062,7 +1062,7 @@ still apply: if the inputs to the validation action have not changed and the
 validation action previously succeeded, then the validation action will not be
 run.
 
-<img src="validation_action.svg" width="35%" />
+<img src="/rules/validation_action.svg" width="35%" />
 
 Using this output group still requires that validation actions output some file,
 even an empty one. This might require wrapping some tools that normally don't

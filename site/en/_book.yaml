@@ -54,7 +54,7 @@ upper_tabs:
       - title: openSUSE
         path: /install/suse
       - title: Try Bazel in a Docker container
-        path: /install/bazel-container
+        path: /install/docker-container
       - title: Compile from source
         path: /install/compile-source
       - title: Command-line completion
@@ -113,7 +113,7 @@ upper_tabs:
       - title: Manage dependencies with Bzlmod
         path: /build/bzlmod
       - title: Recommended rules
-        path: /build/rules/
+        path: /community/recommended-rules
       - heading: Running Bazel
       - title: Build with Bazel
         path: /run/build
@@ -223,7 +223,7 @@ upper_tabs:
     - name: Command line reference
       contents:
       - title: Command line reference
-        path: /reference/cli
+        path: /reference/command-line-reference
     - name: Query language
       contents:
       - title: Query reference

@@ -337,7 +337,7 @@ at the end in a binary rule is fine, since the overall cost is just O(n). It’s
 when many non-terminal targets try to call `to_list()` that quadratic behavior
 occurs.
 
-For more information about using depsets efficiently, see the [performance](performance) page.
+For more information about using depsets efficiently, see the [performance](/rules/performance) page.
 
 ## API Reference
 

@@ -95,7 +95,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 
    If figuring out the actual command line is difficult, use the canonical
    command line from the
-   [Build Event Protocol](/docs/build-event-protocol)
+   [Build Event Protocol](/remote/bep)
    as follows:
 
    a. Add `--build_event_text_file=/tmp/bep.txt` to your Bazel command to get

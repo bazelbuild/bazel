@@ -80,7 +80,7 @@ The query expression `"function(//target)"` consists of the following:
     few new ones.
 *   **`//target`** is the expression fed to the function. In this example, the
     expression is a simple target. But the query language also allows nesting of functions.
-    See the [Query How-To](query-how-to) for examples.
+    See the [Query How-To](/query/quickstart) for examples.
 
 
 `cquery` requires a target to run through the [loading and analysis](/rules/concepts#evaluation-model)
