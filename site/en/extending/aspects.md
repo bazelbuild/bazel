@@ -108,7 +108,7 @@ print_aspect = aspect(
 )
 ```
 Aspect definitions are similar to rule definitions, and defined using
-the [`aspect`](lib/globals#aspect) function.
+the [`aspect`](/rules/lib/globals#aspect) function.
 
 Just like a rule, an aspect has an implementation function which in this case is
 ``_print_aspect_impl``.
@@ -138,12 +138,12 @@ Aspect implementation functions are similar to the rule implementation
 functions. They return [providers](/rules/rules#providers), can generate
 [actions](/rules/rules#actions), and take two arguments:
 
-*  `target`: the [target](lib/Target) the aspect is being applied to.
-*   `ctx`: [`ctx`](lib/ctx) object that can be used to access attributes
+*  `target`: the [target](/rules/lib/Target) the aspect is being applied to.
+*   `ctx`: [`ctx`](/rules/lib/ctx) object that can be used to access attributes
     and generate outputs and actions.
 
 The implementation function can access the attributes of the target rule via
-[`ctx.rule.attr`](lib/ctx#rule). It can examine providers that are
+[`ctx.rule.attr`](/rules/lib/ctx#rule). It can examine providers that are
 provided by the target to which it is applied (via the `target` argument).
 
 Aspects are required to return a list of providers. In this example, the aspect

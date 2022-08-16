@@ -123,7 +123,7 @@ genrule(
 ## Instantiating native rules {:#instantiating-native-rules}
 
 Native rules (rules that don't need a `load()` statement) can be
-instantiated from the [native](lib/native) module:
+instantiated from the [native](/rules/lib/native) module:
 
 ```python
 def my_macro(name, visibility=None):
@@ -135,7 +135,7 @@ def my_macro(name, visibility=None):
 ```
 
 If you need to know the package name (for example, which `BUILD` file is calling the
-macro), use the function [native.package_name()](lib/native#package_name).
+macro), use the function [native.package_name()](/rules/lib/native#package_name).
 Note that `native` can only be used in `.bzl` files, and not in `WORKSPACE` or
 `BUILD` files.
 
@@ -189,7 +189,7 @@ def my_cc_wrapper(name, deps = [], **kwargs):
     the rule `foo` is created (due to a name conflict), which will show you the
     full stack trace.
 
-*   You can also use [print](lib/globals#print) for debugging. It displays
+*   You can also use [print](/rules/lib/globals#print) for debugging. It displays
     the message as a `DEBUG` log line during the loading phase. Except in rare
     cases, either remove `print` calls, or make them conditional under a
     `debugging` parameter that defaults to `False` before submitting the code to
@@ -197,7 +197,7 @@ def my_cc_wrapper(name, deps = [], **kwargs):
 
 ## Errors {:#errors}
 
-If you want to throw an error, use the [fail](lib/globals#fail) function.
+If you want to throw an error, use the [fail](/rules/lib/globals#fail) function.
 Explain clearly to the user what went wrong and how to fix their `BUILD` file.
 It is not possible to catch an error.
 
