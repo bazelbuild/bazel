@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -131,24 +129,18 @@ public class StarlarkOptionsParser {
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting
   public void parse(ExtendedEventHandler eventHandler) throws OptionsParsingException {
-    ImmutableList.Builder<String> residue = new ImmutableList.Builder<>();
+    parseGivenArgs(eventHandler, nativeOptionsParser.getSkippedArgs());
+  }
+
+  @VisibleForTesting
+  public void parseGivenArgs(ExtendedEventHandler eventHandler, List<String> args)
+      throws OptionsParsingException {
     // Map of <option name (label), <unparsed option value, loaded option>>.
     Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
 
-    // sort the old residue into starlark flags and legitimate residue
-    for (String arg : nativeOptionsParser.getPreDoubleDashResidue()) {
-      // TODO(bazel-team): support single dash options?
-      if (!arg.startsWith("--")) {
-        residue.add(arg);
-        continue;
-      }
-
+    for (String arg : args) {
       parseArg(arg, unparsedOptions, eventHandler);
     }
-
-    List<String> postDoubleDashResidue = nativeOptionsParser.getPostDoubleDashResidue();
-    residue.addAll(postDoubleDashResidue);
-    nativeOptionsParser.setResidue(residue.build(), postDoubleDashResidue);
 
     if (unparsedOptions.isEmpty()) {
       return;
@@ -236,6 +228,9 @@ public class StarlarkOptionsParser {
       Multimap<String, Pair<String, Target>> unparsedOptions,
       ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
+    if (!arg.startsWith("--")) {
+      throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
+    }
     int equalsAt = arg.indexOf('=');
     String name = equalsAt == -1 ? arg.substring(2) : arg.substring(2, equalsAt);
     if (name.trim().isEmpty()) {
@@ -308,51 +303,6 @@ public class StarlarkOptionsParser {
     return buildSetting;
   }
 
-  /**
-   * Separates out any Starlark options from the given list
-   *
-   * <p>This method doesn't go through the trouble to actually load build setting targets and verify
-   * they are build settings, it just assumes all strings that look like they could be build
-   * settings, aka are formatted like a flag and can parse out to a proper label, are build
-   * settings. Use actual parsing functions above to do full build setting verification.
-   *
-   * @param list List of strings from which to parse out starlark options
-   * @return Returns a pair of string lists. The first item contains the list of starlark options
-   *     that were removed; the second contains the remaining string from the original list.
-   */
-  public static Pair<ImmutableList<String>, ImmutableList<String>> removeStarlarkOptions(
-      List<String> list) {
-    ImmutableList.Builder<String> keep = ImmutableList.builder();
-    ImmutableList.Builder<String> remove = ImmutableList.builder();
-    for (String name : list) {
-      // Check if the string is a flag and trim off "--" if so.
-      if (!name.startsWith("--")) {
-        keep.add(name);
-        continue;
-      }
-      String potentialStarlarkFlag = name.substring(2);
-      // Check if the string uses the "no" prefix for setting boolean flags to false, trim
-      // off "no" if so.
-      if (potentialStarlarkFlag.startsWith("no")) {
-        potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
-      }
-      // Check if the string contains a value, trim off the value if so.
-      int equalsIdx = potentialStarlarkFlag.indexOf('=');
-      if (equalsIdx > 0) {
-        potentialStarlarkFlag = potentialStarlarkFlag.substring(0, equalsIdx);
-      }
-      // Check if we can properly parse the (potentially trimmed) string as a label. If so, count
-      // as starlark flag, else count as regular residue.
-      try {
-        LabelValidator.validateAbsoluteLabel(potentialStarlarkFlag);
-        remove.add(name);
-      } catch (BadLabelException e) {
-        keep.add(name);
-      }
-    }
-    return Pair.of(remove.build(), keep.build());
-  }
-
   @VisibleForTesting
   public static StarlarkOptionsParser newStarlarkOptionsParserForTesting(
       SkyframeExecutor skyframeExecutor,
@@ -361,11 +311,6 @@ public class StarlarkOptionsParser {
       OptionsParser nativeOptionsParser) {
     return new StarlarkOptionsParser(
         skyframeExecutor, relativeWorkingDirectory, reporter, nativeOptionsParser);
-  }
-
-  @VisibleForTesting
-  public void setResidueForTesting(List<String> residue) {
-    nativeOptionsParser.setResidue(residue, ImmutableList.of());
   }
 
   @VisibleForTesting
