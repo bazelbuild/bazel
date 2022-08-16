@@ -32,6 +32,10 @@ landing_page:
     - description-50
     - large-headings
     classname: bazel-body-light-cards
+    heading: Get to know Bazel
+    description: >
+      From startup to enterprise, choose the Bazel open source project to build and test your
+      multi-language, multi-platform projects of any size, quickly and reliably.
     items_across: 4
     items:
     - heading: Overview
@@ -53,6 +57,15 @@ landing_page:
       - label: See the vision
         path: /about/vision
         classname: button bazel-button-dark
+    - heading: Roadmap
+      path: ''
+      image_path: /images/essential_start.svg
+      description: >
+        Read our new public roadmap to see what is coming down the pipeline.
+      buttons:
+      - label: See the roadmap
+        path: /about/faq
+        classname: button bazel-button-dark
     - heading: FAQ
       path: ''
       image_path: /images/why_faq.svg
@@ -62,11 +75,6 @@ landing_page:
       - label: Read the FAQ
         path: /about/faq
         classname: button bazel-button-dark
-    - heading: <br><br>Get to know Bazel<br><b>—</b>
-      path: ''
-      description: >
-        From startup to enterprise, choose the Bazel open source project to build and test your
-        multi-language, multi-platform projects of any size, quickly and reliably.
 
   # Build basics Row
   - options:

@@ -140,6 +140,11 @@ landing_page:
     - heading: What's new?<br><b>—</b>
       description: >
         Catch up on the latest documentation, community events, and programs.
+    - heading: Roadmap
+      path: /about/roadmap
+      image_path: /images/new_1.svg
+      description: >
+        Read our new public roadmap to see what is coming down the pipeline.
     - heading: Community updates
       path: /community/update
       image_path: /images/new_3.svg
@@ -150,12 +155,6 @@ landing_page:
       image_path: /images/new_2.svg
       description: >
         Announcing Bazel & JetBrains co-maintenance of IntelliJ IDEA Bazel Plugin.
-    - heading: SIGs
-      path: /community/sig
-      image_path: /images/new_1.svg
-      description: >
-        Join or start a Special Interest Group (SIG) to focus collaboration on particular areas of
-        Bazel development.
 
   - options:
     - cta
