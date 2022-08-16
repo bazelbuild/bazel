@@ -45,7 +45,7 @@ landing_page:
         name: speed
         position: top
         size: medium
-    - heading: Multilangual magic
+    - heading: Multilingual magic
       description: >
         Build and test using Java, C++, Go, Android, iOS and many other languages and platforms. Bazel runs on Windows, macOS, and Linux.
       icon:
