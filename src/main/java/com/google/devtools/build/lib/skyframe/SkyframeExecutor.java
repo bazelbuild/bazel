@@ -1215,18 +1215,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
-  public Collection<Artifact> getWorkspaceStatusArtifacts(ExtendedEventHandler eventHandler)
+  public ImmutableList<Artifact> getWorkspaceStatusArtifacts(ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    // Should already be present, unless the user didn't request any targets for analysis.
-    EvaluationResult<WorkspaceStatusValue> result =
-        evaluate(
-            ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ 1,
-            eventHandler);
-    WorkspaceStatusValue value =
-        Preconditions.checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
-    return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
+    try (SilentCloseable c =
+        Profiler.instance().profile("SkyframeExecutor.getWorkspaceStatusArtifact")) {
+      // Should already be present, unless the user didn't request any targets for analysis.
+      EvaluationResult<WorkspaceStatusValue> result =
+          evaluate(
+              ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
+              /*keepGoing=*/ true,
+              /*numThreads=*/ 1,
+              eventHandler);
+      WorkspaceStatusValue value =
+          Preconditions.checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
+      return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
+    }
   }
 
   @VisibleForTesting
