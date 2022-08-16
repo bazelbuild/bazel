@@ -3,213 +3,198 @@ project_path: /_project.yaml
 
 title: Using Bazel
 landing_page:
-  nav: left
+  header:
+    hide_lower_section: true
+  custom_css_path: /bazel.css
+
   rows:
-  - background: BAZEL_THEME
-    options:
-    - hero
+  # Hero Row
+  - options:
     - description-50
+    - hero
+    - large-headings
     - no-image-background
-    - padding-large
+    classname: bazel-hero bazel-hero-full-bleed-light
     items:
-    - image_path: "/images/placeholder_960.png"
-      heading: Using Bazel
+    - classname: bazel-hero
+      image_path: /images/guide.svg
+      heading: >
+        User guide
       description: >
         Explore the Bazel documentation to find tutorials and guides for users of all levels.
 
-  - background: grey
-    options:
-    - description-67
-    heading: Building with Bazel
-    description: >
-      Work with the foundational elements of Bazel to create a powerful build system.
-  - background: grey
-    options:
+  # Jumpdown Row
+  - options:
+    - centered-header
+    - large-headings
+    - padding-large
+    classname: bazel-jumpdown-row
+    custom_html: >
+      <a href="#release">Release<span class="material-icons">arrow_downward</span>
+      </a>
+      <a href="#basics">Basics<span class="material-icons">
+      arrow_downward</span></a>
+      <a href="#advanced">Advanced<span class="material-icons">arrow_downward</span></a>
+      <a href="#remote-distribution">Remote distribution<span class="material-icons">arrow_downward</span></a>
+      <a href="#tutorials">Tutorials<span class="material-icons">arrow_downward</span></a>
+      <a href="#migrate">Migrate<span class="material-icons">arrow_downward</span></a>
+
+  # Release row
+  - options:
+    - centered-header
     - cards
+    background: white
+    heading: Release
+    description: >
+      Learn about Bazel's version policy, read release notes, and browse older documentation.
+    items_across: 4
     items:
-    - heading: Run Bazel
-      classname: fully-clickable
-      path: /docs/build
-      description: >
-        Learn common commands in Bazel, including how to get contextual help.
-      icon:
-        name: info
-        position: top
-    - heading: BUILD files
-      path: /concepts/build-files
-      classname: fully-clickable
-      description: >
-        Define your build products and dependencies with `BUILD` files.
-      icon:
-        name: build
-        position: top
+    - heading: Overview
+      path: /release/
+    - heading: Release versioning
+      path: /release/versioning
+    - heading: Backward compatibility
+      path: /release/backward-compatibility
+
+  # Basics row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Basics
+    description: >
+      Get started with BUILD files, learn to run Bazel, and query your build for data.
+    items_across: 4
+    items:
     - heading: BUILD style guide
-      path: /rules/build-style
-      classname: fully-clickable
-      description: >
-        Help automated tools to understand, edit, and generate `BUILD` files.
-      icon:
-        name: toggle_on
-        position: top
+      path: /build/build-style
+    - heading: Share variables
+      path: /build/share-variables
+    - heading: External dependencies
+      path: /build/external
+    - heading: Manage dependencies with Bzlmod
+      path: /build/bzlmod
+    - heading: Recommended rules
+      path: /build/rules/
+    - heading: Build with Bazel
+      path: /run/build
+    - heading: Commands and options
+      path: /run/commands
+    - heading: Write bazelrc files
+      path: /run/bazelrc
+    - heading: Call Bazel from scripts
+      path: /run/scripts
+    - heading: Client/server implementation
+      path: /run/client-server
+    - heading: Query quickstart
+      path: /query/quickstart
+    - heading: Query language
+      path: /query/language
+    - heading: Action graph query (aquery)
+      path: /query/aquery
+    - heading: Configurable query (cquery)
+      path: /query/cquery
 
-  - background: grey
-    options:
+  # Advanced row
+  - options:
+    - centered-header
     - cards
-    items:
-    - heading: Bazel commands
-      classname: fully-clickable
-      path: /docs/user-manual
-      description: >
-        Discover options for configuring various Bazel commands.
-      icon:
-        name: keyboard_command_key
-        position: top
-    - heading: Query builds
-      classname: fully-clickable
-      path: /docs/query-how-to
-      description: >
-        Use Bazel's query, aquery, and cquery languages to trace dependencies in your code.
-      icon:
-        name: query_builder
-        position: top
-    - heading: Optimizing Bazel
-      path: /docs/best-practices
-      classname: fully-clickable
-      description: >
-        Increase the health and efficiency of your builds by following Bazel's best practices.
-      icon:
-        name: spa
-        position: top
-
-  - background: BAZEL_THEME
-    heading: Extending Bazel
+    background: white
+    heading: Advanced
     description: >
-      Increase Bazel's capablities by extending the BUILD language with rules and macros.
-    options:
-    - description-67
-    - padding-large
-    - cards
+      Configure and optimize your builds with these advanced options.
+    items_across: 4
     items:
-    - background: white
-      classname: fully-clickable
-      path: /rules/concepts
-      heading: Rules overview
-      description: >
-        Learn the basics of using macros and rules.
-      icon:
-        name: looks_one
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/
-      heading: Recommended rules
-      description: >
-        Survey the recommended, native, and non-native Bazel rules.
-      icon:
-        name: recommend
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/language
-      heading: Build language
-      description: >
-        Learn how to use Starlark, the language used in Bazel.
-      icon:
-        name: language
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/rules
-      heading: Rules basics
-      description: >
-        Use rules to implement a series of actions for Blaze to perform.
-      icon:
-        name: rule
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/rules-tutorial
-      heading: Writing rules
-      description: >
-        Learn how to write custom rules for your builds.
-      icon:
-        name: rule_folder
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/tutorial-creating-a-macro
-      heading: Writing macros
-      description: >
-        Make tools to complete simple tasks in your build.
-      icon:
-        name: square_foot
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/testing
-      heading: Testing rules
-      description: >
-        Test your Starlark code in Bazel.
-      icon:
-        name: quiz
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /rules/deploying
-      heading: Rules authors
-      description: >
-        Share your rules with the Bazel community.
-      icon:
-        name: folder_shared
-        position: top
+    - heading: Configurable attributes
+      path: /configure/attributes
+    - heading: Integrating with C++ rules
+      path: /configure/integrate-cpp
+    - heading: Implementing toolchain resolution
+      path: /configure/toolchain-resolution
+    - heading: Code coverage with Bazel
+      path: /configure/coverage
+    - heading: Best practices
+      path: /configure/best-practices
+    - heading: Optimize memory
+      path: /configure/memory
+    - heading: Using Bazel on Windows
+      path: /configure/windows
 
-  - background: grey
-    position: left
-    icon:
-      name: settings_remote
-      position: top
-      size: large
-    heading: Distributed Builds
-    description: >
-      Work with distributed builds to avoid unnecessary downloads while increasing the power of your build.
-    options:
-    - description-67
-    - padding-large
+  # Remote distrubution row
+  - options:
+    - centered-header
     - cards
+    background: white
+    heading: Remote distribution
+    description: >
+      Take advantage of Bazel's scalability with remote distribution.
+    items_across: 4
     items:
-    - background: white
-      classname: fully-clickable
-      path: /docs/remote-execution
-      heading: Remote execution
-      description: >
-        Distribute build and test actions across multiple machines.
-      icon:
-        name: play_arrow
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /docs/remote-caching
-      heading: Remote caching
-      description: >
-        Share build outputs with a team of developers or continuous integration system.
-      icon:
-        name: share
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /docs/persistent-workers
-      heading: Persistent workers
-      description: >
-        Increase execution efficiency by sending multiple requests to a long-running process.
-      icon:
-        name: track_changes
-        position: top
-    - background: white
-      classname: fully-clickable
-      path: /docs/build-event-protocol
-      heading: Build Event Protocol
-      description: >
-        Allow third-party programs to gain insight into a Bazel invocation with BEP.
-      icon:
-        name: preview
-        position: top
+    - heading: Overview
+      path: /remote/rbe/
+    - heading: RBE rules
+      path: /remote/rules
+    - heading: RBE CI
+      path: /remote/ci
+    - heading: Dynamic execution
+      path: /remote/dynamic
+    - heading: Remote caching
+      path: /remote/caching
+    - heading: Docker Sandbox
+      path: /remote/sandbox
+    - heading: Non-hermetic WORKSPACE rules
+      path: /remote/workspace
+    - heading: Remote cache hits
+      path: /remote/cache-remote
+    - heading: Local cache hits
+      path: /remote/cache-local
+    - heading: Output directory layout
+      path: /remote/output-directories
+    - heading: Overview
+      path: /remote/persistent/
+    - heading: Multiplex workers
+      path: /remote/multiplex
+    - heading: Creating workers
+      path: /remote/creating
+    - heading: Overview
+      path: /remote/bep/
+    - heading: BEP examples
+      path: /remote/bep-examples
+    - heading: BEP glossary
+      path: /remote/bep-glossary
+
+  # Tutorials row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Tutorials
+    description: >
+      Follow these tutorials to try out aspects of Bazel. More coming soon!
+    items_across: 4
+    items:
+    - heading: C++ use cases
+      path: /tutorials/cpp-use-cases
+    - heading: Configuring C++ toolchains
+      path: /tutorials/ccp-toolchain-config
+    - heading: C++ dependency graphs
+      path: /tutorials/cpp-dependency
+    - heading: C++ labels
+      path: /tutorials/cpp-labels
+
+  # Migrate row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Migrate
+    description: >
+      Ready to move your project to Bazel? Our migration guides show you how.
+    items_across: 4
+    items:
+    - heading: Overview
+      path: /migrate/
+    - heading: Maven
+      path: /migrate/maven
+    - heading: Xcode
+      path: /migrate/xcode
