@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.worker;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -27,7 +30,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Helper class that sets up a sandbox in a more comprehensible way. Handles setting up
@@ -38,7 +40,7 @@ class SandboxHelper {
   /** Map from workdir-relative input path to optional real file path. */
   private final Map<PathFragment, Path> inputs = new HashMap<>();
 
-  private final Map<PathFragment, String> virtualInputs = new HashMap<>();
+  private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
   private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
   private final Map<PathFragment, Path> workerFiles = new HashMap<>();
   private final List<PathFragment> outputFiles = new ArrayList<>();
@@ -84,7 +86,16 @@ class SandboxHelper {
   /** Adds a virtual input with some contents, which is assumed to be ASCII text. */
   @CanIgnoreReturnValue
   public SandboxHelper addAndCreateVirtualInput(String relativePath, String contents) {
-    virtualInputs.put(PathFragment.create(relativePath), contents);
+    VirtualActionInput input = ActionsTestUtil.createVirtualActionInput(relativePath, contents);
+    byte[] digest =
+        execRoot
+            .getRelative(relativePath)
+            .getFileSystem()
+            .getDigestFunction()
+            .getHashFunction()
+            .hashString(contents, UTF_8)
+            .asBytes();
+    virtualInputs.put(input, digest);
     return this;
   }
 
@@ -189,13 +200,7 @@ class SandboxHelper {
   }
 
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(
-        this.inputs,
-        virtualInputs.entrySet().stream()
-            .map(
-                entry -> ActionsTestUtil.createVirtualActionInput(entry.getKey(), entry.getValue()))
-            .collect(Collectors.toSet()),
-        symlinks);
+    return new SandboxInputs(inputs, virtualInputs, symlinks);
   }
 
   public SandboxOutputs getSandboxOutputs() {

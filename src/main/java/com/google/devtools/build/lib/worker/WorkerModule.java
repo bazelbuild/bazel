@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
-import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.common.options.OptionsBase;
@@ -147,11 +146,10 @@ public class WorkerModule extends BlazeModule {
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     checkNotNull(workerPool);
-    SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
+            new SandboxHelpers(),
             env.getExecRoot(),
             workerPool,
             env.getReporter(),

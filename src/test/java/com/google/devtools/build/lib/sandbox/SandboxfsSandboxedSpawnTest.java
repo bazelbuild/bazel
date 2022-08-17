@@ -73,7 +73,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-                ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
@@ -103,7 +103,7 @@ public class SandboxfsSandboxedSpawnTest {
             "some-workspace-name",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
@@ -129,7 +129,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-                ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
@@ -163,7 +163,7 @@ public class SandboxfsSandboxedSpawnTest {
             "workspace",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(outputFile), ImmutableSet.of()),
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
@@ -227,7 +227,7 @@ public class SandboxfsSandboxedSpawnTest {
                     PathFragment.create("such/link-1.txt"), linkToInput1,
                     PathFragment.create("such/link-to-link.txt"), linkToLink,
                     PathFragment.create("such/abs-link.txt"), linkToAbsolutePath),
-                ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),

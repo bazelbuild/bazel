@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
@@ -62,21 +61,6 @@ public final class SandboxHelpers {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
-  /**
-   * If true, materialize virtual inputs only inside the sandbox, not the output tree. This flag
-   * exists purely to support rolling this out as the defaut in a controlled manner.
-   */
-  private final boolean delayVirtualInputMaterialization;
-
-  /**
-   * Constructs a new collection of helpers.
-   *
-   * @param delayVirtualInputMaterialization whether to materialize virtual inputs only inside the
-   *     sandbox
-   */
-  public SandboxHelpers(boolean delayVirtualInputMaterialization) {
-    this.delayVirtualInputMaterialization = delayVirtualInputMaterialization;
-  }
 
   /**
    * Writes a virtual input file so that the final file is always consistent to all readers.
@@ -365,36 +349,19 @@ public final class SandboxHelpers {
         new AtomicInteger();
 
     private final Map<PathFragment, Path> files;
-    // Virtual inputs that are not materialized during {@link #processInputFiles}
-    private final Set<VirtualActionInput> virtualInputsWithDelayedMaterialization;
-    // Virtual inputs that are materialized during {@link #processInputFiles}.
-    private final Map<VirtualActionInput, byte[]> materializedVirtualInputs;
+    private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
 
     private static final SandboxInputs EMPTY_INPUTS =
-        new SandboxInputs(
-            ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of(), ImmutableMap.of());
+        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
     public SandboxInputs(
         Map<PathFragment, Path> files,
-        Set<VirtualActionInput> virtualInputsWithDelayedMaterialization,
-        Map<VirtualActionInput, byte[]> materializedVirtualInputs,
+        Map<VirtualActionInput, byte[]> virtualInputs,
         Map<PathFragment, PathFragment> symlinks) {
-      checkState(
-          virtualInputsWithDelayedMaterialization.isEmpty() || materializedVirtualInputs.isEmpty(),
-          "Either virtualInputsWithDelayedMaterialization or materializedVirtualInputs should be"
-              + " empty.");
       this.files = files;
-      this.virtualInputsWithDelayedMaterialization = virtualInputsWithDelayedMaterialization;
-      this.materializedVirtualInputs = materializedVirtualInputs;
+      this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
-    }
-
-    public SandboxInputs(
-        Map<PathFragment, Path> files,
-        Set<VirtualActionInput> virtualInputsWithDelayedMaterialization,
-        Map<PathFragment, PathFragment> symlinks) {
-      this(files, virtualInputsWithDelayedMaterialization, ImmutableMap.of(), symlinks);
     }
 
     public static SandboxInputs getEmptyInputs() {
@@ -425,8 +392,6 @@ public final class SandboxHelpers {
     private static byte[] materializeVirtualInput(
         VirtualActionInput input, Path execroot, boolean isExecRootSandboxed) throws IOException {
       if (input instanceof EmptyActionInput) {
-        // TODO(b/150963503): We can turn this into an unreachable code path when the old
-        //  !delayVirtualInputMaterialization code path is deleted.
         return new byte[0];
       }
 
@@ -447,31 +412,8 @@ public final class SandboxHelpers {
       return writeVirtualInputTo(input, outputPath);
     }
 
-    /**
-     * Materializes virtual files inside the sandboxed execroot once it is known.
-     *
-     * <p>These are files that do not have to exist in the execroot: we can materialize them only
-     * inside the sandbox, which means we can create them <i>before</i> we grab the output tree lock
-     * (but assuming we do so inside the sandbox only).
-     *
-     * @param sandboxExecRoot the path to the <i>sandboxed</i> execroot
-     * @return digests of written virtual inputs
-     * @throws IOException if any virtual input cannot be materialized
-     */
-    public ImmutableMap<VirtualActionInput, byte[]> materializeVirtualInputs(Path sandboxExecRoot)
-        throws IOException {
-      if (!materializedVirtualInputs.isEmpty()) {
-        return ImmutableMap.copyOf(materializedVirtualInputs);
-      }
-
-      ImmutableMap.Builder<VirtualActionInput, byte[]> digests =
-          ImmutableMap.builderWithExpectedSize(virtualInputsWithDelayedMaterialization.size());
-      for (VirtualActionInput input : virtualInputsWithDelayedMaterialization) {
-        byte[] digest =
-            materializeVirtualInput(input, sandboxExecRoot, /*isExecRootSandboxed=*/ false);
-        digests.put(input, digest);
-      }
-      return digests.buildOrThrow();
+    public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
+      return ImmutableMap.copyOf(virtualInputs);
     }
 
     /**
@@ -481,19 +423,13 @@ public final class SandboxHelpers {
     public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
       return new SandboxInputs(
           Maps.filterKeys(files, allowed::contains),
-          ImmutableSet.of(),
           ImmutableMap.of(),
           Maps.filterKeys(symlinks, allowed::contains));
     }
 
     @Override
     public String toString() {
-      return "Files: "
-          + files
-          + "\nVirtualInputs: "
-          + virtualInputsWithDelayedMaterialization
-          + "\nSymlinks: "
-          + symlinks;
+      return "Files: " + files + "\nVirtualInputs: " + virtualInputs + "\nSymlinks: " + symlinks;
     }
   }
 
@@ -519,66 +455,37 @@ public final class SandboxHelpers {
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
-   * <p>This does not (and must not) write any {@link VirtualActionInput}s found because we do not
-   * yet know where they should be written to. We have a path to an {@code execRoot}, but this path
-   * should be treated as read-only because we may not be holding its lock. The caller should use
-   * {@link SandboxInputs#materializeVirtualInputs(Path)} to later write these inputs when it knows
-   * where they should be written to.
-   *
    * @throws IOException if processing symlinks fails
    */
   public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException {
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
-    Set<VirtualActionInput> virtualInputsWithDelayedMaterialization = new HashSet<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
-    Map<VirtualActionInput, byte[]> materializedVirtualInputs = new HashMap<>();
+    Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
 
-      // TODO(b/150963503): Make delayVirtualInputMaterialization the default and remove the
-      // alternate code path.
-      if (delayVirtualInputMaterialization) {
-        if (actionInput instanceof VirtualActionInput) {
-          if (actionInput instanceof EmptyActionInput) {
-            inputFiles.put(pathFragment, null);
-          } else {
-            virtualInputsWithDelayedMaterialization.add((VirtualActionInput) actionInput);
-          }
-        } else if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
-      } else {
-        if (actionInput instanceof VirtualActionInput) {
-          byte[] digest =
-              SandboxInputs.materializeVirtualInput(
-                  (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
-          materializedVirtualInputs.put((VirtualActionInput) actionInput, digest);
-        }
+      if (actionInput instanceof VirtualActionInput) {
+        byte[] digest =
+            SandboxInputs.materializeVirtualInput(
+                (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
+        virtualInputs.put((VirtualActionInput) actionInput, digest);
+      }
 
-        if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath =
-              actionInput instanceof EmptyActionInput
-                  ? null
-                  : execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
+      if (actionInput.isSymlink()) {
+        Path inputPath = execRoot.getRelative(actionInput.getExecPath());
+        inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+      } else {
+        Path inputPath =
+            actionInput instanceof EmptyActionInput
+                ? null
+                : execRoot.getRelative(actionInput.getExecPath());
+        inputFiles.put(pathFragment, inputPath);
       }
     }
-    return new SandboxInputs(
-        inputFiles,
-        virtualInputsWithDelayedMaterialization,
-        materializedVirtualInputs,
-        inputSymlinks);
+    return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks);
   }
 
   /** The file and directory outputs of a sandboxed spawn. */

@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.time.Duration;
@@ -103,11 +102,9 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
   }
 
   @Test
-  public void execAsync_spawnRunningBinTool_executesSuccessfully(
-      @TestParameter boolean delayVirtualInputMaterialization) throws Exception {
+  public void execAsync_spawnRunningBinTool_executesSuccessfully() throws Exception {
     CommandEnvironment commandEnvironment = createCommandEnvironment();
-    LinuxSandboxedSpawnRunner runner =
-        setupSandboxAndCreateRunner(commandEnvironment, delayVirtualInputMaterialization);
+    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     BinTools.PathActionInput pathActionInput =
         new BinTools.PathActionInput(
             new Scratch().file("/execRoot/tool", "#!/bin/bash", "echo hello > $1"),
@@ -207,13 +204,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
       CommandEnvironment commandEnvironment) throws IOException {
-    return setupSandboxAndCreateRunner(
-        commandEnvironment, /*delayVirtualInputMaterialization=*/ true);
-  }
-
-  private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(
-      CommandEnvironment commandEnvironment, boolean delayVirtualInputMaterialization)
-      throws IOException {
     Path execRoot = commandEnvironment.getExecRoot();
     execRoot.createDirectory();
 
@@ -223,7 +213,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     sandboxBase.createDirectory();
 
     return LinuxSandboxedStrategy.create(
-        new SandboxHelpers(delayVirtualInputMaterialization),
+        new SandboxHelpers(),
         commandEnvironment,
         sandboxBase,
         /*timeoutKillDelay=*/ Duration.ofSeconds(2),

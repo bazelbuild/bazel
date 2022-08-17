@@ -373,19 +373,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests;
+    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
+        inputFiles.getVirtualInputDigests();
+
     Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-      try {
-        virtualInputDigests = inputFiles.materializeVirtualInputs(execRoot);
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while materializing virtual inputs:";
-        throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
-      }
-
       try {
         context.prefetchInputsAndWait();
       } catch (IOException e) {
@@ -521,19 +515,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests;
+    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
+        inputFiles.getVirtualInputDigests();
+
     try {
       Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-        try {
-          virtualInputDigests = inputFiles.materializeVirtualInputs(execRoot);
-        } catch (IOException e) {
-          restoreInterrupt(e);
-          String message = "IOException while materializing virtual inputs:";
-          throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
-        }
-
         try {
           context.prefetchInputsAndWait();
         } catch (IOException e) {

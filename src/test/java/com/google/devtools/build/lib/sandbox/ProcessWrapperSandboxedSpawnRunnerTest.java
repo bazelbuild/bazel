@@ -62,7 +62,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
 
     ProcessWrapperSandboxedSpawnRunner runner =
         new ProcessWrapperSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,
@@ -116,7 +116,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
 
     ProcessWrapperSandboxedSpawnRunner runner =
         new ProcessWrapperSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,
@@ -187,7 +187,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
 
     ProcessWrapperSandboxedSpawnRunner runner =
         new ProcessWrapperSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,

@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -139,7 +139,7 @@ public class WorkerSpawnRunnerTest {
 
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
@@ -159,7 +159,7 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -183,10 +183,13 @@ public class WorkerSpawnRunnerTest {
     WorkerOptions options = new WorkerOptions();
     options.workerAsResource = workerAsResource;
 
+    Path execRoot = fs.getPath("/execRoot");
+    Path workDir = execRoot.getRelative("workdir");
+
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
-            fs.getPath("/execRoot"),
+            new SandboxHelpers(),
+            execRoot,
             createWorkerPool(),
             reporter,
             localEnvProvider,
@@ -198,10 +201,16 @@ public class WorkerSpawnRunnerTest {
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
+
+    SandboxHelper sandboxHelper = new SandboxHelper(execRoot, workDir);
+    sandboxHelper.addAndCreateVirtualInput("input", "content");
+
+    VirtualActionInput virtualActionInput =
+        Iterables.getOnlyElement(
+            sandboxHelper.getSandboxInputs().getVirtualInputDigests().keySet());
+
     when(worker.getResponse(0))
         .thenReturn(WorkResponse.newBuilder().setExitCode(0).setOutput("out").build());
-    VirtualActionInput virtualActionInput =
-        ActionsTestUtil.createVirtualActionInput("input", "content");
     when(spawn.getInputFiles())
         .thenAnswer(
             invocation ->
@@ -212,9 +221,8 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(
-                ImmutableMap.of(), ImmutableSet.of(virtualActionInput), ImmutableMap.of()),
-            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            sandboxHelper.getSandboxInputs(),
+            sandboxHelper.getSandboxOutputs(),
             ImmutableList.of(),
             inputFileCache,
             spawnMetrics);
@@ -238,7 +246,7 @@ public class WorkerSpawnRunnerTest {
     options.workerAsResource = workerAsResource;
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
@@ -261,7 +269,7 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -287,7 +295,7 @@ public class WorkerSpawnRunnerTest {
     when(worker.isSandboxed()).thenReturn(true);
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
@@ -319,7 +327,7 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -351,7 +359,7 @@ public class WorkerSpawnRunnerTest {
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
@@ -373,7 +381,7 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -401,7 +409,7 @@ public class WorkerSpawnRunnerTest {
     workerOptions.workerAsResource = workerAsResource;
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
@@ -423,7 +431,7 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -447,7 +455,7 @@ public class WorkerSpawnRunnerTest {
     workerOptions.workerAsResource = workerAsResource;
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
@@ -473,7 +481,7 @@ public class WorkerSpawnRunnerTest {
                     spawn,
                     key,
                     context,
-                    new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                    new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                     SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                     ImmutableList.of(),
                     inputFileCache,
