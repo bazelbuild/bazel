@@ -55,7 +55,6 @@ java_library(
         "SequencedSkyframeExecutorFactory.java",
         "SingleToolchainResolutionFunction.java",
         "SingleToolchainResolutionValue.java",
-        "SkyFunctionEnvironmentForTesting.java",
         "SkyframeActionExecutor.java",
         "SkyframeAnalysisAndExecutionResult.java",
         "SkyframeAnalysisResult.java",

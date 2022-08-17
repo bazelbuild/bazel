@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
+import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,13 +38,13 @@ import javax.annotation.Nullable;
  * A {@link SkyFunction.Environment} backed by a {@link SkyframeExecutor} that can be used to
  * evaluate arbitrary {@link SkyKey}s for testing.
  */
-public final class SkyFunctionEnvironmentForTesting extends AbstractSkyFunctionEnvironment
-    implements SkyFunction.Environment {
+public final class SkyFunctionEnvironmentForTesting
+    extends AbstractSkyFunctionEnvironmentForTesting {
 
   private final ExtendedEventHandler eventHandler;
   private final SkyframeExecutor skyframeExecutor;
 
-  SkyFunctionEnvironmentForTesting(
+  public SkyFunctionEnvironmentForTesting(
       ExtendedEventHandler eventHandler, SkyframeExecutor skyframeExecutor) {
     this.eventHandler = eventHandler;
     this.skyframeExecutor = skyframeExecutor;

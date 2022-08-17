@@ -577,7 +577,7 @@ public class BuildViewForTesting {
     BuildConfigurationValue targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, target.getConfigurationKey());
     SkyFunction.Environment skyframeEnv =
-        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+        new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
@@ -622,7 +622,7 @@ public class BuildViewForTesting {
     }
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
-        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+        new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
 
     ComputedToolchainContexts result =
         ConfiguredTargetFunction.computeUnloadedToolchainContexts(

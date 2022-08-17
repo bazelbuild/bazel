@@ -94,7 +94,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
+import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -323,7 +323,8 @@ public final class ActionsTestUtil {
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
    * requested keys, blocking until the values are ready.
    */
-  private static final class BlockingSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+  private static final class BlockingSkyFunctionEnvironment
+      extends AbstractSkyFunctionEnvironmentForTesting {
     private final MemoizingEvaluator evaluator;
     private final EventHandler eventHandler;
 
