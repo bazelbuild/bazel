@@ -365,7 +365,6 @@ public final class ActionsTestUtil {
           result.put(key, ValueOrUntypedException.ofValueUntyped(value));
           continue;
         }
-        errorMightHaveBeenFound = true;
         ErrorInfo errorInfo = evaluationResult.getError(key);
         if (errorInfo == null || errorInfo.getException() == null) {
           result.put(key, ValueOrUntypedException.ofNull());

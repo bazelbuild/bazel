@@ -575,7 +575,6 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     if (errorInfo == null) {
       return;
     }
-    errorMightHaveBeenFound = true;
     childErrorInfos.add(errorInfo);
     if (bubbleErrorInfo != null) {
       encounteredErrorDuringBubbling = true;

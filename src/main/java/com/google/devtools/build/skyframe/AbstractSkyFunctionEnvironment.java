@@ -30,12 +30,6 @@ import javax.annotation.Nullable;
 public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Environment {
 
   protected boolean valuesMissing = false;
-  // Hack for the common case that there are no errors in the retrieved values. In that case, we
-  // don't have to filter out any impermissible exceptions. Hack because we communicate this in an
-  // out-of-band way from #getValueOrUntypedExceptions. It's out-of-band because we don't want to
-  // incur the garbage overhead of returning a more complex data structure from
-  // #getValueOrUntypedExceptions.
-  protected boolean errorMightHaveBeenFound = false;
   @Nullable private final GroupedList<SkyKey> temporaryDirectDeps;
   @Nullable protected List<ListenableFuture<?>> externalDeps;
 
