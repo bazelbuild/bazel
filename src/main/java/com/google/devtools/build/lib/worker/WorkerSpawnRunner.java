@@ -356,7 +356,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
   }
 
-  // LINT.IfChange(:workerAsResource)
+  // LINT.IfChange(workerAsResource)
   @SuppressWarnings(
       "Finally") // We want to return response only if worker successfully returned to the pool
   WorkResponse execInWorkerWorkerAsResource(
@@ -506,7 +506,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   // LINT.ThenChange(:classic)
 
   // TODO (b/214919266) Remove this after filpping the flag.
-  // LINT.IfChange(:classic)
+  // LINT.IfChange(classic)
   WorkResponse execInWorkerClassic(
       Spawn spawn,
       WorkerKey key,
