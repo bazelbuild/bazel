@@ -334,6 +334,12 @@ public final class ActionsTestUtil {
     }
 
     @Override
+    protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
+        throws InterruptedException {
+      return getOrderedValueOrUntypedExceptions(ImmutableList.of(depKey)).get(0);
+    }
+
+    @Override
     protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
         Iterable<? extends SkyKey> depKeys) {
       EvaluationResult<SkyValue> evaluationResult;

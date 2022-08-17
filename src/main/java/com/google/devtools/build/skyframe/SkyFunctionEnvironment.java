@@ -429,6 +429,30 @@ final class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
+  protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
+      throws InterruptedException {
+    checkActive();
+    checkState(
+        !depKey.equals(ErrorTransienceValue.KEY),
+        "Error transience key cannot be in requested deps of %s",
+        skyKey);
+    SkyValue depValue = maybeGetValueFromErrorOrDeps(depKey);
+    if (depValue == null) {
+      NodeEntry depEntry = evaluatorContext.getGraph().get(skyKey, Reason.DEP_REQUESTED, depKey);
+      depValue = getValueOrNullMarker(depEntry);
+      newlyRequestedDepsValues.put(depKey, depValue);
+      if (depValue != NULL_MARKER) {
+        maybeUpdateMaxTransitiveSourceVersion(depEntry);
+      }
+    }
+    if (!previouslyRequestedDepsValues.containsKey(depKey)) {
+      newlyRequestedDeps.add(depKey);
+    }
+    processDepValue(depKey, depValue);
+    return transformToValueOrUntypedException(depValue);
+  }
+
+  @Override
   protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException {
     checkActive();
