@@ -43,7 +43,7 @@ public final class FdoProfile implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addNativeDeclaredProvider(new FdoProfileProvider(inputFile, protoProfileArtifact))
-        .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+        .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
         .build();
   }
 }

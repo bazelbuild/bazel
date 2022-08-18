@@ -42,7 +42,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     ToolchainTypeInfo toolchainTypeInfo = ToolchainTypeInfo.create(ruleContext.getLabel());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+        .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
         .addNativeDeclaredProvider(toolchainTypeInfo)
         .build();
   }

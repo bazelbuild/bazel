@@ -71,7 +71,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(attributes)
-            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
+            .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY));
 
     if (attributes.getLicensesProvider() != null) {
       ruleConfiguredTargetBuilder.add(LicensesProvider.class, attributes.getLicensesProvider());

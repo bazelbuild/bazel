@@ -37,7 +37,7 @@ public final class PropellerOptimize implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addNativeDeclaredProvider(new PropellerOptimizeProvider(inputFile))
-        .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+        .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
         .build();
   }
 }

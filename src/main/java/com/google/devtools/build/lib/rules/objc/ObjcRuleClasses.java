@@ -153,7 +153,7 @@ public class ObjcRuleClasses {
   static RuleConfiguredTargetBuilder ruleConfiguredTarget(RuleContext ruleContext,
       NestedSet<Artifact> filesToBuild) {
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder(
+        ruleContext, new Runfiles.Builder(
             ruleContext.getWorkspaceName(),
             ruleContext.getConfiguration().legacyExternalRunfiles())
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES).build(),

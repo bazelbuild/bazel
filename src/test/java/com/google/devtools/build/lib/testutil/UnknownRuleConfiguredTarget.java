@@ -62,7 +62,7 @@ public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory 
             Code.FAIL_ACTION_UNKNOWN));
     return new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
-        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(context, Runfiles.EMPTY))
         .build();
   }
 }

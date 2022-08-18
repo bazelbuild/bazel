@@ -98,7 +98,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>stableOrder().add(testExecutable).build())
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, runfiles))
         .setRunfilesSupport(
             RunfilesSupport.withExecutable(ruleContext, runfiles, testExecutable), testExecutable)
         .addNativeDeclaredProvider(getExecutionInfoProvider(ruleContext))

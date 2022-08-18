@@ -141,7 +141,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("pregenerate_oat_files_for_tests", Type.BOOLEAN);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, runfiles))
         .setRunfilesSupport(runfilesSupport, executable)
         .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))

@@ -97,7 +97,7 @@ public class MockRuleDefaults {
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(filesToBuild)
           .setRunfilesSupport(null, null)
-          .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
           .build();
     }
   }

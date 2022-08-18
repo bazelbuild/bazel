@@ -87,7 +87,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     RunfilesProvider runfilesProvider =
         RunfilesProvider.withData(
-            new Runfiles.Builder(
+            ruleContext, new Runfiles.Builder(
                     ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
                 .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                 .build(),

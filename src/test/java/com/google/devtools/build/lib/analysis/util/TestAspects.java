@@ -171,7 +171,7 @@ public class TestAspects {
                   new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
               .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
               .setRunfilesSupport(null, null)
-              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+              .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY));
 
       if (ruleContext.getRule().getRuleClassObject().getName().equals("honest")) {
         builder.addProvider(new RequiredProvider());
@@ -189,11 +189,11 @@ public class TestAspects {
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       return new RuleConfiguredTargetBuilder(ruleContext)
-              .addProvider(
-                  new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
-              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
-              .setRunfilesSupport(null, null)
-              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .addProvider(
+              new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
+          .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+          .setRunfilesSupport(null, null)
+          .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
               .addProvider(new RequiredProvider())
               .addProvider(new RequiredProvider2())
               .build();
@@ -226,7 +226,7 @@ public class TestAspects {
                   new RuleInfo(infoBuilder.build()))
               .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
               .setRunfilesSupport(null, null)
-              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+              .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY));
 
       return builder.build();
     }

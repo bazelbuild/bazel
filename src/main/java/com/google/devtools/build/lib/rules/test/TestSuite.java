@@ -86,7 +86,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(RunfilesProvider.class,
-            RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+            RunfilesProvider.withData(ruleContext, Runfiles.EMPTY, runfiles))
         .add(TransitiveTestsProvider.class, new TransitiveTestsProvider())
         .build();
   }

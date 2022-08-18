@@ -405,6 +405,30 @@ java_test(
     ],
 )
 
+java_test(
+    name = "RunfilesLibraryUsersTest",
+    srcs = ["RunfilesLibraryUsersTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 test_suite(
     name = "AllAnalysisTests",
     tests = [

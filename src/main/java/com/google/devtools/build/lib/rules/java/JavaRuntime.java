@@ -129,7 +129,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         new ToolchainInfo(
             ImmutableMap.<String, Object>builder().put("java_runtime", javaRuntime).buildOrThrow());
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, runfiles))
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaRuntime)
         .addNativeDeclaredProvider(templateVariableInfo)

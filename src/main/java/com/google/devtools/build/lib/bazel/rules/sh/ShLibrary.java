@@ -50,7 +50,7 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
             .build();
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, runfiles))
         .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collect(ruleContext, ShCoverage.INSTRUMENTATION_SPEC))
         .build();

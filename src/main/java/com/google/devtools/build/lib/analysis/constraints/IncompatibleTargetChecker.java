@@ -229,7 +229,7 @@ public class IncompatibleTargetChecker {
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(incompatiblePlatformProvider)
-            .add(RunfilesProvider.simple(Runfiles.EMPTY))
+            .add(RunfilesProvider.EMPTY)
             .add(fileProvider)
             .add(filesToRunProvider);
     if (configuration.hasFragment(TestConfiguration.class)) {

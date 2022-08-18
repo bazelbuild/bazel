@@ -37,7 +37,7 @@ public final class FdoPrefetchHints implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addNativeDeclaredProvider(new FdoPrefetchHintsProvider(inputFile))
-        .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+        .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
         .build();
   }
 }

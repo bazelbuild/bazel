@@ -854,9 +854,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.simple(
-                new Runfiles.Builder(
-                        ruleContext.getWorkspaceName(),
-                        ruleContext.getConfiguration().legacyExternalRunfiles())
+                ruleContext, new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(),
+                    ruleContext.getConfiguration().legacyExternalRunfiles())
                     .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))

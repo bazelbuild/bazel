@@ -182,7 +182,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaInfo)
-        .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, runfiles))
         .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
         .addOutputGroup(

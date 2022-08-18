@@ -405,7 +405,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     RunfilesProvider runfilesProvider =
         RunfilesProvider.withData(
-            defaultRunfiles,
+            ruleContext, defaultRunfiles,
             new Runfiles.Builder(
                     ruleContext.getWorkspaceName(),
                     ruleContext.getConfiguration().legacyExternalRunfiles())

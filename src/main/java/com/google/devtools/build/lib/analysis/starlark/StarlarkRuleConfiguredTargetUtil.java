@@ -625,11 +625,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
     RunfilesProvider runfilesProvider =
         statelessRunfiles != null
-            ? RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext))
+            ? RunfilesProvider.simple(ruleContext,
+            mergeFiles(statelessRunfiles, executable, ruleContext))
             : RunfilesProvider.withData(
                 // The executable doesn't get into the default runfiles if we have runfiles states.
                 // This is to keep Starlark genrule consistent with the original genrule.
-                defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
+                ruleContext, defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
                 dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
     builder.addProvider(RunfilesProvider.class, runfilesProvider);
 

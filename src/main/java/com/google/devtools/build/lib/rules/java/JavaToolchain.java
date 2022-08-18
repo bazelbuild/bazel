@@ -203,7 +203,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)
             .addNativeDeclaredProvider(provider)
             .addNativeDeclaredProvider(toolchainInfo)
-            .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+            .addProvider(RunfilesProvider.class,
+                RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build());
 
     return builder.build();

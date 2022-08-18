@@ -88,7 +88,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
                   .build());
 
       return new RuleConfiguredTargetBuilder(ruleContext)
-          .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+          .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
           .addNativeDeclaredProvider(ccToolchainProvider)
           .addNativeDeclaredProvider(toolchain)
           .addNativeDeclaredProvider(templateVariableInfo)

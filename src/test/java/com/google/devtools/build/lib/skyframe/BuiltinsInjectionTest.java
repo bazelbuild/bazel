@@ -155,7 +155,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
           .setFilesToBuild(
               NestedSetBuilder.wrap(Order.STABLE_ORDER, ruleContext.getOutputArtifacts()))
           .setRunfilesSupport(null, null)
-          .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
           .build();
     }
   }

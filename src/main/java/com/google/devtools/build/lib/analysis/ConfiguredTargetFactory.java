@@ -405,7 +405,8 @@ public final class ConfiguredTargetFactory {
       throws ActionConflictException, InterruptedException, AnalysisFailurePropagationException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
-    builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+    builder.addProvider(RunfilesProvider.class,
+        RunfilesProvider.simple(ruleContext, Runfiles.EMPTY));
     ConfiguredTarget configuredTarget = builder.build();
     if (configuredTarget == null) {
       // A failure here is a failure in analysis failure testing machinery, not a "normal" analysis
@@ -437,7 +438,8 @@ public final class ConfiguredTargetFactory {
       RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
       builder.addNativeDeclaredProvider(
           AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
-      builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+      builder.addProvider(RunfilesProvider.class,
+          RunfilesProvider.simple(ruleContext, Runfiles.EMPTY));
       ConfiguredTarget configuredTarget = builder.build();
       if (configuredTarget == null) {
         // See comment in erroredConfiguredTargetWithFailures.
@@ -692,7 +694,8 @@ public final class ConfiguredTargetFactory {
               "Missing fragment class: " + missingFragmentClass.getName(),
               Code.FRAGMENT_CLASS_MISSING));
     }
-    builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+    builder.addProvider(RunfilesProvider.class,
+        RunfilesProvider.simple(ruleContext, Runfiles.EMPTY));
     try {
       return builder.build();
     } catch (ActionConflictException e) {

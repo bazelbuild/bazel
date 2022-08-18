@@ -50,7 +50,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
         ruleContext)
         .setFilesToBuild(depProviders.filesBuilder)
         .addProvider(
-            RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, Runfiles.EMPTY))
+            RunfilesProvider.class, RunfilesProvider.withData(ruleContext, Runfiles.EMPTY, Runfiles.EMPTY))
         .addProviders(depProviders.providerMap);
 
     for (String groupName : depProviders.outputGroupInfo) {

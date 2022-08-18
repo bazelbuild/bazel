@@ -396,7 +396,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.withData(
-                defaultRunfiles,
+                ruleContext, defaultRunfiles,
                 new Runfiles.Builder(ruleContext.getWorkspaceName())
                     .merge(runfilesSupport)
                     .build()))

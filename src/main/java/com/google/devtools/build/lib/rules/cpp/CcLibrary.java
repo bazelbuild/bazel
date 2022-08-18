@@ -500,7 +500,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             CcCommon.mergeOutputGroups(
                 ImmutableList.of(currentOutputGroups, outputGroups.buildOrThrow())))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()));
+        .addProvider(RunfilesProvider.withData(ruleContext, defaultRunfiles.build(), dataRunfiles.build()));
   }
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,

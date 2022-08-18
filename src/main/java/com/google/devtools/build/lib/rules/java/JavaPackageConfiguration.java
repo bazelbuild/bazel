@@ -49,7 +49,7 @@ public class JavaPackageConfiguration implements RuleConfiguredTargetFactory {
     ImmutableList<String> javacopts =
         ImmutableList.copyOf(ruleContext.getExpander().withDataLocations().tokenized("javacopts"));
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
         .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
         .addProvider(JavaPackageConfigurationProvider.create(packages, javacopts, data))
         .build();

@@ -257,7 +257,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         // No runfiles provided if not a data dependency.
-        Runfiles.EMPTY,
+        ruleContext, Runfiles.EMPTY,
         // We only need to consider the outputs of a genrule
         // No need to visit the dependencies of a genrule. They cross from the target into the host
         // configuration, because the dependencies of a genrule are always built for the host

@@ -71,7 +71,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
           new Runfiles.Builder(context.getWorkspaceName()).addArtifact(executable).build();
       return new RuleConfiguredTargetBuilder(context)
           .setFilesToBuild(NestedSetBuilder.create(Order.STABLE_ORDER, executable))
-          .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+          .addProvider(RunfilesProvider.class, RunfilesProvider.simple(context, runfiles))
           .setRunfilesSupport(
               RunfilesSupport.withExecutable(context, runfiles, executable), executable)
           .build();

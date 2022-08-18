@@ -48,7 +48,7 @@ public class AndroidDeviceScriptFixture implements RuleConfiguredTargetFactory {
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.simple(
-                new Runfiles.Builder(ruleContext.getWorkspaceName())
+                ruleContext, new Runfiles.Builder(ruleContext.getWorkspaceName())
                     .addArtifact(fixtureScript)
                     .build()))
         .addNativeDeclaredProvider(

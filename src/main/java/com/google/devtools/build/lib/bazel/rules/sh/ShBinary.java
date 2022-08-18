@@ -90,7 +90,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(runfilesSupport, mainExecutable)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, runfiles))
         .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collect(ruleContext, ShCoverage.INSTRUMENTATION_SPEC))
         .build();

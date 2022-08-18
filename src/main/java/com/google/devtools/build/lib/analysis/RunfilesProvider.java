@@ -14,7 +14,19 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Runfiles a target contributes to targets that depend on it.
@@ -25,12 +37,60 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class RunfilesProvider implements TransitiveInfoProvider {
+
+  /**
+   * Holds a {@link RepositoryName} together with the corresponding {@link RepositoryMapping}.
+   *
+   * <p>Instances of this class compare equal iff the <code>repositoryName</code> members are
+   * equal. As a result, a {@link Set<RepositoryNameAndMapping>} will behave like an
+   * {@link Map#entrySet} of a {@link Map Map<RepositoryName, RepositoryMapping>}.
+   */
+  public static final class RepositoryNameAndMapping {
+
+    private final RepositoryName repositoryName;
+    private final RepositoryMapping repositoryMapping;
+
+    public RepositoryNameAndMapping(RepositoryName repositoryName,
+        RepositoryMapping repositoryMapping) {
+      this.repositoryName = repositoryName;
+      this.repositoryMapping = repositoryMapping;
+    }
+
+    public RepositoryName getRepositoryName() {
+      return repositoryName;
+    }
+
+    public RepositoryMapping getRepositoryMapping() {
+      return repositoryMapping;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      RepositoryNameAndMapping that = (RepositoryNameAndMapping) o;
+      return Objects.equal(repositoryName, that.repositoryName);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(repositoryName);
+    }
+  }
+
   private final Runfiles defaultRunfiles;
   private final Runfiles dataRunfiles;
+  private final NestedSet<RepositoryNameAndMapping> runfilesLibraryUsers;
 
-  private RunfilesProvider(Runfiles defaultRunfiles, Runfiles dataRunfiles) {
+  private RunfilesProvider(Runfiles defaultRunfiles, Runfiles dataRunfiles,
+      NestedSet<RepositoryNameAndMapping> runfilesLibraryUsers) {
     this.defaultRunfiles = defaultRunfiles;
     this.dataRunfiles = dataRunfiles;
+    this.runfilesLibraryUsers = runfilesLibraryUsers;
   }
 
   public Runfiles getDefaultRunfiles() {
@@ -39,6 +99,10 @@ public final class RunfilesProvider implements TransitiveInfoProvider {
 
   public Runfiles getDataRunfiles() {
     return dataRunfiles;
+  }
+
+  public NestedSet<RepositoryNameAndMapping> getRunfilesLibraryUsers() {
+    return runfilesLibraryUsers;
   }
 
   /**
@@ -77,15 +141,51 @@ public final class RunfilesProvider implements TransitiveInfoProvider {
         }
       };
 
-  public static RunfilesProvider simple(Runfiles defaultRunfiles) {
-    return new RunfilesProvider(defaultRunfiles, defaultRunfiles);
+  public static RunfilesProvider simple(RuleContext ruleContext, Runfiles defaultRunfiles) {
+    return new RunfilesProvider(defaultRunfiles, defaultRunfiles,
+        collectRunfilesLibraryUsers(ruleContext));
   }
 
   public static RunfilesProvider withData(
-      Runfiles defaultRunfiles, Runfiles dataRunfiles) {
-    return new RunfilesProvider(defaultRunfiles, dataRunfiles);
+      RuleContext ruleContext, Runfiles defaultRunfiles, Runfiles dataRunfiles) {
+    return new RunfilesProvider(defaultRunfiles, dataRunfiles,
+        collectRunfilesLibraryUsers(ruleContext));
   }
 
   public static final RunfilesProvider EMPTY = new RunfilesProvider(
-      Runfiles.EMPTY, Runfiles.EMPTY);
+      Runfiles.EMPTY, Runfiles.EMPTY, NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
+
+  /**
+   * Collects the runfiles library users of all non-tool dependencies and adds the current
+   * repository if a runfiles library (marked with {@link RunfilesLibraryInfo}) is among these
+   * dependencies.
+   */
+  private static NestedSet<RepositoryNameAndMapping> collectRunfilesLibraryUsers(
+      RuleContext ruleContext) {
+    NestedSetBuilder<RepositoryNameAndMapping> users = NestedSetBuilder.compileOrder();
+    for (TransitiveInfoCollection dep : getAllNonToolPrerequisites(ruleContext)) {
+      RunfilesProvider provider = dep.getProvider(RunfilesProvider.class);
+      if (provider != null) {
+        users.addTransitive(provider.getRunfilesLibraryUsers());
+      }
+      if (dep.get(RunfilesLibraryInfo.PROVIDER) != null) {
+        users.add(new RepositoryNameAndMapping(ruleContext.getRepository(),
+            ruleContext.getRule().getPackage().getRepositoryMapping()));
+      }
+    }
+    return users.build();
+  }
+
+  private static Iterable<TransitiveInfoCollection> getAllNonToolPrerequisites(
+      RuleContext ruleContext) {
+    List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
+    for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      if (attribute.getType().getLabelClass() != LabelClass.DEPENDENCY
+          || attribute.isToolDependency()) {
+        continue;
+      }
+      prerequisites.addAll(ruleContext.getPrerequisites(attribute.getName()));
+    }
+    return prerequisites;
+  }
 }

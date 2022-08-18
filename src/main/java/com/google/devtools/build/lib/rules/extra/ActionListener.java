@@ -58,7 +58,7 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
     }
     extraActionMap = extraActionMapBuilder.build();
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
         .add(ExtraActionMapProvider.class, new ExtraActionMapProvider(extraActionMap))
         .build();
   }

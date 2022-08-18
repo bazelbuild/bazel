@@ -74,7 +74,7 @@ public class CcHostToolchainAliasRule implements RuleDefinition {
       ToolchainInfo toolchain = ccToolchainAlias.get(ToolchainInfo.PROVIDER);
 
       return new RuleConfiguredTargetBuilder(ruleContext)
-          .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
+          .addProvider(RunfilesProvider.simple(ruleContext, Runfiles.EMPTY))
           .addNativeDeclaredProvider(ccToolchainProvider)
           .addNativeDeclaredProvider(toolchain)
           .addNativeDeclaredProvider(templateVariableInfo)
