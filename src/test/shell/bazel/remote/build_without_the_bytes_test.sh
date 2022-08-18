@@ -556,8 +556,7 @@ sh_test(
 )
 EOF
   cat > a/foo.sh <<'EOF'
-echo foo
-echo bar > $TEST_UNDECLARED_OUTPUTS_DIR/bar.txt
+touch $TEST_UNDECLARED_OUTPUTS_DIR/bar.txt
 EOF
   chmod a+x a/foo.sh
 
