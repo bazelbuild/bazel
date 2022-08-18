@@ -212,10 +212,11 @@ public interface SpawnRunner {
      *
      * @param exitCode The exit code from running the command. This and the other parameters are
      *     used only to determine whether to ignore failures, so pass 0 if you know the command was
-     *     successful or you don't yet have success information.
+     *     successful or you don't yet have success information. The exit code may be from a single
+     *     action process or from a worker that died.
      * @param errorMessage The error messages returned from the command, possibly in other ways than
      *     through stdout/err.
-     * @param outErr The location of the stdout and stderr files from the command.
+     * @param outErr The location of the stdout and stderr files from the command. May be null.
      * @throws InterruptedException if the error info indicates an error we can ignore or if we got
      *     interrupted before we finished.
      */

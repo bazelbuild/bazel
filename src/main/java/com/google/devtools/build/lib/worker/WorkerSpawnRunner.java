@@ -377,6 +377,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         inputFiles.getVirtualInputDigests();
 
     Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
+    boolean hasOutputFileLock = false;
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
@@ -449,6 +450,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         if (workerOwner.getWorker() != null) {
           Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
           context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
+          hasOutputFileLock = true;
           workerOwner.getWorker().finishExecution(execRoot, outputs);
           spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
         } else {
@@ -473,9 +475,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
       String message = "IOException during worker execution:";
       throw createUserExecException(e, message, Code.BORROW_FAILURE);
     } catch (UserExecException | InterruptedException e) {
-      if (handle != null && workerOwner.getWorker() != null) {
+      Worker worker = workerOwner.getWorker();
+      if (handle != null && worker != null) {
         try {
           handle.invalidateAndClose();
+          if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
+            // If the worker has died, we take the lock to a) fail earlier and b) have a chance
+            // to let the other dynamic execution branch take over if the error can be ignored.
+            context.lockOutputFiles(worker.getExitValue().get(), e.getMessage(), null);
+          }
         } catch (IOException e1) {
           // The original exception is more important / helpful, so we'll just ignore this one.
           restoreInterrupt(e1);
@@ -517,7 +525,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
         inputFiles.getVirtualInputDigests();
-
+    boolean hasOutputFileLock = false;
     try {
       Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
       try (SilentCloseable c =
@@ -595,6 +603,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                       "Worker #%d copying output files", workerOwner.getWorker().getWorkerId()))) {
         Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
         context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
+        hasOutputFileLock = true;
         workerOwner.getWorker().finishExecution(execRoot, outputs);
         spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {
@@ -609,9 +618,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw createUserExecException(message, Code.FINISH_FAILURE);
       }
     } catch (UserExecException e) {
-      if (workerOwner.getWorker() != null) {
+      Worker worker = workerOwner.getWorker();
+      if (worker != null) {
         try {
-          workers.invalidateObject(key, workerOwner.getWorker());
+          workers.invalidateObject(key, worker);
+          if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
+            // If the worker has died, we take the lock to a) fail earlier and b) have a chance
+            // to let the other dynamic execution branch take over if the error can be ignored.
+            context.lockOutputFiles(worker.getExitValue().get(), e.getMessage(), null);
+          }
         } finally {
           workerOwner.setWorker(null);
         }

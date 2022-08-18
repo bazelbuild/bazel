@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -59,6 +61,7 @@ import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
@@ -68,6 +71,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -175,6 +179,7 @@ public class WorkerSpawnRunnerTest {
       verify(resourceHandle, times(1)).close();
       verify(resourceHandle, times(0)).invalidateAndClose();
     }
+    verify(context, times(1)).lockOutputFiles(eq(0), eq("out"), ArgumentMatchers.isNull());
   }
 
   @Test
@@ -237,6 +242,7 @@ public class WorkerSpawnRunnerTest {
       verify(resourceHandle, times(1)).close();
       verify(resourceHandle, times(0)).invalidateAndClose();
     }
+    verify(context, times(1)).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
   }
 
   @Test
@@ -447,6 +453,7 @@ public class WorkerSpawnRunnerTest {
       verify(resourceHandle, times(1)).close();
       verify(resourceHandle, times(0)).invalidateAndClose();
     }
+    verify(context, times(1)).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
   }
 
   private void assertRecordedResponsethrowsException(
@@ -471,6 +478,7 @@ public class WorkerSpawnRunnerTest {
     when(worker.getLogFile()).thenReturn(logFile);
     when(worker.getResponse(0)).thenThrow(new IOException("Bad protobuf"));
     when(worker.getRecordingStreamMessage()).thenReturn(recordedResponse);
+    when(worker.getExitValue()).thenReturn(Optional.of(2));
     String workerLog = "Log from worker\n";
     FileSystemUtils.writeIsoLatin1(logFile, workerLog);
     UserExecException execException =
@@ -501,6 +509,9 @@ public class WorkerSpawnRunnerTest {
     assertThat(execException)
         .hasMessageThat()
         .contains(logMarker("Start of log, file at " + logFile.getPathString()) + workerLog);
+    verify(context, times(1))
+        .lockOutputFiles(
+            eq(2), ArgumentMatchers.contains(exceptionText), ArgumentMatchers.isNull());
   }
 
   @Test
