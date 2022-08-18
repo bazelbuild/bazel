@@ -1,3 +1,44 @@
+## Release 6.0.0-pre.20220810.1 (2022-08-18)
+
+```
+Baseline: 5767cba4044c2bfd8a4c9596c44d2363630b489d
+```
+
+Incompatible changes:
+
+  - Added a new flag
+    --incompatible_unambiguous_label_stringification, which causes
+    labels in the main repo to stringify into unambiguous forms
+    starting with an @. See
+    https://github.com/bazelbuild/bazel/issues/15916 for more
+    information.
+
+This release contains contributions from many people at Google, as well as Philipp Schrader.
+
+## Release 6.0.0-pre.20220804.3 (2022-08-11)
+
+```
+Baseline: 8152657c82b542a3da2ed39333941beefdeeeece
+```
+
+Important changes:
+
+  - `cquery`'s new output mode
+    [`--output=files`](https://bazel.build/docs/cquery#files-output)
+    lists the output files of the targets matching the query. It
+    takes the current value of `--output_groups` into account.
+  - Change singlejar metadata to report Created-By Bazel
+  - Add support for fetching RPC credentials from credential helper.
+  - Revert interface_deps back to implementation_deps after problem
+    reported in. Use `buildozer 'rename deps implementation_deps'
+    //...:%cc_library; buildozer 'rename interface_deps deps'
+    //...:%cc_library`
+  - Fix for desugaring failure on Bazel+Android+Windows build
+    scenario.
+  - D8 is the default desugarer
+
+This release contains contributions from many people at Google, as well as Adam Azarchs, Ara Nguyen, Benjamin Peterson, David Sanderson, dhmemi, Eric Song, Fabian Meumertzheim, Greg Roodt, Jeremy Volkman, jheaff1, Jonathan Gerrish, Jon Shea, Keith Smiley, Patrick Balestra, Philipp Schrader, Pras Velagapudi, Roman Salvador, Yannic Bonenberger.
+
 ## Release 6.0.0-pre.20220720.3 (2022-08-02)
 
 ```
