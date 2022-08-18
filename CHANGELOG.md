@@ -1,3 +1,20 @@
+## Release 6.0.0-pre.20220810.1 (2022-08-18)
+
+```
+Baseline: 5767cba4044c2bfd8a4c9596c44d2363630b489d
+```
+
+Incompatible changes:
+
+  - Added a new flag
+    --incompatible_unambiguous_label_stringification, which causes
+    labels in the main repo to stringify into unambiguous forms
+    starting with an @. See
+    https://github.com/bazelbuild/bazel/issues/15916 for more
+    information.
+
+This release contains contributions from many people at Google, as well as Philipp Schrader.
+
 ## Release 6.0.0-pre.20220804.3 (2022-08-11)
 
 ```
