@@ -46,6 +46,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:run_environment_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:runfiles_library_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_test_result_info",
