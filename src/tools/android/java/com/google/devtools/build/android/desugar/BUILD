@@ -17,6 +17,7 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:__pkg__",
     ],
     exports = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
     ],
