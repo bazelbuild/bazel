@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetProgressReceiver;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -1554,5 +1556,80 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     String output = terminalWriter.getTranscript();
     assertThat(output).contains("2 uploads");
+  }
+
+  @Test
+  public void testTestAnalyzedEvent() throws Exception {
+    // The test count should be visible in the status bar, as well as the short status bar
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
+    Label labelA = Label.parseCanonical("//foo:A");
+    ConfiguredTarget targetA = mock(ConfiguredTarget.class);
+    when(targetA.getLabel()).thenReturn(labelA);
+    TestAnalyzedEvent testAnalyzedEventA =
+        TestAnalyzedEvent.create(
+            targetA, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+    Label labelB = Label.parseCanonical("//foo:B");
+    ConfiguredTarget targetB = mock(ConfiguredTarget.class);
+    when(targetB.getLabel()).thenReturn(labelB);
+    TestAnalyzedEvent testAnalyzedEventB =
+        TestAnalyzedEvent.create(
+            targetB, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+    // Only targetA has finished running.
+    TestSummary testSummary = mock(TestSummary.class);
+    when(testSummary.getTarget()).thenReturn(targetA);
+    when(testSummary.getLabel()).thenReturn(labelA);
+
+    stateTracker.singleTestAnalyzed(testAnalyzedEventA);
+    stateTracker.singleTestAnalyzed(testAnalyzedEventB);
+    stateTracker.testSummary(testSummary);
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains(" 1 / 2 tests");
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    output = terminalWriter.getTranscript();
+    assertThat(output).contains(" 1 / 2 tests");
+  }
+
+  @Test
+  public void testTestAnalyzedEvent_repeated_noDuplicatedCount() throws Exception {
+    // The test count should be visible in the status bar, as well as the short status bar
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
+    Label labelA = Label.parseCanonical("//foo:A");
+    ConfiguredTarget targetA = mock(ConfiguredTarget.class);
+    when(targetA.getLabel()).thenReturn(labelA);
+    TestAnalyzedEvent testAnalyzedEventA =
+        TestAnalyzedEvent.create(
+            targetA, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+    TestAnalyzedEvent testAnalyzedEventARepeated =
+        TestAnalyzedEvent.create(
+            targetA, mock(BuildConfigurationValue.class), /*isSkipped=*/ false);
+    // Only targetA has finished running.
+    TestSummary testSummary = mock(TestSummary.class);
+    when(testSummary.getTarget()).thenReturn(targetA);
+    when(testSummary.getLabel()).thenReturn(labelA);
+
+    stateTracker.singleTestAnalyzed(testAnalyzedEventA);
+    stateTracker.singleTestAnalyzed(testAnalyzedEventARepeated);
+    stateTracker.testSummary(testSummary);
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains(" 1 / 1 tests");
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    output = terminalWriter.getTranscript();
+    assertThat(output).contains(" 1 / 1 tests");
   }
 }

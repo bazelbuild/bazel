@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetProgressReceiver;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
@@ -949,6 +950,15 @@ class UiStateTracker {
           testActions.put(target.getLabel(), Sets.newConcurrentHashSet());
         }
       }
+    }
+  }
+
+  synchronized void singleTestAnalyzed(TestAnalyzedEvent event) {
+    ConfiguredTarget target = event.configuredTarget();
+    // Only register the count towards totalTests once.
+    if (target.getLabel() != null
+        && testActions.putIfAbsent(target.getLabel(), Sets.newConcurrentHashSet()) == null) {
+      totalTests++;
     }
   }
 
