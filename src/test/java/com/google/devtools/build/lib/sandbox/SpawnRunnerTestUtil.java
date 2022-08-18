@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
@@ -42,6 +43,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 // TODO(b/62588075): Use this class for the LocalSpawnRunnerTest as well.
 /**
@@ -159,6 +161,12 @@ public final class SpawnRunnerTestUtil {
 
     @Override
     public void checkForLostInputs() {}
+
+    @Nullable
+    @Override
+    public FileSystem getActionFileSystem() {
+      return null;
+    }
   }
 
   /**
