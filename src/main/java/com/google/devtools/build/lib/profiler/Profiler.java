@@ -375,6 +375,7 @@ public final class Profiler {
    *     some tasks may get aggregated if they finished quick enough
    * @param clock a {@code BlazeClock.instance()}
    * @param execStartTimeNanos execution start time in nanos obtained from {@code clock.nanoTime()}
+   * @param collectLoadAverage If true, collects system load average (as seen in uptime(1))
    */
   public synchronized void start(
       ImmutableSet<ProfilerTask> profiledTasks,
@@ -390,6 +391,7 @@ public final class Profiler {
       boolean includeTargetLabel,
       boolean collectTaskHistograms,
       boolean collectWorkerDataInProfiler,
+      boolean collectLoadAverage,
       WorkerMetricsCollector workerMetricsCollector,
       BugReporter bugReporter)
       throws IOException {
@@ -448,7 +450,7 @@ public final class Profiler {
     // Start collecting Bazel and system-wide CPU metric collection.
     resourceUsageThread =
         new CollectLocalResourceUsage(
-            bugReporter, workerMetricsCollector, collectWorkerDataInProfiler);
+            bugReporter, workerMetricsCollector, collectWorkerDataInProfiler, collectLoadAverage);
     resourceUsageThread.setDaemon(true);
     resourceUsageThread.start();
   }
@@ -1157,7 +1159,8 @@ public final class Profiler {
                 || data.type == ProfilerTask.ACTION_COUNTS
                 || data.type == ProfilerTask.SYSTEM_CPU_USAGE
                 || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE
-                || data.type == ProfilerTask.WORKERS_MEMORY_USAGE) {
+                || data.type == ProfilerTask.WORKERS_MEMORY_USAGE
+                || data.type == ProfilerTask.SYSTEM_LOAD_AVERAGE) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
               if ("0.0".equals(data.description)) {
                 continue;
@@ -1166,12 +1169,10 @@ public final class Profiler {
               writer.beginObject();
               writer.setIndent("");
               writer.name("name").value(data.type.description);
-              if (data.type == ProfilerTask.LOCAL_MEMORY_USAGE) {
-                writer.name("cname").value("olive");
-              }
 
               // Pick acceptable counter colors manually, unfortunately we have to pick from these
-              // weird reserved names.
+              // weird reserved names from
+              // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
               switch (data.type) {
                 case LOCAL_CPU_USAGE:
                   writer.name("cname").value("good");
@@ -1187,6 +1188,9 @@ public final class Profiler {
                   break;
                 case WORKERS_MEMORY_USAGE:
                   writer.name("cname").value("rail_animation");
+                  break;
+                case SYSTEM_LOAD_AVERAGE:
+                  writer.name("cname").value("generic_work");
                   break;
                 default:
                   // won't happen
@@ -1219,6 +1223,9 @@ public final class Profiler {
                   break;
                 case WORKERS_MEMORY_USAGE:
                   writer.name("workers memory").value(data.description);
+                  break;
+                case SYSTEM_LOAD_AVERAGE:
+                  writer.name("load").value(data.description);
                   break;
                 default:
                   // won't happen
