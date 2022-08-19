@@ -124,6 +124,7 @@ else:
     with open(tmp_cov_file, "r") as in_file:
       out_file.write(in_file.read())
 EOF
+  chmod +x mock_coverage.py
   cat <<EOF > hello.py
 def Hello():
   print("Hello, world!")
