@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -38,12 +39,19 @@ public interface InMemoryGraph extends ProcessableGraph {
   }
 
   @Override
-  Map<SkyKey, ? extends NodeEntry> createIfAbsentBatchMap(
+  @CanIgnoreReturnValue
+  NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys);
 
   @Nullable
   @Override
   NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key);
+
+  @Override
+  default NodeBatch getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return getBatchMap(requestor, reason, keys)::get;
+  }
 
   @Override
   Map<SkyKey, ? extends NodeEntry> getBatchMap(

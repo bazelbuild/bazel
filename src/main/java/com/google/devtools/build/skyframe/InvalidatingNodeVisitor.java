@@ -324,8 +324,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       for (SkyKey key : unvisitedKeys) {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
-      final Map<SkyKey, ? extends NodeEntry> entries =
-          graph.getBatchMap(null, Reason.INVALIDATION, unvisitedKeys);
+      NodeBatch entries = graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
       for (SkyKey key : unvisitedKeys) {
         executor.execute(
             () -> {

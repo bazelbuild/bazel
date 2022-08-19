@@ -52,11 +52,11 @@ import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDep;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -367,7 +367,7 @@ abstract class AbstractParallelEvaluator {
           graph.get(skyKey, Reason.RDEP_REMOVAL, ErrorTransienceValue.KEY).removeReverseDep(skyKey);
           return DirtyOutcome.NEEDS_EVALUATION;
         }
-        Map<SkyKey, ? extends NodeEntry> entriesToCheck = null;
+        NodeBatch entriesToCheck = null;
         if (!evaluatorContext.keepGoing()) {
           // This check ensures that we maintain the invariant that if a node with an error is
           // reached during a no-keep-going build, none of its currently building parents
@@ -376,9 +376,9 @@ abstract class AbstractParallelEvaluator {
           // is done, then it is the parent's responsibility to notice that, which we do here.
           // We check the deps for errors so that we don't continue building this node if it has
           // a child error.
-          entriesToCheck = graph.getBatchMap(skyKey, Reason.OTHER, directDepsToCheck);
-          for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entriesToCheck.entrySet()) {
-            NodeEntry nodeEntryToCheck = entry.getValue();
+          entriesToCheck = graph.getBatch(skyKey, Reason.OTHER, directDepsToCheck);
+          for (SkyKey keyToCheck : directDepsToCheck) {
+            NodeEntry nodeEntryToCheck = entriesToCheck.get(keyToCheck);
             SkyValue valueMaybeWithMetadata = nodeEntryToCheck.getValueMaybeWithMetadata();
             if (valueMaybeWithMetadata == null) {
               continue;
@@ -389,20 +389,19 @@ abstract class AbstractParallelEvaluator {
             }
             // This child has an error. We add a dep from this node to it and throw an exception
             // coming from it.
-            SkyKey errorKey = entry.getKey();
-            nodeEntry.addTemporaryDirectDeps(GroupedListHelper.create(errorKey));
+            nodeEntry.addTemporaryDirectDeps(GroupedListHelper.create(keyToCheck));
             nodeEntryToCheck.checkIfDoneForDirtyReverseDep(skyKey);
             // Perform the necessary bookkeeping for any deps that are not being used.
-            for (Map.Entry<SkyKey, ? extends NodeEntry> depEntry : entriesToCheck.entrySet()) {
-              if (!depEntry.getKey().equals(errorKey)) {
-                depEntry.getValue().removeReverseDep(skyKey);
+            for (SkyKey depKey : directDepsToCheck) {
+              if (!depKey.equals(keyToCheck)) {
+                entriesToCheck.get(depKey).removeReverseDep(skyKey);
               }
             }
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               // An error was already thrown in the evaluator. Don't do anything here.
               return DirtyOutcome.ALREADY_PROCESSED;
             }
-            throw SchedulerException.ofError(maybeErrorInfo, errorKey, ImmutableSet.of(skyKey));
+            throw SchedulerException.ofError(maybeErrorInfo, keyToCheck, ImmutableSet.of(skyKey));
           }
         }
         // It is safe to add these deps back to the node -- even if one of them has changed, the
@@ -433,7 +432,7 @@ abstract class AbstractParallelEvaluator {
           continue;
         }
         if (entriesToCheck == null || depsReport.hasInformation()) {
-          entriesToCheck = graph.getBatchMap(skyKey, Reason.ENQUEUING_CHILD, unknownStatusDeps);
+          entriesToCheck = graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, unknownStatusDeps);
         }
         boolean parentIsSignalledAndReady =
             handleKnownChildrenForDirtyNode(
@@ -493,9 +492,10 @@ abstract class AbstractParallelEvaluator {
     }
 
     /** Returns whether the parent has both been signalled and also is ready for evaluation. */
+    @CanIgnoreReturnValue
     private boolean handleKnownChildrenForDirtyNode(
         Collection<SkyKey> knownChildren,
-        Map<SkyKey, ? extends NodeEntry> oldChildren,
+        NodeBatch oldChildren,
         NodeEntry nodeEntry,
         int childEvaluationPriority,
         boolean enqueueParentIfReady)
@@ -812,30 +812,26 @@ abstract class AbstractParallelEvaluator {
         }
 
         int childEvaluationPriority = determineChildPriority();
-        InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>>
-            newDepsThatWerentInTheLastEvaluationNodes =
-                graph.createIfAbsentBatchMapAsync(
-                    skyKey, Reason.RDEP_ADDITION, newDepsThatWerentInTheLastEvaluation);
+        InterruptibleSupplier<NodeBatch> newDepsThatWerentInTheLastEvaluationNodes =
+            graph.createIfAbsentBatchAsync(
+                skyKey, Reason.RDEP_ADDITION, newDepsThatWerentInTheLastEvaluation);
         handleKnownChildrenForDirtyNode(
             newDepsThatWereInTheLastEvaluation,
-            graph.getBatchMap(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
+            graph.getBatch(skyKey, Reason.ENQUEUING_CHILD, newDepsThatWereInTheLastEvaluation),
             nodeEntry,
             childEvaluationPriority,
             /*enqueueParentIfReady=*/ true);
 
         // Due to multi-threading, this can potentially cause the current node to be re-enqueued if
-        // all 'new' children of this node are already done. Therefore, there should not be any
-        // code after this loop, as it would potentially race with the re-evaluation in another
-        // thread.
-        for (Map.Entry<SkyKey, ? extends NodeEntry> e :
-            newDepsThatWerentInTheLastEvaluationNodes.get().entrySet()) {
-          SkyKey newDirectDep = e.getKey();
-          NodeEntry newDirectDepEntry = e.getValue();
+        // all 'new' children of this node are already done. Therefore, there should not be any code
+        // after this loop, as it would potentially race with the re-evaluation in another thread.
+        NodeBatch newNodes = newDepsThatWerentInTheLastEvaluationNodes.get();
+        for (SkyKey newDirectDep : newDepsThatWerentInTheLastEvaluation) {
           enqueueChild(
               skyKey,
               nodeEntry,
               newDirectDep,
-              newDirectDepEntry,
+              newNodes.get(newDirectDep),
               /*depAlreadyExists=*/ false,
               childEvaluationPriority,
               /*enqueueParentIfReady=*/ true);
@@ -971,8 +967,8 @@ abstract class AbstractParallelEvaluator {
           .noteInconsistencyAndMaybeThrow(
               key, childrenToRestart, Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
 
-      Map<SkyKey, ? extends NodeEntry> children =
-          evaluatorContext.getGraph().getBatchMap(key, Reason.REWINDING, childrenToRestart);
+      NodeBatch children =
+          evaluatorContext.getGraph().getBatch(key, Reason.REWINDING, childrenToRestart);
 
       for (SkyKey childToRestart : childrenToRestart) {
         NodeEntry childEntry =
@@ -1079,8 +1075,8 @@ abstract class AbstractParallelEvaluator {
       previouslyRegisteredNewDeps = Sets.intersection(uniqueNewDeps, oldDeps);
     }
 
-    InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> newlyAddedNewDepNodes =
-        graph.getBatchMapAsync(skyKey, Reason.RDEP_ADDITION, newlyAddedNewDeps);
+    InterruptibleSupplier<NodeBatch> newlyAddedNewDepNodes =
+        graph.getBatchAsync(skyKey, Reason.RDEP_ADDITION, newlyAddedNewDeps);
 
     // Dep entries in the following two loops may not be done, but they must be present. In a
     // keep-going build, we normally expect all deps to be done. In a non-keep-going build, if
@@ -1090,8 +1086,8 @@ abstract class AbstractParallelEvaluator {
     boolean dirtyDepFound = false;
     boolean selfSignalled = false;
 
-    Map<SkyKey, ? extends NodeEntry> previouslyRegisteredEntries =
-        graph.getBatchMap(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
+    NodeBatch previouslyRegisteredEntries =
+        graph.getBatch(skyKey, Reason.SIGNAL_DEP, previouslyRegisteredNewDeps);
     for (SkyKey newDep : previouslyRegisteredNewDeps) {
       NodeEntry depEntry =
           checkNotNull(

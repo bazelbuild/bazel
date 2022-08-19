@@ -87,13 +87,6 @@ public final class DeterministicHelper extends NotifyingHelper {
     }
 
     @Override
-    public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatchMap(
-        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-        throws InterruptedException {
-      return makeDeterministic(super.createIfAbsentBatchMap(requestor, reason, keys));
-    }
-
-    @Override
     public Map<SkyKey, ? extends NodeEntry> getBatchMap(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {

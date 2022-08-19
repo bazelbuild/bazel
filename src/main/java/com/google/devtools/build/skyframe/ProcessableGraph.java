@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -39,30 +38,36 @@ public interface ProcessableGraph extends QueryableGraph {
   void remove(SkyKey key);
 
   /**
-   * Like {@link QueryableGraph#getBatchMap}, except it creates a new node for each key not already
-   * present in the graph. Thus, the returned map will have an entry for each key in {@code keys}.
+   * Like {@link QueryableGraph#getBatch}, except creates a new node for each key not already
+   * present in the graph. Thus, calling {@link NodeBatch#get} on the returned batch will never
+   * return {@code null} for any key in {@code keys}, barring an intervening call to {@link
+   * #remove}.
    *
-   * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
-   *     being requested.
-   * @param reason the reason the nodes are being requested.
-   */
-  Map<SkyKey, ? extends NodeEntry> createIfAbsentBatchMap(
-      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-      throws InterruptedException;
-
-  /**
-   * Like {@link QueryableGraph#getBatchMapAsync}, except it creates a new node for each key not
-   * already present in the graph. Thus, the returned map will have an entry for each key in {@code
-   * keys}.
+   * <p>By the time this method returns, nodes are guaranteed to have been created if necessary for
+   * each requested key. It is not necessary to call {@link NodeBatch#get} to trigger node creation.
    *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
   @CanIgnoreReturnValue
-  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> createIfAbsentBatchMapAsync(
+  NodeBatch createIfAbsentBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
+
+  /**
+   * Like {@link QueryableGraph#getBatchAsync}, except creates a new node for each key not already
+   * present in the graph. Thus, calling {@link NodeBatch#get} on the returned batch will never
+   * return {@code null} for any of the requested {@code keys}.
+   *
+   * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
+   *     being requested.
+   * @param reason the reason the nodes are being requested.
+   */
+  @CanIgnoreReturnValue
+  default InterruptibleSupplier<NodeBatch> createIfAbsentBatchAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) {
-    return MemoizingInterruptibleSupplier.of(() -> createIfAbsentBatchMap(requestor, reason, keys));
+    return MemoizingInterruptibleSupplier.of(() -> createIfAbsentBatch(requestor, reason, keys));
   }
 
   /**

@@ -139,10 +139,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ImmutableSet<SkyKey> skyKeys) throws InterruptedException {
     injectErrorTransienceValue();
     try {
-      for (Map.Entry<SkyKey, ? extends NodeEntry> e :
-          graph.createIfAbsentBatchMap(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
-        SkyKey skyKey = e.getKey();
-        NodeEntry entry = e.getValue();
+      NodeBatch batch = graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
+      for (SkyKey skyKey : skyKeys) {
+        NodeEntry entry = batch.get(skyKey);
         // This must be equivalent to the code in AbstractParallelEvaluator.Evaluate#enqueueChild,
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
@@ -188,11 +187,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
     NodeEntry errorTransienceEntry =
-        Iterables.getOnlyElement(
-            graph
-                .createIfAbsentBatchMap(
-                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
-                .values());
+        graph
+            .createIfAbsentBatch(
+                null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
+            .get(ErrorTransienceValue.KEY);
     if (!errorTransienceEntry.isDone()) {
       injectValues(
           ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
@@ -590,8 +588,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ProcessableGraph graph,
       DirtyTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> prevNodeEntries =
-        graph.createIfAbsentBatchMap(null, Reason.OTHER, injectionMap.keySet());
+    NodeBatch prevNodeEntries =
+        graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());
     for (Map.Entry<SkyKey, SkyValue> injectionEntry : injectionMap.entrySet()) {
       SkyKey key = injectionEntry.getKey();
       SkyValue value = injectionEntry.getValue();
@@ -631,8 +629,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // directly without launching the heavy machinery, spawning threads, etc.
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
     boolean allAreDone = true;
-    Map<SkyKey, ? extends NodeEntry> batch =
-        evaluatorContext.getGraph().getBatchMap(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
+    NodeBatch batch =
+        evaluatorContext.getGraph().getBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
     for (SkyKey key : skyKeySet) {
       if (!isDoneForBuild(batch.get(key))) {
         allAreDone = false;

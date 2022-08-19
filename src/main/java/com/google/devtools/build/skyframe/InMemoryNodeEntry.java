@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
  *   <li>Done ({@link #isDone} is true; {@link #isDirty} is false)
  * </ol>
  *
- * <p>The "just created" state is there to allow the {@link ProcessableGraph#createIfAbsentBatchMap}
+ * <p>The "just created" state is there to allow the {@link ProcessableGraph#createIfAbsentBatch}
  * and {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to
  * call both methods in that order if they want to create a node. The second method returns the
  * NEEDS_SCHEDULING state only on the first time it was called. A caller that gets NEEDS_SCHEDULING

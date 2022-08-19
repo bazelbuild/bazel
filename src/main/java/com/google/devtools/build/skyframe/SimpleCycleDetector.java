@@ -35,7 +35,6 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -281,8 +280,8 @@ public class SimpleCycleDetector implements CycleDetector {
       // TODO(janakr): If graph implementations start using these hints for not-done nodes, we may
       // have to change this.
       Iterable<SkyKey> children = temporaryDirectDeps.getAllElementsAsIterable();
-      Map<SkyKey, ? extends NodeEntry> childNodes =
-          evaluatorContext.getGraph().getBatchMap(key, Reason.EXISTENCE_CHECKING, children);
+      NodeBatch childNodes =
+          evaluatorContext.getGraph().getBatch(key, Reason.EXISTENCE_CHECKING, children);
 
       // This marker flag will tell us when all this node's children have been processed.
       toVisit.push(CHILDREN_FINISHED);
@@ -371,8 +370,8 @@ public class SimpleCycleDetector implements CycleDetector {
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
     boolean foundCycle = false;
-    Map<SkyKey, ? extends NodeEntry> childNodes =
-        evaluatorContext.getGraph().getBatchMap(parent, Reason.CYCLE_CHECKING, children);
+    NodeBatch childNodes =
+        evaluatorContext.getGraph().getBatch(parent, Reason.CYCLE_CHECKING, children);
     for (SkyKey childKey : children) {
       NodeEntry childEntry =
           checkNotNull(
@@ -407,11 +406,10 @@ public class SimpleCycleDetector implements CycleDetector {
       Iterable<SkyKey> children, SkyKey unfinishedChild, ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     List<ErrorInfo> allErrors = new ArrayList<>();
-    Set<? extends Map.Entry<SkyKey, ? extends NodeEntry>> childEntries =
-        evaluatorContext.getGraph().getBatchMap(null, Reason.CYCLE_CHECKING, children).entrySet();
-    for (Map.Entry<SkyKey, ? extends NodeEntry> childMapEntry : childEntries) {
-      SkyKey childKey = childMapEntry.getKey();
-      NodeEntry childNodeEntry = childMapEntry.getValue();
+    NodeBatch childEntries =
+        evaluatorContext.getGraph().getBatch(null, Reason.CYCLE_CHECKING, children);
+    for (SkyKey childKey : children) {
+      NodeEntry childNodeEntry = childEntries.get(childKey);
       ErrorInfo errorInfo =
           getErrorMaybe(
               childKey, childNodeEntry, /*allowUnfinished=*/ childKey.equals(unfinishedChild));

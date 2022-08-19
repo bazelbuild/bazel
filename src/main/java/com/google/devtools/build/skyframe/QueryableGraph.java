@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public interface QueryableGraph {
+
   /**
    * Returns the node with the given {@code key}, or {@code null} if the node does not exist.
    *
@@ -44,9 +45,38 @@ public interface QueryableGraph {
   NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) throws InterruptedException;
 
   /**
+   * Fetches all the given nodes. Returns a {@link NodeBatch} {@code b} such that, for all {@code k}
+   * in {@code keys}, {@code b.get(k) == get(k)}.
+   *
+   * <p>Prefer calling this method over {@link #getBatchMap} if it is not necessary to represent the
+   * result as a {@link Map}, as it may be significantly more efficient.
+   *
+   * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
+   *     being requested.
+   * @param reason the reason the nodes are being requested.
+   */
+  default NodeBatch getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException {
+    return getBatchMap(requestor, reason, keys)::get;
+  }
+
+  /**
+   * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
+   * retrieve the results later.
+   */
+  @CanIgnoreReturnValue
+  default InterruptibleSupplier<NodeBatch> getBatchAsync(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return MemoizingInterruptibleSupplier.of(() -> getBatch(requestor, reason, keys));
+  }
+
+  /**
    * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
-   * keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and {@code
-   * !m.containsKey(k)} iff {@code get(k) == null}.
+   * keys}, {@code m.get(k) == get(k)} and {@code !m.containsKey(k)} iff {@code get(k) == null}.
+   *
+   * <p>Prefer calling {@link #getBatch} over this method if it is not necessary to represent the
+   * result as a {@link Map}, as it may be significantly more efficient.
    *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
