@@ -94,15 +94,16 @@ import os
 import subprocess
 import sys
 parser = argparse.ArgumentParser()
-parser.add_argument("mode", choices=["run", "lcov"])
+mode = sys.argv[1]
+del(sys.argv[1])
 parser.add_argument("--rcfile", type=str)
 parser.add_argument("--append", action="store_true")
 parser.add_argument("--branch", action="store_true")
 parser.add_argument("--output", "-o", type=str)
 parser.add_argument("target", nargs="*")
-args = parser.parse_intermixed_args()
+args = parser.parse_args()
 tmp_cov_file = os.path.join(os.environ["COVERAGE_DIR"], "tmp.out")
-if args.mode == "run":
+if mode == "run":
   subprocess.check_call([sys.executable]+args.target)
   with open(tmp_cov_file, "a") as tmp:
     tmp.write("TN:\nSF:")
