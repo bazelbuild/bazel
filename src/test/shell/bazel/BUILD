@@ -529,7 +529,6 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
-        "requires-network",
     ],
 )
 

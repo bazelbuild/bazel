@@ -316,7 +316,7 @@ relative_files = True
 ''')
     # Coveragepy wants to frst create a .coverage database file, from
     # which we can then export lcov.
-    subprocess.call(
+    ret_code = subprocess.call(
       [
         python_program,
         coverage_tool,
@@ -341,7 +341,7 @@ relative_files = True
       ],
       env=env,
       cwd=workspace
-    )
+    ) or ret_code
     os.unlink(rcfile_name)
     if os.path.isfile(output_filename):
       UnresolveSymlinks(output_filename)
@@ -417,7 +417,7 @@ def Main():
   if os.environ.get('COVERAGE_DIR'):
     cov_tool = FindCoverageTool(module_space)
     if cov_tool is None:
-      print('Coverage was requested, but not python coverage tool was configured.', file=sys.stderr)
+      print('Coverage was requested, but no python coverage tool was configured.', file=sys.stderr)
     else:
       # Inhibit infinite recursion:
       if 'PYTHON_COVERAGE' in os.environ:
