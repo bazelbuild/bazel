@@ -23,7 +23,7 @@ public interface NodeBatch {
    * Returns the {@link NodeEntry} for the given key, or {@code null} if it does not exist.
    *
    * <p>Must only be called with a {@link SkyKey} that was part of the graph request for this batch,
-   * otherwise behavior is undefined and may lead incorrect evaluation results.
+   * otherwise behavior is undefined and may to lead incorrect evaluation results.
    */
   @Nullable
   NodeEntry get(SkyKey key);
