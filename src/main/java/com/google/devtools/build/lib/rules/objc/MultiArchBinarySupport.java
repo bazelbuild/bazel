@@ -487,10 +487,6 @@ public class MultiArchBinarySupport {
           splitOptions.get(AppleCommandLineOptions.class);
 
       appleCommandLineOptions.appleSplitCpu = cpu;
-      // If the new configuration does not use the apple crosstool, then it needs ios_cpu to be
-      // to decide architecture.
-      // TODO(b/29355778, b/28403953): Use a crosstool for any apple rule. Deprecate ios_cpu.
-      appleCommandLineOptions.iosCpu = cpu;
 
       String platformCpu = ApplePlatform.cpuStringForTarget(platformType, cpu);
       if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {

@@ -19,13 +19,12 @@ EXCLUDED_FROM_SKYFRAME_TESTS = [
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
     "SkyframeErrorProcessorTest.java",
     "BuildDriverFunctionTest.java",
+    "SkyFunctionEnvironmentForTesting.java",
 ]
 
 java_library(
     name = "testutil",
-    srcs = glob([
-        "util/*.java",
-    ]),
+    srcs = glob(["util/*.java"]) + ["SkyFunctionEnvironmentForTesting.java"],
     tags = ["skyframe"],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
     deps = [

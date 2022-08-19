@@ -15,11 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link InMemoryGraphImpl}. */
-@RunWith(JUnit4.class)
 public class InMemoryGraphTest extends GraphTest {
 
   @Override

@@ -107,21 +107,8 @@ public final class SkyframeIterableResult {
     if (value != null) {
       return value;
     }
-    Exception e = voe.getException();
-    if (e != null) {
-      if (exceptionClass1 != null && exceptionClass1.isInstance(e)) {
-        throw exceptionClass1.cast(e);
-      }
-      if (exceptionClass2 != null && exceptionClass2.isInstance(e)) {
-        throw exceptionClass2.cast(e);
-      }
-      if (exceptionClass3 != null && exceptionClass3.isInstance(e)) {
-        throw exceptionClass3.cast(e);
-      }
-      if (exceptionClass4 != null && exceptionClass4.isInstance(e)) {
-        throw exceptionClass4.cast(e);
-      }
-    }
+    SkyFunctionException.throwIfInstanceOf(
+        voe.getException(), exceptionClass1, exceptionClass2, exceptionClass3, exceptionClass4);
     valuesMissingCallback.run();
     return null;
   }

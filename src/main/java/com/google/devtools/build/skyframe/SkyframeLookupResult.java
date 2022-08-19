@@ -16,12 +16,12 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
- * An Map-like result of getting Skyframe dependencies via {@link
+ * A map-like result of getting Skyframe dependencies via {@link
  * SkyFunction.Environment#getValuesAndExceptions}. Callers can use the {@link #get} and {@link
  * #getOrThrow} methods to obtain elements by key.
  *
@@ -74,20 +74,14 @@ public class SkyframeLookupResult {
     return getOrThrow(skyKey, exceptionClass, null, null);
   }
 
-  /**
-   * Similar to {@link getOrThrow} one exceptionClass version, but take two exceptionClass
-   * parameters.
-   */
+  /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes two exception class parameters. */
   @Nullable
   public <E1 extends Exception, E2 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey, Class<E1> exceptionClass1, Class<E2> exceptionClass2) throws E1, E2 {
     return getOrThrow(skyKey, exceptionClass1, exceptionClass2, null);
   }
 
-  /**
-   * Similar to {@link getOrThrow} one exceptionClass version, but take three exceptionClass
-   * parameters.
-   */
+  /** Similar to {@link #getOrThrow(SkyKey, Class)}, but takes three exception class parameters. */
   @Nullable
   public <E1 extends Exception, E2 extends Exception, E3 extends Exception> SkyValue getOrThrow(
       SkyKey skyKey,
@@ -106,18 +100,8 @@ public class SkyframeLookupResult {
     if (value != null) {
       return value;
     }
-    Exception e = voe.getException();
-    if (e != null) {
-      if (exceptionClass1 != null && exceptionClass1.isInstance(e)) {
-        throw exceptionClass1.cast(e);
-      }
-      if (exceptionClass2 != null && exceptionClass2.isInstance(e)) {
-        throw exceptionClass2.cast(e);
-      }
-      if (exceptionClass3 != null && exceptionClass3.isInstance(e)) {
-        throw exceptionClass3.cast(e);
-      }
-    }
+    SkyFunctionException.throwIfInstanceOf(
+        voe.getException(), exceptionClass1, exceptionClass2, exceptionClass3, null);
     valuesMissingCallback.run();
     return null;
   }

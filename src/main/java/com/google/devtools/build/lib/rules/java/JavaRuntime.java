@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -94,6 +96,9 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
 
     Artifact libModules = ruleContext.getPrerequisiteArtifact("lib_modules");
 
+    ImmutableList<CcInfo> hermeticStaticLibs =
+        ImmutableList.copyOf(ruleContext.getPrerequisites("hermetic_static_libs", CcInfo.PROVIDER));
+
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     // TODO(cushon): clean up uses of java_runtime in data deps and remove this
@@ -110,7 +115,8 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaHomeRunfilesPath,
             javaBinaryRunfilesPath,
             hermeticInputs,
-            libModules);
+            libModules,
+            hermeticStaticLibs);
 
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(

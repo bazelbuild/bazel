@@ -23,6 +23,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
@@ -695,12 +696,7 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
     OptionsParserImplResult optionsParserImplResult = impl.parse(priority, sourceFunction, args);
-    residue.addAll(optionsParserImplResult.getResidue());
-    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
-    if (!allowResidue && !residue.isEmpty()) {
-      String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
-      throw new OptionsParsingException(errorMsg);
-    }
+    addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
   }
 
@@ -726,10 +722,16 @@ public class OptionsParser implements OptionsParsingResult {
         args);
     OptionsParserImplResult optionsParserImplResult =
         impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
-    residue.addAll(optionsParserImplResult.getResidue());
-    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
-    if (!allowResidue && !residue.isEmpty()) {
-      String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
+    addResidueFromResult(optionsParserImplResult);
+  }
+
+  private void addResidueFromResult(OptionsParserImplResult result) throws OptionsParsingException {
+    residue.addAll(result.getResidue());
+    postDoubleDashResidue.addAll(result.postDoubleDashResidue);
+    if (!allowResidue && (!getSkippedArgs().isEmpty() || !residue.isEmpty())) {
+      String errorMsg =
+          "Unrecognized arguments: "
+              + Joiner.on(' ').join(Iterables.concat(getSkippedArgs(), residue));
       throw new OptionsParsingException(errorMsg);
     }
   }
@@ -771,7 +773,12 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public List<String> getResidue() {
+  public ImmutableList<String> getSkippedArgs() {
+    return ImmutableList.copyOf(impl.getSkippedArgs());
+  }
+
+  @Override
+  public ImmutableList<String> getResidue() {
     return ImmutableList.copyOf(residue);
   }
 

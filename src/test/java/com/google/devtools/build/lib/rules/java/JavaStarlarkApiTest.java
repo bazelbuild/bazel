@@ -3307,4 +3307,47 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {
     return getConfiguredTarget(label).get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
   }
+
+  @Test
+  public void hermeticStaticLibs() throws Exception {
+    scratch.file("a/libStatic.a");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "load('"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
+        "genrule(name='gen', cmd='', outs=['foo/bar/bin/java'])",
+        "cc_import(name='libs', static_library = 'libStatic.a')",
+        "cc_library(name = 'jdk_static_libs00', data = ['libStatic.a'], linkstatic = 1)",
+        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java', hermetic_static_libs ="
+            + " ['libs'])",
+        "java_runtime_alias(name='alias')",
+        "jrule(name='r')",
+        "toolchain(",
+        "    name = 'java_runtime_toolchain',",
+        "    toolchain = ':jvm',",
+        "    toolchain_type = '"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:runtime_toolchain_type',",
+        ")");
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return MyInfo(",
+        "    hermetic_static_libs = provider.hermetic_static_libs,",
+        "  )",
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+
+    useConfiguration("--extra_toolchains=//a:all");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(ct);
+    Depset hermeticStaticLibs = (Depset) myInfo.getValue("hermetic_static_libs");
+    assertThat(
+            hermeticStaticLibs.getSet(LibraryToLink.class).toList().stream()
+                .map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly("a/libStatic");
+  }
 }

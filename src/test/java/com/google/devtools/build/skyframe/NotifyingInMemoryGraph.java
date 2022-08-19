@@ -25,7 +25,7 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+  public NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
       return super.createIfAbsentBatch(requestor, reason, keys);
@@ -45,10 +45,10 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getBatch(
+  public Map<SkyKey, ? extends NodeEntry> getBatchMap(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     try {
-      return super.getBatch(requestor, reason, keys);
+      return super.getBatchMap(requestor, reason, keys);
     } catch (InterruptedException e) {
       throw new IllegalStateException(e);
     }

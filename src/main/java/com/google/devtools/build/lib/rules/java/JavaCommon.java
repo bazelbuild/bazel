@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -564,6 +565,14 @@ public class JavaCommon {
   public ImmutableList<? extends TransitiveInfoCollection> targetsTreatedAsDeps(
       ClasspathType type) {
     return targetsTreatedAsDeps.get(type);
+  }
+
+  public ImmutableList<CcInfo> hermeticStaticLibs() {
+    if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
+        && ruleContext.attributes().get("hermetic", BOOLEAN)) {
+      return JavaRuntimeInfo.from(ruleContext).hermeticStaticLibs();
+    }
+    return ImmutableList.of();
   }
 
   /** Returns the default dependencies for the given classpath context. */

@@ -21,16 +21,12 @@ Limiting libraries to using these flags prevents drastic, sweeping effects
 binary through a library dependency.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import re
+from typing import Sequence
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-import six
 
 flags.DEFINE_string('path', None, 'Path to the proguard config to validate')
 flags.DEFINE_string('output', None, 'Where to put the validated config')
@@ -46,7 +42,7 @@ class ProguardConfigValidator(object):
   _VALID_ARGS = ('keep', 'assumenosideeffects', 'assumevalues',
                  'adaptresourcefilecontents', 'if')
 
-  def __init__(self, config_path, outconfig_path):
+  def __init__(self, config_path: str, outconfig_path: str):
     self._config_path = config_path
     self._outconfig_path = outconfig_path
 
@@ -64,9 +60,9 @@ class ProguardConfigValidator(object):
           self._config_path, config_string)
       outconfig.write(config_string)
 
-  def _Validate(self, config):
+  def _Validate(self, config: str) -> Sequence[str]:
     """Checks the config for illegal arguments."""
-    config = re.sub(PROGUARD_COMMENTS_PATTERN, '', six.ensure_str(config))
+    config = re.sub(PROGUARD_COMMENTS_PATTERN, '', config)
     args = re.compile('(?:^-|\n-)').split(config)
 
     invalid_configs = []
@@ -78,7 +74,7 @@ class ProguardConfigValidator(object):
 
     return invalid_configs
 
-  def _ValidateArg(self, arg):
+  def _ValidateArg(self, arg: str) -> bool:
     if arg.startswith(ProguardConfigValidator._VALID_ARGS):
       return True
     elif arg.split()[0] in ['dontnote', 'dontwarn']:
@@ -87,7 +83,7 @@ class ProguardConfigValidator(object):
     return False
 
 
-def main(unused_argv):
+def main(unused_argv: Sequence[str]):
   validator = ProguardConfigValidator(FLAGS.path, FLAGS.output)
   validator.ValidateAndWriteOutput()
 

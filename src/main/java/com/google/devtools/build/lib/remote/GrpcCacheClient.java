@@ -418,19 +418,21 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                       @Override
                       public void onCompleted() {
                         try {
+                          try {
+                            out.flush();
+                          } finally {
+                            releaseOut();
+                          }
                           if (digestSupplier != null) {
                             Utils.verifyBlobContents(digest, digestSupplier.get());
                           }
-                          out.flush();
-                          future.set(rawOut.getCount());
                         } catch (IOException e) {
                           future.setException(e);
                         } catch (RuntimeException e) {
                           logger.atWarning().withCause(e).log("Unexpected exception");
                           future.setException(e);
-                        } finally {
-                          releaseOut();
                         }
+                        future.set(rawOut.getCount());
                       }
 
                       private void releaseOut() {

@@ -63,8 +63,6 @@ final class WorkerExecRoot {
     // we haven't seen what would break if we make it strict.
     SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
     createInputs(inputsToCreate, inputs, workDir);
-
-    inputs.materializeVirtualInputs(workDir);
   }
 
   static void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs, Path dir)

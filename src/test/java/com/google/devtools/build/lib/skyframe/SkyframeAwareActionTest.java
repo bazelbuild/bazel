@@ -260,7 +260,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   /** A mock skyframe-aware action that counts how many times it was executed. */
   private static class SkyframeAwareExecutionCountingAction
-      extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction<IOException> {
+      extends ExecutionCountingCacheBypassingAction implements SkyframeAwareAction {
     private final SkyKey actionDepKey;
 
     SkyframeAwareExecutionCountingAction(
@@ -281,11 +281,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public ImmutableList<SkyKey> getDirectSkyframeDependencies() {
       return ImmutableList.of(actionDepKey);
-    }
-
-    @Override
-    public Class<IOException> getExceptionType() {
-      return IOException.class;
     }
 
     @Override
@@ -736,7 +731,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   private abstract static class SingleOutputSkyframeAwareAction extends SingleOutputAction
-      implements SkyframeAwareAction<IOException> {
+      implements SkyframeAwareAction {
     SingleOutputSkyframeAwareAction(@Nullable Artifact input, Artifact output) {
       super(input, output);
     }
@@ -749,11 +744,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public boolean isVolatile() {
       return true;
-    }
-
-    @Override
-    public Class<IOException> getExceptionType() {
-      return IOException.class;
     }
   }
 

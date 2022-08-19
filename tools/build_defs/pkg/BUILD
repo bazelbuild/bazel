@@ -10,6 +10,18 @@ filegroup(
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD",
+        "archive.py",
+        "build_tar.py",
+        "path.bzl",
+        "pkg.bzl",
+    ],
+    visibility = ["//tools/build_defs:__pkg__"],
+)
+
 py_library(
     name = "archive",
     srcs = ["archive.py"],

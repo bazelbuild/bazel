@@ -47,7 +47,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "experimental_apple_mandatory_minimum_version",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      effectTags = {OptionEffectTag.NO_OP},
       help =
           "No-op. Kept here for backwards compatibility. This field will be removed in a "
               + "future release.")
@@ -58,7 +58,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "experimental_objc_provider_from_linked",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      effectTags = {OptionEffectTag.NO_OP},
       help =
           "No-op. Kept here for backwards compatibility. This field will be removed in a "
               + "future release.")
@@ -205,14 +205,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
 
+  @Deprecated
   @Option(
-    name = "ios_cpu",
-    defaultValue = DEFAULT_IOS_CPU,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "Specifies to target CPU of iOS compilation."
-  )
+      name = "ios_cpu",
+      defaultValue = DEFAULT_IOS_CPU,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
   public String iosCpu;
 
   @Option(
