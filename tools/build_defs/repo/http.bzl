@@ -129,7 +129,7 @@ def _http_archive_impl(ctx):
 
     download_info = ctx.download_and_extract(
         all_urls,
-        "",
+        ctx.attr.add_prefix,
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
@@ -270,6 +270,15 @@ discarded and inaccessible (e.g., a top-level license file). This includes
 files/directories that start with the prefix but are not in the directory
 (e.g., `foo-lib-1.2.3.release-notes`). If the specified prefix does not
 match a directory in the archive, Bazel will return an error.""",
+    ),
+    "add_prefix": attr.string(
+        default = "",
+        doc = """Destination directory relative to the repository directory.
+
+The archive will be unpacked into this directory, after applying `strip_prefix`
+(if any) to the file paths within the archive. For example, file
+`foo-1.2.3/src/foo.h` will be unpacked to `bar/src/foo.h` if `add_prefix = "bar"`
+and `strip_prefix = "foo-1.2.3"`.""",
     ),
     "type": attr.string(
         doc = """The archive type of the downloaded file.
