@@ -114,6 +114,11 @@ def _get_auth(ctx, urls):
         netrc = read_user_netrc(ctx)
     return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
+def _update_sha256_attr(ctx, attrs, download_info):
+    # We don't need to override the sha256 attribute if integrity is already specified.
+    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
+    return update_attrs(ctx.attr, attrs.keys(), sha256_override)
+
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
     if ctx.attr.build_file and ctx.attr.build_file_content:
@@ -135,9 +140,7 @@ def _http_archive_impl(ctx):
     workspace_and_buildfile(ctx)
     patch(ctx, auth = auth)
 
-    # We don't need to override the sha256 attribute if integrity is already specified.
-    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
-    return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
+    return _update_sha256_attr(ctx, _http_archive_attrs, download_info)
 
 _HTTP_FILE_BUILD = """\
 package(default_visibility = ["//visibility:public"])
@@ -172,11 +175,12 @@ def _http_file_impl(ctx):
         ctx.attr.executable,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("file/BUILD", _HTTP_FILE_BUILD.format(downloaded_file_path))
 
-    return update_attrs(ctx.attr, _http_file_attrs.keys(), {"sha256": download_info.sha256})
+    return _update_sha256_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
 load("@rules_java//java:defs.bzl", "java_import")
@@ -208,10 +212,12 @@ def _http_jar_impl(ctx):
         ctx.attr.sha256,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_name = downloaded_file_name))
-    return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
+
+    return _update_sha256_attr(ctx, _http_jar_attrs, download_info)
 
 _http_archive_attrs = {
     "url": attr.string(doc = _URL_DOC),
@@ -421,6 +427,14 @@ to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
     ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
+    ),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
 
@@ -466,7 +480,20 @@ Examples:
 
 _http_jar_attrs = {
     "sha256": attr.string(
-        doc = "The expected SHA-256 of the file downloaded.",
+        doc = """The expected SHA-256 of the file downloaded.
+
+This must match the SHA-256 of the file downloaded. _It is a security risk
+to omit the SHA-256 as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `integrity` should be set before shipping.""",
+    ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
