@@ -1,3 +1,15 @@
+## Release 6.0.0-pre.20220816.1 (2022-08-19)
+
+```
+Baseline: 70ccf591f21e0c0148554244b34f02869abb7d7b
+```
+
+Important changes:
+
+  - Migrate main_dex_list_creator to D8 (DX deprecation)
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
 ## Release 6.0.0-pre.20220810.1 (2022-08-18)
 
 ```
