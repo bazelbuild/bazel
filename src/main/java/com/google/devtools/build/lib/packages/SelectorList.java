@@ -121,7 +121,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
       }
       if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
         throw Starlark.errorf(
-            "'+' operator applied to incompatible types (%s, %s)",
+            "Cannot combine incompatible types (%s, %s)",
             getTypeName(firstValue), getTypeName(value));
       }
     }
@@ -142,11 +142,6 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   @Override
   @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (!canConcatenate(getNativeType(this), getNativeType(that))) {
-      throw Starlark.errorf(
-          "'%s' operator applied to incompatible types (%s, %s)",
-          op.toString(), getTypeName(thisLeft ? this : that), getTypeName(thisLeft ? that : this));
-    }
     if (getNativeType(that).equals(Dict.class)) {
       if (op == TokenKind.PIPE) {
         return thisLeft ? concat(this, that) : concat(that, this);

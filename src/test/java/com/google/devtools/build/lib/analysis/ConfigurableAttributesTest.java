@@ -1039,7 +1039,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//java/foo:binary"));
-    assertContainsEvent("'+' operator applied to incompatible types");
+    assertContainsEvent("Cannot combine incompatible types");
   }
 
   @Test
@@ -1078,7 +1078,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//foo:binary"));
-    assertContainsEvent("'+' operator applied to incompatible types");
+    assertContainsEvent("Cannot combine incompatible types");
   }
 
   @Test
@@ -1269,7 +1269,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("--define", "mode=a");
     assertThat(getConfiguredTarget("//a:gen")).isNull();
     assertContainsEvent(
-        "'+' operator applied to incompatible types (select of string, select of NoneType)");
+        "Cannot combine incompatible types (select of string, select of NoneType)");
   }
 
   @Test
