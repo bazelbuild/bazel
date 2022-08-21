@@ -448,7 +448,7 @@ public final class BuildTypeTest {
     List<String> list = ImmutableList.of("//a:a", "//b:b");
 
     // Creating a SelectorList from a list and a non-list should fail.
-    assertThrows(IllegalStateException.class, () -> SelectorList.concat(list, "A string"));
+    assertThrows(EvalException.class, () -> SelectorList.concat(list, "A string"));
   }
 
   /**

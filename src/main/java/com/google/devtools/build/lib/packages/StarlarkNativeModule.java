@@ -672,7 +672,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
                 ((Map<?, ?>) starlarkifyValue(mu, selector.getEntries(), pkg)),
                 selector.getNoMatchError()));
       }
-      return SelectorList.of(selectors);
+      try {
+        return SelectorList.of(selectors);
+      } catch (EvalException e) {
+        throw new NotRepresentableException(e.getMessage());
+      }
     }
 
     if (val instanceof StarlarkValue) {
