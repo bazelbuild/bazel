@@ -34,6 +34,7 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -570,11 +571,11 @@ public abstract class Type<T> {
 
     @Override
     public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
-      ImmutableMap.Builder<KeyT, ValueT> output = new ImmutableMap.Builder<>();
+      Dict.Builder<KeyT, ValueT> output = new Dict.Builder<>();
       for (Map<KeyT, ValueT> map: iterable){
         output.putAll(map);
       }
-      return output.buildKeepingLast();
+      return output.buildImmutable();
     }
 
     @Override
