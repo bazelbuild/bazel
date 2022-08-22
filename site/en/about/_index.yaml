@@ -64,7 +64,7 @@ landing_page:
         Read our new public roadmap to see what is coming down the pipeline.
       buttons:
       - label: See the roadmap
-        path: /about/faq
+        path: /about/roadmap
         classname: button bazel-button-dark
     - heading: FAQ
       path: ''
