@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.remote;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -68,6 +71,15 @@ public class RemoteOutputService implements OutputService {
         relativeOutputPath,
         inputArtifactData,
         actionInputFetcher);
+  }
+
+  @Override
+  public void updateActionFileSystemContext(
+      FileSystem actionFileSystem,
+      Environment env,
+      MetadataInjector injector,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+    ((RemoteActionFileSystem) actionFileSystem).updateContext(injector);
   }
 
   @Override

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /** Execution context for tests */
 public class FakeSpawnExecutionContext implements SpawnExecutionContext {
@@ -47,20 +49,14 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   private final Spawn spawn;
   private final MetadataProvider metadataProvider;
-  private final MetadataInjector metadataInjector;
   private final Path execRoot;
   private final FileOutErr outErr;
   private final ClassToInstanceMap<ActionContext> actionContextRegistry;
+  @Nullable private final RemoteActionFileSystem actionFileSystem;
 
   public FakeSpawnExecutionContext(
       Spawn spawn, MetadataProvider metadataProvider, Path execRoot, FileOutErr outErr) {
-    this(
-        spawn,
-        metadataProvider,
-        execRoot,
-        outErr,
-        ImmutableClassToInstanceMap.of(),
-        ActionsTestUtil.THROWING_METADATA_HANDLER);
+    this(spawn, metadataProvider, execRoot, outErr, ImmutableClassToInstanceMap.of(), null);
   }
 
   public FakeSpawnExecutionContext(
@@ -69,13 +65,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
       Path execRoot,
       FileOutErr outErr,
       ClassToInstanceMap<ActionContext> actionContextRegistry) {
-    this(
-        spawn,
-        metadataProvider,
-        execRoot,
-        outErr,
-        actionContextRegistry,
-        ActionsTestUtil.THROWING_METADATA_HANDLER);
+    this(spawn, metadataProvider, execRoot, outErr, actionContextRegistry, null);
   }
 
   public FakeSpawnExecutionContext(
@@ -84,13 +74,13 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
       Path execRoot,
       FileOutErr outErr,
       ClassToInstanceMap<ActionContext> actionContextRegistry,
-      MetadataInjector metadataInjector) {
+      @Nullable RemoteActionFileSystem actionFileSystem) {
     this.spawn = spawn;
     this.metadataProvider = metadataProvider;
     this.execRoot = execRoot;
     this.outErr = outErr;
     this.actionContextRegistry = actionContextRegistry;
-    this.metadataInjector = metadataInjector;
+    this.actionFileSystem = actionFileSystem;
   }
 
   public boolean isLockOutputFilesCalled() {
@@ -156,7 +146,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public MetadataInjector getMetadataInjector() {
-    return metadataInjector;
+    return ActionsTestUtil.THROWING_METADATA_HANDLER;
   }
 
   @Override
@@ -171,4 +161,10 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public void checkForLostInputs() {}
+
+  @Nullable
+  @Override
+  public RemoteActionFileSystem getActionFileSystem() {
+    return actionFileSystem;
+  }
 }

@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -852,8 +851,8 @@ public class RemoteExecutionServiceTest {
 
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
     RemoteExecutionService service =
@@ -864,7 +863,7 @@ public class RemoteExecutionServiceTest {
     service.downloadOutputs(action, result);
 
     // assert
-    verify(injector, never()).injectFile(any(), any());
+    verify(actionFileSystem, never()).injectFile(any(), any());
     assertThat(digestUtil.compute(execRoot.getRelative("outputs/file1"))).isEqualTo(d1);
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
@@ -881,8 +880,8 @@ public class RemoteExecutionServiceTest {
 
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -894,7 +893,7 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
-    verify(injector).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(actionFileSystem).injectFile(eq(a1), remoteFileMatchingDigest(d1));
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -916,8 +915,8 @@ public class RemoteExecutionServiceTest {
 
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -930,8 +929,8 @@ public class RemoteExecutionServiceTest {
     assertThat(inMemoryOutput).isNull();
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
     Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "file2");
-    verify(injector).injectFile(eq(a1), remoteFileMatchingDigest(d1));
-    verify(injector).injectFile(eq(a2), remoteFileMatchingDigest(d2));
+    verify(actionFileSystem).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(actionFileSystem).injectFile(eq(a2), remoteFileMatchingDigest(d2));
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -968,8 +967,8 @@ public class RemoteExecutionServiceTest {
 
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -994,7 +993,7 @@ public class RemoteExecutionServiceTest {
                 new RemoteFileArtifactValue(
                     toBinaryDigest(d2), d2.getSizeBytes(), 1, action.getActionId()))
             .build();
-    verify(injector).injectTree(dir, tree);
+    verify(actionFileSystem).injectTree(dir, tree);
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1035,8 +1034,8 @@ public class RemoteExecutionServiceTest {
 
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -1068,8 +1067,8 @@ public class RemoteExecutionServiceTest {
 
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -1105,8 +1104,8 @@ public class RemoteExecutionServiceTest {
     // a1 should be provided as an InMemoryOutput
     PathFragment inMemoryOutputPathFragment = PathFragment.create("outputs/file1");
     Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, inMemoryOutputPathFragment);
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -1123,8 +1122,8 @@ public class RemoteExecutionServiceTest {
     Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "file2");
     assertThat(inMemoryOutput.getOutput()).isEqualTo(a1);
     // The in memory file also needs to be injected as an output
-    verify(injector).injectFile(eq(a1), remoteFileMatchingDigest(d1));
-    verify(injector).injectFile(eq(a2), remoteFileMatchingDigest(d2));
+    verify(actionFileSystem).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(actionFileSystem).injectFile(eq(a2), remoteFileMatchingDigest(d2));
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1155,8 +1154,8 @@ public class RemoteExecutionServiceTest {
             /*mandatoryOutputs=*/ ImmutableSet.of(),
             ResourceSet.ZERO);
 
-    MetadataInjector injector = mock(MetadataInjector.class);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
@@ -1168,7 +1167,7 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     // The in memory file metadata also should not have been injected.
-    verify(injector, never()).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(actionFileSystem, never()).injectFile(eq(a1), remoteFileMatchingDigest(d1));
   }
 
   @Test
@@ -1752,9 +1751,9 @@ public class RemoteExecutionServiceTest {
   }
 
   private FakeSpawnExecutionContext newSpawnExecutionContext(
-      Spawn spawn, MetadataInjector metadataInjector) {
+      Spawn spawn, RemoteActionFileSystem actionFileSystem) {
     return new FakeSpawnExecutionContext(
-        spawn, fakeFileCache, execRoot, outErr, ImmutableClassToInstanceMap.of(), metadataInjector);
+        spawn, fakeFileCache, execRoot, outErr, ImmutableClassToInstanceMap.of(), actionFileSystem);
   }
 
   private RemoteExecutionService newRemoteExecutionService() {
