@@ -35,7 +35,6 @@ filegroup(
         "//third_party/jaxb:srcs",
         "//third_party/jetbrains_annotations:srcs",
         "//third_party/jetifier:srcs",
-        "//third_party/jformatstring:srcs",
         "//third_party/juniversalchardet:srcs",
         "//third_party/kotlin_stdlib:srcs",
         "//third_party/pprof:srcs",
@@ -59,9 +58,7 @@ filegroup(
 # and LGPL code that we use in Bazel.
 filegroup(
     name = "gpl-srcs",
-    srcs = [
-        "//third_party/jformatstring:srcs",
-    ],
+    srcs = [],
 )
 
 # This target only contains the jars that are used for building / running Bazel.
@@ -413,7 +410,6 @@ java_import(
         ":pcollections",
         ":threeten",
         "//third_party/checker_framework_dataflow",
-        "//third_party/jformatstring",
     ],
 )
 

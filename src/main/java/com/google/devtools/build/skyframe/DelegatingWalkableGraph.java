@@ -155,7 +155,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   protected Map<SkyKey, ? extends NodeEntry> getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
       throws InterruptedException {
-    return graph.getBatch(requestor, reason, keys);
+    return graph.getBatchMap(requestor, reason, keys);
   }
 
   @Override

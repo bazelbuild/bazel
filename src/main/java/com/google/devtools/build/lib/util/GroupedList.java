@@ -30,6 +30,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -424,7 +425,7 @@ public final class GroupedList<T> implements Iterable<List<T>> {
   }
 
   @ThreadHostile
-  public Iterable<T> getAllElementsAsIterable() {
+  public Collection<T> getAllElementsAsIterable() {
     return collectionView;
   }
 

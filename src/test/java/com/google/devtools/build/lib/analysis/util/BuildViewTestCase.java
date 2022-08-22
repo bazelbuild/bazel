@@ -158,6 +158,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
@@ -658,7 +659,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() throws InterruptedException {
-    SkyFunction.Environment env = skyframeExecutor.getSkyFunctionEnvironmentForTesting(reporter);
+    SkyFunction.Environment env = new SkyFunctionEnvironmentForTesting(reporter, skyframeExecutor);
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(env.getValue(StarlarkBuiltinsValue.key()));

@@ -475,6 +475,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "If disabled, visibility errors are demoted to warnings.")
   public boolean checkVisibility;
 
+  @Option(
+      name = "incompatible_check_testonly_for_output_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "If enabled, check testonly for prerequisite targets that are output files by"
+              + " looking up the testonly of the generating rule. This matches visibility"
+              + " checking.")
+  public boolean checkTestonlyForOutputFiles;
+
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely
   // when the setting is disabled.

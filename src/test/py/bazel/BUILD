@@ -282,3 +282,9 @@ py_test(
         ":test_base",
     ],
 )
+
+py_test(
+    name = "starlark_options_test",
+    srcs = ["starlark_options_test.py"],
+    deps = [":test_base"],
+)

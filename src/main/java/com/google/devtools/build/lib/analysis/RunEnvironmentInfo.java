@@ -100,7 +100,7 @@ public final class RunEnvironmentInfo extends NativeInfo implements RunEnvironme
           Dict.cast(environment, String.class, String.class, "environment"),
           StarlarkList.immutableCopyOf(
               Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
-          /* shouldErrorOnNonExecutableRule */ true);
+          /* shouldErrorOnNonExecutableRule= */ true);
     }
   }
 }

@@ -23,6 +23,7 @@ java_library(
             "WorkerMetricsCollector.java",
             "WorkerMetric.java",
             "WorkerMetricsEvent.java",
+            "WorkerOptions.java",
         ],
     ),
     deps = [
@@ -31,10 +32,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:apache_commons_pool2",
@@ -73,6 +72,7 @@ java_library(
         ":worker_files_hash",
         ":worker_key",
         ":worker_metric",
+        ":worker_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -106,6 +106,7 @@ java_library(
     deps = [
         ":worker",
         ":worker_metric",
+        ":worker_options",
         ":worker_spawn_runner",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -166,5 +167,15 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "worker_options",
+    srcs = ["WorkerOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )

@@ -90,6 +90,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -196,6 +197,12 @@ public class RemoteSpawnCacheTest {
         @Override
         public <T extends ActionContext> T getContext(Class<T> identifyingType) {
           throw new UnsupportedOperationException();
+        }
+
+        @Nullable
+        @Override
+        public FileSystem getActionFileSystem() {
+          return null;
         }
       };
 

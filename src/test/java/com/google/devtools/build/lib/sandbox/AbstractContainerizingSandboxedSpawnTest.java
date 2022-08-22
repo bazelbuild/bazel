@@ -377,7 +377,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
     }
     return new SandboxInputs(
         filesMap,
-        /*virtualInputs=*/ ImmutableSet.of(),
+        /*virtualInputs=*/ ImmutableMap.of(),
         symlinks.entrySet().stream()
             .collect(
                 toImmutableMap(

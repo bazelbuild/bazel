@@ -15,6 +15,7 @@ filegroup(
 )
 
 TESTUTIL_FILES = [
+    "AbstractSkyFunctionEnvironmentForTesting.java",
     "TrackingAwaiter.java",
     "GraphTester.java",
     "GenericFunctionException.java",

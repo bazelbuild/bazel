@@ -93,13 +93,13 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_optional() throws Exception {
     // This should select platform mac, toolchain extra_toolchain_mac, because platform
     // mac is listed first.
-    addToolchain(
+    addOptionalToolchain(
         "extra",
         "extra_toolchain_linux",
         ImmutableList.of("//constraints:linux"),
         ImmutableList.of("//constraints:linux"),
         "baz");
-    addToolchain(
+    addOptionalToolchain(
         "extra",
         "extra_toolchain_mac",
         ImmutableList.of("//constraints:mac"),
@@ -113,7 +113,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     ToolchainContextKey key =
         ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
-            .toolchainTypes(testToolchainType)
+            .toolchainTypes(optionalToolchainType)
             .build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
@@ -122,7 +122,71 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_optional_on_first_platform() throws Exception {
+    // This should select platform mac, toolchain extra_toolchain_mac, independent of platform order
+    addOptionalToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:mac', '//platforms:linux')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(optionalToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(optionalToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
+  }
+
+  @Test
+  public void resolve_optional_on_second_platform() throws Exception {
+    // This should select platform mac, toolchain extra_toolchain_mac, independent of platform order
+    addOptionalToolchain(
+        "extra",
+        "extra_toolchain_mac",
+        ImmutableList.of("//constraints:mac"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteWorkspace(
+        "register_toolchains('//extra:extra_toolchain_mac')",
+        "register_execution_platforms('//platforms:linux', '//platforms:mac')");
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(optionalToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+
+    assertThat(unloadedToolchainContext).hasToolchainType(optionalToolchainTypeLabel);
     assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
     assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
     assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");

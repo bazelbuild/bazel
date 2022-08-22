@@ -217,6 +217,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.jni.JniLoader;
@@ -399,6 +398,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.profileIncludeTargetLabel,
             options.alwaysProfileSlowOperations,
             options.collectWorkerDataInProfiler,
+            options.collectLoadAverageInProfiler,
             WorkerMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
