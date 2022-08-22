@@ -2906,4 +2906,115 @@ EOF
       || fail "Remote execution generated different result"
 }
 
+function test_external_cc_test() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/lib
+  cat > other_repo/lib/BUILD <<'EOF'
+cc_library(
+  name = "lib",
+  srcs = ["lib.cpp"],
+  hdrs = ["lib.h"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > other_repo/lib/lib.h <<'EOF'
+void print_greeting();
+EOF
+  cat > other_repo/lib/lib.cpp <<'EOF'
+#include <cstdio>
+void print_greeting() {
+  printf("Hello, world!\n");
+}
+EOF
+
+  mkdir -p other_repo/test
+  cat > other_repo/test/BUILD <<'EOF'
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = ["//lib"],
+)
+EOF
+  cat > other_repo/test/test.cpp <<'EOF'
+#include "lib/lib.h"
+int main() {
+  print_greeting();
+}
+EOF
+
+  bazel test \
+      --test_output=errors \
+      --remote_executor=grpc://localhost:${worker_port} \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_unresolved_symlink_input() {
+  mkdir -p symlink
+  touch symlink/BUILD
+  cat > symlink/symlink.bzl <<EOF
+def _dangling_symlink_impl(ctx):
+    symlink = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = ctx.attr.link_target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+dangling_symlink = rule(
+    implementation = _dangling_symlink_impl,
+    attrs = {"link_target": attr.string()},
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="non/existent")
+genrule(
+    name = "b",
+    srcs = [":a"],
+    outs = ["b.txt"],
+    cmd = "readlink $(location :a) > $@",
+)
+EOF
+
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --experimental_allow_unresolved_symlinks \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:b &>$TEST_log || fail "expected build to succeed"
+  # Using regex because the symlink is always absolute. https://github.com/bazelbuild/bazel/issues/14224
+  [[ $(cat bazel-bin/pkg/b.txt) =~ .*/non/existent ]] || fail "expected symlink target to be non/existent"
+
+  bazel clean --expunge
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --experimental_allow_unresolved_symlinks \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  # Using regex because the symlink is always absolute. https://github.com/bazelbuild/bazel/issues/14224
+  [[ $(cat bazel-bin/pkg/b.txt) =~ .*/non/existent ]] || fail "expected symlink target to be non/existent"
+}
+
 run_suite "Remote execution and remote cache tests"

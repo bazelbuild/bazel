@@ -74,11 +74,11 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   }
 
   @Override
-  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
+  public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     try {
       super.invalidateObject(key, obj);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      Throwables.propagateIfPossible(t, InterruptedException.class);
       throw new RuntimeException("unexpected", t);
     }
   }

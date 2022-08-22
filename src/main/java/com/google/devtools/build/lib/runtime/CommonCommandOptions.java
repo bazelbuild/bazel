@@ -313,8 +313,16 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If enabled, profiler collects worker's aggregated resource data.")
+      help = "If enabled, the profiler collects worker's aggregated resource data.")
   public boolean collectWorkerDataInProfiler;
+
+  @Option(
+      name = "experimental_collect_load_average_in_profiler",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects the system's overall load average.")
+  public boolean collectLoadAverageInProfiler;
 
   @Option(
       name = "memory_profile",

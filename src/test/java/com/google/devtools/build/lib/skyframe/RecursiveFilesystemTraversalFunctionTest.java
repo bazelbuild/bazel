@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -304,13 +305,22 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static TraversalRequest fileLikeRoot(
-      Artifact file, PackageBoundaryMode pkgBoundaryMode, boolean strictOutput) {
+      Artifact file,
+      PackageBoundaryMode pkgBoundaryMode,
+      boolean strictOutput,
+      boolean emitEmptyDirectoryNodes) {
     return new AutoValue_RecursiveFilesystemTraversalFunctionTest_BasicTraversalRequest(
         DirectTraversalRoot.forFileOrDirectory(file),
         /*isRootGenerated=*/ !file.isSourceArtifact(),
         pkgBoundaryMode,
         strictOutput,
-        /*skipTestingForSubpackage=*/ false);
+        /*skipTestingForSubpackage=*/ false,
+        emitEmptyDirectoryNodes);
+  }
+
+  private static TraversalRequest fileLikeRoot(
+      Artifact file, PackageBoundaryMode pkgBoundaryMode, boolean strictOutput) {
+    return fileLikeRoot(file, pkgBoundaryMode, strictOutput, /*emitEmptyDirectoryNodes=*/ false);
   }
 
   private static TraversalRequest fileLikeRoot(Artifact file, PackageBoundaryMode pkgBoundaryMode) {
@@ -324,7 +334,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         /*isRootGenerated=*/ false,
         pkgBoundaryMode,
         /*strictOutputFiles=*/ false,
-        /*skipTestingForSubpackage=*/ true);
+        /*skipTestingForSubpackage=*/ true,
+        /*emitEmptyDirectoryNodes=*/ false);
   }
 
   @AutoValue
@@ -343,7 +354,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
           isRootGenerated(),
           crossPkgBoundaries(),
           strictOutputFiles(),
-          skipTestingForSubpackage);
+          skipTestingForSubpackage,
+          emitEmptyDirectoryNodes());
     }
   }
 
@@ -671,9 +683,29 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     appendToFile(someFile, "not all changes are treated equal");
     RecursiveFilesystemTraversalValue v4 =
         traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3);
-    assertThat(v4).isEqualTo(v3);
+    assertThat(v4).isSameInstanceAs(v3);
     assertTraversalRootHashesAreEqual(v3, v4);
     assertThat(progressReceiver.invalidations).doesNotContain(traversalRoot);
+
+    // Add a new empty subdirectory to the directory and see that the value is rebuilt, but results
+    // in the collection of files.
+    // TODO(#15901): Empty directories currently aren't representable as tree artifact contents and
+    //  thus aren't tested here.
+    if (!directoryArtifact.isTreeArtifact()) {
+      childOf(directoryArtifact, "empty_dir").asPath().createDirectory();
+      if (directoryArtifact.isSourceArtifact()) {
+        invalidateDirectory(directoryArtifact);
+      } else {
+        invalidateOutputArtifact(directoryArtifact);
+      }
+
+      RecursiveFilesystemTraversalValue v5 =
+          traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3);
+      assertThat(v5.getResolvedRoot()).isEqualTo(v4.getResolvedRoot());
+      assertThat(v5.getTransitiveFiles().toList())
+          .containsExactlyElementsIn(v4.getTransitiveFiles().toList());
+      assertThat(progressReceiver.invalidations).contains(traversalRoot);
+    }
   }
 
   @Test
@@ -691,6 +723,43 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   @Test
   public void testTraversalOfGeneratedDirectory() throws Exception {
     assertTraversalOfDirectory(derivedArtifact("dir"));
+  }
+
+  @Test
+  public void testTraversalOfSourceDirectoryWithEmptyDirectoryNodes() throws Exception {
+    Artifact directoryArtifact = sourceArtifact("dir");
+    directoryArtifact.getPath().createDirectoryAndParents();
+
+    TraversalRequest traversalRoot =
+        fileLikeRoot(
+            directoryArtifact,
+            DONT_CROSS,
+            /*strictOutput=*/ false,
+            /*emitEmptyDirectoryNodes=*/ true);
+
+    // Assert that the SkyValue is built and looks right.
+    ResolvedFile rootNode =
+        ResolvedFileFactory.directory(
+            RootedPath.toRootedPath(
+                directoryArtifact.getRoot().getRoot(), directoryArtifact.getRootRelativePath()));
+    RecursiveFilesystemTraversalValue v1 = traverseAndAssertFiles(traversalRoot, rootNode);
+    assertThat(progressReceiver.invalidations).isEmpty();
+    assertThat(progressReceiver.evaluations).contains(traversalRoot);
+    progressReceiver.clear();
+
+    // Add a new file to the directory and see that the value is rebuilt.
+    RootedPath emptyDir = childOf(directoryArtifact, "empty_dir");
+    emptyDir.asPath().createDirectory();
+    ResolvedFile emptyDirNode = ResolvedFileFactory.directory(emptyDir);
+    invalidateDirectory(directoryArtifact);
+
+    // The value only contains nodes for empty directories - the root dir is no longer empty at this
+    // point and thus not represented as a node.
+    RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(traversalRoot, emptyDirNode);
+    assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreEqual(v1, v2);
+    assertThat(progressReceiver.invalidations).contains(traversalRoot);
+    assertThat(progressReceiver.evaluations).contains(traversalRoot);
   }
 
   @Test

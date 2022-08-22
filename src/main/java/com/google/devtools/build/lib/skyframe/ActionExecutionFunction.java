@@ -985,8 +985,8 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   @Nullable
-  private static <E extends Exception> Object establishSkyframeDependencies(
-      Environment env, Action action) throws ActionExecutionException, InterruptedException {
+  private static Object establishSkyframeDependencies(Environment env, Action action)
+      throws ActionExecutionException, InterruptedException {
     // Before we may safely establish Skyframe dependencies, we must build all action inputs by
     // requesting their ArtifactValues.
     // This is very important to do, because the establishSkyframeDependencies method may request
@@ -1001,8 +1001,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       // checking. See documentation of SkyframeAwareAction.
       Preconditions.checkState(action.executeUnconditionally(), action);
 
-      @SuppressWarnings("unchecked")
-      SkyframeAwareAction<E> skyframeAwareAction = (SkyframeAwareAction<E>) action;
+      SkyframeAwareAction skyframeAwareAction = (SkyframeAwareAction) action;
       ImmutableList<? extends SkyKey> keys = skyframeAwareAction.getDirectSkyframeDependencies();
       SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
 

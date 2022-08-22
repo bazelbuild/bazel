@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
@@ -38,6 +39,7 @@ public class CollectLocalResourceUsage extends Thread {
 
   private final BugReporter bugReporter;
   private final boolean collectWorkerDataInProfiler;
+  private final boolean collectLoadAverage;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
@@ -57,6 +59,9 @@ public class CollectLocalResourceUsage extends Thread {
   @GuardedBy("this")
   private TimeSeries workersMemoryUsage;
 
+  @GuardedBy("this")
+  private TimeSeries systemLoadAverage;
+
   private Stopwatch stopwatch;
 
   private final WorkerMetricsCollector workerMetricsCollector;
@@ -64,10 +69,12 @@ public class CollectLocalResourceUsage extends Thread {
   CollectLocalResourceUsage(
       BugReporter bugReporter,
       WorkerMetricsCollector workerMetricsCollector,
-      boolean collectWorkerDataInProfiler) {
+      boolean collectWorkerDataInProfiler,
+      boolean collectLoadAverage) {
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerMetricsCollector = workerMetricsCollector;
+    this.collectLoadAverage = collectLoadAverage;
   }
 
   @Override
@@ -92,6 +99,11 @@ public class CollectLocalResourceUsage extends Thread {
             new TimeSeries(
                 /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
       }
+      if (collectLoadAverage) {
+        systemLoadAverage =
+            new TimeSeries(
+                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      }
     }
     OperatingSystemMXBean osBean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
@@ -108,8 +120,8 @@ public class CollectLocalResourceUsage extends Thread {
       Duration nextElapsed = stopwatch.elapsed();
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
 
-      double systemLoad = osBean.getSystemCpuLoad();
-      double systemUsage = systemLoad * numProcessors;
+      double systemCpuLoad = osBean.getSystemCpuLoad();
+      double systemUsage = systemCpuLoad * numProcessors;
 
       long systemMemoryUsageMb = -1;
       if (OS.getCurrent() == OS.LINUX) {
@@ -147,10 +159,14 @@ public class CollectLocalResourceUsage extends Thread {
         workerMemoryUsageMb =
             this.workerMetricsCollector.collectMetrics().stream()
                     .map(WorkerMetric::getWorkerStat)
-                    .filter(x -> x != null)
+                    .filter(Objects::nonNull)
                     .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
                     .sum()
                 / 1024;
+      }
+      double loadAverage = 0;
+      if (collectLoadAverage) {
+        loadAverage = osBean.getSystemLoadAverage();
       }
 
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
@@ -173,7 +189,11 @@ public class CollectLocalResourceUsage extends Thread {
         }
         if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
           workersMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) workerMemoryUsageMb);
+              previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
+        }
+        if (collectLoadAverage && loadAverage > 0) {
+          systemLoadAverage.addRange(
+              previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
         }
       }
       previousElapsed = nextElapsed;
@@ -217,6 +237,12 @@ public class CollectLocalResourceUsage extends Thread {
           profiler, workersMemoryUsage, ProfilerTask.WORKERS_MEMORY_USAGE, startTimeNanos, len);
     }
     workersMemoryUsage = null;
+
+    if (collectLoadAverage) {
+      logCollectedData(
+          profiler, systemLoadAverage, ProfilerTask.SYSTEM_LOAD_AVERAGE, startTimeNanos, len);
+    }
+    systemLoadAverage = null;
   }
 
   private static void logCollectedData(

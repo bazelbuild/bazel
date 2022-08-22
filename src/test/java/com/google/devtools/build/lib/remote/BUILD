@@ -120,7 +120,9 @@ java_test(
 
 java_test(
     name = "BuildWithoutTheBytesIntegrationTest",
+    size = "large",
     srcs = ["BuildWithoutTheBytesIntegrationTest.java"],
+    shard_count = 5,
     runtime_deps = [
         "//third_party/grpc-java:grpc-jar",
     ],

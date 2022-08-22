@@ -107,6 +107,6 @@ public class ToolchainContextSubject extends Subject {
   }
 
   public IterableSubject resolvedToolchainLabels() {
-    return check("resolevdToolchainLabels()").that(actual.resolvedToolchainLabels());
+    return check("resolvedToolchainLabels()").that(actual.resolvedToolchainLabels());
   }
 }

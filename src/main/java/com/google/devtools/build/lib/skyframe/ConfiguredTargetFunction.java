@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -98,6 +99,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -301,6 +303,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
       unloadedToolchainContexts = result.toolchainCollection;
       execGroupCollectionBuilder = result.execGroupCollectionBuilder;
+      PlatformInfo platformInfo =
+          unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
       ConfigConditions configConditions =
@@ -308,9 +312,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               env,
               targetAndConfiguration,
               state.transitivePackagesForPackageRootResolution,
-              unloadedToolchainContexts == null
-                  ? null
-                  : unloadedToolchainContexts.getTargetPlatform(),
+              platformInfo,
               state.transitiveRootCauses);
       if (env.valuesMissing()) {
         return null;
@@ -333,6 +335,20 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 "Cannot compute config conditions",
                 causes,
                 getPrioritizedDetailedExitCode(causes)));
+      }
+
+      Optional<RuleConfiguredTargetValue> incompatibleTarget =
+          IncompatibleTargetChecker.createDirectlyIncompatibleTarget(
+              targetAndConfiguration,
+              configConditions,
+              env,
+              platformInfo,
+              state.transitivePackagesForPackageRootResolution);
+      if (incompatibleTarget == null) {
+        return null;
+      }
+      if (incompatibleTarget.isPresent()) {
+        return incompatibleTarget.get();
       }
 
       // Calculate the dependencies of this target.
@@ -366,6 +382,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         return null;
       }
       Preconditions.checkNotNull(depValueMap);
+
+      incompatibleTarget =
+          IncompatibleTargetChecker.createIndirectlyIncompatibleTarget(
+              targetAndConfiguration,
+              depValueMap,
+              configConditions,
+              platformInfo,
+              state.transitivePackagesForPackageRootResolution);
+      if (incompatibleTarget.isPresent()) {
+        return incompatibleTarget.get();
+      }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
       ToolchainCollection<ResolvedToolchainContext> toolchainContexts = null;

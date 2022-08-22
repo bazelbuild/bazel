@@ -448,22 +448,6 @@ public final class RunfilesSupport {
         computeActionEnvironment(ruleContext));
   }
 
-  /**
-   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. This
-   * version discards all arguments. Only use this for <a
-   * href="https://bazel.build/docs/platforms#skipping-incompatible-targets">Incompatible Target
-   * Skipping</a>.
-   */
-  public static RunfilesSupport withExecutableButNoArgs(
-      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
-    return RunfilesSupport.create(
-        ruleContext,
-        executable,
-        runfiles,
-        CommandLine.EMPTY,
-        computeActionEnvironment(ruleContext));
-  }
-
   private static CommandLine computeArgs(RuleContext ruleContext, CommandLine additionalArgs) {
     if (!ruleContext.getRule().isAttrDefined("args", Type.STRING_LIST)) {
       // Some non-_binary rules create RunfilesSupport instances; it is fine to not have an args

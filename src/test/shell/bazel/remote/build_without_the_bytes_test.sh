@@ -133,50 +133,6 @@ EOF
       || fail "Failed to build with --remote_download_minimal"
 }
 
-function test_downloads_minimal_prefetch() {
-  # Test that when using --remote_download_minimal a remote-only output that's
-  # an input to a local action is downloaded lazily before executing the local action.
-  mkdir -p a
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "remote",
-  srcs = [],
-  outs = ["remote.txt"],
-  cmd = "echo -n \"remote\" > \"$@\"",
-)
-
-genrule(
-  name = "local",
-  srcs = [":remote"],
-  outs = ["local.txt"],
-  cmd = "cat $(location :remote) > \"$@\" && echo -n \"local\" >> \"$@\"",
-  tags = ["no-remote"],
-)
-EOF
-
-  bazel build \
-    --genrule_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:remote || fail "Failed to build //a:remote"
-
-  (! [[ -f bazel-bin/a/remote.txt ]]) \
-  || fail "Expected bazel-bin/a/remote.txt to have not been downloaded"
-
-  bazel build \
-    --genrule_strategy=remote,local \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:local || fail "Failed to build //a:local"
-
-  localtxt="bazel-bin/a/local.txt"
-  [[ $(< ${localtxt}) == "remotelocal" ]] \
-  || fail "Unexpected contents in " ${localtxt} ": " $(< ${localtxt})
-
-  [[ -f bazel-bin/a/remote.txt ]] \
-  || fail "Expected bazel-bin/a/remote.txt to be downloaded"
-}
-
 function test_downloads_minimal_hit_action_cache() {
   # Test that remote metadata is saved and action cache is hit across server restarts when using
   # --remote_download_minimal
@@ -587,6 +543,33 @@ EOF
 
   expect_not_log 'uri:.*file://'
   expect_log "uri:.*bytestream://example.com/my-instance-name/blobs"
+}
+
+function test_undeclared_test_outputs_bep() {
+  # Test that when using --remote_download_minimal, undeclared outputs in a test
+  # are reported by BEP
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > a/foo.sh <<'EOF'
+touch $TEST_UNDECLARED_OUTPUTS_DIR/bar.txt
+EOF
+  chmod a+x a/foo.sh
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --build_event_text_file=$TEST_log \
+    //a:foo || fail "Failed to test //a:foo"
+
+  expect_log "test.log"
+  expect_log "test.xml"
+  expect_log "test.outputs__outputs.zip"
+  expect_log "test.outputs_manifest__MANIFEST"
 }
 
 # This test is derivative of test_bep_output_groups in

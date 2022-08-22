@@ -32,9 +32,12 @@ public interface OptionsParsingResult extends OptionsProvider {
   OptionValueDescription getOptionValueDescription(String name);
 
   /**
-   * Returns an immutable copy of the residue, that is, the arguments that
-   * have not been parsed.
+   * Returns an immutable copy of all arguments that were skipped because they matched a skipped
+   * prefix.
    */
+  List<String> getSkippedArgs();
+
+  /** Returns an immutable copy of the residue, that is, the arguments that have not been parsed. */
   List<String> getResidue();
 
   /**

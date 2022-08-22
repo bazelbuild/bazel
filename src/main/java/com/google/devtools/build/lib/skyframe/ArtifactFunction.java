@@ -637,6 +637,11 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     @Override
+    protected boolean emitEmptyDirectoryNodes() {
+      return true;
+    }
+
+    @Override
     protected String errorInfo() {
       return "Directory artifact " + artifact.prettyPrint();
     }

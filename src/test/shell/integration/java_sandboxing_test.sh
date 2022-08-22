@@ -94,39 +94,18 @@ EOF
 
 # Verifies that building a target that uses params files writes those params
 # files to both the execroot and the sandbox.
-function do_test_params_files_not_delayed() {
+function do_test_params_files() {
   local strategy="${1}"; shift
 
   local output_base
   output_base="$(bazel info output_base)" || fail "Cannot get output base"
 
-  # Not passing --noexperimental_delay_virtual_input_materialization on
-  # purpose to ensure that's the current default behavior.
   build_with_params "${strategy}" \
     --build  # Need a no-op flag to avoid set -u breakage on macOS.
 
   find -L "${output_base}" -name "*params" >files.txt || true
   grep -q "${output_base}/execroot" files.txt \
     || fail "Expected params files not found in execroot"
-  grep -q "${output_base}/sandbox" files.txt \
-    || fail "Expected params files not found in sandbox tree"
-}
-
-# Verifies that building a target that uses params files writes those params
-# files only inside the sandbox when we delay virtual input artifact
-# materialization.
-function do_test_params_files_delayed() {
-  local strategy="${1}"; shift
-
-  local output_base
-  output_base="$(bazel info output_base)" || fail "Cannot get output base"
-
-  build_with_params "${strategy}" \
-    --experimental_delay_virtual_input_materialization
-
-  find -L "${output_base}" -name "*params" >files.txt || true
-  grep -q "${output_base}/execroot" files.txt \
-    && fail "Unexpected params files found in execroot"
   grep -q "${output_base}/sandbox" files.txt \
     || fail "Expected params files not found in sandbox tree"
 }
@@ -134,42 +113,23 @@ function do_test_params_files_delayed() {
 # We expect "sandboxed" to use the system-specific sandbox instead of
 # the processwrapper-sandbox (tested below). But if that's not the case,
 # there is not much we can do here.
-function test_params_files_not_delayed_default_sandbox() {
-  do_test_params_files_not_delayed sandboxed
-}
-function test_params_files_delayed_default_sandbox() {
-  do_test_params_files_delayed sandboxed
+function test_params_files_default_sandbox() {
+  do_test_params_files sandboxed
 }
 
-function test_params_files_not_delayed_process_wrapper_sandbox() {
-  do_test_params_files_not_delayed processwrapper-sandbox
-}
-function test_params_files_delayed_process_wrapper_sandbox() {
-  do_test_params_files_delayed processwrapper-sandbox
+function test_params_files_process_wrapper_sandbox() {
+  do_test_params_files processwrapper-sandbox
 }
 
 # Worker tests do not really belong in this file, but as we are exercising
 # the same code path used for the sandbox regarding virtual input artifact
 # materialization, we keep them here to reuse the testing logic.
-function test_params_files_not_delayed_worker() {
+function test_params_files_worker() {
   local output_base
   output_base="$(bazel info output_base)" || fail "Cannot get output base"
 
-  # Not passing --noexperimental_delay_virtual_input_materialization on
-  # purpose to ensure that's the current default behavior.
   build_with_params worker \
     --build  # Need a no-op flag to avoid set -u breakage on macOS.
-
-  find -L "${output_base}" -name "*params" >files.txt || true
-  grep -q "${output_base}/execroot" files.txt \
-    || fail "Expected params files not found in execroot"
-}
-function test_params_files_delayed_worker() {
-  local output_base
-  output_base="$(bazel info output_base)" || fail "Cannot get output base"
-
-  build_with_params worker \
-    --experimental_delay_virtual_input_materialization
 
   find -L "${output_base}" -name "*params" >files.txt || true
   grep -q "${output_base}/execroot" files.txt \

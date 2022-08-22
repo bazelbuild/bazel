@@ -49,7 +49,7 @@ if [[ -z "$$embed_label" ]]; then
   version="not_set"
   bazel_version="not_set"
   bazel_repo_commit="not_set"
-elif [[ "$$embed_label" =~ ^[0-9]+[.][0-9]+[.][0-9]+\\ [0-9]+[.][0-9]+[.][0-9]+\\ [0-9a-f]{40}$$ ]]; then
+elif [[ "$$embed_label" =~ ^[0-9]+[.][0-9]+[.][0-9]+\\ [0-9]+[.][0-9]+[.][0-9]+(-pre[.][0-9]{8}[.][0-9]+)?\\ [0-9a-f]{40}$$ ]]; then
   version="$$(echo $$embed_label | cut -d ' ' -f 1)"
   bazel_version="$$(echo $$embed_label | cut -d ' ' -f 2)"
   bazel_repo_commit="$$(echo $$embed_label | cut -d ' ' -f 3)"

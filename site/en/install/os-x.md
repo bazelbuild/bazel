@@ -59,9 +59,9 @@ you need to download the installer from the terminal using `curl`, replacing
 the version variable with the Bazel version you want to download:
 
 ```posix-terminal
-export BAZEL_VERSION=5.0.0
+export BAZEL_VERSION=5.2.0
 
-curl -fLO "https://github.com/bazelbuild/bazel/releases/download/{{ '<var>' }}BAZEL_VERSION{{ '</var>' }}/bazel-{{ '<var>' }}BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh"
+curl -fLO "https://github.com/bazelbuild/bazel/releases/download/{{ '<var>' }}$BAZEL_VERSION{{ '</var>' }}/bazel-{{ '<var>' }}$BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh"
 ```
 
 This is a temporary workaround until the macOS release flow supports
@@ -72,8 +72,8 @@ signing ([#9304](https://github.com/bazelbuild/bazel/issues/9304){: .external}).
 Run the Bazel installer as follows:
 
 ```posix-terminal
-chmod +x "bazel-{{ '<var>' }}BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh"
-./bazel-{{ '<var>' }}BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh --user
+chmod +x "bazel-{{ '<var>' }}$BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh"
+./bazel-{{ '<var>' }}$BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh --user
 ```
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and

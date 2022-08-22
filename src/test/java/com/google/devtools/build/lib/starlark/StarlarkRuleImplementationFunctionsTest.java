@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -87,7 +88,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark functions relating to rule implementation. */
 @RunWith(JUnit4.class)
-public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
+public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
@@ -761,20 +762,70 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testResolveCommandScript() throws Exception {
+  public void resolveCommandScript() throws Exception {
     setRuleContext(createRuleContext("//foo:resolve_me"));
     ev.exec(
-        "def foo():", // no for loops at top-level
-        "  s = 'a'",
-        "  for i in range(1,17): s = s + s", // 2**17 > CommandHelper.maxCommandLength (=64000)
-        "  return ruleContext.resolve_command(",
-        "    command=s)",
-        "argv = foo()[1]");
+        "s = 'a' * " + CommandHelper.maxCommandLength + 1,
+        "inputs, argv, _ = ruleContext.resolve_command(command = s)");
+
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) (StarlarkList) ev.lookup("argv");
+    List<Artifact> inputs = (List<Artifact>) ev.lookup("inputs");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) ev.lookup("argv");
+
+    assertThat(inputs).hasSize(1);
     assertThat(argv).hasSize(2);
-    assertMatches("argv[0]", "^.*/bash" + OsUtils.executableExtension() + "$", argv.get(0));
-    assertMatches("argv[1]", "^.*/resolve_me[.][a-z0-9]+[.]script[.]sh$", argv.get(1));
+    assertThat(argv.get(0)).endsWith("/bash" + OsUtils.executableExtension());
+    assertThat(argv.get(1)).isEqualTo(inputs.get(0).getExecPathString());
+    assertThat(inputs.get(0).getExecPathString()).endsWith(".script.sh");
+  }
+
+  @Test
+  public void multipleResolveCommandScripts_noConflict() throws Exception {
+    setRuleContext(createRuleContext("//foo:resolve_me"));
+    ev.exec(
+        "s1 = '1' * " + CommandHelper.maxCommandLength + 1,
+        "s2 = '2' * " + CommandHelper.maxCommandLength + 1,
+        "inputs1, argv1, _ = ruleContext.resolve_command(command = s1)",
+        "inputs2, argv2, __ = ruleContext.resolve_command(command = s2)");
+
+    @SuppressWarnings("unchecked")
+    List<Artifact> inputs1 = (List<Artifact>) ev.lookup("inputs1");
+    @SuppressWarnings("unchecked")
+    List<String> argv1 = (List<String>) ev.lookup("argv1");
+    @SuppressWarnings("unchecked")
+    List<Artifact> inputs2 = (List<Artifact>) ev.lookup("inputs2");
+    @SuppressWarnings("unchecked")
+    List<String> argv2 = (List<String>) ev.lookup("argv2");
+
+    assertThat(inputs1).hasSize(1);
+    assertThat(inputs2).hasSize(1);
+    assertThat(inputs1.get(0).getExecPathString()).isNotEqualTo(inputs2.get(0).getExecPathString());
+    assertThat(argv1).hasSize(2);
+    assertThat(argv2).hasSize(2);
+    assertThat(argv1.get(0)).endsWith("/bash" + OsUtils.executableExtension());
+    assertThat(argv2.get(0)).endsWith("/bash" + OsUtils.executableExtension());
+    assertThat(argv1.get(1)).isEqualTo(inputs1.get(0).getExecPathString());
+    assertThat(argv2.get(1)).isEqualTo(inputs2.get(0).getExecPathString());
+  }
+
+  @Test
+  public void resolveCommandScript_namingNotDependantOnCommand() throws Exception {
+    setRuleContext(createRuleContext("//foo:resolve_me"));
+    ev.exec(
+        "s = '1' * " + CommandHelper.maxCommandLength + 1,
+        "result1 = ruleContext.resolve_command(command = s)");
+    var result1 = ev.lookup("result1");
+
+    // Reset the rule context to simulate a build in a different configuration that results in a
+    // different command.
+    setRuleContext(createRuleContext("//foo:resolve_me"));
+    ev.exec(
+        "s = '2' * " + CommandHelper.maxCommandLength + 1,
+        "result2 = ruleContext.resolve_command(command = s)");
+    var result2 = ev.lookup("result2");
+
+    assertThat(result1).isEqualTo(result2);
   }
 
   @Test

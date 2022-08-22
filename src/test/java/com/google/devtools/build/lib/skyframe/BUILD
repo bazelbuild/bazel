@@ -19,13 +19,13 @@ EXCLUDED_FROM_SKYFRAME_TESTS = [
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
     "SkyframeErrorProcessorTest.java",
     "BuildDriverFunctionTest.java",
+    "SkyFunctionEnvironmentForTesting.java",
+    "TrackSourceDirectoriesIntegrationTest.java",
 ]
 
 java_library(
     name = "testutil",
-    srcs = glob([
-        "util/*.java",
-    ]),
+    srcs = glob(["util/*.java"]) + ["SkyFunctionEnvironmentForTesting.java"],
     tags = ["skyframe"],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
     deps = [
@@ -432,5 +432,24 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "TrackSourceDirectoriesIntegrationTest",
+    srcs = ["TrackSourceDirectoriesIntegrationTest.java"],
+    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:track_source_directories_flag",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )

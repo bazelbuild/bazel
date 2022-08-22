@@ -63,8 +63,8 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
   }
 
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
-    starlarkOptionsParser.setResidueForTesting(Arrays.asList(options.split(" ")));
-    starlarkOptionsParser.parse(new StoredEventHandler());
+    starlarkOptionsParser.parseGivenArgs(
+        new StoredEventHandler(), Arrays.asList(options.split(" ")));
     return starlarkOptionsParser.getNativeOptionsParserFortesting();
   }
 

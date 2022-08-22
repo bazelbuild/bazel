@@ -26,7 +26,9 @@ java_binary(
     runtime_deps = [
         ":android_builder_lib",
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
-        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/dependencies",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/scan",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:dexerdeps",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:idlclass_lib",

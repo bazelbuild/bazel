@@ -71,7 +71,6 @@ public class AndroidSdkBaseRule implements RuleDefinition {
                 .exec())
         .add(
             attr("main_dex_list_creator", LABEL)
-                .mandatory()
                 .cfg(ExecutionTransitionFactory.create())
                 .allowedFileTypes(ANY_FILE)
                 .exec())

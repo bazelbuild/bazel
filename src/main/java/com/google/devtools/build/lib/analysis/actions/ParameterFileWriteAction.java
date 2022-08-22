@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -182,5 +183,36 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
     commandLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+  }
+
+  @Override
+  public String describeKey() {
+    StringBuilder message = new StringBuilder();
+    message.append("GUID: ");
+    message.append(GUID);
+    message.append("\nExecutable: ");
+    message.append(makeExecutable);
+    message.append("\nParam File Type: ");
+    message.append(type);
+    message.append("\nContent digest (approximate): ");
+    try {
+      // The full contents can be huge, which makes the final error message
+      // incomprehensible. Instead, just give a digest, which makes it easy to
+      // tell if two contents are equal or not.
+      var fp = new Fingerprint();
+      commandLine.addToFingerprint(new ActionKeyContext(), null, fp);
+      message.append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
+      message.append(
+          "\n"
+              + "NOTE: Content digest reflects approximate, analysis-time data; it does not account"
+              + " for data available during execution (e.g. tree artifact expansions)");
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      message.append("Interrupted while expanding command line");
+    } catch (CommandLineExpansionException e) {
+      message.append("Could not expand contents: ");
+      message.append(e);
+    }
+    return message.toString();
   }
 }

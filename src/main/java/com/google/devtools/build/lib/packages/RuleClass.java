@@ -2093,8 +2093,7 @@ public class RuleClass {
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
       Location location,
-      List<StarlarkThread.CallStackEntry> callstack,
-      boolean checkThirdPartyRulesHaveLicenses)
+      List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule =
         pkgBuilder.createRule(
@@ -2104,18 +2103,6 @@ public class RuleClass {
     rule.populateOutputFiles(eventHandler, pkgBuilder);
     checkForDuplicateLabels(rule, eventHandler);
 
-    boolean actuallyCheckLicense;
-    if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
-      actuallyCheckLicense = true;
-    } else if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
-      actuallyCheckLicense = false;
-    } else {
-      actuallyCheckLicense = checkThirdPartyRulesHaveLicenses;
-    }
-
-    if (actuallyCheckLicense) {
-      checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
-    }
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
     rule.checkValidityPredicate(eventHandler);
     return rule;
@@ -2444,30 +2431,6 @@ public class RuleClass {
                 "Label '%s' is duplicated in the '%s' attribute of rule '%s'",
                 label, attribute.getName(), rule.getName()),
             eventHandler);
-      }
-    }
-  }
-
-  /**
-   * Reports an error against the specified rule if it's beneath third_party
-   * but does not have a declared license.
-   */
-  private static void checkThirdPartyRuleHasLicense(Rule rule,
-      Package.Builder pkgBuilder, EventHandler eventHandler) {
-    if (rule.getRuleClassObject().ignoreLicenses()) {
-      // A package license is sufficient; ignore rules that don't include it.
-      return;
-    }
-    if (isThirdPartyPackage(rule.getLabel().getPackageIdentifier())) {
-      License license = rule.getLicense();
-      if (license == null) {
-        license = pkgBuilder.getDefaultLicense();
-      }
-      if (!license.isSpecified()) {
-        rule.reportError("third-party rule '" + rule.getLabel() + "' lacks a license declaration "
-                         + "with one of the following types: notice, reciprocal, permissive, "
-                         + "restricted, unencumbered, by_exception_only",
-                         eventHandler);
       }
     }
   }

@@ -274,6 +274,33 @@ EOF
   assert_multiple_dex_files
 }
 
+function test_manual_main_dex() {
+  # Substantially cribbed from test_native_multidex()
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+genrule(
+    name = "main_dex_list_txt",
+    cmd = "echo com.example.hello > $@",
+    outs = ["main_dex_list.txt"],
+)
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "manual_main_dex",
+    main_dex_list = ":main_dex_list_txt",
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
 function test_native_multidex_proguard() {
   write_hello_android_files
   setup_android_sdk_support

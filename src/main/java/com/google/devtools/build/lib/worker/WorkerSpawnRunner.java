@@ -356,7 +356,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
   }
 
-  // LINT.IfChange(:workerAsResource)
+  // LINT.IfChange(workerAsResource)
   @SuppressWarnings(
       "Finally") // We want to return response only if worker successfully returned to the pool
   WorkResponse execInWorkerWorkerAsResource(
@@ -373,19 +373,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests;
+    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
+        inputFiles.getVirtualInputDigests();
+
     Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
+    boolean hasOutputFileLock = false;
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-      try {
-        virtualInputDigests = inputFiles.materializeVirtualInputs(execRoot);
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while materializing virtual inputs:";
-        throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
-      }
-
       try {
         context.prefetchInputsAndWait();
       } catch (IOException e) {
@@ -455,6 +450,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         if (workerOwner.getWorker() != null) {
           Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
           context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
+          hasOutputFileLock = true;
           workerOwner.getWorker().finishExecution(execRoot, outputs);
           spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
         } else {
@@ -479,9 +475,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
       String message = "IOException during worker execution:";
       throw createUserExecException(e, message, Code.BORROW_FAILURE);
     } catch (UserExecException | InterruptedException e) {
-      if (handle != null && workerOwner.getWorker() != null) {
+      Worker worker = workerOwner.getWorker();
+      if (handle != null && worker != null) {
         try {
           handle.invalidateAndClose();
+          if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
+            // If the worker has died, we take the lock to a) fail earlier and b) have a chance
+            // to let the other dynamic execution branch take over if the error can be ignored.
+            context.lockOutputFiles(worker.getExitValue().get(), e.getMessage(), null);
+          }
         } catch (IOException e1) {
           // The original exception is more important / helpful, so we'll just ignore this one.
           restoreInterrupt(e1);
@@ -506,7 +508,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   // LINT.ThenChange(:classic)
 
   // TODO (b/214919266) Remove this after filpping the flag.
-  // LINT.IfChange(:classic)
+  // LINT.IfChange(classic)
   WorkResponse execInWorkerClassic(
       Spawn spawn,
       WorkerKey key,
@@ -521,19 +523,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests;
+    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
+        inputFiles.getVirtualInputDigests();
+    boolean hasOutputFileLock = false;
     try {
       Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-        try {
-          virtualInputDigests = inputFiles.materializeVirtualInputs(execRoot);
-        } catch (IOException e) {
-          restoreInterrupt(e);
-          String message = "IOException while materializing virtual inputs:";
-          throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
-        }
-
         try {
           context.prefetchInputsAndWait();
         } catch (IOException e) {
@@ -607,6 +603,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                       "Worker #%d copying output files", workerOwner.getWorker().getWorkerId()))) {
         Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
         context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
+        hasOutputFileLock = true;
         workerOwner.getWorker().finishExecution(execRoot, outputs);
         spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {
@@ -621,12 +618,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw createUserExecException(message, Code.FINISH_FAILURE);
       }
     } catch (UserExecException e) {
-      if (workerOwner.getWorker() != null) {
+      Worker worker = workerOwner.getWorker();
+      if (worker != null) {
         try {
-          workers.invalidateObject(key, workerOwner.getWorker());
-        } catch (IOException e1) {
-          // The original exception is more important / helpful, so we'll just ignore this one.
-          restoreInterrupt(e1);
+          workers.invalidateObject(key, worker);
+          if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
+            // If the worker has died, we take the lock to a) fail earlier and b) have a chance
+            // to let the other dynamic execution branch take over if the error can be ignored.
+            context.lockOutputFiles(worker.getExitValue().get(), e.getMessage(), null);
+          }
         } finally {
           workerOwner.setWorker(null);
         }
@@ -729,8 +729,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
         if (!workerAsResource) {
           try {
             workers.invalidateObject(key, workerOwner.getWorker());
-          } catch (IOException e1) {
-            // Nothing useful we can do here, in fact it may not be possible to get here.
           } finally {
             workerOwner.setWorker(null);
           }

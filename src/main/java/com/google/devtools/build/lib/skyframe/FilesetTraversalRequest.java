@@ -65,6 +65,11 @@ public class FilesetTraversalRequest extends TraversalRequest {
   }
 
   @Override
+  protected boolean emitEmptyDirectoryNodes() {
+    return false;
+  }
+
+  @Override
   protected final String errorInfo() {
     return String.format(
         "Fileset '%s' traversing %s '%s'",

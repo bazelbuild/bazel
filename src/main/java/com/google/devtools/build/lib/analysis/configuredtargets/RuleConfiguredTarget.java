@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -153,6 +154,28 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         ruleContext.createOutputArtifact(out);
       }
     }
+  }
+
+  /** Use this constructor for creating incompatible ConfiguredTarget instances. */
+  public RuleConfiguredTarget(
+      Label label,
+      BuildConfigurationKey configurationKey,
+      NestedSet<PackageGroupContents> visibility,
+      TransitiveInfoProviderMap providers,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String ruleClassString) {
+    this(
+        label,
+        configurationKey,
+        visibility,
+        providers,
+        configConditions,
+        ImmutableSet.<ConfiguredTargetKey>of(),
+        ruleClassString,
+        ImmutableList.<ActionAnalysisMetadata>of(),
+        ImmutableMap.<Label, Artifact>of());
+
+    Preconditions.checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, label);
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */

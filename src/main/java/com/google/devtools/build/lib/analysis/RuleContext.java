@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -2180,14 +2179,6 @@ public final class RuleContext extends TargetContext
 
     private void validateDirectPrerequisite(
         Attribute attribute, ConfiguredTargetAndData prerequisite) {
-      if (RuleContextConstraintSemantics.checkForIncompatibility(prerequisite.getConfiguredTarget())
-          .isIncompatible()) {
-        // If the prerequisite is incompatible (e.g. has an incompatible provider), we pretend that
-        // there is no further validation needed. Otherwise, it would be difficult to make the
-        // incompatible target satisfy things like required providers and file extensions.
-        return;
-      }
-
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

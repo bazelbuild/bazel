@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -111,6 +110,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -768,11 +768,15 @@ public class RemoteExecutionService {
   }
 
   private void injectRemoteArtifact(
-      RemoteAction action, Artifact output, ActionResultMetadata metadata) throws IOException {
+      RemoteAction action, ActionInput output, ActionResultMetadata metadata) throws IOException {
+    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
+    checkState(actionFileSystem instanceof RemoteActionFileSystem);
+
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
-    MetadataInjector metadataInjector = action.getSpawnExecutionContext().getMetadataInjector();
+    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
+
     Path path = remotePathResolver.outputPathToLocalPath(output);
-    if (output.isTreeArtifact()) {
+    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
       DirectoryMetadata directory = metadata.directory(path);
       if (directory == null) {
         // A declared output wasn't created. It might have been an optional output and if not
@@ -797,7 +801,7 @@ public class RemoteExecutionService {
                 context.getRequestMetadata().getActionId());
         tree.putChild(child, value);
       }
-      metadataInjector.injectTree(parent, tree.build());
+      remoteActionFileSystem.injectTree(parent, tree.build());
     } else {
       FileMetadata outputMetadata = metadata.file(path);
       if (outputMetadata == null) {
@@ -805,7 +809,7 @@ public class RemoteExecutionService {
         // SkyFrame will make sure to fail.
         return;
       }
-      metadataInjector.injectFile(
+      remoteActionFileSystem.injectFile(
           output,
           new RemoteFileArtifactValue(
               DigestUtil.toBinaryDigest(outputMetadata.digest()),
@@ -1176,9 +1180,7 @@ public class RemoteExecutionService {
           inMemoryOutputDigest = m.digest();
           inMemoryOutput = output;
         }
-        if (output instanceof Artifact) {
-          injectRemoteArtifact(action, (Artifact) output, metadata);
-        }
+        injectRemoteArtifact(action, output, metadata);
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {

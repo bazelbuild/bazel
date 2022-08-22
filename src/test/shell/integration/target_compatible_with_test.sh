@@ -182,6 +182,14 @@ sh_binary(
         ":foo3",
     ],
 )
+
+# Use this to let us change select() statements from the command line.
+config_setting(
+  name = "setting1",
+  define_values = {
+    "foo": "1",
+  },
+)
 EOF
 }
 
@@ -190,6 +198,77 @@ add_to_bazelrc "build --incompatible_merge_genfiles_directory=true"
 
 function tear_down() {
   bazel shutdown
+}
+
+function set_up_custom_toolchain() {
+  mkdir -p target_skipping/custom_tools/
+  cat > target_skipping/custom_tools/BUILD <<EOF
+load(":toolchain.bzl", "custom_toolchain")
+
+toolchain_type(name = "toolchain_type")
+
+custom_toolchain(
+    name = "toolchain",
+    compiler_path = "customc",
+)
+
+toolchain(
+    name = "custom_foo3_toolchain",
+    exec_compatible_with = [
+        "//target_skipping:foo3",
+    ],
+    target_compatible_with = [
+        "//target_skipping:foo3",
+    ],
+    toolchain = ":toolchain",
+    toolchain_type = ":toolchain_type",
+)
+EOF
+
+  cat > target_skipping/custom_tools/toolchain.bzl <<EOF
+def _custom_binary_impl(ctx):
+    info = ctx.toolchains["//target_skipping/custom_tools:toolchain_type"].custom_info
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(out, "%s %s" % (info.compiler_path, ctx.file.src.short_path))
+
+custom_binary = rule(
+    implementation = _custom_binary_impl,
+    attrs = {
+        "src": attr.label(allow_single_file=True),
+    },
+    toolchains = ["//target_skipping/custom_tools:toolchain_type"],
+)
+
+CustomInfo = provider(
+    fields = {
+        "compiler_path": "The path to the compiler binary",
+    },
+)
+
+def _custom_toolchain_impl(ctx):
+    return [platform_common.ToolchainInfo(
+        custom_info = CustomInfo(
+            compiler_path = ctx.attr.compiler_path,
+        ),
+    )]
+
+custom_toolchain = rule(
+    implementation = _custom_toolchain_impl,
+    attrs = {
+        "compiler_path": attr.string(),
+    },
+)
+
+def _compiler_flag_impl(ctx):
+    toolchain = ctx.toolchains["//target_skipping/custom_tools:toolchain_type"].custom_info
+    return [config_common.FeatureFlagInfo(value = toolchain.compiler_path)]
+
+compiler_flag = rule(
+    implementation = _compiler_flag_impl,
+    toolchains = ["//target_skipping/custom_tools:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+)
+EOF
 }
 
 # Validates that we get a good error message when passing a config_setting into
@@ -798,6 +877,148 @@ EOF
     //target_skipping:pass_on_everything_but_foo1_and_foo2 &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
   expect_log '^//target_skipping:pass_on_everything_but_foo1_and_foo2  *  PASSED in'
+}
+
+function test_incompatible_with_aliased_constraint() {
+  cat >> target_skipping/BUILD <<EOF
+alias(
+    name = "also_foo3",
+    actual = ":foo3",
+)
+
+alias(
+    name = "again_foo3",
+    actual = ":foo3",
+)
+
+cc_library(
+    name = "some_library",
+    target_compatible_with = select({
+        ":also_foo3": [":again_foo3"],
+        "//conditions:default": [":not_compatible"],
+    }),
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" \
+    || fail "Bazel build failed unexpectedly."
+  expect_log 'Target //target_skipping:some_library up-to-date'
+}
+
+function test_incompatible_with_aliased_target() {
+  cat >> target_skipping/BUILD <<EOF
+alias(
+    name = "also_some_foo3_target",
+    actual = ":some_foo3_target",
+)
+EOF
+
+  # Try with :foo1. This should fail.
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:also_some_foo3_target  &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+  expect_log 'ERROR: Target //target_skipping:also_some_foo3_target is incompatible and cannot be built, but was explicitly requested'
+  expect_log 'FAILED: Build did NOT complete successfully'
+}
+
+# Validate that an incompatible target with a toolchain not available for the
+# current platform will not cause an analysis error. This is a regression test
+# for https://github.com/bazelbuild/bazel/issues/12897.
+function test_incompatible_with_missing_toolchain() {
+  set_up_custom_toolchain
+
+  cat >> target_skipping/BUILD <<EOF
+load(
+    "//target_skipping/custom_tools:toolchain.bzl",
+    "compiler_flag",
+    "custom_binary",
+)
+
+objc_library(
+    name = "objc",
+    target_compatible_with = select({
+        ":setting1": ["//target_skipping:foo1"],
+        "//conditions:default": ["//target_skipping:foo2"],
+    }),
+)
+
+custom_binary(
+    name = "custom1",
+    src = "custom.txt",
+    target_compatible_with = ["//target_skipping:foo1"],
+)
+
+compiler_flag(name = "compiler_flag")
+
+config_setting(
+    name = "using_custom_toolchain",
+    flag_values = {
+        ":compiler_flag": "customc",
+    },
+)
+
+custom_binary(
+    name = "custom2",
+    src = "custom.txt",
+    target_compatible_with = select({
+        ":using_custom_toolchain": [":not_compatible"],
+        "//conditions:default": [],
+    }),
+)
+EOF
+
+  cat > target_skipping/custom.txt <<EOF
+This is a custom dummy file.
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build --define=foo=1 \
+    --show_result=10 \
+    --extra_toolchains=//target_skipping/custom_tools:custom_foo3_toolchain \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" \
+    || fail "Bazel build failed unexpectedly."
+  expect_log 'Target //target_skipping:objc was skipped'
+  expect_log 'Target //target_skipping:custom1 was skipped'
+  expect_log 'Target //target_skipping:custom2 was skipped'
+}
+
+# Validates that if a target is "directly incompatible" then its dependencies
+# are not evaluated. I.e. there should be no need to guard the dependencies
+# with a select() statement.
+function test_invalid_deps_are_ignored_when_incompatible() {
+  cat >> target_skipping/BUILD <<EOF
+cc_binary(
+    name = "incompatible_tool",
+    deps = [
+        "//nonexistent_dep",
+    ],
+    target_compatible_with = [
+        ":foo1",
+    ],
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping/... &> "${TEST_log}" \
+    || fail "Bazel build failed unexpectedly."
+  expect_log 'Target //target_skipping:incompatible_tool was skipped'
 }
 
 # Validates that a tool compatible with the host platform, but incompatible

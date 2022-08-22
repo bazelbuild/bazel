@@ -199,7 +199,7 @@ public final class SandboxModule extends BlazeModule {
     SandboxOptions options = checkNotNull(env.getOptions().getOptions(SandboxOptions.class));
     sandboxBase = computeSandboxBase(options, env);
 
-    SandboxHelpers helpers = new SandboxHelpers(options.delayVirtualInputMaterialization);
+    SandboxHelpers helpers = new SandboxHelpers();
 
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.

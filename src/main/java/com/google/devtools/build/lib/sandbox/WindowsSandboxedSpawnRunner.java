@@ -74,8 +74,6 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
             execRoot);
 
-    readablePaths.materializeVirtualInputs(execRoot);
-
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
     writablePaths.addAll(getWritableDirs(execRoot, environment));
     for (ActionInput output : spawn.getOutputFiles()) {
