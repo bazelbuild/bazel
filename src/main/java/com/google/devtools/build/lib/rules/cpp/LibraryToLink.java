@@ -32,6 +32,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Encapsulates information for linking a library. */
@@ -125,6 +126,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return getMustKeepDebug();
   }
 
+  @Nullable
   @Override
   public final Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
@@ -145,6 +147,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return ctx == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(ctx.getBitcodeFiles());
   }
 
+  @Nullable
   @Override
   public final Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
@@ -224,7 +227,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   abstract boolean getDisableWholeArchive();
 
   @Override
-  public final void debugPrint(Printer printer) {
+  public final void debugPrint(Printer printer, StarlarkSemantics semantics) {
     printer.append("<LibraryToLink(");
     printer.append(
         Joiner.on(", ")
@@ -243,6 +246,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     printer.append(")>");
   }
 
+  @Nullable
   private static String mapEntry(String keyName, @Nullable Object value) {
     return value == null ? null : keyName + "=" + value;
   }
@@ -363,18 +367,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
       public final LibraryToLink build() {
         LibraryToLink result = autoBuild();
         Preconditions.checkNotNull(result.getLibraryIdentifier(), result);
-        Preconditions.checkState(
-            (result.getObjectFiles() == null
-                    && result.getLtoCompilationContext() == null
-                    && result.getSharedNonLtoBackends() == null)
-                || result.getStaticLibrary() != null,
-            result);
-        Preconditions.checkState(
-            (result.getPicObjectFiles() == null
-                    && result.getPicLtoCompilationContext() == null
-                    && result.getPicSharedNonLtoBackends() == null)
-                || result.getPicStaticLibrary() != null,
-            result);
         Preconditions.checkState(
             result.getResolvedSymlinkDynamicLibrary() == null || result.getDynamicLibrary() != null,
             result);

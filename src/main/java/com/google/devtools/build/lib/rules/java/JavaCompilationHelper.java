@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -32,6 +35,8 @@ import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -267,6 +272,20 @@ public final class JavaCompilationHelper {
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
     }
 
+    Artifact optimizedJar = null;
+    if (getJavaConfiguration().runLocalJavaOptimizations()) {
+      optimizedJar = outputs.output();
+      outputs =
+          outputs.withOutput(
+              ruleContext.getDerivedArtifact(
+                  FileSystemUtils.replaceExtension(
+                      outputs
+                          .output()
+                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
+                      "-pre-optimization.jar"),
+                  outputs.output().getRoot()));
+    }
+
     ImmutableList<String> javacopts = customJavacOpts;
     if (jspecify) {
       plugins =
@@ -291,12 +310,13 @@ public final class JavaCompilationHelper {
     builder.setCoverageArtifact(coverageArtifact);
     BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
     builder.setBootClassPath(bootClassPathInfo);
+    NestedSet<Artifact> classpath =
+        NestedSetBuilder.<Artifact>naiveLinkOrder()
+            .addTransitive(bootClassPathInfo.auxiliary())
+            .addTransitive(attributes.getCompileTimeClassPath())
+            .build();
     if (!bootClassPathInfo.auxiliary().isEmpty()) {
-      builder.setClasspathEntries(
-          NestedSetBuilder.<Artifact>naiveLinkOrder()
-              .addTransitive(bootClassPathInfo.auxiliary())
-              .addTransitive(attributes.getCompileTimeClassPath())
-              .build());
+      builder.setClasspathEntries(classpath);
       builder.setDirectJars(
           NestedSetBuilder.<Artifact>naiveLinkOrder()
               .addTransitive(bootClassPathInfo.auxiliary())
@@ -352,6 +372,20 @@ public final class JavaCompilationHelper {
 
     JavaCompileAction javaCompileAction = builder.build();
     ruleContext.getAnalysisEnvironment().registerAction(javaCompileAction);
+
+    if (optimizedJar != null) {
+      JavaConfiguration.NamedLabel optimizerLabel = getJavaConfiguration().getBytecodeOptimizer();
+      createLocalOptimizationAction(
+          outputs.output(),
+          optimizedJar,
+          NestedSetBuilder.<Artifact>naiveLinkOrder()
+              .addTransitive(bootClassPathInfo.bootclasspath())
+              .addTransitive(classpath)
+              .build(),
+          javaToolchain.getLocalJavaOptimizationConfiguration(),
+          javaToolchain.getBytecodeOptimizer().tool(),
+          optimizerLabel.name());
+    }
   }
 
   /**
@@ -367,7 +401,7 @@ public final class JavaCompilationHelper {
         || !getTranslations().isEmpty();
   }
 
-  private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
+  private ImmutableMap<String, String> getExecutionInfo() {
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
     if (javaToolchain.getJavacSupportsWorkers()) {
@@ -381,11 +415,11 @@ public final class JavaCompilationHelper {
     }
     executionInfo.putAll(
         getConfiguration()
-            .modifiedExecutionInfo(workerInfo.build(), JavaCompileActionBuilder.MNEMONIC));
+            .modifiedExecutionInfo(workerInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
-    return executionInfo.build();
+    return executionInfo.buildOrThrow();
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
@@ -422,6 +456,7 @@ public final class JavaCompilationHelper {
    *
    * <p>Returns {@code null} if {@code compileJar} should not be instrumented.
    */
+  @Nullable
   private Artifact maybeCreateCoverageArtifact(Artifact compileJar) {
     if (!shouldInstrumentJar()) {
       return null;
@@ -702,6 +737,41 @@ public final class JavaCompilationHelper {
     return jar;
   }
 
+  public void createLocalOptimizationAction(
+      Artifact unoptimizedOutputJar,
+      Artifact optimizedOutputJar,
+      NestedSet<Artifact> classpath,
+      List<Artifact> configs,
+      FilesToRunProvider optimizer,
+      String mnemonic) {
+    CustomCommandLine.Builder command =
+        CustomCommandLine.builder()
+            .add("-runtype", "LOCAL_ONLY")
+            .addExecPath("-injars", unoptimizedOutputJar)
+            .addExecPath("-outjars", optimizedOutputJar)
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-libraryjars").each(classpath));
+    for (Artifact config : configs) {
+      command.addPrefixedExecPath("@", config);
+    }
+
+    getRuleContext()
+        .registerAction(
+            new SpawnAction.Builder()
+                .addInput(unoptimizedOutputJar)
+                .addTransitiveInputs(classpath)
+                .addInputs(configs)
+                .addOutput(optimizedOutputJar)
+                .setExecutable(optimizer)
+                .addCommandLine(
+                    command.build(),
+                    ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
+                        .setFlagsOnly(true)
+                        .build())
+                .setProgressMessage("Optimizing jar %{label}")
+                .setMnemonic(mnemonic)
+                .build(getRuleContext()));
+  }
+
   private void addArgsAndJarsToAttributes(
       JavaCompilationArgsProvider args, NestedSet<Artifact> directJars) {
     // Can only be non-null when isStrict() returns true.
@@ -876,5 +946,25 @@ public final class JavaCompilationHelper {
     String basename = FileSystemUtils.removeExtension(path.getBaseName()) + suffix;
     path = path.replaceName(prefix + basename);
     return context.getDerivedArtifact(path, artifact.getRoot());
+  }
+
+  /**
+   * Canonical place to determine if a Java action should strip config prefixes from its output
+   * paths.
+   *
+   * <p>See {@link PathStripper}.
+   */
+  static boolean stripOutputPaths(
+      NestedSet<Artifact> actionInputs, BuildConfigurationValue configuration) {
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    return coreOptions.outputPathsMode == OutputPathsMode.STRIP
+        && PathStripper.isPathStrippable(
+            actionInputs,
+            PathFragment.create(configuration.getDirectories().getRelativeOutputPath()));
+  }
+
+  /** The output path under the exec root (i.e. "bazel-out"). */
+  static PathFragment outputBase(Artifact anyGeneratedArtifact) {
+    return anyGeneratedArtifact.getExecPath().subFragment(0, 1);
   }
 }

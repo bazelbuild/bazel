@@ -26,13 +26,22 @@ import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
@@ -73,19 +82,70 @@ public class CompatDexBuilder {
     }
   }
 
-  private String input;
-  private String output;
-  private int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
-  private boolean noLocals;
-
   public static void main(String[] args)
-      throws IOException, InterruptedException, ExecutionException {
-    new CompatDexBuilder().run(args);
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
+    CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
+    if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
+      ByteArrayOutputStream buf = new ByteArrayOutputStream();
+      PrintStream ps = new PrintStream(buf, true);
+      PrintStream realStdOut = System.out;
+      PrintStream realStdErr = System.err;
+
+      // Redirect all stdout and stderr output for logging.
+      System.setOut(ps);
+      System.setErr(ps);
+      try {
+        WorkRequestHandler workerHandler =
+            new WorkRequestHandler.WorkRequestHandlerBuilder(
+                    new WorkRequestHandler.WorkRequestCallback(
+                        (request, pw) ->
+                            compatDexBuilder.processRequest(request.getArgumentsList(), pw, buf)),
+                    realStdErr,
+                    new ProtoWorkerMessageProcessor(System.in, realStdOut))
+                .setCpuUsageBeforeGc(Duration.ofSeconds(10))
+                .build();
+        workerHandler.processRequests();
+      } catch (IOException e) {
+        realStdErr.println(e.getMessage());
+        System.exit(1);
+      } finally {
+        System.setOut(realStdOut);
+        System.setErr(realStdErr);
+      }
+    } else {
+      compatDexBuilder.dexEntries(Arrays.asList(args));
+    }
+  }
+
+  private int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+    try {
+      dexEntries(args);
+      return 0;
+    } catch (OptionsParsingException e) {
+      pw.println("CompatDexBuilder raised OptionsParsingException: " + e.getMessage());
+      return 1;
+    } catch (IOException | InterruptedException | ExecutionException e) {
+      e.printStackTrace();
+      return 1;
+    } finally {
+      // Write the captured buffer to the work response
+      synchronized (buf) {
+        String captured = buf.toString(UTF_8).trim();
+        buf.reset();
+        pw.print(captured);
+      }
+    }
   }
 
   @SuppressWarnings("JdkObsolete")
-  private void run(String[] args) throws IOException, InterruptedException, ExecutionException {
+  private void dexEntries(List<String> args)
+      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
     List<String> flags = new ArrayList<>();
+    String input = null;
+    String output = null;
+    int minSdkVersionFlag = Constants.MIN_API_LEVEL;
+    int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
+    boolean noLocals = false;
 
     for (String arg : args) {
       if (arg.startsWith("@")) {
@@ -126,20 +186,20 @@ public class CompatDexBuilder {
         case "--nolocals":
           noLocals = true;
           break;
+        case "--min_sdk_version":
+          minSdkVersionFlag = Integer.parseInt(flags.get(++i));
+          break;
         default:
-          System.err.println("Unsupported option: " + flag);
-          System.exit(1);
+          throw new OptionsParsingException("Unsupported option: " + flag);
       }
     }
 
     if (input == null) {
-      System.err.println("No input jar specified");
-      System.exit(1);
+      throw new OptionsParsingException("No input jar specified");
     }
 
     if (output == null) {
-      System.err.println("No output jar specified");
-      System.exit(1);
+      throw new OptionsParsingException("No output jar specified");
     }
 
     ExecutorService executor = Executors.newWorkStealingPool(numberOfThreads);
@@ -149,6 +209,8 @@ public class CompatDexBuilder {
       List<ZipEntry> toDex = new ArrayList<>();
 
       try (ZipFile zipFile = new ZipFile(input, UTF_8)) {
+        final CompilationMode compilationMode =
+            noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG;
         final Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
           ZipEntry entry = entries.nextElement();
@@ -161,9 +223,12 @@ public class CompatDexBuilder {
           }
         }
 
+        final int minSdkVersion = minSdkVersionFlag;
         List<Future<DexConsumer>> futures = new ArrayList<>(toDex.size());
         for (ZipEntry classEntry : toDex) {
-          futures.add(executor.submit(() -> dexEntry(zipFile, classEntry, executor)));
+          futures.add(
+              executor.submit(
+                  () -> dexEntry(zipFile, classEntry, compilationMode, minSdkVersion, executor)));
         }
         for (int i = 0; i < futures.size(); i++) {
           ZipEntry entry = toDex.get(i);
@@ -176,14 +241,19 @@ public class CompatDexBuilder {
     }
   }
 
-  private DexConsumer dexEntry(ZipFile zipFile, ZipEntry classEntry, ExecutorService executor)
+  private DexConsumer dexEntry(
+      ZipFile zipFile,
+      ZipEntry classEntry,
+      CompilationMode mode,
+      int minSdkVersion,
+      ExecutorService executor)
       throws IOException, CompilationFailedException {
     DexConsumer consumer = new DexConsumer();
     D8Command.Builder builder = D8Command.builder();
     builder
         .setProgramConsumer(consumer)
-        .setMode(noLocals ? CompilationMode.RELEASE : CompilationMode.DEBUG)
-        .setMinApiLevel(13) // H_MR2.
+        .setMode(mode)
+        .setMinApiLevel(minSdkVersion)
         .setDisableDesugaring(true)
         .setIntermediate(true);
     try (InputStream stream = zipFile.getInputStream(classEntry)) {

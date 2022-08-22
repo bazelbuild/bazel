@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.internal.SignalHandlersFactory;
 import com.google.testing.junit.runner.junit4.CancellableRequestFactoryFactory;
@@ -265,16 +266,19 @@ public final class JUnit4Bazel {
       return new JUnit4Bazel(this);
     }
 
+    @CanIgnoreReturnValue
     public Builder jUnit4RunnerModule(JUnit4RunnerModule jUnit4RunnerModule) {
       this.jUnit4RunnerModule = checkNotNull(jUnit4RunnerModule);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder suiteClass(JUnit4InstanceModules.SuiteClass suiteClass) {
       this.suiteClass = checkNotNull(suiteClass);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder config(JUnit4InstanceModules.Config config) {
       this.config = checkNotNull(config);
       return this;

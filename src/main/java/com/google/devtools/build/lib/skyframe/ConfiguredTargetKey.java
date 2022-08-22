@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -199,6 +200,14 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return new Builder();
   }
 
+  /** Returns a new {@link ConfiguredTargetKey}. */
+  public static ConfiguredTargetKey fromConfiguredTarget(ConfiguredTarget configuredTarget) {
+    return builder()
+        .setLabel(configuredTarget.getOriginalLabel())
+        .setConfigurationKey(configuredTarget.getConfigurationKey())
+        .build();
+  }
+
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */
   public static final class Builder {
     private Label label = null;
@@ -208,30 +217,20 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     private Builder() {}
 
     /** Sets the label for the target. */
+    @CanIgnoreReturnValue
     public Builder setLabel(Label label) {
       this.label = label;
       return this;
     }
 
-    /**
-     * Sets the {@link ConfiguredTarget} that we want a key for.
-     *
-     * <p>This sets both the label and configurationKey data.
-     */
-    public Builder setConfiguredTarget(ConfiguredTarget configuredTarget) {
-      setLabel(configuredTarget.getOriginalLabel());
-      if (this.configurationKey == null) {
-        setConfigurationKey(configuredTarget.getConfigurationKey());
-      }
-      return this;
-    }
-
     /** Sets the {@link BuildConfigurationValue} for the configured target. */
+    @CanIgnoreReturnValue
     public Builder setConfiguration(@Nullable BuildConfigurationValue buildConfiguration) {
       return setConfigurationKey(buildConfiguration == null ? null : buildConfiguration.getKey());
     }
 
     /** Sets the configuration key for the configured target. */
+    @CanIgnoreReturnValue
     public Builder setConfigurationKey(@Nullable BuildConfigurationKey configurationKey) {
       this.configurationKey = configurationKey;
       return this;
@@ -241,6 +240,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
      * Sets the execution platform {@link Label} this configured target should use for toolchain
      * resolution. When present, this overrides the normally determined execution platform.
      */
+    @CanIgnoreReturnValue
     public Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel) {
       this.executionPlatformLabel = executionPlatformLabel;
       return this;

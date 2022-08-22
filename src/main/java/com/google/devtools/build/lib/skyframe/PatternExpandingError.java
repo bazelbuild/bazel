@@ -81,4 +81,9 @@ public final class PatternExpandingError implements BuildEvent {
             .build();
     return GenericBuildEvent.protoChaining(this).setAborted(failure).build();
   }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
+  }
 }

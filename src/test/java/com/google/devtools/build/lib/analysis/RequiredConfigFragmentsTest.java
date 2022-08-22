@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -199,6 +200,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     }
 
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws ActionConflictException, InterruptedException {
       return new RuleConfiguredTargetBuilder(ruleContext)
@@ -458,5 +460,75 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         getConfiguredTarget("//a:example").getProvider(RequiredConfigFragmentsProvider.class);
 
     assertThat(requiredFragments.getFragmentClasses()).contains(JavaConfiguration.class);
+  }
+
+  @Test
+  public void aspectInErrorWithAllowAnalysisFailures() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _error_aspect_impl(target, ctx):",
+        "  fail(ctx.var['FAIL_MESSAGE'])",
+        "error_aspect = aspect(implementation = _error_aspect_impl)",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {'dep': attr.label(aspects = [error_aspect])},",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load(':defs.bzl', 'my_rule', 'error_aspect')",
+        "my_rule(name = 'a')",
+        "my_rule(name = 'b', dep = ':a')");
+
+    useConfiguration(
+        "--allow_analysis_failures",
+        "--define=FAIL_MESSAGE=abc",
+        "--include_config_fragments_provider=direct");
+    getConfiguredTarget("//a:b");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getAspect("//a:defs.bzl%error_aspect").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getDefines()).containsExactly("FAIL_MESSAGE");
+  }
+
+  @Test
+  public void configuredTargetInErrorWithAllowAnalysisFailures() throws Exception {
+    scratch.file(
+        "a/defs.bzl",
+        "def _error_rule_impl(ctx):",
+        "  fail(ctx.var['FAIL_MESSAGE'])",
+        "error_rule = rule(implementation = _error_rule_impl)");
+    scratch.file("a/BUILD", "load(':defs.bzl', 'error_rule')", "error_rule(name = 'error')");
+
+    useConfiguration(
+        "--allow_analysis_failures",
+        "--define=FAIL_MESSAGE=abc",
+        "--include_config_fragments_provider=direct");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:error").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getDefines()).containsExactly("FAIL_MESSAGE");
+  }
+
+  @Test
+  public void aliasWithSelectResolvesToConfigSetting() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "config_setting(name = 'define_x', define_values = {'x': '1'})",
+        "config_setting(name = 'k8', values = {'cpu': 'k8'})",
+        "alias(name = 'alias_to_setting', actual = select({':define_x': ':k8'}))",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['gen.out'],",
+        "  cmd = select({':alias_to_setting': 'touch $@'}),",
+        ")");
+
+    useConfiguration("--define=x=1", "--cpu=k8", "--include_config_fragments_provider=transitive");
+    RequiredConfigFragmentsProvider requiredFragments =
+        getConfiguredTarget("//a:gen").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(requiredFragments.getDefines()).containsExactly("x");
   }
 }

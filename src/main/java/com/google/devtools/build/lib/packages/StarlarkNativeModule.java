@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
@@ -83,7 +82,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   private static ImmutableMap<String, Object> initializeBindings() {
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
     Starlark.addMethods(bindings, new StarlarkNativeModule());
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   @Override
@@ -99,8 +98,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
+    Globber.Operation op =
+        excludeDirs.signum() != 0 ? Globber.Operation.FILES : Globber.Operation.FILES_AND_DIRS;
 
-    List<String> matches;
     boolean allowEmpty;
     if (allowEmptyArgument == Starlark.UNBOUND) {
       allowEmpty =
@@ -112,36 +112,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
           "expected boolean for argument `allow_empty`, got `%s`", allowEmptyArgument);
     }
 
-    try {
-      Globber.Token globToken =
-          context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
-      matches = context.globber.fetchUnsorted(globToken);
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log(
-          "Exception processing includes=%s, excludes=%s)", includes, excludes);
-      String errorMessage =
-          String.format(
-              "error globbing [%s]%s: %s",
-              Joiner.on(", ").join(includes),
-              excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
-              e.getMessage());
-      Location loc = thread.getCallerLocation();
-      Event error =
-          Package.error(
-              loc,
-              errorMessage,
-              // If there are other IOExceptions that can result from user error, they should be
-              // tested for here. Currently FileNotFoundException is not one of those, because globs
-              // only encounter that error in the presence of an inconsistent filesystem.
-              e instanceof FileSymlinkException
-                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
-                  : Code.GLOB_IO_EXCEPTION);
-      context.eventHandler.handle(error);
-      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
-      matches = ImmutableList.of();
-    } catch (BadGlobException e) {
-      throw new EvalException(e);
-    }
+    List<String> matches = runGlobOperation(context, thread, includes, excludes, op, allowEmpty);
 
     ArrayList<String> result = new ArrayList<>(matches.size());
     for (String match : matches) {
@@ -467,7 +438,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Type.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
     List<Label> includes =
         BuildType.LABEL_LIST.convert(
-            includesO, "'package_group.includes argument'", context.pkgBuilder.getBuildFileLabel());
+            includesO, "'package_group.includes argument'", context.pkgBuilder.getLabelConverter());
 
     Location loc = thread.getCallerLocation();
     try {
@@ -492,9 +463,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Starlark.isNullOrNone(visibilityO)
             ? ConstantRuleVisibility.PUBLIC
             : PackageUtils.getVisibility(
-                pkgBuilder.getBuildFileLabel(),
                 BuildType.LABEL_LIST.convert(
-                    visibilityO, "'exports_files' operand", pkgBuilder.getBuildFileLabel()));
+                    visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
@@ -514,32 +484,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         if (license != null && inputFile.isLicenseSpecified()) {
           throw Starlark.errorf(
               "licenses for exported file '%s' declared twice", inputFile.getName());
-        }
-
-        // See if we should check third-party licenses: first checking for any hard-coded policy,
-        // then falling back to user-settable flags.
-        boolean checkLicenses;
-        if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
-            == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
-          checkLicenses = true;
-        } else if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
-            == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
-          checkLicenses = false;
-        } else {
-          checkLicenses =
-              !thread
-                  .getSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING);
-        }
-
-        if (checkLicenses
-            && license == null
-            && !pkgBuilder.getDefaultLicense().isSpecified()
-            && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
-          throw Starlark.errorf(
-              "third-party file '%s' lacks a license declaration with one of the following types:"
-                  + " notice, reciprocal, permissive, restricted, unencumbered, by_exception_only",
-              inputFile.getName());
         }
 
         pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
@@ -563,7 +507,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     BazelStarlarkContext.from(thread).checkLoadingPhase("native.repository_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
-    return packageId.getRepository().toString();
+    return packageId.getRepository().getNameWithAt();
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
@@ -748,6 +692,69 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   private static class NotRepresentableException extends EvalException {
     NotRepresentableException(String msg) {
       super(msg);
+    }
+  }
+
+  @Override
+  public Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.subpackages");
+    PackageContext context = getContext(thread);
+
+    List<String> includes = Type.STRING_LIST.convert(include, "'subpackages' argument");
+    List<String> excludes = Type.STRING_LIST.convert(exclude, "'subpackages' argument");
+
+    List<String> matches =
+        runGlobOperation(
+            context, thread, includes, excludes, Globber.Operation.SUBPACKAGES, allowEmpty);
+    if (!matches.isEmpty()) {
+      try {
+        matches.sort(naturalOrder());
+      } catch (UnsupportedOperationException e) {
+        matches = ImmutableList.sortedCopyOf(naturalOrder(), matches);
+      }
+    }
+    return StarlarkList.copyOf(thread.mutability(), matches);
+  }
+
+  private List<String> runGlobOperation(
+      PackageContext context,
+      StarlarkThread thread,
+      List<String> includes,
+      List<String> excludes,
+      Globber.Operation operation,
+      boolean allowEmpty)
+      throws EvalException, InterruptedException {
+    try {
+      Globber.Token globToken = context.globber.runAsync(includes, excludes, operation, allowEmpty);
+      return context.globber.fetchUnsorted(globToken);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log(
+          "Exception processing includes=%s, excludes=%s)", includes, excludes);
+      String errorMessage =
+          String.format(
+              "error globbing [%s]%s op=%s: %s",
+              Joiner.on(", ").join(includes),
+              excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
+              operation,
+              e.getMessage());
+      Location loc = thread.getCallerLocation();
+      Event error =
+          Package.error(
+              loc,
+              errorMessage,
+              // If there are other IOExceptions that can result from user error, they should be
+              // tested for here. Currently FileNotFoundException is not one of those, because globs
+              // only encounter that error in the presence of an inconsistent filesystem.
+              e instanceof FileSymlinkException
+                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
+                  : Code.GLOB_IO_EXCEPTION);
+      context.eventHandler.handle(error);
+      context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
+      return ImmutableList.of();
+    } catch (BadGlobException e) {
+      throw new EvalException(e);
     }
   }
 }

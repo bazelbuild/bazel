@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
@@ -59,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Helper class to create a dynamic library for rules which support integration with native code.
@@ -116,6 +118,7 @@ public abstract class NativeDepsHelper {
    * @return the native deps library, or null if there was no code which needed to be linked in the
    *     transitive closure.
    */
+  @Nullable
   public static Artifact linkAndroidNativeDepsIfPresent(
       final RuleContext ruleContext,
       CcInfo ccInfo,
@@ -224,6 +227,7 @@ public abstract class NativeDepsHelper {
             ruleContext,
             requestedFeatures,
             /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+            Language.CPP,
             toolchain,
             cppSemantics);
 

@@ -1860,8 +1860,9 @@ machine bar.example.org
 login barusername
 password passbar
 
-machine oauthlife.com
-password TOKEN
+# following lines mix tabs and spaces
+machine	  oauthlife.com
+	password	TOKEN
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dicionary to disk; this

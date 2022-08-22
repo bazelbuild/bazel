@@ -185,18 +185,6 @@ public class TestConfiguration extends Fragment {
     public TestShardingStrategy testShardingStrategy;
 
     @Option(
-        name = "experimental_persistent_test_runner",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Allows running java_test targets locally within a persistent worker. "
-                + "To enable the persistent test runner one must run bazel test with the flags:"
-                + "--test_strategy=local --strategy=TestRunner=worker "
-                + " --experimental_persistent_test_runner")
-    public boolean persistentTestRunner;
-
-    @Option(
         name = "runs_per_test",
         allowMultiple = true,
         defaultValue = "1",
@@ -298,18 +286,24 @@ public class TestConfiguration extends Fragment {
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 
+    @Option(
+        name = "zip_undeclared_test_outputs",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.TEST_RUNNER},
+        help = "If true, undeclared test outputs will be archived in a zip file.")
+    public boolean zipUndeclaredTestOutputs;
+
     @Override
     public FragmentOptions getHost() {
-      TestOptions hostOptions = (TestOptions) getDefault();
-      // These fields are used in late-bound attributes, which must not be null in the host
-      // configuration.
-      hostOptions.coverageSupport = this.coverageSupport;
-      hostOptions.coverageReportGenerator = this.coverageReportGenerator;
-      // trimTestConfiguration is a global analysis option and should be platform-agnostic
-      hostOptions.trimTestConfiguration = this.trimTestConfiguration;
-      hostOptions.experimentalRetainTestConfigurationAcrossTestonly =
-          this.experimentalRetainTestConfigurationAcrossTestonly;
-      return hostOptions;
+      // Options here are either:
+      // 1. Applicable only for the test actions, which are relevant only for the top-level targets
+      //    before host or exec transitions can apply.
+      // 2. Supposed to be build-universal and thus non-transitionable anyways
+      //    (e.g. trim_test_configuration)
+      // And thus the options should just be copied and not reset by the exec transition (as
+      // resetting them has incremental performance drawbacks when these options change).
+      return clone();
     }
   }
 
@@ -359,21 +353,11 @@ public class TestConfiguration extends Fragment {
     return options.testShardingStrategy;
   }
 
-  /**
-   * Whether the persistent test runner is enabled. Note that not all test rules support this
-   * feature, in which case Bazel should fall back to the normal test runner. Therefore, this method
-   * must only be called by test rules, and never for test actions. For actions, use {@code
-   * TestTargetProperties.isPersistentTestRunner} instead.
-   */
-  public boolean isPersistentTestRunner() {
-    return options.persistentTestRunner;
-  }
-
-  public Label getCoverageSupport(){
+  public Label getCoverageSupport() {
     return options.coverageSupport;
   }
 
-  public Label getCoverageReportGenerator(){
+  public Label getCoverageReportGenerator() {
     return options.coverageReportGenerator;
   }
 
@@ -408,6 +392,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean splitCoveragePostProcessing() {
     return options.splitCoveragePostProcessing;
+  }
+
+  public boolean getZipUndeclaredTestOutputs() {
+    return options.zipUndeclaredTestOutputs;
   }
 
   /**

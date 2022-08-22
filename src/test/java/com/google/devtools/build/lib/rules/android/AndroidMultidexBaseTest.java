@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -63,7 +62,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
     // Only created in legacy mode:
     Artifact strippedJar = getFirstArtifactEndingWith(artifacts, "main_dex_intermediate.jar");
     Artifact mainDexList = getFirstArtifactEndingWith(artifacts, "main_dex_list.txt");
-    String ruleName = Label.parseAbsolute(ruleLabel, ImmutableMap.of()).getName();
+    String ruleName = Label.parseCanonical(ruleLabel).getName();
     Artifact mainDexProguardSpec =
         getFirstArtifactEndingWith(artifacts, "main_dex_" + ruleName + "_proguard.cfg");
 
@@ -102,9 +101,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
                 dexMergerInput.getExecPathString(),
                 "--output",
                 finalDexOutput.getExecPathString());
-    if (multidexMode != MultidexMode.OFF) {
-      argsBuilder.add("--multidex=minimal");
-    }
+    argsBuilder.add("--multidex=minimal");
     if (multidexMode == MultidexMode.LEGACY || multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
       argsBuilder.add("--main-dex-list", mainDexList.getExecPathString());
     }
@@ -115,7 +112,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
 
   /**
    * Internal helper method: given an android_binary rule label, check that the dex merger runs is
-   * invoked with {@code --multidex=off}.
+   * invoked with {@code --multidex=minimal}.
    */
   protected void internalTestNonMultidexBuildStructure(String ruleLabel) throws Exception {
     ConfiguredTarget binary = getConfiguredTarget(ruleLabel);
@@ -130,7 +127,7 @@ public class AndroidMultidexBaseTest extends AndroidBuildViewTestCase {
             dexInput.getExecPathString(),
             "--output",
             dexOutput.getExecPathString(),
-            "--multidex=off")
+            "--multidex=minimal")
         .inOrder();
   }
 }

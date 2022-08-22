@@ -176,6 +176,16 @@ public class RemoteWorkerOptions extends OptionsBase {
               + "requires client authentication (aka mTLS).")
   public String tlsCaCertificate;
 
+  @Option(
+      name = "expected_authorization_token",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The authorization token expected to be present in every request. This is useful for"
+              + " testing only.")
+  public String expectedAuthorizationToken;
+
   private static final int MAX_JOBS = 16384;
 
   /**
@@ -199,7 +209,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       if (value > maxValue) {
         logger.atWarning().log(
             "Flag remoteWorker \"jobs\" ('%d') was set too high. "
-                + "This is a result of passing large values to --local_resources or --jobs. "
+                + "This is a result of passing large values to --jobs. "
                 + "Using '%d' jobs",
             value, maxValue);
         value = maxValue;

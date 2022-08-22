@@ -70,6 +70,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -92,6 +93,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -143,6 +145,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -226,5 +229,34 @@ public class BuildEventServiceProtoUtilTest {
                                         .setType(FinishType.FINISHED)))
                         .build())
                 .build());
+  }
+
+  @Test
+  public void testStreamEventsWithCheckPrecedingLifecycleEventsEnabled() {
+    Any anything = Any.getDefaultInstance();
+    BuildEventServiceProtoUtil besProtoUtil =
+        new BuildEventServiceProtoUtil.Builder()
+            .buildRequestId(BUILD_REQUEST_ID)
+            .invocationId(BUILD_INVOCATION_ID)
+            .commandName(COMMAND_NAME)
+            .checkPrecedingLifecycleEvents(true)
+            .keywords(ImmutableSet.of(ADDITIONAL_KEYWORD))
+            .build();
+    assertThat(
+            besProtoUtil
+                .bazelEvent(1, Timestamps.fromMillis(100), anything)
+                .getCheckPrecedingLifecycleEventsPresent())
+        .isTrue();
+    // check_preceding_lifecycle_events_present is always false for events with sequence_number > 1.
+    assertThat(
+            besProtoUtil
+                .bazelEvent(2, Timestamps.fromMillis(100), anything)
+                .getCheckPrecedingLifecycleEventsPresent())
+        .isFalse();
+    assertThat(
+            besProtoUtil
+                .bazelEvent(3, Timestamps.fromMillis(100), anything)
+                .getCheckPrecedingLifecycleEventsPresent())
+        .isFalse();
   }
 }

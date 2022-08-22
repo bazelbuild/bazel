@@ -248,6 +248,7 @@ java_library(
     name = "spawn_log_context",
     srcs = ["SpawnLogContext.java"],
     deps = [
+        ":execution_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -260,6 +261,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -284,6 +286,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -347,7 +350,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
@@ -362,6 +364,8 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -447,6 +451,7 @@ java_library(
         ":test_xml_output_parser_exception",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
 )

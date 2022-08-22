@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.worker.WorkerOptions.MultiResourceConverter;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,7 +38,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
  * requests, but do so through WorkerProxy instances.
  */
 @ThreadSafe
-final class WorkerPool {
+public final class WorkerPool {
   /** Unless otherwise specified, the max number of workers per WorkerKey. */
   private static final int DEFAULT_MAX_WORKERS = 4;
   /** Unless otherwise specified, the max number of multiplex workers per WorkerKey. */
@@ -64,15 +63,14 @@ final class WorkerPool {
     highPriorityWorkerMnemonics =
         ImmutableSet.copyOf((Iterable<String>) workerPoolConfig.getHighPriorityWorkers());
 
-    Map<String, Integer> config = createConfigFromOptions(workerPoolConfig.getWorkerMaxInstances());
-    Map<String, Integer> multiplexConfig =
-        createConfigFromOptions(workerPoolConfig.getWorkerMaxMultiplexInstances());
+    ImmutableMap<String, Integer> config =
+        createConfigFromOptions(workerPoolConfig.getWorkerMaxInstances(), DEFAULT_MAX_WORKERS);
+    ImmutableMap<String, Integer> multiplexConfig =
+        createConfigFromOptions(
+            workerPoolConfig.getWorkerMaxMultiplexInstances(), DEFAULT_MAX_MULTIPLEX_WORKERS);
 
-    workerPools =
-        createWorkerPools(workerPoolConfig.getWorkerFactory(), config, DEFAULT_MAX_WORKERS);
-    multiplexPools =
-        createWorkerPools(
-            workerPoolConfig.getWorkerFactory(), multiplexConfig, DEFAULT_MAX_MULTIPLEX_WORKERS);
+    workerPools = createWorkerPools(workerPoolConfig.getWorkerFactory(), config);
+    multiplexPools = createWorkerPools(workerPoolConfig.getWorkerFactory(), multiplexConfig);
   }
 
   public WorkerPoolConfig getWorkerPoolConfig() {
@@ -85,29 +83,28 @@ final class WorkerPool {
    */
   @Nonnull
   private static ImmutableMap<String, Integer> createConfigFromOptions(
-      List<Entry<String, Integer>> options) {
+      List<Entry<String, Integer>> options, int defaultMaxWorkers) {
     LinkedHashMap<String, Integer> newConfigBuilder = new LinkedHashMap<>();
     for (Map.Entry<String, Integer> entry : options) {
-      newConfigBuilder.put(entry.getKey(), entry.getValue());
+      if (entry.getValue() != null) {
+        newConfigBuilder.put(entry.getKey(), entry.getValue());
+      } else if (entry.getKey() != null) {
+        newConfigBuilder.put(entry.getKey(), defaultMaxWorkers);
+      }
     }
-
     if (!newConfigBuilder.containsKey("")) {
       // Empty string gives the number of workers for any type of worker not explicitly specified.
-      // If no value is given, use the default, 2.
-      newConfigBuilder.put("", MultiResourceConverter.DEFAULT_VALUE);
+      // If no value is given, use the default.
+      newConfigBuilder.put("", defaultMaxWorkers);
     }
-
     return ImmutableMap.copyOf(newConfigBuilder);
   }
 
   private static ImmutableMap<String, SimpleWorkerPool> createWorkerPools(
-      WorkerFactory factory, Map<String, Integer> config, int defaultMaxWorkers) {
+      WorkerFactory factory, Map<String, Integer> config) {
     ImmutableMap.Builder<String, SimpleWorkerPool> workerPoolsBuilder = ImmutableMap.builder();
     config.forEach(
         (key, value) -> workerPoolsBuilder.put(key, new SimpleWorkerPool(factory, value)));
-    if (!config.containsKey("")) {
-      workerPoolsBuilder.put("", new SimpleWorkerPool(factory, defaultMaxWorkers));
-    }
     return workerPoolsBuilder.build();
   }
 
@@ -117,6 +114,14 @@ final class WorkerPool {
     } else {
       return workerPools.getOrDefault(key.getMnemonic(), workerPools.get(""));
     }
+  }
+
+  public int getMaxTotalPerKey(WorkerKey key) {
+    return this.getPool(key).getMaxTotalPerKey();
+  }
+
+  public int getNumActive(WorkerKey key) {
+    return this.getPool(key).getNumActive(key);
   }
 
   /**
@@ -156,14 +161,14 @@ final class WorkerPool {
     getPool(key).returnObject(key, obj);
   }
 
-  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
+  public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
       decrementHighPriorityWorkerCount();
     }
     try {
       getPool(key).invalidateObject(key, obj);
     } catch (Throwable t) {
-      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      Throwables.propagateIfPossible(t, InterruptedException.class);
       throw new RuntimeException("unexpected", t);
     }
   }
@@ -200,13 +205,17 @@ final class WorkerPool {
     multiplexPools.values().forEach(GenericKeyedObjectPool::close);
   }
 
-  static class WorkerPoolConfig {
+  /**
+   * Describes the configuration of worker pool, e.g. number of maximal instances and priority of
+   * the workers.
+   */
+  public static class WorkerPoolConfig {
     private final WorkerFactory workerFactory;
     private final List<Entry<String, Integer>> workerMaxInstances;
     private final List<Entry<String, Integer>> workerMaxMultiplexInstances;
     private final List<String> highPriorityWorkers;
 
-    WorkerPoolConfig(
+    public WorkerPoolConfig(
         WorkerFactory workerFactory,
         List<Entry<String, Integer>> workerMaxInstances,
         List<Entry<String, Integer>> workerMaxMultiplexInstances,

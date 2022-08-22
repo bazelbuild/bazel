@@ -410,6 +410,8 @@ message Configuration {
   string platform_name = 2;
   string cpu = 3;
   map<string, string> make_variable = 4;
+  // Whether this configuration is used for building tools.
+  bool is_tool = 5;
 }
 
 // Payload of the event indicating the expansion of a target pattern.
@@ -882,6 +884,10 @@ message BuildMetrics {
     // if there was no major GC during the build.
     int64 peak_post_gc_heap_size = 2;
 
+    // Size of the peak tenured space JVM heap size event in bytes post GC. Note
+    // that this reports 0 if there was no major GC during the build.
+    int64 peak_post_gc_tenured_space_heap_size = 4;
+
     message GarbageMetrics {
       // Type of garbage collected, e.g. G1 Old Gen.
       string type = 1;
@@ -916,7 +922,19 @@ message BuildMetrics {
   TargetMetrics target_metrics = 3;
 
   message PackageMetrics {
-    // Number of BUILD files (aka packages) loaded during this build.
+    // Number of BUILD files (aka packages) successfully loaded during this
+    // build.
+    //
+    // [For Bazel binaries built at source states] Before Dec 2021, this value
+    // was the number of packages attempted to be loaded, for a particular
+    // definition of "attempted".
+    //
+    // After Dec 2021, this value would sometimes overcount because the same
+    // package could sometimes be attempted to be loaded multiple times due to
+    // memory pressure.
+    //
+    // After Feb 2022, this value is the number of packages successfully
+    // loaded.
     int64 packages_loaded = 1;
   }
   PackageMetrics package_metrics = 4;
@@ -927,6 +945,8 @@ message BuildMetrics {
     // The elapsed wall time in milliseconds during this build.
     int64 wall_time_in_ms = 2;
     // The elapsed wall time in milliseconds during the analysis phase.
+    // When analysis and execution phases are interleaved, this measures the
+    // elapsed time from the first analysis work to the last.
     int64 analysis_phase_time_in_ms = 3;
   }
   TimingMetrics timing_metrics = 5;

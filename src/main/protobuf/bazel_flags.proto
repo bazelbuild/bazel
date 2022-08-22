@@ -16,11 +16,11 @@
 // flags for Bazel commands.
 syntax = "proto2";
 
+package bazel_flags;
+
 option java_outer_classname = "BazelFlagsProto";
 option java_package = "com.google.devtools.build.lib.runtime.commands.proto";
 // option java_api_version = 2;
-
-package bazel_flags;
 
 message FlagInfo {
   // Name of the flag, without leading dashes.
@@ -35,6 +35,12 @@ message FlagInfo {
   optional string abbreviation = 5;
   // True if a flag is allowed to occur multiple times in a single arg list.
   optional bool allows_multiple = 6 [default = false];
+  // The effect tags associated with the flag
+  repeated string effect_tags = 7;
+  // The metadata tags associated with the flag
+  repeated string metadata_tags = 8;
+  // The documentation category assigned to this flag
+  optional string documentation_category = 9;
 }
 
 message FlagCollection {

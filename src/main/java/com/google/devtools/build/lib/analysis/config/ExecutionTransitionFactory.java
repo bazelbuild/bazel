@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -55,6 +56,11 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(execGroup);
   }
 
+  @Override
+  public PatchTransition create(AttributeTransitionData data) {
+    return new ExecutionTransition(data.executionPlatform());
+  }
+
   private final String execGroup;
 
   private ExecutionTransitionFactory(String execGroup) {
@@ -64,11 +70,6 @@ public class ExecutionTransitionFactory
   @Override
   public TransitionType transitionType() {
     return TransitionType.ATTRIBUTE;
-  }
-
-  @Override
-  public PatchTransition create(AttributeTransitionData data) {
-    return new ExecutionTransition(data.executionPlatform());
   }
 
   public String getExecGroup() {
@@ -127,8 +128,8 @@ public class ExecutionTransitionFactory
       CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
       coreOptions.isHost = false;
       coreOptions.isExec = true;
-      coreOptions.platformSuffix =
-          String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
+      // Disable extra actions
+      coreOptions.actionListeners = null;
 
       // Then set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);
@@ -136,20 +137,57 @@ public class ExecutionTransitionFactory
         platformOptions.platforms = ImmutableList.of(executionPlatform);
       }
 
-      BuildOptions result = execOptions.underlying();
       // Remove any FeatureFlags that were set.
       ImmutableList<Label> featureFlags =
           execOptions.underlying().getStarlarkOptions().entrySet().stream()
               .filter(entry -> entry.getValue() instanceof FeatureFlagValue)
               .map(Map.Entry::getKey)
               .collect(toImmutableList());
+
+      BuildOptions result = execOptions.underlying();
       if (!featureFlags.isEmpty()) {
         BuildOptions.Builder resultBuilder = result.toBuilder();
         featureFlags.forEach(resultBuilder::removeStarlarkOption);
         result = resultBuilder.build();
       }
 
-      // Finally, re-apply the platform mappings in case anything was changed.
+      // Finally, set the configuration distinguisher, platform_suffix, according to the
+      //   selected scheme.
+
+      // The conditional use of a Builder above may have replaced result and underlying options
+      //   with a clone so must refresh it.
+      coreOptions = result.get(CoreOptions.class);
+      // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
+      //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
+      //   Might be good to have an option to wipeout that state rather than cloning so much.
+      switch (coreOptions.execConfigurationDistinguisherScheme) {
+        case LEGACY:
+          coreOptions.platformSuffix =
+              String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
+          break;
+        case FULL_HASH:
+          coreOptions.platformSuffix = "";
+          // execOptions creation above made a clone, which will have a fresh hashCode
+          int fullHash = result.hashCode();
+          coreOptions.platformSuffix = String.format("exec-%X", fullHash);
+          // Previous call to hashCode irreparably locked in state so must clone to refresh since
+          // options mutated after that
+          result = result.clone();
+          break;
+        case DIFF_TO_AFFECTED:
+          // Setting platform_suffix here should not be necessary for correctness but
+          // done for user clarity.
+          coreOptions.platformSuffix = "exec";
+          ImmutableSet<String> diff =
+              FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
+                  result, options.underlying());
+          FunctionTransitionUtil.updateAffectedByStarlarkTransition(coreOptions, diff);
+          // Previous call to diff irreparably locked in state so must clone to refresh.
+          result = result.clone();
+          break;
+        default:
+          // else if OFF do nothing
+      }
 
       return result;
     }

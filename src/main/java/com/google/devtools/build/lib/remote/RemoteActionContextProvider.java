@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.Executor;
@@ -48,6 +49,7 @@ final class RemoteActionContextProvider {
   @Nullable private final Path logDir;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
   private RemoteExecutionService remoteExecutionService;
+  @Nullable private RemoteActionInputFetcher actionInputFetcher;
 
   private RemoteActionContextProvider(
       Executor executor,
@@ -122,6 +124,10 @@ final class RemoteActionContextProvider {
       remotePathResolver = new DefaultRemotePathResolver(execRoot);
     }
     return remotePathResolver;
+  }
+
+  public void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
+    this.actionInputFetcher = actionInputFetcher;
   }
 
   private RemoteExecutionService getRemoteExecutionService() {
@@ -210,8 +216,11 @@ final class RemoteActionContextProvider {
   }
 
   public void afterCommand() {
+    BlockWaitingModule blockWaitingModule =
+        checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));
+
     if (remoteExecutionService != null) {
-      remoteExecutionService.shutdown();
+      blockWaitingModule.submit(() -> remoteExecutionService.shutdown());
     } else {
       if (remoteCache != null) {
         remoteCache.release();
@@ -219,6 +228,10 @@ final class RemoteActionContextProvider {
       if (remoteExecutor != null) {
         remoteExecutor.close();
       }
+    }
+
+    if (actionInputFetcher != null) {
+      blockWaitingModule.submit(() -> actionInputFetcher.shutdown());
     }
   }
 }

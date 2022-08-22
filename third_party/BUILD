@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -7,6 +8,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/android_dex:srcs",
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/bazel-toolchains:srcs",
@@ -16,6 +18,9 @@ filegroup(
         "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
+        "//third_party/cncf_udpa:srcs",
+        "//third_party/protoc_gen_validate:srcs",
+        "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/java/android_databinding:srcs",
@@ -25,7 +30,6 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
-        "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
         "//third_party/jaxb:srcs",
@@ -44,6 +48,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
+        "//third_party/upb:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -162,12 +167,12 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "api_client/google-api-client-1.22.0.jar",
-        "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-api-client-gson-1.22.0.jar",
         "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
-        "api_client/google-http-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-gson-1.22.0.jar",
     ],
     runtime_deps = [
-        ":jackson2",
+        ":gson",
     ],
 )
 
@@ -210,8 +215,8 @@ distrib_java_import(
     name = "auth",
     enable_distributions = ["debian"],
     jars = [
-        "auth/google-auth-library-oauth2-http-0.17.1.jar",
-        "auth/google-auth-library-credentials-0.17.1.jar",
+        "auth/google-auth-library-oauth2-http-1.6.0.jar",
+        "auth/google-auth-library-credentials-1.6.0.jar",
     ],
     runtime_deps = [
         ":api_client",
@@ -239,6 +244,16 @@ distrib_java_import(
     name = "auto_common",
     enable_distributions = ["debian"],
     jars = ["auto/auto-common-1.1.2.jar"],
+    applicable_licenses = [":auto_license"],
+)
+
+license(
+    name = "auto_license",
+    package_name = "auto-common/1.8.2",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "auto/LICENSE",
 )
 
 java_library(
@@ -364,15 +379,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.9.0.jar",
-        "error_prone/error_prone_type_annotations-2.9.0.jar",
+        "error_prone/error_prone_annotations-2.11.0.jar",
+        "error_prone/error_prone_type_annotations-2.11.0.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.9.0.jar",
+        "error_prone/error_prone_annotations-2.11.0.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -381,9 +396,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.9.0.jar",
-        "error_prone/error_prone_check_api-2.9.0.jar",
-        "error_prone/error_prone_core-2.9.0.jar",
+        "error_prone/error_prone_annotation-2.11.0.jar",
+        "error_prone/error_prone_check_api-2.11.0.jar",
+        "error_prone/error_prone_core-2.11.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -399,14 +414,6 @@ java_import(
         ":threeten",
         "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
-    ],
-)
-
-distrib_java_import(
-    name = "jackson2",
-    enable_distributions = ["debian"],
-    jars = [
-        "jackson2/jackson-core-2.8.6.jar",
     ],
 )
 
@@ -450,13 +457,23 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "guava/failureaccess-1.0.1.jar",
-        "guava/guava-31.0.1-jre.jar",
+        "guava/guava-31.1-jre.jar",
     ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
     ],
+    applicable_licenses = [":guava_license"],
+)
+
+license(
+    name = "guava_license",
+    package_name = "guava/31.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "guava/LICENSE",
 )
 
 distrib_java_import(
@@ -467,6 +484,16 @@ distrib_java_import(
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
+    applicable_licenses = [":flogger_license"],
+)
+
+license(
+    name = "flogger_license",
+    package_name = "flogger/0.5.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "flogger/LICENSE",
 )
 
 distrib_jar_filegroup(
@@ -499,7 +526,16 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-31.0.1-jre.jar"],
+    srcs = ["guava/guava-31.1-jre.jar"],
+    enable_distributions = ["debian"],
+)
+
+# For desugaring the Guava jar.
+distrib_jar_filegroup(
+    name = "guava-failureaccess-jar",
+    srcs = [
+        "guava/failureaccess-1.0.1.jar",
+    ],
     enable_distributions = ["debian"],
 )
 
@@ -579,12 +615,12 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
 genrule(
     name = "filter_netty_dynamic_libs",
     srcs = select({
-        "//src/conditions:darwin_arm64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.44.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.44.Final-osx-x86_64.jar"],
-        "//src/conditions:linux_aarch64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.44.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.44.Final-linux-x86_64.jar"],
-        "//src/conditions:windows": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.44.Final-windows-x86_64.jar"],
-        "//conditions:default": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.44.Final.jar"],
+        "//src/conditions:darwin_arm64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-aarch_64.jar"],
+        "//src/conditions:darwin_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-x86_64.jar"],
+        "//src/conditions:linux_aarch64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-aarch_64.jar"],
+        "//src/conditions:linux_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-x86_64.jar"],
+        "//src/conditions:windows": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-windows-x86_64.jar"],
+        "//conditions:default": [],
     }),
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
     cmd = "cp $< $@ && " +
@@ -597,38 +633,43 @@ distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
     jars = [
-        "netty/netty-buffer-4.1.69.Final.jar",
-        "netty/netty-codec-4.1.69.Final.jar",
-        "netty/netty-codec-http2-4.1.69.Final.jar",
-        "netty/netty-codec-http-4.1.69.Final.jar",
-        "netty/netty-common-4.1.69.Final.jar",
-        "netty/netty-handler-4.1.69.Final.jar",
-        "netty/netty-handler-proxy-4.1.69.Final.jar",
-        "netty/netty-resolver-4.1.69.Final.jar",
-        "netty/netty-resolver-dns-4.1.69.Final.jar",
-        "netty/netty-transport-4.1.69.Final.jar",
-        "netty/netty-transport-sctp-4.1.69.Final.jar",
+        "netty/netty-buffer-4.1.75.Final.jar",
+        "netty/netty-codec-4.1.75.Final.jar",
+        "netty/netty-codec-http2-4.1.75.Final.jar",
+        "netty/netty-codec-http-4.1.75.Final.jar",
+        "netty/netty-common-4.1.75.Final.jar",
+        "netty/netty-handler-4.1.75.Final.jar",
+        "netty/netty-handler-proxy-4.1.75.Final.jar",
+        "netty/netty-resolver-4.1.75.Final.jar",
+        "netty/netty-resolver-dns-4.1.75.Final.jar",
+        "netty/netty-transport-4.1.75.Final.jar",
+        "netty/netty-transport-classes-epoll-4.1.75.Final.jar",
+        "netty/netty-transport-classes-kqueue-4.1.75.Final.jar",
+        "netty/netty-transport-sctp-4.1.75.Final.jar",
     ] + select({
-        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-unix-common-4.1.69.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-unix-common-4.1.69.Final-osx-x86_64.jar"],
-        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-unix-common-4.1.69.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-unix-common-4.1.69.Final-linux-x86_64.jar"],
-        "//conditions:default": ["netty/netty-transport-native-unix-common-4.1.69.Final.jar"],
+        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-aarch_64.jar"],
+        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-x86_64.jar"],
+        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-aarch_64.jar"],
+        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-x86_64.jar"],
+        "//conditions:default": ["netty/netty-transport-native-unix-common-4.1.75.Final.jar"],
     }) + select({
-        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-kqueue-4.1.69.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-kqueue-4.1.69.Final-osx-x86_64.jar"],
-        "//conditions:default": ["netty/netty-transport-native-kqueue-4.1.69.Final.jar"],
+        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-aarch_64.jar"],
+        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-x86_64.jar"],
+        "//conditions:default": [],
     }) + select({
-        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-epoll-4.1.69.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-epoll-4.1.69.Final-linux-x86_64.jar"],
-        "//conditions:default": ["netty/netty-transport-native-epoll-4.1.69.Final.jar"],
+        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-aarch_64.jar"],
+        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-x86_64.jar"],
+        "//conditions:default": [],
     }),
 )
 
 distrib_java_import(
     name = "netty_tcnative",
     enable_distributions = ["debian"],
-    jars = [":netty_tcnative/netty-tcnative-filtered.jar"],
+    jars = [
+        "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
+        ":netty_tcnative/netty-tcnative-filtered.jar",
+    ],
 )
 
 distrib_java_import(
@@ -660,7 +701,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-31.0.1-jre.jar"],
+    jars = ["guava/guava-testlib-31.1-jre.jar"],
 )
 
 distrib_java_import(
@@ -706,11 +747,31 @@ java_import(
     deps = [
         ":diffutils",
     ],
+    applicable_licenses = [":truth_license"],
+)
+
+license(
+    name = "truth_license",
+    package_name = "truth/1.0.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "truth/LICENSE",
 )
 
 java_import(
     name = "truth8",
     jars = ["truth8/truth-java8-extension-1.0.1.jar"],
+    applicable_licenses = [":truth8_license"],
+)
+
+license(
+    name = "truth8_license",
+    package_name = "truth8/1.0.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "truth8/LICENSE",
 )
 
 java_import(
@@ -719,12 +780,32 @@ java_import(
         "truth_proto/truth-liteproto-extension-1.0.1.jar",
         "truth_proto/truth-proto-extension-1.0.1.jar",
     ],
+    applicable_licenses = [":truth_proto_license"],
+)
+
+license(
+    name = "truth_proto_license",
+    package_name = "truth_proto/1.0.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "truth_proto/LICENSE",
 )
 
 distrib_java_import(
     name = "xz",
     enable_distributions = ["debian"],
     jars = ["xz/xz-1.9.jar"],
+    applicable_licenses = [":xz_license"],
+)
+
+license(
+    name = "xz_license",
+    package_name = "xz/1.9",
+    license_kinds = [
+        "@rules_license//licenses/generic:permissive",
+    ],
+    license_text = "xz/LICENSE",
 )
 
 # To be used by the skylark example.

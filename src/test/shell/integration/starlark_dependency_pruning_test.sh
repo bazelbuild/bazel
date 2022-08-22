@@ -55,6 +55,7 @@ if "$is_windows"; then
 fi
 
 add_to_bazelrc "build --package_path=%workspace%"
+add_to_bazelrc "build --spawn_strategy=local"
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -118,7 +119,7 @@ def _impl(ctx):
 build_rule = rule(
     attrs = {
         "inputs": attr.label(),
-        "executable": attr.label(executable = True, cfg = "host"),
+        "executable": attr.label(executable = True, cfg = "exec"),
         "out": attr.output(),
     },
     implementation = _impl,

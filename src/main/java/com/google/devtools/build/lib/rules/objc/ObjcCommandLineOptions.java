@@ -89,24 +89,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String tvosSimulatorDevice;
 
   @Option(
-    name = "objc_generate_linkmap",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Specifies whether to generate a linkmap file."
-  )
-  public boolean generateLinkmap;
-
-  @Option(
-      name = "objccopt",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Additional options to pass to Objective C compilation.")
-  public List<String> copts;
-
-  @Option(
     name = "ios_memleaks",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.TESTING,
@@ -136,17 +118,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     help = "Uses these strings as objc fastbuild compiler options."
   )
   public List<String> fastbuildOptions;
-
-  @Option(
-      name = "objc_enable_binary_stripping",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help =
-          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
-              + "strippings will be performed if both this flag and --compilation_mode=opt are "
-              + "specified.")
-  public boolean enableBinaryStripping;
 
   @Option(
     name = "ios_signing_cert_name",
@@ -198,6 +169,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
+  /** @deprecated delete when we are sure it's not used anywhere. */
+  @Deprecated
   @Option(
       name = "incompatible_disable_native_apple_binary_rule",
       defaultValue = "false",
@@ -206,8 +179,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         OptionEffectTag.EAGERNESS_TO_EXIT,
       },
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If enabled, direct usage of the native apple_binary rule is disabled. Please use the"
-              + " Starlark rule from https://github.com/bazelbuild/rules_apple instead.")
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
 }

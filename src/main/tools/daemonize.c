@@ -89,8 +89,12 @@ static void WritePidFile(pid_t pid, const char* pid_path, int pid_done_fd) {
   if (pid_file == NULL) {
     err(EXIT_FAILURE, "Failed to create %s", pid_path);
   }
-  fprintf(pid_file, "%" PRIdMAX, (intmax_t) pid);
-  fclose(pid_file);
+  if (fprintf(pid_file, "%" PRIdMAX, (intmax_t) pid) < 0) {
+    err(EXIT_FAILURE, "Failed to write pid %"PRIdMAX" to %s", (intmax_t) pid, pid_path);
+  }
+  if (fclose(pid_file) < 0) {
+    err(EXIT_FAILURE, "Failed to write pid %"PRIdMAX" to %s", (intmax_t) pid, pid_path);
+  }
 
   char dummy = '\0';
   int ret = 0;

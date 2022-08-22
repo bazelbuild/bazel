@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -65,7 +66,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       (input1, input2) -> input1.getExecPath().compareTo(input2.getExecPath());
 
   private static final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> EMPTY_MAP =
-      childDataBuilder().build();
+      childDataBuilder().buildOrThrow();
 
   @SuppressWarnings("unchecked")
   private static ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>
@@ -101,6 +102,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      *
      * @return {@code this} for convenience
      */
+    @CanIgnoreReturnValue
     public MultiBuilder putChild(TreeFileArtifact child, FileArtifactValue metadata) {
       map.computeIfAbsent(child.getParent(), Builder::new).putChild(child, metadata);
       return this;
@@ -113,6 +115,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      * <p>Setting an archived representation is only allowed once per {@linkplain SpecialArtifact
      * tree artifact}.
      */
+    @CanIgnoreReturnValue
     public MultiBuilder setArchivedRepresentation(
         ArchivedTreeArtifact archivedArtifact, FileArtifactValue metadata) {
       map.computeIfAbsent(archivedArtifact.getParent(), Builder::new)
@@ -125,6 +128,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      *
      * <p>No-op if there is no data for a given tree artifact.
      */
+    @CanIgnoreReturnValue
     public MultiBuilder remove(SpecialArtifact treeArtifact) {
       checkArgument(treeArtifact.isTreeArtifact(), "Not a tree artifact: %s", treeArtifact);
       map.remove(treeArtifact);
@@ -467,6 +471,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
      *
      * @return {@code this} for convenience
      */
+    @CanIgnoreReturnValue
     public Builder putChild(TreeFileArtifact child, FileArtifactValue metadata) {
       checkArgument(
           child.getParent().equals(parent),
@@ -489,6 +494,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           ArchivedRepresentation.create(archivedTreeArtifact, metadata));
     }
 
+    @CanIgnoreReturnValue
     public Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
       checkState(
           this.archivedRepresentation == null,
@@ -510,7 +516,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     /** Builds the final {@link TreeArtifactValue}. */
     public TreeArtifactValue build() {
-      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData = childData.build();
+      ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
+          childData.buildOrThrow();
       if (finalChildData.isEmpty() && archivedRepresentation == null) {
         return EMPTY;
       }

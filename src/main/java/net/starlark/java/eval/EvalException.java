@@ -21,6 +21,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.util.List;
 import java.util.function.Supplier;
@@ -194,6 +195,7 @@ public class EvalException extends Exception {
 
   // Ensures that this exception holds a call stack, taking the current
   // stack (which must be non-empty) from the thread if not.
+  @CanIgnoreReturnValue
   final EvalException ensureStack(StarlarkThread thread) {
     if (callstack == null) {
       this.callstack = thread.getCallStack();

@@ -14,14 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
-import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -99,32 +96,6 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
         (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator();
     memoizingEvaluator.injectGraphTransformerForTesting(
         DeterministicHelper.makeTransformer(listener, deterministic));
-  }
-
-  protected void runTestForMultiCpuAnalysisFailure(String badCpu, String goodCpu) throws Exception {
-    reporter.removeHandler(failFastHandler);
-    useConfiguration("--experimental_multi_cpu=" + badCpu + "," + goodCpu);
-    scratch.file("multi/BUILD",
-        "config_setting(",
-        "    name = 'config',",
-        "    values = {'cpu': '" + badCpu + "'})",
-        "cc_library(",
-        "    name = 'cpu',",
-        "    deps = select({",
-        "        ':config': [':fail'],",
-        "        '//conditions:default': []}))",
-        "genrule(",
-        "    name = 'fail',",
-        "    outs = ['file1', 'file2'],",
-        "    executable = 1,",
-        "    cmd = 'touch $@')");
-    update(defaultFlags().with(Flag.KEEP_GOING), "//multi:cpu");
-    AnalysisResult result = getAnalysisResult();
-    assertThat(result.getTargetsToBuild()).hasSize(1);
-    ConfiguredTarget targetA = Iterables.get(result.getTargetsToBuild(), 0);
-    assertThat(getConfiguration(targetA).getCpu()).isEqualTo(goodCpu);
-    // Unfortunately, we get the same error twice - we can't distinguish the configurations.
-    assertContainsEvent("if genrules produce executables, they are allowed only one output");
   }
 
   /**

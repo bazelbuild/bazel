@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -50,6 +49,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
 import io.reactivex.rxjava3.core.Completable;
@@ -88,9 +88,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      RemoteCacheClient cacheProtocol,
-      RemoteOptions options,
-      DigestUtil digestUtil) {
+      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
@@ -136,7 +134,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * @param digest the digest of the file.
    * @param file the file to upload.
    */
-  public final ListenableFuture<Void> uploadFile(
+  public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -161,7 +159,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * @param digest the digest of the file.
    * @param data the BLOB to upload.
    */
-  public final ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -174,48 +172,6 @@ public class RemoteCache extends AbstractReferenceCounted {
                 () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
 
     return RxFutures.toListenableFuture(upload);
-  }
-
-  public static void waitForBulkTransfer(
-      Iterable<? extends ListenableFuture<?>> transfers, boolean cancelRemainingOnInterrupt)
-      throws BulkTransferException, InterruptedException {
-    BulkTransferException bulkTransferException = null;
-    InterruptedException interruptedException = null;
-    boolean interrupted = Thread.currentThread().isInterrupted();
-    for (ListenableFuture<?> transfer : transfers) {
-      try {
-        if (interruptedException == null) {
-          // Wait for all transfers to finish.
-          getFromFuture(transfer, cancelRemainingOnInterrupt);
-        } else {
-          transfer.cancel(true);
-        }
-      } catch (IOException e) {
-        if (bulkTransferException == null) {
-          bulkTransferException = new BulkTransferException();
-        }
-        bulkTransferException.add(e);
-      } catch (InterruptedException e) {
-        interrupted = Thread.interrupted() || interrupted;
-        interruptedException = e;
-        if (!cancelRemainingOnInterrupt) {
-          // leave the rest of the transfers alone
-          break;
-        }
-      }
-    }
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
-    if (interruptedException != null) {
-      if (bulkTransferException != null) {
-        interruptedException.addSuppressed(bulkTransferException);
-      }
-      throw interruptedException;
-    }
-    if (bulkTransferException != null) {
-      throw bulkTransferException;
-    }
   }
 
   /**
@@ -375,44 +331,20 @@ public class RemoteCache extends AbstractReferenceCounted {
     reporter.started();
     OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
 
-    SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
-    Futures.addCallback(
-        f,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {
-            try {
-              out.close();
-              outerF.set(null);
-              reporter.finished();
-            } catch (IOException e) {
-              outerF.setException(e);
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              outerF.setException(e);
-            }
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            try {
-              out.close();
-              reporter.finished();
-            } catch (IOException e) {
-              if (t != e) {
-                t.addSuppressed(e);
-              }
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              t.addSuppressed(e);
-            } finally {
-              outerF.setException(t);
-            }
+    f.addListener(
+        () -> {
+          try {
+            out.close();
+            reporter.finished();
+          } catch (IOException e) {
+            logger.atWarning().withCause(e).log(
+                "Unexpected exception closing output stream after downloading %s/%d to %s",
+                digest.getHash(), digest.getSizeBytes(), path);
           }
         },
         directExecutor());
-    return outerF;
+    return f;
   }
 
   /**
@@ -461,6 +393,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public RemoteCache retain() {
     super.retain();

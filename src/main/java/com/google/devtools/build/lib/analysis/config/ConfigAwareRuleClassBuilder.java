@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 
 /**
@@ -62,6 +63,7 @@ public class ConfigAwareRuleClassBuilder {
    *
    * <p>The value is inherited by subclasses.
    */
+  @CanIgnoreReturnValue
   public ConfigAwareRuleClassBuilder requiresHostConfigurationFragments(
       Class<? extends Fragment>... configurationFragments) {
     ruleClassBuilder.requiresConfigurationFragments(HostTransition.INSTANCE,
@@ -81,6 +83,7 @@ public class ConfigAwareRuleClassBuilder {
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
    * Starlark module names of fragments instead of their classes.
    */
+  @CanIgnoreReturnValue
   public ConfigAwareRuleClassBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
       Collection<String> configurationFragmentNames) {
     ruleClassBuilder.requiresConfigurationFragmentsByStarlarkModuleName(

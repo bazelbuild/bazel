@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.file;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -74,6 +76,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Options;
@@ -122,6 +125,7 @@ public class LocalSpawnRunnerTest {
           localEnvProvider,
           /*binTools=*/ null,
           processWrapper,
+          SyscallCache.NO_CACHE,
           Mockito.mock(RunfilesTreeUpdater.class));
     }
 
@@ -237,8 +241,9 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public void prefetchInputs() throws IOException {
+    public ListenableFuture<Void> prefetchInputs() {
       prefetchCalled = true;
+      return immediateVoidFuture();
     }
 
     @Override
@@ -328,7 +333,7 @@ public class LocalSpawnRunnerTest {
         });
   }
 
-  private FileSystem setupEnvironmentForFakeExecution() {
+  private FileSystem setupEnvironmentForFakeExecution() throws InterruptedException, IOException {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
@@ -349,7 +354,7 @@ public class LocalSpawnRunnerTest {
    * <p>Tests should call setupEnvironmentForFakeExecution() if they do not want real execution.
    */
   @Before
-  public final void setupEnvironmentForRealExecution() {
+  public final void setupEnvironmentForRealExecution() throws InterruptedException, IOException {
     SubprocessBuilder.setDefaultSubprocessFactory(JavaSubprocessFactory.INSTANCE);
     resourceManager.setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
   }
@@ -703,6 +708,7 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
             /*binTools=*/ null,
             /*processWrapper=*/ null,
+            SyscallCache.NO_CACHE,
             Mockito.mock(RunfilesTreeUpdater.class));
     FileOutErr fileOutErr =
         new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
@@ -963,6 +969,7 @@ public class LocalSpawnRunnerTest {
             binTools,
             new ProcessWrapper(
                 processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
+            SyscallCache.NO_CACHE,
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
@@ -1028,6 +1035,7 @@ public class LocalSpawnRunnerTest {
             binTools,
             new ProcessWrapper(
                 processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
+            SyscallCache.NO_CACHE,
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =

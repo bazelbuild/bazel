@@ -95,6 +95,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
+        "//src/main/java/com/google/devtools/build/lib/testing/vfs:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/main/java/com/google/devtools/build/lib/util:srcs",
@@ -206,13 +207,26 @@ java_library(
 )
 
 java_library(
-    name = "runtime/memory_pressure_handler",
+    name = "runtime/memory_pressure_event",
     srcs = [
-        "runtime/MemoryPressureHandler.java",
+        "runtime/MemoryPressureEvent.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "runtime/command_line_path_factory",
+    srcs = [
+        "runtime/CommandLinePathFactory.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
     ],
 )
 
@@ -228,6 +242,7 @@ java_library(
             "buildtool/BuildRequestOptions.java",
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
+            "runtime/CommandLinePathFactory.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
         ],
@@ -238,6 +253,7 @@ java_library(
         ":loading-phase-threads-option",
         ":runtime/blaze_command_result",
         ":runtime/command_dispatcher",
+        ":runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -247,6 +263,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
@@ -265,6 +282,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:template_expansion_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_action_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
@@ -298,6 +316,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
+        "//src/main/java/com/google/devtools/build/lib/metrics:garage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -316,27 +335,35 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server/signal",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_driver_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_progress_receiver",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_roots_no_symlink_creation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_error_processor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -346,7 +373,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:debug-logger-configurator",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:execution_detailed_exit_code_helper",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:logging",
@@ -359,6 +385,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -366,7 +393,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
-        "//src/main/protobuf:analysis_java_proto",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
@@ -429,15 +456,19 @@ filegroup(
 
 genrule(
     name = "gen_buildencyclopedia",
-    srcs = [":docs_embedded_in_sources"],
+    srcs = [
+        ":docs_embedded_in_sources",
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+    ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " --product_name=bazel" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
-        " --output_dir=$(@D)/be &&" +
+        " --output_dir=$(@D)/be" +
+        " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
     tools = [
@@ -475,10 +506,55 @@ genrule(
 
 genrule(
     name = "gen_skylarklibrary",
+    srcs = ["//src/main/java/com/google/devtools/build/docgen:bazel_link_map"],
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib" +
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin)" +
+          " $(@D)/skylark-lib" +
+          " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
+          " --create_toc=true" +
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
+)
+
+genrule(
+    name = "gen_reference_docs",
+    srcs = [
+        ":build-encyclopedia.zip",
+        ":command-line-reference.html",
+        ":skylark-library.zip",
+        "//tools/build_defs/repo:doc",
+    ],
+    outs = ["reference-docs.zip"],
+    cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
+          "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
+          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
+          "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
+          "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
+          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
+          # Ugly hack: we want to preserve paths relative to gen_docs/,
+          # which means we have to temporarily cd into that directory and zip with -r.
+          "pushd $(@D)/gen_docs && " +
+          "zip -qr tmp.zip . && " +
+          "popd && mv $(@D)/gen_docs/tmp.zip $@",
+    visibility = ["//scripts/docs:__pkg__"],
+)
+
+genrule(
+    name = "gen_api_proto",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+    ],
+    outs = ["builtin.pb"],
+    cmd = (
+        "$(location //src/main/java/com/google/devtools/build/docgen:api_exporter)" +
+        " --output_file=$@" +
+        " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
+        " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib"
+    ),
+    tools = [
+        "//src/main/java/com/google/devtools/build/docgen:api_exporter",
+    ],
 )

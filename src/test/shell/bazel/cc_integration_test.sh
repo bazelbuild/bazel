@@ -295,11 +295,10 @@ EOF
   echo 'void cc() {}' > ea/cc.cc
   echo 'void cc1() {}' > ea/cc1.cc
 
-  bazel build --experimental_save_feature_state //ea:cc || fail "expected success"
-  ls bazel-bin/ea/feature_debug/cc/requested_features.txt || "requested_features.txt not created"
-  ls bazel-bin/ea/feature_debug/cc/enabled_features.txt || "enabled_features.txt not created"
+  bazel build --experimental_builtins_injection_override=+cc_library --experimental_save_feature_state //ea:cc || fail "expected success"
+  ls bazel-bin/ea/cc_feature_state.txt || "cc_feature_state.txt not created"
   # This assumes "grep" is supported in any environment bazel is used.
-  grep "test_feature" bazel-bin/ea/feature_debug/cc/requested_features.txt || "test_feature should have been found in  requested_features."
+  grep "test_feature" bazel-bin/ea/cc_feature_state.txt || "test_feature should have been found in feature_state."
 }
 
 # TODO: test include dirs and defines
@@ -706,18 +705,18 @@ def _tree_art_impl(ctx):
 tree_art_rule = rule(implementation = _tree_art_impl,
     attrs = {
         "_makes_tree" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//${package}:makes_tree_artifacts.sh"),
         "_write" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//${package}:write.sh")})
 
 def _actions_test_impl(target, ctx):
     action = target.actions[1]
-    if action.mnemonic != "CppLink":
-      fail("Expected the second action to be CppLink.")
+    if action.mnemonic != "CppArchive":
+      fail("Expected the second action to be CppArchive.")
     aspect_out = ctx.actions.declare_file('aspect_out')
     ctx.actions.run_shell(inputs = action.inputs,
                           outputs = [aspect_out],
@@ -744,6 +743,43 @@ EOF
       --output_groups=out
 
   cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
+      || fail "args didn't contain the tool path"
+
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
+      || fail "args didn't contain tree artifact paths"
+}
+
+function test_argv_in_compile_action() {
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    action = [a for a in target.actions if a.mnemonic == "CppCompile"][0]
+    aspect_out = ctx.actions.declare_file('aspect_out')
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.argv)
+    return [OutputGroupInfo(out=[aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  touch "${package}/x.cc"
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  bazel build "${package}:x" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out
+
+  cat "bazel-bin/${package}/aspect_out" | \
+      grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
       || fail "args didn't contain the tool path"
 
   cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
@@ -813,13 +849,13 @@ def _actions_test_impl(target, ctx):
     for action in target.actions:
       if action.mnemonic == "CppCompile":
         compile_action = action
-      if action.mnemonic == "CppLink" and not archive_action:
+      if action.mnemonic == "CppArchive":
         archive_action = action
       if action.mnemonic == "CppLink":
         link_action = action
 
     if not compile_action or not archive_action or not link_action:
-      fail("Couln't find compile, archive, or link action")
+      fail("Couldn't find compile, archive, or link action.")
 
     cc_info = target[CcInfo]
     compile_action_outputs = compile_action.outputs.to_list()
@@ -1269,13 +1305,11 @@ def _actions_test_impl(target, ctx):
     for action in target.actions:
       if action.mnemonic == "CppCompile":
         compile_action = action
-      if action.mnemonic == "CppLink" and not archive_action:
+      if action.mnemonic == "CppArchive":
         archive_action = action
-      if action.mnemonic == "CppLink":
-        link_action = action
 
-    if not compile_action or not archive_action or not link_action:
-      fail("Couln't find compile, archive, or link action")
+    if not compile_action or not archive_action:
+      fail("Couldn't find compile or archive action.")
 
     compile_action_outputs = compile_action.outputs.to_list()
     compile_args = ctx.actions.declare_file("compile_args")
@@ -1323,33 +1357,11 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    link_args = ctx.actions.declare_file("link_args")
-    ctx.actions.run_shell(
-        outputs = [link_args],
-        command = "echo \$@ > " + link_args.path,
-        arguments = link_action.args,
-    )
-
-    link_out = ctx.actions.declare_file("link_out.so")
-    ctx.actions.run_shell(
-        inputs = [link_args],
-        shadowed_action = link_action,
-        mnemonic = "RecreatedCppLink",
-        outputs = [link_out],
-        command = "\$(cat %s | sed 's|%s|%s|g')" % (
-            link_args.path,
-            link_action.outputs.to_list()[0].path,
-            link_out.path,
-        ),
-    )
-
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
         archive_args,
         archive_out,
-        link_args,
-        link_out,
     ])]
 
 actions_test_aspect = aspect(implementation = _actions_test_impl)
@@ -1417,6 +1429,81 @@ EOF
   bazel build --experimental_unsupported_and_brittle_include_scanning --features=cc_include_scanning //pkg:bin &>"$TEST_log" && fail 'include scanning did not (wrongly) remove dependency' || true
   expect_log "Include scanning enabled. This feature is unsupported."
   expect_log "fatal error: '\?dep.h'\?"
+}
+
+function test_env_inherit_cc_test() {
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_test(
+  name = 'foo_test',
+  srcs = ['foo_test.cc'],
+  env_inherit = ['FOO'],
+)
+EOF
+
+  cat > pkg/foo_test.cc <<EOF
+#include <stdlib.h>
+
+int main() {
+  auto foo = getenv("FOO");
+  if (foo == nullptr) {
+    return 1;
+  }
+  return 0;
+}
+EOF
+
+  bazel test //pkg:foo_test &> "$TEST_log" && fail "Did not fail as expected. ENV leak?" || true
+  FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
+}
+
+function test_getting_compile_action_env_with_cctoolchain_config_features() {
+  [ "$PLATFORM" != "darwin" ] || return 0
+
+  mkdir -p package
+
+  cat > "package/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+
+    for action in target.actions:
+      if action.mnemonic in ["CppCompile", "ObjcCompile"]:
+        compile_action = action
+
+    print(compile_action.env)
+    return []
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  cat > "package/x.cc" <<EOF
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+
+  cat > "package/BUILD" <<EOF
+cc_binary(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  # Without the flag, the env should not return extra fixed variables
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  expect_not_log "\"PWD\": \"/proc/self/cwd\""
+
+  # With the flag, the env should return extra fixed variables
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" \
+      --experimental_get_fixed_configured_action_env &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  expect_log "\"PWD\": \"/proc/self/cwd\""
 }
 
 run_suite "cc_integration_test"

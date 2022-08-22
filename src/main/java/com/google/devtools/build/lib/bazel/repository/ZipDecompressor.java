@@ -51,10 +51,11 @@ public class ZipDecompressor implements Decompressor {
   private static final int S_IFREG = 0100000;
   private static final int S_IFLNK = 0120000;
   private static final int EXECUTABLE_MASK = 0755;
-  @VisibleForTesting
-  static final int WINDOWS_DIRECTORY = 0x10;
-  @VisibleForTesting
-  static final int WINDOWS_FILE = 0x20;
+
+  // source: https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+  @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_DIRECTORY = 0x10;
+  @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_ARCHIVE = 0x20;
+  @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_NORMAL = 0x80;
 
   /**
    * This unzips the zip file to directory {@link DecompressorDescriptor#repositoryPath()}, which by
@@ -131,11 +132,11 @@ public class ZipDecompressor implements Decompressor {
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
     int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
-    FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
+    outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
     boolean isSymlink = (permissions & S_IFLNK) == S_IFLNK;
     if (isDirectory) {
-      FileSystemUtils.createDirectoryAndParents(outputPath);
+      outputPath.createDirectoryAndParents();
     } else if (isSymlink) {
       Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
       byte[] buffer = new byte[(int) entry.getSize()];
@@ -186,10 +187,13 @@ public class ZipDecompressor implements Decompressor {
     // https://github.com/miloyip/rapidjson/archive/v1.0.2.zip, it looks like executables end up
     // with "normal" (posix) permissions (oddly), so they'll be handled above.
     int windowsPermission = permissions & 0xff;
-    if ((windowsPermission & WINDOWS_DIRECTORY) == WINDOWS_DIRECTORY) {
+    if ((windowsPermission & WINDOWS_FILE_ATTRIBUTE_DIRECTORY)
+        == WINDOWS_FILE_ATTRIBUTE_DIRECTORY) {
       // Directory.
       return S_IFDIR | EXECUTABLE_MASK;
-    } else if (permissions == 0 || (windowsPermission & WINDOWS_FILE) == WINDOWS_FILE) {
+    } else if (permissions == 0
+        || (windowsPermission & WINDOWS_FILE_ATTRIBUTE_ARCHIVE) == WINDOWS_FILE_ATTRIBUTE_ARCHIVE
+        || (windowsPermission & WINDOWS_FILE_ATTRIBUTE_NORMAL) == WINDOWS_FILE_ATTRIBUTE_NORMAL) {
       // File.
       return S_IFREG | EXECUTABLE_MASK;
     }

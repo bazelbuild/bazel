@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import java.util.IllegalFormatException;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.TokenKind;
 
 /** Internal declarations used by the evaluator. */
@@ -125,6 +126,11 @@ final class EvalUtils {
           if (y instanceof StarlarkInt) {
             // int | int
             return StarlarkInt.or((StarlarkInt) x, (StarlarkInt) y);
+          }
+        } else if (x instanceof Dict) {
+          if (y instanceof Dict) {
+            // dict | dict
+            return Dict.builder().putAll((Dict<?, ?>) x).putAll((Dict<?, ?>) y).build(mu);
           }
         }
         break;
@@ -298,9 +304,9 @@ final class EvalUtils {
           String xs = (String) x;
           try {
             if (y instanceof Tuple) {
-              return Starlark.formatWithList(xs, (Tuple) y);
+              return Starlark.formatWithList(semantics, xs, (Tuple) y);
             } else {
-              return Starlark.format(xs, y);
+              return Starlark.format(semantics, xs, y);
             }
           } catch (IllegalFormatException ex) {
             throw new EvalException(ex);
@@ -439,6 +445,7 @@ final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
+  @Nullable
   static Object index(StarlarkThread starlarkThread, Object object, Object key)
       throws EvalException {
     Mutability mu = starlarkThread.mutability();

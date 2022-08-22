@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import javax.annotation.Nullable;
 
 /**
  * Accumulator for problems encountered while reading or validating inclusion
@@ -37,6 +38,7 @@ class IncludeProblems {
 
   boolean hasProblems() { return message != null; }
 
+  @Nullable
   String getMessage(Action action, Artifact sourceFile) {
     if (message != null) {
       return "undeclared inclusion(s) in rule '" + action.getOwner().getLabel() + "':\n"

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.query2.query;
 
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -58,7 +59,7 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
   @Override
   public void missingEdge(Target target, Label label, NoSuchThingException e) {
     hasErrors = true;
-    errorCode.compareAndSet(/*expect=*/ null, /*update=*/ e.getDetailedExitCode());
+    errorCode.compareAndSet(/*expectedValue=*/ null, /*newValue=*/ e.getDetailedExitCode());
   }
 
   /**
@@ -92,7 +93,11 @@ class TargetEdgeErrorObserver implements TargetEdgeObserver {
       this.hasErrors = true;
       FailureDetail failureDetail = node.getPackage().getFailureDetail();
       if (failureDetail != null) {
-        errorCode.compareAndSet(/*expect=*/ null, /*update=*/ DetailedExitCode.of(failureDetail));
+        errorCode.compareAndSet(
+            /*expectedValue=*/ null, /*newValue=*/ DetailedExitCode.of(failureDetail));
+      } else {
+        BugReport.sendNonFatalBugReport(
+            new IllegalStateException("Undetailed error from package: " + node));
       }
     }
   }

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
+import javax.annotation.Nullable;
 
 /**
  * Provider encapsulating all the information from the cc_toolchain rule that affects creation of
@@ -382,10 +383,12 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return targetLibcTop;
   }
 
+  @Nullable
   public Label getLibcTopLabel() {
     return getLibcTop() == null ? null : getLibcTop().getLabel();
   }
 
+  @Nullable
   public Label getTargetLibcTopLabel() {
     return getTargetLibcTop() == null ? null : getTargetLibcTop().getLabel();
   }

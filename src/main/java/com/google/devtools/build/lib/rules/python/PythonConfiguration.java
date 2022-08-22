@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -46,9 +47,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
 
-  // TODO(brandjon): Remove this once migration to the new provider is complete (#7010).
-  private final boolean disallowLegacyPyProvider;
-
   // TODO(brandjon): Remove this once migration to Python toolchains is complete.
   private final boolean useToolchains;
 
@@ -63,7 +61,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.buildPythonZip = pythonOptions.buildPythonZip;
     this.buildTransitiveRunfilesTrees = pythonOptions.buildTransitiveRunfilesTrees;
     this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
-    this.disallowLegacyPyProvider = pythonOptions.incompatibleDisallowLegacyPyProvider;
     this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
   }
@@ -99,6 +96,7 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   }
 
   @Override
+  @Nullable
   public String getOutputDirectoryName() {
     Preconditions.checkState(version.isTargetValue());
     // The only possible Python target version values are PY2 and PY3. Historically, PY3 targets got
@@ -136,16 +134,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
    */
   public boolean buildTransitiveRunfilesTrees() {
     return buildTransitiveRunfilesTrees;
-  }
-
-  /**
-   * Returns true if Python rules should omit the legacy "py" provider and fail-fast when given this
-   * provider from their {@code deps}.
-   *
-   * <p>Any rules that pass this provider should be updated to pass {@code PyInfo} instead.
-   */
-  public boolean disallowLegacyPyProvider() {
-    return disallowLegacyPyProvider;
   }
 
   /**

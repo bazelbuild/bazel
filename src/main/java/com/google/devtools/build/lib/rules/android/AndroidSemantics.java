@@ -109,12 +109,22 @@ public interface AndroidSemantics {
   /** The artifact for the map that proguard will output. */
   Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;
 
+  /** The artifact for ART profile information. */
+  Artifact getArtProfileForApk(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      boolean hasProguardSpecs);
+
+  boolean postprocessClassesRewritesMap(RuleContext ruleContext);
+
   /** Maybe post process the dex files and proguard output map. */
   AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
-      ProguardOutput proguardOutput)
+      ProguardOutput proguardOutput,
+      Artifact proguardMapOutput)
       throws InterruptedException;
 
   default AndroidDataContext makeContextForNative(RuleContext ruleContext) {

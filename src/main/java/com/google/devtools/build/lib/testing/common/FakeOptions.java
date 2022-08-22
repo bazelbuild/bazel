@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -64,6 +65,7 @@ public final class FakeOptions implements OptionsProvider {
      * <p>Please note that {@link build} will fail if this method is called twice with options of
      * the same class.
      */
+    @CanIgnoreReturnValue
     public <O extends OptionsBase> Builder put(O options) {
       this.options.put(options.getClass(), options);
       return this;
@@ -75,6 +77,7 @@ public final class FakeOptions implements OptionsProvider {
      * <p>Please note that {@link build} will fail if we overwrite an already specified {@linkplain
      * OptionsBase options} class.
      */
+    @CanIgnoreReturnValue
     @SafeVarargs
     public final Builder putDefaults(Class<? extends OptionsBase>... optionsClasses) {
       for (Class<? extends OptionsBase> optionsClass : optionsClasses) {

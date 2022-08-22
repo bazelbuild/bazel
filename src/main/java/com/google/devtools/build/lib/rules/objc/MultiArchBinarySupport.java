@@ -15,17 +15,14 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -39,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -49,45 +47,18 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.starlark.java.eval.Dict;
 
 /** Support utility for creating multi-arch Apple binaries. */
 public class MultiArchBinarySupport {
   private final RuleContext ruleContext;
   private final CppSemantics cppSemantics;
-
-  /**
-   * Returns all child configurations for this multi-arch target, mapped to the toolchains that they
-   * should use.
-   */
-  static ImmutableMap<BuildConfigurationValue, CcToolchainProvider>
-      getChildConfigurationsAndToolchains(RuleContext ruleContext) {
-    ImmutableListMultimap<BuildConfigurationValue, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, CcToolchainProvider.PROVIDER);
-
-    ImmutableMap.Builder<BuildConfigurationValue, CcToolchainProvider> result =
-        ImmutableMap.builder();
-    for (BuildConfigurationValue config : configToProvider.keySet()) {
-      CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
-      result.put(config, toolchain);
-    }
-
-    return result.build();
-  }
-
-  static <V> ImmutableListMultimap<String, V> transformMap(
-      Multimap<BuildConfigurationValue, V> input) {
-    ImmutableListMultimap.Builder<String, V> result = ImmutableListMultimap.builder();
-    for (Map.Entry<BuildConfigurationValue, V> entry : input.entries()) {
-      result.put(entry.getKey().getCpu(), entry.getValue());
-    }
-
-    return result.build();
-  }
 
   /** A tuple of values about dependency trees in a specific child configuration. */
   @AutoValue
@@ -96,9 +67,9 @@ public class MultiArchBinarySupport {
         BuildConfigurationValue config,
         CcToolchainProvider toolchain,
         ObjcProvider objcLinkProvider,
-        ObjcProvider objcPropagateProvider) {
+        ObjcProvider objcProviderWithAvoidDepsSymbols) {
       return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
-          config, toolchain, objcLinkProvider, objcPropagateProvider);
+          config, toolchain, objcLinkProvider, objcProviderWithAvoidDepsSymbols);
     }
 
     /** Returns the child configuration for this tuple. */
@@ -108,16 +79,16 @@ public class MultiArchBinarySupport {
     abstract CcToolchainProvider toolchain();
 
     /**
-     * Returns the {@link ObjcProvider} to use as input to the support controlling link actoins;
-     * dylib symbols should be subtracted from this provider.
+     * Returns the {@link ObjcProvider} to use as input to the support controlling link actions;
+     * avoid deps symbols should be subtracted from this provider.
      */
     abstract ObjcProvider objcLinkProvider();
 
     /**
-     * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have dylib
+     * Returns the {@link ObjcProvider} to propagate up to dependers; this will not have avoid deps
      * symbols subtracted, thus signaling that this target is still responsible for those symbols.
      */
-    abstract ObjcProvider objcProviderWithDylibSymbols();
+    abstract ObjcProvider objcProviderWithAvoidDepsSymbols();
   }
 
   /** @param ruleContext the current rule context */
@@ -149,7 +120,7 @@ public class MultiArchBinarySupport {
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled,
-      Iterable<TransitiveInfoCollection> infoCollections,
+      Iterable<? extends TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
     IntermediateArtifacts intermediateArtifacts =
@@ -191,53 +162,68 @@ public class MultiArchBinarySupport {
   }
 
   /**
-   * Returns a set of {@link DependencySpecificConfiguration} instances that comprise all
-   * information about the dependencies for each child configuration. This can be used both to
-   * register actions in {@link #registerConfigurationSpecificLinkActions} and collect provider
-   * information to be propagated upstream.
+   * Returns a map of {@link DependencySpecificConfiguration} instances keyed by their split
+   * transition key. Each dependency specific configuration comprise all information about the
+   * dependencies for each child configuration. This can be used both to register actions in {@link
+   * #registerConfigurationSpecificLinkActions} and collect provider information to be propagated
+   * upstream.
    *
-   * @param childConfigurationsAndToolchains the set of configurations and toolchains for which
-   *     dependencies of the current rule are built
-   * @param cpuToDepsCollectionMap a map from child configuration CPU to providers that "deps" of
-   *     the current rule have propagated in that configuration
-   * @param dylibProviders {@link TransitiveInfoCollection}s that dynamic library dependencies of
-   *     the current rule have propagated
+   * @param splitToolchains a map from split toolchains for which dependencies of the current rule
+   *     are built
+   * @param splitDeps a map from split "deps" of the current rule.
+   * @param avoidDepsProviders {@link TransitiveInfoCollection}s that dependencies of the current
+   *     rule have propagated which should not be linked into the binary
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
-      Map<BuildConfigurationValue, CcToolchainProvider> childConfigurationsAndToolchains,
-      ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
-      ImmutableList<TransitiveInfoCollection> dylibProviders)
-      throws RuleErrorException, InterruptedException {
-    Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
-    ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
+  public ImmutableMap<Optional<String>, DependencySpecificConfiguration>
+      getDependencySpecificConfigurations(
+          Map<Optional<String>, List<ConfiguredTargetAndData>> splitToolchains,
+          Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps,
+          ImmutableList<TransitiveInfoCollection> avoidDepsProviders)
+          throws RuleErrorException, InterruptedException {
+    Iterable<ObjcProvider> avoidDepsObjcProviders = getAvoidDepsObjcProviders(avoidDepsProviders);
+    ImmutableList<CcLinkingContext> avoidDepsCcLinkingContexts =
+        getTypedProviders(avoidDepsProviders, CcInfo.PROVIDER).stream()
+            .map(CcInfo::getCcLinkingContext)
+            .collect(toImmutableList());
 
-    for (BuildConfigurationValue childToolchainConfig : childConfigurationsAndToolchains.keySet()) {
-      String childCpu = childToolchainConfig.getCpu();
-
+    ImmutableMap.Builder<Optional<String>, DependencySpecificConfiguration> childInfoBuilder =
+        ImmutableMap.builder();
+    for (Optional<String> splitTransitionKey : splitToolchains.keySet()) {
+      ConfiguredTargetAndData ctad =
+          Iterables.getOnlyElement(splitToolchains.get(splitTransitionKey));
+      BuildConfigurationValue childToolchainConfig = ctad.getConfiguration();
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
+
+      List<? extends TransitiveInfoCollection> propagatedDeps =
+          getProvidersFromCtads(splitDeps.get(splitTransitionKey));
 
       ObjcCommon common =
           common(
               ruleContext,
               childToolchainConfig,
               intermediateArtifacts,
-              nullToEmptyList(cpuToDepsCollectionMap.get(childCpu)),
-              dylibObjcProviders);
-      ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
+              propagatedDeps,
+              avoidDepsObjcProviders);
+      ObjcProvider objcProviderWithAvoidDepsSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
-          objcProviderWithDylibSymbols.subtractSubtrees(dylibObjcProviders, ImmutableList.of());
+          objcProviderWithAvoidDepsSymbols.subtractSubtrees(
+              avoidDepsObjcProviders, avoidDepsCcLinkingContexts);
 
-      childInfoBuilder.add(
+      CcToolchainProvider toolchainProvider =
+          ctad.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
+
+      childInfoBuilder.put(
+          splitTransitionKey,
           DependencySpecificConfiguration.create(
               childToolchainConfig,
-              childConfigurationsAndToolchains.get(childToolchainConfig),
+              toolchainProvider,
               objcProvider,
-              objcProviderWithDylibSymbols));
+              objcProviderWithAvoidDepsSymbols));
     }
 
-    return childInfoBuilder.build();
+    return childInfoBuilder.buildOrThrow();
   }
 
   /**
@@ -390,7 +376,45 @@ public class MultiArchBinarySupport {
       splitBuildOptions.put(platform.getCanonicalForm(), splitOptions.underlying());
     }
 
-    return splitBuildOptions.build();
+    return splitBuildOptions.buildOrThrow();
+  }
+
+  /**
+   * Returns a list of supported Apple CPUs given the minimum OS for the target platform.
+   *
+   * @param minimumOsVersionOption a minimum OS version represented to override command line
+   *     options, if one has been found
+   * @param cpus list of Apple CPUs requested by the build invocation
+   * @param platformType the platform type attribute found from the given rule being built
+   * @return a {@link List<String>} representing the supported list of Apple CPUs
+   */
+  private static List<String> supportedAppleCpusFromMinimumOs(
+      DottedVersion.Option minimumOsVersionOption, List<String> cpus, PlatformType platformType) {
+    List<String> supportedCpus = cpus;
+    DottedVersion actualMinimumOsVersion = DottedVersion.maybeUnwrap(minimumOsVersionOption);
+    DottedVersion unsupported32BitMinimumOs;
+    switch (platformType) {
+      case IOS:
+        unsupported32BitMinimumOs = DottedVersion.fromStringUnchecked("11.0");
+        break;
+      case WATCHOS:
+        unsupported32BitMinimumOs = DottedVersion.fromStringUnchecked("9.0");
+        break;
+      default:
+        return supportedCpus;
+    }
+
+    if (actualMinimumOsVersion != null
+        && actualMinimumOsVersion.compareTo(unsupported32BitMinimumOs) >= 0) {
+      ImmutableList<String> non32BitCpus =
+          cpus.stream()
+              .filter(cpu -> !ApplePlatform.is32Bit(platformType, cpu))
+              .collect(toImmutableList());
+      if (!non32BitCpus.isEmpty()) {
+        supportedCpus = non32BitCpus;
+      }
+    }
+    return supportedCpus;
   }
 
   /**
@@ -421,26 +445,14 @@ public class MultiArchBinarySupport {
               ImmutableList.of(
                   AppleConfiguration.iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu));
         }
-        DottedVersion actualMinimumOsVersion = DottedVersion.maybeUnwrap(minimumOsVersionOption);
-        if (actualMinimumOsVersion != null
-            && actualMinimumOsVersion.compareTo(DottedVersion.fromStringUnchecked("11.0")) >= 0) {
-          List<String> non32BitCpus =
-              cpus.stream()
-                  .filter(cpu -> !ApplePlatform.is32Bit(PlatformType.IOS, cpu))
-                  .collect(Collectors.toList());
-          if (!non32BitCpus.isEmpty()) {
-            // TODO(b/65969900): Throw an exception here. Ideally, there would be an applicable
-            // exception to throw during configuration creation, but instead this validation needs
-            // to be deferred to later.
-            cpus = non32BitCpus;
-          }
-        }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;
       case WATCHOS:
         cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;
         if (cpus.isEmpty()) {
           cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU);
         }
+        cpus = supportedAppleCpusFromMinimumOs(minimumOsVersionOption, cpus, platformType);
         break;
       case TVOS:
         cpus = buildOptions.get(AppleCommandLineOptions.class).tvosCpus;
@@ -475,10 +487,6 @@ public class MultiArchBinarySupport {
           splitOptions.get(AppleCommandLineOptions.class);
 
       appleCommandLineOptions.appleSplitCpu = cpu;
-      // If the new configuration does not use the apple crosstool, then it needs ios_cpu to be
-      // to decide architecture.
-      // TODO(b/29355778, b/28403953): Use a crosstool for any apple rule. Deprecate ios_cpu.
-      appleCommandLineOptions.iosCpu = cpu;
 
       String platformCpu = ApplePlatform.cpuStringForTarget(platformType, cpu);
       if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
@@ -496,23 +504,23 @@ public class MultiArchBinarySupport {
 
       splitBuildOptions.put(platformCpu, splitOptions.underlying());
     }
-    return splitBuildOptions.build();
+    return splitBuildOptions.buildOrThrow();
   }
 
-  private static Iterable<ObjcProvider> getDylibObjcProviders(
+  private static Iterable<ObjcProvider> getAvoidDepsObjcProviders(
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
     // Dylibs.
     ImmutableList<ObjcProvider> frameworkObjcProviders =
         getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
     // Bundle Loaders.
     ImmutableList<ObjcProvider> executableObjcProviders =
         getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
 
     return Iterables.concat(
         frameworkObjcProviders,
@@ -540,15 +548,63 @@ public class MultiArchBinarySupport {
     return commonBuilder.build();
   }
 
-  private <T> List<T> nullToEmptyList(List<T> inputList) {
-    return inputList != null ? inputList : ImmutableList.<T>of();
-  }
-
   private static <T extends Info> ImmutableList<T> getTypedProviders(
-      Iterable<TransitiveInfoCollection> infoCollections, BuiltinProvider<T> providerClass) {
-    return Streams.stream(infoCollections)
+      Iterable<? extends TransitiveInfoCollection> infoCollections,
+      BuiltinProvider<T> providerClass) {
+    return stream(infoCollections)
         .filter(infoCollection -> infoCollection.get(providerClass) != null)
         .map(infoCollection -> infoCollection.get(providerClass))
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
+  }
+
+  /** Returns providers from a list of {@link ConfiguredTargetAndData} */
+  public static List<? extends TransitiveInfoCollection> getProvidersFromCtads(
+      List<ConfiguredTargetAndData> ctads) {
+    if (ctads == null) {
+      return ImmutableList.<TransitiveInfoCollection>of();
+    }
+    return ctads.stream()
+        .map(ConfiguredTargetAndData::getConfiguredTarget)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns an Apple target triplet (arch, platform, environment) for a given {@link
+   * BuildConfigurationValue}.
+   *
+   * @param config {@link BuildConfigurationValue} from rule context
+   * @return {@link AppleLinkingOutputs.TargetTriplet}
+   */
+  public static AppleLinkingOutputs.TargetTriplet getTargetTriplet(BuildConfigurationValue config) {
+    // TODO(b/177442911): Use the target platform from platform info coming from split
+    // transition outputs instead of inferring this based on the target CPU.
+    ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(config.getCpu());
+    AppleConfiguration appleConfig = config.getFragment(AppleConfiguration.class);
+
+    return TargetTriplet.create(
+        appleConfig.getSingleArchitecture(),
+        cpuPlatform.getTargetPlatform(),
+        cpuPlatform.getTargetEnvironment());
+  }
+
+  /**
+   * Transforms a {@link Map<Optional<String>, List<ConfiguredTargetAndData>>}, to a Starlark Dict
+   * keyed by split transition keys with {@link AppleLinkingOutputs.TargetTriplet} Starlark struct
+   * definition.
+   *
+   * @param ctads a {@link Map<Optional<String>, List<ConfiguredTargetAndData>>} from rule context
+   * @return a Starlark {@link Dict<String, StructImpl>} representing split transition keys with
+   *     their target triplet (architecture, platform, environment)
+   */
+  public static Dict<String, StructImpl> getSplitTargetTripletFromCtads(
+      Map<Optional<String>, List<ConfiguredTargetAndData>> ctads) {
+    Dict.Builder<String, StructImpl> result = Dict.builder();
+    for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      TargetTriplet targetTriplet =
+          getTargetTriplet(
+              Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
+      result.put(splitTransitionKey.get(), targetTriplet.toStarlarkStruct());
+    }
+    return result.buildImmutable();
   }
 }

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * Notifies that an in-flight action is being scheduled.
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
  * ActionCompletionEvent} events, and should only appear after a corresponding {@link
  * ScanningActionEvent}. TODO(jmmv): But this theory is not true today. Investigate.
  */
-public class SchedulingActionEvent implements ProgressLike {
+public final class SchedulingActionEvent implements Postable {
 
   private final ActionExecutionMetadata action;
   private final String strategy;

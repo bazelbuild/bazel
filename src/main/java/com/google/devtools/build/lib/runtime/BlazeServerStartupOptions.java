@@ -45,7 +45,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * "option_name1:source1:option_name2:source2:.." and converts it into an option name to source
    * map.
    */
-  public static class OptionSourcesConverter implements Converter<Map<String, String>> {
+  public static class OptionSourcesConverter extends Converter.Contextless<Map<String, String>> {
     private String unescape(String input) {
       return input.replace("_C", ":").replace("_U", "_");
     }
@@ -54,7 +54,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     public Map<String, String> convert(String input) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       if (input.isEmpty()) {
-        return builder.build();
+        return builder.buildOrThrow();
       }
 
       String[] elements = input.split(":");
@@ -66,7 +66,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         }
         builder.put(unescape(name), unescape(value));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
@@ -290,7 +290,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
+      help =
+          "Whether or not to exit if an exception is thrown by an internal EventBus handler. No-op"
+              + " if --fatal_async_exceptions_exclusions is available; that flag's behavior is"
+              + " preferentially used.")
   public boolean fatalEventBusExceptions;
 
   @Option(

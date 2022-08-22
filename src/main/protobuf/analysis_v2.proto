@@ -112,6 +112,10 @@ message Action {
   // the string to be substituted and the value is the string to be substituted
   // to.
   repeated KeyValuePair substitutions = 16;
+
+  // The contents of the file for the actions.write() action
+  // (guarded by the --include_file_write_contents flag).
+  string file_contents = 17;
 }
 
 // Represents a single target (without configuration information) that is
@@ -179,6 +183,9 @@ message Configuration {
 
   // The checksum representation of the configuration options;
   string checksum = 4;
+
+  // Whether this configuration is used for building tools.
+  bool is_tool = 5;
 }
 
 message KeyValuePair {
@@ -196,14 +203,22 @@ message ConfiguredTarget {
   // regular blaze query.
   blaze_query.Target target = 1;
 
-  // The configuration
-  Configuration configuration = 2;
+  // DEPRECATED. Use configuration_id instead.
+  Configuration configuration = 2 [deprecated = true];
+
+  // The id of the configuration this target is configured for. The actual
+  // Configuration message can be found in CqueryResults. If the target doesn't
+  // have a configuration, the value will be 0.
+  uint32 configuration_id = 3;
 }
 
 // Container for cquery results
 message CqueryResult {
   // All the configuredtargets returns by cquery
   repeated ConfiguredTarget results = 1;
+
+  // All the Configurations referenced by results.
+  repeated Configuration configurations = 2;
 }
 
 // Content of a param file.

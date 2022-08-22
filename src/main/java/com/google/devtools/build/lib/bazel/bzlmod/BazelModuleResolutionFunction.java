@@ -24,20 +24,24 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.Selection.SelectionResult;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Runs Bazel module resolution. This function produces the dependency graph containing all Bazel
@@ -50,6 +54,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       new Precomputed<>("check_direct_dependency");
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootModuleFileValue root =
@@ -62,15 +67,17 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    ImmutableMap<ModuleKey, Module> resolvedDepGraph;
+    SelectionResult selectionResult;
     try {
-      resolvedDepGraph = Selection.run(initialDepGraph, overrides);
+      selectionResult = Selection.run(initialDepGraph, overrides);
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
+    ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResult.getResolvedDepGraph();
+
     verifyRootModuleDirectDepsAreAccurate(
         env, initialDepGraph.get(ModuleKey.ROOT), resolvedDepGraph.get(ModuleKey.ROOT));
-    return createValue(resolvedDepGraph, overrides);
+    return createValue(resolvedDepGraph, selectionResult.getUnprunedDepGraph(), overrides);
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(
@@ -107,10 +114,12 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
   @VisibleForTesting
   static BazelModuleResolutionValue createValue(
-      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
+      ImmutableMap<ModuleKey, Module> depGraph,
+      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
+      ImmutableMap<String, ModuleOverride> overrides)
       throws BazelModuleResolutionFunctionException {
     // Build some reverse lookups for later use.
-    ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
+    ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
     ImmutableMap<String, ModuleKey> moduleNameLookup =
@@ -126,17 +135,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
-      LabelConversionContext labelConversionContext =
-          new LabelConversionContext(
-              StarlarkBazelModule.createModuleRootLabel(module.getCanonicalRepoName()),
-              module.getRepoMappingWithBazelDepsOnly(),
-              new HashMap<>());
+      LabelConverter labelConverter =
+          new LabelConverter(
+              PackageIdentifier.create(module.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
+              module.getRepoMappingWithBazelDepsOnly());
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
         try {
           ModuleExtensionId moduleExtensionId =
               ModuleExtensionId.create(
-                  labelConversionContext.convert(usage.getExtensionBzlFile()),
-                  usage.getExtensionName());
+                  labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName());
           extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
         } catch (LabelSyntaxException e) {
           throw new BazelModuleResolutionFunctionException(
@@ -150,13 +157,18 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       }
     }
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-        extensionUsagesTableBuilder.build();
+        extensionUsagesTableBuilder.buildOrThrow();
 
     // Calculate a unique name for each used extension id.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
       String bestName =
-          id.getBzlFileLabel().getRepository().strippedName() + "." + id.getExtensionName();
+          id.getBzlFileLabel().getRepository().getName() + "~" + id.getExtensionName();
+      if (!bestName.startsWith("@")) {
+        // We have to special-case extensions hosted in well-known modules, because *all* repos
+        // generated by Bzlmod have to have an '@'-prefixed name, except well-known modules.
+        bestName = "@" + bestName;
+      }
       if (extensionUniqueNames.putIfAbsent(bestName, id) == null) {
         continue;
       }
@@ -168,6 +180,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
     return BazelModuleResolutionValue.create(
         depGraph,
+        unprunedDepGraph,
         canonicalRepoNameLookup,
         moduleNameLookup,
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),

@@ -15,8 +15,10 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -24,6 +26,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -72,7 +75,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "0 in d, \"a\" in d  # (True, False)\n"
             + "[(k, v) for k, v in d.items()]  # [(0, \"a\"), (1, 1), (2, \"b\")]\n"
             + "</pre>\n"
-            + "<p>There are three ways to construct a dictionary:\n"
+            + "<p>There are four ways to construct a dictionary:\n"
             + "<ol>\n"
             + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
             + " the specified key/value entries, inserted in the order they appear in the"
@@ -90,6 +93,17 @@ import net.starlark.java.annot.StarlarkMethod;
             + " a dictionary containing the specified entries, which are inserted in argument"
             + " order, positional arguments before named. As with comprehensions, duplicate keys"
             + " are permitted.\n"
+            + "<li>The union expression <code>x | y</code> yields a new dictionary by combining two"
+            + " existing dictionaries. If the two dictionaries have a key <code>k</code> in common,"
+            + " the right hand side dictionary's value of the key (in other words,"
+            + " <code>y[k]</code>) wins. The <code>|=</code> variant of the union operator modifies"
+            + " a dictionary in-place. Example:<br>"
+            + "<pre class=language-python>"
+            + "d = {\"foo\": \"FOO\", \"bar\": \"BAR\"} | {\"foo\": \"FOO2\", \"baz\": \"BAZ\"}\n"
+            + "# d == {\"foo\": \"FOO2\", \"bar\": \"BAR\", \"baz\": \"BAZ\"}\n"
+            + "d = {\"a\": 1, \"b\": 2}\n"
+            + "d |= {\"b\": 3, \"c\": 4}\n"
+            + "# d == {\"a\": 1, \"b\": 3, \"c\": 4}</pre>"
             + "</ol>")
 public class Dict<K, V>
     implements Map<K, V>,
@@ -98,29 +112,49 @@ public class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K> {
 
-  // TODO(adonovan): for dicts that are born frozen, use ImmutableMap, which is also
-  // insertion-ordered and has smaller Entries (singly linked, no hash).
-  private final LinkedHashMap<K, V> contents;
+  private final Map<K, V> contents;
   private int iteratorCount; // number of active iterators (unused once frozen)
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
 
-  private Dict(@Nullable Mutability mutability, LinkedHashMap<K, V> contents) {
-    this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
+  private Dict(Mutability mutability, LinkedHashMap<K, V> contents) {
+    Preconditions.checkNotNull(mutability);
+    Preconditions.checkState(mutability != Mutability.IMMUTABLE);
+    this.mutability = mutability;
+    // TODO(bazel-team): Memory optimization opportunity: Make it so that a call to
+    // `mutability.freeze()` causes `contents` here to become an ImmutableMap. Benchmarks show that
+    // for many targets, this can save a small amount of retained heap (up to 1%). But for some
+    // targets the bookkeeping required for this causes unacceptably increased temporary heap, and
+    // the CPU overhead of the bookkeeping and the CPU cost of the ImmutableMap#copyOf call cause
+    // unacceptably increased CPU. In other words, the overall tradeoff is not obviously worth it
+    // in all cases. So be careful making this optimization! See comment #12 of b/225469491 for
+    // details.
     this.contents = contents;
   }
 
-  private Dict(@Nullable Mutability mutability) {
-    this(mutability, new LinkedHashMap<>());
+  private Dict(ImmutableMap<K, V> contents) {
+    // An immutable dict might as well store its contents as an ImmutableMap, since ImmutableMap
+    // both is more memory-efficient than LinkedHashMap and also it has the requisite deterministic
+    // iteration order.
+    this.mutability = Mutability.IMMUTABLE;
+    this.contents = contents;
   }
 
   /**
    * Takes ownership of the supplied LinkedHashMap and returns a new Dict that wraps it. The caller
    * must not subsequently modify the map, but the Dict may do so.
    */
-  static <K, V> Dict<K, V> wrap(@Nullable Mutability mutability, LinkedHashMap<K, V> contents) {
-    return new Dict<>(mutability, contents);
+  static <K, V> Dict<K, V> wrap(@Nullable Mutability mu, LinkedHashMap<K, V> contents) {
+    if (mu == null) {
+      mu = Mutability.IMMUTABLE;
+    }
+    if (mu == Mutability.IMMUTABLE && contents.isEmpty()) {
+      return empty();
+    }
+    // #wrap is used in situations where the resulting Dict isn't necessarily retained [forever].
+    // So, don't make an ImmutableMap copy of `contents`, as #copyOf would do.
+    return new Dict<>(mu, contents);
   }
 
   @Override
@@ -383,7 +417,7 @@ public class Dict<K, V>
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
-  private static final Dict<?, ?> EMPTY = of(Mutability.IMMUTABLE);
+  private static final Dict<?, ?> EMPTY = new Dict<>(ImmutableMap.of());
 
   /** Returns an immutable empty dict. */
   // Safe because the empty singleton is immutable.
@@ -394,24 +428,49 @@ public class Dict<K, V>
 
   /** Returns a new empty dict with the specified mutability. */
   public static <K, V> Dict<K, V> of(@Nullable Mutability mu) {
-    return new Dict<>(mu);
+    if (mu == null) {
+      mu = Mutability.IMMUTABLE;
+    }
+    if (mu == Mutability.IMMUTABLE) {
+      return empty();
+    } else {
+      return new Dict<>(mu, new LinkedHashMap<>());
+    }
   }
 
   /** Returns a new dict with the specified mutability containing the entries of {@code m}. */
   public static <K, V> Dict<K, V> copyOf(@Nullable Mutability mu, Map<? extends K, ? extends V> m) {
-    if (mu == null && m instanceof Dict && ((Dict) m).isImmutable()) {
+    if (mu == null) {
+      mu = Mutability.IMMUTABLE;
+    }
+
+    if (mu == Mutability.IMMUTABLE && m instanceof Dict && ((Dict) m).isImmutable()) {
       @SuppressWarnings("unchecked")
       Dict<K, V> dict = (Dict<K, V>) m; // safe
       return dict;
     }
 
-    Dict<K, V> dict = new Dict<>(mu);
-    for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-      dict.contents.put(
-          Starlark.checkValid(e.getKey()), //
-          Starlark.checkValid(e.getValue()));
+    if (mu == Mutability.IMMUTABLE) {
+      if (m.isEmpty()) {
+        return empty();
+      }
+      ImmutableMap.Builder<K, V> immutableMapBuilder =
+          ImmutableMap.builderWithExpectedSize(m.size());
+      for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+        immutableMapBuilder.put(
+            Starlark.checkValid(e.getKey()), //
+            Starlark.checkValid(e.getValue()));
+      }
+      return new Dict<>(immutableMapBuilder.buildOrThrow());
+    } else {
+      LinkedHashMap<K, V> linkedHashMap = new LinkedHashMap<>();
+      for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+        linkedHashMap.put(
+            Starlark.checkValid(e.getKey()), //
+            Starlark.checkValid(e.getValue()));
+      }
+      return new Dict<>(mu, linkedHashMap);
     }
-    return dict;
   }
 
   /** Returns an immutable dict containing the entries of {@code m}. */
@@ -429,6 +488,7 @@ public class Dict<K, V>
     private final ArrayList<Object> items = new ArrayList<>(); // [k, v, ... k, v]
 
     /** Adds an entry (k, v) to the builder, overwriting any previous entry with the same key . */
+    @CanIgnoreReturnValue
     public Builder<K, V> put(K k, V v) {
       items.add(Starlark.checkValid(k));
       items.add(Starlark.checkValid(v));
@@ -436,6 +496,7 @@ public class Dict<K, V>
     }
 
     /** Adds all the map's entries to the builder. */
+    @CanIgnoreReturnValue
     public Builder<K, V> putAll(Map<? extends K, ? extends V> map) {
       items.ensureCapacity(items.size() + 2 * map.size());
       for (Map.Entry<? extends K, ? extends V> e : map.entrySet()) {
@@ -451,7 +512,7 @@ public class Dict<K, V>
 
     /** Returns a new {@link ImmutableKeyTrackingDict} containing the entries added so far. */
     public ImmutableKeyTrackingDict<K, V> buildImmutableWithKeyTracking() {
-      return new ImmutableKeyTrackingDict<>(buildMap());
+      return new ImmutableKeyTrackingDict<>(buildImmutableMap());
     }
 
     /**
@@ -459,19 +520,42 @@ public class Dict<K, V>
      * mutability; null means immutable.
      */
     public Dict<K, V> build(@Nullable Mutability mu) {
-      return wrap(mu, buildMap());
+      if (mu == null) {
+        mu = Mutability.IMMUTABLE;
+      }
+
+      if (mu == Mutability.IMMUTABLE) {
+        if (items.isEmpty()) {
+          return empty();
+        }
+        return new Dict<>(buildImmutableMap());
+      } else {
+        return new Dict<>(mu, buildLinkedHashMap());
+      }
     }
 
-    private LinkedHashMap<K, V> buildMap() {
-      int n = items.size() / 2;
-      LinkedHashMap<K, V> map = Maps.newLinkedHashMapWithExpectedSize(n);
+    private void populateMap(int n, BiConsumer<K, V> mapEntryConsumer) {
       for (int i = 0; i < n; i++) {
         @SuppressWarnings("unchecked")
         K k = (K) items.get(2 * i); // safe
         @SuppressWarnings("unchecked")
         V v = (V) items.get(2 * i + 1); // safe
-        map.put(k, v);
+        mapEntryConsumer.accept(k, v);
       }
+    }
+
+    private ImmutableMap<K, V> buildImmutableMap() {
+      int n = items.size() / 2;
+      ImmutableMap.Builder<K, V> immutableMapBuilder = ImmutableMap.builderWithExpectedSize(n);
+      populateMap(n, immutableMapBuilder::put);
+      // Respect the desired semantics of Builder#put.
+      return immutableMapBuilder.buildKeepingLast();
+    }
+
+    private LinkedHashMap<K, V> buildLinkedHashMap() {
+      int n = items.size() / 2;
+      LinkedHashMap<K, V> map = Maps.newLinkedHashMapWithExpectedSize(n);
+      populateMap(n, map::put);
       return map;
     }
   }
@@ -619,6 +703,7 @@ public class Dict<K, V>
     return Collections.unmodifiableMap(contents).entrySet();
   }
 
+  @Nullable
   @Override
   public V get(Object key) {
     return contents.get(key);
@@ -656,6 +741,7 @@ public class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Deprecated // use putEntry
   @Override
   public V put(K key, V value) {
@@ -668,6 +754,7 @@ public class Dict<K, V>
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
   @Deprecated // use removeEntry
   @Override
   public V remove(Object key) {
@@ -684,8 +771,8 @@ public class Dict<K, V>
   public static final class ImmutableKeyTrackingDict<K, V> extends Dict<K, V> {
     private final ImmutableSet.Builder<K> accessedKeys = ImmutableSet.builder();
 
-    private ImmutableKeyTrackingDict(LinkedHashMap<K, V> contents) {
-      super(Mutability.IMMUTABLE, contents);
+    private ImmutableKeyTrackingDict(ImmutableMap<K, V> contents) {
+      super(contents);
     }
 
     public ImmutableSet<K> getAccessedKeys() {
@@ -702,6 +789,7 @@ public class Dict<K, V>
       return false;
     }
 
+    @Nullable
     @Override
     @SuppressWarnings("unchecked") // Present keys must be of type K.
     public V get(Object key) {

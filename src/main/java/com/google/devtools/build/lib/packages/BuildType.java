@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +75,28 @@ public final class BuildType {
   /** The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause dependencies. */
   @SerializationConstant
   public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
+
+  /**
+   * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
+   * Does not say anything about whether the attribute of this type is itself configurable.
+   *
+   * <p>Without a special type to handle genquery.scope, configuring a genquery target ends up
+   * configuring the transitive closure of genquery.scope. Since genquery rule implementation loads
+   * the deps through TransitiveTargetFunction, it doesn't need them to be configured. Preventing
+   * the dependencies of scope from being configured, lets us save some resources.
+   */
+  @SerializationConstant
+  public static final Type<Label> GENQUERY_SCOPE_TYPE =
+      new LabelType(LabelClass.GENQUERY_SCOPE_REFERENCE);
+
+  /**
+   * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
+   * Does not say anything about whether the attribute of this type is itself configurable.
+   */
+  @SerializationConstant
+  public static final ListType<Label> GENQUERY_SCOPE_TYPE_LIST =
+      ListType.create(GENQUERY_SCOPE_TYPE);
+
   /**
    * The type of a license. Like Label, licenses aren't first-class, but they're important enough to
    * justify early syntax error detection.
@@ -92,10 +112,11 @@ public final class BuildType {
         }
 
         @Override
-        public DistributionType convert(Object x, Object what, Object context) {
+        public DistributionType convert(Object x, Object what, LabelConverter labelConverter) {
           throw new UnsupportedOperationException();
         }
 
+        @Nullable
         @Override
         public DistributionType getDefaultValue() {
           return null;
@@ -142,8 +163,7 @@ public final class BuildType {
    * <p>The caller is responsible for casting the returned value appropriately.
    */
   public static <T> Object selectableConvert(
-      Type<T> type, Object x, Object what, LabelConversionContext context)
-      throws ConversionException {
+      Type<T> type, Object x, Object what, LabelConverter context) throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
       return new SelectorList<>(
           ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
@@ -152,53 +172,6 @@ public final class BuildType {
           type);
     } else {
       return type.convert(x, what, context);
-    }
-  }
-
-  /** Context in which to evaluate a label with repository remappings */
-  public static class LabelConversionContext {
-    private final Label label;
-    private final RepositoryMapping repositoryMapping;
-    private final HashMap<String, Label> convertedLabelsInPackage;
-
-    public LabelConversionContext(
-        Label label,
-        RepositoryMapping repositoryMapping,
-        HashMap<String, Label> convertedLabelsInPackage) {
-      this.label = label;
-      this.repositoryMapping = repositoryMapping;
-      this.convertedLabelsInPackage = convertedLabelsInPackage;
-    }
-
-    Label getLabel() {
-      return label;
-    }
-
-    /** Returns the Label corresponding to the input, using the current conversion context. */
-    public Label convert(String input) throws LabelSyntaxException {
-      // Optimization: First check the package-local map, avoiding Label validation, Label
-      // construction, and global Interner lookup. This approach tends to be very profitable
-      // overall, since it's common for the targets in a single package to have duplicate
-      // label-strings across all their attribute values.
-      Label converted = convertedLabelsInPackage.get(input);
-      if (converted == null) {
-        converted = label.getRelativeWithRemapping(input, repositoryMapping);
-        convertedLabelsInPackage.put(input, converted);
-      }
-      return converted;
-    }
-
-    RepositoryMapping getRepositoryMapping() {
-      return repositoryMapping;
-    }
-
-    HashMap<String, Label> getConvertedLabelsInPackage() {
-      return convertedLabelsInPackage;
-    }
-
-    @Override
-    public String toString() {
-      return label.toString();
     }
   }
 
@@ -235,30 +208,19 @@ public final class BuildType {
     }
 
     @Override
-    public Label convert(Object x, Object what, Object context) throws ConversionException {
+    public Label convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof Label) {
         return (Label) x;
       }
+      if (!(x instanceof String)) {
+        throw new ConversionException(Type.STRING, x, what);
+      }
       try {
-        if (!(x instanceof String)) {
-          throw new ConversionException(Type.STRING, x, what);
+        if (labelConverter == null) {
+          return Label.parseCanonical((String) x);
         }
-        // This String here is about to be parsed into a Label. We do not use STRING.convert since
-        // there is absolutely no motivation to intern the String; the Label we create will be
-        // storing a reference to different string (a substring in fact).
-        String str = (String) x;
-        // TODO(b/110101445): check if context is ever actually null
-        if (context == null) {
-          return Label.parseAbsolute(str, /* repositoryMapping= */ ImmutableMap.of());
-          // TODO(b/110308446): remove instances of context being a Label
-        } else if (context instanceof Label) {
-          return ((Label) context).getRelativeWithRemapping(str, ImmutableMap.of());
-        } else if (context instanceof LabelConversionContext) {
-          LabelConversionContext labelConversionContext = (LabelConversionContext) context;
-          return labelConversionContext.convert(str);
-        } else {
-          throw new ConversionException("invalid context '" + context + "' in " + what);
-        }
+        return labelConverter.convert((String) x);
       } catch (LabelSyntaxException e) {
         throw new ConversionException(
             "invalid label '" + x + "' in " + what + ": " + e.getMessage());
@@ -284,9 +246,9 @@ public final class BuildType {
     }
 
     @Override
-    public Map<Label, ValueT> convert(Object x, Object what, Object context)
+    public Map<Label, ValueT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
-      Map<Label, ValueT> result = super.convert(x, what, context);
+      Map<Label, ValueT> result = super.convert(x, what, labelConverter);
       // The input is known to be a map because super.convert succeeded; otherwise, a
       // ConversionException would have been thrown.
       Map<?, ?> input = (Map<?, ?>) x;
@@ -298,7 +260,7 @@ public final class BuildType {
       // Look for collisions in order to produce a nicer error message.
       Map<Label, List<Object>> convertedFrom = new LinkedHashMap<>();
       for (Object original : input.keySet()) {
-        Label label = LABEL.convert(original, what, context);
+        Label label = LABEL.convert(original, what, labelConverter);
         convertedFrom.computeIfAbsent(label, k -> new ArrayList<>()).add(original);
       }
       Printer errorMessage = new Printer();
@@ -318,7 +280,7 @@ public final class BuildType {
           errorMessage.append(',');
         }
         errorMessage.append(' ');
-        errorMessage.str(entry.getKey());
+        errorMessage.append(entry.getKey().getCanonicalForm());
         errorMessage.append(" (as ");
         errorMessage.repr(entry.getValue());
         errorMessage.append(')');
@@ -338,7 +300,8 @@ public final class BuildType {
     }
 
     @Override
-    public License convert(Object x, Object what, Object context) throws ConversionException {
+    public License convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       try {
         List<String> licenseStrings = STRING_LIST.convert(x, what);
         return License.parseLicense(licenseStrings);
@@ -374,7 +337,7 @@ public final class BuildType {
     }
 
     @Override
-    public Set<DistributionType> convert(Object x, Object what, Object context)
+    public Set<DistributionType> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       try {
         List<String> distribStrings = STRING_LIST.convert(x, what);
@@ -410,6 +373,7 @@ public final class BuildType {
       return (Label) value;
     }
 
+    @Nullable
     @Override
     public Label getDefaultValue() {
       return null;
@@ -431,33 +395,13 @@ public final class BuildType {
     }
 
     @Override
-    public Label convert(Object x, Object what, Object context) throws ConversionException {
-
-      String value;
-      try {
-        value = STRING.convert(x, what, context);
-      } catch (ConversionException e) {
-        throw new ConversionException(this, x, what);
+    public Label convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
+      Label result = LABEL.convert(x, what, labelConverter);
+      if (!result.getPackageIdentifier().equals(labelConverter.getBasePackage())) {
+        throw new ConversionException("label '" + x + "' is not in the current package");
       }
-      try {
-        // Enforce value is relative to the context.
-        Label currentRule;
-        RepositoryMapping repositoryMapping;
-        if (context instanceof LabelConversionContext) {
-          currentRule = ((LabelConversionContext) context).getLabel();
-          repositoryMapping = ((LabelConversionContext) context).getRepositoryMapping();
-        } else {
-          throw new ConversionException("invalid context '" + context + "' in " + what);
-        }
-        Label result = currentRule.getRelativeWithRemapping(value, repositoryMapping);
-        if (!result.getPackageIdentifier().equals(currentRule.getPackageIdentifier())) {
-          throw new ConversionException("label '" + value + "' is not in the current package");
-        }
-        return result;
-      } catch (LabelSyntaxException e) {
-        throw new ConversionException(
-            "illegal output file name '" + value + "' in rule " + context + ": " + e.getMessage());
-      }
+      return result;
     }
   }
 
@@ -474,7 +418,7 @@ public final class BuildType {
 
     @VisibleForTesting
     SelectorList(
-        List<Object> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType)
+        List<Object> x, Object what, @Nullable LabelConverter context, Type<T> originalType)
         throws ConversionException {
       if (x.size() > 1 && originalType.concat(ImmutableList.of()) == null) {
         throw new ConversionException(
@@ -545,7 +489,7 @@ public final class BuildType {
       try {
         printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
       } catch (EvalException e) {
-        throw new IllegalStateException("this list should have been validated on creation");
+        throw new IllegalStateException("this list should have been validated on creation", e);
       }
     }
   }
@@ -588,10 +532,7 @@ public final class BuildType {
 
     /** Creates a new Selector using the default error message when no conditions match. */
     Selector(
-        ImmutableMap<?, ?> x,
-        Object what,
-        @Nullable LabelConversionContext context,
-        Type<T> originalType)
+        ImmutableMap<?, ?> x, Object what, @Nullable LabelConverter context, Type<T> originalType)
         throws ConversionException {
       this(x, what, context, originalType, "");
     }
@@ -600,7 +541,7 @@ public final class BuildType {
     Selector(
         ImmutableMap<?, ?> x,
         Object what,
-        @Nullable LabelConversionContext context,
+        @Nullable LabelConverter context,
         Type<T> originalType,
         String noMatchError)
         throws ConversionException {
@@ -732,7 +673,8 @@ public final class BuildType {
     }
 
     @Override
-    public TriState convert(Object x, Object what, Object context) throws ConversionException {
+    public TriState convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof TriState) {
         return (TriState) x;
       }
@@ -744,7 +686,7 @@ public final class BuildType {
         //       + "instead, use 0 or 1, or None for the default)");
         return ((Boolean) x) ? TriState.YES : TriState.NO;
       }
-      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
+      int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
       if (xAsInteger == -1) {
         return TriState.AUTO;
       } else if (xAsInteger == 1) {

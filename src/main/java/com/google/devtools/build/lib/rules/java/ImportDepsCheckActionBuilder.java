@@ -23,7 +23,10 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.stream.Collectors;
 
 /** Utility for generating a call to the import_deps_checker. */
@@ -40,21 +43,25 @@ public final class ImportDepsCheckActionBuilder {
   private NestedSet<Artifact> declaredDeps;
   private NestedSet<Artifact> transitiveDeps;
   private ImportDepsCheckingLevel importDepsCheckingLevel;
+  private Artifact importDepsChecker;
 
   private ImportDepsCheckActionBuilder() {}
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder checkJars(NestedSet<Artifact> jarsToCheck) {
     checkState(this.jarsToCheck == null);
     this.jarsToCheck = checkNotNull(jarsToCheck);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder ruleLabel(Label ruleLabel) {
     checkState(this.ruleLabel == null);
     this.ruleLabel = checkNotNull(ruleLabel);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder importDepsCheckingLevel(
       ImportDepsCheckingLevel importDepsCheckingLevel) {
     checkState(this.importDepsCheckingLevel == null);
@@ -62,27 +69,38 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder bootclasspath(NestedSet<Artifact> bootclasspath) {
     checkState(this.bootclasspath == null);
     this.bootclasspath = checkNotNull(bootclasspath);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder jdepsOutputArtifact(Artifact jdepsArtifact) {
     checkState(this.jdepsArtifact == null);
     this.jdepsArtifact = checkNotNull(jdepsArtifact);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder declareDeps(NestedSet<Artifact> declaredDeps) {
     checkState(this.declaredDeps == null);
     this.declaredDeps = checkNotNull(declaredDeps);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ImportDepsCheckActionBuilder transitiveDeps(NestedSet<Artifact> transitiveDeps) {
     checkState(this.transitiveDeps == null);
     this.transitiveDeps = checkNotNull(transitiveDeps);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public ImportDepsCheckActionBuilder importDepsChecker(Artifact importDepsChecker) {
+    checkState(this.importDepsChecker == null);
+    this.importDepsChecker = checkNotNull(importDepsChecker);
     return this;
   }
 
@@ -95,10 +113,20 @@ public final class ImportDepsCheckActionBuilder {
     checkNotNull(jdepsArtifact);
     checkNotNull(ruleLabel);
 
+    SpawnAction.Builder builder = new SpawnAction.Builder();
+    if (importDepsChecker == null) {
+      builder.setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker"));
+    } else {
+      builder
+          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs())
+          .setJarExecutable(
+              JavaCommon.getHostJavaExecutable(ruleContext),
+              importDepsChecker,
+              NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    }
     ruleContext.registerAction(
-        new SpawnAction.Builder()
+        builder
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$import_deps_checker"))
             .addTransitiveInputs(jarsToCheck)
             .addTransitiveInputs(declaredDeps)
             .addTransitiveInputs(transitiveDeps)

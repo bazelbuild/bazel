@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#    http:#www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,7 +35,7 @@ embedded_tools = rule(
         "out": attr.output(mandatory = True),
         "tool": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             allow_files = True,
             default = Label("//src:create_embedded_tools_sh"),
         ),

@@ -135,9 +135,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
     executor =
         new ExperimentalGrpcRemoteExecutor(
-            remoteOptions, channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
-
-    channel.release();
+            remoteOptions, channel, CallCredentialsProvider.NO_CREDENTIALS, retrier);
   }
 
   @After
@@ -148,6 +146,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+
+    executor.close();
   }
 
   @Test

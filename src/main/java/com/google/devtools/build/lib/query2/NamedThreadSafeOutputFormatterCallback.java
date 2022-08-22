@@ -17,6 +17,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import javax.annotation.Nullable;
 
 /** A {@link ThreadSafeOutputFormatterCallback} that has a name to select on. */
 public abstract class NamedThreadSafeOutputFormatterCallback<T>
@@ -30,6 +31,7 @@ public abstract class NamedThreadSafeOutputFormatterCallback<T>
         .collect(joining(", "));
   }
 
+  @Nullable
   public static <T> NamedThreadSafeOutputFormatterCallback<T> selectCallback(
       String type, Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks) {
     for (NamedThreadSafeOutputFormatterCallback<T> callback : callbacks) {

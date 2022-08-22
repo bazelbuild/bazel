@@ -30,7 +30,7 @@ public class UnsafeProvider {
 
   private static final Unsafe UNSAFE = getUnsafe();
 
-  public static Unsafe getInstance() {
+  public static Unsafe unsafe() {
     return UNSAFE;
   }
 

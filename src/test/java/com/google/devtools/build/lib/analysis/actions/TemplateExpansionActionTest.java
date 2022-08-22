@@ -42,9 +42,10 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -209,7 +210,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         DiscoveredModulesPruner.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -253,7 +254,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     executeTemplateExpansion(expected, ImmutableList.of(Substitution.of("%key%", SPECIAL_CHARS)));
   }
 
-  private String computeKey(TemplateExpansionAction action) {
+  private String computeKey(TemplateExpansionAction action) throws EvalException {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();

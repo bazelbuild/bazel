@@ -290,7 +290,7 @@ message Rule {
   // BUILD file where the rule instance was instantiated. The line number will
   // be that of a rule invocation or macro call (that in turn invoked a
   // rule). See
-  // https://docs.bazel.build/versions/main/skylark/macros.html#macro-creation
+  // https://bazel.build/rules/macros#macro-creation
   optional string location = 3;
 
   // All of the attributes that describe the rule.
@@ -299,6 +299,8 @@ message Rule {
   // All of the inputs to the rule (formatted as absolute labels). These are
   // predecessors in the dependency graph.
   repeated string rule_input = 5;
+
+  repeated ConfiguredRuleInput configured_rule_input = 15;
 
   // All of the outputs of the rule (formatted as absolute labels). These are
   // successors in the dependency graph.
@@ -330,6 +332,12 @@ message Rule {
   // enabled on the command line with the --proto:definition_stack flag or the
   // rule is a native one.
   repeated string definition_stack = 14;
+}
+
+message ConfiguredRuleInput {
+  optional string label = 1;
+  optional string configuration_checksum = 2;
+  optional uint32 configuration_id = 3;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent
@@ -481,7 +489,7 @@ message AllowedRuleClassInfo {
 }
 
 // This message represents a single attribute of a single rule.
-// See docs.bazel.build/versions/main/skylark/lib/attr.html.
+// See https://bazel.build/rules/lib/attr.
 message AttributeDefinition {
   required string name = 1;  // e.g. "name", "srcs"
   required Attribute.Discriminator type = 2;

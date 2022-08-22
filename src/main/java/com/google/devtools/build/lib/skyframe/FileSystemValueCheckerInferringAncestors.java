@@ -29,7 +29,9 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -64,6 +66,7 @@ final class FileSystemValueCheckerInferringAncestors {
   private final Map<SkyKey, SkyValue> graphValues;
   private final Map<SkyKey, SkyValue> graphDoneValues;
   private final Map<RootedPath, NodeVisitState> nodeStates;
+  private final SyscallCache syscallCache;
   private final Set<SkyKey> valuesToInvalidate = Sets.newConcurrentHashSet();
   private final ConcurrentMap<SkyKey, SkyValue> valuesToInject = new ConcurrentHashMap<>();
 
@@ -113,11 +116,13 @@ final class FileSystemValueCheckerInferringAncestors {
       @Nullable TimestampGranularityMonitor tsgm,
       Map<SkyKey, SkyValue> graphValues,
       Map<SkyKey, SkyValue> graphDoneValues,
-      Map<RootedPath, NodeVisitState> nodeStates) {
+      Map<RootedPath, NodeVisitState> nodeStates,
+      SyscallCache syscallCache) {
     this.tsgm = tsgm;
     this.graphValues = graphValues;
     this.graphDoneValues = graphDoneValues;
     this.nodeStates = nodeStates;
+    this.syscallCache = syscallCache;
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -125,12 +130,13 @@ final class FileSystemValueCheckerInferringAncestors {
       @Nullable TimestampGranularityMonitor tsgm,
       Map<SkyKey, SkyValue> graphValues,
       Map<SkyKey, SkyValue> graphDoneValues,
-      Iterable<SkyKey> modifiedKeys,
-      int nThreads)
+      Iterable<FileStateKey> modifiedKeys,
+      int nThreads,
+      SyscallCache syscallCache)
       throws InterruptedException, AbruptExitException {
     Map<RootedPath, NodeVisitState> nodeStates = new HashMap<>();
-    for (SkyKey key : modifiedKeys) {
-      RootedPath top = ((FileStateValue.Key) key).argument();
+    for (FileStateKey fileStateKey : modifiedKeys) {
+      RootedPath top = fileStateKey.argument();
       // Start with false since the reported diff does not mean we are adding a child.
       boolean lastCreated = false;
       for (RootedPath path = top; path != null; path = path.getParentDirectory()) {
@@ -156,7 +162,11 @@ final class FileSystemValueCheckerInferringAncestors {
     }
 
     return new FileSystemValueCheckerInferringAncestors(
-            tsgm, graphValues, graphDoneValues, Collections.unmodifiableMap(nodeStates))
+            tsgm,
+            graphValues,
+            graphDoneValues,
+            Collections.unmodifiableMap(nodeStates),
+            syscallCache)
         .processEntries(nThreads);
   }
 
@@ -241,7 +251,7 @@ final class FileSystemValueCheckerInferringAncestors {
       @Nullable Set<String> maybeDeletedChildren,
       NodeVisitState parentState)
       throws StatFailedException {
-    FileStateValue.Key key = FileStateValue.key(path);
+    FileStateKey key = FileStateValue.key(path);
     @Nullable FileStateValue fsv = (FileStateValue) graphValues.get(key);
     if (fsv == null) {
       visitUnknownEntry(key, isInferredDirectory, parentState);
@@ -281,7 +291,7 @@ final class FileSystemValueCheckerInferringAncestors {
   }
 
   private void visitUnknownEntry(
-      FileStateValue.Key key, boolean isInferredDirectory, NodeVisitState parentState)
+      FileStateKey key, boolean isInferredDirectory, NodeVisitState parentState)
       throws StatFailedException {
     RootedPath path = key.argument();
     // Run stats on unknown files in order to preserve the parent listing if present unless we
@@ -326,7 +336,7 @@ final class FileSystemValueCheckerInferringAncestors {
   private FileStateValue getNewFileStateValueFromFileSystem(RootedPath path)
       throws StatFailedException {
     try {
-      return FileStateValue.create(path, tsgm);
+      return FileStateValue.create(path, syscallCache, tsgm);
     } catch (IOException e) {
       throw new StatFailedException(path, e);
     }

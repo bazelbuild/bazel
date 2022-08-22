@@ -36,6 +36,7 @@ cc_library(
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",
+            "get_self_path_linux.cc",
         ],
     }),
     hdrs = [

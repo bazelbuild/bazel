@@ -21,12 +21,17 @@ import java.nio.file.Paths;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
-/** A generator for a jar file containing a .kotlin-module file, and one real class file. */
+/**
+ * A generator for a jar file containing a .kotlin-module file, a .kotlin_builtins file, and one
+ * real class file.
+ */
 public class GenKotlinModule {
   public static void main(String[] args) throws IOException {
     try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(Paths.get(args[0])))) {
       addEntry(jos, "META-INF/bar.kotlin_module");
       jos.write("hello".getBytes(UTF_8));
+      addEntry(jos, "kotlin/kotlin.kotlin_builtins");
+      jos.write("goodbye".getBytes(UTF_8));
 
       addEntry(jos, "java/lang/String.class");
       ByteStreams.copy(String.class.getResourceAsStream("/java/lang/String.class"), jos);
@@ -38,4 +43,6 @@ public class GenKotlinModule {
     ze.setTime(0);
     jos.putNextEntry(ze);
   }
+
+  private GenKotlinModule() {}
 }

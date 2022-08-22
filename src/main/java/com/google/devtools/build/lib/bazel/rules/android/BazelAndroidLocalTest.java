@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.util.ShellEscaper;
+import javax.annotation.Nullable;
 
 /** An implementation for the "android_local_test" rule. */
 public class BazelAndroidLocalTest extends AndroidLocalTestBase {
@@ -87,6 +88,7 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
   }
 
   @Override
+  @Nullable
   // Bazel needs the android-all jars properties file in order for robolectric to
   // run. If it does not find it in the deps of the android_local_test rule, it will
   // throw an error.

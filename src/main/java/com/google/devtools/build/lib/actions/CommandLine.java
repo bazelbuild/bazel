@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -48,6 +49,11 @@ public abstract class CommandLine {
   public Iterable<String> arguments(ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
     return arguments();
+  }
+
+  public Iterable<String> arguments(ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
+      throws CommandLineExpansionException, InterruptedException {
+    return arguments(artifactExpander);
   }
 
   /**

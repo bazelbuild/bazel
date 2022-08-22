@@ -16,9 +16,16 @@
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 
-ObjcInfo = _builtins.toplevel.apple_common.Objc
+CcInfo = _builtins.toplevel.CcInfo
 AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
+
+# Private attribute required by `objc_internal.expand_toolchain_and_ctx_variables`
+_CC_TOOLCHAIN_RULE = {
+    "_cc_toolchain": attr.label(
+        default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
+    ),
+}
 
 _COMPILING_RULE = {
     "srcs": attr.label_list(
@@ -48,8 +55,12 @@ _COMPILING_RULE = {
     ),
     "non_arc_srcs": attr.label_list(
         allow_files = [".m", ".mm"],
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
-    "pch": attr.label(allow_single_file = [".pch"]),
+    "pch": attr.label(
+        allow_single_file = [".pch"],
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "runtime_deps": attr.label_list(
         providers = [AppleDynamicFrameworkInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
@@ -66,18 +77,16 @@ _COMPILING_RULE = {
 _COMPILE_DEPENDENCY_RULE = {
     "hdrs": attr.label_list(
         allow_files = True,
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "textual_hdrs": attr.label_list(
         allow_files = True,
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "includes": attr.string_list(),
     "sdk_includes": attr.string_list(),
     "deps": attr.label_list(
-        providers = [ObjcInfo],
-        allow_rules = [
-            "cc_library",
-            "cc_inc_library",
-        ],
+        providers = [CcInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
 }
@@ -129,6 +138,7 @@ def _union(*dictionaries):
 
 common_attrs = struct(
     union = _union,
+    CC_TOOLCHAIN_RULE = _CC_TOOLCHAIN_RULE,
     COMPILING_RULE = _COMPILING_RULE,
     COMPILE_DEPENDENCY_RULE = _COMPILE_DEPENDENCY_RULE,
     INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,

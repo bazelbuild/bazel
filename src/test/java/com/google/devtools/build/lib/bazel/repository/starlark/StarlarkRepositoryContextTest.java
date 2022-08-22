@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.File;
 import java.io.IOException;
@@ -138,6 +140,7 @@ public final class StarlarkRepositoryContextTest {
             DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles",
+            RepositoryMapping.ALWAYS_FALLBACK,
             starlarkSemantics);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
@@ -168,7 +171,9 @@ public final class StarlarkRepositoryContextTest {
             1.0,
             /*processWrapper=*/ null,
             starlarkSemantics,
-            repoRemoteExecutor);
+            repoRemoteExecutor,
+            SyscallCache.NO_CACHE,
+            root.asPath());
   }
 
   protected void setUpContextForRule(String name) throws Exception {
@@ -472,5 +477,11 @@ public final class StarlarkRepositoryContextTest {
     scratch.file("/my/folder/c");
     assertThat(context.path("/my/folder").readdir()).containsExactly(
         context.path("/my/folder/a"), context.path("/my/folder/b"), context.path("/my/folder/c"));
+  }
+
+  @Test
+  public void testWorkspaceRoot() throws Exception {
+    setUpContextForRule("test");
+    assertThat(context.getWorkspaceRoot().getPath()).isEqualTo(root.asPath());
   }
 }

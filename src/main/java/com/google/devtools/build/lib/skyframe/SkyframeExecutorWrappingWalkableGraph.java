@@ -38,7 +38,7 @@ public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGra
           }
 
           @Override
-          public Map<SkyKey, ? extends NodeEntry> getBatch(
+          public Map<SkyKey, ? extends NodeEntry> getBatchMap(
               @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
               throws InterruptedException {
             Map<SkyKey, NodeEntry> result = new HashMap<>();

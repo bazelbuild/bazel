@@ -44,25 +44,25 @@ import net.starlark.java.eval.Printer;
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "experimental_apple_mandatory_minimum_version",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help = "Whether Apple rules must have a mandatory minimum_os_version attribute."
-  )
-  // TODO(b/37096178): This flag should be default-on and then be removed.
+      name = "experimental_apple_mandatory_minimum_version",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
+  // TODO(b/37096178): This flag should be removed.
   public boolean mandatoryMinimumVersion;
 
   @Option(
-    name = "experimental_objc_provider_from_linked",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help =
-        "Whether Apple rules which control linking should propagate objc provider at the top "
-            + "level"
-  )
-  // TODO(b/32411441): This flag should be default-off and then be removed.
+      name = "experimental_objc_provider_from_linked",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
+  // TODO(b/32411441): This flag should be removed.
   public boolean objcProviderFromLinked;
 
   @Option(
@@ -205,14 +205,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
 
+  @Deprecated
   @Option(
-    name = "ios_cpu",
-    defaultValue = DEFAULT_IOS_CPU,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "Specifies to target CPU of iOS compilation."
-  )
+      name = "ios_cpu",
+      defaultValue = DEFAULT_IOS_CPU,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
   public String iosCpu;
 
   @Option(
@@ -346,15 +348,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> catalystCpus;
 
   @Option(
-    name = "xcode_version_config",
-    defaultValue = "@local_config_xcode//:host_xcodes",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "The label of the xcode_config rule to be used for selecting the Xcode version "
-            + "in the build configuration."
-  )
+      name = "xcode_version_config",
+      defaultValue = "@bazel_tools//tools/cpp:host_xcodes",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "The label of the xcode_config rule to be used for selecting the Xcode version "
+              + "in the build configuration.")
   public Label xcodeVersionConfig;
 
   @Option(
@@ -521,6 +522,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.appleCrosstoolTop = appleCrosstoolTop;
     host.applePlatforms = applePlatforms;
     host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+
+    // Save host option for further use.
+    host.hostMacosMinimumOs = hostMacosMinimumOs;
 
     return host;
   }

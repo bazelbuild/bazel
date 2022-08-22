@@ -34,16 +34,16 @@ import com.google.devtools.build.lib.skyframe.DirectoryListingFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -116,8 +116,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
               .put(
                   SkyFunctions.DIRECTORY_LISTING_STATE,
-                  new DirectoryListingStateFunction(
-                      externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)))
+                  new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(
@@ -131,7 +130,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       isFetch,
                       ImmutableMap::of,
                       directories,
-                      ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
                       EXTERNAL_PACKAGE_HELPER))
               .build());
 
@@ -143,6 +141,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       return DEFAULT_RULE_CLASS_PROVIDER;
     }
 
+    @CanIgnoreReturnValue
     Builder setFetchForTesting() {
       this.isFetch.set(true);
       return this;

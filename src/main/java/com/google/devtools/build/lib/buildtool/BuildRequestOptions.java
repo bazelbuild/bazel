@@ -25,12 +25,10 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
@@ -44,8 +42,6 @@ import javax.annotation.Nullable;
  * difference between these two sets of options.
  */
 public class BuildRequestOptions extends OptionsBase {
-  public static final OptionDefinition EXPERIMENTAL_MULTI_CPU =
-      OptionsParser.getOptionDefinitionByName(BuildRequestOptions.class, "experimental_multi_cpu");
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int JOBS_TOO_HIGH_WARNING = 2500;
   @VisibleForTesting public static final int MAX_JOBS = 5000;
@@ -166,7 +162,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Whether to run validation actions as part of the build.")
+      help =
+          "Whether to run validation actions as part of the build. See"
+              + " https://bazel.build/rules/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(
@@ -263,15 +261,14 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_multi_cpu",
+      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "This flag allows specifying multiple target CPUs. If this is specified, "
-              + "the --cpu option is ignored.")
+      help = "Deprecated. No-op.")
   public List<String> multiCpus;
 
   @Option(
@@ -307,13 +304,13 @@ public class BuildRequestOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Comma-separated list of aspects to be applied to top-level targets. In the list, if"
-              + " aspect <code>some_aspect</code> specifies required aspect providers via"
-              + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
+              + " aspect some_aspect specifies required aspect providers via"
+              + " required_aspect_providers, some_aspect will run after"
               + " every aspect that was mentioned before it in the aspects list whose advertised"
-              + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
-              + " <code>some_aspect</code> will run after all its required aspects specified by"
-              + " <code>requires</code> attribute."
-              + " <code>some_aspect</code> will then have access to the values of those aspects'"
+              + " providers satisfy some_aspect required aspect providers. Moreover,"
+              + " some_aspect will run after all its required aspects specified by"
+              + " requires attribute."
+              + " some_aspect will then have access to the values of those aspects'"
               + " providers."
               + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
               + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
@@ -331,9 +328,7 @@ public class BuildRequestOptions extends OptionsBase {
               + " specified via <param_name>=<param_value>, for example 'my_param=my_val' where"
               + " 'my_param' is a parameter of some aspect in --aspects list or required by an"
               + " aspect in the list. This option can be used multiple times. However, it is not"
-              + " allowed to assign values to the same parameter more than once. This option is"
-              + " only be effective under the experimental flag"
-              + " --experimental_allow_top_level_aspects_parameters.")
+              + " allowed to assign values to the same parameter more than once.")
   public List<Map.Entry<String, String>> aspectsParameters;
 
   public BuildRequestOptions() throws OptionsParsingException {}
@@ -346,7 +341,7 @@ public class BuildRequestOptions extends OptionsBase {
   // To be made a no-op and deleted once new symlink behavior is battle-tested.
   @Option(
       name = "use_top_level_targets_for_symlinks",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -421,6 +416,16 @@ public class BuildRequestOptions extends OptionsBase {
       },
       help = "Whether to store output metadata in the action cache")
   public boolean actionCacheStoreOutputMetadata;
+
+  @Option(
+      name = "rewind_lost_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to use action rewinding to recover from lost inputs. Ignored unless"
+              + " prerequisites for rewinding are met (no incrementality, no action cache).")
+  public boolean rewindLostInputs;
 
   @Option(
       name = "discard_actions_after_execution",
@@ -538,6 +543,18 @@ public class BuildRequestOptions extends OptionsBase {
               + " Bazel's output base, unless it's an absolute path.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
+
+  /**
+   * --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
+   * analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
+   * should be ignored.
+   *
+   * <p>This method should always be preferred over {@link mergedSkyframeAnalysisExecution} to
+   * determine whether analysis and execution should be merged.
+   */
+  public boolean shouldMergeSkyframeAnalysisExecution() {
+    return mergedSkyframeAnalysisExecution && performExecutionPhase;
+  }
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

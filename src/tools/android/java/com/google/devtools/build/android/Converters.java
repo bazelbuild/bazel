@@ -38,13 +38,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Some convenient converters used by android actions. Note: These are specific to android actions.
  */
 public final class Converters {
   private static final Converter<String> IDENTITY_CONVERTER =
-      new Converter<String>() {
+      new Converter.Contextless<String>() {
         @Override
         public String convert(String input) {
           return input;
@@ -60,7 +61,8 @@ public final class Converters {
    * Converter for {@link UnvalidatedAndroidData}. Relies on {@code
    * UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation.
    */
-  public static class UnvalidatedAndroidDataConverter implements Converter<UnvalidatedAndroidData> {
+  public static class UnvalidatedAndroidDataConverter
+      extends Converter.Contextless<UnvalidatedAndroidData> {
 
     @Override
     public UnvalidatedAndroidData convert(String input) throws OptionsParsingException {
@@ -80,7 +82,7 @@ public final class Converters {
 
   /** Converter for {@link UnvalidatedAndroidDirectories}. */
   public static class UnvalidatedAndroidDirectoriesConverter
-      implements Converter<UnvalidatedAndroidDirectories> {
+      extends Converter.Contextless<UnvalidatedAndroidDirectories> {
 
     @Override
     public UnvalidatedAndroidDirectories convert(String input) throws OptionsParsingException {
@@ -104,7 +106,7 @@ public final class Converters {
    * DependencyAndroidData#valueOf(String)} to perform conversion and validation.
    */
   public static class DependencyAndroidDataListConverter
-      implements Converter<List<DependencyAndroidData>> {
+      extends Converter.Contextless<List<DependencyAndroidData>> {
 
     @Override
     public List<DependencyAndroidData> convert(String input) throws OptionsParsingException {
@@ -132,7 +134,8 @@ public final class Converters {
   }
 
   /** Converter for a {@link SerializedAndroidData}. */
-  public static class SerializedAndroidDataConverter implements Converter<SerializedAndroidData> {
+  public static class SerializedAndroidDataConverter
+      extends Converter.Contextless<SerializedAndroidData> {
 
     @Override
     public SerializedAndroidData convert(String input) throws OptionsParsingException {
@@ -152,7 +155,7 @@ public final class Converters {
 
   /** Converter for a list of {@link SerializedAndroidData}. */
   public static class SerializedAndroidDataListConverter
-      implements Converter<List<SerializedAndroidData>> {
+      extends Converter.Contextless<List<SerializedAndroidData>> {
 
     @Override
     public List<SerializedAndroidData> convert(String input) throws OptionsParsingException {
@@ -181,7 +184,7 @@ public final class Converters {
 
   /** Converter for a single {@link DependencySymbolFileProvider}. */
   public static class DependencySymbolFileProviderConverter
-      implements Converter<DependencySymbolFileProvider> {
+      extends Converter.Contextless<DependencySymbolFileProvider> {
 
     @Override
     public DependencySymbolFileProvider convert(String input) throws OptionsParsingException {
@@ -206,7 +209,7 @@ public final class Converters {
    * Converter for {@link Revision}. Relies on {@code Revision#parseRevision(String)} to perform
    * conversion and validation.
    */
-  public static class RevisionConverter implements Converter<Revision> {
+  public static class RevisionConverter extends Converter.Contextless<Revision> {
 
     @Override
     public Revision convert(String input) throws OptionsParsingException {
@@ -224,7 +227,7 @@ public final class Converters {
   }
 
   /** Validating converter for Paths. A Path is considered valid if it resolves to a file. */
-  public static class PathConverter implements Converter<Path> {
+  public static class PathConverter extends Converter.Contextless<Path> {
 
     private final boolean mustExist;
 
@@ -284,7 +287,7 @@ public final class Converters {
    * Validating converter for a list of Paths. A Path is considered valid if it resolves to a file.
    */
   @Deprecated
-  public static class PathListConverter implements Converter<List<Path>> {
+  public static class PathListConverter extends Converter.Contextless<List<Path>> {
 
     private final PathConverter baseConverter;
 
@@ -336,7 +339,8 @@ public final class Converters {
     }
 
     @Override
-    public Map<K, V> convert(String input) throws OptionsParsingException {
+    public Map<K, V> convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
       if (input.isEmpty()) {
         return ImmutableMap.of();
       }
@@ -354,14 +358,14 @@ public final class Converters {
         }
         // Unescape any comma or colon that is not a key or value separator.
         String keyString = unescapeInput(entryFields[0]);
-        K key = keyConverter.convert(keyString);
+        K key = keyConverter.convert(keyString, conversionContext);
         if (map.containsKey(key)) {
           throw new OptionsParsingException(
               String.format("Dictionary already contains the key [%s].", keyString));
         }
         // Unescape any comma or colon that is not a key or value separator.
         String valueString = unescapeInput(entryFields[1]);
-        V value = valueConverter.convert(valueString);
+        V value = valueConverter.convert(valueString, conversionContext);
         map.put(key, value);
       }
       return ImmutableMap.copyOf(map);
@@ -390,8 +394,9 @@ public final class Converters {
     // The way {@link OptionsData} checks for generic types requires convert to have literal type
     // parameters and not argument type parameters.
     @Override
-    public Map<String, String> convert(String input) throws OptionsParsingException {
-      return super.convert(input);
+    public Map<String, String> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
+      return super.convert(input, conversionContext);
     }
   }
 
@@ -408,14 +413,16 @@ public final class Converters {
     // The way {@link OptionsData} checks for generic types requires convert to have literal type
     // parameters and not argument type parameters.
     @Override
-    public Map<Path, String> convert(String input) throws OptionsParsingException {
-      return super.convert(input);
+    public Map<Path, String> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
+      return super.convert(input, conversionContext);
     }
   }
 
   /** Converts a list of static library strings into paths. */
   @Deprecated
-  public static class StaticLibraryListConverter implements Converter<List<StaticLibrary>> {
+  public static class StaticLibraryListConverter
+      extends Converter.Contextless<List<StaticLibrary>> {
     static final Splitter SPLITTER = Splitter.on(File.pathSeparatorChar);
 
     static final StaticLibraryConverter libraryConverter = new StaticLibraryConverter();
@@ -436,7 +443,7 @@ public final class Converters {
   }
 
   /** Converts a static library string into path. */
-  public static class StaticLibraryConverter implements Converter<StaticLibrary> {
+  public static class StaticLibraryConverter extends Converter.Contextless<StaticLibrary> {
 
     static final PathConverter pathConverter = new PathConverter(true);
 
@@ -452,7 +459,7 @@ public final class Converters {
   }
 
   /** Converts a string of resources and manifest into paths. */
-  public static class CompiledResourcesConverter implements Converter<CompiledResources> {
+  public static class CompiledResourcesConverter extends Converter.Contextless<CompiledResources> {
     static final PathConverter pathConverter = new PathConverter(true);
     static final Pattern COMPILED_RESOURCE_FORMAT = Pattern.compile("(.+):(.+)");
 

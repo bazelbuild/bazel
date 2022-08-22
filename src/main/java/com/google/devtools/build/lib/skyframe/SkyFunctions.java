@@ -94,15 +94,15 @@ public final class SkyFunctions {
   static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.createHermetic("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
+  public static final SkyFunctionName STARLARK_BUILD_SETTINGS_DETAILS =
+      SkyFunctionName.createHermetic("STARLARK_BUILD_SETTINGS_DETAILS");
   // Action execution can be nondeterministic, so semi-hermetic.
   public static final SkyFunctionName ACTION_EXECUTION =
       SkyFunctionName.createSemiHermetic("ACTION_EXECUTION");
   public static final SkyFunctionName ARTIFACT_NESTED_SET =
       SkyFunctionName.createHermetic("ARTIFACT_NESTED_SET");
-  public static final SkyFunctionName PATH_CASING_LOOKUP =
-      SkyFunctionName.createHermetic("PATH_CASING_LOOKUP");
-  static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
-      SkyFunctionName.createHermetic("RECURSIVE_DIRECTORY_TRAVERSAL");
+  public static final SkyFunctionName RECURSIVE_FILESYSTEM_TRAVERSAL =
+      SkyFunctionName.createHermetic("RECURSIVE_FILESYSTEM_TRAVERSAL");
   public static final SkyFunctionName FILESET_ENTRY =
       SkyFunctionName.createHermetic("FILESET_ENTRY");
   static final SkyFunctionName BUILD_INFO_COLLECTION =
@@ -143,6 +143,8 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("BUILD_DRIVER");
   public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =
       SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
+  public static final SkyFunctionName BAZEL_MODULE_INSPECTION =
+      SkyFunctionName.createHermetic("BAZEL_MODULE_INSPECTION");
   public static final SkyFunctionName MODULE_EXTENSION_RESOLUTION =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_RESOLUTION");
   public static final SkyFunctionName SINGLE_EXTENSION_USAGES =

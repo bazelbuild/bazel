@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
@@ -81,7 +80,9 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(cause).isInstanceOf(LoadingFailedCause.class);
     assertThat(cause.getLabel()).isEqualTo(topLevel);
     assertThat(((LoadingFailedCause) cause).getMessage())
-        .isEqualTo("Target '//foo:foo' contains an error and its package is in error");
+        .isEqualTo(
+            "Target '//foo:foo' contains an error and its package is in error: //foo:foo: missing"
+                + " value for mandatory attribute 'outs' in 'genrule' rule");
   }
 
   @Test
@@ -112,6 +113,31 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                     Code.BUILD_FILE_MISSING)));
   }
 
+  @Test
+  public void testExpanderFailure() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "genrule(",
+        "    name = 'bad',",
+        "    outs = ['bad.out'],",
+        "    cmd = 'cp $< $@',  # Error to use $< with no srcs",
+        ")");
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//test:bad");
+    assertThat(result.hasError()).isTrue();
+    Label topLevel = Label.parseAbsoluteUnchecked("//test:bad");
+    assertThat(collector.events.keySet()).containsExactly(topLevel);
+    assertThat(collector.events)
+        .valuesForKey(topLevel)
+        .containsExactly(
+            new AnalysisFailedCause(
+                topLevel,
+                toId(
+                    Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
+                        .getConfiguration()),
+                createAnalysisDetailedExitCode(
+                    "in cmd attribute of genrule rule //test:bad: variable '$<' : no input file")));
+  }
+
   /**
    * This error gets reported twice - once when we try to analyze the //cycles1 target, and the
    * other time when we analyze the //c target (which depends on //cycles1). This test checks that
@@ -139,7 +165,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//cycles1", ImmutableMap.of()),
+                Label.parseCanonical("//cycles1"),
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
@@ -158,7 +184,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                Label.parseCanonical("//foo"),
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
@@ -182,7 +208,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .valuesForKey(topLevel)
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                Label.parseCanonical("//foo"),
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
@@ -213,11 +239,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
     BuildConfigurationValue expectedConfig =
-        Iterables.getOnlyElement(
-            skyframeExecutor
-                .getSkyframeBuildView()
-                .getBuildConfigurationCollection()
-                .getTargetConfigurations());
+        skyframeExecutor
+            .getSkyframeBuildView()
+            .getBuildConfigurationCollection()
+            .getTargetConfiguration();
     String message =
         "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
             + " target '//foo:foo'. Check the visibility declaration of the"
@@ -225,7 +250,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                Label.parseCanonical("//foo"),
                 toId(expectedConfig),
                 createAnalysisDetailedExitCode(message)));
   }

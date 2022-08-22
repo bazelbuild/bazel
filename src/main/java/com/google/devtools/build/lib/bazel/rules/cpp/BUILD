@@ -28,7 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
@@ -36,6 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -53,6 +54,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -68,5 +70,6 @@ gen_workspace_stanza(
         load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
     """,
     repos = ["rules_cc"],
+    use_maybe = 1,
     visibility = ["//:__pkg__"],
 )

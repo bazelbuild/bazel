@@ -112,7 +112,7 @@ public class XmlResourceValues {
       }
     }
     return PluralXmlResourceValue.createWithAttributesAndValues(
-        ImmutableMap.copyOf(parseTagAttributes(start)), values.build());
+        ImmutableMap.copyOf(parseTagAttributes(start)), values.buildOrThrow());
   }
 
   static XmlResourceValue parseStyle(XMLEventReader eventReader, StartElement start)
@@ -244,7 +244,7 @@ public class XmlResourceValues {
         id = Optional.of(Integer.decode(idValueAttr));
       } catch (NumberFormatException e) {
         throw new XMLStreamException(
-            String.format("<public> has invalid id number %s", start), start.getLocation());
+            String.format("<public> has invalid id number %s", start), start.getLocation(), e);
       }
     }
     if (attributes.size() > 2) {

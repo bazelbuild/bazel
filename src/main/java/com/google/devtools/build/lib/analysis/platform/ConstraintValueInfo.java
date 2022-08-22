@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -35,7 +35,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ConstraintValueInfo> PROVIDER =
-      new BuiltinProvider<ConstraintValueInfo>(STARLARK_NAME, ConstraintValueInfo.class) {};
+      new BuiltinProvider<>(STARLARK_NAME, ConstraintValueInfo.class) {};
 
   private final ConstraintSettingInfo constraint;
   private final Label label;
@@ -77,21 +77,13 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
-        // Technically a select() on a constraint_value requires PlatformConfiguration, since that's
-        // used to build the platform this checks against. But platformInfo's existence implies
-        // the owning target already depends on PlatformConfiguration. And we can't reference
-        // PlatformConfiguration.class here without a build dependency cycle.
-        RequiredConfigFragmentsProvider.EMPTY,
+        ImmutableSet.of(),
         platformInfo.constraints().hasConstraintValue(this));
   }
 
   @Override
   public void repr(Printer printer) {
-    Printer.format(
-        printer,
-        "ConstraintValueInfo(setting=%s, %s)",
-        constraint.label().toString(),
-        label.toString());
+    printer.append(String.format("ConstraintValueInfo(setting=%s, %s)", constraint.label(), label));
   }
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */

@@ -1,0 +1,94 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+<h1 class="page-title">One-Page Overview</h1>
+
+A list of all modules and globals that are available:
+
+<h2>
+
+
+  <a href="/rules/lib/${global_name}">Global Functions</a>
+
+
+</h2>
+<ul>
+
+#foreach ($name in $global_functions)
+
+  <li>
+
+
+    <a href="/rules/lib/${global_name}#${name}">${name}</a>
+
+
+  </li>
+
+#end
+
+</ul>
+<h2>
+
+
+  <a href="/rules/lib/${global_name}">Global Constants</a>
+
+
+</h2>
+<ul>
+
+#foreach ($name in $global_constants)
+
+  <li>
+
+
+    <a href="/rules/lib/${global_name}#${name}">${name}</a>
+
+
+  </li>
+
+#end
+
+</ul>
+<h2>
+  Global Modules
+</h2>
+<ul>
+
+#foreach ($module in $global_modules)
+
+  <li>
+
+
+    <a href="/rules/lib/${module.name}">${module.name}</a>
+
+  </li>
+
+#end
+
+</ul>
+#foreach ($entry in $modules.entrySet())
+<h2>
+
+
+  <a href="/rules/lib/starlark-${entry.key.templateIdentifier}">${entry.key.title}</a>
+
+
+</h2>
+<ul>
+#foreach ($module in $entry.value)
+
+  <li>
+
+
+    <a href="/rules/lib/${module.name}">${module.title}</a>
+
+  </li>
+
+#end
+</ul>
+#end
+</body>
+</html>

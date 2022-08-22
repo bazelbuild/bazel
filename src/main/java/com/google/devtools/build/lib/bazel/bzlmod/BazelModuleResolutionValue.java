@@ -38,13 +38,15 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
 
   public static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> depGraph,
-      ImmutableMap<String, ModuleKey> canonicalRepoNameLookup,
+      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
+      ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
       ImmutableMap<String, ModuleKey> moduleNameLookup,
       ImmutableList<AbridgedModule> abridgedModules,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
     return new AutoValue_BazelModuleResolutionValue(
         depGraph,
+        unprunedDepGraph,
         canonicalRepoNameLookup,
         moduleNameLookup,
         abridgedModules,
@@ -58,8 +60,16 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
    */
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
 
+  /**
+   * The post-selection un-pruned dep graph, used for in-depth inspection. TODO(andreisolo): decide
+   * whether to store the un-pruned graph or just the removed modules? Random order (depends on
+   * SkyFrame execution order). For any KEY in the returned map, it's guaranteed that {@code
+   * depGraph[KEY].getKey() == KEY}.
+   */
+  public abstract ImmutableMap<ModuleKey, Module> getUnprunedDepGraph();
+
   /** A mapping from a canonical repo name to the key of the module backing it. */
-  public abstract ImmutableMap<String, ModuleKey> getCanonicalRepoNameLookup();
+  public abstract ImmutableMap<RepositoryName, ModuleKey> getCanonicalRepoNameLookup();
 
   /**
    * A mapping from a plain module name to the key of the module. Does not include the root module,
@@ -90,22 +100,20 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
    * module deps and module extensions.
    */
   public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
-    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
         getExtensionUsagesTable().column(key).entrySet()) {
       ModuleExtensionId extensionId = e.getKey();
       ModuleExtensionUsage usage = e.getValue();
       for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
         String canonicalRepoName =
-            getExtensionUniqueNames().get(extensionId) + "." + entry.getValue();
-        mapping.put(
-            RepositoryName.createFromValidStrippedName(entry.getKey()),
-            RepositoryName.createFromValidStrippedName(canonicalRepoName));
+            getExtensionUniqueNames().get(extensionId) + "~" + entry.getValue();
+        mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
       }
     }
     return getDepGraph()
         .get(key)
         .getRepoMappingWithBazelDepsOnly()
-        .withAdditionalMappings(mapping.build());
+        .withAdditionalMappings(mapping.buildOrThrow());
   }
 }

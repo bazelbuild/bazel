@@ -265,6 +265,7 @@ abstract class AttributeContainer {
       return stateIndex >= 0 && (state[stateIndex] & 0x80) != 0;
     }
 
+    @Nullable
     @Override
     Object getAttributeValue(int attrIndex) {
       Preconditions.checkArgument(attrIndex >= 0);
@@ -383,6 +384,7 @@ abstract class AttributeContainer {
       return (attrIndex >= 0) && getBit(state, attrIndex);
     }
 
+    @Nullable
     @Override
     Object getAttributeValue(int attrIndex) {
       Preconditions.checkArgument(attrIndex >= 0);

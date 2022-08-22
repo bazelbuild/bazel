@@ -19,12 +19,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -36,6 +40,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import net.starlark.java.syntax.Location;
 
 /** Utilities that come in handy when unit-testing the worker code. */
 class TestUtils {
@@ -44,9 +49,14 @@ class TestUtils {
 
   /** A helper method to create a fake Spawn with the given execution info. */
   static Spawn createSpawn(ImmutableMap<String, String> executionInfo) {
+    return createSpawn(ImmutableList.of(), executionInfo);
+  }
+
+  static Spawn createSpawn(
+      ImmutableList<String> arguments, ImmutableMap<String, String> executionInfo) {
     return new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
-        /* arguments= */ ImmutableList.of(),
+        arguments,
         /* environment= */ ImmutableMap.of(),
         executionInfo,
         /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -54,6 +64,21 @@ class TestUtils {
         ResourceSet.ZERO);
   }
 
+  static ActionOwner createActionOwner(String mnemonic) {
+    return ActionOwner.create(
+        Label.parseAbsoluteUnchecked("//null/action:owner"),
+        ImmutableList.of(),
+        new Location("dummy-file", 0, 0),
+        mnemonic,
+        "dummy-kind",
+        "dummy-configuration",
+        new BuildConfigurationEvent(
+            BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+            BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+        null,
+        ImmutableMap.of(),
+        null);
+  }
   /** A helper method to create a WorkerKey through WorkerParser. */
   static WorkerKey createWorkerKey(
       WorkerProtocolFormat protocolFormat,
@@ -74,6 +99,50 @@ class TestUtils {
         dynamic,
         createSpawn(execRequirementsBuilder(mnemonic).buildOrThrow()),
         args);
+  }
+
+  static WorkerKey createWorkerKey(
+      FileSystem fileSystem, String mnemonic, boolean proxied, String... args) {
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fileSystem,
+        mnemonic,
+        proxied,
+        /* sandboxed= */ false,
+        /* dynamic= */ false,
+        args);
+  }
+
+  static WorkerKey createWorkerKey(WorkerProtocolFormat protocolFormat, FileSystem fs) {
+    return createWorkerKey(protocolFormat, fs, false);
+  }
+
+  static WorkerKey createWorkerKey(
+      WorkerProtocolFormat protocolFormat, FileSystem fs, boolean dynamic) {
+    return createWorkerKey(
+        protocolFormat,
+        fs,
+        /* mnemonic= */ "dummy",
+        /* multiplex= */ true,
+        /* sandboxed= */ true,
+        dynamic,
+        /* args...= */ "arg1",
+        "arg2",
+        "arg3");
+  }
+
+  static WorkerKey createWorkerKey(
+      FileSystem fs, boolean multiplex, boolean sandboxed, boolean dynamic) {
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fs,
+        /* mnemonic= */ "dummy",
+        multiplex,
+        sandboxed,
+        dynamic,
+        /* args...= */ "arg1",
+        "arg2",
+        "arg3");
   }
 
   /**
@@ -133,50 +202,6 @@ class TestUtils {
         workerOptions,
         dynamic,
         protocolFormat);
-  }
-
-  static WorkerKey createWorkerKey(
-      FileSystem fileSystem, String mnemonic, boolean proxied, String... args) {
-    return createWorkerKey(
-        WorkerProtocolFormat.PROTO,
-        fileSystem,
-        mnemonic,
-        proxied,
-        /* sandboxed= */ false,
-        /* dynamic= */ false,
-        args);
-  }
-
-  static WorkerKey createWorkerKey(WorkerProtocolFormat protocolFormat, FileSystem fs) {
-    return createWorkerKey(protocolFormat, fs, false);
-  }
-
-  static WorkerKey createWorkerKey(
-      WorkerProtocolFormat protocolFormat, FileSystem fs, boolean dynamic) {
-    return createWorkerKey(
-        protocolFormat,
-        fs,
-        /* mnemonic= */ "dummy",
-        /* proxied= */ true,
-        /* sandboxed= */ true,
-        dynamic,
-        /* args...= */ "arg1",
-        "arg2",
-        "arg3");
-  }
-
-  static WorkerKey createWorkerKey(
-      FileSystem fs, boolean multiplex, boolean sandboxed, boolean dynamic) {
-    return createWorkerKey(
-        WorkerProtocolFormat.PROTO,
-        fs,
-        /* mnemonic= */ "dummy",
-        multiplex,
-        sandboxed,
-        dynamic,
-        /* args...= */ "arg1",
-        "arg2",
-        "arg3");
   }
 
   /** A worker that uses a fake subprocess for I/O. */
@@ -240,7 +265,7 @@ class TestUtils {
     }
 
     @Override
-    public boolean destroy() {
+    public synchronized boolean destroy() {
       for (Closeable stream : new Closeable[] {inputStream, outputStream, errStream}) {
         try {
           stream.close();
@@ -279,7 +304,7 @@ class TestUtils {
     }
 
     @Override
-    public boolean isAlive() {
+    public synchronized boolean isAlive() {
       return !wasDestroyed;
     }
 

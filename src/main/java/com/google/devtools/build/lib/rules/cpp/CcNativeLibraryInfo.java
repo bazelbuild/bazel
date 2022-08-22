@@ -15,27 +15,38 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 
 /**
  * A target that provides native libraries in the transitive closure of its deps that are needed for
  * executing C++ code.
  */
 @Immutable
-public final class CcNativeLibraryInfo implements CcNativeLibraryInfoApi {
+public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLibraryInfoApi {
 
   public static final CcNativeLibraryInfo EMPTY =
       new CcNativeLibraryInfo(NestedSetBuilder.emptySet(Order.LINK_ORDER));
 
   private final NestedSet<LibraryToLink> transitiveCcNativeLibraries;
 
+  public static final Provider PROVIDER = new Provider();
+
   public CcNativeLibraryInfo(NestedSet<LibraryToLink> transitiveCcNativeLibraries) {
     this.transitiveCcNativeLibraries = transitiveCcNativeLibraries;
+  }
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
   }
 
   /**
@@ -61,5 +72,20 @@ public final class CcNativeLibraryInfo implements CcNativeLibraryInfoApi {
       transitiveCcNativeLibraries.addTransitive(provider.getTransitiveCcNativeLibraries());
     }
     return new CcNativeLibraryInfo(transitiveCcNativeLibraries.build());
+  }
+
+  /** Provider class for {@link CcNativeLibraryInfo} objects */
+  public static class Provider extends BuiltinProvider<CcNativeLibraryInfo>
+      implements CcNativeLibraryInfoApi.Provider {
+    private Provider() {
+      super(CcNativeLibraryInfoApi.NAME, CcNativeLibraryInfo.class);
+    }
+
+    @Override
+    public CcNativeLibraryInfo createCcNativeLibraryInfo(Object librariesToLinkObject)
+        throws EvalException {
+      return new CcNativeLibraryInfo(
+          Depset.cast(librariesToLinkObject, LibraryToLink.class, "libraries_to_link"));
+    }
   }
 }

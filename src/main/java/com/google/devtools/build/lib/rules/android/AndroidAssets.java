@@ -143,7 +143,7 @@ public class AndroidAssets {
 
   private final ImmutableList<Artifact> assets;
   private final ImmutableList<PathFragment> assetRoots;
-  private final @Nullable String assetDir;
+  @Nullable private final String assetDir;
 
   AndroidAssets(AndroidAssets other) {
     this(other.assets, other.assetRoots, other.assetDir);
@@ -167,7 +167,8 @@ public class AndroidAssets {
     return assetRoots;
   }
 
-  public @Nullable String getAssetDirAsString() {
+  @Nullable
+  public String getAssetDirAsString() {
     return assetDir;
   }
 
@@ -179,7 +180,15 @@ public class AndroidAssets {
   /** Convenience method to do all of asset processing - parsing and merging. */
   public MergedAndroidAssets process(AndroidDataContext dataContext, AssetDependencies assetDeps)
       throws InterruptedException {
-    return parse(dataContext).merge(dataContext, assetDeps);
+    ParsedAndroidAssets parsedAssets = parse(dataContext);
+
+    boolean mergeAssets =
+        dataContext.getAndroidConfig().outputLibraryMergedAssets()
+            || dataContext.throwOnResourceConflict();
+
+    return mergeAssets
+        ? parsedAssets.merge(dataContext, assetDeps)
+        : MergedAndroidAssets.of(parsedAssets, null, assetDeps);
   }
 
   @Override

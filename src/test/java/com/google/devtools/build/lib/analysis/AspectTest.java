@@ -1412,8 +1412,7 @@ public class AspectTest extends AnalysisTestCase {
       throws LabelSyntaxException {
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.parseAbsolute("//aspect_hints:hints_counter.bzl", ImmutableMap.of()),
-            "HintsCntInfo");
+            Label.parseCanonical("//aspect_hints:hints_counter.bzl"), "HintsCntInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 

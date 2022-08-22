@@ -57,7 +57,7 @@ final class ApiLevelR21 extends ApiLevel {
           .put("28", "28")
           .put("29", "29")
           .put("30", "30")
-          .build();
+          .buildOrThrow();
 
   ApiLevelR21(EventHandler eventHandler, String repositoryName, String apiLevel) {
     super(API_LEVEL_TO_ARCHITECTURES, API_EQUIVALENCIES, eventHandler, repositoryName, apiLevel);

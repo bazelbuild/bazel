@@ -59,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -228,12 +229,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
   private static String getPlatformCpuLabel(String targetCpu) {
     // Create a mapping of CcToolchain CPU values to platform arch constraint values
-    // in @bazel_tools//platforms
+    // in @platforms//cpu
     switch (targetCpu) {
       case "x86":
         return "x86_32";
       case "armeabi-v7a":
-        return "arm";
+        return "armv7";
       case "arm64-v8a":
         return "aarch64";
       default:
@@ -265,6 +266,7 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   }
 
   @Override
+  @Nullable
   public RepositoryDirectoryValue.Builder fetch(
       Rule rule,
       Path outputDirectory,

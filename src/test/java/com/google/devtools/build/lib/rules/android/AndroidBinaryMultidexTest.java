@@ -43,6 +43,10 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
   @Before
   public void setup() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    useConfiguration(
+        "--experimental_use_dex_splitter_for_incremental_dexing=false",
+        "--experimental_incremental_dexing_after_proguard_by_default=false",
+        "--experimental_incremental_dexing_after_proguard=1");
   }
 
   /**
@@ -57,7 +61,7 @@ public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest 
         "    srcs = ['a.java'],",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = glob(['res/**']),",
-        "    multidex = 'off')");
+        ")");
     internalTestNonMultidexBuildStructure("//java/foo:nomultidex");
   }
 

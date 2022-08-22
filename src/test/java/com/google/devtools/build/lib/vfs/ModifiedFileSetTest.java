@@ -40,23 +40,9 @@ public final class ModifiedFileSetTest {
     ModifiedFileSet nonEmpty3 = ModifiedFileSet.builder().modify(fragA).modify(fragB).build();
     ModifiedFileSet nonEmpty4 = ModifiedFileSet.builder().modify(fragB).modify(fragA).build();
 
-    ModifiedFileSet nonEmptySkipsAncestorDirectories1 =
-        ModifiedFileSet.builder()
-            .modify(fragA)
-            .modify(fragB)
-            .setIncludesAncestorDirectories(false)
-            .build();
-    ModifiedFileSet nonEmptySkipsAncestorDirectories2 =
-        ModifiedFileSet.builder()
-            .modify(fragB)
-            .modify(fragA)
-            .setIncludesAncestorDirectories(false)
-            .build();
-
     new EqualsTester()
         .addEqualityGroup(empty1, empty2, empty3)
         .addEqualityGroup(nonEmpty1, nonEmpty2, nonEmpty3, nonEmpty4)
-        .addEqualityGroup(nonEmptySkipsAncestorDirectories1, nonEmptySkipsAncestorDirectories2)
         .addEqualityGroup(ModifiedFileSet.EVERYTHING_MODIFIED)
         .addEqualityGroup(ModifiedFileSet.EVERYTHING_DELETED)
         .testEquals();

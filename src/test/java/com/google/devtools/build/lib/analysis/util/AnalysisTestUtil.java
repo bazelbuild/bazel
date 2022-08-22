@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
@@ -153,11 +151,6 @@ public final class AnalysisTestUtil {
     @Override
     public SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getSymlinkArtifact(rootRelativePath, root);
-    }
-
-    @Override
-    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
-      return original.getSourceArtifactForNinjaBuild(execPath, root);
     }
 
     @Override
@@ -381,11 +374,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
-      return null;
-    }
-
-    @Override
     public ExtendedEventHandler getEventHandler() {
       return null;
     }
@@ -516,8 +504,7 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    BuildConfigurationValue targetConfiguration =
-        Iterables.getOnlyElement(configurations.getTargetConfigurations());
+    BuildConfigurationValue targetConfiguration = configurations.getTargetConfiguration();
     BuildConfigurationValue hostConfiguration = configurations.getHostConfiguration();
     return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
   }

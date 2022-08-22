@@ -12,7 +12,7 @@ filegroup(
 
 java_test(
     name = "BuildOutputFormatterCallbackTest",
-    size = "large",
+    size = "medium",
     srcs = ["BuildOutputFormatterCallbackTest.java"],
     shard_count = 4,
     deps = [
@@ -33,7 +33,7 @@ java_test(
 
 java_test(
     name = "GraphOutputFormatterCallbackTest",
-    size = "large",
+    size = "medium",
     srcs = ["GraphOutputFormatterCallbackTest.java"],
     shard_count = 4,
     deps = [
@@ -50,7 +50,7 @@ java_test(
 
 java_test(
     name = "ConfiguredTargetQuerySemanticsTest",
-    size = "large",
+    size = "medium",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
     shard_count = 2,
     deps = [
@@ -59,7 +59,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
@@ -117,13 +116,13 @@ java_library(
 
 java_test(
     name = "ProtoOutputFormatterCallbackTest",
-    size = "large",
+    size = "medium",
     srcs = ["ProtoOutputFormatterCallbackTest.java"],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
         ":configured_target_query_test",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/query2",
@@ -133,7 +132,6 @@ java_test(
         "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/query2/testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -142,7 +140,7 @@ java_test(
 
 java_test(
     name = "TransitionsOutputFormatterTest",
-    size = "large",
+    size = "medium",
     srcs = ["TransitionsOutputFormatterTest.java"],
     shard_count = 4,
     deps = [
@@ -161,6 +159,24 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "FilesOutputFormatterCallbackTest",
+    srcs = ["FilesOutputFormatterCallbackTest.java"],
+    shard_count = 4,
+    deps = [
+        ":configured_target_query_helper",
+        ":configured_target_query_test",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

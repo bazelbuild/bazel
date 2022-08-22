@@ -92,14 +92,15 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "existing_rule",
       doc =
-          "Returns a new mutable dict that describes the attributes of a rule instantiated in this"
-              + " thread's package, or <code>None</code> if no rule instance of that name"
-              + " exists." //
-              + "<p>If the <code>--incompatible_existing_rules_immutable_view</code> flag is set,"
-              + " instead returns an immutable dict-like object (i.e. supporting dict-like"
-              + " iteration, <code>len(x)</code>, <code>name in x</code>, <code>x[name]</code>,"
-              + " <code>x.get(name)</code>, <code>x.items()</code>, <code>x.keys()</code>, and"
-              + " <code>x.values()</code>) with the same content." //
+          "Returns an immutable dict-like object that describes the attributes of a rule"
+              + " instantiated in this thread's package, or <code>None</code> if no rule instance"
+              + " of that name exists." //
+              + "<p>Here, an <em>immutable dict-like object</em> means a deeply immutable object"
+              + " <code>x</code> supporting dict-like iteration, <code>len(x)</code>, <code>name in"
+              + " x</code>, <code>x[name]</code>, <code>x.get(name)</code>, <code>x.items()</code>,"
+              + " <code>x.keys()</code>, and <code>x.values()</code>." //
+              + "<p>If the <code>--noincompatible_existing_rules_immutable_view</code> flag is set,"
+              + " instead returns a new mutable dict with the same content." //
               + "<p>The result contains an entry for each attribute, with the exception of private"
               + " ones (whose names do not start with a letter) and a few unrepresentable legacy"
               + " attribute types. In addition, the dict contains entries for the rule instance's"
@@ -129,18 +130,20 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "existing_rules",
       doc =
-          "Returns a new mutable dict describing the rules so far instantiated in this thread's"
-              + " package. Each dict entry maps the name of the rule instance to the result that"
-              + " would be returned by <code>existing_rule(name)</code>." //
-              + "<p>If the <code>--incompatible_existing_rules_immutable_view</code> flag is set,"
-              + " instead returns an immutable dict-like object (i.e. supporting dict-like"
-              + " iteration, <code>len(x)</code>, <code>name in x</code>, <code>x[name]</code>,"
-              + " <code>x.get(name)</code>, <code>x.items()</code>, <code>x.keys()</code>, and"
-              + " <code>x.values()</code>) with the same content." //
-              + "<p><i>Note: If possible, avoid using this function. It makes BUILD files brittle"
-              + " and order-dependent. Furthermore, unless the"
-              + " <code>--incompatible_existing_rules_immutable_view</code> flag is set, this"
-              + " function may be very expensive, especially if called within a loop.</i>",
+          "Returns an immutable dict-like object describing the rules so far instantiated in this"
+              + " thread's package. Each entry of the dict-like object maps the name of the rule"
+              + " instance to the result that would be returned by"
+              + " <code>existing_rule(name)</code>." //
+              + "<p>Here, an <em>immutable dict-like object</em> means a deeply immutable object"
+              + " <code>x</code> supporting dict-like iteration, <code>len(x)</code>, <code>name in"
+              + " x</code>, <code>x[name]</code>, <code>x.get(name)</code>, <code>x.items()</code>,"
+              + " <code>x.keys()</code>, and <code>x.values()</code>." //
+              + "<p>If the <code>--noincompatible_existing_rules_immutable_view</code> flag is set,"
+              + " instead returns a new mutable dict with the same content." //
+              + "<p><em>Note: If possible, avoid using this function. It makes BUILD files brittle"
+              + " and order-dependent. Furthermore, if the"
+              + " </em><code>--noincompatible_existing_rules_immutable_view</code><em> flag is set,"
+              + " this function may be very expensive, especially if called within a loop.</em>",
       useStarlarkThread = true)
   Object existingRules(StarlarkThread thread) throws EvalException;
 
@@ -237,4 +240,41 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + "<code>REPOSITORY_NAME</code>.",
       useStarlarkThread = true)
   String repositoryName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "subpackages",
+      doc =
+          "Returns a new mutable list of every direct subpackage of the current package,"
+              + " regardless of file-system directory depth. List returned is sorted and contains"
+              + " the names of subpackages relative to the current package. It is advised to"
+              + " prefer using the methods in bazel_skylib.subpackages module rather than calling"
+              + " this function directly.",
+      parameters = {
+        @Param(
+            name = "include",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            positional = false,
+            named = true,
+            doc = "The list of glob patterns to include in subpackages scan."),
+        @Param(
+            name = "exclude",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            positional = false,
+            named = true,
+            doc = "The list of glob patterns to exclude from subpackages scan."),
+        @Param(
+            name = "allow_empty",
+            defaultValue = "False",
+            positional = false,
+            named = true,
+            doc =
+                "Whether we fail if the call returns an empty list. By default empty list indicates"
+                    + " potential error in BUILD file where the call to subpackages() is"
+                    + " superflous.  Setting to true allows this function to succeed in that case.")
+      },
+      useStarlarkThread = true)
+  Sequence<?> subpackages(
+      Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

@@ -26,7 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -102,11 +102,12 @@ public class AttributeTest {
     Attribute.Builder<String> builder =
         attr("x", STRING)
             .mandatory()
-            .cfg(HostTransition.createFactory())
+            .cfg(ExecutionTransitionFactory.create())
             .undocumented("")
             .value("y");
     assertThrows(IllegalStateException.class, () -> builder.mandatory());
-    assertThrows(IllegalStateException.class, () -> builder.cfg(HostTransition.createFactory()));
+    assertThrows(
+        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.create()));
     assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
     assertThrows(IllegalStateException.class, () -> builder.value("z"));
 
@@ -128,7 +129,7 @@ public class AttributeTest {
     assertDefaultValue("foo",
                        attr("x", STRING).value("foo").build());
 
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:bar");
     assertDefaultValue(null,
                        attr("x", LABEL).legacyAllowAnyFileType().build());
     assertDefaultValue(label,
@@ -141,9 +142,7 @@ public class AttributeTest {
                        attr("x", STRING_LIST).value(slist).build());
 
     List<Label> llist =
-        Arrays.asList(
-            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-            Label.parseAbsolute("//foo:wiz", ImmutableMap.of()));
+        Arrays.asList(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//foo:wiz"));
     assertDefaultValue(Collections.emptyList(),
                        attr("x", LABEL_LIST).legacyAllowAnyFileType().build());
     assertDefaultValue(llist,
@@ -164,7 +163,7 @@ public class AttributeTest {
     assertType(STRING,
                attr("x", STRING).value("foo").build());
 
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:bar");
     assertType(LABEL,
                        attr("x", LABEL).legacyAllowAnyFileType().build());
     assertType(LABEL,
@@ -177,9 +176,7 @@ public class AttributeTest {
                attr("x", STRING_LIST).value(slist).build());
 
     List<Label> llist =
-        Arrays.asList(
-            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-            Label.parseAbsolute("//foo:wiz", ImmutableMap.of()));
+        Arrays.asList(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//foo:wiz"));
     assertType(LABEL_LIST,
                attr("x", LABEL_LIST).legacyAllowAnyFileType().build());
     assertType(LABEL_LIST,
@@ -279,8 +276,8 @@ public class AttributeTest {
   @Test
   public void testHostTransition() throws Exception {
     Attribute attr =
-        attr("foo", LABEL).cfg(HostTransition.createFactory()).allowedFileTypes().build();
-    assertThat(attr.getTransitionFactory().isHost()).isTrue();
+        attr("foo", LABEL).cfg(ExecutionTransitionFactory.create()).allowedFileTypes().build();
+    assertThat(attr.getTransitionFactory().isTool()).isTrue();
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
 

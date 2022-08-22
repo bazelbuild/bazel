@@ -59,6 +59,48 @@ message Platform {
   repeated Property properties = 1;
 }
 
+// Timing, size, and memory statistics for a SpawnExec.
+message SpawnMetrics {
+  // Total wall time spent running a spawn, measured locally.
+  google.protobuf.Duration total_time = 1;
+  // Time taken to convert the spawn into a network request.
+  google.protobuf.Duration parse_time = 2;
+  // Time spent communicating over the network.
+  google.protobuf.Duration network_time = 3;
+  // Time spent fetching remote outputs.
+  google.protobuf.Duration fetch_time = 4;
+  // Time spent waiting in queues.
+  google.protobuf.Duration queue_time = 5;
+  // Time spent setting up the environment in which the spawn is run.
+  google.protobuf.Duration setup_time = 6;
+  // Time spent uploading outputs to a remote store.
+  google.protobuf.Duration upload_time = 7;
+  // Time spent running the subprocess.
+  google.protobuf.Duration execution_wall_time = 8;
+  // Time spent by the execution framework processing outputs.
+  google.protobuf.Duration process_outputs_time = 9;
+  // Time spent in previous failed attempts, not including queue time.
+  google.protobuf.Duration retry_time = 10;
+  // Total size in bytes of inputs or 0 if unavailable.
+  int64 input_bytes = 11;
+  // Total number of input files or 0 if unavailable.
+  int64 input_files = 12;
+  // Estimated memory usage or 0 if unavailable.
+  int64 memory_estimate_bytes = 13;
+  // Limit of total size of inputs or 0 if unavailable.
+  int64 input_bytes_limit = 14;
+  // Limit of total number of input files or 0 if unavailable.
+  int64 input_files_limit = 15;
+  // Limit of total size of outputs or 0 if unavailable.
+  int64 output_bytes_limit = 16;
+  // Limit of total number of output files or 0 if unavailable.
+  int64 output_files_limit = 17;
+  // Memory limit or 0 if unavailable.
+  int64 memory_bytes_limit = 18;
+  // Time limit or 0 if unavailable.
+  google.protobuf.Duration time_limit = 19;
+}
+
 // Details of an executed spawn.
 // These will only be generated on demand, using the
 // --execution_log_file=<path> flag.
@@ -132,4 +174,14 @@ message SpawnExec {
   // The wall time it took to execute the Spawn. This is only the time spent in
   // the subprocess, not including the time doing setup and teardown.
   google.protobuf.Duration walltime = 17;
+
+  // Canonical label of the target that emitted this spawn, may not always be
+  // set.
+  string target_label = 18;
+
+  // A unique identifier for this Spawn.
+  Digest digest = 19;
+
+  // Timing, size and memory statistics.
+  SpawnMetrics metrics = 20;
 }

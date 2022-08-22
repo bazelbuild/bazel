@@ -150,7 +150,8 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
     }
 
     LocalFile toLocalFile() {
-      return new LocalFile(localPath, fileType, compression);
+      return new LocalFile(
+          localPath, fileType, compression, /*artifact=*/ null, /*artifactMetadata=*/ null);
     }
 
     @Override

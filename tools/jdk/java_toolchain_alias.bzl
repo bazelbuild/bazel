@@ -60,7 +60,7 @@ java_host_runtime_alias = rule(
                 java_common.JavaRuntimeInfo,
                 platform_common.TemplateVariableInfo,
             ],
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     provides = [

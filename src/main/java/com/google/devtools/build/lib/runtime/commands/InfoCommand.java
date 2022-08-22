@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeBinInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeGenfilesInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeTestlogsInfoItem;
@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -162,11 +161,10 @@ public class InfoCommand implements BlazeCommand {
                 // information is available here.
                 env.syncPackageLoading(optionsParsingResult);
                 // TODO(bazel-team): What if there are multiple configurations? [multi-config]
+                BuildOptions buildOptions = runtime.createBuildOptions(optionsParsingResult);
+                env.getSkyframeExecutor().setBaselineConfiguration(buildOptions);
                 return env.getSkyframeExecutor()
-                    .getConfiguration(
-                        env.getReporter(),
-                        runtime.createBuildOptions(optionsParsingResult),
-                        /*keepGoing=*/ true);
+                    .getConfiguration(env.getReporter(), buildOptions, /*keepGoing=*/ true);
               } catch (InvalidConfigurationException e) {
                 env.getReporter().handle(Event.error(e.getMessage()));
                 throw new AbruptExitRuntimeException(e.getDetailedExitCode());
@@ -191,16 +189,14 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
-          StarlarkOptionsParser.removeStarlarkOptions(optionsParsingResult.getResidue());
-      ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
-      ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
-      if (!removedStarlarkOptions.isEmpty()) {
+      List<String> starlarkOptions = optionsParsingResult.getSkippedArgs();
+      List<String> residue = optionsParsingResult.getResidue();
+      if (!starlarkOptions.isEmpty()) {
         env.getReporter()
             .handle(
                 Event.warn(
                     "info command does not support starlark options. Ignoring options: "
-                        + removedStarlarkOptions));
+                        + starlarkOptions));
       }
 
       env.getEventBus().post(new NoBuildEvent());
@@ -309,7 +305,7 @@ public class InfoCommand implements BlazeCommand {
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   public static List<String> getHardwiredInfoItemNames(String productName) {

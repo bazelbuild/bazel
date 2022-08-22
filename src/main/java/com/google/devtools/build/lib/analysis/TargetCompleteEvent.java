@@ -146,10 +146,7 @@ public final class TargetCompleteEvent
     this.label = targetAndData.getConfiguredTarget().getLabel();
     this.aliasLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
-        ConfiguredTargetKey.builder()
-            .setConfiguredTarget(targetAndData.getConfiguredTarget())
-            .setConfiguration(targetAndData.getConfiguration())
-            .build();
+        ConfiguredTargetKey.fromConfiguredTarget(targetAndData.getConfiguredTarget());
     postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : getRootCauses().toList()) {
@@ -314,6 +311,10 @@ public final class TargetCompleteEvent
     return outputs.get(outputGroup);
   }
 
+  public ImmutableMap<String, ArtifactsInOutputGroup> getOutputs() {
+    return outputs;
+  }
+
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
   // field.
 
@@ -411,7 +412,9 @@ public final class TargetCompleteEvent
                 builder.add(
                     new LocalFile(
                         completionContext.pathResolver().toPath(artifact),
-                        LocalFileType.OUTPUT_FILE));
+                        LocalFileType.OUTPUT_FILE,
+                        artifact,
+                        completionContext.getFileArtifactValue(artifact)));
               }
 
               @Override
@@ -424,9 +427,13 @@ public final class TargetCompleteEvent
     }
     if (baselineCoverageArtifacts != null) {
       for (Artifact artifact : baselineCoverageArtifacts.toList()) {
+        // TODO(b/199940216): Coverage artifacts don't have metadata available.
         builder.add(
             new LocalFile(
-                completionContext.pathResolver().toPath(artifact), LocalFileType.COVERAGE_OUTPUT));
+                completionContext.pathResolver().toPath(artifact),
+                LocalFileType.COVERAGE_OUTPUT,
+                /*artifact=*/ null,
+                /*artifactMetadata=*/ null));
       }
     }
     return builder.build();
@@ -488,6 +495,11 @@ public final class TargetCompleteEvent
   @Override
   public ReportedArtifacts reportedArtifacts() {
     return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifacts);
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 
   static ReportedArtifacts toReportedArtifacts(

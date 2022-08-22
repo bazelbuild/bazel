@@ -28,12 +28,13 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException3;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A builder of values for {@link ArtifactNestedSetKey}.
@@ -101,18 +102,11 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
     List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
-    List<
-            ValueOrException3<
-                SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>>
-        depsEvalResult =
-            env.getOrderedValuesOrThrow(
-                depKeys,
-                SourceArtifactException.class,
-                ActionExecutionException.class,
-                ArtifactNestedSetEvalException.class);
+    SkyframeIterableResult depsEvalResult = env.getOrderedValuesAndExceptions(depKeys);
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
         NestedSetBuilder.stableOrder();
@@ -122,13 +116,15 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     // Only non-null values should be committed to
     // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
     int i = 0;
-    for (ValueOrException3<
-            SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>
-        valueOrException : depsEvalResult) {
+    while (depsEvalResult.hasNext()) {
       SkyKey key = depKeys.get(i++);
       try {
         // Trigger the exception, if any.
-        SkyValue value = valueOrException.get();
+        SkyValue value =
+            depsEvalResult.nextOrThrow(
+                SourceArtifactException.class,
+                ActionExecutionException.class,
+                ArtifactNestedSetEvalException.class);
         if (key instanceof ArtifactNestedSetKey || value == null) {
           continue;
         }

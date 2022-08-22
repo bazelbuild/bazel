@@ -168,6 +168,12 @@ public interface JavaInfoApi<
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   CcInfoApi<FileT> getCcLinkParamInfo();
 
+  @StarlarkMethod(
+      name = "module_flags_info",
+      doc = "Returns the Java module flag configuration.",
+      structField = true)
+  JavaModuleFlagsProviderApi getJavaModuleFlagsInfo();
+
   /** Provider class for {@link JavaInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface JavaInfoProviderApi extends ProviderApi {
@@ -293,9 +299,10 @@ public interface JavaInfoApi<
               named = true,
               defaultValue = "[]",
               doc =
-                  "Libraries to make available for users of this library. See also "
-                      + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
-                      + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
+                  "Libraries to make available for users of this library. See also <a"
+                      + " class=\"anchor\""
+                      + " href=\"$BE_ROOT/java.html#java_library.exports\">"
+                      + "java_library.exports</a>."),
           @Param(
               name = "exported_plugins",
               named = true,

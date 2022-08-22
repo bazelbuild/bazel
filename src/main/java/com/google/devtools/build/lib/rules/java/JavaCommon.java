@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -57,6 +58,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A helper class to create configured targets for Java rules. */
@@ -346,8 +348,13 @@ public class JavaCommon {
         .addAll(javaToolchain.getJavacOptions(ruleContext))
         .addAll(extraRuleJavacOpts)
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
+        .addAll(addModuleJavacopts(ruleContext))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
         .build();
+  }
+
+  private static ImmutableList<String> addModuleJavacopts(RuleContext ruleContext) {
+    return JavaModuleFlagsProvider.create(ruleContext, Stream.empty()).toFlags();
   }
 
   /** Returns the per-package configured javacopts. */
@@ -558,6 +565,14 @@ public class JavaCommon {
   public ImmutableList<? extends TransitiveInfoCollection> targetsTreatedAsDeps(
       ClasspathType type) {
     return targetsTreatedAsDeps.get(type);
+  }
+
+  public ImmutableList<CcInfo> hermeticStaticLibs() {
+    if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
+        && ruleContext.attributes().get("hermetic", BOOLEAN)) {
+      return JavaRuntimeInfo.from(ruleContext).hermeticStaticLibs();
+    }
+    return ImmutableList.of();
   }
 
   /** Returns the default dependencies for the given classpath context. */
@@ -884,23 +899,6 @@ public class JavaCommon {
       }
     }
     return directDeps.build();
-  }
-
-  /**
-   * Return the runtime jars of the transitive closure of the target, excluding the first level of
-   * dependencies and the current target itself.
-   *
-   * <p>This particular set of jars is used by the persistent test runner, to create a classloader
-   * for the transitive dependencies. The target itself and its direct dependencies are loaded into
-   * a different classloader.
-   */
-  public NestedSet<Artifact> getRuntimeClasspathExcludingDirect() {
-    NestedSetBuilder<Artifact> classpath = new NestedSetBuilder<>(Order.STABLE_ORDER);
-    targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY).stream()
-        .map(JavaInfo::getJavaInfo)
-        .filter(Objects::nonNull)
-        .forEach(j -> classpath.addTransitive(j.getTransitiveOnlyRuntimeJars()));
-    return classpath.build();
   }
 
   /**

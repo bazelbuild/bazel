@@ -252,6 +252,8 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
   EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+  EXPECT_EQ(r->Rlocation("a/b/file"), "c/d/file");
+  EXPECT_EQ(r->Rlocation("a/b/deeply/nested/file"), "c/d/deeply/nested/file");
 }
 
 TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
@@ -316,6 +318,8 @@ TEST_F(RunfilesTest, ManifestAndDirectoryBasedRunfilesRlocationAndEnvVars) {
   EXPECT_EQ(r->Rlocation("/Foo"), "/Foo");
   EXPECT_EQ(r->Rlocation("c:/Foo"), "c:/Foo");
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
+  EXPECT_EQ(r->Rlocation("a/b/file"), "c/d/file");
+  EXPECT_EQ(r->Rlocation("a/b/deeply/nested/file"), "c/d/deeply/nested/file");
   AssertEnvvars(*r, mf->Path(), dir);
 }
 

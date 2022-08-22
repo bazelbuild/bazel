@@ -155,6 +155,32 @@ public final class CcCommon implements StarlarkValue {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
+  public static final ImmutableSet<String> OBJC_ACTIONS =
+      ImmutableSet.of(
+          CppActionNames.OBJC_COMPILE,
+          CppActionNames.OBJCPP_COMPILE,
+          CppActionNames.OBJC_ARCHIVE,
+          CppActionNames.OBJC_FULLY_LINK,
+          CppActionNames.OBJC_EXECUTABLE,
+          CppActionNames.OBJCPP_EXECUTABLE);
+
+  /** An enum for the list of supported languages. */
+  public enum Language {
+    CPP("c++"),
+    OBJC("objc"),
+    OBJCPP("objc++");
+
+    private final String representation;
+
+    Language(String representation) {
+      this.representation = representation;
+    }
+
+    public String getRepresentation() {
+      return representation;
+    }
+  }
+
   public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
   private static final String SYSROOT_FLAG = "--sysroot=";
 
@@ -204,6 +230,11 @@ public final class CcCommon implements StarlarkValue {
     return mergedOutputGroups;
   }
 
+  @StarlarkMethod(name = "copts", structField = true, documented = false)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getCopts());
+  }
+
   @StarlarkMethod(name = "linkopts", structField = true, documented = false)
   public Sequence<String> getLinkoptsForStarlark() {
     return StarlarkList.immutableCopyOf(getLinkopts());
@@ -225,11 +256,6 @@ public final class CcCommon implements StarlarkValue {
     return ImmutableList.copyOf(result);
   }
 
-  @StarlarkMethod(name = "copts", structField = true, documented = false)
-  public Sequence<String> getCoptsForStarlark() {
-    return StarlarkList.immutableCopyOf(getCopts());
-  }
-
   public ImmutableList<String> getCopts() {
     if (!getCoptsFilter(ruleContext).passesFilter("-Wno-future-warnings")) {
       ruleContext.attributeWarning(
@@ -246,6 +272,14 @@ public final class CcCommon implements StarlarkValue {
         .addAll(CppHelper.getPackageCopts(ruleContext))
         .addAll(CppHelper.getAttributeCopts(ruleContext))
         .build();
+  }
+
+  // TODO(gnish): Delete this method once package default copts are gone.
+  // All of the package default copts will be included in rule attribute
+  // after the migration.
+  @StarlarkMethod(name = "unexpanded_package_copts", structField = true, documented = false)
+  public Sequence<String> getUnexpandedPackageCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(ruleContext.getRule().getPackage().getDefaultCopts());
   }
 
   private boolean hasAttribute(String name, Type<?> type) {
@@ -348,8 +382,13 @@ public final class CcCommon implements StarlarkValue {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
-          ruleContext.attributeWarning("hdrs", "file '" + artifact.getFilename()
-              + "' from target '" + target.getLabel() + "' is not allowed in hdrs");
+          ruleContext.attributeWarning(
+              "hdrs",
+              "file '"
+                  + artifact.getFilename()
+                  + "' from target '"
+                  + target.getLabel()
+                  + "' is not allowed in hdrs");
           continue;
         }
         Label oldLabel = map.put(artifact, target.getLabel());
@@ -358,9 +397,7 @@ public final class CcCommon implements StarlarkValue {
               "hdrs",
               String.format(
                   "Artifact '%s' is duplicated (through '%s' and '%s')",
-                  artifact.getExecPathString(),
-                  oldLabel,
-                  target.getLabel()));
+                  artifact.getExecPathString(), oldLabel, target.getLabel()));
         }
       }
     }
@@ -372,6 +409,14 @@ public final class CcCommon implements StarlarkValue {
     return result.build();
   }
 
+  /**
+   * Returns the files from headers and does some checks. Note that this method reports warnings to
+   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
+   */
+  public List<Pair<Artifact, Label>> getHeaders() {
+    return getHeaders(ruleContext);
+  }
+
   /** Returns the C++ toolchain provider. */
   @StarlarkMethod(name = "toolchain", documented = false, structField = true)
   public CcToolchainProvider getToolchain() {
@@ -381,14 +426,6 @@ public final class CcCommon implements StarlarkValue {
   /** Returns the C++ FDO optimization support provider. */
   public FdoContext getFdoContext() {
     return fdoContext;
-  }
-
-  /**
-   * Returns the files from headers and does some checks. Note that this method reports warnings to
-   * the {@link RuleContext} as a side effect, and so should only be called once for any given rule.
-   */
-  public List<Pair<Artifact, Label>> getHeaders() {
-    return getHeaders(ruleContext);
   }
 
   @StarlarkMethod(
@@ -580,18 +617,29 @@ public final class CcCommon implements StarlarkValue {
     List<String> defines = new ArrayList<>();
 
     // collect labels that can be subsituted in defines
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
+    Map<Label, ImmutableCollection<Artifact>> map = Maps.newLinkedHashMap();
 
     if (ruleContext.attributes().has("deps", LABEL_LIST)) {
       for (TransitiveInfoCollection current : ruleContext.getPrerequisites("deps")) {
-        builder.put(
+        map.put(
             AliasProvider.getDependencyLabel(current),
             current.getProvider(FileProvider.class).getFilesToBuild().toList());
       }
     }
 
+    if (ruleContext.attributes().has("data", LABEL_LIST)) {
+      for (TransitiveInfoCollection current : ruleContext.getPrerequisites("data")) {
+        Label dataDependencyLabel = AliasProvider.getDependencyLabel(current);
+        if (!map.containsKey(dataDependencyLabel)) {
+          map.put(
+              dataDependencyLabel,
+              current.getProvider(FileProvider.class).getFilesToBuild().toList());
+        }
+      }
+    }
     // tokenize defines and substitute make variables
-    for (String define : ruleContext.getExpander().withExecLocations(builder.build()).list(attr)) {
+    for (String define :
+        ruleContext.getExpander().withExecLocations(ImmutableMap.copyOf(map)).list(attr)) {
       List<String> tokens = new ArrayList<>();
       try {
         ShellUtils.tokenize(tokens, define);
@@ -897,11 +945,15 @@ public final class CcCommon implements StarlarkValue {
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext, CcToolchainProvider toolchain, CppSemantics semantics) {
+      RuleContext ruleContext,
+      Language language,
+      CcToolchainProvider toolchain,
+      CppSemantics semantics) {
     return configureFeaturesOrReportRuleError(
         ruleContext,
         /* requestedFeatures= */ ruleContext.getFeatures(),
         /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
+        language,
         toolchain,
         semantics);
   }
@@ -915,6 +967,7 @@ public final class CcCommon implements StarlarkValue {
       RuleContext ruleContext,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
     return configureFeaturesOrReportRuleError(
@@ -922,6 +975,7 @@ public final class CcCommon implements StarlarkValue {
         ruleContext.getConfiguration(),
         requestedFeatures,
         unsupportedFeatures,
+        language,
         toolchain,
         cppSemantics);
   }
@@ -931,6 +985,7 @@ public final class CcCommon implements StarlarkValue {
       BuildConfigurationValue buildConfiguration,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
     cppSemantics.validateLayeringCheckFeatures(
@@ -939,6 +994,7 @@ public final class CcCommon implements StarlarkValue {
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
           unsupportedFeatures,
+          language,
           toolchain,
           buildConfiguration.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
@@ -950,6 +1006,7 @@ public final class CcCommon implements StarlarkValue {
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
+      Language language,
       CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration)
       throws EvalException {
@@ -962,7 +1019,8 @@ public final class CcCommon implements StarlarkValue {
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }
 
-    if (!requestedFeatures.contains(CppRuleClasses.LANG_OBJC)
+    if (language != Language.OBJC
+        && language != Language.OBJCPP
         && toolchain.getCcInfo().getCcCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
@@ -978,6 +1036,16 @@ public final class CcCommon implements StarlarkValue {
       allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
       allRequestedFeaturesBuilder.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
+    }
+
+    if (language == Language.OBJC || language == Language.OBJCPP) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.LANG_OBJC);
+      if (cppConfiguration.objcGenerateLinkmap()) {
+        allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_LINKMAP_FEATURE_NAME);
+      }
+      if (cppConfiguration.objcShouldStripBinary()) {
+        allRequestedFeaturesBuilder.add(CppRuleClasses.DEAD_STRIP_FEATURE_NAME);
+      }
     }
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
@@ -1005,6 +1073,10 @@ public final class CcCommon implements StarlarkValue {
             .addAll(requestedFeatures)
             .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
             .addAll(cppConfiguration.getAppleBitcodeMode().getFeatureNames());
+
+    if (language == Language.OBJC || language == Language.OBJCPP) {
+      allFeatures.addAll(OBJC_ACTIONS);
+    }
 
     if (!cppConfiguration.dontEnableHostNonhost()) {
       if (toolchain.isToolConfiguration()) {
@@ -1059,6 +1131,10 @@ public final class CcCommon implements StarlarkValue {
         // Support implicit enabling of ThinLTO for AFDO unless it has been disabled.
         if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
+        }
+        // Support implicit enabling of FSAFDO for AFDO unless it has been disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.FSAFDO)) {
+          allFeatures.add(CppRuleClasses.ENABLE_FSAFDO);
         }
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {
@@ -1159,6 +1235,19 @@ public final class CcCommon implements StarlarkValue {
     return sysrootFlag;
   }
 
+  @StarlarkMethod(
+      name = "compute_cc_flags_from_feature_config",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true)
+      })
+  public List<String> computeCcFlagsFromFeatureConfigForStarlark(
+      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain)
+      throws RuleErrorException {
+    return computeCcFlagsFromFeatureConfig(starlarkRuleContext.getRuleContext(), ccToolchain);
+  }
+
   private static List<String> computeCcFlagsFromFeatureConfig(
       RuleContext ruleContext, CcToolchainProvider toolchainProvider) throws RuleErrorException {
     FeatureConfiguration featureConfiguration = null;
@@ -1176,6 +1265,7 @@ public final class CcCommon implements StarlarkValue {
           configureFeaturesOrThrowEvalException(
               ruleContext.getFeatures(),
               ruleContext.getDisabledFeatures(),
+              Language.CPP,
               toolchainProvider,
               cppConfiguration);
     } catch (EvalException e) {
@@ -1225,7 +1315,7 @@ public final class CcCommon implements StarlarkValue {
               .add(requestedFeaturesFile)
               .build());
     }
-    return outputGroupsBuilder.build();
+    return outputGroupsBuilder.buildOrThrow();
   }
 
   public static boolean isOldStarlarkApiWhiteListed(
@@ -1235,7 +1325,7 @@ public final class CcCommon implements StarlarkValue {
 
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label.getRepository().getName().equals("@_builtins")) {
+    if (label.getRepository().getNameWithAt().equals("@_builtins")) {
       // always permit builtins
       return true;
     }

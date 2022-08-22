@@ -76,6 +76,9 @@ function set_up() {
   fi
   cat > WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+EOF
+  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
+  cat >> WORKSPACE <<EOF
 http_archive(
     name = "local_java_tools",
     urls = ["${java_tools_zip_file_url}"]
@@ -85,6 +88,7 @@ http_archive(
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
 EOF
+  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
 }
 
 function expect_path_in_java_tools() {
@@ -150,18 +154,6 @@ function test_java_tools_has_turbine_direct() {
 
 function test_java_tools_has_Runner() {
   expect_path_in_java_tools "java_tools/Runner_deploy.jar"
-}
-
-function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "java_tools/jdk_compiler.jar"
-}
-
-function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_tools/java_compiler.jar"
-}
-
-function test_java_tools_has_javac() {
-  expect_path_in_java_tools "java_tools/javac-9+181-r4173-1.jar"
 }
 
 function test_java_tools_has_Jacoco() {

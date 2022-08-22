@@ -62,6 +62,7 @@ import org.xml.sax.SAXException;
  *       --manifestValues key value pairs of manifest overrides
  *       --customPackage package to write for library manifest
  *       --manifestOutput path to write output manifest
+ *       --mergeManifestPermissions merge manifest uses-permissions
  * </pre>
  */
 public class ManifestMergerAction {
@@ -152,6 +153,15 @@ public class ManifestMergerAction {
       help = "Path to where the merger log should be written."
     )
     public Path log;
+
+    @Option(
+        name = "mergeManifestPermissions",
+        defaultValue = "false",
+        category = "output",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "If enabled, manifest permissions will be merged.")
+    public boolean mergeManifestPermissions;
   }
 
   private static final String[] PERMISSION_TAGS =
@@ -173,9 +183,8 @@ public class ManifestMergerAction {
         }
       }
     }
-    // Write resulting manifest to the output directory, maintaining full path to prevent collisions
-    Path output = outputDir.resolve(manifest.toString().replaceFirst("^/", ""));
-    Files.createDirectories(output.getParent());
+    // Write resulting manifest to a tmp file to prevent collisions
+    Path output = Files.createTempFile(outputDir, "AndroidManifest", ".xml");
     TransformerFactory.newInstance()
         .newTransformer()
         .transform(new DOMSource(doc), new StreamResult(output.toFile()));
@@ -195,13 +204,17 @@ public class ManifestMergerAction {
       Path mergedManifest;
       AndroidManifestProcessor manifestProcessor = AndroidManifestProcessor.with(stdLogger);
 
-      // Remove uses-permission tags from mergees before the merge.
       Path tmp = Files.createTempDirectory("manifest_merge_tmp");
       tmp.toFile().deleteOnExit();
       ImmutableMap.Builder<Path, String> mergeeManifests = ImmutableMap.builder();
       for (Map.Entry<Path, String> mergeeManifest : options.mergeeManifests.entrySet()) {
-        mergeeManifests.put(
-            removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
+        if (!options.mergeManifestPermissions) {
+          // Remove uses-permission tags from mergees before the merge.
+          mergeeManifests.put(
+              removePermissions(mergeeManifest.getKey(), tmp), mergeeManifest.getValue());
+        } else {
+          mergeeManifests.put(mergeeManifest);
+        }
       }
 
       Path manifest = options.manifest;
@@ -214,7 +227,7 @@ public class ManifestMergerAction {
       mergedManifest =
           manifestProcessor.mergeManifest(
               manifest,
-              mergeeManifests.build(),
+              mergeeManifests.buildOrThrow(),
               options.mergeType,
               options.manifestValues,
               options.customPackage,
@@ -232,10 +245,15 @@ public class ManifestMergerAction {
         Files.copy(manifest, options.manifestOutput, StandardCopyOption.REPLACE_EXISTING);
       }
     } catch (AndroidManifestProcessor.ManifestProcessingException e) {
-      // We special case ManifestProcessingExceptions here to indicate that this is
-      // caused by a build error, not an Bazel-internal error.
-      logger.log(SEVERE, "Error during merging manifests", e);
-      System.exit(1); // Don't duplicate the error to the user or bubble up the exception.
+      // ManifestProcessingExceptions represent build errors that should be delivered directly to
+      // ResourceProcessorBusyBox where the exception can be delivered with a non-zero status code
+      // to the worker/process
+      // Note that this exception handler is nearly identical to the generic case, except that it
+      // does not have a log print associated with it. This is because the exception will bubble up
+      // to ResourceProcessorBusyBox, which will print an identical error message. It is preferable
+      // to slightly convolute this try/catch block, rather than pollute the user's console with
+      // extra repeated error messages.
+      throw e;
     } catch (Exception e) {
       logger.log(SEVERE, "Error during merging manifests", e);
       throw e; // This is a proper internal exception, so we bubble it up.

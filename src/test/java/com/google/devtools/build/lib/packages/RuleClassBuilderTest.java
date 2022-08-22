@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -184,14 +186,15 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(ImmutableList.of(mockToolchainType))
+            .addToolchainTypes(ToolchainTypeRequirement.create(mockToolchainType))
             .build();
     RuleClass child =
         new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("attr", STRING))
             .build();
-    assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
+
+    assertThat(child).hasToolchainType(mockToolchainType);
   }
 
   @Test
@@ -199,8 +202,17 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
     Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
     ExecGroup parentGroup =
-        ExecGroup.create(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
-    ExecGroup childGroup = ExecGroup.create(ImmutableSet.of(), ImmutableSet.of());
+        ExecGroup.builder()
+            .addToolchainType(ToolchainTypeRequirement.create(mockToolchainType))
+            .execCompatibleWith(ImmutableSet.of(mockConstraint))
+            .copyFrom(null)
+            .build();
+    ExecGroup childGroup =
+        ExecGroup.builder()
+            .toolchainTypes(ImmutableSet.of())
+            .execCompatibleWith(ImmutableSet.of())
+            .copyFrom(null)
+            .build();
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
@@ -223,18 +235,23 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/toolchain"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(Label.parseAbsoluteUnchecked("//some/toolchain")))
             .build();
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/other/toolchain"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//some/other/toolchain")))
             .build();
     RuleClass c =
         new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b)
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about")))
             .build();
     assertThat(c.getExecGroups()).containsKey("blueberry");
     ExecGroup blueberry = c.getExecGroups().get("blueberry");
@@ -249,9 +266,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .addExecGroups(
                 ImmutableMap.of(
                     "blueberry",
-                    ExecGroup.create(
-                        ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
-                        ImmutableSet.of())))
+                    ExecGroup.builder()
+                        .addToolchainType(
+                            ToolchainTypeRequirement.create(
+                                Label.parseAbsoluteUnchecked("//some/toolchain")))
+                        .execCompatibleWith(ImmutableSet.of())
+                        .copyFrom(null)
+                        .build()))
             .add(attr("tags", STRING_LIST))
             .build();
     RuleClass b =
@@ -259,7 +280,12 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(
                 ImmutableMap.of(
-                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
+                    "blueberry",
+                    ExecGroup.builder()
+                        .toolchainTypes(ImmutableSet.of())
+                        .execCompatibleWith(ImmutableSet.of())
+                        .copyFrom(null)
+                        .build()))
             .add(attr("tags", STRING_LIST))
             .build();
     IllegalArgumentException e =

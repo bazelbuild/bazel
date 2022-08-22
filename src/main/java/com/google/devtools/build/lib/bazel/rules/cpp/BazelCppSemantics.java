@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import javax.annotation.Nullable;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
@@ -61,15 +63,15 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           Label.parseAbsoluteUnchecked("@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
-  private enum Language {
-    CPP,
-    OBJC
-  }
-
   private final Language language;
 
   private BazelCppSemantics(Language language) {
     this.language = language;
+  }
+
+  @Override
+  public Language language() {
+    return language;
   }
 
   @Override
@@ -139,6 +141,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
+  @Nullable
   public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
     StructImpl ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER);
     if (ccSharedLibraryInfo != null) {
@@ -165,5 +168,16 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   @Override
   public boolean createEmptyArchive() {
     return false;
+  }
+
+  @Override
+  public void checkCanUseImplementationDeps(RuleContext ruleContext) {
+    boolean experimentalCcImplementationDeps =
+        ruleContext.getFragment(CppConfiguration.class).experimentalCcImplementationDeps();
+    if (!experimentalCcImplementationDeps
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
+      ruleContext.attributeError(
+          "implementation_deps", "requires --experimental_cc_implementation_deps");
+    }
   }
 }

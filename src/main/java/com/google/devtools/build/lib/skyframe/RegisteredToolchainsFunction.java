@@ -44,9 +44,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -160,7 +159,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
-              RepositoryName.createFromValidStrippedName(module.getCanonicalRepoName()),
+              module.getCanonicalRepoName(),
               bazelModuleResolutionValue.getFullRepoMapping(module.getKey()));
       for (String pattern : module.getToolchainsToRegister()) {
         try {
@@ -174,6 +173,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return toolchains.build();
   }
 
+  @Nullable
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
@@ -187,22 +187,20 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                         .build())
             .collect(toImmutableList());
 
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
-        env.getValuesOrThrow(keys, ConfiguredValueCreationException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
     ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();
     boolean valuesMissing = false;
     for (SkyKey key : keys) {
       ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
       Label toolchainLabel = configuredTargetKey.getLabel();
       try {
-        ValueOrException<ConfiguredValueCreationException> valueOrException = values.get(key);
-        if (valueOrException.get() == null) {
+        SkyValue value = values.nextOrThrow(ConfiguredValueCreationException.class);
+        if (value == null) {
           valuesMissing = true;
           continue;
         }
 
-        ConfiguredTarget target =
-            ((ConfiguredTargetValue) valueOrException.get()).getConfiguredTarget();
+        ConfiguredTarget target = ((ConfiguredTargetValue) value).getConfiguredTarget();
         DeclaredToolchainInfo toolchainInfo = PlatformProviderUtils.declaredToolchainInfo(target);
         if (toolchainInfo == null) {
           throw new RegisteredToolchainsFunctionException(

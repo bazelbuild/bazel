@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.testutil;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -62,6 +63,7 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -76,6 +78,11 @@ public abstract class AbstractQueryTest<T> {
   protected static final ImmutableSet<?> EMPTY = ImmutableSet.of();
 
   private static final String DEFAULT_UNIVERSE = "//...:*";
+
+  protected static final String BAD_PACKAGE_NAME =
+      "package names may contain "
+          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
+          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
 
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
@@ -313,11 +320,7 @@ public abstract class AbstractQueryTest<T> {
   protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
     assertThat(failureDetail.getTargetPatterns().getCode())
         .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    // TODO(bazel-team): This error message could use some improvement. It's verbose (duplicate
-    //   message) and shows an extra "@" that wasn't in the input.
-    assertThat(message)
-        .isEqualTo(
-            "Invalid package name 'bad:*': invalid package identifier '@//bad:*': contains ':'");
+    assertThat(message).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
   }
 
   @Test
@@ -449,6 +452,35 @@ public abstract class AbstractQueryTest<T> {
     // Assure that integers query correctly for BOOLEAN values.
     assertThat(evalToString("attr(testonly, 0, t:*)")).isEqualTo("//t:t");
     assertThat(evalToString("attr(testonly, 1, t:*)")).isEqualTo("//t:t_test");
+  }
+
+  protected void runGenqueryScopeTest(boolean isPostAnalysisQuery) throws Exception {
+    // Tests the relationship between deps(genquery_rule) and that of its scope.
+    // For query, deps(genquery_rule) should include transitive deps of its scope
+    // For cquery and aquery, deps(genquery_rule) should include its scope, but not its transitive
+    // deps.
+
+    writeFile("a/BUILD", "sh_library(name='a')");
+    writeFile("b/BUILD", "sh_library(name='b', deps=['//a:a'])");
+    writeFile("q/BUILD", "genquery(name='q', scope=['//b'], expression='deps(//b)')");
+
+    // Assure that deps of a genquery rule includes the transitive closure of its scope.
+    // This is required for correctness of incremental "blaze build genqueryrule"
+    ImmutableList<String> evalResult = evalToListOfStrings("deps(//q:q)");
+    if (isPostAnalysisQuery) {
+      // Not checking for equality, since when run as a cquery test, there will be other
+      // dependencies.
+      assertThat(evalResult).contains("//q:q");
+      // assert that transitive closure of scope is NOT present.
+      assertThat(evalResult).containsNoneOf("//a:a", "//b:b");
+    } else {
+      assertThat(evalResult).containsExactly("//q:q", "//a:a", "//b:b");
+    }
+  }
+
+  @Test
+  public void testGenqueryScope() throws Exception {
+    runGenqueryScopeTest(false);
   }
 
   @Test
@@ -592,6 +624,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testDeps() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -635,7 +668,8 @@ public abstract class AbstractQueryTest<T> {
                   helper.getToolsRepository()
                       + "//tools/cpp:malloc + //configurable:main + "
                       + "//configurable:main.cc + //configurable:adep + //configurable:bdep + "
-                      + "//configurable:defaultdep + //conditions:a + //conditions:b"
+                      + "//configurable:defaultdep + //conditions:a + //conditions:b + "
+                      + "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain"
                       + implicitDeps));
     }
   }
@@ -951,6 +985,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  @Ignore("b/198254254")
   public void testNoImplicitDeps() throws Exception {
     writeFile("x/BUILD", "cc_binary(name='x', srcs=['x.cc'])");
 
@@ -971,10 +1006,11 @@ public abstract class AbstractQueryTest<T> {
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
+    String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
     assertEqualsFiltered(
-        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr,
+        targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr + " + " + toolchainDepsExpr,
         "deps(//x)" + TestConstants.CC_DEPENDENCY_CORRECTION);
     assertEqualsFiltered(
         targetDepsExpr + " + " + hostDepsExpr,
@@ -1352,7 +1388,7 @@ public abstract class AbstractQueryTest<T> {
     writeFile("y/BUILD");
 
     eval("//x:*");
-    helper.assertPackageNotLoaded("@//y");
+    helper.assertPackageNotLoaded("y");
   }
 
   // #1352570, "NPE crash in deps(x, n)".
@@ -1800,6 +1836,28 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void badRuleInDeps() throws Exception {
+    runBadRuleInDeps(Code.STARLARK_EVAL_ERROR);
+  }
+
+  protected final void runBadRuleInDeps(Object code) throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:bar'])");
+    writeFile("bar/BUILD", "sh_library(name = 'bar', srcs = 'bad_single_file')");
+    EvalThrowsResult evalThrowsResult =
+        evalThrows("deps(//foo:foo)", /*unconditionallyThrows=*/ false);
+    FailureDetail.Builder failureDetailBuilder = FailureDetail.newBuilder();
+    if (code instanceof FailureDetails.PackageLoading.Code) {
+      failureDetailBuilder.setPackageLoading(
+          FailureDetails.PackageLoading.newBuilder().setCode((Code) code));
+    } else if (code instanceof Query.Code) {
+      failureDetailBuilder.setQuery(FailureDetails.Query.newBuilder().setCode((Query.Code) code));
+    }
+    assertThat(evalThrowsResult.getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(failureDetailBuilder.build());
+  }
+
+  @Test
   public void buildfilesBazel() throws Exception {
     writeFile("bar/BUILD.bazel");
     writeFile("bar/bar.bzl", "sym = 0");
@@ -1859,6 +1917,29 @@ public abstract class AbstractQueryTest<T> {
         "sh_library(name = 'd')");
     assertThat(evalToString("rdeps(//foo:a, //foo:d + //foo:c, 1)" + getDependencyCorrection()))
         .isEqualTo("//foo:b //foo:c //foo:d");
+  }
+
+  @Test
+  public void boundedDepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(evalToListOfStrings("deps(//foo:foo, 1)")).containsExactly("//foo:foo", "//foo:dep");
+  }
+
+  // Ideally we wouldn't fail on an irrelevant error (since //bar:missing is a dep of //foo:dep,
+  // not an rdep). This test documents the current non-ideal behavior.
+  @Test
+  public void boundedRdepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        "sh_library(name = 'foo', deps = [':dep'])",
+        "sh_library(name = 'dep', deps = ['//bar:missing'])");
+    assertThat(
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+                .getMessage())
+        .contains("preloading transitive closure failed: no such package 'bar':");
   }
 
   @Test
@@ -2046,8 +2127,8 @@ public abstract class AbstractQueryTest<T> {
    */
   public interface QueryHelper<T> {
 
-    @Before
     /** Basic set-up; this is called once at the beginning of a test, before anything else. */
+    @Before
     void setUp() throws Exception;
 
     void setKeepGoing(boolean keepGoing);

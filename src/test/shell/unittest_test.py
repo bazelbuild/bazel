@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Tests for unittest.bash."""
 
 from __future__ import absolute_import
@@ -25,6 +24,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 # The test setup for this external test is forwarded to the internal bash test.
@@ -73,36 +73,44 @@ class TestResult(object):
   # Methods to assert on the state of the results.
 
   def assertLogMessage(self, message):
-    self._asserter.assertRegex(self._output, message)
+    self.assertExactlyOneMatch(self._output, message)
 
   def assertNotLogMessage(self, message):
     self._asserter.assertNotRegex(self._output, message)
 
   def assertXmlMessage(self, message):
-    self._asserter.assertRegex(self._xml, message)
+    self.assertExactlyOneMatch(self._xml, message)
+
+  def assertNotXmlMessage(self, message):
+    self._asserter.assertNotRegex(self._xml, message)
 
   def assertSuccess(self, suite_name):
     self._asserter.assertEqual(0, self._return_code,
-                               "Script failed unexpectedly:\n%s" % self._output)
+                               f"Script failed unexpectedly:\n{self._output}")
     self.assertLogMessage(suite_name)
-    self.assertXmlMessage("failures=\"0\"")
-    self.assertXmlMessage("errors=\"0\"")
+    self.assertXmlMessage("<testsuites [^/]*failures=\"0\"")
+    self.assertXmlMessage("<testsuites [^/]*errors=\"0\"")
 
   def assertNotSuccess(self, suite_name, failures=0, errors=0):
     self._asserter.assertNotEqual(0, self._return_code)
     self.assertLogMessage(suite_name)
     if failures:
-      self.assertXmlMessage("failures=\"%d\"" % failures)
+      self.assertXmlMessage(f'<testsuites [^/]*failures="{failures}"')
     if errors:
-      self.assertXmlMessage("errors=\"%d\"" % errors)
+      self.assertXmlMessage(f'<testsuites [^/]*errors="{errors}"')
 
   def assertTestPassed(self, test_name):
-    self.assertLogMessage("PASSED: %s" % test_name)
+    self.assertLogMessage(f"PASSED: {test_name}")
 
   def assertTestFailed(self, test_name, message=""):
-    self.assertLogMessage("%s FAILED" % test_name)
-    if message:
-      self.assertLogMessage("FAILED: %s" % message)
+    self.assertLogMessage(f"{test_name} FAILED: {message}")
+
+  def assertExactlyOneMatch(self, text, pattern):
+    self._asserter.assertRegex(text, pattern)
+    self._asserter.assertEqual(
+        len(re.findall(pattern, text)),
+        1,
+        msg=f"Found more than 1 match of '{pattern}' in '{text}'")
 
 
 class UnittestTest(unittest.TestCase):
@@ -135,9 +143,9 @@ class UnittestTest(unittest.TestCase):
       return os.environ["TEST_SRCDIR"]
 
     # Base on the current dir
-    return "%s/.." % os.getcwd()
+    return f"{os.getcwd()}/.."
 
-  def execute_test(self, filename, env=None):
+  def execute_test(self, filename, env=None, args=()):
     """Executes the file and stores the results."""
 
     filepath = os.path.join(self.work_dir, filename)
@@ -153,7 +161,7 @@ class UnittestTest(unittest.TestCase):
       for k, v in env.items():
         test_env[k] = str(v)
     completed = subprocess.run(
-        [filepath],
+        [filepath, *args],
         env=test_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -358,6 +366,372 @@ run_suite "empty test suite"
         })
     result.assertSuccess("empty test suite")
     result.assertNotLogMessage("No tests")
+
+  def test_filter_runs_only_matching_test(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a*"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+
+  def test_filter_prefix_match_only_skips_test(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          echo "running abc"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_a"})
+
+    result.assertNotSuccess("tests to filter")
+    result.assertLogMessage("No tests found.")
+
+  def test_filter_multiple_globs_runs_tests_matching_any(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          echo "running abc"
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "donotmatch:*a*"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+
+  def test_filter_character_group_runs_only_matching_tests(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_aaa() {
+          :
+        }
+
+        function test_daa() {
+          :
+        }
+
+        function test_zaa() {
+          echo "running zaa"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", env={"TESTBRIDGE_TEST_ONLY": "test_[a-f]aa"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_aaa")
+    result.assertTestPassed("test_daa")
+    result.assertNotLogMessage("running zaa")
+
+  def test_filter_sharded_runs_subset_of_filtered_tests(self):
+    for index in range(2):
+      with self.subTest(index=index):
+        self.__filter_sharded_runs_subset_of_filtered_tests(index)
+
+  def __filter_sharded_runs_subset_of_filtered_tests(self, index):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_a0() {
+          echo "running a0"
+        }
+
+        function test_a1() {
+          echo "running a1"
+        }
+
+        function test_bb() {
+          echo "running bb"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh",
+        env={
+            "TESTBRIDGE_TEST_ONLY": "test_a*",
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": index
+        })
+
+    result.assertSuccess("tests to filter")
+    # The sharding logic is shifted by 1, starts with 2nd shard.
+    result.assertTestPassed("test_a" + str(index ^ 1))
+    result.assertLogMessage("running a" + str(index ^ 1))
+    result.assertNotLogMessage("running a" + str(index))
+    result.assertNotLogMessage("running bb")
+
+  def test_arg_runs_only_matching_test_and_issues_warning(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test("thing.sh", args=["test_abc"])
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+    result.assertLogMessage(
+        r"WARNING: Passing test names in arguments \(--test_arg\) is "
+        "deprecated, please use --test_filter='test_abc' instead.")
+
+  def test_arg_multiple_tests_issues_warning_with_test_filter_command(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          :
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test("thing.sh", args=["test_abc", "test_def"])
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertTestPassed("test_def")
+    result.assertLogMessage(
+        r"WARNING: Passing test names in arguments \(--test_arg\) is "
+        "deprecated, please use --test_filter='test_abc:test_def' instead.")
+
+  def test_arg_and_filter_ignores_arg(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent("""
+        function test_abc() {
+          :
+        }
+
+        function test_def() {
+          echo "running def"
+        }
+
+        run_suite "tests to filter"
+        """))
+
+    result = self.execute_test(
+        "thing.sh", args=["test_def"], env={"TESTBRIDGE_TEST_ONLY": "test_a*"})
+
+    result.assertSuccess("tests to filter")
+    result.assertTestPassed("test_abc")
+    result.assertNotLogMessage("running def")
+    result.assertLogMessage(
+        "WARNING: Both --test_arg and --test_filter specified, ignoring --test_arg"
+    )
+
+  def test_custom_ifs_variable_finds_and_runs_test(self):
+    for sharded in (False, True):
+      for ifs in (r"\t", "t"):
+        with self.subTest(ifs=ifs, sharded=sharded):
+          self.__custom_ifs_variable_finds_and_runs_test(ifs, sharded)
+
+  def __custom_ifs_variable_finds_and_runs_test(self, ifs, sharded):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+        IFS=$'%s'
+        function test_foo() {
+          :
+        }
+
+        run_suite "custom IFS test"
+        """ % ifs))
+
+    result = self.execute_test(
+        "thing.sh",
+        env={} if not sharded else {
+            "TEST_TOTAL_SHARDS": 2,
+            "TEST_SHARD_INDEX": 1
+        })
+
+    result.assertSuccess("custom IFS test")
+    result.assertTestPassed("test_foo")
+
+  def test_fail_in_teardown_reports_failure(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        function tear_down() {
+          echo "tear_down log" >"${TEST_log}"
+          fail "tear_down failure"
+        }
+
+        function test_foo() {
+          :
+        }
+
+        run_suite "Failure in tear_down test"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("Failure in tear_down test", errors=1)
+    result.assertTestFailed("test_foo", "tear_down failure")
+    result.assertXmlMessage('message="tear_down failure"')
+    result.assertLogMessage("tear_down log")
+
+  def test_fail_in_teardown_after_test_failure_reports_both_failures(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        function tear_down() {
+          echo "tear_down log" >"${TEST_log}"
+          fail "tear_down failure"
+        }
+
+        function test_foo() {
+          echo "test_foo log" >"${TEST_log}"
+          fail "Test failure"
+        }
+
+        run_suite "Failure in tear_down test"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("Failure in tear_down test", errors=1)
+    result.assertTestFailed("test_foo", "Test failure")
+    result.assertTestFailed("test_foo", "tear_down failure")
+    result.assertXmlMessage('message="Test failure"')
+    result.assertNotXmlMessage('message="tear_down failure"')
+    result.assertXmlMessage("test_foo log")
+    result.assertXmlMessage("tear_down log")
+    result.assertLogMessage("Test failure")
+    result.assertLogMessage("tear_down failure")
+    result.assertLogMessage("test_foo log")
+    result.assertLogMessage("tear_down log")
+
+  def test_errexit_in_teardown_reports_failure(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+
+        function tear_down() {
+          invalid_command
+        }
+
+        function test_foo() {
+          :
+        }
+
+        run_suite "errexit in tear_down test"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("errexit in tear_down test")
+    result.assertLogMessage("invalid_command: command not found")
+    result.assertXmlMessage('message="No failure message"')
+    result.assertXmlMessage("invalid_command: command not found")
+
+  def test_fail_in_tear_down_after_errexit_reports_both_failures(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+
+        function tear_down() {
+          echo "tear_down log" >"${TEST_log}"
+          fail "tear_down failure"
+        }
+
+        function test_foo() {
+          invalid_command
+        }
+
+        run_suite "fail after failure"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("fail after failure")
+    result.assertTestFailed(
+        "test_foo",
+        "terminated because this command returned a non-zero status")
+    result.assertTestFailed("test_foo", "tear_down failure")
+    result.assertLogMessage("invalid_command: command not found")
+    result.assertLogMessage("tear_down log")
+    result.assertXmlMessage('message="No failure message"')
+    result.assertXmlMessage("invalid_command: command not found")
+
+  def test_errexit_in_tear_down_after_errexit_reports_both_failures(self):
+    self.write_file(
+        "thing.sh",
+        textwrap.dedent(r"""
+        set -euo pipefail
+
+        function tear_down() {
+          invalid_command_tear_down
+        }
+
+        function test_foo() {
+          invalid_command_test
+        }
+
+        run_suite "fail after failure"
+        """))
+
+    result = self.execute_test("thing.sh")
+
+    result.assertNotSuccess("fail after failure")
+    result.assertTestFailed(
+        "test_foo",
+        "terminated because this command returned a non-zero status")
+    result.assertLogMessage("invalid_command_test: command not found")
+    result.assertLogMessage("invalid_command_tear_down: command not found")
+    result.assertXmlMessage('message="No failure message"')
+    result.assertXmlMessage("invalid_command_test: command not found")
+    result.assertXmlMessage("invalid_command_tear_down: command not found")
 
 
 if __name__ == "__main__":

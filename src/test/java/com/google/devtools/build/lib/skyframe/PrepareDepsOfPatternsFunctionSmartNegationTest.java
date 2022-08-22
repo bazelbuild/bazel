@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -90,6 +91,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
+            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
                     PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
@@ -132,8 +134,10 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph))
+    assertThat(exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo")), walkableGraph))
+        .isTrue();
+    assertThat(
+            exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo/foo")), walkableGraph))
         .isTrue();
 
     // But the graph does not contain a value for the target "@//foo/foo:foofoo".
@@ -173,10 +177,12 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a package value for "@//foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
+    assertThat(exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo")), walkableGraph))
+        .isTrue();
 
     // But no package value for "@//foo/foo",
-    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph))
+    assertThat(
+            exists(PackageValue.key(PackageIdentifier.createInMainRepo("foo/foo")), walkableGraph))
         .isFalse();
 
     // And the graph does not contain a value for the target "@//foo/foo:foofoo".

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -42,6 +44,7 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredAspect create(
       ConfiguredTargetAndData ctadBase,
       RuleContext ruleContext,
@@ -82,6 +85,11 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         return null;
       }
       return createAspect(aspectStarlarkObject, ruleContext);
+    } catch (Starlark.UncheckedEvalException ex) {
+      // MissingDepException is expected to transit through Starlark execution.
+      throw ex.getCause() instanceof CachingAnalysisEnvironment.MissingDepException
+          ? (CachingAnalysisEnvironment.MissingDepException) ex.getCause()
+          : ex;
     } catch (EvalException e) {
       ruleContext.ruleError("\n" + e.getMessageWithStack());
       return null;

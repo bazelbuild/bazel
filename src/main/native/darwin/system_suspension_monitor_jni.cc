@@ -16,8 +16,8 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <notify.h>
 
+#include "src/main/cpp/util/logging.h"
 #include "src/main/native/darwin/util.h"
-#include "src/main/native/macros.h"
 #include "src/main/native/unix_jni.h"
 
 namespace blaze_jni {
@@ -37,7 +37,7 @@ static void SleepCallBack(void *refcon, io_service_t service,
       break;
 
     case kIOMessageSystemWillSleep:
-      log_if_possible("suspend anomaly due to kIOMessageSystemWillSleep");
+      BAZEL_LOG(USER) << "suspend anomaly due to kIOMessageSystemWillSleep";
       suspend_callback(SuspensionReasonSleep);
       // This needs to be acknowledged to allow sleep.
       IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
@@ -57,7 +57,7 @@ static void SleepCallBack(void *refcon, io_service_t service,
       // wasn't. I haven't come up with an smart way of avoiding this issue, but
       // I don't think we really care. Over reporting "suspensions" is better
       // than under reporting them.
-      log_if_possible("suspend anomaly due to kIOMessageSystemHasPoweredOn");
+      BAZEL_LOG(USER) << "suspend anomaly due to kIOMessageSystemHasPoweredOn";
       suspend_callback(SuspensionReasonWake);
       break;
 
@@ -83,11 +83,9 @@ void portable_start_suspend_monitoring() {
     // Register to receive system sleep notifications.
     // Testing needs to be done manually. Use the logging to verify
     // that sleeps are being caught here.
-    // `/usr/bin/log \
-    //  stream -level debug --predicate '(subsystem == "build.bazel")'`
     suspend_state.connect_port = IORegisterForSystemPower(
         &suspend_state, &notifyPortRef, SleepCallBack, &notifierObject);
-    CHECK(suspend_state.connect_port != MACH_PORT_NULL);
+    BAZEL_CHECK_NE(suspend_state.connect_port, MACH_PORT_NULL);
     IONotificationPortSetDispatchQueue(notifyPortRef, queue);
 
     // Register to deal with SIGCONT.
@@ -98,24 +96,23 @@ void portable_start_suspend_monitoring() {
     // having this functionality gives us some ability to unit test suspension
     // counts.
     sig_t signal_val = signal(SIGCONT, SIG_IGN);
-    CHECK(signal_val != SIG_ERR);
+    BAZEL_CHECK_NE(signal_val, SIG_ERR);
     dispatch_source_t signal_source =
         dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, queue);
-    CHECK(signal_source != nullptr);
+    BAZEL_CHECK_NE(signal_source, nullptr);
     dispatch_source_set_event_handler(signal_source, ^{
-      log_if_possible("suspend anomaly due to SIGCONT");
+      BAZEL_LOG(USER) << "suspend anomaly due to SIGCONT";
       suspend_callback(SuspensionReasonSIGCONT);
     });
     dispatch_resume(signal_source);
     signal_source =
         dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTSTP, 0, queue);
-    CHECK(signal_source != nullptr);
+    BAZEL_CHECK_NE(signal_source, nullptr);
     dispatch_source_set_event_handler(signal_source, ^{
-      log_if_possible("suspend anomaly due to SIGTSTP");
+      BAZEL_LOG(USER) << "suspend anomaly due to SIGTSTP";
       suspend_callback(SuspensionReasonSIGTSTP);
     });
     dispatch_resume(signal_source);
-    log_if_possible("suspend monitoring registered");
   });
 }
 

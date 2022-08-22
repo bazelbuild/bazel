@@ -15,8 +15,11 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -24,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
@@ -32,12 +36,15 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -66,7 +73,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       TargetPatternPhaseValue loadingResult)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException {
+          InvalidConfigurationException, TestExecException {
 
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
@@ -107,12 +114,16 @@ public final class AnalysisAndExecutionPhaseRunner {
                       BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                       env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
 
-      try (SilentCloseable c = Profiler.instance().profile("runAnalysisAndExecutionPhase")) {
+      try (SilentCloseable c = Profiler.instance().profile("runAnalysisAndExecutionPhase");
+          TopLevelTargetAnalysisWatcher watcher =
+              TopLevelTargetAnalysisWatcher.createAndRegisterWithEventBus(
+                  env.getRuntime().getBlazeModules(), env, request, buildOptions)) {
         analysisAndExecutionResult =
-            runAnalysisAndExecutionPhase(
-                env, request, loadingResult, buildOptions, request.getMultiCpus());
+            runAnalysisAndExecutionPhase(env, request, loadingResult, buildOptions);
       }
-      // TODO(b/199053098) Report targets.
+      BuildResultListener buildResultListener = env.getBuildResultListener();
+      AnalysisPhaseRunner.reportTargets(
+          env, buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
 
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
@@ -159,17 +170,20 @@ public final class AnalysisAndExecutionPhaseRunner {
    *     and request.keepGoing.
    * @throws InterruptedException if the current thread was interrupted.
    * @throws ViewCreationFailedException if analysis failed for any reason.
+   * @throws InvalidConfigurationException if the configuration can't be determined.
+   * @throws BuildFailedException if action execution failed.
+   * @throws TestExecException if test execution failed.
    */
   private static AnalysisAndExecutionResult runAnalysisAndExecutionPhase(
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions,
-      Set<String> multiCpu)
-      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException {
+      BuildOptions targetOptions)
+      throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
+          BuildFailedException, TestExecException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
-    ImmutableSet<String> explicitTargetPatterns =
+    ImmutableSet<Label> explicitTargetPatterns =
         getExplicitTargetPatterns(env, request.getTargets());
 
     BuildView view =
@@ -178,28 +192,27 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getRuntime().getRuleClassProvider(),
             env.getSkyframeExecutor(),
             env.getRuntime().getCoverageReportActionFactory(request));
-    AnalysisAndExecutionResult analysisAndExecutionResult =
-        (AnalysisAndExecutionResult)
-            view.update(
-                loadingResult,
-                targetOptions,
-                multiCpu,
-                explicitTargetPatterns,
-                request.getAspects(),
-                request.getAspectsParameters(),
-                request.getViewOptions(),
-                request.getKeepGoing(),
-                request.getCheckForActionConflicts(),
-                request.getLoadingPhaseThreadCount(),
-                request.getTopLevelArtifactContext(),
-                request.reportIncompatibleTargets(),
-                env.getReporter(),
-                env.getEventBus(),
-                /*includeExecutionPhase=*/ true,
-                request.getBuildOptions().jobs);
-
     // TODO(b/199053098) TestFilteringCompleteEvent.
-    return analysisAndExecutionResult;
+    return (AnalysisAndExecutionResult)
+        view.update(
+            loadingResult,
+            targetOptions,
+            explicitTargetPatterns,
+            request.getAspects(),
+            request.getAspectsParameters(),
+            request.getViewOptions(),
+            request.getKeepGoing(),
+            request.getCheckForActionConflicts(),
+            request.getLoadingPhaseThreadCount(),
+            request.getTopLevelArtifactContext(),
+            request.reportIncompatibleTargets(),
+            env.getReporter(),
+            env.getEventBus(),
+            env.getRuntime().getBugReporter(),
+            /*includeExecutionPhase=*/ true,
+            request.getBuildOptions().jobs,
+            env.getLocalResourceManager(),
+            env.getBuildResultListener());
   }
 
   /**
@@ -213,10 +226,10 @@ public final class AnalysisAndExecutionPhaseRunner {
    *     stringified labels are in the "unambiguous canonical form".
    * @throws ViewCreationFailedException if a pattern fails to parse for some reason.
    */
-  private static ImmutableSet<String> getExplicitTargetPatterns(
+  private static ImmutableSet<Label> getExplicitTargetPatterns(
       CommandEnvironment env, List<String> requestedTargetPatterns)
       throws ViewCreationFailedException {
-    ImmutableSet.Builder<String> explicitTargetPatterns = ImmutableSet.builder();
+    ImmutableSet.Builder<Label> explicitTargetPatterns = ImmutableSet.builder();
     TargetPattern.Parser parser = TargetPattern.mainRepoParser(env.getRelativeWorkingDirectory());
 
     for (String requestedTargetPattern : requestedTargetPatterns) {
@@ -240,10 +253,64 @@ public final class AnalysisAndExecutionPhaseRunner {
       }
 
       if (parsedPattern.getType() == TargetPattern.Type.SINGLE_TARGET) {
-        explicitTargetPatterns.add(parsedPattern.getSingleTargetPath());
+        explicitTargetPatterns.add(parsedPattern.getSingleTargetLabel());
       }
     }
 
     return ImmutableSet.copyOf(explicitTargetPatterns.build());
+  }
+
+  private static class TopLevelTargetAnalysisWatcher implements AutoCloseable {
+
+    private final Iterable<BlazeModule> blazeModules;
+    private final CommandEnvironment env;
+    private final BuildRequest buildRequest;
+    private final BuildOptions buildOptions;
+    private final Set<TopLevelTargetAnalyzedEvent> processedEvents;
+
+    private TopLevelTargetAnalysisWatcher(
+        Iterable<BlazeModule> blazeModules,
+        CommandEnvironment env,
+        BuildRequest buildRequest,
+        BuildOptions buildOptions) {
+      this.blazeModules = blazeModules;
+      this.env = env;
+      this.buildRequest = buildRequest;
+      this.buildOptions = buildOptions;
+      this.processedEvents = Sets.newConcurrentHashSet();
+    }
+
+    /** Creates an AnalysisOperationWatcher and registers it with the provided eventBus. */
+    public static TopLevelTargetAnalysisWatcher createAndRegisterWithEventBus(
+        Iterable<BlazeModule> blazeModules,
+        CommandEnvironment env,
+        BuildRequest buildRequest,
+        BuildOptions buildOptions) {
+      TopLevelTargetAnalysisWatcher watcher =
+          new TopLevelTargetAnalysisWatcher(blazeModules, env, buildRequest, buildOptions);
+      env.getEventBus().register(watcher);
+      return watcher;
+    }
+
+    @Subscribe
+    public void handleTopLevelEntityAnalysisConcluded(TopLevelTargetAnalyzedEvent e)
+        throws ViewCreationFailedException, InterruptedException {
+      // TopLevelTargetAnalyzedEvent originates from within Skyframe, which means there'll likely
+      // be multiple events fired for the same underlying ConfiguredTarget due to SkyFunction
+      // restarts. We only process them once.
+      if (!processedEvents.add(e)) {
+        return;
+      }
+
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.afterTopLevelTargetAnalysis(
+            env, buildRequest, buildOptions, e.configuredTarget());
+      }
+    }
+
+    @Override
+    public void close() {
+      env.getEventBus().unregister(this);
+    }
   }
 }

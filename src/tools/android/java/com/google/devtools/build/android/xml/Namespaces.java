@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.android.DataResourceXml;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -60,6 +61,7 @@ public class Namespaces implements Iterable<Map.Entry<String, String>> {
      * @param start The element to collect prefix and uris from.
      * @return The current namespace builder.
      */
+    @CanIgnoreReturnValue
     public Collector collectFrom(StartElement start) {
       Iterator<Attribute> attributes = XmlResourceValues.iterateAttributesFrom(start);
       Iterator<Namespace> localNamespaces = XmlResourceValues.iterateNamespacesFrom(start);

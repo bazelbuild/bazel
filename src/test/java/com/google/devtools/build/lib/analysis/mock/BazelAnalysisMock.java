@@ -19,9 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.MoreFiles;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
@@ -57,6 +60,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     String bazelToolWorkspace = config.getPath("embedded_tools").getPathString();
     String bazelPlatformsWorkspace = config.getPath("platforms_workspace").getPathString();
     String rulesJavaWorkspace = config.getPath("rules_java_workspace").getPathString();
+    String androidGmavenR8Workspace = config.getPath("android_gmaven_r8").getPathString();
     String localConfigPlatformWorkspace =
         config.getPath("local_config_platform_workspace").getPathString();
 
@@ -66,6 +70,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
         "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
+        "local_repository(name = 'android_gmaven_r8', path = '" + androidGmavenR8Workspace + "')",
         "register_toolchains('@rules_java//java/toolchains/runtime:all')",
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
         "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
@@ -85,6 +90,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public ImmutableList<String> getWorkspaceRepos() {
     return ImmutableList.of(
+        "android_gmaven_r8",
         "bazel_tools",
         "com_google_protobuf",
         "local_config_platform",
@@ -112,6 +118,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
     /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
+    config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
+    config.create(
+        "local_config_platform_workspace/WORKSPACE", "workspace(name = 'local_config_platform')");
+    config.create(
+        "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
@@ -181,7 +192,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "java_toolchain_alias(name = 'current_java_toolchain')",
         "java_runtime_alias(name = 'current_java_runtime')",
         "java_host_runtime_alias(name = 'current_host_java_runtime')",
-        "filegroup(name='langtools', srcs=['jdk/lib/tools.jar'])",
         "filegroup(name='bootclasspath', srcs=['jdk/jre/lib/rt.jar'])",
         "filegroup(name='extdir', srcs=glob(['jdk/jre/lib/ext/*']))",
         "filegroup(name='java', srcs = ['jdk/jre/bin/java'])",
@@ -210,17 +220,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")",
         "java_plugins_flag_alias(name = 'java_plugins_flag_alias')");
 
-    // Create a default Android target platform.
-    // Any tests that create platforms should inherit from this.
     config.create(
-        TestConstants.PLATFORMS_PATH + "/android/BUILD",
+        TestConstants.CONSTRAINTS_PATH + "/android/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "platform(",
         "  name = 'armeabi-v7a',",
-        "  parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_target'],",
+        "  parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
-        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "  ],",
         ")");
 
@@ -229,11 +237,43 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/android/BUILD", androidBuildContents.toArray(new String[0]));
     config.create(
+        "embedded_tools/src/tools/android/java/com/google/devtools/build/android/r8/BUILD",
+        "java_library(name='r8')\n");
+    config.create(
         "embedded_tools/tools/android/emulator/BUILD",
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
     // Create a dummy toolchain to make toolchain resolution happy.
     config.create(
+        "embedded_tools/tools/android/dummy_sdk/dummy-cc-toolchain-config.bzl",
+        "def _impl(ctx):",
+        "    out = ctx.actions.declare_file(ctx.label.name)",
+        "    ctx.actions.write(out, 'Fake executable')",
+        "    return [",
+        "        cc_common.create_cc_toolchain_config_info(",
+        "            ctx = ctx,",
+        "            toolchain_identifier = 'dummy-toolchain',",
+        "            host_system_name = 'nothing',",
+        "            target_system_name = 'nothing',",
+        "            target_cpu = 'nothing',",
+        "            target_libc = 'nothing',",
+        "            cc_target_os = 'nothing',",
+        "            compiler = 'bin-false',",
+        "            abi_version = 'nothing',",
+        "            abi_libc_version = 'eleventy',",
+        "        ),",
+        "        DefaultInfo(",
+        "            executable = out,",
+        "        ),",
+        "    ]",
+        "dummy_cc_toolchain_config = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo],",
+        "    executable = True,",
+        ")");
+    config.create(
         "embedded_tools/tools/android/dummy_sdk/BUILD",
+        "load(':dummy-cc-toolchain-config.bzl'," + " 'dummy_cc_toolchain_config')",
         "package(default_visibility=['//visibility:public'])",
         "toolchain(",
         "    name = 'dummy-sdk',",
@@ -267,7 +307,31 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    shrinked_android_jar = 'dummy.jar',",
         "    zipalign = ':empty_binary',",
         "    tags = ['__ANDROID_RULES_MIGRATION__'],",
+        ")",
+        "toolchain(",
+        "    name = 'dummy-cc_toolchain',",
+        "    toolchain = ':dummy_cc_toolchain_impl',",
+        "    toolchain_type = '@bazel_tools//tools/cpp:toolchain_type',",
+        ")",
+        "cc_toolchain(",
+        "    name = 'dummy_cc_toolchain_impl',",
+        "    all_files = ':nothing',",
+        "    as_files = ':nothing',",
+        "    compiler_files = ':nothing',",
+        "    dwp_files = ':nothing',",
+        "    linker_files = ':nothing',",
+        "    objcopy_files = ':nothing',",
+        "    strip_files = ':nothing',",
+        "    toolchain_config = ':dummy-cc-toolchain-config',",
+        ")",
+        "dummy_cc_toolchain_config(",
+        "    name = 'dummy-cc-toolchain-config',",
         ")");
+    config.create(
+        "android_gmaven_r8/jar/BUILD",
+        "java_import(name = 'jar', jars=['r8.jar'])",
+        "filegroup(name = 'file', srcs=[])");
+    config.create("android_gmaven_r8/WORKSPACE");
 
     MockGenruleSupport.setup(config);
 
@@ -300,6 +364,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name='config_feature_flag', packages=['//...'])",
         "package_group(name='config_feature_flag_Setter', packages=['//...'])");
+
+    config.create(
+        "embedded_tools/tools/proto/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "alias(name='protoc',actual='@com_google_protobuf//:protoc')",
+        "alias(name='javalite_toolchain',actual='@com_google_protobuf//:javalite_toolchain')",
+        "alias(name='java_toolchain',actual='@com_google_protobuf//:java_toolchain')",
+        "alias(name='cc_toolchain',actual='@com_google_protobuf//:cc_toolchain')");
 
     config.create(
         "embedded_tools/tools/zip/BUILD",
@@ -374,7 +446,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
-    ShellConfiguration.injectShellExecutableFinder(BazelRuleClassProvider.SHELL_EXECUTABLE);
+    ShellConfiguration.injectShellExecutableFinder(
+        BazelRuleClassProvider::getDefaultPathFromOptions, BazelRuleClassProvider.SHELL_EXECUTABLE);
   }
 
   /** Contents of {@code //tools/android/emulator/BUILD.tools}. */
@@ -428,6 +501,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("filegroup(name = 'desugar_java8_extra_bootclasspath', srcs = ['fake.jar'])")
         .add("filegroup(name = 'java8_legacy_dex', srcs = ['java8_legacy.dex.zip'])")
         .add("sh_binary(name = 'build_java8_legacy_dex', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'merge_proguard_maps', srcs = ['empty.sh'])")
         .add("filegroup(name = 'desugared_java8_legacy_apis', srcs = ['fake.jar'])")
         .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")
@@ -487,6 +561,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
+    config.create("embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
         "embedded_tools/tools/build_defs/repo/utils.bzl",
@@ -499,6 +574,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "  pass",
         "",
         "def http_file(**kwargs):",
+        "  pass",
+        "",
+        "def http_jar(**kwargs):",
         "  pass");
     config.create(
         "embedded_tools/tools/jdk/local_java_repository.bzl",
@@ -520,6 +598,21 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "def xcode_configure(*args, **kwargs):", // no positional arguments for XCode
         "  pass");
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
+  }
+
+  @Override
+  protected ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+      BlazeDirectories directories) {
+    return ImmutableMap.of(
+        "bazel_tools",
+        LocalPathOverride.create(
+            directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").getPathString()),
+        "platforms",
+        LocalPathOverride.create(
+            directories
+                .getEmbeddedBinariesRoot()
+                .getRelative("platforms_workspace")
+                .getPathString()));
   }
 
   @Override

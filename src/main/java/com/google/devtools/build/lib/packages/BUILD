@@ -25,22 +25,41 @@ java_library(
 )
 
 java_library(
+    name = "globber",
+    srcs = ["Globber.java"],
+)
+
+java_library(
+    name = "globber_utils",
+    srcs = ["GlobberUtils.java"],
+    deps = [
+        ":globber",
+        "//third_party:error_prone_annotations",
+    ],
+)
+
+java_library(
     name = "packages",
     srcs = glob(
         ["*.java"],
         exclude = [
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
+            "Globber.java",
+            "GlobberUtils.java",
             "ExecGroup.java",
             "ConfiguredAttributeMapper.java",
         ],
     ),
     deps = [
         ":exec_group",
+        ":globber",
+        ":globber_utils",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
@@ -48,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/collect",
@@ -91,6 +111,7 @@ java_library(
     name = "exec_group",
     srcs = ["ExecGroup.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//third_party:auto_value",

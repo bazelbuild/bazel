@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public interface QueryableGraph {
+
   /**
    * Returns the node with the given {@code key}, or {@code null} if the node does not exist.
    *
@@ -43,26 +45,55 @@ public interface QueryableGraph {
   NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key) throws InterruptedException;
 
   /**
-   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
-   * keys}, {@code m.get(k).equals(e)} iff {@code get(k) == e} and {@code e != null}, and {@code
-   * !m.containsKey(k)} iff {@code get(k) == null}.
+   * Fetches all the given nodes. Returns a {@link NodeBatch} {@code b} such that, for all {@code k}
+   * in {@code keys}, {@code b.get(k) == get(k)}.
+   *
+   * <p>Prefer calling this method over {@link #getBatchMap} if it is not necessary to represent the
+   * result as a {@link Map}, as it may be significantly more efficient.
    *
    * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
    *     being requested.
    * @param reason the reason the nodes are being requested.
    */
-  Map<SkyKey, ? extends NodeEntry> getBatch(
+  default NodeBatch getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-          throws InterruptedException;
+      throws InterruptedException {
+    return getBatchMap(requestor, reason, keys)::get;
+  }
 
   /**
    * A version of {@link #getBatch} that returns an {@link InterruptibleSupplier} to possibly
    * retrieve the results later.
    */
   @CanIgnoreReturnValue
-  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchAsync(
+  default InterruptibleSupplier<NodeBatch> getBatchAsync(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     return MemoizingInterruptibleSupplier.of(() -> getBatch(requestor, reason, keys));
+  }
+
+  /**
+   * Fetches all the given nodes. Returns a map {@code m} such that, for all {@code k} in {@code
+   * keys}, {@code m.get(k) == get(k)} and {@code !m.containsKey(k)} iff {@code get(k) == null}.
+   *
+   * <p>Prefer calling {@link #getBatch} over this method if it is not necessary to represent the
+   * result as a {@link Map}, as it may be significantly more efficient.
+   *
+   * @param requestor if non-{@code null}, the node on behalf of which the given {@code keys} are
+   *     being requested.
+   * @param reason the reason the nodes are being requested.
+   */
+  Map<SkyKey, ? extends NodeEntry> getBatchMap(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
+      throws InterruptedException;
+
+  /**
+   * A version of {@link #getBatchMap} that returns an {@link InterruptibleSupplier} to possibly
+   * retrieve the results later.
+   */
+  @CanIgnoreReturnValue
+  default InterruptibleSupplier<Map<SkyKey, ? extends NodeEntry>> getBatchMapAsync(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return MemoizingInterruptibleSupplier.of(() -> getBatchMap(requestor, reason, keys));
   }
 
   /**
@@ -80,11 +111,6 @@ public interface QueryableGraph {
       SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> previouslyRequestedDeps)
       throws InterruptedException {
     return null;
-  }
-
-  /** Checks whether this graph stores reverse dependencies. */
-  default boolean storesReverseDeps() {
-    return true;
   }
 
   default ImmutableSet<SkyKey> getAllKeysForTesting() {
@@ -152,6 +178,12 @@ public interface QueryableGraph {
 
     /** The node is being looked up merely to see if it is done or not. */
     DONE_CHECKING,
+
+    /**
+     * The node is being looked up so that it can be {@linkplain DirtyType#FORCE_REBUILD force
+     * rebuilt} by rewinding.
+     */
+    REWINDING,
 
     /**
      * The node is being looked up to service {@link WalkableGraph#getValue},

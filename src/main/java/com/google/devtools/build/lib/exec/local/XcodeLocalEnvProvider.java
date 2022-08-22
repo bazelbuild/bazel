@@ -86,7 +86,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     newEnvBuilder.put("TMPDIR", p);
 
     if (!containsXcodeVersion && !containsAppleSdkVersion) {
-      return newEnvBuilder.build();
+      return newEnvBuilder.buildOrThrow();
     }
 
     // Empty developer dir indicates to use the system default.
@@ -108,7 +108,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       newEnvBuilder.put("SDKROOT", getSdkRoot(developerDir, iosSdkVersion, appleSdkPlatform));
     }
 
-    return newEnvBuilder.build();
+    return newEnvBuilder.buildOrThrow();
   }
 
   /**

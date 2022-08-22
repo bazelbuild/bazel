@@ -49,7 +49,7 @@ public final class RuleConfiguredTargetValue
     this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
   }
 
-  RuleConfiguredTargetValue(
+  public RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget,
       @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);

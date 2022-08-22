@@ -45,7 +45,7 @@ public class SandboxOptions extends OptionsBase {
    * invocation. Pairs are expected to have the form 'source:target'.
    */
   public static final class MountPairConverter
-      implements Converter<ImmutableMap.Entry<String, String>> {
+      extends Converter.Contextless<ImmutableMap.Entry<String, String>> {
 
     @Override
     public ImmutableMap.Entry<String, String> convert(String input) throws OptionsParsingException {
@@ -333,17 +333,6 @@ public class SandboxOptions extends OptionsBase {
               + " on an asynchronous thread pool that has size 1 when the build is running and"
               + " grows to the size specified by this flag when the server is idle.")
   public int asyncTreeDeleteIdleThreads;
-
-  @Option(
-      name = "experimental_delay_virtual_input_materialization",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If set to true, creates virtual inputs (like params files) only inside the sandbox, "
-              + "not in the execroot, which fixes a race condition when using the dynamic "
-              + "scheduler. This flag exists purely to support rolling this bug fix out.")
-  public boolean delayVirtualInputMaterialization;
 
   @Option(
       name = "incompatible_legacy_local_fallback",

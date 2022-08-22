@@ -59,7 +59,7 @@ public final class ConfigFunction implements QueryFunction {
 
   /**
    * This function is only viable with ConfiguredTargetQueryEnvironment which extends {@link
-   * AbstractBlazeQueryEnvironment <KeyedConfiguredTarget>}
+   * AbstractBlazeQueryEnvironment <KeyedConfiguredTarget>}.
    */
   @Override
   @SuppressWarnings("unchecked")
@@ -75,15 +75,15 @@ public final class ConfigFunction implements QueryFunction {
     // Turn "'string'" to "string" (remove the surrounding apostrophes).
     configuration = configuration.substring(1, configuration.length() - 1);
 
-    final QueryTaskFuture<ThreadSafeMutableSet<T>> targets =
+    QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture =
         QueryUtil.evalAll(env, context, targetExpression.getExpression());
 
     return env.whenSucceedsCall(
-        targets,
+        targetsFuture,
         ((ConfiguredTargetQueryEnvironment) env)
             .getConfiguredTargetsForConfigFunction(
                 targetExpression.toString(),
-                (ThreadSafeMutableSet<KeyedConfiguredTarget>) targets.getIfSuccessful(),
+                targetsFuture,
                 configuration,
                 (Callback<KeyedConfiguredTarget>) callback));
   }

@@ -109,7 +109,7 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
                     List<Path> subDirs =
                         getSubDirectories(xEmptyDirectory, loopi, subDirectoryCount);
                     Path lastDir = Iterables.getLast(subDirs);
-                    FileSystemUtils.createDirectoryAndParents(lastDir);
+                    lastDir.createDirectoryAndParents();
                   }
                 } catch (IOException e) {
                   return e;

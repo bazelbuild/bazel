@@ -537,7 +537,7 @@ _bazel__all_configs() {
 
   # Start out getting a list of all RC files that we can look for configs in
   # This respects the various command line options documented at
-  # https://docs.bazel.build/versions/2.0.0/guide.html#bazelrc
+  # https://bazel.build/docs/bazelrc
   rc_files=$(_bazel__rc_files "$workspace")
 
   # Commands can inherit configs from other commands, so build up command_match, which is

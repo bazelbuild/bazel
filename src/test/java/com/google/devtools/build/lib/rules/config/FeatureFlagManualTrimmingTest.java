@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -200,7 +199,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 
@@ -285,7 +284,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
@@ -659,7 +658,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
@@ -698,77 +697,6 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void noDistinctHostConfiguration_DoesNotResultInActionConflicts() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host', ':reader'],",
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [],",
-        ")");
-
-    enableManualTrimmingAnd("--nodistinct_host_configuration");
-    ConfiguredTarget target = getConfiguredTarget("//test:target");
-    assertNoEvents();
-    // Note that '//test:reader' is accessed (and creates actions) in both the host and target
-    // configurations. If these are different but output to the same path (as was the case before
-    // --nodistinct_host_configuration caused --enforce_transitive_configs_for_config_feature_flag
-    // to become a no-op), then this causes action conflicts, as described in b/117932061 (for which
-    // this test is a regression test).
-    assertThat(getFilesToBuild(target).toList()).hasSize(1);
-    // Action conflict detection is not enabled for these tests. However, the action conflict comes
-    // from the outputs of the two configurations of //test:reader being unequal artifacts;
-    // hence, this test checks that the nested set of artifacts reachable from //test:target only
-    // contains one artifact, that is, they were deduplicated for being equal.
-  }
-
-
-  @Test
-  public void noDistinctHostConfiguration_DisablesEnforcementForBothHostAndTargetConfigs()
-      throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host', ':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        // no transitive_configs
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        // no transitive_configs
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        // no transitive_configs
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
-
-    enableManualTrimmingAnd("--nodistinct_host_configuration");
-    getConfiguredTarget("//test:target");
-    assertNoEvents();
-  }
-
-  @Test
   public void featureFlagAccessedDirectly_ReturnsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
@@ -802,7 +730,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:reader")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
@@ -852,7 +780,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:toplevel")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 
@@ -929,7 +857,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 }

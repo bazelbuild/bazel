@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -99,24 +100,6 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   /**
-   * Creates a list that concatenates two values, where each value may be a native type, a select
-   * over that type, or a selector list over that type.
-   *
-   * @throws EvalException if the values don't have the same underlying type
-   */
-  static SelectorList concat(Object x, Object y) throws EvalException {
-    return of(Arrays.asList(x, y));
-  }
-
-  @Override
-  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
-      return thisLeft ? concat(this, that) : concat(that, this);
-    }
-    return null;
-  }
-
-  /**
    * Creates a list from the given sequence of values, which must be non-empty. Each value may be a
    * native type, a select over that type, or a selector list over that type.
    *
@@ -144,6 +127,25 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     }
 
     return new SelectorList(getNativeType(firstValue), elements.build());
+  }
+
+  /**
+   * Creates a list that concatenates two values, where each value may be a native type, a select
+   * over that type, or a selector list over that type.
+   *
+   * @throws EvalException if the values don't have the same underlying type
+   */
+  static SelectorList concat(Object x, Object y) throws EvalException {
+    return of(Arrays.asList(x, y));
+  }
+
+  @Override
+  @Nullable
+  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == TokenKind.PLUS) {
+      return thisLeft ? concat(this, that) : concat(that, this);
+    }
+    return null;
   }
 
   private static final Class<?> NATIVE_LIST_TYPE = List.class;

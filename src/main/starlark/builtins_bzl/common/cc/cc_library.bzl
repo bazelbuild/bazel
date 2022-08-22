@@ -15,23 +15,20 @@
 """cc_library Starlark implementation replacing native"""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":blaze/common/toplevel_aliases.bzl", "CcInfo", "cc_common", "cc_internal")
 load(":common/cc/semantics.bzl", "semantics")
 
-def _cc_library_impl(ctx):
-    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library")
-    cpp_config = ctx.fragments.cpp
+CcInfo = _builtins.toplevel.CcInfo
+cc_common = _builtins.toplevel.cc_common
+cc_internal = _builtins.internal.cc_internal
 
-    if (not cpp_config.experimental_cc_implementation_deps() and
-        len(ctx.attr.implementation_deps) > 0):
-        fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
+def _cc_library_impl(ctx):
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     common = cc_internal.create_common(ctx = ctx)
     common.report_invalid_options(ctx = ctx)
 
     cc_toolchain = common.toolchain
 
-    cc_internal.init_make_variables(ctx = ctx, cc_toolchain = cc_toolchain)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
@@ -41,30 +38,38 @@ def _cc_library_impl(ctx):
 
     precompiled_files = cc_helper.build_precompiled_files(ctx = ctx)
 
+    semantics.validate_attributes(ctx = ctx)
     _check_no_repeated_srcs(ctx)
 
-    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
-    if not _is_stl(ctx.attr.tags):
-        compilation_contexts.append(ctx.attr._stl[CcInfo].compilation_context)
-    implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
+    semantics.check_can_use_implementation_deps(ctx)
+    interface_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
+    implementation_deps = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
+
+    if not _is_stl(ctx.attr.tags) and ctx.attr._stl != None:
+        interface_deps.append(ctx.attr._stl[CcInfo].compilation_context)
+
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, common, cc_toolchain))
+
     (compilation_context, srcs_compilation_outputs) = cc_common.compile(
         actions = ctx.actions,
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = common.copts,
+        user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
         local_defines = common.local_defines,
         loose_includes = common.loose_include_dirs,
         system_includes = common.system_include_dirs,
         copts_filter = common.copts_filter,
+        purpose = "cc_library-compile",
         srcs = common.srcs,
         private_hdrs = common.private_hdrs,
         public_hdrs = common.public_hdrs,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
-        compilation_contexts = compilation_contexts,
-        implementation_compilation_contexts = implementation_compilation_contexts,
-        hdrs_checking_mode = cc_internal.determine_hdrs_checking_mode(ctx = ctx, semantics = semantics.get_semantics()),
+        compilation_contexts = interface_deps,
+        implementation_compilation_contexts = implementation_deps,
+        hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
         grep_includes = ctx.executable._grep_includes,
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
@@ -120,8 +125,24 @@ def _cc_library_impl(ctx):
         )
         linking_contexts.append(linkstamps_linking_context)
 
-    linking_outputs = None
     if has_compilation_outputs:
+        dll_name_suffix = ""
+        win_def_file = None
+        def_file = None
+        if cc_common.is_enabled(
+            feature_configuration = feature_configuration,
+            feature_name = "targets_windows",
+        ):
+            dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
+            generated_def_file = None
+
+            def_parser = ctx.file._def_parser
+            if def_parser != None:
+                generated_def_file = cc_helper.generate_def_file(ctx, def_parser, compilation_outputs.objects, ctx.label.name + dll_name_suffix)
+                output_group_builder["def_file"] = depset([generated_def_file])
+
+            win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, ctx.file.win_def_file, generated_def_file, feature_configuration)
+
         (
             linking_context,
             linking_outputs,
@@ -137,29 +158,32 @@ def _cc_library_impl(ctx):
             user_link_flags = common.linkopts,
             alwayslink = ctx.attr.alwayslink,
             disallow_dynamic_library = not create_dynamic_library,
+            linked_dll_name_suffix = dll_name_suffix,
+            win_def_file = win_def_file,
         )
-    elif is_google:
-        filename = "lib" + ctx.label.name
-        if cc_common.is_enabled(
-            feature_configuration = feature_configuration,
-            feature_name = "targets_windows",
-        ):
-            filename += ".lib"
-        else:
-            filename += ".a"
-        archive = ctx.actions.declare_file(filename)
-        ctx.actions.write(archive, "")
-        library = cc_common.create_library_to_link(
+    elif semantics.should_create_empty_archive():
+        precompiled_files_count = 0
+        for precompiled_files_entry in precompiled_files:
+            precompiled_files_count += len(precompiled_files_entry)
+
+        (
+            linking_context,
+            linking_outputs,
+        ) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
-            feature_configuration = feature_configuration,
+            name = ctx.label.name,
             cc_toolchain = cc_toolchain,
-            static_library = archive,
+            compilation_outputs = cc_common.create_compilation_outputs(),
+            feature_configuration = feature_configuration,
+            grep_includes = ctx.executable._grep_includes,
+            disallow_dynamic_library = True,
+            alwayslink = ctx.attr.alwayslink,
         )
-        if len(precompiled_files) == 0:
-            empty_archive_linking_context = _build_linking_context_from_library(ctx, [library])
-        linking_outputs = struct(
-            library_to_link = library,
-        )
+
+        if precompiled_files_count == 0:
+            empty_archive_linking_context = linking_context
+    else:
+        linking_outputs = struct(library_to_link = None)
 
     _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outputs)
 
@@ -178,10 +202,9 @@ def _cc_library_impl(ctx):
             precompiled_libraries,
         )
 
-    precompiled_linking_context = _build_linking_context_from_library(ctx, precompiled_libraries)
+    precompiled_linking_context = cc_helper.build_linking_context_from_libraries(ctx, precompiled_libraries)
 
-    contexts_to_merge = []
-    contexts_to_merge.append(linking_context)
+    contexts_to_merge = [precompiled_linking_context, empty_archive_linking_context]
     if has_compilation_outputs:
         contexts_to_merge.append(linking_context)
     else:
@@ -190,14 +213,12 @@ def _cc_library_impl(ctx):
         if len(common.linkopts) > 0 or len(linker_scripts) > 0:
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
-                user_link_flags = depset(user_link_flags),
+                user_link_flags = common.linkopts,
                 additional_inputs = depset(linker_scripts),
             )
             contexts_to_merge.append(cc_common.create_linking_context(linker_inputs = depset([linker_input])))
 
         contexts_to_merge.extend(linking_contexts)
-    contexts_to_merge.append(precompiled_linking_context)
-    contexts_to_merge.append(empty_archive_linking_context)
 
     linking_context = cc_common.merge_linking_contexts(
         linking_contexts = contexts_to_merge,
@@ -208,9 +229,11 @@ def _cc_library_impl(ctx):
         precompiled_libraries,
     )
 
-    cc_native_library_info = cc_internal.collect_native_cc_libraries(
+    linking_context_for_runfiles = cc_helper.build_linking_context_from_libraries(ctx, libraries_to_link)
+
+    cc_native_library_info = cc_helper.collect_native_cc_libraries(
         deps = ctx.attr.deps,
-        libraries_to_link = libraries_to_link,
+        libraries = libraries_to_link,
     )
 
     files_builder = []
@@ -244,22 +267,25 @@ def _cc_library_impl(ctx):
         with_base_line_coverage = True,
     )
 
-    runfiles = ctx.runfiles()
-
+    runfiles_list = []
     for data_dep in ctx.attr.data:
-        runfiles = runfiles.merge(ctx.runfiles(transitive_files = data_dep[DefaultInfo].files))
-        runfiles = runfiles.merge(data_dep[DefaultInfo].data_runfiles)
+        if data_dep[DefaultInfo].data_runfiles.files:
+            runfiles_list.append(data_dep[DefaultInfo].data_runfiles)
+        else:
+            runfiles_list.append(ctx.runfiles(transitive_files = data_dep[DefaultInfo].files))
 
     for src in ctx.attr.srcs:
-        runfiles = runfiles.merge(src[DefaultInfo].default_runfiles)
+        runfiles_list.append(src[DefaultInfo].default_runfiles)
 
     for dep in ctx.attr.deps:
-        runfiles = runfiles.merge(dep[DefaultInfo].default_runfiles)
+        runfiles_list.append(dep[DefaultInfo].default_runfiles)
 
-    default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context, True))
+    runfiles = ctx.runfiles().merge_all(runfiles_list)
+
+    default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, True))
     default_runfiles = runfiles.merge(default_runfiles)
 
-    data_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context, False))
+    data_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, False))
     data_runfiles = runfiles.merge(data_runfiles)
 
     current_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
@@ -296,7 +322,6 @@ def _cc_library_impl(ctx):
     providers.append(instrumented_files_info)
 
     if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
         return struct(
             cc = cc_internal.create_cc_provider(cc_info = cc_info),
             providers = providers,
@@ -315,7 +340,7 @@ def _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outpu
 
     if lib.static_library != None:
         archive_file.append(lib.static_library)
-    if lib.pic_static_library != None:
+    elif lib.pic_static_library != None:
         archive_file.append(lib.pic_static_library)
 
     if lib.resolved_symlink_dynamic_library != None:
@@ -455,20 +480,6 @@ def _identifier_of_library(library):
 
     return None
 
-def _build_linking_context_from_library(ctx, libraries):
-    if len(libraries) == 0:
-        return CcInfo().linking_context
-    linker_input = cc_common.create_linker_input(
-        owner = ctx.label,
-        libraries = depset(libraries),
-    )
-
-    linking_context = cc_common.create_linking_context(
-        linker_inputs = depset([linker_input]),
-    )
-
-    return linking_context
-
 def _create_libraries_to_link_list(current_library, precompiled_libraries):
     libraries = []
     libraries.extend(precompiled_libraries)
@@ -541,16 +552,16 @@ DEPS_ALLOWED_RULES = [
     "objc_library",
     "cc_import",
     "cc_proto_library",
+    "gentpl",
+    "gentplvars",
+    "genantlr",
+    "sh_library",
+    "cc_binary",
+    "cc_test",
 ]
 
 def _is_stl(tags):
     return "__CC_STL__" in tags
-
-def _get_stl(tags):
-    stl = Label("@//third_party/stl")
-    if not _is_stl(tags):
-        return stl
-    return None
 
 attrs = {
     "srcs": attr.label_list(
@@ -571,14 +582,13 @@ attrs = {
         flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
     ),
     "linkstamp": attr.label(allow_single_file = True),
-    "win_def_file": attr.label(allow_files = [".def"]),
     "linkopts": attr.string_list(),
     "nocopts": attr.string(),
-    "hdrs_check": attr.string(default = cc_internal.default_hdrs_check_computed_default()),
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
     "_default_copts": attr.string_list(default = cc_internal.default_copts_computed_default()),
+    "hdrs_check": attr.string(default = cc_internal.default_hdrs_check_computed_default()),
     "local_defines": attr.string_list(),
     "deps": attr.label_list(
         providers = [CcInfo],
@@ -590,24 +600,29 @@ attrs = {
         allow_files = True,
         flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
     ),
-    "_stl": attr.label(default = _get_stl),
+    "win_def_file": attr.label(allow_single_file = [".def"]),
+    "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    "_stl": semantics.get_stl(),
     "_grep_includes": attr.label(
         allow_files = True,
         executable = True,
         cfg = "exec",
         default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
     ),
-    "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
+    "_def_parser": semantics.get_def_parser(),
+    "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
 }
-attrs.update(semantics.get_licenses_attr())
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
+attrs.update(semantics.get_implementation_deps_allowed_attr())
+
 cc_library = rule(
     implementation = _cc_library_impl,
     attrs = attrs,
-    toolchains = ["@//tools/cpp:toolchain_type"],
+    toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
     incompatible_use_toolchain_transition = True,
+    provides = [CcInfo],
     exec_groups = {
         "cpp_link": exec_group(copy_from_rule = True),
     },

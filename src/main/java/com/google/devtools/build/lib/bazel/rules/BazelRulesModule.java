@@ -85,10 +85,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean disableCrosstool;
 
@@ -153,10 +150,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.DEPRECATED,
-          OptionMetadataTag.INCOMPATIBLE_CHANGE
-        },
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
 
@@ -222,10 +216,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help =
             "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
@@ -236,10 +227,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean enableLegacyToolchainStarlarkApi;
 
@@ -248,10 +236,7 @@ public final class BazelRulesModule extends BlazeModule {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean disableLegacyToolchainStarlarkApi;
 
@@ -309,6 +294,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op")
     public boolean experimentalMultiThreadedDigest;
+
+    @Option(
+        name = "incompatible_override_toolchain_transition",
+        defaultValue = "true",
+        deprecationWarning = "This is now always set, please remove this flag.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.UNKNOWN,
+        help = "Deprecated, this is no longer in use and should be removed.")
+    public boolean overrideToolchainTransition;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -357,10 +351,7 @@ public final class BazelRulesModule extends BlazeModule {
           OptionEffectTag.UNKNOWN,
         },
         oldName = "experimental_cc_coverage",
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Obsolete, no effect.")
     public boolean useGcovCoverage;
 
@@ -443,6 +434,15 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
     public boolean dontUseJavaSourceInfoProvider;
+
+    @Option(
+        name = "experimental_local_memory_estimate",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean localMemoryEstimate;
   }
 
   /**
@@ -451,6 +451,15 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     // Historically passed to all Bazel commands by certain tools.
+    @Option(
+        name = "experimental_allow_top_level_aspects_parameters",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean experimentalAllowTopLevelAspectsParameters;
+
     @Option(
         name = "experimental_required_aspects",
         defaultValue = "true",
@@ -489,13 +498,49 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean enableCpuUsageProfiling;
 
     @Option(
-        name = "incompatible_applicable_licenses",
+        name = "bes_best_effort",
+        defaultValue = "false",
+        deprecationWarning =
+            "BES best effort upload has been removed. The flag has no more "
+                + "functionality attached to it and will be removed in a future release.",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op")
+    public boolean besBestEffort;
+
+    @Option(
+        name = "distinct_host_configuration",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
-    public boolean incompatibleApplicableLicenses;
+    public boolean useDistinctHostConfiguration;
+
+    @Option(
+        name = "experimental_keep_config_nodes_on_analysis_discard",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean keepConfigNodes;
+
+    @Option(
+        name = "incompatible_disable_managed_directories",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDisableManagedDirectories;
+
+    @Option(
+        name = "experimental_use_event_based_build_completion_status",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+        help = "No-op")
+    public boolean useEventBasedBuildCompletionStatus;
   }
 
   @Override

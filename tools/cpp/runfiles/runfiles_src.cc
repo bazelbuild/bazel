@@ -25,6 +25,7 @@
 #include <unistd.h>
 #endif  // _WIN32
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <map>
@@ -176,9 +177,24 @@ string Runfiles::Rlocation(const string& path) const {
   if (IsAbsolute(path)) {
     return path;
   }
-  const auto value = runfiles_map_.find(path);
-  if (value != runfiles_map_.end()) {
-    return value->second;
+  const auto exact_match = runfiles_map_.find(path);
+  if (exact_match != runfiles_map_.end()) {
+    return exact_match->second;
+  }
+  if (!runfiles_map_.empty()) {
+    // If path references a runfile that lies under a directory that itself is a
+    // runfile, then only the directory is listed in the manifest. Look up all
+    // prefixes of path in the manifest and append the relative path from the
+    // prefix to the looked up path.
+    std::size_t prefix_end = path.size();
+    while ((prefix_end = path.find_last_of('/', prefix_end - 1)) !=
+           string::npos) {
+      const string prefix = path.substr(0, prefix_end);
+      const auto prefix_match = runfiles_map_.find(prefix);
+      if (prefix_match != runfiles_map_.end()) {
+        return prefix_match->second + "/" + path.substr(prefix_end + 1);
+      }
+    }
   }
   if (!directory_.empty()) {
     return directory_ + "/" + path;

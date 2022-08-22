@@ -18,7 +18,7 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
     ],

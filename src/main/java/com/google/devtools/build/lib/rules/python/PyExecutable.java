@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Common implementation logic for {@code py_binary} and {@code py_test}. */
 public abstract class PyExecutable implements RuleConfiguredTargetFactory {
@@ -39,6 +40,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
   protected abstract PythonSemantics createSemantics();
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     // Init the make variable context first. Otherwise it may be incorrectly initialized by default
@@ -62,7 +64,8 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    CcInfo ccInfo = semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps"));
+    CcInfo ccInfo =
+        semantics.buildCcInfoProvider(ruleContext, ruleContext.getPrerequisites("deps"));
 
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics, ccInfo);
 

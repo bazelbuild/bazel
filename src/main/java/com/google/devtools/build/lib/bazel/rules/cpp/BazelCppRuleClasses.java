@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -62,13 +60,12 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import javax.annotation.Nullable;
 
 /**
  * Rule class definitions for C++ rules.
  */
 public class BazelCppRuleClasses {
-  static final SafeImplicitOutputsFunction CC_LIBRARY_DYNAMIC_LIB =
-      fromTemplates("%{dirname}lib%{basename}.so");
 
   static final SafeImplicitOutputsFunction CC_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(CppRuleClasses.CC_BINARY_STRIPPED, CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
@@ -108,8 +105,7 @@ public class BazelCppRuleClasses {
                   .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .requiresConfigurationFragments(PlatformConfiguration.class)
-          .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
+          .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
           .build();
     }
 
@@ -377,6 +373,7 @@ public class BazelCppRuleClasses {
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override
+                        @Nullable
                         public Object getDefault(AttributeMap rule) {
                           // Every cc_rule depends implicitly on the def_parser tool.
                           // The only exceptions are the rules for building def_parser itself.
@@ -554,7 +551,7 @@ public class BazelCppRuleClasses {
           <ul>
             <li>
               <code>stamp = 1</code>: Always stamp the build information into the binary, even in
-              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
               setting should be avoided</b>, since it potentially kills remote caching for the
               binary and any downstream actions that depend on it.
             </li>
@@ -564,7 +561,7 @@ public class BazelCppRuleClasses {
             </li>
             <li>
               <code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
             </li>
           </ul>
           <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>

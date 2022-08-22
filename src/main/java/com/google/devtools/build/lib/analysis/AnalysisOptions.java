@@ -64,18 +64,6 @@ public class AnalysisOptions extends OptionsBase {
   public int maxConfigChangesToShow;
 
   @Option(
-      name = "experimental_keep_config_nodes_on_analysis_discard",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "When discarding the analysis cache due to a change in the build options, whether to"
-              + " keep the 'BuildConfigurationValue' nodes in the Skyframe graph. Keeping them"
-              + " uses additional memory but allows the `config` command to operate on configs"
-              + " from previous builds.")
-  public boolean keepConfigNodes;
-
-  @Option(
       name = "experimental_extra_action_filter",
       defaultValue = "",
       converter = RegexFilter.RegexFilterConverter.class,
@@ -106,12 +94,12 @@ public class AnalysisOptions extends OptionsBase {
   public long versionWindowForDirtyNodeGc;
 
   @Option(
-    name = "experimental_skyframe_prepare_analysis",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "Switches analysis preparation to a new code path based on Skyframe."
-  )
+      name = "experimental_skyframe_prepare_analysis",
+      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Deprecated. No-op.")
   public boolean skyframePrepareAnalysis;
 
   @Option(

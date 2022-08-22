@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -42,13 +43,11 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
-import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -60,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.EvalException;
@@ -269,53 +270,19 @@ public class RuleClass {
     }
   }
 
-  /** Possible values for setting whether a rule uses the toolchain transition. */
-  public enum ToolchainTransitionMode {
-    /** The rule should use the toolchain transition. */
-    ENABLED,
-    /** The rule should not use the toolchain transition. */
-    DISABLED,
-    /** The rule should inherit the value from its parent rules. */
-    INHERIT;
-
-    /** Determine the correct value to use based on the current setting and the parent's value. */
-    ToolchainTransitionMode apply(String name, ToolchainTransitionMode parent) {
-      if (this == INHERIT) {
-        return parent;
-      } else if (parent == INHERIT) {
-        return this;
-      } else if (this != parent) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Rule %s has useToolchainTransition set to %s, but the parent is trying to set it"
-                    + " to %s",
-                name, this, parent));
-      }
-      return this;
-    }
-
-    boolean isActive() {
-      switch (this) {
-        case ENABLED:
-          return true;
-        case DISABLED:
-          return false;
-        default:
-      }
-      return false; // Default is that toolchain transition is disabled.
-    }
-  }
-
   /** A factory or builder class for rule implementations. */
   public interface ConfiguredTargetFactory<
       TConfiguredTarget, TContext, TActionConflictException extends Throwable> {
     /**
-     * Returns a fully initialized configured target instance using the given context.
+     * Returns a fully initialized configured target instance using the given context, or {@code
+     * null} on certain rule errors (typically if {@code ruleContext.hasErrors()} becomes {@code
+     * true} while trying to create the target).
      *
      * @throws RuleErrorException if configured target creation could not be completed due to rule
      *     errors
      * @throws TActionConflictException if there were conflicts during action registration
      */
+    @Nullable
     TConfiguredTarget create(TContext ruleContext)
         throws InterruptedException, RuleErrorException, TActionConflictException;
 
@@ -832,9 +799,8 @@ public class RuleClass {
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final Set<Label> requiredToolchains = new HashSet<>();
+    private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ToolchainResolutionMode useToolchainResolution = ToolchainResolutionMode.INHERIT;
-    private ToolchainTransitionMode useToolchainTransition = ToolchainTransitionMode.INHERIT;
     private final Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
@@ -869,11 +835,9 @@ public class RuleClass {
             .includeConfigurationFragmentsFrom(parent.getConfigurationFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
 
-        addRequiredToolchains(parent.getRequiredToolchains());
+        addToolchainTypes(parent.getToolchainTypes());
         this.useToolchainResolution =
             this.useToolchainResolution.apply(name, parent.useToolchainResolution);
-        this.useToolchainTransition =
-            this.useToolchainTransition.apply(name, parent.useToolchainTransition);
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
           addExecGroups(parent.getExecGroups());
@@ -965,7 +929,6 @@ public class RuleClass {
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
         this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
-        this.useToolchainTransition(ToolchainTransitionMode.DISABLED);
       }
 
       return new RuleClass(
@@ -998,9 +961,8 @@ public class RuleClass {
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
           thirdPartyLicenseExistencePolicy,
-          requiredToolchains,
+          toolchainTypes,
           useToolchainResolution,
-          useToolchainTransition,
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
@@ -1058,6 +1020,7 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragments(
         Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
@@ -1076,6 +1039,7 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragments(
         ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
@@ -1090,6 +1054,7 @@ public class RuleClass {
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
      * Starlark module names of fragments instead of their classes.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragmentsByStarlarkModuleName(
         Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
@@ -1115,6 +1080,7 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
+    @CanIgnoreReturnValue
     public Builder requiresConfigurationFragmentsByStarlarkModuleName(
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
@@ -1123,11 +1089,13 @@ public class RuleClass {
     }
 
     /** Sets the Starlark call stack associated with this rule class's creation. */
+    @CanIgnoreReturnValue
     public Builder setCallStack(ImmutableList<StarlarkThread.CallStackEntry> callstack) {
       this.callstack = callstack;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStarlarkTestable() {
       Preconditions.checkState(starlark, "Cannot set starlarkTestable on a non-Starlark rule");
       starlarkTestable = true;
@@ -1138,32 +1106,35 @@ public class RuleClass {
      * Sets the policy for the case where the configuration is missing required fragment class (see
      * {@link #requiresConfigurationFragments}).
      */
+    @CanIgnoreReturnValue
     public Builder setMissingFragmentPolicy(
         Class<?> fragmentClass, MissingFragmentPolicy missingFragmentPolicy) {
       configurationFragmentPolicy.setMissingFragmentPolicy(fragmentClass, missingFragmentPolicy);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setUndocumented() {
       documented = false;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWorkspaceOnly() {
       workspaceOnly = true;
       return this;
     }
 
     /**
-     * Determines the outputs of this rule to be created beneath the {@code
-     * genfiles} directory. By default, files are created beneath the {@code bin}
-     * directory.
+     * Determines the outputs of this rule to be created beneath the {@code genfiles} directory. By
+     * default, files are created beneath the {@code bin} directory.
      *
-     * <p>This property is not inherited and this method should not be called by
-     * builder of {@link RuleClassType#ABSTRACT} rule class.
+     * <p>This property is not inherited and this method should not be called by builder of {@link
+     * RuleClassType#ABSTRACT} rule class.
      *
      * @throws IllegalStateException if called for abstract rule class builder
      */
+    @CanIgnoreReturnValue
     public Builder setOutputToGenfiles() {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (output to genrules) of abstract rule class '%s'", name);
@@ -1172,16 +1143,16 @@ public class RuleClass {
     }
 
     /**
-     * Sets the implicit outputs function of the rule class. The default implicit
-     * outputs function is {@link ImplicitOutputsFunction#NONE}.
+     * Sets the implicit outputs function of the rule class. The default implicit outputs function
+     * is {@link ImplicitOutputsFunction#NONE}.
      *
-     * <p>This property is not inherited and this method should not be called by
-     * builder of {@link RuleClassType#ABSTRACT} rule class.
+     * <p>This property is not inherited and this method should not be called by builder of {@link
+     * RuleClassType#ABSTRACT} rule class.
      *
      * @throws IllegalStateException if called for abstract rule class builder
      */
-    public Builder setImplicitOutputsFunction(
-        ImplicitOutputsFunction implicitOutputsFunction) {
+    @CanIgnoreReturnValue
+    public Builder setImplicitOutputsFunction(ImplicitOutputsFunction implicitOutputsFunction) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (implicit output function) of abstract rule class '%s'",
           name);
@@ -1210,6 +1181,7 @@ public class RuleClass {
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
      */
+    @CanIgnoreReturnValue
     public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
@@ -1229,21 +1201,25 @@ public class RuleClass {
       return hasStarlarkRuleTransition;
     }
 
+    @CanIgnoreReturnValue
     public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
       this.configuredTargetFactory = factory;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
       this.thirdPartyLicenseExistencePolicy = policy;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
       this.validityPredicate = predicate;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPreferredDependencyPredicate(Predicate<String> predicate) {
       this.preferredDependencyPredicate = predicate;
       return this;
@@ -1258,13 +1234,14 @@ public class RuleClass {
      * said provider, merely that it <b>can</b>. After the configured target is constructed from
      * this rule, aspects will be filtered according to the set of actual providers.
      *
-     * <p>This is here so that we can do the loading phase overestimation required for
-     * "blaze query", which does not have the configured targets available.
+     * <p>This is here so that we can do the loading phase overestimation required for "blaze
+     * query", which does not have the configured targets available.
      *
      * <p>It's okay for the rule class eventually not to supply it (possibly based on analysis phase
      * logic), but if a provider is not advertised but is supplied, aspects that require the it will
      * not be evaluated for the rule.
      */
+    @CanIgnoreReturnValue
     public Builder advertiseProvider(Class<?>... providers) {
       for (Class<?> provider : providers) {
         advertisedProviders.addBuiltin(provider);
@@ -1272,6 +1249,7 @@ public class RuleClass {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder advertiseStarlarkProvider(StarlarkProviderIdentifier... starlarkProviders) {
       for (StarlarkProviderIdentifier starlarkProviderIdentifier : starlarkProviders) {
         advertisedProviders.addStarlark(starlarkProviderIdentifier);
@@ -1283,6 +1261,7 @@ public class RuleClass {
      * Set if the rule can have any provider. This is called for the {@code alias} rule and other
      * alias-like rules such as {@code bind}.
      */
+    @CanIgnoreReturnValue
     public Builder canHaveAnyProvider() {
       advertisedProviders.canHaveAnyProvider();
       return this;
@@ -1295,6 +1274,7 @@ public class RuleClass {
      *
      * <p>TODO(bazel-team): stop using unchecked exceptions in this way.
      */
+    @CanIgnoreReturnValue
     public Builder addAttribute(Attribute attribute) {
       Attribute prevVal = attributes.putIfAbsent(attribute.getName(), attribute);
       if (prevVal != null) {
@@ -1327,17 +1307,18 @@ public class RuleClass {
      * <p>Attribute names should be meaningful but short; overly long names are rejected at
      * instantiation.
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());
       return this;
     }
 
     /**
-     * Builds attribute from the attribute builder and overrides the attribute
-     * with the same name.
+     * Builds attribute from the attribute builder and overrides the attribute with the same name.
      *
      * @throws IllegalArgumentException if the attribute does not override one of the same name
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder override(Attribute.Builder<TYPE> attr) {
       overrideAttribute(attr.build());
       return this;
@@ -1363,21 +1344,25 @@ public class RuleClass {
     }
 
     /** Sets the rule implementation function. Meant for Starlark usage. */
+    @CanIgnoreReturnValue
     public Builder setConfiguredTargetFunction(StarlarkCallable func) {
       this.configuredTargetFunction = func;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setBuildSetting(BuildSetting buildSetting) {
       this.buildSetting = buildSetting;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExternalBindingsFunction(Function<? super Rule, Map<String, Label>> func) {
       this.externalBindingsFunction = func;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setToolchainsToRegisterFunction(
         Function<? super Rule, ? extends List<String>> func) {
       this.toolchainsToRegisterFunction = func;
@@ -1387,6 +1372,7 @@ public class RuleClass {
     /**
      * Sets the rule definition environment label and transitive digest. Meant for Starlark usage.
      */
+    @CanIgnoreReturnValue
     public Builder setRuleDefinitionEnvironmentLabelAndDigest(Label label, byte[] digest) {
       this.ruleDefinitionEnvironmentLabel = Preconditions.checkNotNull(label, this.name);
       this.ruleDefinitionEnvironmentDigest = Preconditions.checkNotNull(digest, this.name);
@@ -1400,9 +1386,9 @@ public class RuleClass {
     /**
      * Removes an attribute with the same name from this rule class.
      *
-     * @throws IllegalArgumentException if the attribute with this name does
-     * not exist
+     * @throws IllegalArgumentException if the attribute with this name does not exist
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder removeAttribute(String name) {
       Preconditions.checkState(attributes.containsKey(name), "No such attribute '%s' to remove.",
           name);
@@ -1414,12 +1400,14 @@ public class RuleClass {
      * This rule class outputs a default executable for every rule with the same name as the
      * rules's. Only works for Starlark.
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder setExecutableStarlark() {
       this.isExecutableStarlark = true;
       return this;
     }
 
     /** This rule class is marked as an analysis test. */
+    @CanIgnoreReturnValue
     public Builder setIsAnalysisTest() {
       this.isAnalysisTest = true;
       return this;
@@ -1433,12 +1421,14 @@ public class RuleClass {
      * This rule class has at least one attribute with an analysis test transition. (A
      * starlark-defined transition using analysis_test_transition()).
      */
+    @CanIgnoreReturnValue
     public Builder setHasAnalysisTestTransition() {
       this.hasAnalysisTestTransition = true;
       return this;
     }
 
     /** Add an allowlistChecker to be checked as part of the rule implementation. */
+    @CanIgnoreReturnValue
     public Builder addAllowlistChecker(AllowlistChecker allowlistChecker) {
       this.allowlistCheckers.add(allowlistChecker);
       return this;
@@ -1449,6 +1439,7 @@ public class RuleClass {
      * licenses</code> attribute says.
      */
     // TODO(b/130286108): remove the licenses attribute completely from such rules.
+    @CanIgnoreReturnValue
     public Builder setIgnoreLicenses() {
       this.ignoreLicenses = true;
       return this;
@@ -1459,23 +1450,22 @@ public class RuleClass {
     }
 
     /**
-     * Sets the kind of output files this rule creates.
-     * DO NOT USE! This only exists to support the non-open-sourced {@code fileset} rule.
-     * {@see OutputFile.Kind}.
+     * Sets the kind of output files this rule creates. DO NOT USE! This only exists to support the
+     * non-open-sourced {@code fileset} rule. {@see OutputFile.Kind}.
      */
+    @CanIgnoreReturnValue
     public Builder setOutputFileKind(OutputFile.Kind outputFileKind) {
       this.outputFileKind = Preconditions.checkNotNull(outputFileKind);
       return this;
     }
 
-
-
     /**
-     * Declares that instances of this rule are compatible with the specified environments,
-     * in addition to the defaults declared by their environment groups. This can be overridden
-     * by rule-specific declarations. See
-     * {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for details.
+     * Declares that instances of this rule are compatible with the specified environments, in
+     * addition to the defaults declared by their environment groups. This can be overridden by
+     * rule-specific declarations. See {@link
+     * com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for details.
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder compatibleWith(Label... environments) {
       add(
           attr(DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
@@ -1484,13 +1474,14 @@ public class RuleClass {
     }
 
     /**
-     * Declares that instances of this rule are restricted to the specified environments, i.e.
-     * these override the defaults declared by their environment groups. This can be overridden
-     * by rule-specific declarations. See
-     * {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for details.
+     * Declares that instances of this rule are restricted to the specified environments, i.e. these
+     * override the defaults declared by their environment groups. This can be overridden by
+     * rule-specific declarations. See {@link
+     * com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for details.
      *
      * <p>The input list cannot be empty.
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder restrictedTo(Label firstEnvironment, Label... otherEnvironments) {
       ImmutableList<Label> environments = ImmutableList.<Label>builder().add(firstEnvironment)
           .add(otherEnvironments).build();
@@ -1507,6 +1498,7 @@ public class RuleClass {
      *
      * @param reason user-informative message explaining the reason for exemption (not used)
      */
+    @CanIgnoreReturnValue
     public <TYPE> Builder exemptFromConstraintChecking(String reason) {
       Preconditions.checkState(this.supportsConstraintChecking);
       this.supportsConstraintChecking = false;
@@ -1522,6 +1514,7 @@ public class RuleClass {
      *
      * <p>This is only intended for use by {@code config_setting} - other rules should not use this!
      */
+    @CanIgnoreReturnValue
     public Builder setOptionReferenceFunctionForConfigSettingOnly(
         Function<? super Rule, ? extends Set<String>> optionReferenceFunction) {
       this.optionReferenceFunction = Preconditions.checkNotNull(optionReferenceFunction);
@@ -1529,26 +1522,40 @@ public class RuleClass {
     }
 
     /**
-     * Causes rules of this type to require the specified toolchains be available via toolchain
+     * Cause rules of this type to request the specified toolchains be available via toolchain
      * resolution when a target is configured.
      */
-    public Builder addRequiredToolchains(Iterable<Label> toolchainLabels) {
-      Iterables.addAll(this.requiredToolchains, toolchainLabels);
+    @CanIgnoreReturnValue
+    public Builder addToolchainTypes(Iterable<ToolchainTypeRequirement> toolchainTypes) {
+      Iterables.addAll(this.toolchainTypes, toolchainTypes);
       return this;
+    }
+
+    /**
+     * Cause rules of this type to request the specified toolchains be available via toolchain
+     * resolution when a target is configured.
+     */
+    public Builder addToolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
+      return addToolchainTypes(ImmutableList.copyOf(toolchainTypes));
     }
 
     /**
      * Causes rules of this type to require the specified toolchains be available via toolchain
      * resolution when a target is configured.
      */
-    public Builder addRequiredToolchains(Label... toolchainLabels) {
-      return this.addRequiredToolchains(Lists.newArrayList(toolchainLabels));
+    // TODO(katre): Remove this once all callers use addToolchainType.
+    public Builder addRequiredToolchains(Collection<Label> toolchainLabels) {
+      return this.addToolchainTypes(
+          toolchainLabels.stream()
+              .map(label -> ToolchainTypeRequirement.create(label))
+              .collect(Collectors.toList()));
     }
 
     /**
      * Adds execution groups to this rule class. Errors out if multiple different groups with the
      * same name are added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecGroups(Map<String, ExecGroup> execGroups) {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
@@ -1596,13 +1603,9 @@ public class RuleClass {
      * Rules that are part of configuring toolchains and platforms should set this to {@code
      * DISABLED}.
      */
+    @CanIgnoreReturnValue
     public Builder useToolchainResolution(ToolchainResolutionMode mode) {
       this.useToolchainResolution = mode;
-      return this;
-    }
-
-    public Builder useToolchainTransition(ToolchainTransitionMode mode) {
-      this.useToolchainTransition = mode;
       return this;
     }
 
@@ -1620,6 +1623,7 @@ public class RuleClass {
      *
      * <p>Please note that this value is inherited by child rules.
      */
+    @CanIgnoreReturnValue
     public Builder addExecutionPlatformConstraints(Iterable<Label> constraints) {
       Iterables.addAll(this.executionPlatformConstraints, constraints);
       return this;
@@ -1757,9 +1761,8 @@ public class RuleClass {
 
   private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
-  private final ImmutableSet<Label> requiredToolchains;
+  private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final ToolchainResolutionMode useToolchainResolution;
-  private final ToolchainTransitionMode useToolchainTransition;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
 
@@ -1814,9 +1817,8 @@ public class RuleClass {
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
-      Set<Label> requiredToolchains,
+      Set<ToolchainTypeRequirement> toolchainTypes,
       ToolchainResolutionMode useToolchainResolution,
-      ToolchainTransitionMode useToolchainTransition,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
@@ -1855,9 +1857,8 @@ public class RuleClass {
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
-    this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
+    this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
     this.useToolchainResolution = useToolchainResolution;
-    this.useToolchainTransition = useToolchainTransition;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
@@ -1998,6 +1999,7 @@ public class RuleClass {
   }
 
   /** Returns the attribute whose name is {@code attrName}, or null if not found. */
+  @Nullable
   public Attribute getAttributeByNameMaybe(String attrName) {
     Integer i = getAttributeIndex(attrName);
     return i == null ? null : attributes.get(i);
@@ -2091,8 +2093,7 @@ public class RuleClass {
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
       Location location,
-      List<StarlarkThread.CallStackEntry> callstack,
-      boolean checkThirdPartyRulesHaveLicenses)
+      List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule =
         pkgBuilder.createRule(
@@ -2102,18 +2103,6 @@ public class RuleClass {
     rule.populateOutputFiles(eventHandler, pkgBuilder);
     checkForDuplicateLabels(rule, eventHandler);
 
-    boolean actuallyCheckLicense;
-    if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
-      actuallyCheckLicense = true;
-    } else if (thirdPartyLicenseExistencePolicy == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
-      actuallyCheckLicense = false;
-    } else {
-      actuallyCheckLicense = checkThirdPartyRulesHaveLicenses;
-    }
-
-    if (actuallyCheckLicense) {
-      checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
-    }
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
     rule.checkValidityPredicate(eventHandler);
     return rule;
@@ -2156,10 +2145,9 @@ public class RuleClass {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             rule,
-            pkgBuilder.getRepositoryMapping(),
+            pkgBuilder.getLabelConverter(),
             attributeValues,
             pkgBuilder.getListInterner(),
-            pkgBuilder.getConvertedLabelsInPackage(),
             eventHandler);
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
@@ -2179,10 +2167,9 @@ public class RuleClass {
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
       Rule rule,
-      RepositoryMapping repositoryMapping,
+      LabelConverter labelConverter,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
-      HashMap<String, Label> convertedLabelsInPackage,
       EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
@@ -2215,13 +2202,7 @@ public class RuleClass {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(
-                  rule,
-                  attr,
-                  attributeValue,
-                  repositoryMapping,
-                  listInterner,
-                  convertedLabelsInPackage);
+              convertFromBuildLangType(rule, attr, attributeValue, labelConverter, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2235,7 +2216,7 @@ public class RuleClass {
         @SuppressWarnings("unchecked")
         List<Label> vis = (List<Label>) nativeAttributeValue;
         try {
-          rule.setVisibility(PackageUtils.getVisibility(rule.getLabel(), vis));
+          rule.setVisibility(PackageUtils.getVisibility(vis));
         } catch (EvalException e) {
           rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
         }
@@ -2455,30 +2436,6 @@ public class RuleClass {
   }
 
   /**
-   * Reports an error against the specified rule if it's beneath third_party
-   * but does not have a declared license.
-   */
-  private static void checkThirdPartyRuleHasLicense(Rule rule,
-      Package.Builder pkgBuilder, EventHandler eventHandler) {
-    if (rule.getRuleClassObject().ignoreLicenses()) {
-      // A package license is sufficient; ignore rules that don't include it.
-      return;
-    }
-    if (isThirdPartyPackage(rule.getLabel().getPackageIdentifier())) {
-      License license = rule.getLicense();
-      if (license == null) {
-        license = pkgBuilder.getDefaultLicense();
-      }
-      if (!license.isSpecified()) {
-        rule.reportError("third-party rule '" + rule.getLabel() + "' lacks a license declaration "
-                         + "with one of the following types: notice, reciprocal, permissive, "
-                         + "restricted, unencumbered, by_exception_only",
-                         eventHandler);
-      }
-    }
-  }
-
-  /**
    * Report an error if the rule has a timeout or size attribute that is not a
    * legal value. These attributes appear on all tests.
    *
@@ -2517,18 +2474,15 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      RepositoryMapping repositoryMapping,
-      Interner<ImmutableList<?>> listInterner,
-      HashMap<String, Label> convertedLabelsInPackage)
+      LabelConverter labelConverter,
+      Interner<ImmutableList<?>> listInterner)
       throws ConversionException {
-    LabelConversionContext context =
-        new LabelConversionContext(rule.getLabel(), repositoryMapping, convertedLabelsInPackage);
     Object converted =
         BuildType.selectableConvert(
             attr.getType(),
             buildLangValue,
             new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-            context);
+            labelConverter);
 
     if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
       throw new ConversionException(
@@ -2769,8 +2723,8 @@ public class RuleClass {
     return ignoreLicenses;
   }
 
-  public ImmutableSet<Label> getRequiredToolchains() {
-    return requiredToolchains;
+  public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
+    return toolchainTypes;
   }
 
   /**
@@ -2779,10 +2733,6 @@ public class RuleClass {
    */
   ToolchainResolutionMode useToolchainResolution() {
     return this.useToolchainResolution;
-  }
-
-  public boolean useToolchainTransition() {
-    return this.useToolchainTransition.isActive();
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {

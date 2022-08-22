@@ -18,6 +18,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -25,17 +26,6 @@ java_library(
     name = "var_int",
     srcs = [
         "VarInt.java",
-    ],
-)
-
-java_library(
-    name = "execution_detailed_exit_code_helper",
-    srcs = ["ExecutionDetailedExitCodeHelper.java"],
-    deps = [
-        ":detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
     ],
 )
 
@@ -246,6 +236,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -268,6 +259,7 @@ java_library(
     deps = [
         ":detailed_exit_code",
         ":exit_code",
+        "//third_party:jsr305",
     ],
 )
 

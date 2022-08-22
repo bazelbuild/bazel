@@ -726,7 +726,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   private Artifact createInputFile(String name) throws IOException {
     Artifact artifact = createSourceArtifact(name);
     Path path = artifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
     return artifact;
   }

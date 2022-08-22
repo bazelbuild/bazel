@@ -94,18 +94,18 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
         if (!request.getKeepGoing()) {
           throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
         }
-        env.getReporter().error(null, errorMessage, e);
+        env.getReporter().error(null, errorMessage + ": " + e.getFailureDetail().getMessage());
       } catch (IOException e) {
         String errorMessage = "I/O error doing post analysis query";
+        FailureDetail failureDetail =
+            FailureDetail.newBuilder()
+                .setMessage(errorMessage + ": " + e.getMessage())
+                .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                .build();
         if (!request.getKeepGoing()) {
-          FailureDetail failureDetail =
-              FailureDetail.newBuilder()
-                  .setMessage(errorMessage + ": " + e.getMessage())
-                  .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
-                  .build();
           throw new ViewCreationFailedException(errorMessage, failureDetail, e);
         }
-        env.getReporter().error(null, errorMessage, e);
+        env.getReporter().error(null, failureDetail.getMessage());
       } catch (QueryRuntimeHelperException e) {
         throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
       } catch (OptionsParsingException e) {

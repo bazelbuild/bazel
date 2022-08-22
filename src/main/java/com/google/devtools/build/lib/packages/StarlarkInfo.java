@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,10 +31,6 @@ import net.starlark.java.syntax.TokenKind;
 
 /** An struct-like Info (provider instance) for providers defined in Starlark. */
 public final class StarlarkInfo extends StructImpl implements HasBinary {
-
-  // TODO(adonovan): move to sole use in js_common.provider(transpilation_mapping=...).
-  public static final Depset.ElementType TYPE = Depset.ElementType.of(StarlarkInfo.class);
-
   private final Provider provider;
 
   // For a n-element info, the table contains n key strings, sorted,
@@ -126,9 +121,9 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
       List<String> unexpected = unexpectedKeys(schema, table, n);
       if (unexpected != null) {
         throw Starlark.errorf(
-            "unexpected keyword%s %s in call to instantiate provider %s",
+            "got unexpected field%s '%s' in call to instantiate provider %s",
             unexpected.size() > 1 ? "s" : "",
-            Joiner.on(", ").join(unexpected),
+            Joiner.on("', '").join(unexpected),
             provider.getPrintableName());
       }
     }
@@ -275,6 +270,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
     return true;
   }
 
+  @Nullable
   @Override
   public Object getValue(String name) {
     int n = table.length / 2;
@@ -339,6 +335,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
     return new StarlarkInfo(provider, toTable(values), Location.BUILTIN, unknownFieldError);
   }
 
+  @Nullable
   @Override
   public StarlarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
     if (op == TokenKind.PLUS && that instanceof StarlarkInfo) {

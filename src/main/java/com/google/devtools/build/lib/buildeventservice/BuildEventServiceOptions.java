@@ -66,19 +66,6 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<Map.Entry<String, String>> besHeaders;
 
   @Option(
-      name = "bes_best_effort",
-      defaultValue = "false",
-      deprecationWarning =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "BES best effort upload has been removed. The flag has no more "
-              + "functionality attached to it and will be removed in a future release.")
-  public boolean besBestEffort;
-
-  @Option(
     name = "bes_lifecycle_events",
     defaultValue = "true",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -162,6 +149,18 @@ public class BuildEventServiceOptions extends OptionsBase {
           "Connect to the Build Event Service through a proxy. Currently this flag can only be"
               + " used to configure a Unix domain socket (unix:/path/to/socket).")
   public String besProxy;
+
+  @Option(
+      name = "bes_check_preceding_lifecycle_events",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Sets the field check_preceding_lifecycle_events_present on"
+              + " PublishBuildToolEventStreamRequest which tells BES to check whether it previously"
+              + " received InvocationAttemptStarted and BuildEnqueued events matching the current"
+              + " tool event.")
+  public boolean besCheckPrecedingLifecycleEvents;
 
   /** Determines the mode that will be used to upload data to the Build Event Service. */
   public enum BesUploadMode {

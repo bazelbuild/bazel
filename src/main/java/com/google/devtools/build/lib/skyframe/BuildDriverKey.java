@@ -15,22 +15,64 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
 
 /**
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
  */
-public class BuildDriverKey implements SkyKey {
+public final class BuildDriverKey implements CPUHeavySkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
+  private final TestType testType;
+  private final boolean strictActionConflictCheck;
+  private final boolean explicitlyRequested;
+  private final boolean isTopLevelAspectDriver;
 
-  public BuildDriverKey(
-      ActionLookupKey actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
+  private BuildDriverKey(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      boolean explicitlyRequested,
+      boolean isTopLevelAspectDriver,
+      TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
+    this.strictActionConflictCheck = strictActionConflictCheck;
+    this.explicitlyRequested = explicitlyRequested;
+    this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+    this.testType = testType;
+  }
+
+  public static BuildDriverKey ofTopLevelAspect(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      boolean explicitlyRequested) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        explicitlyRequested,
+        /*isTopLevelAspectDriver=*/ true,
+        TestType.NOT_TEST);
+  }
+
+  public static BuildDriverKey ofConfiguredTarget(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean strictActionConflictCheck,
+      boolean explicitlyRequested,
+      TestType testType) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        strictActionConflictCheck,
+        explicitlyRequested,
+        /*isTopLevelAspectDriver=*/ false,
+        testType);
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -39,6 +81,26 @@ public class BuildDriverKey implements SkyKey {
 
   public ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
+  }
+
+  public boolean isTest() {
+    return !TestType.NOT_TEST.equals(testType);
+  }
+
+  public TestType getTestType() {
+    return testType;
+  }
+
+  public boolean strictActionConflictCheck() {
+    return strictActionConflictCheck;
+  }
+
+  public boolean isExplicitlyRequested() {
+    return explicitlyRequested;
+  }
+
+  public boolean isTopLevelAspectDriver() {
+    return isTopLevelAspectDriver;
   }
 
   @Override
@@ -51,13 +113,33 @@ public class BuildDriverKey implements SkyKey {
     if (other instanceof BuildDriverKey) {
       BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
-          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext);
+          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
+          && testType.equals(otherBuildDriverKey.testType)
+          && strictActionConflictCheck == otherBuildDriverKey.strictActionConflictCheck
+          && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(actionLookupKey, topLevelArtifactContext);
+    return Objects.hash(
+        actionLookupKey,
+        topLevelArtifactContext,
+        testType,
+        strictActionConflictCheck,
+        explicitlyRequested);
+  }
+
+  @Override
+  public final String toString() {
+    return String.format("ActionLookupKey: %s; TestType: %s", actionLookupKey, testType);
+  }
+
+  enum TestType {
+    NOT_TEST,
+    PARALLEL,
+    EXCLUSIVE,
+    EXCLUSIVE_IF_LOCAL
   }
 }

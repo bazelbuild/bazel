@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +59,7 @@ public abstract class ConstraintCollection
     private Builder() {}
 
     /** Sets the parent {@link ConstraintCollection} of this instance. */
+    @CanIgnoreReturnValue
     public Builder parent(@Nullable ConstraintCollection parent) {
       this.parent = parent;
       return this;
@@ -74,6 +76,7 @@ public abstract class ConstraintCollection
     }
 
     /** Adds the given constraints to the current collection. */
+    @CanIgnoreReturnValue
     public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
       constraintValues.addAll(constraints);
       return this;
@@ -233,7 +236,12 @@ public abstract class ConstraintCollection
 
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    return get(convertKey(key));
+    ConstraintSettingInfo constraintSettingInfo = convertKey(key);
+    Object result = get(constraintSettingInfo);
+    if (result == null) {
+      return Starlark.NONE;
+    }
+    return result;
   }
 
   @Override
@@ -244,7 +252,7 @@ public abstract class ConstraintCollection
   // It's easier to use the Starlark repr as a string form, not what AutoValue produces.
   @Override
   public final String toString() {
-    return Starlark.str(this);
+    return Starlark.repr(this);
   }
 
   @Override

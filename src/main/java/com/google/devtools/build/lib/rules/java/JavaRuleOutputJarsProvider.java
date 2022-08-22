@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -152,6 +153,7 @@ public final class JavaRuleOutputJarsProvider
 
       abstract ImmutableList.Builder<Artifact> sourceJarsBuilder();
 
+      @CanIgnoreReturnValue
       public Builder addSourceJar(@Nullable Artifact value) {
         if (value != null) {
           sourceJarsBuilder().add(value);
@@ -159,6 +161,7 @@ public final class JavaRuleOutputJarsProvider
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addSourceJars(Iterable<Artifact> values) {
         sourceJarsBuilder().addAll(values);
         return this;
@@ -166,8 +169,16 @@ public final class JavaRuleOutputJarsProvider
 
       /** Populates the builder with outputs from {@link JavaCompileOutputs}. */
       public Builder fromJavaCompileOutputs(JavaCompileOutputs<Artifact> value) {
+        return fromJavaCompileOutputs(value, true);
+      }
+
+      @CanIgnoreReturnValue
+      public Builder fromJavaCompileOutputs(
+          JavaCompileOutputs<Artifact> value, boolean includeJdeps) {
         setClassJar(value.output());
-        setJdeps(value.depsProto());
+        if (includeJdeps) {
+          setJdeps(value.depsProto());
+        }
         setGeneratedClassJar(value.genClass());
         setGeneratedSourceJar(value.genSource());
         setNativeHeadersJar(value.nativeHeader());
@@ -241,6 +252,9 @@ public final class JavaRuleOutputJarsProvider
   }
 
   public static JavaRuleOutputJarsProvider merge(Collection<JavaRuleOutputJarsProvider> providers) {
+    if (providers.isEmpty()) {
+      return EMPTY;
+    }
     Builder builder = new Builder();
     for (JavaRuleOutputJarsProvider provider : providers) {
       builder.addJavaOutput(provider.getJavaOutputs());
@@ -252,11 +266,13 @@ public final class JavaRuleOutputJarsProvider
   public static class Builder {
     private final ImmutableList.Builder<JavaOutput> javaOutputs = ImmutableList.builder();
 
+    @CanIgnoreReturnValue
     public Builder addJavaOutput(JavaOutput javaOutput) {
       javaOutputs.add(javaOutput);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addJavaOutput(Iterable<JavaOutput> javaOutputs) {
       this.javaOutputs.addAll(javaOutputs);
       return this;

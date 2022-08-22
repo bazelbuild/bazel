@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJ
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -102,8 +101,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                         return rule.get("create_executable", BOOLEAN);
                       }
                     }))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -154,9 +155,8 @@ public class LocationFunctionTest {
 
   @Test
   public void locationFunctionWithMappingReplace() throws Exception {
-    RepositoryName a = RepositoryName.create("@a");
-    RepositoryName b = RepositoryName.create("@b");
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(a, b);
+    RepositoryName b = RepositoryName.create("b");
+    ImmutableMap<String, RepositoryName> repositoryMapping = ImmutableMap.of("a", b);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
     assertThat(func.apply("@a//foo", RepositoryMapping.createAllowingFallback(repositoryMapping)))
@@ -165,9 +165,8 @@ public class LocationFunctionTest {
 
   @Test
   public void locationFunctionWithMappingIgnoreRepo() throws Exception {
-    RepositoryName a = RepositoryName.create("@a");
-    RepositoryName b = RepositoryName.create("@b");
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of(a, b);
+    RepositoryName b = RepositoryName.create("b");
+    ImmutableMap<String, RepositoryName> repositoryMapping = ImmutableMap.of("a", b);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@potato//foo", "/exec/src/bar").build();
     assertThat(
@@ -193,16 +192,19 @@ final class LocationFunctionBuilder {
         root, Suppliers.ofInstance(labelMap), execPaths, legacyExternalRunfiles, multiple);
   }
 
+  @CanIgnoreReturnValue
   public LocationFunctionBuilder setExecPaths(boolean execPaths) {
     this.execPaths = execPaths;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public LocationFunctionBuilder setLegacyExternalRunfiles(boolean legacyExternalRunfiles) {
     this.legacyExternalRunfiles = legacyExternalRunfiles;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public LocationFunctionBuilder add(String label, String... paths) {
     labelMap.put(
         Label.parseAbsoluteUnchecked(label),

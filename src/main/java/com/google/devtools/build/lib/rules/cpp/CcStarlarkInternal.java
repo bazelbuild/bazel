@@ -14,31 +14,26 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -70,43 +65,21 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "get_linked_artifact",
+      name = "is_package_headers_checking_mode_set_for_aspect",
       documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "config", positional = false, named = true),
-        @Param(name = "is_dynamic_link_type", positional = false, named = true),
-      })
-  public Artifact getLinkedArtifactForStarlark(
-      StarlarkRuleContext starlarkRuleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue config,
-      Boolean isDynamicLinkType)
-      throws EvalException {
-    Link.LinkTargetType linkType =
-        isDynamicLinkType ? Link.LinkTargetType.DYNAMIC_LIBRARY : Link.LinkTargetType.EXECUTABLE;
-    try {
-      return CppHelper.getLinkedArtifact(
-          starlarkRuleContext.getRuleContext(), ccToolchain, config, linkType);
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getTarget().getPackage().isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
-      name = "collect_compilation_prerequisites",
+      name = "package_headers_checking_mode_for_aspect",
       documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "compilation_context", positional = false, named = true),
-      })
-  public Depset collectCompilationPrerequisites(
-      StarlarkRuleContext starlarkRuleContext, CcCompilationContext compilationContext) {
-    return Depset.of(
-        Artifact.TYPE,
-        CcCommon.collectCompilationPrerequisites(
-            starlarkRuleContext.getRuleContext(), compilationContext));
+      parameters = {@Param(name = "ctx", positional = false, named = true)})
+  public String getPackageHeadersCheckingModeForStarlarkAspect(
+      StarlarkRuleContext starlarkRuleContext) {
+    return starlarkRuleContext.getRuleContext().getTarget().getPackage().getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -124,16 +97,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "statically_linked_marker_provider",
-      documented = false,
-      parameters = {
-        @Param(name = "is_linked_statically", positional = false, named = true),
-      })
-  public StaticallyLinkedMarkerProvider staticallyLinkedMarkerProvider(boolean isLinkedStatically) {
-    return new StaticallyLinkedMarkerProvider(isLinkedStatically);
-  }
-
-  @StarlarkMethod(
       name = "create_cc_provider",
       documented = false,
       parameters = {
@@ -141,72 +104,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
     return new CcStarlarkApiInfo(ccInfo);
-  }
-
-  @StarlarkMethod(
-      name = "collect_native_cc_libraries",
-      documented = false,
-      parameters = {
-        @Param(name = "deps", positional = false, named = true),
-        @Param(name = "libraries_to_link", positional = false, named = true),
-      })
-  public CcNativeLibraryInfo collectNativeCcLibraries(Sequence<?> deps, Sequence<?> librariesToLink)
-      throws EvalException {
-    return CppHelper.collectNativeCcLibraries(
-        Sequence.cast(deps, TransitiveInfoCollection.class, "deps"),
-        Sequence.cast(librariesToLink, LibraryToLink.class, "libraries_to_link"));
-  }
-
-  @StarlarkMethod(
-      name = "PackageGroupInfo",
-      documented = false,
-      structField = true,
-      parameters = {})
-  public Provider getPackageGroupInfo() {
-    return PackageGroupConfiguredTarget.PROVIDER;
-  }
-
-  @StarlarkMethod(
-      name = "strip",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", named = true, positional = false),
-        @Param(name = "toolchain", named = true, positional = false),
-        @Param(name = "input", named = true, positional = false),
-        @Param(name = "output", named = true, positional = false),
-        @Param(name = "feature_configuration", named = true, positional = false),
-      })
-  public void createStripAction(
-      StarlarkRuleContext ctx,
-      CcToolchainProvider toolchain,
-      Artifact input,
-      Artifact output,
-      FeatureConfigurationForStarlark featureConfig)
-      throws EvalException, RuleErrorException {
-    CppHelper.createStripAction(
-        ctx.getRuleContext(),
-        toolchain,
-        ctx.getRuleContext().getFragment(CppConfiguration.class),
-        input,
-        output,
-        featureConfig.getFeatureConfiguration());
-  }
-
-  @StarlarkMethod(
-      name = "init_make_variables",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-      })
-  public void initMakeVariables(
-      StarlarkRuleContext starlarkRuleContext, CcToolchainProvider ccToolchain) {
-    ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
-    ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    ruleContext.initConfigurationMakeVariableContext(
-        new MapBackedMakeVariableSupplier(toolchainMakeVariables.buildOrThrow()),
-        new CcFlagsSupplier(starlarkRuleContext.getRuleContext()));
   }
 
   @StarlarkMethod(
@@ -296,5 +193,81 @@ public class CcStarlarkInternal implements StarlarkValue {
     return ruleContext
         .getRuleContext()
         .getShareableArtifact(PathFragment.create(path), ruleContext.getBinDirectory());
+  }
+
+  static class DefParserComputedDefault extends ComputedDefault
+      implements NativeComputedDefaultApi {
+    @Override
+    @Nullable
+    public Object getDefault(AttributeMap rule) {
+      // Every cc_rule depends implicitly on the def_parser tool.
+      // The only exceptions are the rules for building def_parser itself.
+      // To avoid cycles in the dependency graph, return null for rules under
+      // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
+      String label = rule.getLabel().toString();
+      return label.startsWith("@bazel_tools//third_party/def_parser")
+              // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
+              // are implicit dependencies of all cc rules,
+              // thus a dependency of the def_parser.
+              || label.startsWith("@bazel_tools//tools/cpp")
+          ? null
+          : Label.parseAbsoluteUnchecked("@bazel_tools//tools/def_parser:def_parser");
+    }
+
+    @Override
+    public boolean resolvableWithRawAttributes() {
+      return true;
+    }
+  }
+
+  @StarlarkMethod(name = "def_parser_computed_default", documented = false)
+  public ComputedDefault getDefParserComputedDefault() {
+    return new DefParserComputedDefault();
+  }
+
+  /**
+   * TODO(bazel-team): This can be re-written directly to Starlark but it will cause a memory
+   * regression due to the way StarlarkComputedDefault is stored for each rule.
+   */
+  static class StlComputedDefault extends ComputedDefault implements NativeComputedDefaultApi {
+    @Override
+    @Nullable
+    public Object getDefault(AttributeMap rule) {
+      return rule.getOrDefault("tags", Type.STRING_LIST, ImmutableList.of()).contains("__CC_STL__")
+          ? null
+          : Label.parseAbsoluteUnchecked("@//third_party/stl");
+    }
+
+    @Override
+    public boolean resolvableWithRawAttributes() {
+      return true;
+    }
+  }
+
+  @StarlarkMethod(name = "stl_computed_default", documented = false)
+  public ComputedDefault getStlComputedDefault() {
+    return new StlComputedDefault();
+  }
+
+  @StarlarkMethod(
+      name = "create_cc_launcher_info",
+      doc = "Create a CcLauncherInfo instance.",
+      parameters = {
+        @Param(
+            name = "cc_info",
+            positional = false,
+            named = true,
+            doc = "CcInfo instance.",
+            allowedTypes = {@ParamType(type = CcInfo.class)}),
+        @Param(
+            name = "compilation_outputs",
+            positional = false,
+            named = true,
+            doc = "CcCompilationOutputs instance.",
+            allowedTypes = {@ParamType(type = CcCompilationOutputs.class)})
+      })
+  public CcLauncherInfo createCcLauncherInfo(
+      CcInfo ccInfo, CcCompilationOutputs compilationOutputs) {
+    return new CcLauncherInfo(ccInfo, compilationOutputs);
   }
 }

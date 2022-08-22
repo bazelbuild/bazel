@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -206,7 +205,7 @@ public abstract class RepositoryFunction {
       RootedPath rootedPath;
       String fileKey = key.substring(5);
       if (LabelValidator.isAbsolute(fileKey)) {
-        rootedPath = getRootedPathFromLabel(Label.parseAbsolute(fileKey, ImmutableMap.of()), env);
+        rootedPath = getRootedPathFromLabel(Label.parseCanonical(fileKey), env);
       } else {
         // TODO(pcloudy): Removing checking absolute path, they should all be absolute label.
         PathFragment filePathFragment = PathFragment.create(fileKey);
@@ -234,7 +233,7 @@ public abstract class RepositoryFunction {
   }
 
   /**
-   * Convert to a @{link com.google.devtools.build.lib.skyframe.FileValue} to a String appropriate
+   * Convert to a {@link com.google.devtools.build.lib.actions.FileValue} to a String appropriate
    * for placing in a repository marker file.
    *
    * @param fileValue The value to convert. It must correspond to a regular file.
@@ -289,6 +288,7 @@ public abstract class RepositoryFunction {
    * environment variable on which the function depends, or null if the skyframe function needs to
    * be restarted.
    */
+  @Nullable
   protected Map<String, String> declareEnvironmentDependencies(
       Map<String, String> markerData, Environment env, Iterable<String> keys)
       throws InterruptedException {
@@ -383,7 +383,7 @@ public abstract class RepositoryFunction {
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
       throws RepositoryFunctionException {
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      repositoryDirectory.createDirectoryAndParents();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -464,7 +464,7 @@ public abstract class RepositoryFunction {
       Path repositoryDirectory, Path targetDirectory, String userDefinedPath)
       throws RepositoryFunctionException {
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      repositoryDirectory.createDirectoryAndParents();
       for (Path target : targetDirectory.getDirectoryEntries()) {
         Path symlinkPath = repositoryDirectory.getRelative(target.getBaseName());
         createSymbolicLink(symlinkPath, target);
@@ -523,24 +523,7 @@ public abstract class RepositoryFunction {
       return;
     }
     String repositoryName = repositoryPath.getSegment(0);
-    env.getValue(
-        RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName(repositoryName)));
-  }
-
-  /**
-   * For paths that are under managed directories, we require that the corresponding FileStateValue
-   * or DirectoryListingStateValue is evaluated only after RepositoryDirectoryValue is evaluated.
-   * This way we guarantee that the repository rule is given a chance to update the managed
-   * directory before the files under the managed directory are accessed.
-   *
-   * <p>We do not need to require anything else (comparing to dependencies required for external
-   * repositories files), as overriding external repositories with managed directories is currently
-   * forbidden; also, we do not have do perform special checks for local_repository targets, since
-   * such targets cannot have managed directories by definition.
-   */
-  public static void addManagedDirectoryDependencies(RepositoryName repositoryName, Environment env)
-      throws InterruptedException {
-    env.getValue(RepositoryDirectoryValue.key(repositoryName));
+    env.getValue(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated(repositoryName)));
   }
 
   /**

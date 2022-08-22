@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
     name = "PlatformInfo",
     doc =
         "Provides access to data about a specific platform. See "
-            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "<a href='${link platforms#defining-constraints-and-platforms}'>Defining "
             + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = DocCategory.PROVIDER)
@@ -59,7 +59,7 @@ public interface PlatformInfoApi<
   @StarlarkMethod(
       name = "constraints",
       doc =
-          "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
+          "The <a href=\"ConstraintValueInfo\">ConstraintValueInfo</a> instances that define "
               + "this platform.",
       structField = true,
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API)

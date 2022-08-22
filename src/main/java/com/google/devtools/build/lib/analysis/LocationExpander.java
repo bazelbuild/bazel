@@ -126,9 +126,12 @@ public final class LocationExpander {
    * $(execpath)/$(execpaths) using Artifact.getExecPath().
    *
    * @param ruleContext BUILD rule
+   * @param labelMap A mapping of labels to build artifacts
    */
-  public static LocationExpander withRunfilesPaths(RuleContext ruleContext) {
-    return new LocationExpander(ruleContext, null, false, false);
+  public static LocationExpander withRunfilesPaths(
+      RuleContext ruleContext,
+      @Nullable ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
+    return new LocationExpander(ruleContext, labelMap, false, false);
   }
 
   /**
@@ -163,19 +166,6 @@ public final class LocationExpander {
     return expand(input, new RuleErrorReporter(ruleErrorConsumer));
   }
 
-  /**
-   * Expands attribute's location and locations tags based on the target and
-   * location map.
-   *
-   * @param attrName  name of the attribute; only used for error reporting
-   * @param attrValue initial value of the attribute
-   * @return attribute value with expanded location tags or original value in
-   *         case of errors
-   */
-  public String expandAttribute(String attrName, String attrValue) {
-    return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
-  }
-
   private String expand(String value, ErrorReporter reporter) {
     int restart = 0;
 
@@ -207,8 +197,7 @@ public final class LocationExpander {
       if (end == -1) {
         reporter.report(
             String.format(
-                "unterminated $(%s) expression",
-                value.substring(start + 2, nextWhitespace)));
+                "unterminated $(%s) expression", value.substring(start + 2, nextWhitespace)));
         return value;
       }
 
@@ -226,6 +215,19 @@ public final class LocationExpander {
     }
 
     return result.toString();
+  }
+
+  /**
+   * Expands attribute's location and locations tags based on the target and
+   * location map.
+   *
+   * @param attrName  name of the attribute; only used for error reporting
+   * @param attrValue initial value of the attribute
+   * @return attribute value with expanded location tags or original value in
+   *         case of errors
+   */
+  public String expandAttribute(String attrName, String attrValue) {
+    return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
   @VisibleForTesting
@@ -367,7 +369,7 @@ public final class LocationExpander {
             "execpaths",
             new LocationFunction(
                 root, locationMap, USE_EXEC_PATHS, legacyExternalRunfiles, ALLOW_MULTIPLE))
-        .build();
+        .buildOrThrow();
   }
 
   /**

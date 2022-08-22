@@ -246,7 +246,10 @@ public class ZipFilterAction {
     }
     ZipFilterEntryFilter entryFilter =
         new ZipFilterEntryFilter(
-            explicitFilter, entriesToOmit, inputEntries.build(), options.hashMismatchCheckMode);
+            explicitFilter,
+            entriesToOmit,
+            inputEntries.buildOrThrow(),
+            options.hashMismatchCheckMode);
 
     try (OutputStream out = Files.newOutputStream(options.outputZip);
         ZipCombiner combiner = new ZipCombiner(options.outputMode, entryFilter, out)) {

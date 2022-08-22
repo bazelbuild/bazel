@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -48,11 +49,13 @@ import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -62,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
@@ -261,7 +265,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     RuleContext ruleContext = getRuleContext();
 
     if ((targetFile == Starlark.NONE) == (targetPath == Starlark.NONE)) {
-      throw Starlark.errorf("Exactly one of \"target_file\" and \"target_path\" is required");
+      throw Starlark.errorf("Exactly one of \"target_file\" or \"target_path\" is required");
     }
 
     Artifact outputArtifact = (Artifact) output;
@@ -272,27 +276,38 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     SymlinkAction action;
     if (targetFile != Starlark.NONE) {
+      Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_file\" param requires that \"output\" be declared as a "
-                + "regular file, not a symlink (did you mean to use declare_file() instead of "
-                + "declare_symlink()?)");
+                + "file or directory, not a symlink (did you mean to use declare_file() or "
+                + "declare_directory() instead of declare_symlink()?)");
+      }
+
+      boolean inputOutputMismatch =
+          getSemantics().getBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR)
+              ? inputArtifact.isDirectory() != outputArtifact.isDirectory()
+              : !inputArtifact.isDirectory() && outputArtifact.isDirectory();
+      if (inputOutputMismatch) {
+        String inputType = inputArtifact.isDirectory() ? "directory" : "file";
+        String outputType = outputArtifact.isDirectory() ? "directory" : "file";
+        throw Starlark.errorf(
+            "symlink() with \"target_file\" %s param requires that \"output\" be declared as a %s "
+                + "(did you mean to use declare_%s() instead of declare_%s()?)",
+            inputType, inputType, inputType, outputType);
       }
 
       if (isExecutable) {
+        if (outputArtifact.isTreeArtifact()) {
+          throw Starlark.errorf("symlink() with \"output\" directory param cannot be executable");
+        }
         action =
             SymlinkAction.toExecutable(
-                ruleContext.getActionOwner(),
-                (Artifact) targetFile,
-                outputArtifact,
-                progressMessage);
+                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       } else {
         action =
             SymlinkAction.toArtifact(
-                ruleContext.getActionOwner(),
-                (Artifact) targetFile,
-                outputArtifact,
-                progressMessage);
+                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       }
     } else {
       if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
@@ -304,8 +319,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_path\" param requires that \"output\" be declared as a "
-                + "symlink, not a regular file (did you mean to use declare_symlink() instead of "
-                + "declare_file()?)");
+                + "symlink, not a file or directory (did you mean to use declare_symlink() instead "
+                + "of declare_file() or declare_directory()?)");
       }
 
       if (isExecutable) {
@@ -440,6 +455,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.getStarlarkSemantics();
   }
 
+  private void verifyExecGroup(Object execGroupUnchecked, RuleContext ctx) throws EvalException {
+    String execGroup = (String) execGroupUnchecked;
+    if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
+        || !ctx.hasToolchainContext(execGroup)) {
+      throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
+    }
+  }
+
+  private PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
+      throws EvalException {
+    if (execGroupUnchecked == Starlark.NONE) {
+      return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    } else {
+      verifyExecGroup(execGroupUnchecked, ctx);
+      return ctx.getExecutionPlatform((String) execGroupUnchecked);
+    }
+  }
+
   @Override
   public void runShell(
       Sequence<?> outputs,
@@ -464,11 +497,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     buildCommandLine(builder, arguments);
 
     if (commandUnchecked instanceof String) {
-      Map<String, String> executionInfo =
+      ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
       String helperScriptSuffix = String.format(".run_shell_%d.sh", runShellOutputCounter++);
       String command = (String) commandUnchecked;
-      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+      PathFragment shExecutable =
+          ShToolchain.getPathOrError(getExecutionPlatform(execGroupUnchecked, ruleContext));
       BashCommandConstructor constructor =
           CommandHelper.buildBashCommandConstructor(
               executionInfo, shExecutable, helperScriptSuffix);
@@ -662,13 +696,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    if (execGroupUnchecked != Starlark.NONE) {
-      String execGroup = (String) execGroupUnchecked;
-      if (!StarlarkExecGroupCollection.isValidGroupName(execGroup)
-          || !ruleContext.hasToolchainContext(execGroup)) {
-        throw Starlark.errorf("Action declared for non-existent exec group '%s'.", execGroup);
-      }
-      builder.setExecGroup(execGroup);
+    if (execGroupUnchecked == Starlark.NONE) {
+      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+    } else {
+      verifyExecGroup(execGroupUnchecked, ruleContext);
+      builder.setExecGroup((String) execGroupUnchecked);
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {
@@ -680,7 +712,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       validateResourceSetBuilder(resourceSetUnchecked);
       builder.setResources(
           new StarlarkActionResourceSetBuilder(
-              (StarlarkFunction) resourceSetUnchecked, mnemonic, getSemantics()));
+              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
     }
 
     // Always register the action
@@ -770,30 +802,32 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private static StarlarkFunction validateResourceSetBuilder(Object fn) throws EvalException {
-    if (!(fn instanceof StarlarkFunction)) {
+  private static StarlarkCallable validateResourceSetBuilder(Object fn) throws EvalException {
+    if (!(fn instanceof StarlarkCallable)) {
       throw Starlark.errorf(
-          "resource_set should be a Starlark-defined function, but got %s instead",
+          "resource_set should be a Starlark-callable function, but got %s instead",
           Starlark.type(fn));
     }
 
-    StarlarkFunction sfn = (StarlarkFunction) fn;
+    if (fn instanceof StarlarkFunction) {
+      StarlarkFunction sfn = (StarlarkFunction) fn;
 
-    // Reject non-global functions, because arbitrary closures may cause large
-    // analysis-phase data structures to remain live into the execution phase.
-    // We require that the function is "global" as opposed to "not a closure"
-    // because a global function may be closure if it refers to load bindings.
-    // This unfortunately disallows such trivially safe non-global
-    // functions as "lambda x: x".
-    // See https://github.com/bazelbuild/bazel/issues/12701.
-    if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
-      throw Starlark.errorf(
-          "to avoid unintended retention of analysis data structures, "
-              + "the resource_set function (declared at %s) must be declared "
-              + "by a top-level def statement",
-          sfn.getLocation());
+      // Reject non-global functions, because arbitrary closures may cause large
+      // analysis-phase data structures to remain live into the execution phase.
+      // We require that the function is "global" as opposed to "not a closure"
+      // because a global function may be closure if it refers to load bindings.
+      // This unfortunately disallows such trivially safe non-global
+      // functions as "lambda x: x".
+      // See https://github.com/bazelbuild/bazel/issues/12701.
+      if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+        throw Starlark.errorf(
+            "to avoid unintended retention of analysis data structures, "
+                + "the resource_set function (declared at %s) must be declared "
+                + "by a top-level def statement",
+            sfn.getLocation());
+      }
     }
-    return (StarlarkFunction) fn;
+    return (StarlarkCallable) fn;
   }
 
   private String getMnemonic(Object mnemonicUnchecked) {
@@ -810,25 +844,43 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   @Override
   public void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      /* TemplateDict */ Object computedSubstitutions)
       throws EvalException {
     context.checkMutable("actions.expand_template");
-    ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
+    // We use a map to check for duplicate keys
+    ImmutableMap.Builder<String, Substitution> substitutionsBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
       // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.
       // In the long term, avoiding ParserInput.fromLatin would be a better approach.
-      substitutionsBuilder.add(
+      substitutionsBuilder.put(
+          substitution.getKey(),
           Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+    }
+    if (!Starlark.UNBOUND.equals(computedSubstitutions)) {
+      for (Substitution substitution : ((TemplateDict) computedSubstitutions).getAll()) {
+        substitutionsBuilder.put(substitution.getKey(), substitution);
+      }
+    }
+    ImmutableMap<String, Substitution> substitutionMap;
+    try {
+      substitutionMap = substitutionsBuilder.buildOrThrow();
+    } catch (IllegalArgumentException e) {
+      // user added duplicate keys, report the error, but the stack trace is not of use
+      throw Starlark.errorf("%s", e.getMessage());
     }
     TemplateExpansionAction action =
         new TemplateExpansionAction(
             getRuleContext().getActionOwner(),
             (Artifact) template,
             (Artifact) output,
-            substitutionsBuilder.build(),
+            substitutionMap.values().asList(),
             executable);
     registerAction(action);
   }
@@ -846,6 +898,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public Args args(StarlarkThread thread) {
     return Args.newArgs(thread.mutability(), getSemantics());
+  }
+
+  @Override
+  public TemplateDictApi templateDict() {
+    return TemplateDict.newDict();
   }
 
   @Override

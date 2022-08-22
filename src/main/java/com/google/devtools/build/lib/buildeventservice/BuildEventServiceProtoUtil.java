@@ -33,6 +33,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import java.util.Set;
@@ -46,18 +47,21 @@ public final class BuildEventServiceProtoUtil {
   private final String projectId;
   private final String commandName;
   private final Set<String> additionalKeywords;
+  private final boolean checkPrecedingLifecycleEvents;
 
   private BuildEventServiceProtoUtil(
       String buildRequestId,
       String buildInvocationId,
       @Nullable String projectId,
       String commandName,
-      Set<String> additionalKeywords) {
+      Set<String> additionalKeywords,
+      boolean checkPrecedingLifecycleEvents) {
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
     this.commandName = commandName;
     this.additionalKeywords = ImmutableSet.copyOf(additionalKeywords);
+    this.checkPrecedingLifecycleEvents = checkPrecedingLifecycleEvents;
   }
 
   public PublishLifecycleEventRequest buildEnqueued(Timestamp timestamp) {
@@ -141,6 +145,7 @@ public final class BuildEventServiceProtoUtil {
                     .setStreamId(streamId(besEvent.getEventCase())));
     if (sequenceNumber == 1) {
       builder.addAllNotificationKeywords(getKeywords());
+      builder.setCheckPrecedingLifecycleEventsPresent(checkPrecedingLifecycleEvents);
     }
     if (projectId != null) {
       builder.setProjectId(projectId);
@@ -160,6 +165,15 @@ public final class BuildEventServiceProtoUtil {
                 .setEvent(lifecycleEvent));
     if (projectId != null) {
       builder.setProjectId(projectId);
+    }
+    switch (lifecycleEvent.getEventCase()) {
+      case BUILD_ENQUEUED:
+      case INVOCATION_ATTEMPT_STARTED:
+      case BUILD_FINISHED:
+        builder.addAllNotificationKeywords(getKeywords());
+        break;
+      default:
+        break;
     }
     return builder;
   }
@@ -204,29 +218,41 @@ public final class BuildEventServiceProtoUtil {
     private String commandName;
     private Set<String> keywords;
     @Nullable private String projectId;
+    private boolean checkPrecedingLifecycleEvents;
 
+    @CanIgnoreReturnValue
     public Builder buildRequestId(String value) {
       this.buildRequestId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder invocationId(String value) {
       this.invocationId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder projectId(String value) {
       this.projectId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder commandName(String value) {
       this.commandName = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder keywords(Set<String> value) {
       this.keywords = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder checkPrecedingLifecycleEvents(boolean value) {
+      this.checkPrecedingLifecycleEvents = value;
       return this;
     }
 
@@ -236,7 +262,8 @@ public final class BuildEventServiceProtoUtil {
           checkNotNull(invocationId),
           projectId,
           checkNotNull(commandName),
-          checkNotNull(keywords));
+          checkNotNull(keywords),
+          checkPrecedingLifecycleEvents);
     }
   }
 }

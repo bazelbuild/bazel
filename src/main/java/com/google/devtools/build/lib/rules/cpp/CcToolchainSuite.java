@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of the {@code cc_toolchain_suite} rule.
@@ -39,6 +40,7 @@ import java.util.Map;
 public class CcToolchainSuite implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);

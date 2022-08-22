@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 
 /** A well-formatted error message that is easy to read and easy to create. */
@@ -47,6 +48,7 @@ abstract class ErrorMessage {
     private Builder() {}
 
     /** Sets the main text of this error message. */
+    @CanIgnoreReturnValue
     public Builder message(String message) {
       Preconditions.checkNotNull(message);
       this.message = message.isEmpty() ? "Unknown error" : message.trim();
@@ -73,6 +75,7 @@ abstract class ErrorMessage {
      * <p>If the log originally comes from a file, it is recommended to use {@link #logFile}
      * instead, because then the path to the log file can be printed together with the message.
      */
+    @CanIgnoreReturnValue
     public Builder logText(String logText) {
       Preconditions.checkNotNull(logText);
       // Set the log text to "(empty)" when the passed in string is empty, otherwise error messages
@@ -85,6 +88,7 @@ abstract class ErrorMessage {
      * If the log file or text of this error message is longer than the character limit set via this
      * method, it will be truncated so that only the last X characters of the log are printed.
      */
+    @CanIgnoreReturnValue
     public Builder logSizeLimit(int logSizeLimit) {
       Preconditions.checkArgument(logSizeLimit > 0, "logSizeLimit must be positive");
       this.logSizeLimit = logSizeLimit;
@@ -92,6 +96,7 @@ abstract class ErrorMessage {
     }
 
     /** Lets the error message contain the details of an exception. */
+    @CanIgnoreReturnValue
     public Builder exception(Exception e) {
       this.exception = e;
       return this;

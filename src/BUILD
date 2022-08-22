@@ -5,6 +5,8 @@ load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
 
+package(default_applicable_licenses = ["@io_bazel//:license"])
+
 exports_files(["jdeps_modules.golden"])
 
 md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
@@ -88,6 +90,7 @@ JAVA_TOOLS = [
     name = "embedded_tools" + suffix + "_srcs",
     srcs = JAVA_TOOLS + [
                "BUILD.tools",
+               "MODULE.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
                "//third_party/grpc:embedded_tools_srcs",
@@ -147,7 +150,10 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
+        ],
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win//file",
         ],
         "//src/conditions:linux_aarch64": [
@@ -169,7 +175,10 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64_minimal//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",  # TODO(#14339): replace with openjdk_win_arm64 when packages are uploaded to bazel mirror server
+        ],
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win_minimal//file",
         ],
         "//src/conditions:linux_aarch64": [
@@ -372,6 +381,7 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
+        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),
@@ -522,7 +532,6 @@ genrule(
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
         "//third_party/java/proguard:srcs",
-        "@java_tools_langtools_javac11//:srcs",
     ],
     outs = ["java_tools_dist.zip"],
     cmd = "zip -qXr $@ $$(echo $(SRCS) | sort)",
@@ -542,11 +551,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
 
 release_archive(
     name = "jars_java_tools_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS + [
-        "@java_tools_langtools_javac11//:jdk_compiler_jar",
-        "@java_tools_langtools_javac11//:java_compiler_jar",
-        "@java_tools_langtools_javac11//:javac_jar",
-    ],
+    srcs = JAVA_TOOLS_DEPLOY_JARS,
     package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -640,6 +645,7 @@ release_archive(
 filegroup(
     name = "test_repos",
     srcs = [
+        "@android_gmaven_r8_for_testing//jar:file",
         "@android_tools_for_testing//:WORKSPACE",
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",
@@ -647,18 +653,7 @@ filegroup(
         "@openjdk11_darwin_archive//:WORKSPACE",
         "@openjdk11_linux_archive//:WORKSPACE",
         "@openjdk11_windows_archive//:WORKSPACE",
-        "@openjdk15_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk15_darwin_archive//:WORKSPACE",
-        "@openjdk15_linux_archive//:WORKSPACE",
-        "@openjdk15_windows_archive//:WORKSPACE",
-        "@openjdk16_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk16_darwin_archive//:WORKSPACE",
-        "@openjdk16_linux_archive//:WORKSPACE",
-        "@openjdk16_windows_archive//:WORKSPACE",
-        "@openjdk17_darwin_aarch64_archive//:WORKSPACE",
-        "@openjdk17_darwin_archive//:WORKSPACE",
-        "@openjdk17_linux_archive//:WORKSPACE",
-        "@openjdk17_windows_archive//:WORKSPACE",
+        "@openjdk11_windows_arm64_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_aarch64_minimal//file",
@@ -679,23 +674,20 @@ filegroup(
         "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
         "@remotejdk11_macos_aarch64_for_testing//:WORKSPACE",
         "@remotejdk11_macos_for_testing//:WORKSPACE",
+        "@remotejdk11_win_arm64_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
-        "@remotejdk15_linux_for_testing//:WORKSPACE",
-        "@remotejdk15_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk15_macos_for_testing//:WORKSPACE",
-        "@remotejdk15_win_for_testing//:WORKSPACE",
-        "@remotejdk16_linux_for_testing//:WORKSPACE",
-        "@remotejdk16_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk16_macos_for_testing//:WORKSPACE",
-        "@remotejdk16_win_for_testing//:WORKSPACE",
-        "@remotejdk17_linux_for_testing//:WORKSPACE",
-        "@remotejdk17_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk17_macos_for_testing//:WORKSPACE",
-        "@remotejdk17_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",
+    ] + [
+        "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
+        for os in ("darwin", "darwin_aarch64", "linux", "windows", "windows_arm64")
+        for version in ("17", "18")
+    ] + [
+        "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
+        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
+        for version in ("17", "18")
     ],
 )

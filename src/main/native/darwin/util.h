@@ -24,26 +24,8 @@ namespace darwin {
 // Queue used for all of our anomaly tracking.
 dispatch_queue_t JniDispatchQueue();
 
-// Log used for all of our anomaly logging.
-// Logging can be traced using:
-// `log stream -level debug --predicate '(subsystem == "build.bazel")'`
-//
-// This may return NULL if `os_log_create` is not supported on this version of
-// macOS. Use `log_if_possible` to log when supported.
-os_log_t JniOSLog();
-
 }  // namespace darwin
 }  // namespace bazel
-
-// The macOS implementation asserts that `msg` be a string literal (not just a
-// const char*), so we cannot use a function.
-#define log_if_possible(msg...)                    \
-  do {                                             \
-    os_log_t log = bazel::darwin::JniOSLog();      \
-    if (log != nullptr) {                          \
-      os_log_debug(log, msg);                      \
-    }                                              \
-  } while (0);
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_DARWIN_JNI_UTIL_H_
 

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -24,9 +23,9 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -137,7 +136,6 @@ public class WorkspaceFactory {
               BazelStarlarkContext.Phase.WORKSPACE,
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
               /*analysisRuleLabel=*/ null,
               /*networkAllowlistForTests=*/ null)
@@ -146,8 +144,9 @@ public class WorkspaceFactory {
       List<String> globs = new ArrayList<>(); // unused
       if (PackageFactory.checkBuildSyntax(
           file,
-          globs,
-          globs,
+          /*globs=*/ globs,
+          /*globsWithDirs=*/ globs,
+          /*subpackages=*/ globs,
           new HashMap<>(),
           error ->
               localReporter.handle(
@@ -171,6 +170,13 @@ public class WorkspaceFactory {
     } catch (SyntaxError.Exception ex) {
       // compilation failed
       Event.replayEventsOn(localReporter, ex.errors());
+      builder.setFailureDetailOverride(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(ex.getMessage())
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(PackageLoading.Code.SYNTAX_ERROR))
+              .build());
     }
 
     // cleanup (success or failure)
@@ -286,12 +292,7 @@ public class WorkspaceFactory {
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   thread.getSemantics(),
                   thread.getCallStack());
-          if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
-            throw Starlark.errorf(
-                "%s's name field must be a legal workspace name; workspace names may contain only"
-                    + " A-Z, a-z, 0-9, '-', '_', and '.', and must start with a letter",
-                rule);
-          }
+          RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException
             | LabelSyntaxException e) {
@@ -320,7 +321,7 @@ public class WorkspaceFactory {
       }
     }
 
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
@@ -337,7 +338,7 @@ public class WorkspaceFactory {
     for (EnvironmentExtension ext : environmentExtensions) {
       ext.updateWorkspace(env);
     }
-    return env.build();
+    return env.buildOrThrow();
   }
 
   private String getDefaultSystemJavabase() {
@@ -381,7 +382,7 @@ public class WorkspaceFactory {
     }
     bindings.put("bazel_version", version);
 
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   public Map<String, Module> getLoadedModules() {
@@ -390,13 +391,5 @@ public class WorkspaceFactory {
 
   public Map<String, Object> getVariableBindings() {
     return ImmutableMap.copyOf(bindings);
-  }
-
-  public Map<PathFragment, RepositoryName> getManagedDirectories() {
-    return workspaceGlobals.getManagedDirectories();
-  }
-
-  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
-    return workspaceGlobals.getDoNotSymlinkInExecrootPaths();
   }
 }

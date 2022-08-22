@@ -44,18 +44,12 @@ public class TargetCompletionValue implements SkyValue {
         targets,
         ct ->
             TargetCompletionKey.create(
-                ConfiguredTargetKey.builder()
-                    .setConfiguredTarget(ct)
-                    .setConfigurationKey(ct.getConfigurationKey())
-                    .build(),
-                ctx,
-                targetsToTest.contains(ct)));
+                ConfiguredTargetKey.fromConfiguredTarget(ct), ctx, targetsToTest.contains(ct)));
   }
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link TargetCompletionValue}. */
   @AutoValue
-  public abstract static class TargetCompletionKey
-      implements CompletionFunction.TopLevelActionLookupKey {
+  public abstract static class TargetCompletionKey implements TopLevelActionLookupKey {
     static TargetCompletionKey create(
         ConfiguredTargetKey actionLookupKey,
         TopLevelArtifactContext topLevelArtifactContext,

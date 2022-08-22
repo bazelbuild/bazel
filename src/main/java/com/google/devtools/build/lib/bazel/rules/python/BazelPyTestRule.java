@@ -58,6 +58,13 @@ public final class BazelPyTestRule implements RuleDefinition {
                 .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/launcher:launcher")))
         .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        // Add the script as an attribute in order for py_test to output code coverage results for
+        // code covered by CC binaries invocations.
+        .add(
+            attr("$collect_cc_coverage", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();
   }
 

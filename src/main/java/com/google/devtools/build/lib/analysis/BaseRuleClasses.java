@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -31,10 +32,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -140,9 +142,6 @@ public class BaseRuleClasses {
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
-  private static final String DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE =
-      "@bazel_tools//tools/test:lcov_merger";
-
   @SerializationConstant @AutoCodec.VisibleForSerialization
   static final Resolver<TestConfiguration, Label> COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER =
       (rule, attributes, configuration) -> configuration.getCoverageReportGenerator();
@@ -153,20 +152,14 @@ public class BaseRuleClasses {
         TestConfiguration.class, defaultValue, COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
-  public static LabelLateBoundDefault<BuildConfigurationValue> getCoverageOutputGeneratorLabel() {
+  public static LabelLateBoundDefault<CoverageConfiguration> getCoverageOutputGeneratorLabel() {
     return LabelLateBoundDefault.fromTargetConfiguration(
-        BuildConfigurationValue.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
+        CoverageConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
   }
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final Resolver<BuildConfigurationValue, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
-      (rule, attributes, configuration) -> {
-        if (configuration.isCodeCoverageEnabled()) {
-          return Label.parseAbsoluteUnchecked(DEFAULT_COVERAGE_OUTPUT_GENERATOR_VALUE);
-        } else {
-          return null;
-        }
-      };
+  static final Resolver<CoverageConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
+      (rule, attributes, configuration) -> configuration.outputGenerator();
 
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /** Implementation for the :run_under attribute. */
@@ -180,8 +173,6 @@ public class BaseRuleClasses {
             return runUnder != null ? runUnder.getLabel() : null;
           });
 
-  public static final String TEST_RUNNER_EXEC_GROUP = "test";
-
   /**
    * A base rule for all test rules.
    */
@@ -189,7 +180,7 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       builder
-          .addExecGroup(TEST_RUNNER_EXEC_GROUP)
+          .addExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
           // Only necessary at top-level and can be skipped if trimmed.
@@ -351,7 +342,7 @@ public class BaseRuleClasses {
         .add(attr("features", STRING_LIST).orderIndependent())
         .add(
             attr(":action_listener", LABEL_LIST)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(ACTION_LISTENER))
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
@@ -412,8 +403,8 @@ public class BaseRuleClasses {
           .add(
               attr("distribs", DISTRIBUTIONS)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          // Any rule that has provides its own meaning for the "target_compatible_with" attribute
-          // has to be excluded in `RuleContextConstraintSemantics.incompatibleConfiguredTarget()`.
+          // Any rule that provides its own meaning for the "target_compatible_with" attribute
+          // has to be excluded in `IncompatibleTargetChecker`.
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
@@ -531,6 +522,7 @@ public class BaseRuleClasses {
    */
   public static class EmptyRuleConfiguredTargetFactory implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext) {
       return null;
     }

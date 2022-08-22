@@ -26,18 +26,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
-import com.google.devtools.build.lib.rules.python.PyStructUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 
 /**
@@ -63,23 +61,13 @@ public final class BazelPyRuleClasses {
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           See general comments about <code>deps</code> at
-          <a href="${link common-definitions#common-attributes}">
-          Attributes common to all build rules</a>.
+          <a href="${link common-definitions#typical-attributes}">
+          Typical attributes defined by most build rules</a>.
           These are generally
           <a href="${link py_library}"><code>py_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(
-              builder
-                  .copy("deps")
-                  .mandatoryProvidersList(
-                      ImmutableList.of(
-                          // Legacy provider.
-                          // TODO(b/153363654): Remove this legacy set.
-                          ImmutableList.of(
-                              StarlarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
-                          // Modern provider.
-                          ImmutableList.of(PyInfo.PROVIDER.id())))
-                  .allowedFileTypes())
+              builder.copy("deps").mandatoryProviders(PyInfo.PROVIDER.id()).allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.
           <p>
@@ -210,7 +198,7 @@ public final class BazelPyRuleClasses {
           <ul>
             <li>
               <code>stamp = 1</code>: Always stamp the build information into the binary, even in
-              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              <a href="${link user-manual#flag--stamp}"><code>--nostamp</code></a> builds. <b>This
               setting should be avoided</b>, since it potentially kills remote caching for the
               binary and any downstream actions that depend on it.
             </li>
@@ -220,7 +208,7 @@ public final class BazelPyRuleClasses {
             </li>
             <li>
               <code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+              <a href="${link user-manual#flag--stamp}"><code>--[no]stamp</code></a> flag.
             </li>
           </ul>
           <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
@@ -233,8 +221,10 @@ public final class BazelPyRuleClasses {
           .add(
               attr("$py_toolchain_type", NODEP_LABEL)
                   .value(env.getToolsLabel("//tools/python:toolchain_type")))
-          .addRequiredToolchains(env.getToolsLabel("//tools/python:toolchain_type"))
-          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
+          .addToolchainTypes(
+              ToolchainTypeRequirement.builder(env.getToolsLabel("//tools/python:toolchain_type"))
+                  .mandatory(true)
+                  .build())
           .build();
     }
 

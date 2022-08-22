@@ -14,6 +14,7 @@
 
 package com.google.devtools.common.options;
 
+import static java.util.Arrays.stream;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,7 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Everything the {@link OptionsParser} needs to know about how an option is defined.
@@ -131,6 +133,11 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return optionAnnotation.metadataTags();
   }
 
+  /** {@link Option#metadataTags()} */
+  public boolean hasOptionMetadataTag(OptionMetadataTag tag) {
+    return stream(getOptionMetadataTags()).anyMatch(tag::equals);
+  }
+
   /** {@link Option#converter()} ()} */
   @SuppressWarnings({"rawtypes"})
   public Class<? extends Converter> getProvidedConverter() {
@@ -217,6 +224,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     if (converter != null) {
       return converter;
     }
+    @SuppressWarnings("rawtypes")
     Class<? extends Converter> converterClass = getProvidedConverter();
     if (converterClass == Converter.class) {
       // No converter provided, use the default one.
@@ -250,7 +258,8 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   /** Returns the evaluated default value for this option & memoizes the result. */
-  public Object getDefaultValue() {
+  @Nullable
+  public Object getDefaultValue(@Nullable Object conversionContext) {
     if (defaultValue != null) {
       return defaultValue;
     }
@@ -262,7 +271,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     Converter<?> converter = getConverter();
     String defaultValueAsString = getUnparsedDefaultValue();
     try {
-      Object convertedDefaultValue = converter.convert(defaultValueAsString);
+      Object convertedDefaultValue = converter.convert(defaultValueAsString, conversionContext);
       defaultValue =
           allowsMultiple()
               ? maybeWrapMultipleDefaultValue(convertedDefaultValue)

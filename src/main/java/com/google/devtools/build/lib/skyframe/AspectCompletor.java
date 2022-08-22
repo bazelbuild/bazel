@@ -108,8 +108,9 @@ class AspectCompletor
     }
   }
 
+  @Nullable
   @Override
-  public ExtendedEventHandler.Postable createSucceeded(
+  public AspectCompleteEvent createSucceeded(
       AspectCompletionKey skyKey,
       AspectValue value,
       CompletionContext completionContext,

@@ -19,13 +19,16 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import java.io.File;
+import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import org.junit.Before;
@@ -107,7 +110,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), "foorepo", reporter))
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("foorepo")
@@ -121,7 +126,9 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
-    assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), "barrepo", reporter))
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("bar", "2.0"), RepositoryName.create("barrepo"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("barrepo")
@@ -139,5 +146,59 @@ public class IndexRegistryTest extends FoundationTestCase {
                             "sha256-kek"))
                 .setRemotePatchStrip(3)
                 .build());
+  }
+
+  @Test
+  public void testGetRepoInvalidRegistryJsonSpec() throws Exception {
+    server.serve("/bazel_registry.json", "", "", "", "");
+    server.start();
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"strip_prefix\": \"pref\"",
+        "}");
+
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter))
+        .isEqualTo(
+            new ArchiveRepoSpecBuilder()
+                .setRepoName("foorepo")
+                .setUrls(ImmutableList.of("http://mysite.com/thing.zip"))
+                .setIntegrity("sha256-blah")
+                .setStripPrefix("pref")
+                .setRemotePatches(ImmutableMap.of())
+                .setRemotePatchStrip(0)
+                .build());
+  }
+
+  @Test
+  public void testGetRepoInvalidModuleJsonSpec() throws Exception {
+    server.serve(
+        "/bazel_registry.json",
+        "{",
+        "  \"mirrors\": [",
+        "    \"https://mirror.bazel.build/\",",
+        "    \"file:///home/bazel/mymirror/\"",
+        "  ]",
+        "}");
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        "{",
+        "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"strip_prefix\": \"pref\",",
+        "}");
+    server.start();
+
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    assertThrows(
+        IOException.class,
+        () ->
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), RepositoryName.create("foorepo"), reporter));
   }
 }

@@ -29,7 +29,7 @@ public class DelegateSpawn implements Spawn {
 
   private final Spawn spawn;
 
-  public DelegateSpawn(Spawn spawn){
+  public DelegateSpawn(Spawn spawn) {
     this.spawn = spawn;
   }
 
@@ -71,6 +71,11 @@ public class DelegateSpawn implements Spawn {
   @Override
   public Collection<? extends ActionInput> getOutputFiles() {
     return spawn.getOutputFiles();
+  }
+
+  @Override
+  public boolean isMandatoryOutput(ActionInput output) {
+    return spawn.isMandatoryOutput(output);
   }
 
   @Override

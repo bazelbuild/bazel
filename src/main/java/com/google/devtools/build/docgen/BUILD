@@ -20,10 +20,12 @@ java_library(
     name = "docgen_javalib",
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:main",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/bazel:main",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -36,6 +38,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:builtin_java_proto",
         "//third_party:apache_velocity",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -67,13 +70,15 @@ java_binary(
     name = "api_exporter",
     srcs = ["ApiExporter.java"],
     main_class = "com.google.devtools.build.docgen.ApiExporter",
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/bazel/repository"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/net/starlark/java/syntax",
+    ],
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:builtin_java_proto",
         "//third_party:guava",
     ],
@@ -85,4 +90,9 @@ filegroup(
         "templates/**/*.html",
         "templates/**/*.vm",
     ]),
+)
+
+filegroup(
+    name = "bazel_link_map",
+    srcs = ["bazel_link_map.json"],
 )

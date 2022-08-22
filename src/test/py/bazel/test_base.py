@@ -54,6 +54,7 @@ class TestBase(unittest.TestCase):
   _cas_path = None
 
   _SHARED_REPOS = (
+      'rules_license',
       'rules_cc',
       'rules_java',
       'rules_proto',
@@ -64,18 +65,17 @@ class TestBase(unittest.TestCase):
       'remotejdk11_macos_for_testing',
       'remotejdk11_macos_aarch64_for_testing',
       'remotejdk11_win_for_testing',
-      'remotejdk15_linux_for_testing',
-      'remotejdk15_macos_for_testing',
-      'remotejdk15_macos_aarch64_for_testing',
-      'remotejdk15_win_for_testing',
-      'remotejdk16_linux_for_testing',
-      'remotejdk16_macos_for_testing',
-      'remotejdk16_macos_aarch64_for_testing',
-      'remotejdk16_win_for_testing',
+      'remotejdk11_win_arm64_for_testing',
       'remotejdk17_linux_for_testing',
       'remotejdk17_macos_for_testing',
       'remotejdk17_macos_aarch64_for_testing',
       'remotejdk17_win_for_testing',
+      'remotejdk17_win_arm64_for_testing',
+      'remotejdk18_linux_for_testing',
+      'remotejdk18_macos_for_testing',
+      'remotejdk18_macos_aarch64_for_testing',
+      'remotejdk18_win_for_testing',
+      'remotejdk18_win_arm64_for_testing',
       'remote_java_tools_for_testing',
       'remote_java_tools_darwin_for_testing',
       'remote_java_tools_linux_for_testing',
@@ -175,26 +175,16 @@ class TestBase(unittest.TestCase):
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
     ]
     rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile(path, rule_definition + (lines if lines else []))
+    if lines:
+      rule_definition.extend(lines)
+    self.ScratchFile(path, rule_definition)
 
   def GetDefaultRepoRules(self):
-    return self.GetCcRulesRepoRule()
-
-  def GetCcRulesRepoRule(self):
-    sha256 = '1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f'
-    strip_pfx = 'rules_cc-8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0'
-    url1 = ('https://mirror.bazel.build/github.com/bazelbuild/rules_cc/'
-            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
-    url2 = ('https://github.com/bazelbuild/rules_cc/'
-            'archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip')
-    return [
-        'http_archive(',
-        '    name = "rules_cc",',
-        '    sha256 = "%s",' % sha256,
-        '    strip_prefix = "%s",' % strip_pfx,
-        '    urls = ["%s", "%s"],' % (url1, url2),
-        ')',
-    ]
+    with open(
+        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
+        'r') as repo_rules:
+      return repo_rules.read().split('\n')
+    return []
 
   @staticmethod
   def GetEnv(name, default=None):
@@ -357,8 +347,7 @@ class TestBase(unittest.TestCase):
     """
     return self.RunProgram([
         self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc,
-        '--nomaster_bazelrc',
+        '--bazelrc=' + self._test_bazelrc
     ] + args, env_remove, env_add, False, cwd, allow_failure)
 
   def StartRemoteWorker(self):

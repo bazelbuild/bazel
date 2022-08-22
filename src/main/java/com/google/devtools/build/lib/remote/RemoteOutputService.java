@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
@@ -54,7 +54,7 @@ public class RemoteOutputService implements OutputService {
   @Nullable
   @Override
   public FileSystem createActionFileSystem(
-      FileSystem sourceDelegate,
+      FileSystem delegateFileSystem,
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
@@ -63,7 +63,7 @@ public class RemoteOutputService implements OutputService {
       boolean rewindingEnabled) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
-        sourceDelegate,
+        delegateFileSystem,
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
@@ -77,7 +77,10 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      EventHandler eventHandler, UUID buildId, boolean finalizeActions) {
+      EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
+    if (actionInputFetcher != null) {
+      actionInputFetcher.startBuild(eventHandler);
+    }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
@@ -112,13 +115,6 @@ public class RemoteOutputService implements OutputService {
   @Override
   public void clean() {
     // Intentionally left empty.
-  }
-
-  @Override
-  public boolean isRemoteFile(Artifact artifact) {
-    Path path = artifact.getPath();
-    return path.getFileSystem() instanceof RemoteActionFileSystem
-        && ((RemoteActionFileSystem) path.getFileSystem()).isRemote(path);
   }
 
   @Override

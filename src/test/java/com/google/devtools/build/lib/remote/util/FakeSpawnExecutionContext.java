@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.util;
 
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -102,7 +103,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public void prefetchInputs() {
+  public ListenableFuture<Void> prefetchInputs() {
     throw new UnsupportedOperationException();
   }
 

@@ -94,7 +94,7 @@ public class SpawnStats {
       result.put(e.getElement(), e.getCount());
     }
 
-    return result.build();
+    return result.buildOrThrow();
   }
 
   public static String convertSummaryToString(ImmutableMap<String, Integer> spawnSummary) {

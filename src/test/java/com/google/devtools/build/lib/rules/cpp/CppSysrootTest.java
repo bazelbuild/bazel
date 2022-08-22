@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -43,8 +42,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
       BuildConfigurationValue config, String sysroot, boolean shouldContain) throws Exception {
 
     RuleContext ruleContext =
-        getRuleContext(
-            getConfiguredTarget(Label.parseAbsolute("//dummy:library", ImmutableMap.of()), config));
+        getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), config));
     ConfigurationMakeVariableContext context =
         new ConfigurationMakeVariableContext(
             ruleContext,
@@ -136,9 +134,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.overwriteFile("a/grte/top/BUILD", "filegroup(name='everything')");
     useConfiguration("--grte_top=//a/grte/top:everything");
     RuleContext ruleContext =
-        getRuleContext(
-            getConfiguredTarget(
-                Label.parseAbsolute("//dummy:library", ImmutableMap.of()), targetConfig));
+        getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), targetConfig));
     ConfigurationMakeVariableContext context =
         new ConfigurationMakeVariableContext(
             ruleContext,

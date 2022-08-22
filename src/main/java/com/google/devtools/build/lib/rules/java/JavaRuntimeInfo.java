@@ -16,16 +16,20 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -43,13 +47,19 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath) {
+      PathFragment javaBinaryRunfilesPath,
+      NestedSet<Artifact> hermeticInputs,
+      @Nullable Artifact libModules,
+      ImmutableList<CcInfo> hermeticStaticLibs) {
     return new JavaRuntimeInfo(
         javaBaseInputs,
         javaHome,
         javaBinaryExecPath,
         javaHomeRunfilesPath,
-        javaBinaryRunfilesPath);
+        javaBinaryRunfilesPath,
+        hermeticInputs,
+        libModules,
+        hermeticStaticLibs);
   }
 
   @Override
@@ -98,18 +108,27 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaHomeRunfilesPath;
   private final PathFragment javaBinaryRunfilesPath;
+  private final NestedSet<Artifact> hermeticInputs;
+  @Nullable private final Artifact libModules;
+  private final ImmutableList<CcInfo> hermeticStaticLibs;
 
   private JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath) {
+      PathFragment javaBinaryRunfilesPath,
+      NestedSet<Artifact> hermeticInputs,
+      @Nullable Artifact libModules,
+      ImmutableList<CcInfo> hermeticStaticLibs) {
     this.javaBaseInputs = javaBaseInputs;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
     this.javaHomeRunfilesPath = javaHomeRunfilesPath;
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
+    this.hermeticInputs = hermeticInputs;
+    this.libModules = libModules;
+    this.hermeticStaticLibs = hermeticStaticLibs;
   }
 
   /** All input artifacts in the javabase. */
@@ -151,6 +170,39 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   public PathFragment javaBinaryRunfilesPathFragment() {
     return javaBinaryRunfilesPath;
+  }
+
+  /** Input artifacts required for hermetic deployments. */
+  public NestedSet<Artifact> hermeticInputs() {
+    return hermeticInputs;
+  }
+
+  @Override
+  public Depset starlarkHermeticInputs() {
+    return Depset.of(Artifact.TYPE, hermeticInputs());
+  }
+
+  @Override
+  @Nullable
+  public Artifact libModules() {
+    return libModules;
+  }
+
+  public ImmutableList<CcInfo> hermeticStaticLibs() {
+    return hermeticStaticLibs;
+  }
+
+  public NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() {
+    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
+    for (CcInfo lib : hermeticStaticLibs()) {
+      result.addTransitive(lib.getCcLinkingContext().getLibraries());
+    }
+    return result.build();
+  }
+
+  @Override
+  public Depset starlarkHermeticStaticLibs() {
+    return Depset.of(LibraryToLink.TYPE, collectHermeticStaticLibrariesToLink());
   }
 
   @Override

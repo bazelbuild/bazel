@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -144,11 +145,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
           new ActionsTestUtil.NullAction(),
           /*exception=*/ null,
           ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
+          ActionsTestUtil.DUMMY_ARTIFACT,
+          FileArtifactValue.OMITTED_FILE_MARKER,
           /*stdout=*/ null,
           /*stderr=*/ null,
           /*actionMetadataLogs=*/ ImmutableList.of(),
-          ErrorTiming.NO_ERROR,
-          /*isInMemoryFs=*/ false);
+          ErrorTiming.NO_ERROR);
 
   private static final class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
@@ -944,8 +946,9 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     BuildConfigurationValue configuration =
         BuildConfigurationValue.create(
             defaultBuildOptions,
-            RepositoryName.createFromValidStrippedName("workspace"),
+            RepositoryName.createUnvalidated("workspace"),
             /*siblingRepositoryLayout=*/ false,
+            /*transitionDirectoryNameFragment=*/ "",
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
@@ -1248,11 +1251,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                         .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_DENIED))
                         .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
+            ActionsTestUtil.DUMMY_ARTIFACT,
+            /*primaryOutputMetadata=*/ null,
             /*stdout=*/ null,
             /*stderr=*/ null,
             /*actionMetadataLogs=*/ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION,
-            /*isInMemoryFs=*/ false);
+            ErrorTiming.BEFORE_EXECUTION);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1291,11 +1295,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                         .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_DENIED))
                         .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
-            /* stdout= */ null,
-            /* stderr= */ null,
-            /* actionMetadataLogs= */ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION,
-            /* isInMemoryFs= */ false);
+            ActionsTestUtil.DUMMY_ARTIFACT,
+            /*primaryOutputMetadata=*/ null,
+            /*stdout=*/ null,
+            /*stderr=*/ null,
+            /*actionMetadataLogs=*/ ImmutableList.of(),
+            ErrorTiming.BEFORE_EXECUTION);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1503,11 +1508,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         new ActionsTestUtil.NullAction(),
         /* exception= */ null,
         ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
-        /* stdout= */ null,
-        /* stderr= */ null,
+        ActionsTestUtil.DUMMY_ARTIFACT,
+        FileArtifactValue.OMITTED_FILE_MARKER,
+        /*stdout=*/ null,
+        /*stderr=*/ null,
         metadataLogs,
-        ErrorTiming.NO_ERROR,
-        /* isInMemoryFs= */ false);
+        ErrorTiming.NO_ERROR);
   }
 
   @Test

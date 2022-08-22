@@ -11,7 +11,10 @@ proto_library(
 
 java_proto_library(
     name = "action_rewind_event_java_proto",
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [":action_rewind_event"],
 )
 

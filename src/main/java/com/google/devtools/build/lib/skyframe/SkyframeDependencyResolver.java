@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -97,8 +97,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       packageKeys.computeIfAbsent(label.getPackageIdentifier(), id -> PackageValue.key(id));
     }
 
-    Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
-        env.getValuesOrThrow(packageKeys.values(), NoSuchPackageException.class);
+    SkyframeLookupResult packages = env.getValuesAndExceptions(packageKeys.values());
 
     Target fromTarget = fromNode.getTarget();
 
@@ -117,7 +116,9 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       PackageValue packageValue;
       try {
         packageValue =
-            (PackageValue) packages.get(PackageValue.key(label.getPackageIdentifier())).get();
+            (PackageValue)
+                packages.getOrThrow(
+                    PackageValue.key(label.getPackageIdentifier()), NoSuchPackageException.class);
         if (packageValue == null) {
           // Dependency has not been computed yet. There will be a next iteration.
           continue;
@@ -127,7 +128,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           Label repositoryLabel;
           try {
             repositoryLabel =
-                Label.create(EXTERNAL_PACKAGE_IDENTIFIER, label.getRepository().strippedName());
+                Label.create(EXTERNAL_PACKAGE_IDENTIFIER, label.getRepository().getName());
           } catch (LabelSyntaxException lse) {
             // We're taking the repository name from something that was already
             // part of a label, so it should be valid. If we really get into this

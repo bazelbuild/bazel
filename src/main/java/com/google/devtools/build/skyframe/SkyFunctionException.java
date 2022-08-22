@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import javax.annotation.Nullable;
 
 /**
  * Base class of exceptions thrown by {@link SkyFunction#compute} on failure.
@@ -55,12 +56,12 @@ public abstract class SkyFunctionException extends Exception {
      * An error that is completely deterministic in terms of the node's Skyframe dependencies.
      * Persistent errors may be cached.
      */
-    PERSISTENT;
+    PERSISTENT
   }
 
   private final Transience transience;
 
-  public SkyFunctionException(Exception cause, Transience transience) {
+  protected SkyFunctionException(Exception cause, Transience transience) {
     super(Preconditions.checkNotNull(cause));
     SkyFunctionException.validateExceptionType(cause.getClass());
     this.transience = transience;
@@ -101,6 +102,31 @@ public abstract class SkyFunctionException extends Exception {
     }
   }
 
+  static <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception>
+      void throwIfInstanceOf(
+          @Nullable Exception e,
+          @Nullable Class<E1> exceptionClass1,
+          @Nullable Class<E2> exceptionClass2,
+          @Nullable Class<E3> exceptionClass3,
+          @Nullable Class<E4> exceptionClass4)
+          throws E1, E2, E3, E4 {
+    if (e == null) {
+      return;
+    }
+    if (exceptionClass1 != null && exceptionClass1.isInstance(e)) {
+      throw exceptionClass1.cast(e);
+    }
+    if (exceptionClass2 != null && exceptionClass2.isInstance(e)) {
+      throw exceptionClass2.cast(e);
+    }
+    if (exceptionClass3 != null && exceptionClass3.isInstance(e)) {
+      throw exceptionClass3.cast(e);
+    }
+    if (exceptionClass4 != null && exceptionClass4.isInstance(e)) {
+      throw exceptionClass4.cast(e);
+    }
+  }
+
   /** A {@link SkyFunctionException} with a definite root cause. */
   public static class ReifiedSkyFunctionException extends SkyFunctionException {
     private final boolean isCatastrophic;
@@ -111,9 +137,7 @@ public abstract class SkyFunctionException extends Exception {
     }
 
     protected ReifiedSkyFunctionException(
-        SkyFunctionException e,
-        Transience transience,
-        boolean isCatastrophic) {
+        SkyFunctionException e, Transience transience, boolean isCatastrophic) {
       super(e.getCause(), transience);
       this.isCatastrophic = isCatastrophic;
       this.originalException = e;

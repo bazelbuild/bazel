@@ -190,12 +190,11 @@ public final class OptionProcessor extends AbstractProcessor {
             optionType);
       }
       DeclaredType optionDeclaredType = (DeclaredType) optionType;
-      // optionDeclaredType.asElement().asType() gets us from List<actualType> to List<E>, so this
-      // is unfortunately necessary.
-      if (!typeUtils.isAssignable(optionDeclaredType.asElement().asType(), listType)) {
+      if (!typeUtils.isAssignable(typeUtils.erasure(optionDeclaredType), listType)) {
         throw new OptionProcessorException(
             optionField,
-            "Option that allows multiple occurrences must be of type %s, but is of type %s",
+            "Option that allows multiple occurrences must be assignable to type %s, but is of type"
+                + " %s",
             listType,
             optionType);
       }
@@ -244,7 +243,7 @@ public final class OptionProcessor extends AbstractProcessor {
         // For the default converters, it so happens we have access to the convert methods
         // at compile time, since we already have the OptionsParser source. Take advantage of
         // this to test that the provided defaultValue is valid.
-        converterInstance.convert(defaultValue);
+        converterInstance.convert(defaultValue, /*conversionContext=*/ null);
       } catch (OptionsParsingException e) {
         throw new OptionProcessorException(
             optionField,
@@ -287,17 +286,21 @@ public final class OptionProcessor extends AbstractProcessor {
             .filter(methodElement -> methodElement.getSimpleName().contentEquals("convert"))
             .filter(
                 methodElement ->
-                    methodElement.getParameters().size() == 1
+                    methodElement.getParameters().size() == 2
                         && typeUtils.isSameType(
                             methodElement.getParameters().get(0).asType(),
-                            elementUtils.getTypeElement(String.class.getCanonicalName()).asType()))
+                            elementUtils.getTypeElement(String.class.getCanonicalName()).asType())
+                        && typeUtils.isSameType(
+                            methodElement.getParameters().get(1).asType(),
+                            elementUtils.getTypeElement(Object.class.getCanonicalName()).asType()))
             .collect(Collectors.toList());
     // Check that there is just the one method
     if (methodList.size() != 1) {
       throw new OptionProcessorException(
           optionField,
-          "Converter %s has methods 'convert(String)': %s",
+          "Converter %s has %d methods 'convert(String, Object)', expected 1: %s",
           converterElement,
+          methodList.size(),
           methodList.stream().map(Object::toString).collect(Collectors.joining(", ")));
     }
 

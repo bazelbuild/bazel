@@ -185,7 +185,7 @@ public class RepositoryCache {
       }
     }
 
-    FileSystemUtils.createDirectoryAndParents(targetPath.getParentDirectory());
+    targetPath.getParentDirectory().createDirectoryAndParents();
     if (useHardlinks) {
       FileSystemUtils.createHardLink(targetPath, cacheValue);
     } else {
@@ -231,7 +231,7 @@ public class RepositoryCache {
     Path cacheEntry = keyType.getCachePath(contentAddressablePath).getRelative(cacheKey);
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
-    FileSystemUtils.createDirectoryAndParents(cacheEntry);
+    cacheEntry.createDirectoryAndParents();
     FileSystemUtils.copyFile(sourcePath, tmpName);
     FileSystemUtils.moveFile(tmpName, cacheValue);
 
@@ -269,7 +269,7 @@ public class RepositoryCache {
   private void ensureCacheDirectoryExists(KeyType keyType) throws IOException {
     Path directoryPath = keyType.getCachePath(contentAddressablePath);
     if (!directoryPath.exists()) {
-      FileSystemUtils.createDirectoryAndParents(directoryPath);
+      directoryPath.createDirectoryAndParents();
     }
   }
 

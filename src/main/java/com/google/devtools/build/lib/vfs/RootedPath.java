@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
  * clients via #asPath or #getRoot.
  */
 @AutoCodec
-public class RootedPath implements Comparable<RootedPath> {
+public class RootedPath implements Comparable<RootedPath>, FileStateKey {
   private final Root root;
   private final PathFragment rootRelativePath;
 
@@ -72,8 +72,8 @@ public class RootedPath implements Comparable<RootedPath> {
   }
 
   /**
-   * Returns a rooted path representing {@code path} under one of the package roots, or under the
-   * filesystem root if it's not under any package root.
+   * Returns a rooted path representing {@code path} under one of the specified roots, or under the
+   * file system root if it's not under any of the roots in {@code packagePathRoots}.
    */
   public static RootedPath toRootedPathMaybeUnderRoot(Path path, Iterable<Root> packagePathRoots) {
     for (Root root : packagePathRoots) {
@@ -140,4 +140,9 @@ public class RootedPath implements Comparable<RootedPath> {
 
   private static final Comparator<RootedPath> COMPARATOR =
       Comparator.comparing(RootedPath::getRoot).thenComparing(RootedPath::getRootRelativePath);
+
+  @Override
+  public RootedPath argument() {
+    return this;
+  }
 }

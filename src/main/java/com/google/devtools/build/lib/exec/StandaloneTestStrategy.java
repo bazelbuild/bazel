@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import com.google.protobuf.util.Durations;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -128,15 +129,13 @@ public class StandaloneTestStrategy extends TestStrategy {
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
-    if (action.getTestProperties().isPersistentTestRunner()) {
-      executionInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
-    }
 
-    ResourceSet localResourceUsage =
-        action
-            .getTestProperties()
-            .getLocalResourceUsage(
-                action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
+    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
+        () ->
+            action
+                .getTestProperties()
+                .getLocalResourceUsage(
+                    action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
 
     Spawn spawn =
         new SimpleSpawn(
@@ -147,11 +146,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getRunfilesSupplier(),
             ImmutableMap.of(),
             /*inputs=*/ action.getInputs(),
-            action.getTestProperties().isPersistentTestRunner()
-                ? action.getTools()
-                : NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             createSpawnOutputs(action),
-            localResourceUsage);
+            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
@@ -491,19 +489,74 @@ public class StandaloneTestStrategy extends TestStrategy {
       SpawnResult spawnResult, TestResultData.Builder result) {
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
+
     if (spawnResult.isCacheHit()) {
       result.setRemotelyCached(true);
       executionInfo.setCachedRemotely(true);
     }
+
     String strategy = spawnResult.getRunnerName();
     if (strategy != null) {
       executionInfo.setStrategy(strategy);
       result.setIsRemoteStrategy(strategy.equals("remote"));
     }
+
     if (spawnResult.getExecutorHostName() != null) {
       executionInfo.setHostname(spawnResult.getExecutorHostName());
     }
+
+    SpawnMetrics sm = spawnResult.getMetrics();
+    executionInfo.setTimingBreakdown(
+        BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+            .setName("totalTime")
+            .setTime(toProtoDuration(sm.totalTime()))
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("parseTime")
+                    .setTime(toProtoDuration(sm.parseTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("fetchTime")
+                    .setTime(toProtoDuration(sm.fetchTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("queueTime")
+                    .setTime(toProtoDuration(sm.queueTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("uploadTime")
+                    .setTime(toProtoDuration(sm.uploadTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("setupTime")
+                    .setTime(toProtoDuration(sm.setupTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("executionWallTime")
+                    .setTime(toProtoDuration(sm.executionWallTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("processOutputsTime")
+                    .setTime(toProtoDuration(sm.processOutputsTime()))
+                    .build())
+            .addChild(
+                BuildEventStreamProtos.TestResult.ExecutionInfo.TimingBreakdown.newBuilder()
+                    .setName("networkTime")
+                    .setTime(toProtoDuration(sm.networkTime()))
+                    .build())
+            .build());
+
     return executionInfo.build();
+  }
+
+  private static com.google.protobuf.Duration toProtoDuration(Duration d) {
+    return Durations.fromNanos(d.toNanos());
   }
 
   private static Artifact.DerivedArtifact createArtifactOutput(
@@ -548,7 +601,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new SimpleSpawn(
         action,
         args,
-        envBuilder.build(),
+        envBuilder.buildOrThrow(),
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         ImmutableMap.copyOf(executionInfo),
@@ -558,13 +611,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*outputs=*/ ImmutableSet.of(createArtifactOutput(action, action.getXmlOutputPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 
-  /**
-   * A spawn to generate a test.xml file from the test log. This is only used if the test does not
-   * generate a test.xml file itself.
-   */
   private static Spawn createCoveragePostProcessingSpawn(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
@@ -588,18 +638,18 @@ public class StandaloneTestStrategy extends TestStrategy {
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
         action.getLcovMergerRunfilesSupplier(),
-        /* filesetMappings= */ ImmutableMap.of(),
-        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
+        /*filesetMappings=*/ ImmutableMap.of(),
+        /*inputs=*/ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
             .add(action.getCollectCoverageScript())
-            .add(action.getCoverageDirectoryTreeArtifact())
             .add(action.getCoverageManifest())
             .addTransitive(action.getLcovMergerFilesToRun().build())
             .build(),
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*outputs=*/ ImmutableSet.of(
             ActionInputHelper.fromPath(action.getCoverageData().getExecPath())),
+        /*mandatoryOutputs=*/ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }
 

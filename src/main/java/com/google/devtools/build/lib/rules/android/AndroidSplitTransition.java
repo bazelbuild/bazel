@@ -146,7 +146,7 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
 
       addNonCpuSplits(result, platform.getName(), splitOptions);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /** Returns a single-split transition that uses the "--cpu" and does not change any flags. */
@@ -156,7 +156,7 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
     ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
     result.put(cpu, buildOptions.underlying());
     addNonCpuSplits(result, cpu, buildOptions);
-    return result.build();
+    return result.buildOrThrow();
   }
 
   /**
@@ -196,7 +196,7 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
       result.put(cpu, splitOptions.underlying());
       addNonCpuSplits(result, cpu, splitOptions);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   private void setCcFlagsFromAndroid(

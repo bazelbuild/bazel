@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -362,7 +364,14 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     if (bepOptions.publishTargetSummary) {
-      cmdEnv.getEventBus().register(new TargetSummaryPublisher(cmdEnv.getEventBus()));
+      cmdEnv
+          .getEventBus()
+          .register(
+              new TargetSummaryPublisher(
+                  cmdEnv.getEventBus(),
+                  parsingResult
+                      .getOptions(BuildRequestOptions.class)
+                      .shouldMergeSkyframeAnalysisExecution()));
     }
 
     streamer =
@@ -478,7 +487,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                   },
                   executor));
 
-      try (AutoProfiler p = GoogleAutoProfilerUtils.logged("waiting for BES close")) {
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged(
+              "waiting for BES close for invocation " + this.invocationId)) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
     } catch (ExecutionException e) {
@@ -533,19 +544,31 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             final ListenableFuture<Void> enclosingFuture =
                 Futures.nonCancellationPropagating(closeFuture);
 
-            closeFutureWithTimeout =
+            ListenableFuture<Void> timeoutFuture =
                 Futures.withTimeout(
                     enclosingFuture,
                     bepTransport.getTimeout().toMillis(),
                     TimeUnit.MILLISECONDS,
                     timeoutExecutor);
-            closeFutureWithTimeout.addListener(
-                timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+            timeoutFuture.addListener(timeoutExecutor::shutdown, MoreExecutors.directExecutor());
+
+            // Cancellation is not propagated to the `closeFuture` for the reasons above. But in
+            // order to cancel the returned future by our explicit mechanism elsewhere in this
+            // class, we need to delegate the `cancel` to `closeFuture` so that cancellation
+            // from Futures.withTimeout is ignored and cancellation from our mechanism is properly
+            // handled.
+            closeFutureWithTimeout =
+                new SimpleForwardingListenableFuture<>(timeoutFuture) {
+                  @Override
+                  public boolean cancel(boolean mayInterruptIfRunning) {
+                    return closeFuture.cancel(mayInterruptIfRunning);
+                  }
+                };
           }
           builder.put(bepTransport, closeFutureWithTimeout);
         });
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   private void closeBepTransports() throws AbruptExitException {
@@ -677,7 +700,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
     final BuildEventServiceClient besClient;
     try {
-      besClient = getBesClient(besOptions, authTlsOptions);
+      besClient = getBesClient(cmdEnv, besOptions, authTlsOptions);
     } catch (IOException | OptionsParsingException e) {
       reportError(
           reporter,
@@ -695,6 +718,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             .projectId(besOptions.instanceName)
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
+            .checkPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
             .build();
 
     return new BuildEventServiceTransport.Builder()
@@ -822,7 +846,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      CommandEnvironment env, OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();

@@ -20,18 +20,19 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
-import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -43,16 +44,17 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -111,6 +113,11 @@ public class DiscoveryTest extends FoundationTestCase {
 
   @Before
   public void setup() throws Exception {
+    setUpWithBuiltinModules(ImmutableMap.of());
+  }
+
+  private void setUpWithBuiltinModules(ImmutableMap<String, NonRegistryOverride> builtinModules)
+      throws Exception {
     workspaceRoot = scratch.dir("/ws");
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
@@ -140,27 +147,23 @@ public class DiscoveryTest extends FoundationTestCase {
         .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
-    PackageFactory packageFactory =
-        AnalysisMock.get()
-            .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider, fileSystem);
-
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(FileValue.FILE, new FileFunction(packageLocator))
+                .put(FileValue.FILE, new FileFunction(packageLocator, directories))
                 .put(
-                    FileStateValue.FILE_STATE,
+                    FileStateKey.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        Suppliers.ofInstance(
+                            new TimestampGranularityMonitor(BlazeClock.instance())),
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot))
+                    new ModuleFileFunction(registryFactory, workspaceRoot, builtinModules))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -170,16 +173,14 @@ public class DiscoveryTest extends FoundationTestCase {
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
-                        packageFactory,
                         ruleClassProvider,
                         directories,
                         new BzlmodRepoRuleHelperImpl()))
-                .build(),
+                .buildOrThrow(),
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
@@ -201,19 +202,19 @@ public class DiscoveryTest extends FoundationTestCase {
   public void testSimpleDiamond() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='2.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='D',version='3.0')")
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ddd',version='3.0')")
             .addModule(
-                createModuleKey("C", "2.0"),
-                "module(name='C', version='2.0');bazel_dep(name='D',version='3.0')")
-            .addModule(createModuleKey("D", "3.0"), "module(name='D', version='3.0')");
+                createModuleKey("ccc", "2.0"),
+                "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='3.0')")
+            .addModule(createModuleKey("ddd", "3.0"), "module(name='ddd', version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -222,57 +223,40 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "2.0"))
-                .build(),
-            createModuleKey("B", "1.0"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
-                .addDep("D", createModuleKey("D", "3.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ddd", createModuleKey("ddd", "3.0"))
                 .setRegistry(registry)
-                .build(),
-            createModuleKey("C", "2.0"),
-            Module.builder()
-                .setName("C")
-                .setVersion(Version.parse("2.0"))
-                .setKey(createModuleKey("C", "2.0"))
-                .addDep("D", createModuleKey("D", "3.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("ddd", createModuleKey("ddd", "3.0"))
                 .setRegistry(registry)
-                .build(),
-            createModuleKey("D", "3.0"),
-            Module.builder()
-                .setName("D")
-                .setVersion(Version.parse("3.0"))
-                .setKey(createModuleKey("D", "3.0"))
-                .setRegistry(registry)
-                .build());
+                .buildEntry(),
+            ModuleBuilder.create("ddd", "3.0").setRegistry(registry).buildEntry());
   }
 
   @Test
   public void testDevDependency() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='1.0',dev_dependency=True)");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.0',dev_dependency=True)");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0')",
-                "bazel_dep(name='C',version='2.0',dev_dependency=True)")
-            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0')")
-            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0')",
+                "bazel_dep(name='ccc',version='2.0',dev_dependency=True)")
+            .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -281,48 +265,33 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "1.0"))
-                .build(),
-            createModuleKey("B", "1.0"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
-                .setRegistry(registry)
-                .build(),
-            createModuleKey("C", "1.0"),
-            Module.builder()
-                .setName("C")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("C", "1.0"))
-                .setRegistry(registry)
-                .build());
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry(),
+            ModuleBuilder.create("ccc", "1.0").setRegistry(registry).buildEntry());
   }
 
   @Test
   public void testIgnoreDevDependency() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='1.0',dev_dependency=True)");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.0',dev_dependency=True)");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0')",
-                "bazel_dep(name='C',version='2.0',dev_dependency=True)")
-            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0')")
-            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0')",
+                "bazel_dep(name='ccc',version='2.0',dev_dependency=True)")
+            .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
 
@@ -332,39 +301,30 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .build(),
-            createModuleKey("B", "1.0"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
-                .setRegistry(registry)
-                .build());
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "1.0").setRegistry(registry).buildEntry());
   }
 
   @Test
   public void testCircularDependency() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
             .addModule(
-                createModuleKey("C", "2.0"),
-                "module(name='C', version='2.0');bazel_dep(name='B',version='1.0')");
+                createModuleKey("ccc", "2.0"),
+                "module(name='ccc', version='2.0');bazel_dep(name='bbb',version='1.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -373,46 +333,35 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .build(),
-            createModuleKey("B", "1.0"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
-                .addDep("C", createModuleKey("C", "2.0"))
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
                 .setRegistry(registry)
-                .build(),
-            createModuleKey("C", "2.0"),
-            Module.builder()
-                .setName("C")
-                .setVersion(Version.parse("2.0"))
-                .setKey(createModuleKey("C", "2.0"))
-                .addDep("B", createModuleKey("B", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "2.0")
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .setRegistry(registry)
-                .build());
+                .buildEntry());
   }
 
   @Test
   public void testCircularDependencyOnRootModule() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='1.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "1.0"),
-                "module(name='B', version='1.0');bazel_dep(name='A',version='2.0')")
-            .addModule(createModuleKey("A", "2.0"), "module(name='A', version='2.0')");
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb', version='1.0');bazel_dep(name='aaa',version='2.0')")
+            .addModule(createModuleKey("aaa", "2.0"), "module(name='aaa', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -421,40 +370,34 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "1.0"))
-                .build(),
-            createModuleKey("B", "1.0"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("B", "1.0"))
-                .addDep("A", ModuleKey.ROOT)
+                .addDep("bbb", createModuleKey("bbb", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "1.0")
+                .addDep("aaa", ModuleKey.ROOT)
+                .addOriginalDep("aaa", createModuleKey("aaa", "2.0"))
                 .setRegistry(registry)
-                .build());
+                .buildEntry());
   }
 
   @Test
   public void testSingleVersionOverride() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='0.1')",
-        "single_version_override(module_name='C',version='2.0')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='0.1')",
+        "single_version_override(module_name='ccc',version='2.0')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "0.1"),
-                "module(name='B', version='0.1');bazel_dep(name='C',version='1.0')")
-            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0');")
-            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0');");
+                createModuleKey("bbb", "0.1"),
+                "module(name='bbb', version='0.1');bazel_dep(name='ccc',version='1.0')")
+            .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0');")
+            .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0');");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -463,30 +406,18 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "0.1"))
-                .build(),
-            createModuleKey("B", "0.1"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("0.1"))
-                .setKey(createModuleKey("B", "0.1"))
-                .addDep("C", createModuleKey("C", "2.0"))
+                .addDep("bbb", createModuleKey("bbb", "0.1"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "0.1")
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                 .setRegistry(registry)
-                .build(),
-            createModuleKey("C", "2.0"),
-            Module.builder()
-                .setName("C")
-                .setVersion(Version.parse("2.0"))
-                .setKey(createModuleKey("C", "2.0"))
-                .setRegistry(registry)
-                .build());
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "2.0").setRegistry(registry).buildEntry());
   }
 
   @Test
@@ -495,20 +426,20 @@ public class DiscoveryTest extends FoundationTestCase {
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "0.1"),
-                "module(name='B', version='0.1');bazel_dep(name='C',version='1.0')")
-            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0');");
+                createModuleKey("bbb", "0.1"),
+                "module(name='bbb', version='0.1');bazel_dep(name='ccc',version='1.0')")
+            .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0');");
     FakeRegistry registry2 =
         registryFactory
             .newFakeRegistry("/bar")
             .addModule(
-                createModuleKey("C", "1.0"),
-                "module(name='C', version='1.0');bazel_dep(name='B',version='0.1')");
+                createModuleKey("ccc", "1.0"),
+                "module(name='ccc', version='1.0');bazel_dep(name='bbb',version='0.1')");
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='0.1')",
-        "single_version_override(module_name='C',registry='" + registry2.getUrl() + "')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='0.1')",
+        "single_version_override(module_name='ccc',registry='" + registry2.getUrl() + "')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry1.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -517,51 +448,40 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "0.1"))
-                .build(),
-            createModuleKey("B", "0.1"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("0.1"))
-                .setKey(createModuleKey("B", "0.1"))
-                .addDep("C", createModuleKey("C", "1.0"))
+                .addDep("bbb", createModuleKey("bbb", "0.1"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "0.1")
+                .addDep("ccc", createModuleKey("ccc", "1.0"))
                 .setRegistry(registry1)
-                .build(),
-            createModuleKey("C", "1.0"),
-            Module.builder()
-                .setName("C")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("C", "1.0"))
-                .addDep("B", createModuleKey("B", "0.1"))
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "1.0")
+                .addDep("bbb", createModuleKey("bbb", "0.1"))
                 .setRegistry(registry2)
-                .build());
+                .buildEntry());
   }
 
   @Test
   public void testLocalPathOverride() throws Exception {
     Path pathToC = scratch.dir("/pathToC");
     scratch.file(
-        pathToC.getRelative("MODULE.bazel").getPathString(), "module(name='C',version='2.0')");
+        pathToC.getRelative("MODULE.bazel").getPathString(), "module(name='ccc',version='2.0')");
     scratch.file(pathToC.getRelative("WORKSPACE").getPathString());
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
-        "bazel_dep(name='B',version='0.1')",
-        "local_path_override(module_name='C',path='" + pathToC.getPathString() + "')");
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='0.1')",
+        "local_path_override(module_name='ccc',path='" + pathToC.getPathString() + "')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
             .addModule(
-                createModuleKey("B", "0.1"),
-                "module(name='B', version='0.1');bazel_dep(name='C',version='1.0')")
-            .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0');");
+                createModuleKey("bbb", "0.1"),
+                "module(name='bbb', version='0.1');bazel_dep(name='ccc',version='1.0')")
+            .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0');");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =
@@ -570,28 +490,79 @@ public class DiscoveryTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
-    assertThat(discoveryValue.getDepGraph())
+    assertThat(discoveryValue.getDepGraph().entrySet())
         .containsExactly(
-            ModuleKey.ROOT,
-            Module.builder()
-                .setName("A")
-                .setVersion(Version.parse("0.1"))
+            ModuleBuilder.create("aaa", "0.1")
                 .setKey(ModuleKey.ROOT)
-                .addDep("B", createModuleKey("B", "0.1"))
-                .build(),
-            createModuleKey("B", "0.1"),
-            Module.builder()
-                .setName("B")
-                .setVersion(Version.parse("0.1"))
-                .setKey(createModuleKey("B", "0.1"))
-                .addDep("C", createModuleKey("C", ""))
+                .addDep("bbb", createModuleKey("bbb", "0.1"))
+                .buildEntry(),
+            ModuleBuilder.create("bbb", "0.1")
+                .addDep("ccc", createModuleKey("ccc", ""))
+                .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                 .setRegistry(registry)
-                .build(),
-            createModuleKey("C", ""),
-            Module.builder()
-                .setName("C")
-                .setVersion(Version.parse("2.0"))
-                .setKey(createModuleKey("C", ""))
-                .build());
+                .buildEntry(),
+            ModuleBuilder.create("ccc", "2.0").setKey(createModuleKey("ccc", "")).buildEntry());
+  }
+
+  @Test
+  public void testBuiltinModules_forRoot() throws Exception {
+    ImmutableMap<String, NonRegistryOverride> builtinModules =
+        ImmutableMap.of(
+            "bazel_tools",
+            LocalPathOverride.create(rootDirectory.getRelative("tools").getPathString()),
+            "local_config_platform",
+            LocalPathOverride.create(rootDirectory.getRelative("localplat").getPathString()));
+    setUpWithBuiltinModules(builtinModules);
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='foo',version='2.0')");
+    scratch.file(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
+    scratch.file(
+        rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
+        "module(name='bazel_tools',version='1.0')",
+        "bazel_dep(name='foo',version='1.0')");
+    scratch.file(rootDirectory.getRelative("localplat/WORKSPACE").getPathString());
+    scratch.file(
+        rootDirectory.getRelative("localplat/MODULE.bazel").getPathString(),
+        "module(name='local_config_platform')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')")
+            .addModule(createModuleKey("foo", "2.0"), "module(name='foo', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<DiscoveryValue> result =
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
+    assertThat(discoveryValue.getDepGraph().entrySet())
+        .containsExactly(
+            ModuleBuilder.create("", "")
+                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
+                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("foo", createModuleKey("foo", "2.0"))
+                .buildEntry(),
+            ModuleBuilder.create("bazel_tools", "1.0")
+                .setKey(createModuleKey("bazel_tools", ""))
+                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("foo", createModuleKey("foo", "1.0"))
+                .buildEntry(),
+            ModuleBuilder.create("local_config_platform", "")
+                .setKey(createModuleKey("local_config_platform", ""))
+                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
+                .buildEntry(),
+            ModuleBuilder.create("foo", "1.0")
+                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
+                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .setRegistry(registry)
+                .buildEntry(),
+            ModuleBuilder.create("foo", "2.0")
+                .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
+                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .setRegistry(registry)
+                .buildEntry());
   }
 }

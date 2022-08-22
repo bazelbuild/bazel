@@ -44,33 +44,59 @@ def _check_if_target_under_path(value, pattern):
 def _linking_suffix_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    target_under_test = analysistest.target_under_test(env)
-    actions = analysistest.target_actions(env)
+    if ctx.attr.is_linux:
+        target_under_test = analysistest.target_under_test(env)
+        actions = analysistest.target_actions(env)
 
-    args = actions[2].content.split("-Wl,-no-whole-archive")
-    asserts.true(env, "a_suffix" in args[-2].split("\n")[-2], "liba_suffix.a should be the last user library linked")
+        target_action = None
+        for action in actions:
+            if action.mnemonic == "FileWrite":
+                target_action = action
+                break
+        args = target_action.content.split("\n")
+        user_libs = []
+        for arg in args:
+            if arg.endswith(".o"):
+                user_libs.append(arg)
+        asserts.true(env, user_libs[-1].endswith("a_suffix.pic.o"), "liba_suffix.pic.o should be the last user library linked")
 
     return analysistest.end(env)
 
-linking_suffix_test = analysistest.make(_linking_suffix_test_impl)
+linking_suffix_test = analysistest.make(
+    _linking_suffix_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
 
 def _additional_inputs_test_impl(ctx):
     env = analysistest.begin(ctx)
 
-    target_under_test = analysistest.target_under_test(env)
-    actions = analysistest.target_actions(env)
+    if ctx.attr.is_linux:
+        target_under_test = analysistest.target_under_test(env)
+        actions = analysistest.target_actions(env)
 
-    found = False
-    for arg in actions[3].argv:
-        if arg.find("-Wl,--script=") != -1:
-            asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
-            found = True
-            break
-    asserts.true(env, found, "Should have seen option --script=")
+        found = False
+        target_action = None
+        for action in actions:
+            if action.mnemonic == "CppLink":
+                target_action = action
+                break
+        for arg in target_action.argv:
+            if arg.find("-Wl,--script=") != -1:
+                asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
+                found = True
+                break
+        asserts.true(env, found, "Should have seen option --script=")
 
     return analysistest.end(env)
 
-additional_inputs_test = analysistest.make(_additional_inputs_test_impl)
+additional_inputs_test = analysistest.make(
+    _additional_inputs_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
 
 def _build_failure_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -130,3 +156,58 @@ def _debug_files_test_impl(ctx):
     return analysistest.end(env)
 
 debug_files_test = analysistest.make(_debug_files_test_impl)
+
+def _runfiles_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    if not ctx.attr.is_linux:
+        return analysistest.end(env)
+
+    target_under_test = analysistest.target_under_test(env)
+    expected_suffixes = [
+        "libfoo_so.so",
+        "libbar_so.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
+    ]
+    for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
+        # Ignore Python runfiles
+        if "python" in runfile.path:
+            continue
+        found_suffix = False
+        for expected_suffix in expected_suffixes:
+            if runfile.path.endswith(expected_suffix):
+                found_suffix = True
+                break
+        asserts.true(env, found_suffix, runfile.path + " not found in expected suffixes:\n" + "\n".join(expected_suffixes))
+
+    return analysistest.end(env)
+
+runfiles_test = analysistest.make(
+    _runfiles_test_impl,
+    attrs = {
+        "is_linux": attr.bool(),
+    },
+)
+
+def _interface_library_output_group_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    if not ctx.attr.is_windows:
+        return analysistest.end(env)
+
+    target_under_test = analysistest.target_under_test(env)
+    actual_files = []
+    for interface_library in target_under_test[OutputGroupInfo].interface_library.to_list():
+        actual_files.append(interface_library.basename)
+    expected_files = ["foo_so.if.lib"]
+    asserts.equals(env, expected_files, actual_files)
+
+    return analysistest.end(env)
+
+interface_library_output_group_test = analysistest.make(
+    _interface_library_output_group_test_impl,
+    attrs = {
+        "is_windows": attr.bool(),
+    },
+)

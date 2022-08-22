@@ -24,6 +24,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.BackendConfig;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -317,8 +320,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_backend=inprocess",
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
         "--bes_timeout=5s");
+    ImmutableSet<BuildEventTransport> bepTransports = besModule.getBepTransports();
+    assertThat(bepTransports).hasSize(1);
     afterBuildCommand();
     assertContainsError("The Build Event Protocol upload timed out");
+    for (BuildEventTransport bepTransport : bepTransports) {
+      assertThat(bepTransport.close().isDone()).isTrue();
+    }
   }
 
   @Test
@@ -664,7 +672,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
    * with the file sets in a given output group.
    */
   @Nullable
-  private BuildEventStreamProtos.File findFileInNamedSets(
+  private static BuildEventStreamProtos.File findFileInNamedSets(
       Map<String, NamedSetOfFiles> namedSets,
       OutputGroup coverageOutputGroup,
       String fileNameToFind) {
@@ -695,9 +703,8 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     testOom(
         () -> {
           // Simulates an OOM coming from RetainedHeapLimiter, which reports the error by calling
-          // handleCrash. Attempt to halt the jvm will throw SecurityException in test.
-          assertThrows(
-              SecurityException.class, () -> BugReport.handleCrash(new OutOfMemoryError()));
+          // handleCrash. Uses keepAlive() to avoid exiting the JVM and aborting the test.
+          BugReport.handleCrash(Crash.from(new OutOfMemoryError()), CrashContext.keepAlive());
           BugReport.maybePropagateUnprocessedThrowableIfInTest();
         });
   }
@@ -945,13 +952,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     }
   }
 
-  private static class ErroringPublishBuildStreamObserver
+  private static final class ErroringPublishBuildStreamObserver
       implements StreamObserver<PublishBuildToolEventStreamRequest> {
 
     private final StreamObserver<PublishBuildToolEventStreamResponse> responseObserver;
     private final String errorMessage;
 
-    public ErroringPublishBuildStreamObserver(
+    ErroringPublishBuildStreamObserver(
         StreamObserver<PublishBuildToolEventStreamResponse> responseObserver, String errorMessage) {
       this.responseObserver = responseObserver;
       this.errorMessage = errorMessage;

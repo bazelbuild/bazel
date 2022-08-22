@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -72,27 +71,26 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void pythonVersionDefault() throws Exception {
-    assumesDefaultIsPY2();
     // When using toolchains, the python_version attribute is mandatory.
     useConfiguration("--incompatible_use_python_toolchains=false");
     scratch.file(
         "pkg/BUILD",
         "py_runtime(",
         "    name = 'myruntime_default',",
-        "    interpreter_path = '/system/interpreter',",
+        "    interpreter_path = '/default/interpreter',",
         ")",
         "py_runtime(",
         "    name = 'myruntime_explicit',",
-        "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY3',",
+        "    interpreter_path = '/explicit/interpreter',",
+        "    python_version = 'PY2',",
         ")");
     PyRuntimeInfo infoDefault =
         getConfiguredTarget("//pkg:myruntime_default").get(PyRuntimeInfo.PROVIDER);
     PyRuntimeInfo infoExplicit =
         getConfiguredTarget("//pkg:myruntime_explicit").get(PyRuntimeInfo.PROVIDER);
 
-    assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-    assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -106,6 +107,30 @@ public final class AggregatingTestListener {
       Preconditions.checkState(
           oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
     }
+  }
+
+  /**
+   * Creates the {@link TestResultAggregator} for the analyzed test target.
+   *
+   * <p>Since the event is fired from within a SkyFunction, it is possible to receive duplicate
+   * events. In case of duplication, simply return without creating any new aggregator.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void populateTest(TestAnalyzedEvent event) {
+    AggregationPolicy policy =
+        new AggregationPolicy(
+            eventBus,
+            executionOptions.testCheckUpToDate,
+            summaryOptions.testVerboseTimeoutWarnings);
+    ConfiguredTarget target = event.configuredTarget();
+    if (AliasProvider.isAlias(target) || aggregators.containsKey(asKey(target))) {
+      return;
+    }
+    aggregators.put(
+        asKey(target),
+        new TestResultAggregator(
+            target, event.buildConfigurationValue(), policy, event.isSkipped()));
   }
 
   /**
@@ -229,7 +254,9 @@ public final class AggregatingTestListener {
     DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
       ConfiguredTargetKey key = asKey(testTarget);
-      TestResultAggregator aggregator = aggregators.get(key);
+      TestResultAggregator aggregator =
+          Preconditions.checkNotNull(
+              aggregators.get(key), "Missing aggregator (key=%s, testTarget=%s)", key, testTarget);
       TestSummary summary;
       if (AliasProvider.isAlias(testTarget)) {
         TestSummary.Builder summaryBuilder = TestSummary.newBuilder(testTarget);
@@ -303,7 +330,7 @@ public final class AggregatingTestListener {
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
     return ConfiguredTargetKey.builder()
         .setLabel(target.getLabel())
-        .setConfigurationKey(target.getConfigurationKey())
+        .setConfigurationKey(target.getActual().getConfigurationKey())
         .build();
   }
 }

@@ -17,10 +17,11 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
@@ -49,7 +50,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     Path targetPath = directories.getWorkspace().getRelative(userDefinedPath);
     RepositoryDirectoryValue.Builder result =
         RepositoryDelegatorFunction.symlinkRepoRoot(
-            outputDirectory, targetPath, userDefinedPath, env);
+            directories, outputDirectory, targetPath, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
@@ -82,7 +83,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     } else {
       pathArg = Starlark.repr(path);
     }
-    String repr = Starlark.format("local_repository(name = %r, path = %s)", name, pathArg);
+    String repr =
+        String.format("local_repository(name = %s, path = %s)", Starlark.repr(name), pathArg);
     return new ResolvedEvent() {
       @Override
       public String getName() {
@@ -90,7 +92,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
             .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "local_repository")
             .put(

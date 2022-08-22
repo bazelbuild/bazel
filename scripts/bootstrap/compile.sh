@@ -26,10 +26,11 @@ fi
 # Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis
 GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
 PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto -name "*.proto")
-LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | grep -Fv third_party/netty_tcnative | tr "\n" " ")
-GRPC_JAVA_VERSION=1.41.0
+# For protobuf jars, derived/jars/com_google_protobuf/java/core/libcore.jar must be in front of derived/jars/com_google_protobuf/java/core/liblite.jar, so we sort jars here
+LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | sort | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | grep -Fv third_party/netty_tcnative | tr "\n" " ")
+GRPC_JAVA_VERSION=1.47.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-GUAVA_VERSION=31.0.1
+GUAVA_VERSION=31.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
@@ -184,7 +185,7 @@ the protoc compiler (as we prefer not to version generated files).
   compile.sh on the unpacked archive.
 
 The full install instructions to install a release version of bazel can be found
-at https://docs.bazel.build/install-compile-source.html
+at https://bazel.build/install/compile-source
 For a rationale, why the bootstrap process is organized in this way, see
 https://bazel.build/designs/2016/10/11/distribution-artifact.html
 --------------------------------------------------------------------------------

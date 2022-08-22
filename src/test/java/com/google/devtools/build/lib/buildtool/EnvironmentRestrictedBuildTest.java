@@ -20,20 +20,25 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests use of the --target_environment flag.
- */
-@RunWith(JUnit4.class)
+/** Tests use of the --target_environment flag. */
+@RunWith(TestParameterInjector.class)
 public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
+  @TestParameter boolean mergedSkyframeAnalysisExecution;
 
   @Before
   public final void addNoBuildOption() throws Exception  {
-    addOptions("--nobuild"); // Target enforcement happens before the execution phase.
+    if (mergedSkyframeAnalysisExecution) {
+      // TODO(b/223761810): Add --nobuild after Skymeld supports it.
+      addOptions("--experimental_merged_skyframe_analysis_execution");
+    } else {
+      addOptions("--nobuild"); // Target enforcement happens before the execution phase.
+    }
   }
 
   private void writeEnvironmentRules(String... defaults) throws Exception {
@@ -56,7 +61,6 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write("foo/BUILD",
         "sh_library(name = 'bar', srcs = ['bar.sh'])");
-
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar")))
         .hasMessageThat()
@@ -73,7 +77,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write("foo/BUILD",
         "sh_library(name = 'bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])");
-
+    write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:bar");
     assertThat(getResult().getSuccess()).isTrue();
@@ -101,7 +105,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules(":one");
     write("foo/BUILD",
         "sh_library(name = 'bar', srcs = ['bar.sh'])");
-
+    write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:bar");
     assertThat(getResult().getSuccess()).isTrue();
@@ -112,7 +116,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write("foo/BUILD",
         "sh_library(name = 'bar', srcs = ['bar.sh'])");
-
+    write("foo/bar.sh");
     buildTarget("//foo:bar");
     assertThat(getResult().getSuccess()).isTrue();
   }
@@ -123,6 +127,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     write("foo/BUILD",
         "sh_library(name = 'good_bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:one'])",
         "sh_library(name = 'bad_bar', srcs = ['bar.sh'], compatible_with = ['//buildenv:two'])");
+    write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one");
     assertThat(assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:all")))
         .hasMessageThat()
@@ -139,7 +144,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     writeEnvironmentRules();
     write("foo/BUILD",
         "sh_library(name = 'bar', srcs = ['bar.sh'])");
-
+    write("foo/bar.sh");
     addOptions("--target_environment=//buildenv:one", "--noenforce_constraints");
     buildTarget("//foo:bar");
     assertThat(getResult().getSuccess()).isTrue();
@@ -185,6 +190,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
         "    compatible_with = ['//buildenv:one', '//buildenv:two'])");
     // "--define mode=one" refines :toplevel to (matching) ["//buildenv:one"]:
     addOptions("--target_environment=//buildenv:one", "--define", "mode=one");
+    write("foo/toplevel.sh");
     buildTarget("//foo:toplevel");
     assertThat(getResult().getSuccess()).isTrue();
   }
@@ -249,7 +255,7 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
         "genrule(",
         "    name = 'goodgen',",
         "    srcs = [],",
-        "    cmd = '',",
+        "    cmd = 'touch $@',",
         "    outs = ['goodgen.out'],",
         "    compatible_with = ['//buildenv:one'])",
         "alias(",
@@ -405,39 +411,6 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
     addOptions("--build", "--auto_cpu_environment_group=//buildenv/auto_cpu:cpus", "--cpu=ppc");
     buildTarget("//foo:bar");
     assertThat(getResult().getSuccessfulTargets()).isEmpty();
-  }
-
-  @Test
-  public void autoTargetEnvironment_multi_cpu() throws Exception {
-    write(
-        "buildenv/auto_cpu/BUILD",
-        "environment_group(",
-        "    name = 'cpus',",
-        "    defaults = [':k8'],",
-        "    environments = [':k8', ':ppc'])",
-        "environment(name = 'k8')",
-        "environment(name = 'ppc')");
-
-    write(
-        "foo/bar.sh",
-        "echo Bar!");
-    write(
-        "foo/BUILD",
-        "sh_library(name = 'bar', srcs = ['bar.sh'], restricted_to = ['//buildenv/auto_cpu:k8'])");
-
-    addOptions(
-        "--build",
-        "--auto_cpu_environment_group=//buildenv/auto_cpu:cpus",
-        "--experimental_multi_cpu=k8,ppc");
-    buildTarget("//foo:bar");
-
-    ConfiguredTarget successful = Iterables.getOnlyElement(getResult().getSuccessfulTargets());
-    assertThat(getConfiguration(successful).getCpu()).isEqualTo("k8");
-    assertThat(successful.getLabel().toString()).isEqualTo("//foo:bar");
-
-    ConfiguredTarget skipped = Iterables.getOnlyElement(getResult().getSkippedTargets());
-    assertThat(getConfiguration(skipped).getCpu()).isEqualTo("ppc");
-    assertThat(skipped.getLabel().toString()).isEqualTo("//foo:bar");
   }
 
   @Test

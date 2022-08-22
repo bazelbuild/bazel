@@ -22,15 +22,41 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 
-/** Implements {code proto_lang_toolchain}. */
+/**
+ * Implements {code proto_lang_toolchain}.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class ProtoLangToolchainRule implements RuleDefinition {
+  private static final Label DEFAULT_PROTO_COMPILER =
+      Label.parseAbsoluteUnchecked(ProtoConstants.DEFAULT_PROTOC_LABEL);
+  private static final Attribute.LabelLateBoundDefault<?> PROTO_COMPILER =
+      Attribute.LabelLateBoundDefault.fromTargetConfiguration(
+          ProtoConfiguration.class,
+          DEFAULT_PROTO_COMPILER,
+          (rule, attributes, protoConfig) ->
+              protoConfig.protoCompiler() != null
+                  ? protoConfig.protoCompiler()
+                  : DEFAULT_PROTO_COMPILER);
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(progress_message) -->
+        This value will be set as the progress message on protoc action.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("progress_message", Type.STRING).value("Generating proto_library %{label}"))
+
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(mnemonic) -->
+        This value will be set as the mnemonic on protoc action.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("mnemonic", Type.STRING).value("GenProto"))
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(command_line) -->
         This value will be passed to proto-compiler to generate the code. Only include the parts
@@ -78,8 +104,22 @@ public class ProtoLangToolchainRule implements RuleDefinition {
             attr("blacklisted_protos", LABEL_LIST)
                 .allowedFileTypes()
                 .mandatoryProviders(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))
+
+        /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(proto_compiler) -->
+        The proto compiler executable.
+        If provided, this target will be used as a proto-compiler to generate the code.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("proto_compiler", LABEL)
+                .allowedFileTypes()
+                .cfg(ExecutionTransitionFactory.create())
+                .exec())
+        .add(
+            attr(":proto_compiler", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .exec()
+                .value(PROTO_COMPILER))
         .requiresConfigurationFragments(ProtoConfiguration.class)
-        .advertiseProvider(ProtoLangToolchainProvider.class)
         .removeAttribute("data")
         .removeAttribute("deps")
         .build();
@@ -90,7 +130,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("proto_lang_toolchain")
         .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
-        .factoryClass(ProtoLangToolchain.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

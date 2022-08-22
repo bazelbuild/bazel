@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -110,6 +111,12 @@ public final class CppIncludeScanningContextImpl implements CppIncludeScanningCo
     } catch (IOException e) {
       throw new EnvironmentalExecException(
           e, createFailureDetail("Include scanning IOException", Code.SCANNING_IO_EXCEPTION));
+    } catch (NoSuchPackageException e) {
+      throw new EnvironmentalExecException(
+          e,
+          createFailureDetail(
+              "Error for BUILD file during include scanning: " + e.getMessage(),
+              Code.PACKAGE_LOAD_FAILURE));
     }
   }
 

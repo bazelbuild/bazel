@@ -24,11 +24,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code bind} rule. */
 public final class Bind implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     if (ruleContext.getPrerequisite("actual") == null) {

@@ -31,3 +31,16 @@ Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_register
   // Currently not implemented.
   // https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-creatememoryresourcenotification
 }
+
+/*
+ * Class:     Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor
+ * Method:    systemMemoryPressure
+ * Signature: ()I
+ */
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_platform_SystemMemoryPressureMonitor_systemMemoryPressure(
+    JNIEnv *env, jclass) {
+  // Currently not implemented.
+  return 0;
+}
+

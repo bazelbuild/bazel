@@ -253,7 +253,7 @@ public class PersistentStringIndexerTest {
 
   @Test
   public void testCorruptedJournal() throws Exception {
-    FileSystemUtils.createDirectoryAndParents(journalPath.getParentDirectory());
+    journalPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(journalPath, "bogus content");
     IOException e =
         assertThrows(
@@ -351,7 +351,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isFalse();
 
     // Ensure that journal cannot be saved.
-    FileSystemUtils.createDirectoryAndParents(journalPath);
+    journalPath.createDirectoryAndParents();
 
     clock.advance(4);
     assertIndex(9, "abc1234"); // This should flush journal to disk (and fail at that).

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,63 +34,91 @@ public class ResourceShrinkerActionBuilder {
   private List<String> uncompressedExtensions = Collections.emptyList();
   private ResourceFilterFactory resourceFilterFactory = ResourceFilterFactory.empty();
 
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
       List<String> uncompressedExtensions) {
     this.uncompressedExtensions = uncompressedExtensions;
     return this;
   }
 
-  /** @param resourceFilterFactory The filters to apply to the resources. */
+  /**
+   * @param resourceFilterFactory The filters to apply to the resources.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder setResourceFilterFactory(
       ResourceFilterFactory resourceFilterFactory) {
     this.resourceFilterFactory = resourceFilterFactory;
     return this;
   }
 
-  /** @param resourceFilesZip A zip file containing the merged assets and resources to be shrunk. */
+  /**
+   * @param resourceFilesZip A zip file containing the merged assets and resources to be shrunk.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder withResourceFiles(Artifact resourceFilesZip) {
     this.resourceFilesZip = resourceFilesZip;
     return this;
   }
 
-  /** @param shrunkJar The deploy jar of the rule after a dead code removal Proguard pass. */
+  /**
+   * @param shrunkJar The deploy jar of the rule after a dead code removal Proguard pass.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder withShrunkJar(Artifact shrunkJar) {
     this.shrunkJar = shrunkJar;
     return this;
   }
 
-  /** @param proguardMapping The Proguard mapping between obfuscated and original code. */
+  /**
+   * @param proguardMapping The Proguard mapping between obfuscated and original code.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder withProguardMapping(Artifact proguardMapping) {
     this.proguardMapping = proguardMapping;
     return this;
   }
 
-  /** @param rTxt The R.txt file produced during resource packaging. */
+  /**
+   * @param rTxt The R.txt file produced during resource packaging.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder withRTxt(Artifact rTxt) {
     this.rTxt = rTxt;
     return this;
   }
 
-  /** @param resourceApkOut The location to write the shrunk resource ap_ package. */
+  /**
+   * @param resourceApkOut The location to write the shrunk resource ap_ package.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder setResourceApkOut(Artifact resourceApkOut) {
     this.resourceApkOut = resourceApkOut;
     return this;
   }
 
-  /** @param shrunkResourcesOut The location to write the shrunk resource files zip. */
+  /**
+   * @param shrunkResourcesOut The location to write the shrunk resource files zip.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder setShrunkResourcesOut(Artifact shrunkResourcesOut) {
     this.shrunkResourcesOut = shrunkResourcesOut;
     return this;
   }
 
-  /** @param resourceOptimizationConfigOut The location to write the config for the optimizer. */
+  /**
+   * @param resourceOptimizationConfigOut The location to write the config for the optimizer.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder setResourceOptimizationConfigOut(
       Artifact resourceOptimizationConfigOut) {
     this.resourceOptimizationConfigOut = resourceOptimizationConfigOut;
     return this;
   }
 
-  /** @param logOut The location to write the shrinker log. */
+  /**
+   * @param logOut The location to write the shrinker log.
+   */
+  @CanIgnoreReturnValue
   public ResourceShrinkerActionBuilder setLogOut(Artifact logOut) {
     this.logOut = logOut;
     return this;

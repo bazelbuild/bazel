@@ -20,6 +20,7 @@ import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.analysis.IClassCoverage;
@@ -44,17 +45,21 @@ public class JacocoLCOVFormatter {
   // jars passed through java_import or some custom rule where blaze doesn't have enough context to
   // compute the right paths, but relies on these pre-computed exec paths.
   // Exec paths can be provided in two formats, either as a plain string or as a delimited
-  // string mapping source file paths to class paths.
-  private final ImmutableSet<String> execPathsOfUninstrumentedFiles;
+  // string mapping source file paths to class paths. Coverage entries whose class-paths are not the
+  // suffix of any file in this list are discarded.  If not provided (as is
+  // the case when class is initialized with the zero-argument constructor), the entries are
+  // returned unchanged (but note this may result in LCOV output which do not reference actual
+  // file-paths).
+  private final Optional<ImmutableSet<String>> execPathsOfUninstrumentedFiles;
 
   private static final String EXEC_PATH_DELIMITER = "///";
 
   public JacocoLCOVFormatter(ImmutableSet<String> execPathsOfUninstrumentedFiles) {
-    this.execPathsOfUninstrumentedFiles = execPathsOfUninstrumentedFiles;
+    this.execPathsOfUninstrumentedFiles = Optional.of(execPathsOfUninstrumentedFiles);
   }
 
   public JacocoLCOVFormatter() {
-    this.execPathsOfUninstrumentedFiles = ImmutableSet.of();
+    this.execPathsOfUninstrumentedFiles = Optional.empty();
   }
 
   public IReportVisitor createVisitor(
@@ -64,13 +69,13 @@ public class JacocoLCOVFormatter {
       private Map<String, Map<String, IClassCoverage>> sourceToClassCoverage = new TreeMap<>();
       private Map<String, ISourceFileCoverage> sourceToFileCoverage = new TreeMap<>();
 
-      private String getExecPathForEntryName(String fileName) {
+      private String getExecPathForEntryName(String classPath) {
         if (execPathsOfUninstrumentedFiles.isEmpty()) {
-          return fileName;
+          return classPath;
         }
 
-        String matchingFileName = fileName.startsWith("/") ? fileName : "/" + fileName;
-        for (String execPath : execPathsOfUninstrumentedFiles) {
+        String matchingFileName = classPath.startsWith("/") ? classPath : "/" + classPath;
+        for (String execPath : execPathsOfUninstrumentedFiles.get()) {
           if (execPath.contains(EXEC_PATH_DELIMITER)) {
             String[] parts = execPath.split(EXEC_PATH_DELIMITER, 2);
             if (parts.length != 2) {

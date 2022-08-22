@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -57,16 +57,15 @@ import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Unit test for Java source file translation into ObjC in {@link
- * com.google.devtools.build.lib.rules.java.JavaLibrary} and translated file compilation and linking
- * in {@link ObjcBinary} and {@link J2ObjcLibrary}.
+ * Unit test for Java source file translation into ObjC in <code>java_library</code> and translated
+ * file compilation and linking in {@link ObjcBinary} and {@link J2ObjcLibrary}.
  */
 @RunWith(JUnit4.class)
 public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
@@ -371,7 +370,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)
-                .getGenfilesFragment(RepositoryName.create("@bla"))
+                .getGenfilesFragment(RepositoryName.create("bla"))
                 .getRelative("external/bla"));
   }
 
@@ -399,7 +398,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       String objFileName,
       Iterable<String> compilationInputExecPaths)
       throws Exception {
-    String labelName = Label.parseAbsolute(targetLabel, ImmutableMap.of()).getName();
+    String labelName = Label.parseCanonical(targetLabel).getName();
     CommandAction linkAction =
         (CommandAction)
             getGeneratingAction(
@@ -423,6 +422,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testNoJ2ObjcDeadCodeRemovalActionWithoutOptFlag() throws Exception {
     useConfiguration("--noj2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
     Artifact expectedPrunedSource = getBinArtifact(
@@ -529,16 +529,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getConfiguration(target).getBinDirectory(RepositoryName.MAIN).getExecPath() + "/";
     assertThat(baseArtifactNames(headerMappingAction.getInputs()))
         .containsAtLeast("libOne.java", "jar.srcjar");
-    assertThat(headerMappingAction.getArguments())
-        .containsExactly(
-            TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/j2objc/j2objc_header_map.py",
-            "--source_files",
-            "java/com/google/transpile/libOne.java",
-            "--source_jars",
-            "java/com/google/transpile/jar.srcjar",
-            "--output_mapping_file",
-            execPath + "java/com/google/transpile/lib1.mapping.j2objc")
-        .inOrder();
+    assertThat(headerMappingAction.getArguments().get(0))
+        .contains("tools/j2objc/j2objc_header_map_binary");
+    assertThat(headerMappingAction.getArguments().get(1)).isEqualTo("--source_files");
+    assertThat(headerMappingAction.getArguments().get(2))
+        .isEqualTo("java/com/google/transpile/libOne.java");
+    assertThat(headerMappingAction.getArguments().get(3)).isEqualTo("--source_jars");
+    assertThat(headerMappingAction.getArguments().get(4))
+        .isEqualTo("java/com/google/transpile/jar.srcjar");
+    assertThat(headerMappingAction.getArguments().get(5)).isEqualTo("--output_mapping_file");
+    assertThat(headerMappingAction.getArguments().get(6))
+        .isEqualTo(execPath + "java/com/google/transpile/lib1.mapping.j2objc");
   }
 
   protected void checkObjcCompileActions(
@@ -563,12 +564,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("app/Info.plist");
     scratch.file(
         "app/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "package(default_visibility=['//visibility:public'])",
         "objc_library(",
         "    name = 'lib',",
         "    deps = ['" + j2objcLibraryTargetDep + "'])",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'app',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -705,8 +707,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcAppearsInLinkArgs() throws Exception {
     scratch.file(
         "java/c/y/BUILD", "java_library(", "    name = 'ylib',", "    srcs = ['lib.java'],", ")");
+    addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "j2objc_library(",
         "    name = 'j2',",
         "    deps = [ '//java/c/y:ylib' ],",
@@ -714,7 +718,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             + TestConstants.TOOLS_REPOSITORY
             + "//third_party/java/j2objc:jre_io_lib' ],",
         ")",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'test',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -807,7 +811,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -867,7 +871,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
@@ -911,6 +915,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJ2ObjcSourcesCompilationAndLinking() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy/test:transpile");
 
     checkObjcArchiveAndLinkActions(
@@ -937,6 +942,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "        ':dummy',",
         "        '//java/com/google/dummy/test:transpile',",
         "    ])");
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/dummy:transpile");
 
     checkObjcArchiveAndLinkActions(
@@ -1040,17 +1046,17 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['j2objc_deploy.jar'])",
-        "filegroup(",
-        "    name = 'j2objc_wrapper',",
-        "    srcs = ['j2objc_wrapper.py'],",
+        "py_binary(",
+        "    name = 'j2objc_wrapper_binary',",
+        "    srcs = ['j2objc_wrapper_binary.py'],",
         ")",
         "proto_library(",
         "    name = 'excluded_protos',",
         "    srcs = ['proto_to_exclude.proto'],",
         ")",
-        "filegroup(",
-        "    name = 'j2objc_header_map',",
-        "    srcs = ['j2objc_header_map.py'],",
+        "py_binary(",
+        "    name = 'j2objc_header_map_binary',",
+        "    srcs = ['j2objc_header_map_binary.py'],",
         ")",
         "proto_lang_toolchain(",
         "    name = 'alt_j2objc_proto_toolchain',",
@@ -1117,6 +1123,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testJ2ObjcDeadCodeRemovalActionWithOptFlag() throws Exception {
     useConfiguration("--j2objc_dead_code_removal");
     addSimpleJ2ObjcLibraryWithEntryClasses();
+    addAppleBinaryStarlarkRule(scratch);
     addSimpleBinaryTarget("//java/com/google/app/test:transpile");
 
     ConfiguredTarget appTarget = getConfiguredTargetInAppleBinaryTransition("//app:app");
@@ -1156,20 +1163,14 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "com.google.app.test.test"));
 
     SpawnAction deadCodeRemovalAction = (SpawnAction) getGeneratingAction(prunedArchive);
-    assertContainsSublist(
-        deadCodeRemovalAction.getArguments(),
-        new ImmutableList.Builder<String>()
-            .add(
-                TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
-                    + "tools/objc/j2objc_dead_code_pruner.py")
-            .build());
+    assertThat(deadCodeRemovalAction.getArguments().get(0))
+        .contains("tools/objc/j2objc_dead_code_pruner_binary");
     assertThat(deadCodeRemovalAction.getOutputs()).containsExactly(prunedArchive);
   }
 
   /** Returns the actions created by the action template corresponding to given artifact. */
   protected ImmutableList<CppCompileAction> getActionsForInputsOfGeneratingActionTemplate(
-      Artifact artifact, TreeFileArtifact treeFileArtifact)
-      throws ActionTemplateExpansionException {
+      Artifact artifact, TreeFileArtifact treeFileArtifact) throws ActionExecutionException {
     CppCompileActionTemplate template =
         (CppCompileActionTemplate) getActionGraph().getGeneratingAction(artifact);
     return template.generateActionsForInputArtifacts(

@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * TestCompletionFunction builds all relevant test artifacts of a {@link
@@ -31,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public final class TestCompletionFunction implements SkyFunction {
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     TestCompletionValue.TestCompletionKey key =
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
@@ -55,11 +58,11 @@ public final class TestCompletionFunction implements SkyFunction {
         }
       }
     } else {
-      env.getValues(
+      if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissingMaybeWithExceptions(
+          env,
           Iterables.transform(
               TestProvider.getTestStatusArtifacts(ct),
-              Artifact.DerivedArtifact::getGeneratingActionKey));
-      if (env.valuesMissing()) {
+              Artifact.DerivedArtifact::getGeneratingActionKey))) {
         return null;
       }
     }

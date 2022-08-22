@@ -176,8 +176,8 @@ public class BazelRuleClassProviderTest {
             "--action_env=FOO=bar");
 
     ActionEnvironment env = BazelRuleClassProvider.SHELL_ACTION_ENV.apply(options);
-    assertThat(env.getFixedEnv().toMap()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
-    assertThat(env.getFixedEnv().toMap()).containsEntry("FOO", "bar");
+    assertThat(env.getFixedEnv()).containsEntry("PATH", "/bin:/usr/bin:/usr/local/bin");
+    assertThat(env.getFixedEnv()).containsEntry("FOO", "bar");
   }
 
   @Test
@@ -210,5 +210,36 @@ public class BazelRuleClassProviderTest {
     o.useStrictActionEnv = true;
     StrictActionEnvOptions h = o.getHost();
     assertThat(h.useStrictActionEnv).isTrue();
+  }
+
+  @Test
+  public void getShellExecutableUnset() {
+    assertThat(determineShellExecutable(OS.LINUX, null))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.FREEBSD, null))
+        .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
+    assertThat(determineShellExecutable(OS.OPENBSD, null))
+        .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
+    assertThat(determineShellExecutable(OS.WINDOWS, null))
+        .isEqualTo(PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"));
+  }
+
+  @Test
+  public void getShellExecutableIfSet() {
+    PathFragment binBash = PathFragment.create("/bin/bash");
+    assertThat(determineShellExecutable(OS.LINUX, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.FREEBSD, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.OPENBSD, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+    assertThat(determineShellExecutable(OS.WINDOWS, binBash))
+        .isEqualTo(PathFragment.create("/bin/bash"));
+  }
+
+  private static PathFragment determineShellExecutable(OS os, PathFragment executableOption) {
+    ShellConfiguration.Options options = Options.getDefaults(ShellConfiguration.Options.class);
+    options.shellExecutable = executableOption;
+    return BazelRuleClassProvider.getShellExecutableForOs(os, options);
   }
 }

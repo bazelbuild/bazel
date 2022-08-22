@@ -274,11 +274,13 @@ public abstract class FileValue implements SkyValue {
       return ImmutableList.of(rootedPath);
     }
 
+    @Nullable
     @Override
     public ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain() {
       return null;
     }
 
+    @Nullable
     @Override
     public ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain() {
       return null;

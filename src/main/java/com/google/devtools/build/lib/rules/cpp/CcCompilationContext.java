@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -42,8 +45,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextAp
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -388,12 +392,20 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ArrayList<Artifact> treeArtifacts)
         throws InterruptedException {
       if (!treeArtifacts.isEmpty()) {
-        Map<SkyKey, SkyValue> valueMap = env.getValues(treeArtifacts);
+        SkyframeIterableResult result = env.getOrderedValuesAndExceptions(treeArtifacts);
         if (env.valuesMissing()) {
           return false;
         }
-        for (SkyValue value : valueMap.values()) {
-          Preconditions.checkState(value instanceof TreeArtifactValue);
+        while (result.hasNext()) {
+          SkyValue value = result.next();
+          if (value == null) {
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    "Some value from " + treeArtifacts + " was missing, this should never happen"));
+            return false;
+          }
+          checkState(
+              value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
           TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
           for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
             pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
@@ -531,6 +543,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return usePic ? transitivePicModules : transitiveModules;
   }
 
+  @Override
+  public Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getTransitiveModules(usePic));
+  }
+
   /**
    * Returns the immutable set of additional transitive inputs needed for compilation, like C++
    * module map artifacts.
@@ -539,6 +558,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     addAdditionalInputs(builder);
     return builder.build();
+  }
+
+  @Override
+  public Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getAdditionalInputs());
   }
 
   /** Adds additional transitive inputs needed for compilation to builder. */
@@ -776,6 +801,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *     have many middlemen with distinct purposes.
      * @see MiddlemanFactory#createSchedulingDependencyMiddleman
      */
+    @CanIgnoreReturnValue
     public Builder setPurpose(String purpose) {
       this.purpose = purpose;
       return this;
@@ -789,6 +815,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * Merges the {@link CcCompilationContext} of a dependency into this one by adding the contents
      * of all of its attributes.
      */
+    @CanIgnoreReturnValue
     public Builder addDependentCcCompilationContext(
         CcCompilationContext otherCcCompilationContext) {
       deps.add(otherCcCompilationContext);
@@ -851,6 +878,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
      * attributes.
      */
+    @CanIgnoreReturnValue
     public Builder addDependentCcCompilationContexts(
         Iterable<CcCompilationContext> ccCompilationContexts) {
       deps.addAll(ccCompilationContexts);
@@ -862,6 +890,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * attributes, and re-exporting the direct headers and module maps of {@code
      * exportedCcCompilationContexts} through this one.
      */
+    @CanIgnoreReturnValue
     public Builder addDependentCcCompilationContexts(
         Iterable<CcCompilationContext> exportedCcCompilationContexts,
         Iterable<CcCompilationContext> ccCompilationContexts) {
@@ -909,12 +938,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
      * Before it is stored, the include directory is normalized.
      */
+    @CanIgnoreReturnValue
     public Builder addIncludeDir(PathFragment includeDir) {
       includeDirs.add(includeDir);
       return this;
     }
 
     /** See {@link #addIncludeDir(PathFragment)} */
+    @CanIgnoreReturnValue
     public Builder addIncludeDirs(Iterable<PathFragment> includeDirs) {
       this.includeDirs.addAll(includeDirs);
       return this;
@@ -926,12 +957,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
      * Before it is stored, the include directory is normalized.
      */
+    @CanIgnoreReturnValue
     public Builder addQuoteIncludeDir(PathFragment quoteIncludeDir) {
       quoteIncludeDirs.add(quoteIncludeDir);
       return this;
     }
 
     /** See {@link #addQuoteIncludeDir(PathFragment)} */
+    @CanIgnoreReturnValue
     public Builder addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
       this.quoteIncludeDirs.addAll(quoteIncludeDirs);
       return this;
@@ -943,12 +976,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}) or absolute.
      * Before it is stored, the include directory is normalized.
      */
+    @CanIgnoreReturnValue
     public Builder addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
       this.systemIncludeDirs.addAll(systemIncludeDirs);
       return this;
     }
 
     /** Add framewrok include directories to be added with "-F". */
+    @CanIgnoreReturnValue
     public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
       this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
       return this;
@@ -959,6 +994,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
      * from external files.
      */
+    @CanIgnoreReturnValue
     public Builder addExternalIncludeDir(PathFragment externalIncludeDir) {
       this.externalIncludeDirs.add(externalIncludeDir);
       return this;
@@ -969,12 +1005,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * be added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
      * from external files.
      */
+    @CanIgnoreReturnValue
     public Builder addExternalIncludeDirs(Iterable<PathFragment> externalIncludeDirs) {
       this.externalIncludeDirs.addAll(externalIncludeDirs);
       return this;
     }
 
     /** Add a single declared include dir, relative to a "-I" or "-iquote" directory". */
+    @CanIgnoreReturnValue
     public Builder addLooseHdrsDir(PathFragment dir) {
       looseHdrsDirs.add(dir);
       return this;
@@ -986,6 +1024,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * <p>Filters out fileset directory artifacts, which are not valid inputs.
      */
+    @CanIgnoreReturnValue
     public Builder addDeclaredIncludeSrc(Artifact header) {
       if (!header.isFileset()) {
         declaredIncludeSrcs.add(header);
@@ -1000,6 +1039,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * <p>Filters out fileset directory artifacts, which are not valid inputs.
      */
+    @CanIgnoreReturnValue
     public Builder addDeclaredIncludeSrcs(Iterable<Artifact> declaredIncludeSrcs) {
       for (Artifact source : declaredIncludeSrcs) {
         addDeclaredIncludeSrc(source);
@@ -1007,21 +1047,25 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addModularPublicHdrs(Collection<Artifact> headers) {
       this.headerInfoBuilder.addPublicHeaders(headers);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addModularPrivateHdrs(Collection<Artifact> headers) {
       this.headerInfoBuilder.addPrivateHeaders(headers);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addTextualHdrs(Collection<Artifact> headers) {
       this.headerInfoBuilder.addTextualHeaders(headers);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSeparateModuleHdrs(
         Collection<Artifact> headers,
         DerivedArtifact separateModule,
@@ -1031,36 +1075,42 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     /** Add a set of required non-code compilation input. */
+    @CanIgnoreReturnValue
     public Builder addNonCodeInputs(Iterable<Artifact> inputs) {
       nonCodeInputs.addAll(inputs);
       return this;
     }
 
     /** Adds a single define. */
+    @CanIgnoreReturnValue
     public Builder addDefine(String define) {
       defines.add(define);
       return this;
     }
 
     /** Adds multiple defines. */
+    @CanIgnoreReturnValue
     public Builder addDefines(Iterable<String> defines) {
       Iterables.addAll(this.defines, defines);
       return this;
     }
 
     /** Adds multiple non-transitive defines. */
+    @CanIgnoreReturnValue
     public Builder addNonTransitiveDefines(Iterable<String> defines) {
       Iterables.addAll(this.localDefines, defines);
       return this;
     }
 
     /** Sets the C++ module map. */
+    @CanIgnoreReturnValue
     public Builder setCppModuleMap(CppModuleMap cppModuleMap) {
       this.cppModuleMap = cppModuleMap;
       return this;
     }
 
     /** Causes the module map to be passed as an action input to dependant compilations. */
+    @CanIgnoreReturnValue
     public Builder setPropagateCppModuleMapAsActionInput(boolean propagateModuleMap) {
       this.propagateModuleMapAsActionInput = propagateModuleMap;
       return this;
@@ -1071,6 +1121,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * @param headerModule The .pcm file generated for this library.
      */
+    @CanIgnoreReturnValue
     Builder setHeaderModule(DerivedArtifact headerModule) {
       this.headerInfoBuilder.setHeaderModule(headerModule);
       return this;
@@ -1081,17 +1132,20 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * @param picHeaderModule The .pic.pcm file generated for this library.
      */
+    @CanIgnoreReturnValue
     Builder setPicHeaderModule(DerivedArtifact picHeaderModule) {
       this.headerInfoBuilder.setPicHeaderModule(picHeaderModule);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setHeadersCheckingMode(
         CppConfiguration.HeadersCheckingMode headersCheckingMode) {
       this.headersCheckingMode = headersCheckingMode;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addVirtualToOriginalHeaders(
         NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
       this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
@@ -1099,6 +1153,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     /** Adds a set of header tokens. */
+    @CanIgnoreReturnValue
     public Builder addHeaderTokens(Iterable<Artifact> headerTokens) {
       this.headerTokens.addAll(headerTokens);
       return this;
@@ -1415,21 +1470,25 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       private DerivedArtifact separatePicModule = null;
       private final List<HeaderInfo> deps = new ArrayList<>();
 
+      @CanIgnoreReturnValue
       Builder setHeaderModule(DerivedArtifact headerModule) {
         this.headerModule = headerModule;
         return this;
       }
 
+      @CanIgnoreReturnValue
       Builder setPicHeaderModule(DerivedArtifact headerModule) {
         this.picHeaderModule = headerModule;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addDep(HeaderInfo dep) {
         deps.add(dep);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addPublicHeaders(Collection<Artifact> headers) {
         // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
         // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
@@ -1443,6 +1502,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addPrivateHeaders(Collection<Artifact> headers) {
         // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
         // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
@@ -1456,11 +1516,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addTextualHeaders(Collection<Artifact> headers) {
         this.textualHeaders.addAll(headers);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setSeparateModuleHdrs(
           Collection<Artifact> headers,
           DerivedArtifact separateModule,
@@ -1472,6 +1534,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
 
       /** Adds the headers of the given {@code HeaderInfo} into the one being built. */
+      @CanIgnoreReturnValue
       public Builder mergeHeaderInfo(HeaderInfo otherHeaderInfo) {
         this.modularPublicHeaders.addAll(otherHeaderInfo.modularPublicHeaders);
         this.modularPrivateHeaders.addAll(otherHeaderInfo.modularPrivateHeaders);

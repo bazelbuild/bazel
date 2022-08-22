@@ -16,11 +16,9 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocumentMethods;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
@@ -48,7 +46,7 @@ public interface WorkspaceGlobalsApi {
               + "<code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is "
               + "specified, then the runfile will be symlinked to "
               + "<code>bar.runfiles/foo/bar</code>.</p> "
-              + "<p><a href=\"../../external.html\">Remote repository</a> rule names must be"
+              + "<p><a href=\"/docs/external\">Remote repository</a> rule names must be"
               + "  valid workspace names. For example, you could have"
               + "  <code>maven_jar(name = 'foo')</code>, but not"
               + "  <code>maven_jar(name = 'foo%bar')</code>, as Bazel would attempt to write a"
@@ -63,59 +61,16 @@ public interface WorkspaceGlobalsApi {
                     + "letters, numbers, underscores, dashes, and dots.",
             named = true,
             positional = false),
-        @Param(
-            name = "managed_directories",
-            named = true,
-            positional = false,
-            defaultValue = "{}",
-            doc =
-                "Dict (strings to list of strings) for defining the mappings between external"
-                    + " repositories and relative (to the workspace root) paths to directories"
-                    + " they incrementally update."
-                    + "\nManaged directories must be excluded from the source tree by listing"
-                    + " them (or their parent directories) in the .bazelignore file."),
       },
       useStarlarkThread = true)
-  void workspace(
-      String name,
-      Dict<?, ?> managedDirectories, // <String, Sequence<String>>
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
-      name = "toplevel_output_directories",
-      doc =
-          "Exclude directories under workspace from symlinking into execroot.\n"
-              + "<p>Normally, source directories are symlinked to the execroot, so that the"
-              + " actions can access the input (source) files.<p/><p>In the case of Ninja"
-              + " execution (enabled with --experimental_ninja_actions flag), it is typical that"
-              + " the directory with build-related files contains source files for the build, and"
-              + " Ninja prescribes creation of the outputs in that same directory.</p><p>Since"
-              + " commands in the Ninja file use relative paths to address source files and"
-              + " directories, we must still allow the execution in the same-named directory under"
-              + " the execroot. But we must avoid populating the underlying source directory with"
-              + " output files.</p><p>This method can be used to specify that Ninja build"
-              + " configuration directories should not be symlinked to the execroot. It is not"
-              + " expected that there could be other use cases for using this method.</p>",
-      parameters = {
-        @Param(
-            name = "paths",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-            doc = "",
-            named = true,
-            positional = false)
-      },
-      useStarlarkThread = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_NINJA_ACTIONS)
-  void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  void workspace(String name, StarlarkThread thread) throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "register_execution_platforms",
       doc =
           "Register an already-defined platform so that Bazel can use it as an "
-              + "<a href=\"../../toolchains.html#toolchain-resolution\">execution platform</a> "
-              + "during <a href=\"../../toolchains.html\">toolchain resolution</a>.",
+              + "<a href=\"${link toolchains#toolchain-resolution}\">execution platform</a> "
+              + "during <a href=\"${link toolchains}\">toolchain resolution</a>.",
       extraPositionals =
           @Param(
               name = "platform_labels",
@@ -129,9 +84,9 @@ public interface WorkspaceGlobalsApi {
       name = "register_toolchains",
       doc =
           "Register an already-defined toolchain so that Bazel can use it during "
-              + "<a href=\"../../toolchains.html\">toolchain resolution</a>. See examples of "
-              + "<a href=\"../../toolchains.html#defining-toolchains\">defining</a> and "
-              + "<a href=\"../../toolchains.html#registering-and-building-with-toolchains\">"
+              + "<a href=\"${link toolchains}\">toolchain resolution</a>. See examples of "
+              + "<a href=\"${link toolchains#defining-toolchains}\">defining</a> and "
+              + "<a href=\"${link toolchains#registering-and-building-with-toolchains}\">"
               + "registering toolchains</a>.",
       extraPositionals =
           @Param(
@@ -147,7 +102,7 @@ public interface WorkspaceGlobalsApi {
       doc =
           "<p>Warning: use of <code>bind()</code> is not recommended. See <a"
               + " href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider removing"
-              + " bind</a> for a long discussion if its issues and alternatives.</p> <p>Gives a"
+              + " bind</a> for a long discussion of its issues and alternatives.</p> <p>Gives a"
               + " target an alias in the <code>//external</code> package.</p>",
       parameters = {
         @Param(

@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -106,7 +106,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
   }
 

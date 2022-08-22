@@ -80,7 +80,9 @@
 
 using blaze_util::GetLastErrorString;
 
+#if !defined(_WIN32)
 extern char **environ;
+#endif
 
 namespace blaze {
 
@@ -952,7 +954,7 @@ static void BlessFiles(const string &embedded_binaries) {
 // no-one has modified the extracted files beneath this directory once
 // it is in place. Concurrency during extraction is handled by
 // extracting in a tmp dir and then renaming it into place where it
-// becomes visible automically at the new path.
+// becomes visible atomically at the new path.
 static DurationMillis ExtractData(const string &self_path,
                                   const vector<string> &archive_contents,
                                   const string &expected_install_md5,
@@ -1493,6 +1495,67 @@ static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
   return custom_exit_code;
 }
 
+void PrintBazelLeaf() {
+  // Bazel's basil leaf and B-shaped logo at initial release, back in 2015. The
+  // new heart shaped logo was unveiled in 2017:
+  // https://blog.bazel.build/2017/07/05/new-logo-and-homepage.html
+  const string leaf =
+      ".:                                                                    \n"
+      "+: `:`                                                                \n"
+      "o:  -o:`                                                              \n"
+      "o:   `:+/-.`                                                          \n"
+      "o:     `./oo+:-.``                                                    \n"
+      "o:        ``-/+soo//-`                                                \n"
+      "oo.            ..:+osso:-`                                            \n"
+      "oo.  `.``          `-:+sss+.`                                         \n"
+      "oo.  `://:.`           `-+sys:`                                       \n"
+      "oo.      .://:.`          `:oys:`                                     \n"
+      "oo+         .:+o/:`         `:syo-                                    \n"
+      "ooo            -/oo+:         `:ss-                                   \n"
+      "ooo              `:oso-.        -ys-                                  \n"
+      "ooo:               `:sss+.       :ss                                  \n"
+      ".oo/                 .osss-       :s/                                 \n"
+      ".oo+.                 `:sss+-      oo.                                \n"
+      " :oo/`                  -osss-     -s-                                \n"
+      " `+oo/                   .osss+.   `s-       `...:/://::::-           \n"
+      "  `+oo/`                  .ossso.   :-   `-/+oosos+sssssss-           \n"
+      "   `:+o+.`                 -ossso`  `` `:ossssssssssssssso.           \n"
+      "     `:+oo:.`               :ssss+`   .ossssssssssssssooo/            \n"
+      "       `:/+++/-.``           +ssss:   +sssssssssssoooooo+`            \n"
+      "          `-:++o+/:::````    -oooos` .osssoooooooooooooo-             \n"
+      "               ...-::::::---``ooooo- /oooo//ooooooooooo-              \n"
+      "                             `ooooo+`/oo//ooooooooooo+.               \n"
+      "                              /ooooo+oo/:oooooooooo/:.                \n"
+      "                              .ooooooo-.//+oooo//-.                   \n"
+      "                              .oooooo-     ````                       \n"
+      "                              .ooooo/`                                \n"
+      "                             `+/+oo+                                  \n"
+      "                             `++++++   `.--//////////:..``            \n"
+      "                             `+++++/`-:+++++++++++++++++//:.`         \n"
+      "                             `++++++/++++++++++++++++++++++//-.       \n"
+      "                             .++++++++++++/::.......-://+++++//:`     \n"
+      "                             /+++++++++/--`           `.-////////.`   \n"
+      "                             /+++++++/-`                 `-///////-   \n"
+      "                            `///////:`                     `-//////-  \n"
+      "                            -//////-                         .//////. \n"
+      "                            -/////-                           ://///: \n"
+      "                           `//////.                           `////::.\n"
+      "                           ./////:`                           `/:::::.\n"
+      "                           .//////.                           `::::::.\n"
+      "                           `::////.                           `:::::- \n"
+      "                            -::::::`                         `::::::- \n"
+      "                            `:::::::`                       `-::::::` \n"
+      "                             `:::::::.                     `-::::::.  \n"
+      "                              `:::::::-.                ``-:-::::-.   \n"
+      "                               `.:::::::--``         ``.--::-::--`    \n"
+      "                                 .-::::::::---.....---::::----.`      \n"
+      "                                  ``.-::::::::::::-::--------`        \n"
+      "                                      `.----------------..`           \n"
+      "                                         ```.........```             \n";
+
+  printf("%s\n", leaf.c_str());
+}
+
 void PrintVersionInfo(const string &self_path, const string &product_name) {
   string build_label;
   ExtractBuildLabel(self_path, &build_label);
@@ -1588,6 +1651,11 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   blaze_util::SetLogHandler(std::move(default_handler));
 
   const string self_path = GetSelfPath(argv[0]);
+
+  if (argc == 2 && strcmp(argv[1], "leaf") == 0) {
+    PrintBazelLeaf();
+    return blaze_exit_code::SUCCESS;
+  }
 
   if (argc == 2 && strcmp(argv[1], "--version") == 0) {
     PrintVersionInfo(self_path, option_processor->GetLowercaseProductName());

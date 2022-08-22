@@ -32,6 +32,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -175,8 +176,7 @@ public interface JavaCommonApi<
             doc =
                 "A string that specifies how to handle strict deps. Possible values: 'OFF', "
                     + "'ERROR', 'WARN' and 'DEFAULT'. For more details see "
-                    + "https://docs.bazel.build/versions/main/bazel-user-manual.html#"
-                    + "flag--strict_java_deps. By default 'ERROR'."),
+                    + "${link user-manual#flag--strict_java_deps}. By default 'ERROR'."),
         @Param(
             name = "java_toolchain",
             positional = false,
@@ -200,6 +200,12 @@ public interface JavaCommonApi<
             defaultValue = "[]"),
         @Param(
             name = "resources",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "resource_jars",
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
@@ -229,7 +235,45 @@ public interface JavaCommonApi<
                 "Enables header compilation or ijar creation. If set to False, it forces use of the"
                     + " full class jar in the compilation classpaths of any dependants. Doing so is"
                     + " intended for use by non-library targets such as binaries that do not have"
-                    + " dependants.")
+                    + " dependants."),
+        @Param(
+            name = "enable_jspecify",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
+            name = "include_compilation_info",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            documented = false),
+        @Param(
+            name = "injecting_rule_kind",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "add_exports",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            doc = "Allow this library to access the given <module>/<package>. Optional."),
+        @Param(
+            name = "add_opens",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            doc =
+                "Allow this library to reflectively access the given <module>/<package>."
+                    + " Optional."),
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -252,10 +296,16 @@ public interface JavaCommonApi<
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
+      Sequence<?> resourceJars, // <FileT> expected.
       Sequence<?> classpathResources, // <FileT> expected.
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Boolean enableJSpecify,
+      boolean includeCompilationInfo,
+      Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected.
+      Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -304,10 +354,7 @@ public interface JavaCommonApi<
               + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">run_ijar</a></code> "
               + "when possible.",
       parameters = {
-        @Param(
-            name = "actions",
-            named = true,
-            doc = "ctx.actions"),
+        @Param(name = "actions", named = true, doc = "ctx.actions"),
         @Param(
             name = "jar",
             positional = false,
@@ -436,10 +483,19 @@ public interface JavaCommonApi<
             named = false,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
+        @Param(
+            name = "merge_java_outputs",
+            positional = false,
+            named = true,
+            defaultValue = "True"),
+        @Param(name = "merge_source_jars", positional = false, named = true, defaultValue = "True"),
       },
       useStarlarkThread = true)
   JavaInfoT mergeJavaProviders(
-      Sequence<?> providers /* <JavaInfoT> expected. */, StarlarkThread thread)
+      Sequence<?> providers /* <JavaInfoT> expected. */,
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -626,4 +682,13 @@ public interface JavaCommonApi<
       useStarlarkThread = true)
   Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
       throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "experimental_java_proto_library_default_has_services",
+      documented = false,
+      useStarlarkSemantics = true,
+      structField = true,
+      doc = "Default value of java_proto_library.has_services")
+  boolean getExperimentalJavaProtoLibraryDefaultHasServices(StarlarkSemantics starlarkSemantics)
+      throws EvalException;
 }

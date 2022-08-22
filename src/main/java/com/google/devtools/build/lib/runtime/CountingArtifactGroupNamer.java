@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Conversion of paths to URIs. */
@@ -30,6 +31,7 @@ public class CountingArtifactGroupNamer implements ArtifactGroupNamer {
       new ConcurrentHashMap<>();
 
   @Override
+  @Nullable
   public NamedSetOfFilesId apply(NestedSet.Node id) {
     LatchedGroupName name = nodeNames.get(id);
     if (name == null) {
@@ -41,6 +43,7 @@ public class CountingArtifactGroupNamer implements ArtifactGroupNamer {
   /**
    * If the {@link NestedSet} has no name already, return a new name for it. Return null otherwise.
    */
+  @Nullable
   public LatchedGroupName maybeName(NestedSet<?> set) {
     NestedSet.Node id = set.toNode();
     LatchedGroupName existingGroupName;

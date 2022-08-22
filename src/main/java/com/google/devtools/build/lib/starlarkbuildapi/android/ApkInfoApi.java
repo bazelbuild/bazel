@@ -103,6 +103,16 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
   @Nullable
   FileT getSigningLineage();
 
+  /** Returns the minimum API version for signing the APK with key rotation. */
+  @StarlarkMethod(
+      name = "signing_min_v3_rotation_api_version",
+      doc = "Returns the minimum API version for signing the APK with key rotation.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  String getSigningMinV3RotationApiVersion();
+
   /** Provider for {@link ApkInfoApi}. */
   @StarlarkBuiltin(
       name = "ApkInfoApiProvider",

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -121,7 +121,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
   }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
  * A "deps" query expression, which computes the dependencies of the argument. An optional
@@ -61,14 +62,14 @@ final class DepsFunction implements QueryFunction {
       List<Argument> args,
       final Callback<T> callback) {
     QueryExpression queryExpression = args.get(0).getExpression();
-    final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
+    OptionalInt maxDepth =
+        args.size() > 1 ? OptionalInt.of(args.get(1).getInteger()) : OptionalInt.empty();
     if (env instanceof StreamableQueryEnvironment) {
-      if (args.size() == 1) {
-        return ((StreamableQueryEnvironment<T>) env)
-            .getDepsUnboundedParallel(queryExpression, context, callback, expression);
-      }
-      return ((StreamableQueryEnvironment<T>) env)
-          .getDepsBounded(queryExpression, context, callback, depthBound, expression);
+      return maxDepth.isPresent()
+          ? ((StreamableQueryEnvironment<T>) env)
+              .getDepsBounded(queryExpression, context, callback, maxDepth.getAsInt(), expression)
+          : ((StreamableQueryEnvironment<T>) env)
+              .getDepsUnboundedParallel(queryExpression, context, callback, expression);
     }
 
     if (env instanceof QueryEnvironment.CustomFunctionQueryEnvironment) {
@@ -80,7 +81,7 @@ final class DepsFunction implements QueryFunction {
               context,
               result ->
                   ((CustomFunctionQueryEnvironment<T>) env)
-                      .deps(result, depthBound, expression, callback),
+                      .deps(result, maxDepth, expression, callback),
               /* batch= */ true);
     }
 
@@ -93,11 +94,11 @@ final class DepsFunction implements QueryFunction {
           Iterables.addAll(current, partialResult);
           try (SilentCloseable closeable =
               Profiler.instance().profile("env.buildTransitiveClosure")) {
-            env.buildTransitiveClosure(expression, current, depthBound);
+            env.buildTransitiveClosure(expression, current, maxDepth);
           }
 
-          // We need to iterate depthBound + 1 times.
-          for (int i = 0; i <= depthBound; i++) {
+          int i = 0;
+          while (QueryEnvironment.shouldVisit(maxDepth, i++)) {
             // Filter already visited nodes: if we see a node in a later round, then we don't need
             // to visit it again, because the depth at which we see it at must be greater than or
             // equal to the last visit.

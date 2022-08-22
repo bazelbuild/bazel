@@ -47,9 +47,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
-import com.google.devtools.build.lib.authandtls.Netrc;
-import com.google.devtools.build.lib.authandtls.NetrcCredentials;
-import com.google.devtools.build.lib.authandtls.NetrcParser;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
@@ -71,12 +69,14 @@ import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -105,7 +105,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -216,9 +215,14 @@ public final class RemoteModule extends BlazeModule {
     try {
       creds =
           newCredentials(
-              env.getClientEnv(),
+              CredentialHelperEnvironment.newBuilder()
+                  .setEventReporter(env.getReporter())
+                  .setWorkspacePath(env.getWorkspace())
+                  .setClientEnvironment(env.getClientEnv())
+                  .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                  .build(),
+              env.getCommandLinePathFactory(),
               env.getRuntime().getFileSystem(),
-              env.getReporter(),
               authAndTlsOptions,
               remoteOptions);
     } catch (IOException e) {
@@ -260,7 +264,7 @@ public final class RemoteModule extends BlazeModule {
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
-    DigestUtil digestUtil = new DigestUtil(hashFn);
+    DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
 
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
@@ -431,9 +435,14 @@ public final class RemoteModule extends BlazeModule {
       callCredentialsProvider =
           GoogleAuthUtils.newCallCredentialsProvider(
               newCredentials(
-                  env.getClientEnv(),
+                  CredentialHelperEnvironment.newBuilder()
+                      .setEventReporter(env.getReporter())
+                      .setWorkspacePath(env.getWorkspace())
+                      .setClientEnvironment(env.getClientEnv())
+                      .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                      .build(),
+                  env.getCommandLinePathFactory(),
                   env.getRuntime().getFileSystem(),
-                  env.getReporter(),
                   authAndTlsOptions,
                   remoteOptions));
     } catch (IOException e) {
@@ -532,25 +541,10 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            remoteOptions.remoteInstanceName,
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions.remoteTimeout.getSeconds(),
-            retrier,
-            remoteOptions.maximumOpenFiles);
-
-    cacheChannel.release();
     RemoteCacheClient cacheClient =
         new GrpcCacheClient(
-            cacheChannel.retain(),
-            callCredentialsProvider,
-            remoteOptions,
-            retrier,
-            digestUtil,
-            uploader.retain());
-    uploader.release();
+            cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
+    cacheChannel.release();
 
     if (enableRemoteExecution) {
       if (enableDiskCache) {
@@ -561,8 +555,7 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
-                  cacheClient,
-                  remoteOptions);
+                  cacheClient);
         } catch (IOException e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -620,8 +613,7 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
                   digestUtil,
-                  cacheClient,
-                  remoteOptions);
+                  cacheClient);
         } catch (IOException e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -921,7 +913,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)
+      throws AbruptExitException {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkNotNull(remoteOptions, "remoteOptions must not be null");
 
@@ -933,21 +926,26 @@ public final class RemoteModule extends BlazeModule {
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
+      Path tempDir = env.getActionTempsDirectory().getChild("remote");
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getBuildRequestId(),
               env.getCommandId().toString(),
               actionContextProvider.getRemoteCache(),
-              env.getExecRoot());
+              env.getExecRoot(),
+              new TempPathGenerator(tempDir));
       builder.setActionInputPrefetcher(actionInputFetcher);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      actionContextProvider.setActionInputFetcher(actionInputFetcher);
     }
   }
 
   @Override
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions != null
+        && !remoteOptions.remoteOutputsMode.downloadAllOutputs()
+        && actionContextProvider.getRemoteCache() != null) {
       remoteOutputService = new RemoteOutputService();
     }
     return remoteOutputService;
@@ -1029,6 +1027,7 @@ public final class RemoteModule extends BlazeModule {
       this.delegate = null;
     }
 
+    @Nullable
     @Override
     public RepositoryRemoteExecutor create() {
       RepositoryRemoteExecutorFactory delegate = this.delegate;
@@ -1049,91 +1048,35 @@ public final class RemoteModule extends BlazeModule {
     return actionContextProvider;
   }
 
-  /**
-   * Create a new {@link Credentials} object by parsing the .netrc file with following order to
-   * search it:
-   *
-   * <ol>
-   *   <li>If environment variable $NETRC exists, use it as the path to the .netrc file
-   *   <li>Fallback to $HOME/.netrc
-   * </ol>
-   *
-   * @return the {@link Credentials} object or {@code null} if there is no .netrc file.
-   * @throws IOException in case the credentials can't be constructed.
-   */
-  @VisibleForTesting
-  static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
-      throws IOException {
-    String netrcFileString =
-        Optional.ofNullable(clientEnv.get("NETRC"))
-            .orElseGet(
-                () ->
-                    Optional.ofNullable(clientEnv.get("HOME"))
-                        .map(home -> home + "/.netrc")
-                        .orElse(null));
-    if (netrcFileString == null) {
-      return null;
-    }
-
-    Path netrcFile = fileSystem.getPath(netrcFileString);
-    if (netrcFile.exists()) {
-      try {
-        Netrc netrc = NetrcParser.parseAndClose(netrcFile.getInputStream());
-        return new NetrcCredentials(netrc);
-      } catch (IOException e) {
-        throw new IOException(
-            "Failed to parse " + netrcFile.getPathString() + ": " + e.getMessage(), e);
-      }
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * Create a new {@link Credentials} with following order:
-   *
-   * <ol>
-   *   <li>If authentication enabled by flags, use it to create credentials
-   *   <li>Use .netrc to provide credentials if exists
-   *   <li>Otherwise, return {@code null}
-   * </ol>
-   *
-   * @throws IOException in case the credentials can't be constructed.
-   */
-  @VisibleForTesting
   static Credentials newCredentials(
-      Map<String, String> clientEnv,
+      CredentialHelperEnvironment credentialHelperEnvironment,
+      CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
-      Reporter reporter,
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions)
       throws IOException {
-    Credentials creds = GoogleAuthUtils.newCredentials(authAndTlsOptions);
+    Credentials credentials =
+        GoogleAuthUtils.newCredentials(
+            credentialHelperEnvironment, commandLinePathFactory, fileSystem, authAndTlsOptions);
 
-    // Fallback to .netrc if it exists
-    if (creds == null) {
-      try {
-        creds = newCredentialsFromNetrc(clientEnv, fileSystem);
-      } catch (IOException e) {
-        reporter.handle(Event.warn(e.getMessage()));
+    try {
+      if (credentials != null
+          && remoteOptions.remoteCache != null
+          && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
+          && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
+        // TODO(yannic): Make this a error aborting the build.
+        credentialHelperEnvironment
+            .getEventReporter()
+            .handle(
+                Event.warn(
+                    "Credentials are transmitted in plaintext to "
+                        + remoteOptions.remoteCache
+                        + ". Please consider using an HTTPS endpoint."));
       }
-
-      try {
-        if (creds != null
-            && remoteOptions.remoteCache != null
-            && Ascii.toLowerCase(remoteOptions.remoteCache).startsWith("http://")
-            && !creds.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
-          reporter.handle(
-              Event.warn(
-                  "Username and password from .netrc is transmitted in plaintext to "
-                      + remoteOptions.remoteCache
-                      + ". Please consider using an HTTPS endpoint."));
-        }
-      } catch (URISyntaxException e) {
-        throw new IOException(e.getMessage(), e);
-      }
+    } catch (URISyntaxException e) {
+      throw new IOException(e.getMessage(), e);
     }
 
-    return creds;
+    return credentials;
   }
 }

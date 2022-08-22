@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -233,6 +235,7 @@ public class CppLinkActionBuilder {
     return this.linkingMode;
   }
 
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
     this.linkArtifactFactory = linkArtifactFactory;
     return this;
@@ -508,7 +511,7 @@ public class CppLinkActionBuilder {
       }
     }
 
-    return sharedNonLtoBackends.build();
+    return sharedNonLtoBackends.buildOrThrow();
   }
 
   @VisibleForTesting
@@ -543,6 +546,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Builds the Action as configured and returns it. */
+  @Nullable
   public CppLinkAction build() throws InterruptedException, RuleErrorException {
     NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 
@@ -760,7 +764,7 @@ public class CppLinkActionBuilder {
             .build();
 
     PathFragment paramRootPath =
-        ParameterFile.derivePath(outputRootPath, (isLtoIndexing) ? "lto-index" : "2");
+        ParameterFile.derivePath(outputRootPath,  isLtoIndexing ? "lto-index" : "2");
 
     @Nullable
     final Artifact paramFile =
@@ -798,7 +802,8 @@ public class CppLinkActionBuilder {
             allowLtoIndexing,
             nonExpandedLinkerInputs,
             needWholeArchive,
-            ruleErrorConsumer);
+            ruleErrorConsumer,
+            ((RuleContext) actionConstructionContext).getWorkspaceName());
     CollectedLibrariesToLink collectedLibrariesToLink =
         librariesToLinkCollector.collectLibrariesToLink();
 
@@ -820,7 +825,10 @@ public class CppLinkActionBuilder {
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
               configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
-              output.getRootRelativePath().getBaseName(),
+              SolibSymlinkAction.getDynamicLibrarySoname(
+                  output.getRootRelativePath(),
+                  /* preserveName= */ false,
+                  actionConstructionContext.getConfiguration().getMnemonic()),
               linkType.equals(LinkTargetType.DYNAMIC_LIBRARY),
               paramFile != null ? paramFile.getExecPathString() : null,
               thinltoParamFile != null ? thinltoParamFile.getExecPathString() : null,
@@ -1139,7 +1147,7 @@ public class CppLinkActionBuilder {
           linkArtifactFactory.create(
               actionConstructionContext, repositoryName, configuration, stampOutputPath));
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   protected ActionOwner getOwner() {
@@ -1148,12 +1156,14 @@ public class CppLinkActionBuilder {
   }
 
   /** Sets the mnemonic for the link action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setMnemonic(String mnemonic) {
     this.mnemonic = mnemonic;
     return this;
   }
 
   /** Set the crosstool inputs required for the action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setLinkerFiles(NestedSet<Artifact> linkerFiles) {
     this.linkerFiles = linkerFiles;
     return this;
@@ -1170,18 +1180,21 @@ public class CppLinkActionBuilder {
    * <p>When using this, build() will store allLtoArtifacts as a side-effect so the next build()
    * call can emit the real link. Do not call addInput() between the two build() calls.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setLtoIndexing(boolean ltoIndexing) {
     this.isLtoIndexing = ltoIndexing;
     return this;
   }
 
   /** Sets flag for using PIC in any scheduled LTO Backend actions. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setUsePicForLtoBackendActions(boolean usePic) {
     this.usePicForLtoBackendActions = usePic;
     return this;
   }
 
   /** Sets the C++ runtime library inputs for the action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setRuntimeInputs(
       ArtifactCategory runtimeType, NestedSet<Artifact> inputs) {
     this.toolchainLibrariesType = runtimeType;
@@ -1190,12 +1203,14 @@ public class CppLinkActionBuilder {
   }
 
   /** Adds a variables extension to template the toolchain for this link action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addVariablesExtension(VariablesExtension variablesExtension) {
     this.variablesExtensions.add(variablesExtension);
     return this;
   }
 
   /** Adds variables extensions to template the toolchain for this link action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addVariablesExtensions(List<VariablesExtension> variablesExtensions) {
     for (VariablesExtension variablesExtension : variablesExtensions) {
       addVariablesExtension(variablesExtension);
@@ -1207,11 +1222,13 @@ public class CppLinkActionBuilder {
    * Sets the interface output of the link. A non-null argument can only be provided if the link
    * type is {@code NODEPS_DYNAMIC_LIBRARY}.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setInterfaceOutput(Artifact interfaceOutput) {
     this.interfaceOutput = interfaceOutput;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLtoCompilationContext(
       LtoCompilationContext ltoCompilationContext) {
     Preconditions.checkState(this.ltoCompilationContext == null);
@@ -1219,6 +1236,7 @@ public class CppLinkActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setDefFile(Artifact defFile) {
     this.defFile = defFile;
     return this;
@@ -1237,6 +1255,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Adds a single object file to the set of inputs. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addObjectFile(Artifact input) {
     addObjectFile(
         LinkerInputs.simpleLinkerInput(
@@ -1248,6 +1267,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Adds object files to the linker action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addObjectFiles(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
       addObjectFile(input);
@@ -1260,6 +1280,7 @@ public class CppLinkActionBuilder {
    * unless that is explicitly modified, too.
    */
   // TOOD: Remove and just use method for addLinkerInputs
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addNonCodeInputs(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
       addNonCodeInput(input);
@@ -1272,6 +1293,7 @@ public class CppLinkActionBuilder {
    * Adds a single non-code file to the set of inputs. It will not be passed to the linker command
    * line unless that is explicitly modified, too.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addNonCodeInput(Artifact input) {
     this.nonCodeInputs.add(input);
     return this;
@@ -1290,6 +1312,7 @@ public class CppLinkActionBuilder {
    * library. Note that all directly added libraries are implicitly ordered before all nested sets
    * added with {@link #addLibraries}, even if added in the opposite order.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLibrary(LinkerInputs.LibraryToLink input) {
     checkLibrary(input);
     libraries.add(input);
@@ -1303,6 +1326,7 @@ public class CppLinkActionBuilder {
    * Adds multiple artifact to the set of inputs. The artifacts must be archives or shared
    * libraries.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLibraries(Collection<LinkerInputs.LibraryToLink> inputs) {
     for (LinkerInputs.LibraryToLink input : inputs) {
       checkLibrary(input);
@@ -1318,6 +1342,7 @@ public class CppLinkActionBuilder {
    * Sets the type of ELF file to be created (.a, .so, .lo, executable). The default is {@link
    * LinkTargetType#STATIC_LIBRARY}.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setLinkType(LinkTargetType linkType) {
     this.linkType = linkType;
     return this;
@@ -1328,6 +1353,7 @@ public class CppLinkActionBuilder {
    * mostly static (use dynamic binding only for symbols from glibc), dynamic (use dynamic binding
    * wherever possible). The default is {@link LinkingMode#STATIC}.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setLinkingMode(Link.LinkingMode linkingMode) {
     this.linkingMode = linkingMode;
     return this;
@@ -1337,6 +1363,7 @@ public class CppLinkActionBuilder {
    * Sets the identifier of the library produced by the action. See {@link
    * LinkerInputs.LibraryToLink#getLibraryIdentifier()}
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setLibraryIdentifier(String libraryIdentifier) {
     this.libraryIdentifier = libraryIdentifier;
     return this;
@@ -1350,11 +1377,13 @@ public class CppLinkActionBuilder {
    *
    * <p>Linkstamp object files are also automatically added to the inputs of the link action.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLinkstamps(Iterable<Linkstamp> linkstamps) {
     this.linkstampsBuilder.addAll(linkstamps);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setAdditionalLinkstampDefines(
       ImmutableList<String> additionalLinkstampDefines) {
     this.additionalLinkstampDefines = Preconditions.checkNotNull(additionalLinkstampDefines);
@@ -1362,6 +1391,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Adds an additional linker option. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLinkopt(String linkopt) {
     this.linkopts.add(linkopt);
     return this;
@@ -1372,6 +1402,7 @@ public class CppLinkActionBuilder {
    *
    * @see #addLinkopt(String)
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLinkopts(Collection<String> linkopts) {
     this.linkopts.addAll(linkopts);
     return this;
@@ -1381,6 +1412,7 @@ public class CppLinkActionBuilder {
    * Merges the given link params into this builder by calling {@link #addLinkopts}, {@link
    * #addLibraries}, and {@link #addLinkstamps}.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addLinkParams(
       List<LinkerInputs.LibraryToLink> libraries,
       List<String> userLinkFlags,
@@ -1398,6 +1430,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Sets whether this link action is used for a native dependency library. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setNativeDeps(boolean isNativeDeps) {
     this.isNativeDeps = isNativeDeps;
     return this;
@@ -1415,6 +1448,7 @@ public class CppLinkActionBuilder {
    * linkshared = 1, and giving the rule a name that matches the pattern {@code
    * lib&lt;name&gt;.so}.)
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setWholeArchive(boolean wholeArchive) {
     this.wholeArchive = wholeArchive;
     return this;
@@ -1424,12 +1458,14 @@ public class CppLinkActionBuilder {
    * Sets whether this link action should use test-specific flags (e.g. $EXEC_ORIGIN instead of
    * $ORIGIN for the solib search path or lazy binding); false by default.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setUseTestOnlyFlags(boolean useTestOnlyFlags) {
     this.useTestOnlyFlags = useTestOnlyFlags;
     return this;
   }
 
   /** Used to set the runfiles path for tests' dynamic libraries. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setTestOrTestOnlyTarget(boolean isTestOrTestOnlyTarget) {
     this.isTestOrTestOnlyTarget = isTestOrTestOnlyTarget;
     return this;
@@ -1438,12 +1474,14 @@ public class CppLinkActionBuilder {
   /**
    * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setGrepIncludes(Artifact grepIncludes) {
     this.grepIncludes = grepIncludes;
     return this;
   }
 
   /** Whether linkstamping is enabled. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setIsStampingEnabled(boolean isStampingEnabled) {
     this.isStampingEnabled = isStampingEnabled;
     return this;
@@ -1453,6 +1491,7 @@ public class CppLinkActionBuilder {
    * Sets the name of the directory where the solib symlinks for the dynamic runtime libraries live.
    * This is usually automatically set from the cc_toolchain.
    */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder setToolchainLibrariesSolibDir(
       PathFragment toolchainLibrariesSolibDir) {
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
@@ -1460,29 +1499,34 @@ public class CppLinkActionBuilder {
   }
 
   /** Adds an extra input artifact to the link action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addActionInput(Artifact input) {
     this.linkActionInputs.add(input);
     return this;
   }
 
   /** Adds extra input artifacts to the link action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addActionInputs(Iterable<Artifact> inputs) {
     this.linkActionInputs.addAll(inputs);
     return this;
   }
 
   /** Adds extra input artifacts to the link actions. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addTransitiveActionInputs(NestedSet<Artifact> inputs) {
     this.linkActionInputs.addTransitive(inputs);
     return this;
   }
 
   /** Adds an extra output artifact to the link action. */
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addActionOutput(Artifact output) {
     this.linkActionOutputs.add(output);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CppLinkActionBuilder addExecutionInfo(Map<String, String> executionInfo) {
     this.executionInfo.putAll(executionInfo);
     return this;

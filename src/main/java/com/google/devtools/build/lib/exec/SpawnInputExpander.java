@@ -130,7 +130,9 @@ public class SpawnInputExpander {
           if (localArtifact.isTreeArtifact()) {
             List<ActionInput> expandedInputs =
                 ActionInputHelper.expandArtifacts(
-                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
+                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact),
+                    artifactExpander,
+                    /* keepEmptyTreeArtifacts= */ false);
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
@@ -222,7 +224,12 @@ public class SpawnInputExpander {
       NestedSet<? extends ActionInput> inputFiles,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory) {
-    List<ActionInput> inputs = ActionInputHelper.expandArtifacts(inputFiles, artifactExpander);
+    // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
+    // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
+    // here to signal consumers that they should create the directory.
+    List<ActionInput> inputs =
+        ActionInputHelper.expandArtifacts(
+            inputFiles, artifactExpander, /* keepEmptyTreeArtifacts= */ true);
     for (ActionInput input : inputs) {
       addMapping(inputMap, input.getExecPath(), input, baseDirectory);
     }
@@ -230,8 +237,10 @@ public class SpawnInputExpander {
 
   /**
    * Convert the inputs and runfiles of the given spawn to a map from exec-root relative paths to
-   * {@link ActionInput}s. The returned map does not contain tree artifacts as they are expanded to
-   * file artifacts.
+   * {@link ActionInput}s. The returned map does not contain non-empty tree artifacts as they are
+   * expanded to file artifacts. Tree artifacts that would expand to the empty set under the
+   * provided {@link ArtifactExpander} are left untouched so that their corresponding empty
+   * directories can be created.
    *
    * <p>The returned map never contains {@code null} values.
    *

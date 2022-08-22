@@ -67,7 +67,6 @@ public final class Bazel {
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
           com.google.devtools.build.lib.dynamic.DynamicExecutionModule.class,
-          com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,
           com.google.devtools.build.lib.network.NoOpConnectivityModule.class,
@@ -80,7 +79,10 @@ public final class Bazel {
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
           BazelBuiltinCommandModule.class,
-          com.google.devtools.build.lib.includescanning.IncludeScanningModule.class);
+          com.google.devtools.build.lib.includescanning.IncludeScanningModule.class,
+          // This module needs to be registered after any module submitting tasks with its {@code
+          // submit} method.
+          com.google.devtools.build.lib.runtime.BlockWaitingModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
@@ -109,7 +111,7 @@ public final class Bazel {
           buildData.put(buildDataKey, props.getProperty(stringKey, ""));
         }
       }
-      return buildData.build();
+      return buildData.buildOrThrow();
     } catch (IOException ignored) {
       return ImmutableMap.of();
     }

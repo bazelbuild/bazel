@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@local_config_cc_toolchains//:osx_archs.bzl", "OSX_TOOLS_ARCHS")
+load("@bazel_tools//tools/osx/crosstool:osx_archs.bzl", "OSX_TOOLS_ARCHS")
 load("@rules_cc//cc:defs.bzl", "cc_toolchain_suite", "cc_library")
 load(":armeabi_cc_toolchain_config.bzl", "armeabi_cc_toolchain_config")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
@@ -10,7 +10,7 @@ load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 # https://github.com/bazelbuild/bazel/pull/8459 we had to move the file to
 # @local_config_cc_toolchains. This alias is there to keep the code backwards
 # compatible (and serves no other purpose).
-alias(name = "osx_archs.bzl", actual = "@local_config_cc_toolchains//:osx_archs.bzl")
+alias(name = "osx_archs.bzl", actual = "@bazel_tools//tools/osx/crosstool:osx_archs.bzl")
 
 CC_TOOLCHAINS = [(
     cpu + "|compiler",
@@ -79,6 +79,14 @@ cc_toolchain_suite(
     )
     for arch in OSX_TOOLS_ARCHS
 ]
+
+# When xcode_locator fails and causes cc_autoconf_toolchains to fall back
+# to the non-Xcode C++ toolchain, it uses the legacy cpu value to refer to
+# the toolchain, which is "darwin" for x86_64 macOS.
+alias(
+    name = "cc-compiler-darwin",
+    actual = ":cc-compiler-darwin_x86_64",
+)
 
 [
     cc_toolchain_config(

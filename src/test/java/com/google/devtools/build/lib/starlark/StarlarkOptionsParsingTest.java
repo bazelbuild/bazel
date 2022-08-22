@@ -23,9 +23,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
-import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
@@ -160,10 +158,11 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testSingleDash_notAllowed() throws Exception {
     writeBasicIntFlag();
 
-    OptionsParsingResult result = parseStarlarkOptions("-//test:my_int_setting=666");
-
-    assertThat(result.getStarlarkOptions()).isEmpty();
-    assertThat(result.getResidue()).containsExactly("-//test:my_int_setting=666");
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> parseStarlarkOptions("-//test:my_int_setting=666"));
+    assertThat(e).hasMessageThat().isEqualTo("Invalid options syntax: -//test:my_int_setting=666");
   }
 
   // test --non_flag_setting=value
@@ -380,35 +379,6 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         .isEqualTo(StarlarkInt.of(15));
   }
 
-  @Test
-  public void testRemoveStarlarkOptionsWorks() throws Exception {
-    Pair<ImmutableList<String>, ImmutableList<String>> residueAndStarlarkOptions =
-        StarlarkOptionsParser.removeStarlarkOptions(
-            ImmutableList.of(
-                "--//local/starlark/option",
-                "--//local/starlark/option=with_value",
-                "--@some_repo//external/starlark/option",
-                "--@some_repo//external/starlark/option=with_value",
-                "--@//main/repo/option",
-                "--@//main/repo/option=with_value",
-                "some-random-residue",
-                "--mangled//external/starlark/option",
-                "--mangled//external/starlark/option=with_value"));
-    assertThat(residueAndStarlarkOptions.getFirst())
-        .containsExactly(
-            "--//local/starlark/option",
-            "--//local/starlark/option=with_value",
-            "--@some_repo//external/starlark/option",
-            "--@some_repo//external/starlark/option=with_value",
-            "--@//main/repo/option",
-            "--@//main/repo/option=with_value");
-    assertThat(residueAndStarlarkOptions.getSecond())
-        .containsExactly(
-            "some-random-residue",
-            "--mangled//external/starlark/option",
-            "--mangled//external/starlark/option=with_value");
-  }
-
   /**
    * When Starlark flags are only set as flags, they shouldn't produce {@link
    * TargetParsingCompleteEvent}s. That's intended to communicate (to the build event protocol)
@@ -471,6 +441,29 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         "test/BUILD",
         "load('//test:build_setting.bzl', 'allow_multiple_flag')",
         "allow_multiple_flag(name = 'cats', build_setting_default = 'tabby')");
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
+
+    assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
+    assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
+        .containsExactly("calico", "bengal");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRepeatedStringListFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _build_setting_impl(ctx):",
+        "  return []",
+        "repeated_flag = rule(",
+        "  implementation = _build_setting_impl,",
+        "  build_setting = config.string_list(flag=True, repeatable=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'repeated_flag')",
+        "repeated_flag(name = 'cats', build_setting_default = ['tabby'])");
 
     OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
 

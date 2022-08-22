@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.StarlarkDefinedAspectSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -43,6 +46,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
+import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -68,6 +72,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Structure;
@@ -651,12 +656,26 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testAspectAddToolchain() throws Exception {
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        ev, "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
+        ev,
+        "def _impl(ctx): pass",
+        "a1 = aspect(_impl,",
+        "    toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "    ],",
+        ")");
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a1");
-    assertThat(a.getRequiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    assertThat(a).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(a).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(a).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(a).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(a).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(a).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(a).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(a).toolchainType("//test:my_toolchain_type4").isMandatory();
   }
 
   @Test
@@ -756,9 +775,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAttrCfg() throws Exception {
+  public void testAttrCfgNoMoreHost() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
-    assertThat(attr.getTransitionFactory().isHost()).isTrue();
+    assertThat(attr.getTransitionFactory().isHost()).isFalse();
+    assertThat(attr.getTransitionFactory().isTool()).isTrue();
+  }
+
+  @Test
+  public void testAttrCfgHostDisabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_disable_starlark_host_transitions");
+
+    EvalException ex = assertThrows(EvalException.class, () -> ev.eval("attr.label(cfg = 'host')"));
+    assertThat(ex).hasMessageThat().contains("Please use 'cfg = \"exec\"' instead");
   }
 
   @Test
@@ -771,7 +799,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void incompatibleDataTransition() throws Exception {
     EvalException expected =
         assertThrows(EvalException.class, () -> ev.eval("attr.label(cfg = 'data')"));
-    assertThat(expected).hasMessageThat().contains("cfg must be either 'host', 'target'");
+    assertThat(expected).hasMessageThat().contains("cfg must be either 'target', 'exec'");
   }
 
   @Test
@@ -1684,12 +1712,144 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void declaredProvidersWithInit() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_init(x, y = 'abc'):", //
+        "    return {'x': x, 'y': y}",
+        "data, _new_data = provider(init = _data_init)",
+        "d1 = data(x = 1)  # normal provider constructor",
+        "d1_x = d1.x",
+        "d1_y = d1.y",
+        "d2 = data(1, 'def')  # normal provider constructor invoked with positional arguments",
+        "d2_x = d2.x",
+        "d2_y = d2.y",
+        "d3 = _new_data(x = 2, y = 'xyz')  # raw constructor",
+        "d3_x = d3.x",
+        "d3_y = d3.y");
+
+    assertThat(ev.lookup("d1_x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("d1_y")).isEqualTo("abc");
+    assertThat(ev.lookup("d2_x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("d2_y")).isEqualTo("def");
+    assertThat(ev.lookup("d3_x")).isEqualTo(StarlarkInt.of(2));
+    assertThat(ev.lookup("d3_y")).isEqualTo("xyz");
+    StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
+    StarlarkCallable rawConstructor = (StarlarkCallable) ev.lookup("_new_data");
+    assertThat(rawConstructor).isNotInstanceOf(Provider.class);
+    assertThat(dataConstructor.getInit().getName()).isEqualTo("_data_init");
+
+    StructImpl data1 = (StructImpl) ev.lookup("d1");
+    StructImpl data2 = (StructImpl) ev.lookup("d2");
+    StructImpl data3 = (StructImpl) ev.lookup("d3");
+    assertThat(data1.getProvider()).isEqualTo(dataConstructor);
+    assertThat(data2.getProvider()).isEqualTo(dataConstructor);
+    assertThat(data3.getProvider()).isEqualTo(dataConstructor);
+    assertThat(dataConstructor.isExported()).isTrue();
+    assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
+    assertThat(dataConstructor.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "data"));
+  }
+
+  @Test
+  public void declaredProvidersWithFailingInit_rawConstructorSucceeds() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_failing_init(x):", //
+        "    fail('_data_failing_init fails')",
+        "data, _new_data = provider(init = _data_failing_init)");
+
+    StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
+
+    evalAndExport(ev, "d = _new_data(x = 1)  # raw constructor");
+    StructImpl data = (StructImpl) ev.lookup("d");
+    assertThat(data.getProvider()).isEqualTo(dataConstructor);
+  }
+
+  @Test
+  public void declaredProvidersWithFailingInit_normalConstructorFails() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_failing_init(x):", //
+        "    fail('_data_failing_init fails')",
+        "data, _new_data = provider(init = _data_failing_init)");
+
+    ev.checkEvalErrorContains("_data_failing_init fails", "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
+  public void declaredProvidersWithInitReturningInvalidType_normalConstructorFails()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_invalid_init(x):", //
+        "    return 'INVALID'",
+        "data, _new_data = provider(init = _data_invalid_init)");
+
+    ev.checkEvalErrorContains(
+        "got string for 'return value of provider init()', want dict",
+        "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
+  public void declaredProvidersWithInitReturningInvalidDict_normalConstructorFails()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_invalid_init(x):", //
+        "    return {('x', 'x', 'x'): x}",
+        "data, _new_data = provider(init = _data_invalid_init)");
+
+    ev.checkEvalErrorContains(
+        "got dict<tuple, int> for 'return value of provider init()'",
+        "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
+  public void declaredProvidersWithInitReturningUnexpectedFields_normalConstructorFails()
+      throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_unexpected_fields_init(x):", //
+        "    return {'x': x, 'y': x * 2}",
+        "data, _new_data = provider(fields = ['x'], init = _data_unexpected_fields_init)");
+
+    ev.checkEvalErrorContains(
+        "got unexpected field 'y' in call to instantiate provider data",
+        "d = data(x = 1)  # normal constructor");
+    assertThat(ev.lookup("d")).isNull();
+  }
+
+  @Test
   public void declaredProvidersConcatSuccess() throws Exception {
     evalAndExport(
         ev,
         "data = provider()",
         "dx = data(x = 1)",
         "dy = data(y = 'abc')",
+        "dxy = dx + dy",
+        "x = dxy.x",
+        "y = dxy.y");
+    assertThat(ev.lookup("x")).isEqualTo(StarlarkInt.of(1));
+    assertThat(ev.lookup("y")).isEqualTo("abc");
+    StarlarkProvider dataConstructor = (StarlarkProvider) ev.lookup("data");
+    StructImpl dx = (StructImpl) ev.lookup("dx");
+    assertThat(dx.getProvider()).isEqualTo(dataConstructor);
+    StructImpl dy = (StructImpl) ev.lookup("dy");
+    assertThat(dy.getProvider()).isEqualTo(dataConstructor);
+  }
+
+  @Test
+  public void declaredProvidersWithInitConcatSuccess() throws Exception {
+    evalAndExport(
+        ev,
+        "def _data_init(x):",
+        "    return {'x': x}",
+        "data, _new_data = provider(init = _data_init)",
+        "dx = data(x = 1)  # normal constructor",
+        "dy = _new_data(y = 'abc')  # raw constructor",
         "dxy = dx + dy",
         "x = dxy.x",
         "y = dxy.y");
@@ -2098,7 +2258,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.setFailFast(false);
     evalAndExport(ev, "p = provider(fields = ['x', 'y'])", "p1 = p(x = 1, y = 2, z = 3)");
     MoreAsserts.assertContainsEvent(
-        ev.getEventCollector(), "unexpected keyword z in call to instantiate provider p");
+        ev.getEventCollector(), "got unexpected field 'z' in call to instantiate provider p");
   }
 
   @Test
@@ -2109,7 +2269,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "p = provider(fields = [])", //
         "p1 = p(x = 1, y = 2, z = 3)");
     MoreAsserts.assertContainsEvent(
-        ev.getEventCollector(), "unexpected keywords x, y, z in call to instantiate provider p");
+        ev.getEventCollector(),
+        "got unexpected fields 'x', 'y', 'z' in call to instantiate provider p");
   }
 
   @Test
@@ -2157,25 +2318,60 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testRuleAddToolchain() throws Exception {
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "def impl(ctx): return None",
-        "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
+        "r1 = rule(impl,",
+        "    toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "    ],",
+        ")");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    assertThat(c).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(c).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(c).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(c).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(c).toolchainType("//test:my_toolchain_type4").isMandatory();
+  }
+
+  @Test
+  public void testRuleAddToolchain_duplicate() throws Exception {
+    evalAndExport(
+        ev,
+        "def impl(ctx): return None",
+        "r1 = rule(impl,",
+        "    toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type1'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type2', mandatory = False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type2', mandatory = True),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory = False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory = False),",
+        "    ],",
+        ")");
+
+    RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(c).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(c).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(c).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(c).toolchainType("//test:my_toolchain_type3").isOptional();
   }
 
   @Test
   public void testRuleAddExecutionConstraints() throws Exception {
     registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "r1 = rule(",
         "  implementation = impl,",
-        "  toolchains=['//test:my_toolchain_type'],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
@@ -2188,27 +2384,37 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testRuleAddExecGroup() throws Exception {
     registerDummyStarlarkFunction();
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "plum = rule(",
         "  implementation = impl,",
         "  exec_groups = {",
         "    'group': exec_group(",
-        "      toolchains=['//test:my_toolchain_type'],",
+        "      toolchains=[",
+        "        '//test:my_toolchain_type1',",
+        "        config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "        config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "        config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "      ],",
         "      exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         "    ),",
         "  },",
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
-    assertThat(plum.getRequiredToolchains()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
+    assertThat(plum.getToolchainTypes()).isEmpty();
+    ExecGroup execGroup = plum.getExecGroups().get("group");
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(execGroup).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(execGroup).toolchainType("//test:my_toolchain_type4").isMandatory();
+
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").execCompatibleWith())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(execGroup).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test
@@ -2247,20 +2453,29 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testCreateExecGroup() throws Exception {
-    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
         ev,
         "group = exec_group(",
-        "  toolchains=['//test:my_toolchain_type'],",
+        "  toolchains=[",
+        "    '//test:my_toolchain_type1',",
+        "    config_common.toolchain_type('//test:my_toolchain_type2'),",
+        "    config_common.toolchain_type('//test:my_toolchain_type3', mandatory=False),",
+        "    config_common.toolchain_type('//test:my_toolchain_type4', mandatory=True),",
+        "  ],",
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    assertThat(group.requiredToolchains())
-        .containsExactly(Label.parseAbsoluteUnchecked("//test:my_toolchain_type"));
-    assertThat(group.execCompatibleWith())
-        .containsExactly(
-            Label.parseAbsoluteUnchecked("//constraint:cv1"),
-            Label.parseAbsoluteUnchecked("//constraint:cv2"));
+    assertThat(group).hasToolchainType("//test:my_toolchain_type1");
+    assertThat(group).toolchainType("//test:my_toolchain_type1").isMandatory();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type2");
+    assertThat(group).toolchainType("//test:my_toolchain_type2").isMandatory();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type3");
+    assertThat(group).toolchainType("//test:my_toolchain_type3").isOptional();
+    assertThat(group).hasToolchainType("//test:my_toolchain_type4");
+    assertThat(group).toolchainType("//test:my_toolchain_type4").isMandatory();
+
+    assertThat(group).hasExecCompatibleWith("//constraint:cv1");
+    assertThat(group).hasExecCompatibleWith("//constraint:cv2");
   }
 
   @Test
@@ -2419,5 +2634,191 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 .get("aspect_attr")
                 .getDefaultValueUnchecked())
         .isEqualTo("v1");
+  }
+
+  @Test
+  public void testAnalysisTest() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    getConfiguredTarget("//p:my_test_target");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAnalysisTestAttrs() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  ctx.attr.target_under_test",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  native.filegroup(name = 'my_subject', srcs = [])",
+        "  analysis_test(name = name,",
+        "    implementation = impl,",
+        "    attrs = {'target_under_test': attr.label_list()},",
+        "    attr_values = {'target_under_test': [':my_subject']},",
+        "  )");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    getConfiguredTarget("//p:my_test_target");
+
+    assertNoEvents();
+  }
+
+  /** Tests two analysis_test calls with same name. */
+  @Test
+  public void testAnalysisTestDuplicateName() throws Exception {
+    scratch.file(
+        "p/a.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro1(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro2(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':a.bzl','my_test_macro1')",
+        "load(':b.bzl','my_test_macro2')",
+        "my_test_macro1(name = 'my_test_target')",
+        "my_test_macro2(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my_test_target");
+
+    ev.assertContainsError(
+        "Error in analysis_test: my_test_target_test rule 'my_test_target' in package 'p' conflicts"
+            + " with existing my_test_target_test rule");
+  }
+
+  /**
+   * Tests analysis_test call with a name that is not Starlark identifier (but still a good target
+   * name).
+   */
+  @Test
+  public void testAnalysisTestBadName() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my+test+target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my+test+target");
+
+    ev.assertContainsError(
+        "Error in analysis_test: 'name' is limited to Starlark identifiers, got my+test+target");
+  }
+
+  @Test
+  public void testAnalysisTestBadArgs() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl, attr_values = {'notthere': []})");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my_test_target");
+
+    ev.assertContainsError("no such attribute 'notthere' in 'my_test_target_test' rule");
+  }
+
+  @Test
+  public void testAnalysisTestErrorOnExport() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl, attrs = {'name': attr.string()})");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:my_test_target");
+
+    ev.assertContainsError(
+        "Error in analysis_test: Errors in exporting my_test_target: \n"
+            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
+            + " overridden.");
+  }
+
+  @Test
+  public void testAnalysisTestErrorOverridingName() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def my_test_macro(name):",
+        "  analysis_test(name = name, implementation = impl, attr_values = {'name': 'override'})");
+    scratch.file(
+        "p/BUILD", //
+        "load(':b.bzl','my_test_macro')",
+        "my_test_macro(name = 'my_test_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//p:override");
+
+    ev.assertContainsError(
+        "Error in analysis_test: 'name' cannot be set or overridden in 'attr_values'");
   }
 }

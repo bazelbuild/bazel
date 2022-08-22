@@ -58,12 +58,17 @@ public abstract class Worker {
     return logFile;
   }
 
+  /** Returns the worker key of this worker */
+  public WorkerKey getWorkerKey() {
+    return workerKey;
+  }
+
   HashCode getWorkerFilesCombinedHash() {
     return workerKey.getWorkerFilesCombinedHash();
   }
 
-  SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
-    return workerKey.getWorkerFilesWithHashes();
+  SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests() {
+    return workerKey.getWorkerFilesWithDigests();
   }
 
   /** Returns true if this worker is sandboxed. */

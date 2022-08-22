@@ -34,20 +34,4 @@
 #define FALLTHROUGH_INTENDED do { } while (0)
 #endif
 
-#define CHECK(condition) \
-    do { \
-      if (!(condition)) { \
-        fprintf(stderr, "%s:%d: check failed: %s\n", \
-                __FILE__, __LINE__, #condition); \
-        abort(); \
-      } \
-    } while (0)
-
-#define CHECK_EQ(a, b) CHECK((a) == (b))
-#define CHECK_NEQ(a, b) CHECK((a) != (b))
-#define CHECK_GT(a, b) CHECK((a) > (b))
-#define CHECK_GE(a, b) CHECK((a) >= (b))
-#define CHECK_LT(a, b) CHECK((a) < (b))
-#define CHECK_LE(a, b) CHECK((a) <= (b))
-
 #endif // MACROS_H__

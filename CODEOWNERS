@@ -17,23 +17,32 @@
 # Android
 
 # android/ directory anywhere in the repository
-android/ @ahumesky
+android/ @ahumesky @ted-xie
 
-/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/desugar/ @ahumesky @ted-xie @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @kevin1e100
+/src/test/java/com/google/devtools/build/android/desugar/ @ahumesky @ted-xie @kevin1e100
 
-/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
+/src/tools/android/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
-/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @kevin1e100
+/src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
 # Apple
 
-/src/test/shell/bazel/apple/ @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl
+/src/main/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
+/src/test/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
+/src/test/shell/bazel/apple @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl @bazelbuild/rules_apple-team
+/tools/osx @bazelbuild/rules_apple-team
+
+# Bzlmod
+
+/src/main/java/com/google/devtools/build/lib/bazel/bzlmod @Wyverald @meteorcloudy
+/src/test/java/com/google/devtools/build/lib/bazel/bzlmod @Wyverald @meteorcloudy
+/src/test/py/bazel/bzlmod @Wyverald @meteorcloudy
 
 # Documentation
 
-/site @aiuto @gregestren @jin @floriographygoth
+/site @gregestren @philomathing @fweikert
 
 # C++
 
@@ -53,6 +62,11 @@ android/ @ahumesky
 
 /src/tools/singlejar/ @asmundak
 
+# Python
+
+/src/main/java/com/google/devtools/build/lib/bazel/rules/python/ @comius @rickeylev
+/src/main/java/com/google/devtools/build/lib/rules/python/ @comius @rickeylev
+
 # Execution and I/O related code
 
 /src/main/java/com/google/devtools/build/lib/rules/ @lberki
@@ -65,6 +79,14 @@ android/ @ahumesky
 /tools/test/collect_coverage.sh @lberki
 /tools/test/collect_cc_coverage.sh @lberki
 /tools/test/CoverageOutputGenerator/ @lberki
+
+# Configurability
+
+/src/main/java/com/google/devtools/build/lib/analysis @bazelbuild/configurability
+/src/test/java/com/google/devtools/build/lib/analysis @bazelbuild/configurability
+/src/main/java/com/google/devtools/build/lib/rules/platform @bazelbuild/configurability
+/src/test/java/com/google/devtools/build/lib/rules/platform @bazelbuild/configurability
+/tools/platforms @bazelbuild/configurability
 
 # Remote Execution
 

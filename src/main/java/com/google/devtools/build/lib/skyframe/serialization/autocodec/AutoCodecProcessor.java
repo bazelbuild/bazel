@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -432,6 +433,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     UNRELATED_TO
   }
 
+  @Nullable
   private Relation findRelationWithGenerics(TypeMirror type1, TypeMirror type2) {
     if (type1.getKind() == TypeKind.TYPEVAR
         || type1.getKind() == TypeKind.WILDCARD
@@ -508,7 +510,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
         }
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
-            "$T unsafe_$L = ($T) $T.getInstance().get$L(input, $L_offset)",
+            "$T unsafe_$L = ($T) $T.unsafe().get$L(input, $L_offset)",
             sanitizeTypeParameter(parameter.asType(), env),
             parameter.getSimpleName(),
             sanitizeTypeParameter(parameter.asType(), env),
@@ -676,7 +678,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
           TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
       constructor.beginControlFlow("try");
       constructor.addStatement(
-          "this.$L_offset = $T.getInstance().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
+          "this.$L_offset = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
           param.getSimpleName(),
           UnsafeProvider.class,
           ClassName.get(field.get().declaringClassType),

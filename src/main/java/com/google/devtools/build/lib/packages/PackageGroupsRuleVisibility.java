@@ -27,8 +27,7 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
   private final PackageGroupContents directPackages;
   private final List<Label> declaredLabels;
 
-  // TODO(b/200024947): Remove the unused argument.
-  private PackageGroupsRuleVisibility(Label unusedRuleLabel, List<Label> labels) {
+  private PackageGroupsRuleVisibility(List<Label> labels) {
     declaredLabels = ImmutableList.copyOf(labels);
     ImmutableList.Builder<PackageSpecification> directPackageBuilder = ImmutableList.builder();
     ImmutableList.Builder<Label> packageGroupBuilder = ImmutableList.builder();
@@ -68,10 +67,10 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
    * Tries to parse a list of labels into a {@link PackageGroupsRuleVisibility}.
    *
    * @param labels the list of labels to parse
-   * @return The resulting visibility object. A list of labels can always be
-   * parsed into a PackageGroupsRuleVisibility.
+   * @return The resulting visibility object. A list of labels can always be parsed into a
+   *     PackageGroupsRuleVisibility.
    */
-  public static PackageGroupsRuleVisibility tryParse(Label ruleLabel, List<Label> labels) {
-    return new PackageGroupsRuleVisibility(ruleLabel, labels);
+  public static PackageGroupsRuleVisibility tryParse(List<Label> labels) {
+    return new PackageGroupsRuleVisibility(labels);
   }
 }

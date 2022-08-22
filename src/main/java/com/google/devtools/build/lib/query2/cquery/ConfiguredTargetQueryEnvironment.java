@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -80,6 +81,8 @@ public class ConfiguredTargetQueryEnvironment
 
   private CqueryOptions cqueryOptions;
 
+  private final TopLevelArtifactContext topLevelArtifactContext;
+
   private final KeyExtractor<KeyedConfiguredTarget, ConfiguredTargetKey>
       configuredTargetKeyExtractor;
 
@@ -118,7 +121,8 @@ public class ConfiguredTargetQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings)
+      Set<Setting> settings,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     super(
         keepGoing,
@@ -134,6 +138,7 @@ public class ConfiguredTargetQueryEnvironment
     this.configuredTargetKeyExtractor = KeyedConfiguredTarget::getConfiguredTargetKey;
     this.transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
+    this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
   public ConfiguredTargetQueryEnvironment(
@@ -146,7 +151,8 @@ public class ConfiguredTargetQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      CqueryOptions cqueryOptions)
+      CqueryOptions cqueryOptions,
+      TopLevelArtifactContext topLevelArtifactContext)
       throws InterruptedException {
     this(
         keepGoing,
@@ -158,7 +164,8 @@ public class ConfiguredTargetQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
-        cqueryOptions.toSettings());
+        cqueryOptions.toSettings(),
+        topLevelArtifactContext);
     this.cqueryOptions = cqueryOptions;
   }
 
@@ -217,7 +224,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
-            OutputType.BINARY),
+            OutputType.BINARY,
+            trimmingTransitionFactory),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -225,7 +233,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
-            OutputType.TEXT),
+            OutputType.TEXT,
+            trimmingTransitionFactory),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -233,7 +242,8 @@ public class ConfiguredTargetQueryEnvironment
             skyframeExecutor,
             accessor,
             aspectResolver,
-            OutputType.JSON),
+            OutputType.JSON,
+            trimmingTransitionFactory),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new GraphOutputFormatterCallback(
@@ -244,7 +254,9 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             kct -> getFwdDeps(ImmutableList.of(kct))),
         new StarlarkOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+        new FilesOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
   }
 
   @Override
@@ -344,17 +356,18 @@ public class ConfiguredTargetQueryEnvironment
    *
    * @param pattern the original pattern that {@code targets} were parsed from. Used for error
    *     message.
-   * @param targets the set of {@link ConfiguredTarget}s whose labels represent the targets being
-   *     requested.
+   * @param targetsFuture the set of {@link ConfiguredTarget}s whose labels represent the targets
+   *     being requested.
    * @param configPrefix the configuration to request {@code targets} in. This can be the
    *     configuration's checksum, any prefix of its checksum, or the special identifiers "host",
    *     "target", or "null".
    * @param callback the callback to receive the results of this method.
    * @return {@link QueryTaskCallable} that returns the correctly configured targets.
    */
-  QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
+  @SuppressWarnings("unchecked")
+  <T> QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
       String pattern,
-      ThreadSafeMutableSet<KeyedConfiguredTarget> targets,
+      QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture,
       String configPrefix,
       Callback<KeyedConfiguredTarget> callback) {
     // There's no technical reason other callers beside ConfigFunction can't call this. But they'd
@@ -362,6 +375,8 @@ public class ConfiguredTargetQueryEnvironment
     // remove that line: the counter-priority is making error messages as clear, precise, and
     // actionable as possible.
     return () -> {
+      ThreadSafeMutableSet<KeyedConfiguredTarget> targets =
+          (ThreadSafeMutableSet<KeyedConfiguredTarget>) targetsFuture.getIfSuccessful();
       List<KeyedConfiguredTarget> transformedResult = new ArrayList<>();
       boolean userFriendlyConfigName = true;
       for (KeyedConfiguredTarget target : targets) {
@@ -413,7 +428,7 @@ public class ConfiguredTargetQueryEnvironment
                       + "A short ID is any prefix of a full ID. cquery shows short IDs. 'bazel "
                       + "config' shows full IDs.\n"
                       + "\n"
-                      + "For more help, see https://docs.bazel.build/cquery.html.",
+                      + "For more help, see https://bazel.build/docs/cquery.",
                   ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
             }
         }

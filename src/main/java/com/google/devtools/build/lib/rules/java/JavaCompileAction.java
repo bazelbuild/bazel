@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.flogger.LazyArgs.lazy;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -76,7 +78,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -112,8 +113,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   enum CompilationType {
     JAVAC("Javac"),
-    // TODO(cushon): rename the mnemonic to 'Turbine' after javac-turbine is turned down (and after
-    // collecting data on the perform impact of the turndown)
+    // 'javac turbine' has been replaced by just 'turbine', but the mnemonic is unchanged for
+    // continuity in the blaze performance logs, and to distinguish direct classpath actions
+    // which use the 'Turbine' mnemonic.
+    // TODO(b/230333695): consider renaming to a more descriptive name
     TURBINE("JavacTurbine");
 
     final String mnemonic;
@@ -161,23 +164,19 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     super(
         owner,
         tools,
-        NestedSetBuilder.<Artifact>stableOrder()
-            .addTransitive(mandatoryInputs)
-            .addTransitive(transitiveInputs)
-            .addTransitive(dependencyArtifacts)
-            .build(),
+        allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts),
         runfilesSupplier,
         outputs,
         env);
     if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {
       throw new IllegalArgumentException(
           String.format(
-              "Unexpected tree artifact output(s): [%s] in JavaCompileAction: %s",
+              "Unexpected tree artifact output(s): [%s] in JavaCompileAction for %s",
               outputs.stream()
                   .filter(Artifact::isTreeArtifact)
                   .map(Artifact::getExecPathString)
                   .collect(joining(",")),
-              this));
+              owner.getLabel()));
     }
     this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
@@ -199,6 +198,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         outputDepsProto != null || classpathMode != JavaClasspathMode.BAZEL,
         "Cannot have null outputDepsProto with reduced class path mode BAZEL %s",
         describe());
+  }
+
+  /** Computes all of a {@link JavaCompileAction}'s inputs. */
+  static NestedSet<Artifact> allInputs(
+      NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> transitiveInputs,
+      NestedSet<Artifact> dependencyArtifacts) {
+    return NestedSetBuilder.<Artifact>stableOrder()
+        .addTransitive(mandatoryInputs)
+        .addTransitive(transitiveInputs)
+        .addTransitive(dependencyArtifacts)
+        .build();
   }
 
   @Override
@@ -282,6 +293,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
   }
 
+  /** Should we strip config prefixes from executor output paths for this compilation? */
+  private boolean stripOutputPaths() {
+    return JavaCompilationHelper.stripOutputPaths(
+        allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), configuration);
+  }
+
   @VisibleForTesting
   JavaSpawn getReducedSpawn(
       ActionExecutionContext actionExecutionContext,
@@ -289,6 +306,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       boolean fallback)
       throws CommandLineExpansionException, InterruptedException {
     CustomCommandLine.Builder classpathLine = CustomCommandLine.builder();
+    boolean stripOutputPaths = stripOutputPaths();
+    if (stripOutputPaths) {
+      classpathLine.stripOutputPaths(JavaCompilationHelper.outputBase(getPrimaryOutput()));
+    }
+
     if (fallback) {
       classpathLine.addExecPaths("--classpath", transitiveInputs);
     } else {
@@ -312,6 +334,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         reducedCommandLine.expand(
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
+            PathStripper.CommandAdjuster.create(
+                stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
             configuration.getCommandLineLimits());
     NestedSet<Artifact> inputs =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -321,22 +345,27 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return new JavaSpawn(
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
-        executionInfo,
-        inputs);
+        getExecutionInfo(),
+        inputs,
+        /*onlyMandatoryOutput=*/ fallback ? null : outputDepsProto,
+        stripOutputPaths);
   }
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
+    boolean stripOutputPaths = stripOutputPaths();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
                 actionExecutionContext.getArtifactExpander(),
                 getPrimaryOutput().getExecPath(),
+                PathStripper.CommandAdjuster.create(
+                    stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,
         getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
-        executionInfo,
+        getExecutionInfo(),
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(transitiveInputs)
@@ -349,7 +378,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             // .jdeps files, which have config prefixes in output paths, which compromise caching
             // possible by stripping prefixes on the executor.
             .addTransitive(dependencyArtifacts)
-            .build());
+            .build(),
+        /*onlyMandatoryOutput=*/ null,
+        stripOutputPaths);
   }
 
   @Override
@@ -386,7 +417,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         actionExecutionContext
             .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
-    return new JavaActionContinuation(actionExecutionContext, reducedClasspath, spawnContinuation);
+    return new JavaActionContinuation(
+        actionExecutionContext, reducedClasspath, spawnContinuation, spawn.stripOutputPaths());
   }
 
   @Override
@@ -483,12 +515,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private final class JavaSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
+    private final Artifact onlyMandatoryOutput;
+    private final boolean stripOutputPaths;
 
     JavaSpawn(
         CommandLines.ExpandedCommandLines expandedCommandLines,
         Map<String, String> environment,
         Map<String, String> executionInfo,
-        NestedSet<Artifact> inputs) {
+        NestedSet<Artifact> inputs,
+        @Nullable Artifact onlyMandatoryOutput,
+        boolean stripOutputPaths) {
       super(
           ImmutableList.copyOf(expandedCommandLines.arguments()),
           environment,
@@ -496,15 +532,27 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           EmptyRunfilesSupplier.INSTANCE,
           JavaCompileAction.this,
           LOCAL_RESOURCES);
+      this.onlyMandatoryOutput = onlyMandatoryOutput;
       this.inputs =
           NestedSetBuilder.<ActionInput>fromNestedSet(inputs)
               .addAll(expandedCommandLines.getParamFiles())
               .build();
+      this.stripOutputPaths = stripOutputPaths;
     }
 
     @Override
     public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
+    }
+
+    @Override
+    public boolean isMandatoryOutput(ActionInput output) {
+      return onlyMandatoryOutput == null || onlyMandatoryOutput.equals(output);
+    }
+
+    @Override
+    public boolean stripOutputPaths() {
+      return stripOutputPaths;
     }
   }
 
@@ -520,6 +568,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private CommandLine getFullClasspathLine() {
     CustomCommandLine.Builder classpathLine =
         CustomCommandLine.builder().addExecPaths("--classpath", transitiveInputs);
+    if (stripOutputPaths()) {
+      classpathLine.stripOutputPaths(JavaCompilationHelper.outputBase(getPrimaryOutput()));
+    }
     if (classpathMode == JavaClasspathMode.JAVABUILDER) {
       classpathLine.add("--reduce_classpath_mode", "JAVABUILDER_REDUCED");
       if (!dependencyArtifacts.isEmpty()) {
@@ -567,9 +618,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
     // requires first updating all subclasses and callers to actually handle environments correctly,
     // so it's not a small change.
-    return env.getFixedEnv().toMap();
+    return env.getFixedEnv();
   }
 
+  @Nullable
   @Override
   public NestedSet<Artifact> getPossibleInputsForTesting() {
     return null;
@@ -595,28 +647,33 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
    * <p>If the executor doesn't strip config prefixes (i.e. config stripping isn't turned on as a
    * feature), this is a trivial copy.
    *
+   * <p>If config stripping is on, this method won't work with {@link
+   * JavaConfiguration.JavaClasspathMode#JAVABUILDER}. That mode causes downstream Java compilations
+   * to read this .jdeps on the executor. Since this method replaces config prefixes, the .jdeps
+   * entries won't match the executor's stripped paths. This works best with {@link
+   * JavaConfiguration.JavaClasspathMode#BAZEL}, where Bazel directly processes the .jdeps on the
+   * local filesystem. Those paths match.
+   *
    * @param spawnResult the executor action that created the possibly stripped .jdeps output
    * @param outputDepsProto path to the .jdeps output
    * @param actionInputs all inputs to the current action
    * @param actionExecutionContext the action execution context
-   * @return the full deps proto (also wdritten to disk to satisfy the action's declared output)
+   * @return the full deps proto (also written to disk to satisfy the action's declared output)
    */
   static Deps.Dependencies createFullOutputDeps(
       SpawnResult spawnResult,
       Artifact outputDepsProto,
       NestedSet<Artifact> actionInputs,
-      ActionExecutionContext actionExecutionContext)
+      ActionExecutionContext actionExecutionContext,
+      boolean stripOutputPaths)
       throws IOException {
 
-    // Get the executor-produce jdeps.
-    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-    InputStream inputStream =
-        inMemoryOutput == null
-            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput;
     Deps.Dependencies executorJdeps =
-        Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
-    inputStream.close();
+        readExecutorJdeps(spawnResult, outputDepsProto, actionExecutionContext);
+
+    if (!stripOutputPaths) {
+      return executorJdeps;
+    }
 
     // For each of the action's generated inputs, map its stripped path to its full path.
     PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
@@ -633,6 +690,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         // executor-produced .jdeps already includes full paths. No need to update it.
         return executorJdeps;
       }
+    }
+
+    // No paths to rewrite.
+    if (executorJdeps.getDependencyCount() == 0) {
+      return executorJdeps;
     }
 
     // Rewrite the .jdeps proto with full paths.
@@ -654,20 +716,41 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // this. Note that in-memory and filesystem outputs aren't necessarily mutually exclusive.
     Path fsPath = actionExecutionContext.getInputPath(outputDepsProto);
     if (fsPath.exists()) {
+      // Make sure to clear the output store cache if it has an entry from before the rewrite.
+      actionExecutionContext.getMetadataHandler().resetOutputs(ImmutableList.of(outputDepsProto));
       fsPath.setWritable(true);
-      FileSystemUtils.writeContent(fsPath, fullOutputDeps.toByteArray());
+      try (var outputStream = fsPath.getOutputStream()) {
+        fullOutputDeps.writeTo(outputStream);
+      }
     }
 
     return fullOutputDeps;
   }
 
+  private static Deps.Dependencies readExecutorJdeps(
+      SpawnResult spawnResult,
+      Artifact outputDepsProto,
+      ActionExecutionContext actionExecutionContext)
+      throws IOException {
+    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    try (InputStream inputStream =
+        inMemoryOutput == null
+            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
+            : inMemoryOutput) {
+      return Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
+    }
+  }
+
   /** Reads the full {@code .jdeps} output from the given spawn results. */
   private Deps.Dependencies readFullOutputDeps(
-      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
+      List<SpawnResult> results,
+      ActionExecutionContext actionExecutionContext,
+      boolean stripOutputPaths)
       throws ActionExecutionException {
+    SpawnResult result = Iterables.getOnlyElement(results);
     try {
       return createFullOutputDeps(
-          Iterables.getOnlyElement(results), outputDepsProto, getInputs(), actionExecutionContext);
+          result, outputDepsProto, getInputs(), actionExecutionContext, stripOutputPaths);
     } catch (IOException e) {
       throw ActionExecutionException.fromExecException(
           new EnvironmentalExecException(
@@ -693,14 +776,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     private final ActionExecutionContext actionExecutionContext;
     @Nullable private final ReducedClasspath reducedClasspath;
     private final SpawnContinuation spawnContinuation;
+    private final boolean stripOutputPaths;
 
     public JavaActionContinuation(
         ActionExecutionContext actionExecutionContext,
         @Nullable ReducedClasspath reducedClasspath,
-        SpawnContinuation spawnContinuation) {
+        SpawnContinuation spawnContinuation,
+        boolean stripOutputPaths) {
       this.actionExecutionContext = actionExecutionContext;
       this.reducedClasspath = reducedClasspath;
       this.spawnContinuation = spawnContinuation;
+      this.stripOutputPaths = stripOutputPaths;
     }
 
     @Override
@@ -715,14 +801,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         SpawnContinuation nextContinuation = spawnContinuation.execute();
         if (!nextContinuation.isDone()) {
           return new JavaActionContinuation(
-              actionExecutionContext, reducedClasspath, nextContinuation);
+              actionExecutionContext, reducedClasspath, nextContinuation, stripOutputPaths);
         }
 
         List<SpawnResult> results = nextContinuation.get();
         if (reducedClasspath == null) {
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
-        Deps.Dependencies dependencies = readFullOutputDeps(results, actionExecutionContext);
+        Deps.Dependencies dependencies =
+            readFullOutputDeps(results, actionExecutionContext, stripOutputPaths);
 
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
@@ -734,7 +821,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         }
 
         logger.atInfo().atMostEvery(1, SECONDS).log(
-            "Failed reduced classpath compilation for %s", JavaCompileAction.this.prettyPrint());
+            "Failed reduced classpath compilation for %s",
+            lazy(JavaCompileAction.this::prettyPrint));
         // Fall back to running with the full classpath. This requires first deleting potential
         // artifacts generated by the reduced action and clearing the metadata caches.
         try {
@@ -766,7 +854,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                 .getContext(SpawnStrategyResolver.class)
                 .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
-            actionExecutionContext, results, fallbackContinuation);
+            actionExecutionContext, results, fallbackContinuation, spawn.stripOutputPaths());
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, JavaCompileAction.this);
       }
@@ -777,14 +865,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     private final ActionExecutionContext actionExecutionContext;
     private final List<SpawnResult> primaryResults;
     private final SpawnContinuation spawnContinuation;
+    private final boolean stripOutputPaths;
 
     public JavaFallbackActionContinuation(
         ActionExecutionContext actionExecutionContext,
         List<SpawnResult> primaryResults,
-        SpawnContinuation spawnContinuation) {
+        SpawnContinuation spawnContinuation,
+        boolean stripOutputPaths) {
       this.actionExecutionContext = actionExecutionContext;
       this.primaryResults = primaryResults;
       this.spawnContinuation = spawnContinuation;
+      this.stripOutputPaths = stripOutputPaths;
     }
 
     @Override
@@ -799,14 +890,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         SpawnContinuation nextContinuation = spawnContinuation.execute();
         if (!nextContinuation.isDone()) {
           return new JavaFallbackActionContinuation(
-              actionExecutionContext, primaryResults, nextContinuation);
+              actionExecutionContext, primaryResults, nextContinuation, stripOutputPaths);
         }
         List<SpawnResult> fallbackResults = nextContinuation.get();
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
               .getContext(JavaCompileActionContext.class)
               .insertDependencies(
-                  outputDepsProto, readFullOutputDeps(fallbackResults, actionExecutionContext));
+                  outputDepsProto,
+                  readFullOutputDeps(fallbackResults, actionExecutionContext, stripOutputPaths));
         }
         return ActionContinuationOrResult.of(
             ActionResult.create(

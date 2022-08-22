@@ -26,6 +26,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -68,6 +69,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -130,6 +132,7 @@ tasks:
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -149,9 +152,10 @@ tasks:
       - rm -f WORKSPACE.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
     build_flags:
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
       - "//src:bazel"
@@ -161,11 +165,12 @@ tasks:
       - "--sandbox_default_allow_network=false"
       - "--sandbox_writable_path=$HOME/bazeltest"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
       - "//scripts/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -184,12 +189,14 @@ tasks:
     shards: 4
     batch_commands:
       - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+      - mkdir C:\b
+      - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_env=JAVA_HOME"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
@@ -200,9 +207,10 @@ tasks:
       - "--test_tag_filters=-no_windows,-slow"
       - "--test_env=JAVA_HOME"
       - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
-      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=C:/b/bazeltest_external"
     test_targets:
       - "//src:embedded_tools_size_test"
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
       - "//src/test/java/com/google/devtools/build/android/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
@@ -226,24 +234,20 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/android/desugar/nest/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/stringconcat/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/testing/junit/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/covariantreturn/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/scan/..."
-      - "-//src/test/java/com/google/devtools/build/android/desugar/typeannotation/..."
       - "-//src/test/java/com/google/devtools/build/android/r8/..."
-      - "-//src/test/java/com/google/devtools/build/lib/analysis/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
       - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
-      - "-//src/test/java/com/google/devtools/build/lib/remote/..."
+      - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
+      # disable zstd test on Windows due to unsatisfied link error. https://github.com/bazelbuild/bazel/issues/16041
+      - "-//src/test/java/com/google/devtools/build/lib/remote/zstd/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
   rbe_ubuntu1804:
     platform: ubuntu1804
+    name: "RBE"
     shell_commands:
       - sed -i.bak
         -e 's/^# android_sdk_repository/android_sdk_repository/'
@@ -253,9 +257,9 @@ tasks:
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--experimental_remote_download_outputs=minimal"
-      - "--experimental_inmemory_jdeps_files"
-      - "--experimental_inmemory_dotd_files"
+      - "--experimental_remote_cache_async"
+      - "--experimental_remote_merkle_tree_cache"
+      - "--remote_download_minimal"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -263,12 +267,13 @@ tasks:
       - "--config=ubuntu1804_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
-      - "--experimental_remote_download_outputs=minimal"
-      - "--experimental_inmemory_jdeps_files"
-      - "--experimental_inmemory_dotd_files"
+      - "--experimental_remote_cache_async"
+      - "--experimental_remote_merkle_tree_cache"
+      - "--remote_download_minimal"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
+      - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
@@ -286,6 +291,8 @@ tasks:
       # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
+      # We hit connection timeout error for downl with RBE, see b/217865760
+      - "-//src/test/py/bazel:bazel_module_test"
   kythe_ubuntu2004:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
@@ -296,3 +303,11 @@ tasks:
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
     index_upload_policy: Always
     index_upload_gcs: False
+  docs_ubuntu1804:
+    platform: ubuntu1804
+    name: "Docs"
+    build_flags:
+      - "--config=docs"
+    build_targets:
+      - "//scripts/docs:gen_release_docs"
+      - "//src/main/java/com/google/devtools/build/lib:gen_reference_docs"

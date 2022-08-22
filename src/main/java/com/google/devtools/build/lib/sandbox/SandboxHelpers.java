@@ -25,9 +25,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
@@ -42,10 +42,9 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -62,21 +61,6 @@ public final class SandboxHelpers {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
-  /**
-   * If true, materialize virtual inputs only inside the sandbox, not the output tree. This flag
-   * exists purely to support rolling this out as the defaut in a controlled manner.
-   */
-  private final boolean delayVirtualInputMaterialization;
-
-  /**
-   * Constructs a new collection of helpers.
-   *
-   * @param delayVirtualInputMaterialization whether to materialize virtual inputs only inside the
-   *     sandbox
-   */
-  public SandboxHelpers(boolean delayVirtualInputMaterialization) {
-    this.delayVirtualInputMaterialization = delayVirtualInputMaterialization;
-  }
 
   /**
    * Writes a virtual input file so that the final file is always consistent to all readers.
@@ -93,21 +77,23 @@ public final class SandboxHelpers {
    * @param outputPath final path where the virtual input file ought to live
    * @param uniqueSuffix a filename extension that is different between the local spawn runners and
    *     the remote ones
+   * @return digest of written virtual input
    * @throws IOException if we fail to write the virtual input file
    */
   // TODO(b/150963503): We are using atomic file system moves for synchronization... but Bazel
   // should not be able to reach this state. Which means we should probably be doing some other
   // form of synchronization in-process before touching the file system.
-  public static void atomicallyWriteVirtualInput(
+  public static byte[] atomicallyWriteVirtualInput(
       VirtualActionInput input, Path outputPath, String uniqueSuffix) throws IOException {
     Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
     tmpPath.getParentDirectory().createDirectoryAndParents();
     try {
-      writeVirtualInputTo(input, tmpPath);
+      byte[] digest = writeVirtualInputTo(input, tmpPath);
       // We expect the following to replace the params file atomically in case we are using
       // the dynamic scheduler and we are racing the remote strategy writing this same file.
       tmpPath.renameTo(outputPath);
       tmpPath = null; // Avoid unnecessary deletion attempt.
+      return digest;
     } finally {
       try {
         if (tmpPath != null) {
@@ -363,15 +349,15 @@ public final class SandboxHelpers {
         new AtomicInteger();
 
     private final Map<PathFragment, Path> files;
-    private final Set<VirtualActionInput> virtualInputs;
+    private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
 
     private static final SandboxInputs EMPTY_INPUTS =
-        new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of());
+        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
     public SandboxInputs(
         Map<PathFragment, Path> files,
-        Set<VirtualActionInput> virtualInputs,
+        Map<VirtualActionInput, byte[]> virtualInputs,
         Map<PathFragment, PathFragment> symlinks) {
       this.files = files;
       this.virtualInputs = virtualInputs;
@@ -400,48 +386,34 @@ public final class SandboxHelpers {
      * @param input virtual input to materialize
      * @param execroot path to the execroot under which to materialize the virtual input
      * @param isExecRootSandboxed whether the execroot is sandboxed.
+     * @return digest of written virtual input
      * @throws IOException if the virtual input cannot be materialized
      */
-    private static void materializeVirtualInput(
+    private static byte[] materializeVirtualInput(
         VirtualActionInput input, Path execroot, boolean isExecRootSandboxed) throws IOException {
       if (input instanceof EmptyActionInput) {
-        // TODO(b/150963503): We can turn this into an unreachable code path when the old
-        //  !delayVirtualInputMaterialization code path is deleted.
-        return;
+        return new byte[0];
       }
 
       Path outputPath = execroot.getRelative(input.getExecPath());
       if (isExecRootSandboxed) {
-        atomicallyWriteVirtualInput(
+        return atomicallyWriteVirtualInput(
             input,
             outputPath,
             // When 2 actions try to atomically create the same virtual input, they need to have a
             // different suffix for the temporary file in order to avoid racy write to the same one.
             ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
-        return;
       }
 
       if (outputPath.exists()) {
         outputPath.delete();
       }
       outputPath.getParentDirectory().createDirectoryAndParents();
-      writeVirtualInputTo(input, outputPath);
+      return writeVirtualInputTo(input, outputPath);
     }
 
-    /**
-     * Materializes virtual files inside the sandboxed execroot once it is known.
-     *
-     * <p>These are files that do not have to exist in the execroot: we can materialize them only
-     * inside the sandbox, which means we can create them <i>before</i> we grab the output tree lock
-     * (but assuming we do so inside the sandbox only).
-     *
-     * @param sandboxExecRoot the path to the <i>sandboxed</i> execroot
-     * @throws IOException if any virtual input cannot be materialized
-     */
-    public void materializeVirtualInputs(Path sandboxExecRoot) throws IOException {
-      for (VirtualActionInput input : virtualInputs) {
-        materializeVirtualInput(input, sandboxExecRoot, /*isExecRootSandboxed=*/ false);
-      }
+    public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
+      return ImmutableMap.copyOf(virtualInputs);
     }
 
     /**
@@ -451,7 +423,7 @@ public final class SandboxHelpers {
     public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
       return new SandboxInputs(
           Maps.filterKeys(files, allowed::contains),
-          ImmutableSet.of(),
+          ImmutableMap.of(),
           Maps.filterKeys(symlinks, allowed::contains));
     }
 
@@ -461,93 +433,56 @@ public final class SandboxHelpers {
     }
   }
 
-  private static void writeVirtualInputTo(VirtualActionInput input, Path target)
+  private static byte[] writeVirtualInputTo(VirtualActionInput input, Path target)
       throws IOException {
-    try (OutputStream out = target.getOutputStream()) {
-      input.writeTo(out);
+    byte[] digest;
+    try (OutputStream out = target.getOutputStream();
+        HashingOutputStream hashingOut =
+            new HashingOutputStream(
+                target.getFileSystem().getDigestFunction().getHashFunction(), out)) {
+      input.writeTo(hashingOut);
+      digest = hashingOut.hash().asBytes();
     }
     // Some of the virtual inputs can be executed, e.g. embedded tools. Setting executable flag for
     // other is fine since that is only more permissive. Please note that for action outputs (e.g.
     // file write, where the user can specify executable flag), we will have artifacts which do not
     // go through this code path.
     target.setExecutable(true);
+    return digest;
   }
 
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
-   * <p>This does not (and must not) write any {@link VirtualActionInput}s found because we do not
-   * yet know where they should be written to. We have a path to an {@code execRoot}, but this path
-   * should be treated as read-only because we may not be holding its lock. The caller should use
-   * {@link SandboxInputs#materializeVirtualInputs(Path)} to later write these inputs when it knows
-   * where they should be written to.
-   *
    * @throws IOException if processing symlinks fails
    */
-  public SandboxInputs processInputFiles(
-      Map<PathFragment, ActionInput> inputMap,
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
-      Path execRoot)
+  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException {
-    // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
-    // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
-    // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
-    // created. So we add those explicitly here.
-    // TODO(ulfjack): Move this code to SpawnInputExpander.
-    for (ActionInput input : spawn.getInputFiles().toList()) {
-      if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
-        List<Artifact> containedArtifacts = new ArrayList<>();
-        artifactExpander.expand((Artifact) input, containedArtifacts);
-        // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we
-        // only mount empty TreeArtifacts as directories.
-        if (containedArtifacts.isEmpty()) {
-          inputMap.put(input.getExecPath(), input);
-        }
-      }
-    }
-
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
-    Set<VirtualActionInput> virtualInputs = new HashSet<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
+    Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
 
-      // TODO(b/150963503): Make delayVirtualInputMaterialization the default and remove the
-      // alternate code path.
-      if (delayVirtualInputMaterialization) {
-        if (actionInput instanceof VirtualActionInput) {
-          if (actionInput instanceof EmptyActionInput) {
-            inputFiles.put(pathFragment, null);
-          } else {
-            virtualInputs.add((VirtualActionInput) actionInput);
-          }
-        } else if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
-      } else {
-        if (actionInput instanceof VirtualActionInput) {
-          SandboxInputs.materializeVirtualInput(
-              (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
-        }
+      if (actionInput instanceof VirtualActionInput) {
+        byte[] digest =
+            SandboxInputs.materializeVirtualInput(
+                (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
+        virtualInputs.put((VirtualActionInput) actionInput, digest);
+      }
 
-        if (actionInput.isSymlink()) {
-          Path inputPath = execRoot.getRelative(actionInput.getExecPath());
-          inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
-        } else {
-          Path inputPath =
-              actionInput instanceof EmptyActionInput
-                  ? null
-                  : execRoot.getRelative(actionInput.getExecPath());
-          inputFiles.put(pathFragment, inputPath);
-        }
+      if (actionInput.isSymlink()) {
+        Path inputPath = execRoot.getRelative(actionInput.getExecPath());
+        inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+      } else {
+        Path inputPath =
+            actionInput instanceof EmptyActionInput
+                ? null
+                : execRoot.getRelative(actionInput.getExecPath());
+        inputFiles.put(pathFragment, inputPath);
       }
     }
     return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks);

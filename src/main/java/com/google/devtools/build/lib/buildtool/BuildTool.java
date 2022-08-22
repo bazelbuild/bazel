@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -51,10 +53,7 @@ import com.google.devtools.build.lib.query2.aquery.ActionGraphProtoOutputFormatt
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -75,8 +74,6 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.HashSet;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -164,32 +161,16 @@ public class BuildTool {
     boolean catastrophe = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
-        env.getEventBus().post(new BuildStartingEvent(env, request));
+        env.getEventBus().post(BuildStartingEvent.create(env, request));
       }
       logger.atInfo().log("Build identifier: %s", request.getId());
-
-      // Error out early if multi_cpus is set, but we're not in build or test command.
-      if (!request.getMultiCpus().isEmpty()) {
-        getReporter()
-            .handle(
-                Event.warn(
-                    "The --experimental_multi_cpu option is _very_ experimental and only intended"
-                        + " for internal testing at this time. If you do not work on the build"
-                        + " tool, then you should stop now!"));
-        if (!"build".equals(request.getCommandName()) && !"test".equals(request.getCommandName())) {
-          throw new InvalidConfigurationException(
-              "The experimental setting to select multiple CPUs is only supported for 'build' and "
-                  + "'test' right now!",
-              Code.MULTI_CPU_PREREQ_UNMET);
-        }
-      }
 
       // Exit if there are any pending exceptions from modules.
       env.throwPendingException();
 
       initializeOutputFilter(request);
 
-      if (request.getBuildOptions().mergedSkyframeAnalysisExecution) {
+      if (request.getBuildOptions().shouldMergeSkyframeAnalysisExecution()) {
         // Target pattern evaluation.
         TargetPatternPhaseValue loadingResult;
         Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
@@ -201,36 +182,46 @@ public class BuildTool {
 
         if (request.getBuildOptions().performAnalysisPhase) {
           executionTool = new ExecutionTool(env, request);
-          Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-          Set<AspectKey> builtAspects = new HashSet<>();
+          // This timer measures time for loading + analysis + execution.
+          Stopwatch timer = Stopwatch.createStarted();
 
           try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(request.getId(), builtTargets, builtAspects);
+            executionTool.prepareForExecution(request.getId());
           }
 
           // TODO(b/199053098): implement support for --nobuild.
-          AnalysisAndExecutionResult analysisAndExecutionResult =
-              AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
-
-          result.setBuildConfigurationCollection(
-              analysisAndExecutionResult.getConfigurationCollection());
-          result.setActualTargets(analysisAndExecutionResult.getTargetsToBuild());
-          result.setTestTargets(analysisAndExecutionResult.getTargetsToTest());
-          try (SilentCloseable c = Profiler.instance().profile("Show results")) {
-            result.setSuccessfulTargets(
-                ExecutionTool.determineSuccessfulTargets(
-                    analysisAndExecutionResult.getTargetsToBuild(), builtTargets));
-            result.setSuccessfulAspects(
-                ExecutionTool.determineSuccessfulAspects(
-                    analysisAndExecutionResult.getAspectsMap().keySet(), builtAspects));
-            result.setSkippedTargets(analysisAndExecutionResult.getTargetsToSkip());
-            BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-            buildResultPrinter.showBuildResult(
-                request,
-                result,
-                analysisAndExecutionResult.getTargetsToBuild(),
-                analysisAndExecutionResult.getTargetsToSkip(),
-                analysisAndExecutionResult.getAspectsMap());
+          AnalysisAndExecutionResult analysisAndExecutionResult;
+          boolean buildCompleted = false;
+          try {
+            analysisAndExecutionResult =
+                AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
+            buildCompleted = true;
+            result.setBuildConfigurationCollection(
+                analysisAndExecutionResult.getConfigurationCollection());
+            executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
+          } catch (InvalidConfigurationException
+              | TargetParsingException
+              | LoadingFailedException
+              | ViewCreationFailedException
+              | BuildFailedException
+              | TestExecException e) {
+            // These are non-catastrophic.
+            buildCompleted = true;
+            throw e;
+          } catch (Error | RuntimeException e) {
+            // These are catastrophic.
+            catastrophe = true;
+            throw e;
+          } finally {
+            executionTool.unconditionalExecutionPhaseFinalizations(
+                timer, env.getSkyframeExecutor());
+            if (!catastrophe) {
+              executionTool.nonCatastrophicFinalizations(
+                  result,
+                  executionTool.getActionCache(),
+                  /*explanationHandler=*/ null,
+                  buildCompleted);
+            }
           }
           FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
           if (delayedFailureDetail != null) {
@@ -251,7 +242,7 @@ public class BuildTool {
       if (request.getBuildOptions().performAnalysisPhase) {
 
         if (!analysisResult.getExclusiveTests().isEmpty()
-            && executionTool.getTestActionContext().forceParallelTestExecution()) {
+            && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
           String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
           for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
             getReporter()
@@ -263,6 +254,10 @@ public class BuildTool {
                             + " forces parallel test execution."));
           }
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
+        }
+        if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
+            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+          analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
         result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
@@ -301,7 +296,7 @@ public class BuildTool {
                 request.getOptions(BuildEventProtocolOptions.class),
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException e) {
+          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
@@ -368,7 +363,8 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException {
+      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException,
+          TemplateExpansionException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
     UploadContext streamingContext = null;
@@ -414,7 +410,9 @@ public class BuildTool {
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
               /* deduplicateDepsets= */ true,
-              aqueryOutputHandler);
+              /* includeFileWriteContents */ false,
+              aqueryOutputHandler,
+              getReporter());
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
   }
@@ -638,7 +636,6 @@ public class BuildTool {
         env.getReporter().handle(Event.error("Build interrupted during command completion"));
         ie = e;
       }
-      env.getEventBus().post(new CollectMetricsEvent());
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(

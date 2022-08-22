@@ -14,30 +14,35 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -92,7 +97,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")");
 
     AnalysisProtosV2.ConfiguredTarget myRuleProto =
-        (Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList()));
+        Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
     List<Build.Attribute> attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
       if (!attribute.getName().equals("deps")) {
@@ -118,8 +123,9 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   }
 
   @Test
-  public void testConfigurationHash() throws Exception {
-    FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
+  @SuppressWarnings("deprecation") // only use for tests
+  public void testConfigurations() throws Exception {
+    options.transitions = Transitions.LITE;
 
     MockRule ruleWithPatch =
         () ->
@@ -129,33 +135,126 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                     builder.add(
                         attr("deps", LABEL_LIST)
                             .allowedFileTypes(FileTypeSet.ANY_FILE)
-                            .cfg(TransitionFactories.of(attributePatchTransition))));
+                            .cfg(ExecutionTransitionFactory.create())));
+    MockRule parentRuleClass =
+        () ->
+            MockRule.define(
+                "parent_rule",
+                (builder, env) ->
+                    builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
-    helper.useRuleClassProvider(setRuleClassProviders(ruleWithPatch, getSimpleRule()).build());
+    helper.useRuleClassProvider(
+        setRuleClassProviders(ruleWithPatch, parentRuleClass, getSimpleRule()).build());
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'my_rule',",
-        "  deps = [':patched'],",
+        "parent_rule(name = 'parent_rule',",
+        "  deps = [':transition_rule'],",
+        ")",
+        "my_rule(name = 'transition_rule',",
+        "  deps = [':patched', ':dep'],",
         ")",
         "simple_rule(name = 'dep')");
 
-    // Assert checksum from proto is proper checksum.
-    AnalysisProtosV2.ConfiguredTarget myRuleProto =
-        Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
-    KeyedConfiguredTarget myRule = Iterables.getOnlyElement(eval("//test:my_rule"));
+    AnalysisProtosV2.CqueryResult cqueryResult = getOutput("deps(//test:parent_rule)");
+    List<Configuration> configurations = cqueryResult.getConfigurationsList();
+    assertThat(configurations).hasSize(2);
 
-    assertThat(myRuleProto.getConfiguration().getChecksum())
-        .isEqualTo(myRule.getConfigurationChecksum());
+    List<ConfiguredTarget> resultsList = cqueryResult.getResultsList();
 
-    // Assert checksum for two configured targets in proto are not the same.
-    List<AnalysisProtosV2.ConfiguredTarget> protoDeps =
-        getOutput("deps(//test:my_rule)").getResultsList();
-    assertThat(protoDeps).hasSize(2);
+    ConfiguredTarget parentRuleProto = getRuleProtoByName(resultsList, "//test:parent_rule");
+    Set<KeyedConfiguredTarget> keyedTargets = eval("deps(//test:parent_rule)");
 
-    Iterator<AnalysisProtosV2.ConfiguredTarget> protoDepsIterator = protoDeps.iterator();
-    assertThat(protoDepsIterator.next().getConfiguration().getChecksum())
-        .isNotEqualTo(protoDepsIterator.next().getConfiguration().getChecksum());
+    KeyedConfiguredTarget parentRule = getKeyedTargetByLabel(keyedTargets, "//test:parent_rule");
+    assertThat(parentRuleProto.getConfiguration().getChecksum())
+        .isEqualTo(parentRule.getConfigurationChecksum());
+
+    Configuration parentConfiguration =
+        getConfigurationForId(configurations, parentRuleProto.getConfigurationId());
+    assertThat(parentConfiguration.getChecksum()).isEqualTo(parentRule.getConfigurationChecksum());
+    assertThat(parentConfiguration)
+        .ignoringFieldDescriptors(
+            Configuration.getDescriptor().findFieldByName("checksum"),
+            Configuration.getDescriptor().findFieldByName("id"))
+        .isEqualTo(
+            Configuration.newBuilder()
+                .setMnemonic("k8-fastbuild")
+                .setPlatformName("k8")
+                .setIsTool(false)
+                .build());
+
+    ConfiguredTarget transitionRuleProto =
+        getRuleProtoByName(resultsList, "//test:transition_rule");
+    KeyedConfiguredTarget transitionRule =
+        getKeyedTargetByLabel(keyedTargets, "//test:transition_rule");
+    assertThat(transitionRuleProto.getConfiguration().getChecksum())
+        .isEqualTo(transitionRule.getConfigurationChecksum());
+
+    Configuration transitionConfiguration =
+        getConfigurationForId(configurations, transitionRuleProto.getConfigurationId());
+    assertThat(transitionConfiguration.getChecksum())
+        .isEqualTo(transitionRule.getConfigurationChecksum());
+
+    ConfiguredTarget depRuleProto = getRuleProtoByName(resultsList, "//test:dep");
+    Configuration depRuleConfiguration =
+        getConfigurationForId(configurations, depRuleProto.getConfigurationId());
+    assertThat(depRuleConfiguration.getPlatformName()).isEqualTo("k8");
+    assertThat(depRuleConfiguration.getMnemonic()).matches("k8-opt-exec-.*");
+    assertThat(depRuleConfiguration.getIsTool()).isTrue();
+
+    KeyedConfiguredTarget depRule = getKeyedTargetByLabel(keyedTargets, "//test:dep");
+
+    assertThat(depRuleProto.getConfiguration().getChecksum())
+        .isEqualTo(depRule.getConfigurationChecksum());
+
+    // Assert the proto checksums for targets in different configurations are not the same.
+    assertThat(depRuleConfiguration.getChecksum())
+        .isNotEqualTo(transitionConfiguration.getChecksum());
+    // Targets without a configuration have a configuration_id of 0.
+    ConfiguredTarget fileTargetProto =
+        resultsList.stream()
+            .filter(result -> "//test:patched".equals(result.getTarget().getSourceFile().getName()))
+            .findAny()
+            .orElseThrow();
+    assertThat(fileTargetProto.getConfigurationId()).isEqualTo(0);
+
+    // Targets whose deps have no transitions should appear without configuration information.
+    assertThat(parentRuleProto.getTarget().getRule().getConfiguredRuleInputList())
+        .containsExactly(
+            ConfiguredRuleInput.newBuilder().setLabel("//test:transition_rule").build());
+
+    // Targets with deps with transitions should show them.
+    ConfiguredRuleInput patchedConfiguredRuleInput =
+        ConfiguredRuleInput.newBuilder().setLabel("//test:patched").build();
+    ConfiguredRuleInput depConfiguredRuleInput =
+        ConfiguredRuleInput.newBuilder()
+            .setLabel("//test:dep")
+            .setConfigurationChecksum(depRuleProto.getConfiguration().getChecksum())
+            .setConfigurationId(depRuleProto.getConfigurationId())
+            .build();
+    List<ConfiguredRuleInput> configuredRuleInputs =
+        transitionRuleProto.getTarget().getRule().getConfiguredRuleInputList();
+    assertThat(configuredRuleInputs)
+        .containsExactly(patchedConfiguredRuleInput, depConfiguredRuleInput);
+  }
+
+  private KeyedConfiguredTarget getKeyedTargetByLabel(
+      Set<KeyedConfiguredTarget> keyedTargets, String label) {
+    return Iterables.getOnlyElement(
+        keyedTargets.stream()
+            .filter(t -> label.equals(t.getConfiguredTarget().getLabel().getCanonicalForm()))
+            .collect(Collectors.toSet()));
+  }
+
+  private Configuration getConfigurationForId(List<Configuration> configurations, int id) {
+    return configurations.stream().filter(c -> c.getId() == id).findAny().orElseThrow();
+  }
+
+  private ConfiguredTarget getRuleProtoByName(List<ConfiguredTarget> resultsList, String s) {
+    return resultsList.stream()
+        .filter(result -> s.equals(result.getTarget().getRule().getName()))
+        .findAny()
+        .orElseThrow();
   }
 
   @Test
@@ -229,7 +328,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             env.getAccessor(),
             options.aspectDeps.createResolver(
                 getHelper().getPackageManager(), NullEventHandler.INSTANCE),
-            OutputType.BINARY);
+            OutputType.BINARY,
+            /*trimmingTransitionFactory=*/ null);
     env.evaluateQuery(expression, callback);
     return callback.getProtoResult();
   }

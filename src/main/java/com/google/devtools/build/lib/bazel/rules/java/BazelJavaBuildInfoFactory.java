@@ -33,7 +33,7 @@ public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
               .put("build.time", "%BUILD_TIME%")
               .put("build.timestamp.as.int", "%BUILD_TIMESTAMP%")
               .put("build.timestamp", "%BUILD_TIMESTAMP%")
-              .build());
+              .buildOrThrow());
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
   static final GenericBuildInfoPropertiesTranslator NONVOLATILE_KEYS =
@@ -47,7 +47,7 @@ public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
               .put("build.time", "Thu Jan 01 00:00:00 1970 (0)")
               .put("build.timestamp.as.int", "0")
               .put("build.timestamp", "Thu Jan 01 00:00:00 1970 (0)")
-              .build());
+              .buildOrThrow());
 
   @Override
   protected BuildInfoPropertiesTranslator createVolatileTranslator() {

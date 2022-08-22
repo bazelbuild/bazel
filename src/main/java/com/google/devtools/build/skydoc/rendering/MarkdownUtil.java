@@ -196,15 +196,15 @@ public final class MarkdownUtil {
       case LABEL:
       case LABEL_LIST:
       case OUTPUT:
-        typeLink = "https://bazel.build/docs/build-ref.html#labels";
+        typeLink = "https://bazel.build/concepts/labels";
         break;
       case NAME:
-        typeLink = "https://bazel.build/docs/build-ref.html#name";
+        typeLink = "https://bazel.build/concepts/labels#target-names";
         break;
       case STRING_DICT:
       case STRING_LIST_DICT:
       case LABEL_STRING_DICT:
-        typeLink = "https://bazel.build/docs/skylark/lib/dict.html";
+        typeLink = "https://bazel.build/rules/lib/dict";
         break;
       default:
         typeLink = null;

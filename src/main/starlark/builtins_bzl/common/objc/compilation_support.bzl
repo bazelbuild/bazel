@@ -21,7 +21,6 @@ objc_internal = _builtins.internal.objc_internal
 cc_common = _builtins.toplevel.cc_common
 
 def _build_variable_extensions(
-        common_variables,
         ctx,
         intermediate_artifacts,
         variable_categories,
@@ -68,11 +67,11 @@ def _build_common_variables(
         ctx,
         toolchain,
         use_pch = False,
-        disable_layering_check = False,
-        disable_parse_hdrs = False,
         empty_compilation_artifacts = False,
         deps = [],
         runtime_deps = [],
+        extra_disabled_features = [],
+        extra_enabled_features = [],
         extra_import_libraries = [],
         linkopts = [],
         alwayslink = False,
@@ -85,7 +84,6 @@ def _build_common_variables(
         compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
 
     (objc_provider, objc_compilation_context) = objc_common.create_context_and_provider(
-        purpose = "COMPILE_AND_LINK",
         ctx = ctx,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
@@ -103,59 +101,42 @@ def _build_common_variables(
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
+        extra_disabled_features = extra_disabled_features,
+        extra_enabled_features = extra_enabled_features,
         objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = use_pch,
-        disable_layering_check = disable_layering_check,
-        disable_parse_headers = disable_parse_hdrs,
         objc_config = ctx.fragments.objc,
-        apple_config = ctx.fragments.apple,
         objc_provider = objc_provider,
     )
 
 def _build_feature_configuration(common_variables, for_swift_module_map, support_parse_headers):
-    activated_crosstool_selectables = []
     ctx = common_variables.ctx
-    OBJC_ACTIONS = [
-        "objc-compile",
-        "objc++-compile",
-        "objc-archive",
-        "objc-fully-link",
-        "objc-executable",
-        "objc++-executable",
-    ]
-    activated_crosstool_selectables.extend(ctx.features)
-    activated_crosstool_selectables.extend(OBJC_ACTIONS)
-    activated_crosstool_selectables.append("lang_objc")
-    if common_variables.objc_config.should_strip_binary:
-        activated_crosstool_selectables.append("dead_strip")
 
-    if common_variables.objc_config.generate_linkmap:
-        activated_crosstool_selectables.append("generate_linkmap")
+    enabled_features = []
+    enabled_features.extend(ctx.features)
+    enabled_features.extend(common_variables.extra_enabled_features)
 
     disabled_features = []
     disabled_features.extend(ctx.disabled_features)
-    if common_variables.disable_parse_headers:
-        disabled_features.append("parse_headers")
-
-    if common_variables.disable_layering_check:
-        disabled_features.append("layering_check")
+    disabled_features.extend(common_variables.extra_disabled_features)
 
     if not support_parse_headers:
         disabled_features.append("parse_headers")
 
     if for_swift_module_map:
-        activated_crosstool_selectables.append("module_maps")
-        activated_crosstool_selectables.append("compile_all_modules")
-        activated_crosstool_selectables.append("only_doth_headers_in_module_maps")
-        activated_crosstool_selectables.append("exclude_private_headers_in_module_maps")
-        activated_crosstool_selectables.append("module_map_without_extern_module")
+        enabled_features.append("module_maps")
+        enabled_features.append("compile_all_modules")
+        enabled_features.append("only_doth_headers_in_module_maps")
+        enabled_features.append("exclude_private_headers_in_module_maps")
+        enabled_features.append("module_map_without_extern_module")
         disabled_features.append("generate_submodules")
 
     return cc_common.configure_features(
         ctx = common_variables.ctx,
         cc_toolchain = common_variables.toolchain,
-        requested_features = activated_crosstool_selectables,
+        language = "objc",
+        requested_features = enabled_features,
         unsupported_features = disabled_features,
     )
 
@@ -245,7 +226,6 @@ def _validate_attributes(common_variables):
 def _get_compile_rule_copts(common_variables):
     attributes = common_variables.compilation_attributes
     copts = []
-    copts.extend(common_variables.objc_config.copts)
     copts.extend(attributes.copts)
 
     if attributes.enable_modules and common_variables.ctx.attr.module_map == None:
@@ -288,13 +268,12 @@ def _register_compile_and_archive_actions_for_j2objc(
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
+        extra_enabled_features = ["j2objc_transpiled"],
+        extra_disabled_features = ["layering_check", "parse_headers"],
         objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = False,
-        disable_layering_check = True,
-        disable_parse_headers = True,
         objc_config = ctx.fragments.objc,
-        apple_config = ctx.fragments.apple,
         objc_provider = None,
     )
     return _register_compile_and_archive_actions(
@@ -385,7 +364,6 @@ def _cc_compile_and_link(
     purpose = "{}_objc_arc".format(_get_purpose(common_variables))
     arc_primary_module_map_fc = feature_configuration
     arc_extensions = _build_variable_extensions(
-        common_variables,
         ctx,
         intermediate_artifacts,
         variable_categories,
@@ -413,7 +391,6 @@ def _cc_compile_and_link(
         support_parse_headers = False,
     )
     non_arc_extensions = _build_variable_extensions(
-        common_variables,
         ctx,
         intermediate_artifacts,
         variable_categories,
@@ -482,19 +459,20 @@ def _cc_compile_and_link(
     if hasattr(common_variables.ctx.attr, "deps"):
         linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps)
 
-    cc_common.create_linking_context_from_compilation_outputs(
-        actions = ctx.actions,
-        feature_configuration = feature_configuration,
-        cc_toolchain = common_variables.toolchain,
-        compilation_outputs = compilation_outputs,
-        linking_contexts = linking_contexts,
-        name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
-        language = language,
-        disallow_dynamic_library = True,
-        additional_inputs = additional_inputs,
-        grep_includes = _get_grep_includes(ctx),
-        variables_extension = non_arc_extensions,
-    )
+    if len(compilation_outputs.objects) != 0 or len(compilation_outputs.pic_objects) != 0:
+        cc_common.create_linking_context_from_compilation_outputs(
+            actions = ctx.actions,
+            feature_configuration = feature_configuration,
+            cc_toolchain = common_variables.toolchain,
+            compilation_outputs = compilation_outputs,
+            linking_contexts = linking_contexts,
+            name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
+            language = language,
+            disallow_dynamic_library = True,
+            additional_inputs = additional_inputs,
+            grep_includes = _get_grep_includes(ctx),
+            variables_extension = non_arc_extensions,
+        )
 
     arc_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         arc_compilation_outputs,
@@ -588,7 +566,6 @@ def _register_fully_link_action(common_variables, objc_provider, name):
 
     output_archive = ctx.actions.declare_file(name + ".a")
     extensions = _build_variable_extensions(
-        common_variables,
         ctx,
         common_variables.intermediate_artifacts,
         ["FULLY_LINK_VARIABLES"],

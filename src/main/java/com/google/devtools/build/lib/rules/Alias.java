@@ -73,6 +73,7 @@ public class Alias implements RuleConfiguredTargetFactory {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .removeAttribute(":action_listener")
           .add(
               attr(ACTUAL_ATTRIBUTE_NAME, LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -111,7 +112,8 @@ public class Alias implements RuleConfiguredTargetFactory {
 
 <p>
   The alias rule has its own visibility declaration. In all other respects, it behaves
-  like the rule it references with some minor exceptions:
+  like the rule it references (e.g. testonly <em>on the alias</em> is ignored; the testonly-ness
+   of the referenced rule is used instead) with some minor exceptions:
 
   <ul>
     <li>

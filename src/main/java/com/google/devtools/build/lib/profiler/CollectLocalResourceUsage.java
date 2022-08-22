@@ -20,21 +20,26 @@ import com.google.common.base.Stopwatch;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerMetric;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
   // TODO(twerth): Make these configurable.
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
-  private static final long LOCAL_CPU_SLEEP_MILLIS = 200;
+  private static final Duration LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL = Duration.ofMillis(200);
 
   private final BugReporter bugReporter;
+  private final boolean collectWorkerDataInProfiler;
+  private final boolean collectLoadAverage;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
@@ -51,10 +56,25 @@ public class CollectLocalResourceUsage extends Thread {
   @GuardedBy("this")
   private TimeSeries systemMemoryUsage;
 
+  @GuardedBy("this")
+  private TimeSeries workersMemoryUsage;
+
+  @GuardedBy("this")
+  private TimeSeries systemLoadAverage;
+
   private Stopwatch stopwatch;
 
-  CollectLocalResourceUsage(BugReporter bugReporter) {
+  private final WorkerMetricsCollector workerMetricsCollector;
+
+  CollectLocalResourceUsage(
+      BugReporter bugReporter,
+      WorkerMetricsCollector workerMetricsCollector,
+      boolean collectWorkerDataInProfiler,
+      boolean collectLoadAverage) {
     this.bugReporter = checkNotNull(bugReporter);
+    this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
+    this.workerMetricsCollector = workerMetricsCollector;
+    this.collectLoadAverage = collectLoadAverage;
   }
 
   @Override
@@ -74,6 +94,16 @@ public class CollectLocalResourceUsage extends Thread {
       systemMemoryUsage =
           new TimeSeries(
               /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      if (collectWorkerDataInProfiler) {
+        workersMemoryUsage =
+            new TimeSeries(
+                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      }
+      if (collectLoadAverage) {
+        systemLoadAverage =
+            new TimeSeries(
+                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      }
     }
     OperatingSystemMXBean osBean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
@@ -83,15 +113,15 @@ public class CollectLocalResourceUsage extends Thread {
     profilingStarted = true;
     while (!stopLocalUsageCollection) {
       try {
-        Thread.sleep(LOCAL_CPU_SLEEP_MILLIS);
+        Thread.sleep(LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL.toMillis());
       } catch (InterruptedException e) {
         return;
       }
       Duration nextElapsed = stopwatch.elapsed();
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
 
-      double systemLoad = osBean.getSystemCpuLoad();
-      double systemUsage = systemLoad * numProcessors;
+      double systemCpuLoad = osBean.getSystemCpuLoad();
+      double systemUsage = systemCpuLoad * numProcessors;
 
       long systemMemoryUsageMb = -1;
       if (OS.getCurrent() == OS.LINUX) {
@@ -124,6 +154,21 @@ public class CollectLocalResourceUsage extends Thread {
         memoryUsage = -1;
       }
 
+      int workerMemoryUsageMb = 0;
+      if (collectWorkerDataInProfiler) {
+        workerMemoryUsageMb =
+            this.workerMetricsCollector.collectMetrics().stream()
+                    .map(WorkerMetric::getWorkerStat)
+                    .filter(Objects::nonNull)
+                    .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+                    .sum()
+                / 1024;
+      }
+      double loadAverage = 0;
+      if (collectLoadAverage) {
+        loadAverage = osBean.getSystemLoadAverage();
+      }
+
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
       synchronized (this) {
@@ -133,14 +178,22 @@ public class CollectLocalResourceUsage extends Thread {
         if (localMemoryUsage != null && memoryUsage != -1) {
           long memoryUsageMb = memoryUsage / (1024 * 1024);
           localMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), memoryUsageMb);
+              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) memoryUsageMb);
         }
         if (systemCpuUsage != null) {
           systemCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), systemUsage);
         }
         if (systemMemoryUsage != null) {
           systemMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), systemMemoryUsageMb);
+              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) systemMemoryUsageMb);
+        }
+        if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
+          workersMemoryUsage.addRange(
+              previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
+        }
+        if (collectLoadAverage && loadAverage > 0) {
+          systemLoadAverage.addRange(
+              previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
         }
       }
       previousElapsed = nextElapsed;
@@ -178,14 +231,26 @@ public class CollectLocalResourceUsage extends Thread {
     logCollectedData(
         profiler, systemMemoryUsage, ProfilerTask.SYSTEM_MEMORY_USAGE, startTimeNanos, len);
     systemMemoryUsage = null;
+
+    if (collectWorkerDataInProfiler) {
+      logCollectedData(
+          profiler, workersMemoryUsage, ProfilerTask.WORKERS_MEMORY_USAGE, startTimeNanos, len);
+    }
+    workersMemoryUsage = null;
+
+    if (collectLoadAverage) {
+      logCollectedData(
+          profiler, systemLoadAverage, ProfilerTask.SYSTEM_LOAD_AVERAGE, startTimeNanos, len);
+    }
+    systemLoadAverage = null;
   }
 
   private static void logCollectedData(
       Profiler profiler, TimeSeries timeSeries, ProfilerTask type, long startTimeNanos, int len) {
-    double[] localCpuUsageValues = timeSeries.toDoubleArray(len);
+    double[] localResourceValues = timeSeries.toDoubleArray(len);
     for (int i = 0; i < len; i++) {
       long eventTimeNanos = startTimeNanos + i * BUCKET_DURATION.toNanos();
-      profiler.logEventAtTime(eventTimeNanos, type, String.valueOf(localCpuUsageValues[i]));
+      profiler.logEventAtTime(eventTimeNanos, type, String.valueOf(localResourceValues[i]));
     }
   }
 }

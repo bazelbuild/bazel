@@ -19,6 +19,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Modu
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.Collection;
@@ -35,6 +36,7 @@ public class ProtoRenderer {
   }
 
   /** Appends {@link RuleInfo} protos to a {@link ModuleInfo.Builder}. */
+  @CanIgnoreReturnValue
   public ProtoRenderer appendRuleInfos(Collection<RuleInfo> ruleInfos) {
     for (RuleInfo ruleInfo : ruleInfos) {
       moduleInfo.addRuleInfo(ruleInfo);
@@ -43,6 +45,7 @@ public class ProtoRenderer {
   }
 
   /** Appends {@link ProviderInfo} protos to a {@link ModuleInfo.Builder}. */
+  @CanIgnoreReturnValue
   public ProtoRenderer appendProviderInfos(Collection<ProviderInfo> providerInfos) {
     for (ProviderInfo providerInfo : providerInfos) {
       moduleInfo.addProviderInfo(providerInfo);
@@ -51,6 +54,7 @@ public class ProtoRenderer {
   }
 
   /** Appends {@link StarlarkFunctionInfo} protos to a {@link ModuleInfo.Builder}. */
+  @CanIgnoreReturnValue
   public ProtoRenderer appendStarlarkFunctionInfos(Map<String, StarlarkFunction> funcInfosMap)
       throws DocstringParseException {
     for (Map.Entry<String, StarlarkFunction> entry : funcInfosMap.entrySet()) {
@@ -62,6 +66,7 @@ public class ProtoRenderer {
   }
 
   /** Appends module docstring protos to a {@link ModuleInfo.Builder}. */
+  @CanIgnoreReturnValue
   public ProtoRenderer setModuleDocstring(String moduleDoc) {
     moduleInfo.setModuleDocstring(moduleDoc);
     return this;
@@ -74,6 +79,7 @@ public class ProtoRenderer {
   }
 
   /** Appends {@link AspectInfo} protos to a {@link ModuleInfo.Builder}. */
+  @CanIgnoreReturnValue
   public ProtoRenderer appendAspectInfos(Collection<AspectInfo> aspectInfos) {
     for (AspectInfo aspectInfo : aspectInfos) {
       moduleInfo.addAspectInfo(aspectInfo);

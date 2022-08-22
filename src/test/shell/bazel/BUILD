@@ -14,12 +14,12 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-genrule(
-    name = "langtools-copy",
-    testonly = 1,
-    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
-    outs = ["langtools.jar"],
-    cmd = "cp $< $@",
+gen_workspace_stanza(
+    name = "rules_license_stanza",
+    out = "rules_license_stanza.txt",
+    repos = [
+        "rules_license",
+    ],
 )
 
 gen_workspace_stanza(
@@ -34,6 +34,7 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        ":rules_license_stanza.txt",
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
@@ -51,7 +52,6 @@ filegroup(
         "cc_api_rules.bzl",
         "remote_helpers.sh",
         "testing_server.py",
-        ":langtools-copy",
         "//examples:srcs",
         "//src/conditions:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
@@ -64,7 +64,6 @@ filegroup(
         "//src/tools/singlejar",
         "//third_party:srcs",
         "//third_party/ijar",
-        "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
         "@bazel_tools//tools/jdk:current_java_runtime",
@@ -189,42 +188,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_java15_test",
-    srcs = ["bazel_java15_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
-    name = "bazel_java16_test",
-    srcs = ["bazel_java16_test.sh"],
-    args = [
-        # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
-    ],
-    data = [
-        ":test-deps",
-        "//src:java_tools_prebuilt_zip",
-        "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = ["local"],
-)
-
-sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
     args = [
@@ -260,11 +223,9 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11", "15", "16", "17")
+JAVA_VERSIONS = ("11", "17")
 
-# TODO(davido): Enable test coverage for JDK 16 toolchain when this issue is fixed:
-# https://github.com/bazelbuild/bazel/issues/13358
-JAVA_VERSIONS_COVERAGE = ("11", "15")
+JAVA_VERSIONS_COVERAGE = ("11", "17")
 
 [
     sh_test(
@@ -498,7 +459,6 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
-        "manual",
         "no_windows",
     ],
 )
@@ -522,7 +482,6 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
-            "manual",
             "no_windows",
         ],
     )
@@ -556,6 +515,15 @@ sh_test(
 ]
 
 sh_test(
+    name = "bazel_coverage_py_test",
+    srcs = ["bazel_coverage_py_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_coverage_sh_test",
     srcs = ["bazel_coverage_sh_test.sh"],
     data = [":test-deps"],
@@ -567,6 +535,15 @@ sh_test(
 sh_test(
     name = "bazel_coverage_starlark_test",
     srcs = ["bazel_coverage_starlark_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_coverage_compatibility_test",
+    srcs = ["bazel_coverage_compatibility_test.sh"],
     data = [":test-deps"],
     tags = [
         "no_windows",
@@ -695,7 +672,10 @@ sh_test(
     name = "external_integration_test",
     size = "large",
     srcs = ["external_integration_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
+    ],
     shard_count = 15,
     tags = [
         "no_windows",
@@ -810,14 +790,6 @@ sh_test(
     name = "starlark_rule_test",
     size = "large",
     srcs = ["starlark_rule_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "ninja_build_test",
-    size = "large",
-    srcs = ["ninja_build_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -939,6 +911,7 @@ sh_test(
     size = "medium",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
@@ -1011,18 +984,6 @@ sh_test(
 )
 
 sh_test(
-    name = "persistent_test_runner_test",
-    size = "large",
-    srcs = ["persistent_test_runner_test.sh"],
-    data = [
-        ":test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "bazel_workspace_status_test",
     size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
@@ -1076,14 +1037,6 @@ sh_test(
     name = "build_files_test",
     size = "medium",
     srcs = ["build_files_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "license_checking_test",
-    size = "medium",
-    srcs = ["license_checking_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -1162,22 +1115,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-)
-
-sh_test(
-    name = "toolchain_test",
-    size = "large",
-    srcs = ["toolchain_test.sh"],
-    data = [":test-deps"],
-    shard_count = 5,
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "toolchain_transition_test",
-    srcs = ["toolchain_transition_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -1359,4 +1296,14 @@ sh_test(
         "no_windows",
         "requires-network",
     ],
+)
+
+sh_test(
+    name = "check_external_files_test",
+    srcs = ["check_external_files_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
 )

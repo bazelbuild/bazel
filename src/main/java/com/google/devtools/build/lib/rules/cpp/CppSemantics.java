@@ -21,12 +21,16 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics extends StarlarkValue {
+  /** What language to treat the headers. */
+  Language language();
+
   /**
    * Called before a C++ compile action is built.
    *
@@ -74,4 +78,6 @@ public interface CppSemantics extends StarlarkValue {
       ImmutableSet<String> unsupportedFeatures);
 
   boolean createEmptyArchive();
+
+  void checkCanUseImplementationDeps(RuleContext ruleContext);
 }

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -207,7 +207,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_with_host_dep",
                 attr("host_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(HostTransition.createFactory()),
+                    .cfg(ExecutionTransitionFactory.create()),
                 attr("$impl_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .value(Label.parseAbsoluteUnchecked("//test:other")));
@@ -265,7 +265,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 attr("target", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
                 attr("host", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(HostTransition.createFactory()),
+                    .cfg(ExecutionTransitionFactory.create()),
                 attr("exec", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(ExecutionTransitionFactory.create()),
@@ -360,7 +360,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
-  public void testConfig_hostTransition() throws Exception {
+  public void testConfig_noMoreHostTransition() throws Exception {
     createConfigRulesAndBuild();
 
     getHelper().setWholeTestUniverseScope("test:my_rule");
@@ -370,20 +370,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         .isEqualTo("No target (in) //test:target_dep could be found in the 'host' configuration");
     assertConfigurableQueryCode(
         targetResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-    assertThat(eval("config(//test:host_dep, host)")).isEqualTo(eval("//test:host_dep"));
-    EvalThrowsResult hostResult = evalThrows("config(//test:exec_dep, host)", true);
-    assertThat(hostResult.getMessage())
+    EvalThrowsResult hostDepResult = evalThrows("config(//test:host_dep, host)", true);
+    assertThat(hostDepResult.getMessage())
+        .isEqualTo("No target (in) //test:host_dep could be found in the 'host' configuration");
+    assertConfigurableQueryCode(
+        hostDepResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
+    EvalThrowsResult execDepResult = evalThrows("config(//test:exec_dep, host)", true);
+    assertThat(execDepResult.getMessage())
         .isEqualTo("No target (in) //test:exec_dep could be found in the 'host' configuration");
     assertConfigurableQueryCode(
+        execDepResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
+    EvalThrowsResult hostResult = evalThrows("config(//test:dep, host)", true);
+    assertThat(hostResult.getMessage())
+        .isEqualTo("No target (in) //test:dep could be found in the 'host' configuration");
+    assertConfigurableQueryCode(
         hostResult.getFailureDetail(), ConfigurableQuery.Code.TARGET_MISSING);
-
-    BuildConfigurationValue configuration =
-        getConfiguration(Iterables.getOnlyElement(eval("config(//test:dep, host)")));
-
-    assertThat(configuration).isNotNull();
-    assertThat(configuration.isHostConfiguration()).isTrue();
-    assertThat(configuration.isExecConfiguration()).isFalse();
-    assertThat(configuration.isToolConfiguration()).isTrue();
   }
 
   @Test
@@ -470,6 +471,21 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(e)
         .hasMessageThat()
         .contains("config()'s second argument must identify a unique configuration");
+  }
+
+  @Test
+  public void testConfig_exprArgumentFailure() throws Exception {
+    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+
+    EvalThrowsResult evalThrowsResult =
+        evalThrows(
+            "config(filter(\"??not-a-valid-regex\", //test:foo.java), null)",
+            /*unconditionallyThrows=*/ true);
+    assertThat(evalThrowsResult.getMessage())
+        .startsWith("illegal 'filter' pattern regexp '??not-a-valid-regex'");
+    assertThat(evalThrowsResult.getFailureDetail().hasQuery()).isTrue();
+    assertThat(evalThrowsResult.getFailureDetail().getQuery().getCode())
+        .isEqualTo(Code.SYNTAX_ERROR);
   }
 
   @Test

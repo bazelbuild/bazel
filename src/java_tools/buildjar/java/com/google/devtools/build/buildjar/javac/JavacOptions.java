@@ -232,6 +232,7 @@ public final class JavacOptions {
     private String target;
     private String release;
     private final List<String> modular = new ArrayList<>();
+    private boolean preview = false;
 
     @Override
     public boolean processOption(String option, Iterator<String> remaining) {
@@ -277,6 +278,10 @@ public final class JavacOptions {
         modular.add(option);
         return true;
       }
+      if (option.equals("--enable-preview")) {
+        preview = true;
+        return true;
+      }
       return false;
     }
 
@@ -296,6 +301,9 @@ public final class JavacOptions {
       }
       if (version > 8) {
         normalized.addAll(modular);
+        if (preview) {
+          normalized.add("--enable-preview");
+        }
       }
     }
 

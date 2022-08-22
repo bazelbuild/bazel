@@ -28,14 +28,6 @@ import java.io.IOException;
  * the {@link #configureCache(long)} function, but note that enabling this cache might have an
  * impact on correctness because not all changes to files can be purely detected from their
  * metadata.
- *
- * <p>Note that this class is responsible for digesting file metadata in an order-independent
- * manner. Care must be taken to do this properly. The digest must be a function of the set of
- * (path, metadata) tuples. While the order of these pairs must not matter, it would <b>not</b> be
- * safe to make the digest be a function of the set of paths and the set of metadata.
- *
- * <p>Note that the (path, metadata) tuples must be unique, otherwise the XOR-based approach will
- * fail.
  */
 public class DigestUtils {
   // Typical size for a digest byte array.
@@ -156,8 +148,9 @@ public class DigestUtils {
    *     serially or in parallel. Files larger than a certain threshold will be read serially, in
    *     order to avoid excessive disk seeks.
    */
-  public static byte[] getDigestWithManualFallback(Path path, long fileSize) throws IOException {
-    byte[] digest = path.getFastDigest();
+  public static byte[] getDigestWithManualFallback(
+      Path path, long fileSize, XattrProvider xattrProvider) throws IOException {
+    byte[] digest = xattrProvider.getFastDigest(path);
     return digest != null ? digest : manuallyComputeDigest(path, fileSize);
   }
 
@@ -171,8 +164,9 @@ public class DigestUtils {
    *
    * @param path Path of the file.
    */
-  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(Path path) throws IOException {
-    return getDigestWithManualFallback(path, -1);
+  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(
+      Path path, XattrProvider xattrProvider) throws IOException {
+    return getDigestWithManualFallback(path, -1, xattrProvider);
   }
 
   /**

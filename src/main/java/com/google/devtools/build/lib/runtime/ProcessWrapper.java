@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -103,30 +104,35 @@ public final class ProcessWrapper {
     }
 
     /** Sets the path to use for redirecting stdout, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStdoutPath(Path stdoutPath) {
       this.stdoutPath = stdoutPath;
       return this;
     }
 
     /** Sets the path to use for redirecting stderr, if any. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStderrPath(Path stderrPath) {
       this.stderrPath = stderrPath;
       return this;
     }
 
     /** Sets the timeout for the command run using the process-wrapper tool. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setTimeout(Duration timeout) {
       this.timeout = timeout;
       return this;
     }
 
     /** Sets the path for writing execution statistics (e.g. resource usage). */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setStatisticsPath(Path statisticsPath) {
       this.statisticsPath = statisticsPath;
       return this;
     }
 
     /** Incorporates settings from a spawn's execution info. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
       if (executionInfo.containsKey(ExecutionRequirements.GRACEFUL_TERMINATION)) {
         gracefulSigterm = true;

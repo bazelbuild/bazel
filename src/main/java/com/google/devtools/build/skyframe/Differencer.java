@@ -50,9 +50,6 @@ public interface Differencer {
 
   /** A {@link Diff} that also potentially contains the new and old values for each changed key. */
   interface DiffWithDelta extends Diff {
-    /** Returns the value keys whose values have changed, along with their old and new values. */
-    Map<SkyKey, Delta> changedKeysWithNewAndOldValues();
-
     /** Represents the delta between two values of the same key. */
     @AutoValue
     abstract class Delta {

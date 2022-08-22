@@ -231,7 +231,7 @@ public interface ActionAnalysisMetadata {
    * have access to execution requirements.
    */
   default ImmutableMap<String, String> getExecutionInfo() {
-    return ImmutableMap.of();
+    return getExecProperties();
   }
 
   static ImmutableMap<String, String> mergeMaps(

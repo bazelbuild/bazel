@@ -41,6 +41,8 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/integration/runfiles_test_utils.sh")" \
+  || { echo "runfiles_test_utils.sh not found!" >&2; exit 1; }
 
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
@@ -75,31 +77,73 @@ function create_pkg() {
   cd $pkg
 
   mkdir -p a/b c/d e/f/g x/y
-  touch py.py a/b/no_module.py c/d/one_module.py c/__init__.py e/f/g/ignored.py x/y/z.sh
+  touch py.py a/b/no_module.py c/d/one_module.py c/__init__.py e/f/g/ignored.txt x/y/z.sh
   chmod +x x/y/z.sh
 
   cd ..
   touch __init__.py
 }
 
+# This is basically a cross-platform version of `find -printf '%n %y %Y'`.
+# i.e. recursively print paths, their raw file type, and for symbolic links,
+# the type of file the link points to.
+# Macs don't support `find -printf`, and stat, readlink etc all have different
+# args and format specifiers. Basic bash works fine, though.
+function recursive_path_info() {
+  for path in $(find "$1" | sort); do
+    if [[ -L "$path" ]]; then
+      actual_type=symlink
+    else
+      actual_type=regular
+    fi
+    if [[ -f "$path" ]]; then
+      effective_type=file
+    elif [[ -d "$path" ]]; then
+      effective_type="$actual_type dir"
+    else
+      # The various special file types shouldn't occur in practice, so just
+      # call them unknown
+      effective_type=unknown
+    fi
+    echo "$path $effective_type"
+  done
+}
+
 #### TESTS #############################################################
 
 function test_hidden() {
   local -r pkg=$FUNCNAME
-  create_pkg $pkg
+
+  mkdir -p "$pkg/e/f/g"
+  touch "$pkg/e/f/g/hidden.txt"
+  cat > "$pkg/defs.bzl" << EOF
+def _obscured_impl(ctx):
+    executable = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(executable, "# nop")
+    return [DefaultInfo(
+        executable = executable,
+        runfiles = ctx.runfiles(files = ctx.files.data),
+    )]
+
+obscured = rule(
+    implementation = _obscured_impl,
+    attrs = {"data": attr.label_list(allow_files = True)},
+    # Must be executable to trigger the obscured runfile check
+    executable = True,
+)
+EOF
+
   cat > $pkg/BUILD << EOF
-py_binary(name = "py",
-          srcs = [ "py.py" ],
-          data = [ "e/f",
-                   "e/f/g/hidden.py" ])
+load(":defs.bzl", "obscured")
+obscured(name="bin", data=["e/f", "e/f/g/hidden.txt"])
 genrule(name = "hidden",
-        outs = [ "e/f/g/hidden.py" ],
+        outs = [ "e/f/g/hidden.txt" ],
         cmd = "touch \$@")
 EOF
-  bazel build $pkg:py $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
+  bazel build $pkg:bin $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
 
-  # we get a warning that hidden.py is inaccessible
-  expect_log_once "${pkg}/e/f/g/hidden.py obscured by ${pkg}/e/f "
+  # we get a warning that hidden.txt is inaccessible
+  expect_log_once "${pkg}/e/f/g/hidden.txt obscured by ${pkg}/e/f "
 }
 
 function test_foo_runfiles() {
@@ -120,7 +164,8 @@ py_binary(name = "py",
                    "a/b/no_module.py",
                    "c/d/one_module.py",
                    "c/__init__.py",
-                   "e/f/g/ignored.py" ],
+                 ],
+          data = ["e/f/g/ignored.txt"],
           deps = ["//:root"])
 EOF
   bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
@@ -137,68 +182,66 @@ EOF
 
   cd ${WORKSPACE_NAME}
 
-  # these are real directories
-  test \! -L $pkg
-  test    -d $pkg
 
   cd $pkg
-  test \! -L a
-  test    -d a
-  test \! -L a/b
-  test    -d a/b
-  test \! -L c
-  test    -d c
-  test \! -L c/d
-  test    -d c/d
-  test \! -L e
-  test    -d e
-  test \! -L x
-  test    -d x
-  test \! -L x/y
-  test    -d x/y
-
-  # these are symlinks to the source tree
-  test    -L foo
-  test    -L x/y/z.sh
-  test    -L a/b/no_module.py
-  test    -L c/d/one_module.py
-  test    -L c/__init__.py
-  test    -L e/f
-  test    -d e/f
-  # TODO(bazel-team): an __init__.py should appear here
 
   # these are real empty files
-  test \! -L a/__init__.py
-  test    -f a/__init__.py
   test \! -s a/__init__.py
-  test \! -L a/b/__init__.py
-  test    -f a/b/__init__.py
   test \! -s a/b/__init__.py
-  test \! -L c/d/__init__.py
-  test    -f c/d/__init__.py
   test \! -s c/d/__init__.py
-  test \! -L __init__.py
-  test    -f __init__.py
   test \! -s __init__.py
+  cd ..
 
-  # that accounts for everything
-  cd ../..
+  # These are basically tuples of (path filetype)
+  expected="
+. regular dir
+./__init__.py file
+./test_foo_runfiles regular dir
+./test_foo_runfiles/__init__.py file
+./test_foo_runfiles/a regular dir
+./test_foo_runfiles/a/__init__.py file
+./test_foo_runfiles/a/b regular dir
+./test_foo_runfiles/a/b/__init__.py file
+./test_foo_runfiles/a/b/no_module.py file
+./test_foo_runfiles/c regular dir
+./test_foo_runfiles/c/__init__.py file
+./test_foo_runfiles/c/d regular dir
+./test_foo_runfiles/c/d/__init__.py file
+./test_foo_runfiles/c/d/one_module.py file
+./test_foo_runfiles/e regular dir
+./test_foo_runfiles/e/f symlink dir
+./test_foo_runfiles/foo file
+./test_foo_runfiles/py file
+./test_foo_runfiles/py.py file
+./test_foo_runfiles/x regular dir
+./test_foo_runfiles/x/y regular dir
+./test_foo_runfiles/x/y/z.sh file
+"
+  expected="$expected$(get_python_runtime_runfiles)"
+
   # For shell binary and python binary, we build both `bin` and `bin.exe`,
   # but on Linux we only build `bin`.
-  # That's why we have two more symlinks on Windows.
   if "$is_windows"; then
-    assert_equals 11 $(find ${WORKSPACE_NAME} -type l | wc -l)
-    assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
-    assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals 24 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals 15 $(wc -l < MANIFEST)
-  else
-    assert_equals  9 $(find ${WORKSPACE_NAME} -type l | wc -l)
-    assert_equals  4 $(find ${WORKSPACE_NAME} -type f | wc -l)
-    assert_equals  9 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals 22 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals 13 $(wc -l < MANIFEST)
+    expected="${expected}
+./test_foo_runfiles/py.exe file
+./test_foo_runfiles/foo.exe file
+"
   fi
+
+  # Sort and delete empty lines. This makes it easier to append to the
+  # expected string and not have to worry about stray newlines from shell
+  # commands and quoting.
+  expected=$(sort <<<"$expected" | sed '/^$/d')
+  actual=$(recursive_path_info .)
+  assert_equals "$expected" "$actual"
+
+  # The manifest only records files and symlinks, not real directories
+  expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
+  actual_manifest_size=$(wc -l < ../MANIFEST)
+  assert_equals $expected_manifest_size $actual_manifest_size
+
+  # that accounts for everything
+  cd ..
 
   for i in $(find ${WORKSPACE_NAME} \! -type d); do
     target="$(readlink "$i" || true)"

@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//tools/config:common_settings.bzl", "bool_flag")
 load("//tools/python:private/defs.bzl", "py_binary", "py_library", "py_test")
 
 licenses(["notice"])  # Apache 2.0
-
-bool_flag(
-    name = "incompatible_no_build_defs_pkg",
-    build_setting_default = False,
-    visibility = ["//visibility:public"],
-)
 
 filegroup(
     name = "srcs",
@@ -17,9 +10,16 @@ filegroup(
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
-exports_files(
-    ["README.md"],
-    visibility = ["//site:__pkg__"],
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD",
+        "archive.py",
+        "build_tar.py",
+        "path.bzl",
+        "pkg.bzl",
+    ],
+    visibility = ["//tools/build_defs:__pkg__"],
 )
 
 py_library(
@@ -90,28 +90,14 @@ genrule(
     build_tar = ":build_tar",
     extension = "tar%s" % ext,
     mode = "0644",
-    modes = {"usr/titi": "0755"},
     owner = "42.24",
     ownername = "titi.tata",
-    ownernames = {"etc/nsswitch.conf": "tata.titi"},
-    owners = {"etc/nsswitch.conf": "24.42"},
     package_dir = "/",
     strip_prefix = ".",
-    symlinks = {"usr/bin/java": "/path/to/bin/java"},
 ) for ext in [
     "",
     ".gz",
     ".bz2",
-]]
-
-[pkg_tar(
-    name = "test-tar-inclusion-%s" % ext,
-    build_tar = ":build_tar",
-    deps = [":test-tar-%s" % ext],
-) for ext in [
-    "",
-    "gz",
-    "bz2",
 ]]
 
 pkg_tar(
@@ -157,16 +143,6 @@ pkg_tar(
     },
 )
 
-pkg_tar(
-    name = "test-tar-mtime",
-    srcs = [
-        ":etc/nsswitch.conf",
-    ],
-    build_tar = ":build_tar",
-    mtime = 946684740,  # 1999-12-31, 23:59
-    portable_mtime = False,
-)
-
 sh_test(
     name = "build_test",
     size = "medium",
@@ -179,10 +155,6 @@ sh_test(
         ":test-tar-bz2.tar.bz2",
         ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
-        ":test-tar-inclusion-.tar",
-        ":test-tar-inclusion-bz2.tar",
-        ":test-tar-inclusion-gz.tar",
-        ":test-tar-mtime.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",

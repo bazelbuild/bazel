@@ -14,7 +14,6 @@
 
 """objc_library Starlark implementation replacing native"""
 
-load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
@@ -26,20 +25,41 @@ cc_common = _builtins.toplevel.cc_common
 coverage_common = _builtins.toplevel.coverage_common
 apple_common = _builtins.toplevel.apple_common
 
-def _rule_error(msg):
-    fail(msg)
-
 def _attribute_error(attr_name, msg):
     fail("in attribute '" + attr_name + "': " + msg)
 
-def _validate_attributes(ctx):
-    if ctx.label.name.find("/") != -1:
+def _validate_attributes(label):
+    if label.name.find("/") != -1:
         _attribute_error("name", "this attribute has unsupported character '/'")
 
-def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, common_variables):
+def _build_linking_context(
+        *,
+        actions,
+        archive,
+        cc_toolchain,
+        deps,
+        feature_configuration,
+        label,
+        objc_provider):
+    """Creates CcLinkingContext for the objc_library target CcInfo provider.
+
+    Args:
+        actions: The actions provider from `ctx.actions`.
+        archive: Archive library from Objc CompilationArtifacts.
+        cc_toolchain: CcToolchainInfo provider for current target.
+        deps: List of dependencies for the objc_library target.
+        feature_configuration: Features configuration for current target.
+        label: The label of the target being analyzed.
+        objc_provider: Current apple_common.ObjcProvider for target.
+    """
     libraries = []
-    if common_variables.compilation_artifacts.archive != None:
-        library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, common_variables.compilation_artifacts.archive)
+    if archive != None:
+        library_to_link = _static_library(
+            actions = actions,
+            cc_toolchain = cc_toolchain,
+            feature_configuration = feature_configuration,
+            static_library = archive,
+        )
         libraries.append(library_to_link)
 
     archives_from_objc_library = {}
@@ -47,7 +67,7 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
         archives_from_objc_library[library.path] = library
 
     objc_libraries_cc_infos = []
-    for dep in ctx.attr.deps:
+    for dep in deps:
         if apple_common.Objc in dep and CcInfo in dep:
             objc_libraries_cc_infos.append(dep[CcInfo])
 
@@ -64,22 +84,27 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
                 libraries.append(lib)
                 archives_from_objc_library[path] = None
 
-    for archive in archives_from_objc_library.values():
-        if archive:
-            library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, archive)
+    for archive_from_objc_library in archives_from_objc_library.values():
+        if archive_from_objc_library:
+            library_to_link = _static_library(
+                actions = actions,
+                cc_toolchain = cc_toolchain,
+                feature_configuration = feature_configuration,
+                static_library = archive_from_objc_library,
+            )
             libraries.append(library_to_link)
 
     libraries.extend(objc_provider.cc_library.to_list())
 
-    sdk_frameworks = objc_provider.sdk_framework.to_list()
-    user_link_flags = []
-    for sdk_framework in sdk_frameworks:
-        user_link_flags.append(["-framework", sdk_framework])
+    user_link_flags = _user_link_flags(
+        cc_info = merged_objc_library_cc_infos,
+        objc_provider = objc_provider,
+    )
 
     direct_linker_inputs = []
     if len(user_link_flags) != 0 or len(libraries) != 0 or objc_provider.linkstamp:
         linker_input = cc_common.create_linker_input(
-            owner = ctx.label,
+            owner = label,
             libraries = depset(libraries),
             user_link_flags = user_link_flags,
             linkstamps = objc_provider.linkstamp,
@@ -91,23 +116,69 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
     )
 
 def _static_library(
-        ctx,
-        feature_configuration,
+        *,
+        actions,
         cc_toolchain,
-        library):
+        feature_configuration,
+        static_library):
+    """"Creates a LibraryToLink resource for CcLinkingContext.LinkerInputs.
+
+    Args:
+        actions: The actions provider from `ctx.actions`.
+        cc_toolchain: CcToolchainInfo provider for current target.
+        feature_configuration: Features configuration for current target.
+        static_library: Static library artifact to link.
+    """
     alwayslink = False
-    if library.extension == "lo":
+    if static_library.extension == "lo":
         alwayslink = True
     return cc_common.create_library_to_link(
-        actions = ctx.actions,
+        actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        static_library = library,
+        static_library = static_library,
         alwayslink = alwayslink,
     )
 
+def _user_link_flags(*, cc_info, objc_provider):
+    """Builds objc_library CcInfo user link flags for frameworks and dylibs.
+
+    Args:
+        cc_info: Merged CcInfo provider from objc_library target deps.
+        objc_provider: Current objc_library ObjC provider.
+    Returns:
+        List of user link flags for frameworks and dylibs.
+    """
+
+    sdk_dylibs = objc_provider.sdk_dylib.to_list()
+    sdk_frameworks = objc_provider.sdk_framework.to_list()
+
+    all_user_link_flags = []
+    all_user_link_flags.extend(objc_provider.linkopt.to_list())
+
+    for linker_input in cc_info.linking_context.linker_inputs.to_list():
+        all_user_link_flags.extend(linker_input.user_link_flags)
+
+    for i, user_link_flag in enumerate(all_user_link_flags):
+        if user_link_flag.startswith("-l"):
+            sdk_dylibs.append("lib" + user_link_flag[2:])
+        elif user_link_flag == "-framework":
+            sdk_frameworks.append(all_user_link_flags[i + 1])
+
+    sdk_user_link_flags = []
+    for sdk_framework in depset(sdk_frameworks).to_list():
+        sdk_user_link_flags.append(["-framework", sdk_framework])
+    for sdk_dylib in depset(sdk_dylibs).to_list():
+        if sdk_dylib.startswith("lib"):
+            sdk_dylib = sdk_dylib[3:]
+        sdk_user_link_flags.append(["-l" + sdk_dylib])
+
+    return sdk_user_link_flags
+
 def _objc_library_impl(ctx):
-    _validate_attributes(ctx)
+    """Implementation of objc_library."""
+
+    _validate_attributes(label = ctx.label)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
@@ -134,19 +205,34 @@ def _objc_library_impl(ctx):
 
     objc_provider = common_variables.objc_provider
     feature_configuration = compilation_support.build_feature_configuration(common_variables, False, True)
-    linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, common_variables)
-    cc_info = CcInfo(
-        compilation_context = cc_compilation_context,
-        linking_context = linking_context,
+    linking_context = _build_linking_context(
+        actions = ctx.actions,
+        archive = common_variables.compilation_artifacts.archive,
+        cc_toolchain = cc_toolchain,
+        deps = ctx.attr.deps,
+        feature_configuration = feature_configuration,
+        label = ctx.label,
+        objc_provider = objc_provider,
     )
 
     return [
-        DefaultInfo(files = depset(files), data_runfiles = ctx.runfiles(files = files)),
-        cc_info,
+        DefaultInfo(
+            files = depset(files),
+            data_runfiles = ctx.runfiles(files = files),
+        ),
+        CcInfo(
+            compilation_context = cc_compilation_context,
+            linking_context = linking_context,
+        ),
         objc_provider,
         j2objc_providers[0],
         j2objc_providers[1],
-        objc_internal.instrumented_files_info(ctx = ctx, object_files = compilation_outputs.objects),
+        objc_internal.instrumented_files_info(
+            ctx = ctx,
+            cc_toolchain = cc_toolchain,
+            config = ctx.configuration,
+            object_files = compilation_outputs.objects,
+        ),
         OutputGroupInfo(**output_groups),
     ]
 
@@ -155,10 +241,8 @@ objc_library = rule(
     attrs = common_attrs.union(
         {
             "data": attr.label_list(allow_files = True),
-            "_cc_toolchain": attr.label(
-                default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
-            ),
         },
+        common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.LICENSES,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
@@ -169,6 +253,6 @@ objc_library = rule(
     ),
     fragments = ["objc", "apple", "cpp"],
     cfg = apple_crosstool_transition,
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
+    toolchains = cc_helper.use_cpp_toolchain(),
     incompatible_use_toolchain_transition = True,
 )

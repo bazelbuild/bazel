@@ -63,7 +63,7 @@ public class BlazeTestUtils {
 
   /** Creates an empty file, along with all its parent directories. */
   public static void makeEmptyFile(Path path) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
   }
 

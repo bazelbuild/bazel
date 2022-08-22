@@ -32,15 +32,30 @@ import net.starlark.java.eval.Tuple;
 abstract class StarlarkDoc {
   protected static final String TOP_LEVEL_ID = "globals";
 
+  private final StarlarkDocExpander expander;
+
+  protected StarlarkDoc(StarlarkDocExpander expander) {
+    this.expander = expander;
+  }
+
   /**
    * Returns a string containing the name of the entity being documented.
    */
   public abstract String getName();
 
   /**
-   * Returns a string containing the formatted HTML documentation of the entity being documented.
+   * Returns a string containing the formatted HTML documentation of the entity being documented
+   * (without any variables).
    */
-  public abstract String getDocumentation();
+  public String getDocumentation() {
+    return expander.expand(getRawDocumentation());
+  }
+
+  /**
+   * Returns the HTML documentation of the entity being documented, which potentially contains
+   * variables and unresolved links.
+   */
+  public abstract String getRawDocumentation();
 
   protected String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";

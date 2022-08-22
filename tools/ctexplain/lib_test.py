@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -41,7 +40,7 @@ class LibTest(test_base.TestBase):
         '    pass',
         'rule_with_host_dep = rule(',
         '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "host") })',
+        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load("//testapp:defs.bzl", "rule_with_host_dep")',
@@ -67,7 +66,7 @@ class LibTest(test_base.TestBase):
         '    pass',
         'rule_with_host_dep = rule(',
         '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "host") })',
+        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load("//testapp:defs.bzl", "rule_with_host_dep")',

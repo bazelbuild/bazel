@@ -25,8 +25,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -36,6 +41,9 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,6 +53,29 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTestCase {
+
+  private final ConcurrentHashMap<PathFragment, FileStatus> injectedStats =
+      new ConcurrentHashMap<>();
+
+  @Override
+  protected FileSystem createFileSystem() {
+    return new DelegateFileSystem(super.createFileSystem()) {
+      @Override
+      protected FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+          throws IOException {
+        @Nullable FileStatus injectedStat = injectedStats.remove(path);
+        if (injectedStat != null) {
+          return injectedStat;
+        }
+        return super.statIfFound(path, followSymlinks);
+      }
+    };
+  }
+
+  @After
+  public void checkNoInjectedStatsLeft() {
+    assertThat(injectedStats).isEmpty();
+  }
 
   private static SkyKey createCollectPackagesKey(
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
@@ -74,17 +105,23 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
         RepositoryName.MAIN, rootedPath, excludedPaths, filteringPolicy);
   }
 
-  private EvaluationResult<?> getEvaluationResult(SkyKey... keys) throws InterruptedException {
+  private EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> getAndCheckEvaluationResult(
+      SkyKey... keys) throws InterruptedException {
+    EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
+        getEvaluationResult(keys);
+    assertThatEvaluationResult(evaluationResult).hasNoError();
+    return evaluationResult;
+  }
+
+  private EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> getEvaluationResult(
+      SkyKey... keys) throws InterruptedException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
-    EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        skyframeExecutor.getEvaluator().evaluate(ImmutableList.copyOf(keys), evaluationContext);
-    assertThatEvaluationResult(evaluationResult).hasNoError();
-    return evaluationResult;
+    return skyframeExecutor.getEvaluator().evaluate(ImmutableList.copyOf(keys), evaluationContext);
   }
 
   @Test
@@ -94,7 +131,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
     // When package "a" is evaluated,
     SkyKey key = createPrepDepsKey(rootDirectory, PathFragment.create("a"));
-    EvaluationResult<?> evaluationResult = getEvaluationResult(key);
+    EvaluationResult<?> evaluationResult = getAndCheckEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
     // Then the TransitiveTraversalValue for "@//a:a" is evaluated,
@@ -124,7 +161,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
             PathFragment.create("a"),
             ImmutableSet.of(),
             FilteringPolicies.FILTER_TESTS);
-    EvaluationResult<?> evaluationResult = getEvaluationResult(key);
+    EvaluationResult<?> evaluationResult = getAndCheckEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
     // Then the TransitiveTraversalValue for "@//a:a" is not evaluated,
@@ -163,7 +200,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     SkyKey collectkey =
         createCollectPackagesKey(
             rootDirectory, PathFragment.create("a"), ImmutableSet.of(excludedPathFragment));
-    EvaluationResult<?> evaluationResult = getEvaluationResult(key, collectkey);
+    EvaluationResult<?> evaluationResult = getAndCheckEvaluationResult(key, collectkey);
     CollectPackagesUnderDirectoryValue value =
         (CollectPackagesUnderDirectoryValue)
             evaluationResult
@@ -216,7 +253,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     SkyKey key = createPrepDepsKey(rootDirectory, PathFragment.create("a"), excludedPaths);
     SkyKey collectKey =
         createCollectPackagesKey(rootDirectory, PathFragment.create("a"), excludedPaths);
-    EvaluationResult<?> evaluationResult = getEvaluationResult(key, collectKey);
+    EvaluationResult<?> evaluationResult = getAndCheckEvaluationResult(key, collectKey);
     CollectPackagesUnderDirectoryValue value =
         (CollectPackagesUnderDirectoryValue)
             evaluationResult
@@ -258,5 +295,19 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
     // And no package is under "a/b/d".
     assertThat(abValue.getSubdirectoryTransitivelyContainsPackagesOrErrors().get(abd)).isFalse();
+  }
+
+  @Test
+  public void testInconsistentFileSystemExceptionFailsWithProperError() throws Exception {
+    Path buildFile = scratch.file("a/b/BUILD", "sh_library(name='b')");
+    SkyKey key = createPrepDepsKey(rootDirectory, PathFragment.create("a"));
+    // Inject a "file" stat for "a/b" directory to trigger a InconsistentFilesystemException.
+    injectedStats.put(buildFile.getParentDirectory().asFragment(), buildFile.stat());
+
+    EvaluationResult<?> evaluationResult = getEvaluationResult(key);
+
+    Exception e = evaluationResult.getError(key).getException();
+    assertThat(e).isInstanceOf(ProcessPackageDirectoryException.class);
+    assertThat(e).hasCauseThat().isInstanceOf(InconsistentFilesystemException.class);
   }
 }

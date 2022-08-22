@@ -736,15 +736,6 @@ public class FullyQualifiedName implements DataKey {
       return FullyQualifiedName.of(parsedPackage, qs.asList(), type, name);
     }
 
-    private String firstNonNull(String... values) {
-      for (String value : values) {
-        if (value != null) {
-          return value;
-        }
-      }
-      throw new NullPointerException("Expected a nonnull value.");
-    }
-
     /**
      * Generates a FullyQualifiedName for a file-based resource given the source Path.
      *
@@ -753,6 +744,15 @@ public class FullyQualifiedName implements DataKey {
      */
     public FullyQualifiedName parse(Path sourcePath) {
       return parse(deriveRawFullyQualifiedName(sourcePath));
+    }
+
+    private String firstNonNull(String... values) {
+      for (String value : values) {
+        if (value != null) {
+          return value;
+        }
+      }
+      throw new NullPointerException("Expected a nonnull value.");
     }
   }
 }

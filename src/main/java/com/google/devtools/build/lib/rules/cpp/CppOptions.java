@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelC
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
@@ -42,7 +40,7 @@ import javax.annotation.Nullable;
 /** Command-line options for C++. */
 public class CppOptions extends FragmentOptions {
   /** Converts a comma-separated list of compilation mode settings to a properly typed List. */
-  public static class FissionOptionConverter implements Converter<List<CompilationMode>> {
+  public static class FissionOptionConverter extends Converter.Contextless<List<CompilationMode>> {
     @Override
     public List<CompilationMode> convert(String input) throws OptionsParsingException {
       ImmutableSet.Builder<CompilationMode> modes = ImmutableSet.builder();
@@ -51,7 +49,7 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.equals("no")) { // "no" is another special case that disables all modes.
         CompilationMode.Converter modeConverter = new CompilationMode.Converter();
         for (String mode : Splitter.on(',').split(input)) {
-          modes.add(modeConverter.convert(mode));
+          modes.add(modeConverter.convert(mode, /*conversionContext=*/ null));
         }
       }
       return modes.build().asList();
@@ -77,14 +75,15 @@ public class CppOptions extends FragmentOptions {
     }
   }
 
-  private static final String LIBC_RELATIVE_LABEL = ":everything";
-
   /**
    * Converts a String, which is a package label into a label that can be used for a LibcTop object.
    */
   public static class LibcTopLabelConverter implements Converter<Label> {
+    private static final LabelConverter LABEL_CONVERTER = new LabelConverter();
+
+    @Nullable
     @Override
-    public Label convert(String input) throws OptionsParsingException {
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
       if (input.equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
         return Label.createUnvalidated(
             PackageIdentifier.EMPTY_PACKAGE_ID, TARGET_LIBC_TOP_NOT_YET_SET);
@@ -97,12 +96,8 @@ public class CppOptions extends FragmentOptions {
       } else if (!input.startsWith("//")) {
         throw new OptionsParsingException("Not a label");
       }
-      try {
-        return Label.parseAbsolute(input, ImmutableMap.of())
-            .getRelativeWithRemapping(LIBC_RELATIVE_LABEL, ImmutableMap.of());
-      } catch (LabelSyntaxException e) {
-        throw new OptionsParsingException(e.getMessage());
-      }
+      return Label.createUnvalidated(
+          LABEL_CONVERTER.convert(input, conversionContext).getPackageIdentifier(), "everything");
     }
 
     @Override
@@ -294,6 +289,15 @@ public class CppOptions extends FragmentOptions {
   public List<String> conlyoptList;
 
   @Option(
+      name = "objccopt",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Additional options to pass to gcc when compiling Objective-C/C++ source files.")
+  public List<String> objcoptList;
+
+  @Option(
       name = "linkopt",
       defaultValue = "null",
       allowMultiple = true,
@@ -386,12 +390,12 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Use FDO profile information to optimize compilation. Specify the name "
-              + "of the zip file containing the .gcda file tree, or an afdo file containing "
-              + "an auto profile. This flag also accepts files specified as labels, for "
-              + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
-              + "need to add an exports_files directive to the corresponding package to make "
-              + "the file visible to Bazel. It also accepts a raw or an indexed LLVM profile file. "
-              + "This flag will be superseded by fdo_profile rule.")
+              + "of a zip file containing a .gcda file tree, an afdo file containing "
+              + "an auto profile, or an LLVM profile file. This flag also accepts files "
+              + "specified as labels (e.g. `//foo/bar:file.afdo` - you may need to add "
+              + "an `exports_files` directive to the corresponding package) and labels "
+              + "pointing to `fdo_profile` targets. This flag will be superseded by the "
+              + "`fdo_profile` rule.")
   public String fdoOptimizeForBuild;
 
   /**
@@ -506,7 +510,20 @@ public class CppOptions extends FragmentOptions {
       category = "flags",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The layout file for propeller code layout optimizations.")
+      help =
+          "Use Propeller profile information to optimize the build target."
+              + "A propeller profile must consist of at least one of two files, a cc profile "
+              + "and a ld profile.  This flag accepts a build label which must refer to "
+              + "the propeller profile input files. For example, the BUILD file that "
+              + "defines the label, in a/b/BUILD:"
+              + "propeller_optimize("
+              + "    name = \"propeller_profile\","
+              + "    cc_profile = \"propeller_cc_profile.txt\","
+              + "    ld_profile = \"propeller_ld_profile.txt\","
+              + ")"
+              + "An exports_files directive may have to be added to the corresponding package "
+              + "to make these files visible to Bazel. The option must be used as: "
+              + "--propeller_optimize=//a/b:propeller_profile")
   public Label propellerOptimizeLabel;
 
   public Label getPropellerOptimizeLabel() {
@@ -690,7 +707,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_inmemory_dotd_files",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -889,17 +906,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useSpecificToolFiles;
 
   @Option(
-      name = "incompatible_disable_static_cc_toolchains",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "@bazel_tools//tools/cpp:default-toolchain target was removed."
-              + "See https://github.com/bazelbuild/bazel/issues/8546.")
-  public boolean disableStaticCcToolchains;
-
-  @Option(
       name = "incompatible_disable_nocopts",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -945,6 +951,25 @@ public class CppOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
       help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
   public boolean appleEnableAutoDsymDbg;
+
+  @Option(
+      name = "objc_generate_linkmap",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Specifies whether to generate a linkmap file.")
+  public boolean objcGenerateLinkmap;
+
+  @Option(
+      name = "objc_enable_binary_stripping",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      help =
+          "Whether to perform symbol and dead-code strippings on linked binaries. Binary "
+              + "strippings will be performed if both this flag and --compilation_mode=opt are "
+              + "specified.")
+  public boolean objcEnableBinaryStripping;
 
   @Option(
       name = "experimental_starlark_cc_import",
@@ -1200,7 +1225,6 @@ public class CppOptions extends FragmentOptions {
     host.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
     host.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
     host.useSpecificToolFiles = useSpecificToolFiles;
-    host.disableStaticCcToolchains = disableStaticCcToolchains;
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;

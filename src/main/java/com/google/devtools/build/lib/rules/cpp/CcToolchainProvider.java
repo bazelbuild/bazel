@@ -361,7 +361,7 @@ public final class CcToolchainProvider extends NativeInfo
       result.put("ABI", getAbi());
     }
 
-    globalMakeEnvBuilder.putAll(result.build());
+    globalMakeEnvBuilder.putAll(result.buildOrThrow());
   }
 
   /**
@@ -392,6 +392,7 @@ public final class CcToolchainProvider extends NativeInfo
     return toolPathFragment == null ? null : toolPathFragment.getPathString();
   }
 
+  @Nullable
   @Override
   public String getToolPathStringOrNoneForStarlark(String toolString, StarlarkThread thread)
       throws EvalException {
@@ -461,6 +462,12 @@ public final class CcToolchainProvider extends NativeInfo
   /** Returns the files necessary for compilation. */
   public NestedSet<Artifact> getCompilerFiles() {
     return compilerFiles;
+  }
+
+  @Override
+  public Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.TYPE, getCompilerFiles());
   }
 
   /**
@@ -565,6 +572,13 @@ public final class CcToolchainProvider extends NativeInfo
     }
   }
 
+  @Override
+  public String getArtifactNameForCategory(
+      String category, String outputName, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return toolchainFeatures.getArtifactNameForCategory(
+        ArtifactCategory.valueOf(category), outputName);
+  }
   /**
    * Returns true if the featureConfiguration includes statically linking the cpp runtimes.
    *
@@ -651,6 +665,14 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public PathFragment getRuntimeSysroot() {
     return runtimeSysroot;
+  }
+
+  @Override
+  @Nullable
+  public String getRuntimeSysrootForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    PathFragment runtimeSysroot = getRuntimeSysroot();
+    return runtimeSysroot != null ? runtimeSysroot.getPathString() : null;
   }
 
   /**
@@ -819,6 +841,13 @@ public final class CcToolchainProvider extends NativeInfo
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Deprecated
   public String getLegacyCcFlagsMakeVariable() {
+    return legacyCcFlagsMakeVariable;
+  }
+
+  @Override
+  public String getLegacyCcFlagsMakeVariableForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return legacyCcFlagsMakeVariable;
   }
 

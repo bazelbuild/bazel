@@ -121,7 +121,7 @@ public final class RemoteOptions extends OptionsBase {
           "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
               + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
               + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
-              + "TLS. See https://docs.bazel.build/versions/main/remote-caching.html")
+              + "TLS. See https://dbaze.build/docs/remote-caching")
   public String remoteCache;
 
   @Option(
@@ -218,7 +218,7 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteBytestreamUriPrefix;
 
   /** Returns the specified duration. Assumes seconds if unitless. */
-  public static class RemoteTimeoutConverter implements Converter<Duration> {
+  public static class RemoteTimeoutConverter extends Converter.Contextless<Duration> {
     private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
 
     @Override
@@ -226,7 +226,7 @@ public final class RemoteOptions extends OptionsBase {
       if (UNITLESS_REGEX.matcher(input).matches()) {
         input += "s";
       }
-      return new Converters.DurationConverter().convert(input);
+      return new Converters.DurationConverter().convert(input, /*conversionContext=*/ null);
     }
 
     @Override
@@ -540,14 +540,15 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "experimental_remote_merkle_tree_cache_size",
-      defaultValue = "0",
+      defaultValue = "1000",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The number of Merkle trees to memoize to improve the remote cache hit checking speed. "
               + "Even though the cache is automatically pruned according to Java's handling of "
               + "soft references, out-of-memory errors can occur if set too high. If set to 0 "
-              + "(default), the cache size is unlimited.")
+              + " the cache size is unlimited. Optimal value varies depending on project's size. "
+              + "Default to 1000.")
   public long remoteMerkleTreeCacheSize;
 
   @Option(
@@ -572,6 +573,31 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Maximum number of open files allowed during BEP artifact upload.")
   public int maximumOpenFiles;
+
+  @Option(
+      name = "remote_print_execution_messages",
+      defaultValue = "failure",
+      converter = ExecutionMessagePrintMode.Converter.class,
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Choose when to print remote execution messages. Valid values are `failure`, "
+              + "to print only on failures, `success` to print only on successes and "
+              + "`all` to print always.")
+  public ExecutionMessagePrintMode remotePrintExecutionMessages;
+
+  @Option(
+      name = "experimental_remote_download_regex",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Force Bazel to download the artifacts that match the given regexp. To be used in"
+              + " conjunction with --remote_download_minimal or --remote_download_toplevel to allow"
+              + " the client to request certain artifacts that might be needed locally (e.g. IDE"
+              + " support)")
+  public String remoteDownloadRegex;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
@@ -630,7 +656,7 @@ public final class RemoteOptions extends OptionsBase {
       for (Property property : platform.getPropertiesList()) {
         builder.put(property.getName(), property.getValue());
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     return ImmutableSortedMap.of();
@@ -641,5 +667,25 @@ public final class RemoteOptions extends OptionsBase {
         .setMessage(message)
         .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /** An enum for specifying different modes for printing remote execution messages. */
+  public enum ExecutionMessagePrintMode {
+    FAILURE, // Print execution messages only on failure
+    SUCCESS, // Print execution messages only on success
+    ALL; // Print execution messages always
+
+    /** Converts to {@link ExecutionMessagePrintMode}. */
+    public static class Converter extends EnumConverter<ExecutionMessagePrintMode> {
+      public Converter() {
+        super(ExecutionMessagePrintMode.class, "execution message print mode");
+      }
+    }
+
+    public boolean shouldPrintMessages(boolean success) {
+      return ((!success && this == ExecutionMessagePrintMode.FAILURE)
+          || (success && this == ExecutionMessagePrintMode.SUCCESS)
+          || this == ExecutionMessagePrintMode.ALL);
+    }
   }
 }

@@ -38,28 +38,6 @@ def _to_depset(element):
     else:
         return depset([element])
 
-def _is_shared_library_extension_valid(shared_library_name):
-    if (shared_library_name.endswith(".so") or
-        shared_library_name.endswith(".dll") or
-        shared_library_name.endswith(".dylib")):
-        return True
-
-    # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
-    # must match VERSIONED_SHARED_LIBRARY.
-    for ext in (".so.", ".dylib."):
-        name, _, version = shared_library_name.rpartition(ext)
-        if name and version:
-            version_parts = version.split(".")
-            for part in version_parts:
-                if not part[0].isdigit():
-                    return False
-                for c in part[1:].elems():
-                    if not (c.isalnum() or c == "_"):
-                        return False
-            return True
-
-    return False
-
 def _perform_error_checks(
         system_provided,
         shared_library_artifact,
@@ -76,7 +54,7 @@ def _perform_error_checks(
         fail("'shared_library' should be specified when 'system_provided' is false")
 
     if (shared_library_artifact != None and
-        not _is_shared_library_extension_valid(shared_library_artifact.basename)):
+        not cc_helper.is_shared_library_extension_valid(shared_library_artifact.basename)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
 
 def _create_archive_action(
@@ -242,7 +220,7 @@ cc_import = rule(
         ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     },
-    toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],  # copybara-use-repo-external-label
+    toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"],
     incompatible_use_toolchain_transition = True,
 )

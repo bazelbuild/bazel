@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Symbolic labels of test timeout. Borrows heavily from {@link TestSize}.
@@ -105,7 +106,7 @@ public enum TestTimeout {
       previousTimeout = timeout.timeout;
     }
     SUGGESTED_TIMEOUT = suggestedTimeoutBuilder.build();
-    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.build();
+    TIMEOUT_FUZZY_RANGE = timeoutFuzzyRangeBuilder.buildOrThrow();
   }
 
   private final int timeout;
@@ -115,12 +116,30 @@ public enum TestTimeout {
   }
 
   /**
-   * Returns the enum associated with a test's timeout or null if the tag is
-   * not lower case or an unknown size.
+   * Returns the enum associated with a test's timeout or null if the tag is not lower case or an
+   * unknown size.
    */
+  @Nullable
   public static TestTimeout getTestTimeout(String attr) {
     if (!attr.equals(attr.toLowerCase())) {
       return null;
+    }
+    try {
+      return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  /**
+   * Returns test timeout of the given test target using explicitly specified timeout or default
+   * through to the size label's associated default.
+   */
+  @Nullable
+  public static TestTimeout getTestTimeout(Rule testTarget) {
+    String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
+    if (!attr.equals(attr.toLowerCase())) {
+      return null; // attribute values must be lowercase
     }
     try {
       return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
@@ -171,26 +190,9 @@ public enum TestTimeout {
     return SUGGESTED_TIMEOUT.get(timeInSeconds);
   }
 
-  /**
-   * Returns test timeout of the given test target using explicitly specified timeout
-   * or default through to the size label's associated default.
-   */
-  public static TestTimeout getTestTimeout(Rule testTarget) {
-    String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
-    if (!attr.equals(attr.toLowerCase())) {
-      return null;  // attribute values must be lowercase
-    }
-    try {
-      return TestTimeout.valueOf(attr.toUpperCase(Locale.ENGLISH));
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
-  }
-
-  /**
-   * Converter for the --test_timeout option.
-   */
-  public static class TestTimeoutConverter implements Converter<Map<TestTimeout, Duration>> {
+  /** Converter for the --test_timeout option. */
+  public static class TestTimeoutConverter
+      extends Converter.Contextless<Map<TestTimeout, Duration>> {
     public TestTimeoutConverter() {}
 
     @Override
@@ -204,7 +206,7 @@ public enum TestTimeout {
           try {
             values.add(Duration.ofSeconds(Integer.parseInt(token)));
           } catch (NumberFormatException e) {
-            throw new OptionsParsingException("'" + input + "' is not an int");
+            throw new OptionsParsingException("'" + input + "' is not an int", e);
           }
         }
       }
@@ -247,9 +249,9 @@ public enum TestTimeout {
     /**
      * {@inheritDoc}
      *
-     * <p>This override is necessary to prevent OptionsData
-     * from throwing a "must be assignable from the converter return type" exception.
-     * OptionsData doesn't recognize the generic type and actual type are the same.
+     * <p>This override is necessary to prevent OptionsData from throwing a "must be assignable from
+     * the converter return type" exception. OptionsData doesn't recognize the generic type and
+     * actual type are the same.
      */
     @Override
     public final Set<TestTimeout> convert(String input) throws OptionsParsingException {

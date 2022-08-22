@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -67,7 +68,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
               K key = (K) keys[i];
               builder.put(key, i);
             }
-            this.indexMap = builder.build();
+            this.indexMap = builder.buildOrThrow();
           }
         }
       }
@@ -174,6 +175,7 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder<K, V> put(K key, V value) {
       entries.add(key);
       entries.add(value);

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -85,26 +84,22 @@ public class ProgressReportingTest extends BuildIntegrationTestCase {
   @Test
   public void testAdditionalInfo() throws Exception {
     AnalysisMock.get().pySupport().setup(mockToolsConfig);
-    write("x/BUILD",
-        "py_binary(name = 'bin',",
-        "          srcs = ['bin.py'])",
+    write(
+        "x/BUILD",
+        "genrule(name = 'tool',",
+        "          outs = ['sometool'],",
+        "          cmd = 'touch $@')",
         "genrule(name = 'x',",
-        "        outs = ['out']," +
-        "        cmd = 'echo test > $@'," +
-        "        tools = [':bin'])");
-    write("x/bin.py");
+        "        outs = ['out'],"
+            + "        cmd = 'echo test > $@',"
+            + "        tools = [':tool'])");
 
     EventCollector collector = new EventCollector(EventKind.START);
     events.addHandler(collector);
 
     buildTarget("//x");
 
-    assertContainsEvent(collector, "Expanding template x/bin [for tool]");
-    assertContainsEvent(collector, "Creating source manifest for //x:bin [for tool]");
-    assertContainsEvent(
-        collector,
-        Pattern.compile(
-            "Creating runfiles tree blaze-out/[^/]*/bin/x/bin.runfiles \\[for tool\\]"));
+    assertContainsEvent(collector, "Executing genrule //x:tool [for tool]");
     assertContainsEvent(collector, "Executing genrule //x:x");
     assertDoesNotContainEvent(collector, "Executing genrule //x:x [for tool]");
   }

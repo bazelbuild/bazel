@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,11 +44,11 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -66,6 +67,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
+  @Nullable private SyscallCache syscallCache;
 
   public StarlarkRepositoryFunction(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
@@ -77,6 +79,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
 
   public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {
     this.processWrapper = processWrapper;
+  }
+
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.syscallCache = checkNotNull(syscallCache);
   }
 
   static String describeSemantics(StarlarkSemantics semantics) {
@@ -132,8 +138,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Map<String, String> resolvedHashes =
-        Preconditions.checkNotNull(resolvedHashesValue).getHashes();
+    Map<String, String> resolvedHashes = checkNotNull(resolvedHashesValue).getHashes();
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
@@ -145,8 +150,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns =
-        Preconditions.checkNotNull(ignoredPackagesValue).getPatterns();
+    ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
@@ -158,7 +162,6 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
               /*analysisRuleLabel=*/ null,
               /*networkAllowlistForTests=*/ null)
@@ -176,7 +179,9 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               timeoutScaling,
               processWrapper,
               starlarkSemantics,
-              repositoryRemoteExecutor);
+              repositoryRemoteExecutor,
+              syscallCache,
+              directories.getWorkspace());
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
@@ -208,7 +213,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       Object result;
       try (SilentCloseable c =
           Profiler.instance()
-              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, rule.getLabel().toString())) {
+              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
         result =
             Starlark.call(
                 thread,
@@ -236,7 +241,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       if (verificationRules.contains(ruleClass)) {
         String expectedHash = resolvedHashes.get(rule.getName());
         if (expectedHash != null) {
-          String actualHash = resolved.getDirectoryDigest();
+          String actualHash = resolved.getDirectoryDigest(syscallCache);
           if (!expectedHash.equals(actualHash)) {
             throw new RepositoryFunctionException(
                 new IOException(

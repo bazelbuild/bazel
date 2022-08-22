@@ -403,7 +403,7 @@ def _tool_impl(ctx):
     arguments = [f.path]
   )
   return DefaultInfo(files = depset([f]))
-my_tool_rule = rule(_tool_impl, attrs = { 'tool' : attr.label(executable = True, cfg = "host") })
+my_tool_rule = rule(_tool_impl, attrs = { 'tool' : attr.label(executable = True, cfg = "exec") })
 EOF
 
 cat > a/BUILD <<EOF

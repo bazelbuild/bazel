@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -95,6 +96,7 @@ public final class ActionMetadataHandlerTest {
         forInputDiscovery,
         /*archivedTreeArtifactsEnabled=*/ false,
         outputs,
+        SyscallCache.NO_CACHE,
         tsgm,
         ArtifactPathResolver.IDENTITY,
         execRoot.asFragment(),
@@ -438,6 +440,7 @@ public final class ActionMetadataHandlerTest {
             /*forInputDiscovery=*/ false,
             /*archivedTreeArtifactsEnabled=*/ false,
             /*outputs=*/ ImmutableSet.of(),
+            SyscallCache.NO_CACHE,
             tsgm,
             ArtifactPathResolver.IDENTITY,
             execRoot.asFragment(),
@@ -681,7 +684,7 @@ public final class ActionMetadataHandlerTest {
     scratch.overwriteFile(artifact.getPath().getPathString(), "2");
     FileArtifactValue fileArtifactValueFromArtifactResult =
         ActionMetadataHandler.fileArtifactValueFromArtifact(
-            artifact, /*statNoFollow=*/ null, /*tsgm=*/ null);
+            artifact, /*statNoFollow=*/ null, SyscallCache.NO_CACHE, /*tsgm=*/ null);
     assertThat(fileArtifactValueFromArtifactResult).isNotNull();
 
     assertThat(fileArtifactValueFromArtifactResult.couldBeModifiedSince(getMetadataResult))
@@ -705,7 +708,7 @@ public final class ActionMetadataHandlerTest {
 
     FileArtifactValue fileArtifactValueFromArtifactResult =
         ActionMetadataHandler.fileArtifactValueFromArtifact(
-            artifact, /*statNoFollow=*/ null, /*tsgm=*/ null);
+            artifact, /*statNoFollow=*/ null, SyscallCache.NO_CACHE, /*tsgm=*/ null);
     assertThat(fileArtifactValueFromArtifactResult).isNotNull();
 
     assertThat(fileArtifactValueFromArtifactResult.couldBeModifiedSince(getMetadataResult))

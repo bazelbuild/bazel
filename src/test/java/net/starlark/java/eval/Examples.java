@@ -114,7 +114,7 @@ final class Examples {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.put("zero", 0);
     Starlark.addMethods(env, new MyFunctions(), StarlarkSemantics.DEFAULT); // adds 'square'
-    return env.build();
+    return env.buildOrThrow();
   }
 
   /**

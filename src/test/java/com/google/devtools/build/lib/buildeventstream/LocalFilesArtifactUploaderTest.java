@@ -40,7 +40,13 @@ public class LocalFilesArtifactUploaderTest {
     // skipping the directory check.
     ListenableFuture<PathConverter> future =
         artifactUploader.upload(
-            ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT_FILE)));
+            ImmutableMap.of(
+                file,
+                new LocalFile(
+                    file,
+                    LocalFileType.OUTPUT_FILE,
+                    /*artifact=*/ null,
+                    /*artifactMetadata=*/ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isEqualTo("file:///test");
   }
@@ -50,7 +56,11 @@ public class LocalFilesArtifactUploaderTest {
     Path dir = fileSystem.getPath("/test");
     dir.createDirectoryAndParents();
     ListenableFuture<PathConverter> future =
-        artifactUploader.upload(ImmutableMap.of(dir, new LocalFile(dir, LocalFileType.OUTPUT)));
+        artifactUploader.upload(
+            ImmutableMap.of(
+                dir,
+                new LocalFile(
+                    dir, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(dir)).isNull();
   }

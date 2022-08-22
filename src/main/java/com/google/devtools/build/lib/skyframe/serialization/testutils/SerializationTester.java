@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.Random;
@@ -78,37 +79,44 @@ public class SerializationTester {
     this.subjects = subjects;
   }
 
+  @CanIgnoreReturnValue
   public <D> SerializationTester addDependency(Class<? super D> type, D dependency) {
     dependenciesBuilder.put(type, dependency);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SerializationTester addDependencies(ClassToInstanceMap<?> dependencies) {
     dependenciesBuilder.putAll(dependencies);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SerializationTester addCodec(ObjectCodec<?> codec) {
     additionalCodecs.add(codec);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SerializationTester makeMemoizing() {
     this.memoize = true;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SerializationTester makeMemoizingAndAllowFutureBlocking(boolean allowFutureBlocking) {
     makeMemoizing();
     this.allowFutureBlocking = allowFutureBlocking;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public SerializationTester setObjectCodecs(ObjectCodecs objectCodecs) {
     this.objectCodecs = objectCodecs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public <T> SerializationTester setVerificationFunction(
       VerificationFunction<T> verificationFunction) {
     this.verificationFunction = verificationFunction;
@@ -116,6 +124,7 @@ public class SerializationTester {
   }
 
   /** Sets the number of times to repeat serialization and deserialization. */
+  @CanIgnoreReturnValue
   public SerializationTester setRepetitions(int repetitions) {
     this.repetitions = repetitions;
     return this;

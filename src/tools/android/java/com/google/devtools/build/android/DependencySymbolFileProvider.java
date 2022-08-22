@@ -36,21 +36,6 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
     return valueOf(text, FileSystems.getDefault());
   }
 
-  @Override
-  public File getSymbolFile() {
-    return symbolFile;
-  }
-
-  @Override
-  public boolean isOptional() {
-    return false;
-  }
-
-  @Override
-  public File getManifest() {
-    return manifest;
-  }
-
   private static DependencySymbolFileProvider valueOf(String text, FileSystem fileSystem) {
     int separatorIndex = text.indexOf(',');
     if (separatorIndex == -1) {
@@ -67,6 +52,21 @@ class DependencySymbolFileProvider implements SymbolFileProvider {
     return new DependencySymbolFileProvider(
         getFile(text.substring(0, separatorIndex), fileSystem),
         getFile(text.substring(separatorIndex + 1), fileSystem));
+  }
+
+  @Override
+  public File getSymbolFile() {
+    return symbolFile;
+  }
+
+  @Override
+  public boolean isOptional() {
+    return false;
+  }
+
+  @Override
+  public File getManifest() {
+    return manifest;
   }
 
   private static File getFile(String pathString, FileSystem fileSystem) {

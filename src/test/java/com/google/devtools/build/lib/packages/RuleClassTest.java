@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -40,6 +42,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -54,7 +57,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
@@ -130,7 +132,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         attr("my-label-attr", LABEL)
             .mandatory()
             .legacyAllowAnyFileType()
-            .value(Label.parseAbsolute("//default:label", ImmutableMap.of()))
+            .value(Label.parseCanonical("//default:label"))
             .build(),
         attr("my-labellist-attr", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
         attr("my-integer-attr", INTEGER).value(StarlarkInt.of(42)).build(),
@@ -196,7 +198,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     // default based on type
     assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
     assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
-        .isEqualTo(Label.parseAbsolute("//default:label", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//default:label"));
     assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
     assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
@@ -743,8 +745,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new BuildLangTypedAttributeValuesMap(attributeValues),
         reporter,
         location,
-        callstack,
-        /*checkThirdPartyRulesHaveLicenses=*/ true);
+        callstack);
   }
 
   @Test
@@ -859,9 +860,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .build(),
         supportsConstraintChecking,
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
-        /*requiredToolchains=*/ ImmutableSet.of(),
+        /*toolchainTypes=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ ToolchainResolutionMode.ENABLED,
-        /*useToolchainTransition=*/ ToolchainTransitionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
@@ -989,22 +989,20 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testRequiredToolchains() throws Exception {
+  public void testToolchainTypes() throws Exception {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
 
-    ruleClassBuilder.addRequiredToolchains(
-        Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of()),
-        Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of()));
+    ruleClassBuilder.addToolchainTypes(
+        ToolchainTypeRequirement.create(Label.parseCanonical("//toolchain:tc1")),
+        ToolchainTypeRequirement.create(Label.parseCanonical("//toolchain:tc2")));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
-    assertThat(ruleClass.getRequiredToolchains())
-        .containsExactly(
-            Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of()),
-            Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of()));
+    assertThat(ruleClass).hasToolchainType("//toolchain:tc1");
+    assertThat(ruleClass).hasToolchainType("//toolchain:tc2");
   }
 
   @Test
@@ -1015,15 +1013,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST));
 
     ruleClassBuilder.addExecutionPlatformConstraints(
-        Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-        Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+        Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+            Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
   }
 
   @Test
@@ -1032,8 +1028,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("$parentRuleClass", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
             .addExecutionPlatformConstraints(
-                Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-                Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()))
+                Label.parseCanonical("//constraints:cv1"),
+                Label.parseCanonical("//constraints:cv2"))
             .build();
 
     RuleClass childRuleClass =
@@ -1043,8 +1039,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+            Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
   }
 
   @Test
@@ -1058,15 +1053,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecutionPlatformConstraints(
-                Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-                Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+                Label.parseCanonical("//constraints:cv1"),
+                Label.parseCanonical("//constraints:cv2"));
 
     RuleClass childRuleClass = childRuleClassBuilder.build();
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+            Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
   }
 
   @Test
@@ -1079,17 +1073,22 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Label toolchain = Label.parseAbsoluteUnchecked("//toolchain");
     Label constraint = Label.parseAbsoluteUnchecked("//constraint");
 
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry",
+            ExecGroup.builder()
+                .addToolchainType(ToolchainTypeRequirement.create(toolchain))
+                .execCompatibleWith(ImmutableSet.of(constraint))
+                .copyFrom(null)
+                .build()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
-        .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
-        .containsExactly(constraint);
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasToolchainType(toolchain);
+    assertThat(ruleClass.getExecGroups().get("cherry")).toolchainType(toolchain).isMandatory();
+    assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 
   @Test

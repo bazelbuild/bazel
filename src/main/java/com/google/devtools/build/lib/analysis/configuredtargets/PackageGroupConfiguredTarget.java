@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -30,13 +31,13 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -125,6 +126,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
+  @Nullable
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     if (providerKey.equals(PROVIDER.getKey())) {
       return this;
@@ -151,7 +153,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
         BazelModuleContext.of(ofInnermostEnclosingStarlarkFunction(starlarkThread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use by builtins");
     }
     return Allowlist.isAvailableFor(getPackageSpecifications(), label);

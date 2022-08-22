@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -1171,8 +1172,7 @@ public final class LoadingPhaseRunnerTest {
   public void testPatternStartingWithDotDotSlash() {
     expectError(
         "../foo",
-        "Bad target pattern '../foo': invalid package name '..': package name component contains"
-            + " only '.' characters");
+        "Bad target pattern '../foo': package name component contains only '.' characters");
   }
 
   private void runTestPackageLoadingError(boolean keepGoing, String... patterns) throws Exception {
@@ -1369,6 +1369,7 @@ public final class LoadingPhaseRunnerTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =

@@ -80,6 +80,7 @@ sh_test(
     size = "medium",
     srcs = ["runfiles_test.sh"],
     data = [
+        "runfiles_test_utils.sh",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -285,6 +286,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
 )
 
 sh_test(
@@ -804,11 +806,34 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
 )
 
 sh_test(
     name = "watchfs_test",
     srcs = ["watchfs_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "toolchain_test",
+    size = "large",
+    srcs = ["toolchain_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 5,
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "toolchain_transition_test",
+    srcs = ["toolchain_transition_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

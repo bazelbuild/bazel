@@ -46,42 +46,34 @@ public class WorkerOptions extends OptionsBase {
       })
   public Void experimentalPersistentJavac;
 
-  @Option(
-      name = "experimental_worker_allow_json_protocol",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Allows workers to use the JSON worker protocol until it is determined to be"
-              + " stable.")
-  public boolean experimentalJsonWorkerProtocol;
-
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
-   * the empty string is used as the key. The default value for unspecified mnemonics is {@value
-   * DEFAULT_VALUE}. "auto" currently returns the default.
+   * the empty string is used as the key. The default value for unspecified mnemonics is defined in
+   * {@link WorkerPool.createWorkerPools}. "auto" currently returns the default.
    */
-  public static class MultiResourceConverter implements Converter<Entry<String, Integer>> {
+  public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
-    public static final int DEFAULT_VALUE = 4;
-
-    static ResourceConverter valueConverter =
-        new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
+    static final ResourceConverter valueConverter =
+        new ResourceConverter(() -> 0, 0, Integer.MAX_VALUE);
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
       // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
-      if (input == null || "null".equals(input)) {
-        input = "auto";
+      if (input == null || "null".equals(input) || "auto".equals(input)) {
+        return Maps.immutableEntry(null, null);
       }
       int pos = input.indexOf('=');
       if (pos < 0) {
-        return Maps.immutableEntry("", valueConverter.convert(input));
+        return Maps.immutableEntry("", valueConverter.convert(input, /*conversionContext=*/ null));
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
-      return Maps.immutableEntry(name, valueConverter.convert(value));
+      if ("auto".equals(value)) {
+        return Maps.immutableEntry(name, null);
+      }
+
+      return Maps.immutableEntry(name, valueConverter.convert(value, /*conversionContext=*/ null));
     }
 
     @Override
@@ -188,6 +180,14 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerCancellation;
 
   @Option(
+      name = "experimental_worker_as_resource",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, workers are acquired as resources from ResourceManager.")
+  public boolean workerAsResource;
+
+  @Option(
       name = "experimental_worker_multiplex_sandboxing",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -197,4 +197,15 @@ public class WorkerOptions extends OptionsBase {
               + " per work request. Only workers that have the 'supports-multiplex-sandboxing' "
               + "execution requirement will be sandboxed.")
   public boolean multiplexSandboxing;
+
+  @Option(
+      name = "experimental_worker_strict_flagfiles",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, actions arguments for workers that do not follow the worker specification"
+              + " will cause an error. Worker arguments must have exactly one @flagfile argument"
+              + " as the last of its list of arguments.")
+  public boolean strictFlagfiles;
 }

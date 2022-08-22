@@ -75,6 +75,63 @@ d.update((["f", 0],), f = 6)
 expected = {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6}
 assert_eq(d, expected)
 
+# dict union operator |
+
+empty_dict = dict()
+dict_with_a_b = dict(a=1, b=[1, 2])
+dict_with_b = dict(b=[1, 2])
+dict_with_other_b = dict(b=[3, 4])
+
+assert_eq(empty_dict | dict_with_a_b, dict_with_a_b)
+# Verify iteration order.
+assert_eq((empty_dict | dict_with_a_b).items(), dict_with_a_b.items())
+assert_eq(dict_with_a_b | empty_dict, dict_with_a_b)
+assert_eq((dict_with_a_b | empty_dict).items(), dict_with_a_b.items())
+assert_eq(dict_with_b | dict_with_a_b, dict_with_a_b)
+assert_eq((dict_with_b | dict_with_a_b).items(), dict(b=[1, 2], a=1).items())
+assert_eq(dict_with_a_b | dict_with_b, dict_with_a_b)
+assert_eq((dict_with_a_b | dict_with_b).items(), dict_with_a_b.items())
+assert_eq(dict_with_b | dict_with_other_b, dict_with_other_b)
+assert_eq((dict_with_b | dict_with_other_b).items(), dict_with_other_b.items())
+assert_eq(dict_with_other_b | dict_with_b, dict_with_b)
+assert_eq((dict_with_other_b | dict_with_b).items(), dict_with_b.items())
+
+assert_eq(empty_dict, dict())
+assert_eq(dict_with_b, dict(b=[1,2]))
+
+assert_fails(lambda: dict() | [], "unsupported binary operation")
+
+# dict union assignment operator |=
+
+def test_dict_union_assignment():
+    empty_dict = dict()
+    empty_dict |= {"a": 1}
+    empty_dict |= {"b": 2}
+    empty_dict |= {"c": "3", 7: 4}
+    empty_dict |= {"b": "5", "e": 6}
+    expected_1 = {"a": 1, "b": "5", "c": "3", 7: 4, "e": 6}
+    assert_eq(empty_dict, expected_1)
+    assert_eq(empty_dict.items(), expected_1.items())
+
+    dict_a = {8: 1, "b": 2}
+    dict_b = {"b": 1, "c": 6}
+    dict_c = {"d": 7}
+    dict_tuple = {(5, "a"): ("c", 8)}
+    dict_a |= dict_b
+    dict_c |= dict_a
+    dict_c |= dict_tuple
+    expected_2 = {"d": 7, 8: 1, "b": 1, "c": 6, (5, "a"): ("c", 8)}
+    assert_eq(dict_c, expected_2)
+    assert_eq(dict_c.items(), expected_2.items())
+    assert_eq(dict_b, {"b": 1, "c": 6})
+
+test_dict_union_assignment()
+
+def dict_union_assignment_type_mismatch():
+    some_dict = dict()
+    some_dict |= []
+
+assert_fails(dict_union_assignment_type_mismatch, "unsupported binary operation")
 
 # creation with repeated keys
 

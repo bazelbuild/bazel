@@ -31,12 +31,14 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -73,11 +75,10 @@ final class PathLabelVisitor {
       if (visitor.hasVisited(t)) {
         ArrayDeque<Target> result = new ArrayDeque<>();
         Target at = t;
-        // TODO(ulfjack): This can result in an infinite loop if there's a dependency cycle.
         while (true) {
           result.addFirst(at);
           List<Target> pred = visitor.getParents(at);
-          if (pred == null) {
+          if (pred == null || pred.isEmpty()) {
             break;
           }
           at = pred.get(0);
@@ -133,7 +134,7 @@ final class PathLabelVisitor {
       ExtendedEventHandler eventHandler,
       Iterable<Target> from,
       Iterable<Target> universe,
-      int depth)
+      OptionalInt depth)
       throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
     visitor.visitTargets(universe);
@@ -149,10 +150,8 @@ final class PathLabelVisitor {
     Set<Target> next = new HashSet<>();
     // In round i, we add all targets at depth i to result, so we need depth + 1 rounds. Note that
     // depth can be Integer.MAX_VALUE, so do not use "< depth + 1" here..
-    for (int i = 0; i <= depth; i++) {
-      if (at.isEmpty()) {
-        break;
-      }
+    int i = 0;
+    while (QueryEnvironment.shouldVisit(depth, i++) && !at.isEmpty()) {
       for (Target t : at) {
         if (result.add(t)) {
           List<Target> pred = visitor.getParents(t);
@@ -279,6 +278,11 @@ final class PathLabelVisitor {
         }
 
         visitAspectsIfRequired(from, attribute, target);
+      } else if (mode == VisitorMode.SOMEPATH) {
+        // Here we make sure that if this is a top-level visitation node (where 'from' is null),
+        // a parent edge cannot be made for this node. This prevents parent-edge cycles from being
+        // formed and hence infinite loops impossible when traversing parent-edges.
+        parentMap.putIfAbsent(target, ImmutableList.of());
       }
 
       if (visited.add(target)) {

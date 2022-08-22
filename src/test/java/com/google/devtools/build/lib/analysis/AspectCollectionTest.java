@@ -317,7 +317,7 @@ public class AspectCollectionTest {
 
     for (String requiredAspect : requiredAspects) {
       requiredProvidersBuilder.add(
-          ImmutableSet.of((StarlarkProviderIdentifier.forLegacy(requiredAspect))));
+          ImmutableSet.of(StarlarkProviderIdentifier.forLegacy(requiredAspect)));
     }
     final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders =
         requiredProvidersBuilder.build();

@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -57,6 +58,7 @@ class BuildFileBuilder {
    * @param isDefault whether this version is the local default
    * @param aliases the aliases for this version
    */
+  @CanIgnoreReturnValue
   BuildFileBuilder addLocalVersion(
       String name, String versionNumber, boolean isDefault, String... aliases) {
     Version version = new Version(name, versionNumber, aliases);
@@ -79,6 +81,7 @@ class BuildFileBuilder {
    * @param isDefault whether this version is the remote default
    * @param aliases the aliases for this version
    */
+  @CanIgnoreReturnValue
   BuildFileBuilder addRemoteVersion(
       String name, String versionNumber, boolean isDefault, String... aliases) {
     Version version = new Version(name, versionNumber, aliases);
@@ -101,6 +104,7 @@ class BuildFileBuilder {
    * @param isDefault whether this version is the default
    * @param aliases the aliases for this version
    */
+  @CanIgnoreReturnValue
   BuildFileBuilder addExplicitVersion(
       String name, String versionNumber, boolean isDefault, String... aliases) {
     Version version = new Version(name, versionNumber, aliases);

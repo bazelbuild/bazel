@@ -54,7 +54,7 @@ public class ToolchainTypeInfo extends NativeInfo implements ToolchainTypeInfoAp
 
   @Override
   public void repr(Printer printer) {
-    Printer.format(printer, "ToolchainTypeInfo(%s)", typeLabel);
+    printer.append(String.format("ToolchainTypeInfo(%s)", typeLabel));
   }
 
   @Override

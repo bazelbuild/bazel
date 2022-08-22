@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
 /** Rule definitions for Android rules. */
@@ -315,7 +316,7 @@ public final class AndroidRuleClasses {
           <code>res</code> directory.
           <br/>
           Generated files (from genrules) can be referenced by
-          <a href="../build-ref.html#labels">Label</a> here as well. The only restriction is that
+          <a href="${link build-ref#labels}">Label</a> here as well. The only restriction is that
           the generated outputs must be under the same "<code>res</code>" directory as any other
           resource files that are included.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -571,6 +572,15 @@ public final class AndroidRuleClasses {
           <code>en_XA</code> and/or <code>ar_XB</code> pseudo-locales.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, STRING_LIST))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(min_sdk_version) -->
+          The minSdkVersion. This must match the minSdkVersion specified in the AndroidManifest.xml.
+          If set, will be used for dex/desugaring.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("min_sdk_version", INTEGER)
+                  .undocumented("experimental")
+                  .value(StarlarkInt.of(0))
+                  .nonconfigurable("AspectParameters don't support configurations."))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(shrink_resources) -->
           Whether to perform resource shrinking. Resources that are not used by the binary will be
           removed from the APK. This is only supported for rules using local resources (i.e. the
@@ -591,7 +601,7 @@ public final class AndroidRuleClasses {
             <li><code>shrink_resources = 1</code>: Turns on Android resource shrinking</li>
             <li><code>shrink_resources = 0</code>: Turns off Android resource shrinking</li>
             <li><code>shrink_resources = -1</code>: Shrinking is controlled by the
-                <a href="../user-manual.html#flag--android_resource_shrinking">
+                <a href="${link user-manual#flag--android_resource_shrinking}">
                 --android_resource_shrinking</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -683,6 +693,10 @@ public final class AndroidRuleClasses {
           .add(
               attr("$desugared_java8_legacy_apis", LABEL)
                   .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
+          .add(
+              attr("$merge_proguard_maps", LABEL)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:merge_proguard_maps")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
@@ -728,7 +742,7 @@ public final class AndroidRuleClasses {
           .add(
               attr("multidex", STRING)
                   .allowedValues(new AllowedValueSet(MultidexMode.getValidValues()))
-                  .value(MultidexMode.OFF.getAttributeValue()))
+                  .value(MultidexMode.NATIVE.getAttributeValue()))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
           Use this option to affect the classes included in the main dex list.
@@ -840,6 +854,7 @@ public final class AndroidRuleClasses {
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override
+                        @Nullable
                         public Object getDefault(AttributeMap rule) {
                           return rule.isAttributeValueExplicitlySpecified("instruments")
                               ? env.getToolsLabel("//tools/android:instrumentation_test_check")
@@ -901,9 +916,7 @@ public final class AndroidRuleClasses {
     // Build dexes with multidex and implement support at the application level.
     LEGACY,
     // Build dexes with multidex, main dex list needs to be manually specified.
-    MANUAL_MAIN_DEX,
-    // Build all dex code into a single classes.dex file.
-    OFF;
+    MANUAL_MAIN_DEX;
 
     /** Returns the attribute value that specifies this mode. */
     public String getAttributeValue() {
@@ -915,10 +928,11 @@ public final class AndroidRuleClasses {
      * (possibly) multiple files.
      */
     public String getOutputDexFilename() {
-      return this == OFF ? "classes.dex" : "classes.dex.zip";
+      return "classes.dex.zip";
     }
 
     /** Converts an attribute value to a corresponding mode. Returns null on no match. */
+    @Nullable
     public static MultidexMode fromValue(String value) {
       for (MultidexMode mode : values()) {
         if (mode.getAttributeValue().equals(value)) {

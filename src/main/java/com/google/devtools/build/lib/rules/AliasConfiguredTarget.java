@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
@@ -66,15 +67,23 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
       ConfiguredTarget actual,
       NestedSet<PackageGroupContents> visibility,
       ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides) {
+    ImmutableClassToInstanceMap.Builder<TransitiveInfoProvider> allOverrides =
+        ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
+            .putAll(overrides)
+            .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
+            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility));
+    if (ruleContext.getRequiredConfigFragments() != null) {
+      // This causes "blaze cquery --show_config_fragments=direct" to only show the
+      // fragments/options the alias directly uses, not those of its actual target. Since alias
+      // has a narrow API this practically means whatever a select() in the alias requires.
+      allOverrides.put(
+          RequiredConfigFragmentsProvider.class, ruleContext.getRequiredConfigFragments());
+    }
     return new AliasConfiguredTarget(
         ruleContext.getLabel(),
         ruleContext.getConfigurationKey(),
         actual,
-        ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
-            .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
-            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility))
-            .putAll(overrides)
-            .build(),
+        allOverrides.build(),
         ruleContext.getConfigConditions());
   }
 
@@ -141,9 +150,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
 
   @Override
   public BuildConfigurationKey getConfigurationKey() {
-    // This does not return actual.getConfigurationKey() because actual might be an input file, in
-    // which case its configurationKey is null and we don't want to have rules that have a null
-    // configurationKey.
+    // It would be incorrect to return actual.getConfigurationKey() because of two cases:
+    // 1) actual might be an input file, in which case its configuration key is null, and we don't
+    //    want to have rules with a null configuration key.
+    // 2) actual has a self transition. Self transitions don't get applied to the alias rule, and so
+    //    the configuration keys actually differ.
     return configurationKey;
   }
 
@@ -167,6 +178,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
     return actual.getFieldNames();
   }
 
+  @Nullable
   @Override
   public String getErrorMessageForUnknownField(String name) {
     // Use the default error message.

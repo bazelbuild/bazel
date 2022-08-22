@@ -131,8 +131,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     }
     InstrumentationSpec instrumentationSpec =
         new InstrumentationSpec(fileTypeSet)
-            .withSourceAttributes(sourceAttributes.toArray(new String[0]))
-            .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
+            .withSourceAttributes(sourceAttributes)
+            .withDependencyAttributes(dependencyAttributes);
     return InstrumentedFilesCollector.collect(
         ruleContext,
         instrumentationSpec,

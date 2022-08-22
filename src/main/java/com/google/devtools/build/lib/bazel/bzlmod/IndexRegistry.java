@@ -21,10 +21,12 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -115,11 +117,19 @@ public class IndexRegistry implements Registry {
       return Optional.empty();
     }
     String jsonString = new String(bytes.get(), UTF_8);
-    return Optional.of(gson.fromJson(jsonString, klass));
+    if (jsonString.strip().isEmpty()) {
+      return Optional.empty();
+    }
+    try {
+      return Optional.of(gson.fromJson(jsonString, klass));
+    } catch (JsonParseException e) {
+      throw new IOException(String.format("Unable to parse json at url %s", url), e);
+    }
   }
 
   @Override
-  public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler)
+  public RepoSpec getRepoSpec(
+      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     Optional<BazelRegistryJson> bazelRegistryJson =
         grabJson(
@@ -148,7 +158,7 @@ public class IndexRegistry implements Registry {
     if (bazelRegistryJson.isPresent() && bazelRegistryJson.get().mirrors != null) {
       for (String mirror : bazelRegistryJson.get().mirrors) {
         try {
-          new URL(mirror);
+          var unused = new URL(mirror);
         } catch (MalformedURLException e) {
           throw new IOException("Malformed mirror URL", e);
         }
@@ -176,11 +186,11 @@ public class IndexRegistry implements Registry {
     }
 
     return new ArchiveRepoSpecBuilder()
-        .setRepoName(repoName)
+        .setRepoName(repoName.getName())
         .setUrls(urls.build())
         .setIntegrity(sourceJson.get().integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
-        .setRemotePatches(remotePatches.build())
+        .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
         .build();
   }

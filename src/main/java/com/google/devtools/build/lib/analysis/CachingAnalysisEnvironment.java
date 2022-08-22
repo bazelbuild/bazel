@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -304,11 +303,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
-    return artifactFactory.getSourceArtifact(execPath, root, owner);
-  }
-
-  @Override
   public Artifact.DerivedArtifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
@@ -328,6 +322,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.actions.add(Preconditions.checkNotNull(action, owner));
   }
 
+  @Nullable
   @Override
   public ActionAnalysisMetadata getLocalGeneratingAction(Artifact artifact) {
     for (ActionAnalysisMetadata action : actions) {

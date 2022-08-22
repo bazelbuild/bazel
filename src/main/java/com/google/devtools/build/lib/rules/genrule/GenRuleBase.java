@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A base implementation of genrule, to be used by specific implementing rules which can change some
@@ -89,6 +90,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     WINDOWS_POWERSHELL,
   }
 
+  @Nullable
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
@@ -115,6 +117,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSet<Artifact> filesToBuild =
@@ -227,7 +230,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         break;
       case BASH:
       default:
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
+        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
         constructor =
             CommandHelper.buildBashCommandConstructor(
                 executionInfo, shExecutable, ".genrule_script.sh");
@@ -286,6 +290,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    * Returns the executable artifact, if the rule is marked as executable and there is only one
    * artifact.
    */
+  @Nullable
   private static Artifact getExecutable(RuleContext ruleContext, NestedSet<Artifact> filesToBuild) {
     if (!ruleContext.attributes().get("executable", Type.BOOLEAN)) {
       return null;

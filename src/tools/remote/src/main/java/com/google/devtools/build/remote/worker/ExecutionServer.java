@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
@@ -65,11 +64,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -269,7 +270,7 @@ final class ExecutionServer extends ExecutionImplBase {
     }
 
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
-    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+    workingDirectory.createDirectoryAndParents();
 
     List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
     for (String output : command.getOutputFilesList()) {
@@ -277,15 +278,21 @@ final class ExecutionServer extends ExecutionImplBase {
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output file already exists: " + file);
       }
-      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
     }
     for (String output : command.getOutputDirectoriesList()) {
       Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
-        throw new FileAlreadyExistsException("Output directory/file already exists: " + file);
+        if (!file.isDirectory()) {
+          throw new FileAlreadyExistsException(
+              "Non-directory exists at output directory path: " + file);
+        } else if (!file.getDirectoryEntries().isEmpty()) {
+          throw new FileAlreadyExistsException(
+              "Non-empty directory exists at output directory path: " + file);
+        }
       }
-      FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+      file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
     }
 
@@ -293,7 +300,7 @@ final class ExecutionServer extends ExecutionImplBase {
     // implementation instead of copying it.
     com.google.devtools.build.lib.shell.Command cmd =
         getCommand(command, workingDirectory.getPathString());
-    long startTime = System.currentTimeMillis();
+    Instant startTime = Instant.now();
     CommandResult cmdResult = null;
 
     String uuid = UUID.randomUUID().toString();
@@ -316,13 +323,14 @@ final class ExecutionServer extends ExecutionImplBase {
         }
       }
 
+      Duration wallTime = Duration.between(startTime, Instant.now());
       long timeoutMillis =
           action.hasTimeout()
               ? Durations.toMillis(action.getTimeout())
               : TimeUnit.MINUTES.toMillis(15);
       boolean wasTimeout =
           (cmdResult != null && cmdResult.getTerminationStatus().timedOut())
-              || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
+              || wasTimeout(timeoutMillis, wallTime.toMillis());
       final int exitCode;
       Status errStatus = null;
       ExecuteResponse.Builder resp = ExecuteResponse.newBuilder();
@@ -356,7 +364,9 @@ final class ExecutionServer extends ExecutionImplBase {
                 command,
                 outputs,
                 outErr,
-                exitCode);
+                exitCode,
+                Optional.of(startTime),
+                Optional.of(wallTime));
         result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {

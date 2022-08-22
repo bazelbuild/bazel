@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
@@ -89,6 +90,7 @@ import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
@@ -96,6 +98,7 @@ import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
@@ -107,9 +110,7 @@ import com.google.devtools.build.lib.skyframe.TraversalInfoRootPackageExtractor;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -126,6 +127,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
@@ -268,7 +270,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     if (graph == null || graph != result.getWalkableGraph()) {
-      checkEvaluationResult(universeScopeListToUse, roots, universeKey, result);
+      checkEvaluationResult(universeScopeListToUse, roots, universeKey, result, expr);
       packageSemaphore = makeFreshPackageMultisetSemaphore();
       graph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
       ignoredPatternsSupplier =
@@ -330,7 +332,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       ImmutableList<String> universeScopeList,
       Set<SkyKey> roots,
       SkyKey universeKey,
-      EvaluationResult<SkyValue> result)
+      EvaluationResult<SkyValue> result,
+      QueryExpression exprForError)
       throws QueryException {
     // If the only root is the universe key, we expect to see either a single successfully evaluated
     // value or a cycle in the result or a catastrophic error.
@@ -352,56 +355,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         "Universe query \"%s\" failed but had no error: %s",
         universeScopeList,
         result);
-    Exception exception = result.getCatastrophe();
-    if (exception != null) {
-      throw throwException(exception, result);
-    }
-
-    // Catastrophe not present: look at top-level keys now.
-    boolean foundCycle = false;
-    for (ErrorInfo errorInfo : result.errorMap().values()) {
-      if (errorInfo == null) {
-        continue;
-      }
-      if (!errorInfo.getCycleInfo().isEmpty()) {
-        foundCycle = true;
-      } else {
-        exception = errorInfo.getException();
-        if (exception instanceof DetailedException) {
-          break;
-        }
-      }
-    }
-
-    if (exception != null) {
-      throw throwException(exception, result);
-    }
-    Preconditions.checkState(
-        foundCycle,
-        "No cycle or exception found in result with error: %s %s %s %s",
-        result,
-        roots,
-        universeKey,
-        universeScopeList);
-  }
-
-  private static QueryException throwException(
-      Exception exception, EvaluationResult<SkyValue> resultForDebugging) throws QueryException {
-    FailureDetail failureDetail;
-    if (!(exception instanceof DetailedException)) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "Non-detailed exception found during universe scope building: " + resultForDebugging,
-              exception));
-      failureDetail =
-          FailureDetail.newBuilder()
-              .setQuery(Query.newBuilder().setCode(Code.NON_DETAILED_ERROR))
-              .build();
-    } else {
-      failureDetail = ((DetailedException) exception).getDetailedExitCode().getFailureDetail();
-    }
-    throw new QueryException(
-        "Building universe scope failed: " + exception.getMessage(), exception, failureDetail);
+    QueryTransitivePackagePreloader.maybeThrowQueryExceptionForResultWithError(
+        result, roots, exprForError, /*operation=*/ "Building universe scope");
   }
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
@@ -514,7 +469,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     BatchStreamedCallback batchCallback =
         new BatchStreamedCallback(
             callback, BATCH_CALLBACK_SIZE, createUniquifierForOuterBatchStreamedCallback(expr));
-    return super.evaluateQuery(expr, batchCallback);
+    return evaluateQueryInternal(expr, batchCallback);
   }
 
   Map<SkyKey, Collection<Target>> targetifyValues(Map<SkyKey, ? extends Iterable<SkyKey>> input)
@@ -543,7 +498,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       }
       result.put(entry.getKey(), targets);
     }
-    return result.build();
+    return result.buildOrThrow();
   }
 
   private Map<SkyKey, Collection<Target>> getRawReverseDeps(
@@ -936,7 +891,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
           // Also add the BUILD file of the extension.
           if (buildFiles) {
-            Label buildFileLabel = getBuildFileLabel(loadTarget.getLabel().getPackageIdentifier());
+            Label buildFileLabel = getBuildFileLabelForPackageOfBzlFile(extension);
             addIfUniqueLabel(new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
           }
         }
@@ -945,18 +900,30 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return dependentFiles;
   }
 
-  protected Label getBuildFileLabel(PackageIdentifier packageIdentifier) throws QueryException {
-    // TODO(bazel-team): Try avoid filesystem access here.
-    Path buildFileForLoad = null;
-    try {
-      buildFileForLoad = pkgPath.getPackageBuildFile(packageIdentifier);
-    } catch (NoSuchPackageException e) {
+  protected Label getBuildFileLabelForPackageOfBzlFile(Label bzlFileLabel)
+      throws QueryException, InterruptedException {
+    PackageIdentifier packageIdentifier = bzlFileLabel.getPackageIdentifier();
+    PackageLookupValue packageLookupValue =
+        (PackageLookupValue) graph.getValue(PackageLookupValue.key(packageIdentifier));
+    if (packageLookupValue == null) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "PackageLookupValue for package of extension file "
+                  + bzlFileLabel
+                  + " not in graph"));
       throw new QueryException(
-          packageIdentifier + " does not exist in graph",
-          e,
-          e.getDetailedExitCode().getFailureDetail());
+          bzlFileLabel + " does not exist in graph",
+          FailureDetail.newBuilder()
+              .setMessage("BUILD file not found on package path")
+              .setPackageLoading(
+                  FailureDetails.PackageLoading.newBuilder()
+                      .setCode(FailureDetails.PackageLoading.Code.BUILD_FILE_MISSING)
+                      .build())
+              .build());
     }
-    return Label.createUnvalidated(packageIdentifier, buildFileForLoad.getBaseName());
+    return Label.createUnvalidated(
+        packageIdentifier,
+        packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName());
   }
 
   private static void addIfUniqueLabel(Target node, Set<Label> labels, Set<Target> nodes) {
@@ -1050,7 +1017,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           resultBuilder.put(label, target);
         }
       }
-      return resultBuilder.build();
+      return resultBuilder.buildOrThrow();
     } finally {
       packageSemaphore.releaseAll(packageIdToLabelMap.keySet());
     }
@@ -1067,12 +1034,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       PackageValue pkgValue = (PackageValue) pkgEntry.getValue();
       pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
     }
-    return pkgResults.build();
+    return pkgResults.buildOrThrow();
   }
 
   @Override
   public void buildTransitiveClosure(
-      QueryExpression caller, ThreadSafeMutableSet<Target> targets, int maxDepth)
+      QueryExpression caller, ThreadSafeMutableSet<Target> targets, OptionalInt maxDepth)
       throws QueryException, InterruptedException {
     // Everything has already been loaded, so here we just check for errors so that we can
     // pre-emptively throw/report if needed.
@@ -1080,8 +1047,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
-      throws QueryException, TargetParsingException {
+  protected final void preloadOrThrow(QueryExpression caller, Collection<String> patterns) {
     // SkyQueryEnvironment directly evaluates target patterns in #getTarget and similar methods
     // using its graph, which is prepopulated using the universeScope (see #beforeEvaluateQuery),
     // so no preloading of target patterns is necessary.
@@ -1241,7 +1207,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap) throws InterruptedException {
     ImmutableMap.Builder<SkyKey, Target> resultBuilder = ImmutableMap.builder();
     getTargetsForPackageKeyToTargetKeyMapHelper(packageKeyToTargetKeyMap, resultBuilder::put);
-    return resultBuilder.build();
+    return resultBuilder.buildOrThrow();
   }
 
   @ThreadSafe

@@ -751,25 +751,6 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
-  public void hostDependenciesNotCheckedNoDistinctHostConfiguration() throws Exception {
-    useConfiguration("--nodistinct_host_configuration");
-    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
-    scratch.file("hello/BUILD",
-        "sh_binary(name = 'host_tool',",
-        "    srcs = ['host_tool.sh'],",
-        "    restricted_to = ['//buildenv/foo:b'])",
-        "genrule(",
-        "    name = 'hello',",
-        "    srcs = [],",
-        "    outs = ['hello.out'],",
-        "    cmd = '',",
-        "    tools = [':host_tool'],",
-        "    compatible_with = ['//buildenv/foo:a'])");
-    assertThat(getConfiguredTarget("//hello:hello")).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
   public void execDependenciesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file(

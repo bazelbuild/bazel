@@ -20,6 +20,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -58,6 +60,7 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -97,7 +100,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -189,7 +192,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           executeQuery(
               ruleContext,
               queryOptions,
-              ruleContext.attributes().get("scope", BuildType.LABEL_LIST),
+              ruleContext.attributes().get("scope", BuildType.GENQUERY_SCOPE_TYPE_LIST),
               query,
               outputArtifact.getPath().getFileSystem().getDigestFunction().getHashFunction());
     }
@@ -242,12 +245,19 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // saves us from iterating over the same sub-NestedSets multiple times.
     NestedSetBuilder<Label> validTargets = NestedSetBuilder.stableOrder();
     Set<SkyKey> successfulPackageKeys = Sets.newHashSetWithExpectedSize(scope.size());
-    Map<SkyKey, SkyValue> transitiveTargetValues =
-        env.getValues(Collections2.transform(scope, TransitiveTargetKey::of));
+    Collection<SkyKey> transitiveTargetKeys =
+        Collections2.transform(scope, TransitiveTargetKey::of);
+    SkyframeIterableResult transitiveTargetValues =
+        env.getOrderedValuesAndExceptions(transitiveTargetKeys);
     if (env.valuesMissing()) {
       return null;
     }
-    for (SkyValue value : transitiveTargetValues.values()) {
+    for (SkyKey skyKey : transitiveTargetKeys) {
+      SkyValue value = transitiveTargetValues.next();
+      if (value == null) {
+        BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", skyKey);
+        return null;
+      }
       TransitiveTargetValue transNode = (TransitiveTargetValue) value;
       if (transNode.encounteredLoadingError()) {
         // This should only happen if the unsuccessful package was loaded in a non-selected
@@ -262,22 +272,29 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     // Construct the package id to package map for all successful packages.
-    Map<SkyKey, SkyValue> transitivePackages = env.getValues(successfulPackageKeys);
+    SkyframeIterableResult transitivePackages =
+        env.getOrderedValuesAndExceptions(successfulPackageKeys);
     if (env.valuesMissing()) {
       // Packages from an untaken select branch could be missing: analysis avoids these, but query
       // does not.
       return null;
     }
     ImmutableMap.Builder<PackageIdentifier, Package> packageMapBuilder = ImmutableMap.builder();
-    for (Map.Entry<SkyKey, SkyValue> pkgEntry : transitivePackages.entrySet()) {
-      PackageValue pkg = (PackageValue) pkgEntry.getValue();
+    for (SkyKey skyKey : successfulPackageKeys) {
+      PackageValue pkg = (PackageValue) transitivePackages.next();
+      if (pkg == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "SkyValue " + skyKey + " was missing, this should never happen"));
+        return null;
+      }
       Preconditions.checkState(
           !pkg.getPackage().containsErrors(),
           "package %s was found to both have and not have errors.",
-          pkgEntry);
+          skyKey);
       packageMapBuilder.put(pkg.getPackage().getPackageIdentifier(), pkg.getPackage());
     }
-    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.build();
+    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.buildOrThrow();
     ImmutableMap.Builder<Label, Target> validTargetsMapBuilder = ImmutableMap.builder();
     for (Label label : validTargets.build().toList()) {
       try {
@@ -287,7 +304,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         throw new IllegalStateException(e);
       }
     }
-    return Pair.of(packageMap, validTargetsMapBuilder.build());
+    return Pair.of(packageMap, validTargetsMapBuilder.buildOrThrow());
   }
 
   @Nullable
@@ -362,7 +379,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       AbstractBlazeQueryEnvironment<Target> queryEnvironment =
           QUERY_ENVIRONMENT_FACTORY.create(
-              /*transitivePackageLoader=*/ null,
+              /* queryTransitivePackagePreloader= */ null,
               /* graphFactory= */ null,
               packageProvider,
               packageProvider,
@@ -486,27 +503,32 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       boolean ok = true;
       Map<String, Collection<Target>> preloadedPatterns =
           Maps.newHashMapWithExpectedSize(patterns.size());
-      Map<TargetPatternKey, String> patternKeys = Maps.newHashMapWithExpectedSize(patterns.size());
+      ImmutableMap.Builder<TargetPatternKey, String> targetBuilder =
+          ImmutableMap.builderWithExpectedSize(patterns.size());
       for (String pattern : patterns) {
         checkValidPatternType(pattern);
-        patternKeys.put(
+        targetBuilder.put(
             TargetPatternValue.key(
                 SignedTargetPattern.parse(pattern, TargetPattern.defaultParser()),
                 FilteringPolicies.NO_FILTER),
             pattern);
       }
+      ImmutableMap<TargetPatternKey, String> patternKeys = targetBuilder.buildOrThrow();
       Set<SkyKey> packageKeys = new HashSet<>();
       Map<String, ResolvedTargets<Label>> resolvedLabelsMap =
           Maps.newHashMapWithExpectedSize(patterns.size());
       synchronized (this) {
-        for (Map.Entry<SkyKey, ValueOrException<TargetParsingException>> entry :
-          env.getValuesOrThrow(patternKeys.keySet(), TargetParsingException.class).entrySet()) {
-          TargetPatternValue patternValue = (TargetPatternValue) entry.getValue().get();
+        ImmutableSet<TargetPatternKey> targetPatternKeys = patternKeys.keySet();
+        SkyframeIterableResult patternKeysResult =
+            env.getOrderedValuesAndExceptions(targetPatternKeys);
+        for (TargetPatternKey targetPatternKey : targetPatternKeys) {
+          TargetPatternValue patternValue =
+              (TargetPatternValue) patternKeysResult.nextOrThrow(TargetParsingException.class);
           if (patternValue == null) {
             ok = false;
           } else {
             ResolvedTargets<Label> resolvedLabels = patternValue.getTargets();
-            resolvedLabelsMap.put(patternKeys.get(entry.getKey()), resolvedLabels);
+            resolvedLabelsMap.put(patternKeys.get(targetPatternKey), resolvedLabels);
             for (Label label
                 : Iterables.concat(resolvedLabels.getTargets(),
                     resolvedLabels.getFilteredTargets())) {
@@ -521,12 +543,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       Map<PackageIdentifier, Package> packages =
           Maps.newHashMapWithExpectedSize(packageKeys.size());
       synchronized (this) {
-        for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry :
-          env.getValuesOrThrow(packageKeys, NoSuchPackageException.class).entrySet()) {
-          PackageIdentifier pkgName = (PackageIdentifier) entry.getKey().argument();
+        SkyframeIterableResult packageKeysResult = env.getOrderedValuesAndExceptions(packageKeys);
+        // packageKeys is not mutated, the iteration order is the same.
+        for (SkyKey depKey : packageKeys) {
+          PackageIdentifier pkgName = (PackageIdentifier) depKey.argument();
           Package pkg;
           try {
-            PackageValue packageValue = (PackageValue) entry.getValue().get();
+            PackageValue packageValue =
+                (PackageValue) packageKeysResult.nextOrThrow(NoSuchPackageException.class);
             if (packageValue == null) {
               ok = false;
               continue;
@@ -612,6 +636,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new UnsupportedOperationException();
     }
 
+    @Nullable
     @Override
     public Path getBuildFileForPackage(PackageIdentifier packageId) {
       Package pkg = pkgMap.get(packageId);
@@ -621,6 +646,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       return pkg.getBuildFile().getPath();
     }
 
+    @Nullable
     @Override
     public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
       // TODO(b/123795023): we should have the data here but we don't have all packages for Starlark

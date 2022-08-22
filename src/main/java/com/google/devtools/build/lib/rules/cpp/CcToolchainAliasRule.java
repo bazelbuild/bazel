@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
+import javax.annotation.Nullable;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
 public class CcToolchainAliasRule implements RuleDefinition {
@@ -51,8 +51,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .requiresConfigurationFragments(PlatformConfiguration.class)
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
+        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 
@@ -68,6 +67,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
   /** Implementation of cc_toolchain_alias. */
   public static class CcToolchainAlias implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
 

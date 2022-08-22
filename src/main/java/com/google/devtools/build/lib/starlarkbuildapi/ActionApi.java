@@ -24,6 +24,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for actions in Starlark. */
@@ -31,16 +32,15 @@ import net.starlark.java.eval.StarlarkValue;
     name = "Action",
     category = DocCategory.BUILTIN,
     doc =
-        "An action created during rule analysis."
-            + "<p>This object is visible for the purpose of testing, and may be obtained from an "
-            + "<a href=\"globals.html#Actions\">Actions</a> provider. It is normally not necessary "
-            + "to access <code>Action</code> objects or their fields within a rule's "
-            + "implementation function. You may instead want to see the "
-            + "<a href='../rules.$DOC_EXT#actions'>Rules page</a> for a general discussion of how "
-            + "to use actions when defining custom rules, or the <a href='actions.html'>API "
-            + "reference</a> for creating actions."
-            + "<p>Some fields of this object are only applicable for certain kinds of actions. "
-            + "Fields that are inapplicable are set to <code>None</code>.")
+        "An action created during rule analysis.<p>This object is visible for the purpose of"
+            + " testing, and may be obtained from an <a href=\"globals.html#Actions\">Actions</a>"
+            + " provider. It is normally not necessary to access <code>Action</code> objects or"
+            + " their fields within a rule's implementation function. You may instead want to see"
+            + " the <a href='https://bazel.build/rules/rules#actions'>Rules page</a> for a general"
+            + " discussion of how to use actions when defining custom rules, or the <a"
+            + " href='actions.html'>API reference</a> for creating actions.<p>Some fields of this"
+            + " object are only applicable for certain kinds of actions. Fields that are"
+            + " inapplicable are set to <code>None</code>.")
 public interface ActionApi extends StarlarkValue {
 
   @StarlarkMethod(name = "mnemonic", structField = true, doc = "The mnemonic for this action.")
@@ -121,16 +121,17 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  Dict<String, String> getStarlarkSubstitutions();
+  Dict<String, String> getStarlarkSubstitutions() throws EvalException;
 
   @StarlarkMethod(
       name = "env",
       structField = true,
+      useStarlarkSemantics = true,
       doc =
           "The 'fixed' environment variables for this action. This includes only environment"
               + " settings which are explicitly set by the action definition, and thus omits"
               + " settings which are only pre-set in the execution environment.")
-  Dict<String, String> getEnv();
+  Dict<String, String> getEnv(StarlarkSemantics semantics) throws EvalException;
 
   @StarlarkMethod(
       name = "execution_info",

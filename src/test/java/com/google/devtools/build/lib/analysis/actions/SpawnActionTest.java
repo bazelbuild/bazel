@@ -26,7 +26,9 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -45,6 +47,8 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,6 +57,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,6 +128,44 @@ public class SpawnActionTest extends BuildViewTestCase {
         createCopyFromWelcomeToDestination(ImmutableMap.of());
     Map<String, String> executionInfo = copyFromWelcomeToDestination.getExecutionInfo();
     assertThat(executionInfo).containsExactly("local", "");
+  }
+
+  @Test
+  public void testExecutionInfo_fromExecutionPlatform() throws Exception {
+    ActionOwner actionOwner =
+        ActionOwner.create(
+            Label.parseAbsoluteUnchecked("//target"),
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "dummy-configuration-mnemonic",
+            "dummy-kind",
+            "dummy-configuration",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            null,
+            ImmutableMap.<String, String>builder()
+                .put("prop1", "foo")
+                .put("prop2", "bar")
+                .buildOrThrow(),
+            null);
+
+    SpawnAction action =
+        builder()
+            .addInput(welcomeArtifact)
+            .addOutput(destinationArtifact)
+            .setExecutionInfo(
+                ImmutableMap.<String, String>builder()
+                    .put("prop2", "quux") // Overwrite the value from ActionOwner's exec properties.
+                    .buildOrThrow())
+            .setExecutable(scratch.file("/bin/xxx").asFragment())
+            .setProgressMessage("hi, mom!")
+            .setMnemonic("Dummy")
+            .build(actionOwner, targetConfig);
+
+    ImmutableMap<String, String> result = action.getExecutionInfo();
+    assertThat(result).containsEntry("prop1", "foo");
+    assertThat(result).containsEntry("prop2", "quux");
   }
 
   @Test
@@ -218,7 +261,8 @@ public class SpawnActionTest extends BuildViewTestCase {
             (artifact, outputs) -> outputs.add(artifact),
             ImmutableMap.of(),
             /*envResolved=*/ false,
-            ImmutableMap.of());
+            ImmutableMap.of(),
+            /*reportOutputs=*/ true);
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())
@@ -281,7 +325,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .addCommandLine(CommandLine.of(ImmutableList.of("arg1")))
             .addCommandLine(CommandLine.of(ImmutableList.of("arg2")))
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
-    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
+    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
   }
 
   @Test
@@ -302,7 +346,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     // getArguments returns all arguments, regardless whether some go in parameter files or not
-    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
+    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
   }
 
   @Test
@@ -566,7 +610,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     builder.executableArguments().add("binary").add("execArg1").add("execArg2");
     SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(action);
-    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2").inOrder();
   }
 
   @Test
@@ -576,7 +620,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     builder.executableArguments().add("execArg1").add("execArg2");
     SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(action);
-    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2").inOrder();
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,8 +46,8 @@ import org.mockito.MockitoAnnotations;
 /** Tests for {@link com.google.devtools.build.lib.remote.RemoteRepositoryRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class RemoteRepositoryRemoteExecutorTest {
-
-  public static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  public static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   @Mock public RemoteExecutionCache remoteCache;
 

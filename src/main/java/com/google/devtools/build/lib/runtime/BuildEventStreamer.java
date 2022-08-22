@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer.LatchedGroupName;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -370,14 +371,14 @@ public class BuildEventStreamer {
     for (BuildEventTransport transport : transports) {
       closeFuturesMapBuilder.put(transport, transport.close());
     }
-    closeFuturesMap = closeFuturesMapBuilder.build();
+    closeFuturesMap = closeFuturesMapBuilder.buildOrThrow();
 
     ImmutableMap.Builder<BuildEventTransport, ListenableFuture<Void>> halfCloseFuturesMapBuilder =
         ImmutableMap.builder();
     for (BuildEventTransport transport : transports) {
       halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
     }
-    halfCloseFuturesMap = halfCloseFuturesMapBuilder.build();
+    halfCloseFuturesMap = halfCloseFuturesMapBuilder.buildOrThrow();
   }
 
   private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
@@ -462,7 +463,7 @@ public class BuildEventStreamer {
     }
 
     if (event instanceof BuildStartingEvent) {
-      BuildRequest buildRequest = ((BuildStartingEvent) event).getRequest();
+      BuildRequest buildRequest = ((BuildStartingEvent) event).request();
       isTestCommand =
           "test".equals(buildRequest.getCommandName())
               || "coverage".equals(buildRequest.getCommandName());
@@ -846,26 +847,31 @@ public class BuildEventStreamer {
     private CountingArtifactGroupNamer artifactGroupNamer;
     private String oomMessage;
 
+    @CanIgnoreReturnValue
     public Builder buildEventTransports(Set<BuildEventTransport> value) {
       this.buildEventTransports = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder besStreamOptions(BuildEventStreamOptions value) {
       this.besStreamOptions = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder publishTargetSummaries(boolean publishTargetSummaries) {
       this.publishTargetSummaries = publishTargetSummaries;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder artifactGroupNamer(CountingArtifactGroupNamer value) {
       this.artifactGroupNamer = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder oomMessage(String oomMessage) {
       this.oomMessage = oomMessage;
       return this;

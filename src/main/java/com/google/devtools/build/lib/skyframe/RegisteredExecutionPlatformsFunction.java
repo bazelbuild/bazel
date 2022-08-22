@@ -50,9 +50,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** {@link SkyFunction} that returns all registered execution platforms available. */
@@ -170,7 +169,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
-              RepositoryName.createFromValidStrippedName(module.getCanonicalRepoName()),
+              module.getCanonicalRepoName(),
               bazelModuleResolutionValue.getFullRepoMapping(module.getKey()));
       for (String pattern : module.getExecutionPlatformsToRegister()) {
         try {
@@ -184,6 +183,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     return executionPlatforms.build();
   }
 
+  @Nullable
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
@@ -197,21 +197,18 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
                         .build())
             .collect(toImmutableList());
 
-    Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
-        env.getValuesOrThrow(keys, ConfiguredValueCreationException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(keys);
     ImmutableList.Builder<ConfiguredTargetKey> validPlatformKeys = new ImmutableList.Builder<>();
     boolean valuesMissing = false;
     for (ConfiguredTargetKey platformKey : keys) {
       Label platformLabel = platformKey.getLabel();
       try {
-        ValueOrException<ConfiguredValueCreationException> valueOrException =
-            values.get(platformKey);
-        if (valueOrException.get() == null) {
+        SkyValue value = values.nextOrThrow(ConfiguredValueCreationException.class);
+        if (value == null) {
           valuesMissing = true;
           continue;
         }
-        ConfiguredTarget target =
-            ((ConfiguredTargetValue) valueOrException.get()).getConfiguredTarget();
+        ConfiguredTarget target = ((ConfiguredTargetValue) value).getConfiguredTarget();
         PlatformInfo platformInfo = PlatformProviderUtils.platform(target);
         if (platformInfo == null) {
           throw new RegisteredExecutionPlatformsFunctionException(

@@ -26,6 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -91,9 +92,9 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironment;
+import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -103,6 +104,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
+import com.google.devtools.build.skyframe.Version;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -163,7 +166,8 @@ public final class ActionsTestUtil {
       Map<String, String> clientEnv) {
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
@@ -177,7 +181,7 @@ public final class ActionsTestUtil {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         DiscoveredModulesPruner.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -203,7 +207,7 @@ public final class ActionsTestUtil {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         DiscoveredModulesPruner.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -218,7 +222,8 @@ public final class ActionsTestUtil {
       DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
-        new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
@@ -230,7 +235,7 @@ public final class ActionsTestUtil {
         new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
         /*actionFileSystem=*/ null,
         discoveredModulesPruner,
-        UnixGlob.DEFAULT_SYSCALLS,
+        SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -318,7 +323,8 @@ public final class ActionsTestUtil {
    * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
    * requested keys, blocking until the values are ready.
    */
-  private static final class BlockingSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
+  private static final class BlockingSkyFunctionEnvironment
+      extends AbstractSkyFunctionEnvironmentForTesting {
     private final MemoizingEvaluator evaluator;
     private final EventHandler eventHandler;
 
@@ -326,6 +332,12 @@ public final class ActionsTestUtil {
         MemoizingEvaluator evaluator, EventHandler eventHandler) {
       this.evaluator = evaluator;
       this.eventHandler = eventHandler;
+    }
+
+    @Override
+    protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
+        throws InterruptedException {
+      return getOrderedValueOrUntypedExceptions(ImmutableList.of(depKey)).get(0);
     }
 
     @Override
@@ -354,7 +366,6 @@ public final class ActionsTestUtil {
           result.put(key, ValueOrUntypedException.ofValueUntyped(value));
           continue;
         }
-        errorMightHaveBeenFound = true;
         ErrorInfo errorInfo = evaluationResult.getError(key);
         if (errorInfo == null || errorInfo.getException() == null) {
           result.put(key, ValueOrUntypedException.ofNull());
@@ -368,12 +379,13 @@ public final class ActionsTestUtil {
     @Override
     protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
         Iterable<? extends SkyKey> depKeys) {
-      throw new UnsupportedOperationException();
+      Map<SkyKey, ValueOrUntypedException> mapResult = getValueOrUntypedExceptions(depKeys);
+      return ImmutableList.copyOf(Iterables.transform(depKeys, mapResult::get));
     }
 
     @Override
     public ExtendedEventHandler getListener() {
-      return null;
+      throw new UnsupportedOperationException();
     }
 
     @Override
@@ -394,6 +406,12 @@ public final class ActionsTestUtil {
     @Override
     public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
       return stateSupplier.get();
+    }
+
+    @Override
+    @Nullable
+    public Version getMaxTransitiveSourceVersionSoFar() {
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -902,6 +920,7 @@ public final class ActionsTestUtil {
     }
 
     /** Sets the count of the given miss reason to the given value. */
+    @CanIgnoreReturnValue
     public MissDetailsBuilder set(MissReason reason, int count) {
       checkArgument(details.containsKey(reason));
       details.put(reason, count);

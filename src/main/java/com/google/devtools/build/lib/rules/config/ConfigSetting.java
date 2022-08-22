@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -66,6 +67,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the config_setting rule.
@@ -76,6 +78,7 @@ import java.util.Map;
 public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
@@ -127,9 +130,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
-                ? ruleContext.getRequiredConfigFragments()
-                : RequiredConfigFragmentsProvider.EMPTY,
+            ImmutableSet.copyOf(constraintValueSettings),
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
@@ -216,7 +217,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private static RepositoryName getToolsRepository(RuleContext ruleContext) {
-    return RepositoryName.createFromValidStrippedName(
+    return RepositoryName.createUnvalidated(
         ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
   }
 
@@ -475,8 +476,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                   : provider.getDefaultValue();
           Object convertedSpecifiedValue;
           try {
+            // We don't need to supply a base package or repo mapping for the conversion here,
+            // because `specifiedValue` is already canonicalized.
             convertedSpecifiedValue =
-                BUILD_SETTING_CONVERTERS.get(provider.getType()).convert(specifiedValue);
+                BUILD_SETTING_CONVERTERS
+                    .get(provider.getType())
+                    .convert(specifiedValue, /*conversionContext=*/ null);
           } catch (OptionsParsingException e) {
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
@@ -577,13 +582,9 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     if (!BuildType.isLabelType(flagTarget.getProvider(BuildSettingProvider.class).getType())) {
       return expectedValue;
     }
-    if (!expectedValue.startsWith(":")) {
-      return expectedValue;
-    }
     try {
-      return Label.create(
-              ruleContext.getRule().getPackage().getPackageIdentifier(), expectedValue.substring(1))
-          .getCanonicalForm();
+      return Label.parseWithPackageContext(expectedValue, ruleContext.getPackageContext())
+          .getUnambiguousCanonicalForm();
     } catch (LabelSyntaxException e) {
       // Swallow this: the subsequent type conversion already checks for this.
       return expectedValue;

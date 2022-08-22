@@ -84,6 +84,143 @@ EOF
   assert_build //java/bazel/multidex:bin
 }
 
+function write_hello_android_files() {
+  mkdir -p java/com/example/hello
+  mkdir -p java/com/example/hello/res/values
+  cat > java/com/example/hello/res/values/strings.xml <<'EOF'
+<resources>
+    <string name="app_name">HelloWorld</string>
+    <string name="title_activity_main">Hello Main</string>
+</resources>
+EOF
+
+  cat > java/com/example/hello/AndroidManifest.xml <<'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.hello"
+    android:versionCode="1"
+    android:versionName="1.0" >
+
+    <uses-sdk
+        android:minSdkVersion="7"
+        android:targetSdkVersion="18" />
+
+    <application android:label="@string/app_name">
+        <activity
+            android:name="com.example.hello.MainActivity"
+            android:label="@string/title_activity_main" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+EOF
+
+  cat > java/com/example/hello/MainActivity.java <<'EOF'
+package com.example.hello;
+
+import android.app.Activity;
+
+public class MainActivity extends Activity {
+}
+EOF
+
+}
+
+function test_apk_manifest_created_by() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build //java/com/example/hello:hello || fail "build failed"
+  jar xf bazel-bin/java/com/example/hello/hello.apk
+  # Check that the apk manifest contains Created-By: Bazel.
+  assert_contains "Created\-By: Bazel" META-INF/MANIFEST.MF
+  # Clean up the extracted manifest.
+  rm META-INF/MANIFEST.MF
+}
+
+function test_d8_dexes_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_d8_dexes_and_sandbox_desugars_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      --strategy=Desugar=sandboxed \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_d8_dexes_and_worker_desugars_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      --strategy=Desugar=worker \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_legacy_desugar_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  # Check that the legacy desugarer still works.
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      --define=android_desugaring_tool=legacy \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
 function test_android_tools_version() {
   create_new_workspace
   setup_android_sdk_support
@@ -95,6 +232,216 @@ function test_android_tools_version() {
 bazel_repo_commit 1000000000000000000000000000000000000002
 built_with_bazel_version 4.5.6"
   assert_equals "$expected" "$actual"
+}
+
+function write_large_java_file() {
+  f="$1"
+  class="$(basename $f .java)"
+  package="$(dirname $f | sed 's|java/||' | sed 's|/|.|g')"
+  echo package = $package
+  echo "package $package;" > "$f"
+  echo "public class $class {" >> "$f"
+  for i in $(seq 33000); do
+    echo "public int foo_$i() { return $i ; }" >> "$f"
+  done
+  echo "}" >> "$f"
+}
+
+function assert_multiple_dex_files() {
+  apk="bazel-bin/java/com/example/hello/hello.apk"
+  count=$(unzip -l ${apk} | grep classes | wc -l)
+  [ "${count}" -gt 1 ] || \
+      fail "Expected multiple dex files in apk, found ${count}"
+}
+
+function test_native_multidex() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_manual_main_dex() {
+  # Substantially cribbed from test_native_multidex()
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+genrule(
+    name = "main_dex_list_txt",
+    cmd = "echo com.example.hello > $@",
+    outs = ["main_dex_list.txt"],
+)
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "manual_main_dex",
+    main_dex_list = ":main_dex_list_txt",
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_native_multidex_proguard() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+    proguard_specs = ["proguard.cfg"],
+)
+EOF
+
+  cat > java/com/example/hello/proguard.cfg <<'EOF'
+-keep class com.example.hello.**
+-keep class com.example.hello.Lib1 {
+  public int foo*();
+}
+-keep class com.example.hello.Lib2 {
+  public int foo*();
+}
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  # Ensures that we didn't accidentally optimize away all the unused methods.
+  assert_multiple_dex_files
+}
+
+function test_native_multidex_dex_shards() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+    dex_shards = 10,
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_native_multidex_dex_shards_proguard() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "native",
+    proguard_specs = ["proguard.cfg"],
+    dex_shards = 10,
+)
+EOF
+
+  cat > java/com/example/hello/proguard.cfg <<'EOF'
+-keep class com.example.hello.**
+-keep class com.example.hello.Lib1 {
+  public int foo*();
+}
+-keep class com.example.hello.Lib2 {
+  public int foo*();
+}
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  # Ensures that we didn't accidentally optimize away all the unused methods.
+  assert_multiple_dex_files
+}
+
+function test_reduce_merged_assets() {
+  write_hello_android_files
+  setup_android_sdk_support
+  mkdir -p java/com/example/hello/assets
+  echo hello > java/com/example/hello/assets/hello.txt
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_lib"],
+)
+android_library(
+    name = "hello_lib",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = "assets",
+    assets = glob(["assets/**"]),
+)
+EOF
+  # The standard behavior is to output the merged assets as assets.zip
+  bazel build //java/com/example/hello:hello_lib --output_library_merged_assets || fail "build failed"
+  local tmpdir=$(mktemp -d)
+  # Expect the assets.zip to exist.
+  unzip bazel-bin/java/com/example/hello/hello_lib_files/assets.zip -d $tmpdir
+  # Expect that hello.txt contains hello.
+  assert_contains "hello" $tmpdir/assets/hello.txt
+  rm -rf $tmpdir
+}
+
+function test_dont_reduce_merged_assets() {
+  write_hello_android_files
+  setup_android_sdk_support
+  mkdir -p java/com/example/hello/assets
+  echo hello > java/com/example/hello/assets/hello.txt
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    deps = [":hello_lib"],
+)
+android_library(
+    name = "hello_lib",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = "assets",
+    assets = glob(["assets/**"]),
+)
+EOF
+  bazel build //java/com/example/hello:hello --nooutput_library_merged_assets || fail "build failed"
+  # Expect assets.zip to NOT exist.
+  if [[ -f bazel-bin/java/com/example/hello/hello_lib_files/assets.zip ]]; then
+    fail "assets.zip should NOT exist!"
+  fi
 }
 
 run_suite "Android integration tests"

@@ -60,6 +60,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import javax.annotation.Nullable;
 
 /** A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}. */
 @ThreadCompatible
@@ -108,6 +109,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
+  @Nullable
   public Target getTargetOrNull(Label label)
       throws InterruptedException, InconsistentFilesystemException {
     try {
@@ -141,6 +143,14 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
         rulesOnly ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy) : policy;
     try {
       Package pkg = getPackage(packageIdentifier);
+      if (pkg.containsErrors()) {
+        eventHandler.handle(
+            Event.error(
+                "package contains errors: "
+                    + pkg.getNameFragment()
+                    + ": "
+                    + pkg.getFailureDetail().getMessage()));
+      }
       return TargetPatternResolverUtil.resolvePackageTargets(pkg, actualPolicy);
     } catch (NoSuchThingException e) {
       String message =
@@ -162,9 +172,17 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
       ImmutableMap.Builder<PackageIdentifier, Collection<Target>> result = ImmutableMap.builder();
       for (PackageIdentifier pkgId : pkgIds) {
         Package pkg = pkgs.get(pkgId);
+        if (pkg.containsErrors()) {
+          eventHandler.handle(
+              Event.error(
+                  "package contains errors: "
+                      + pkg.getNameFragment()
+                      + ": "
+                      + pkg.getFailureDetail().getMessage()));
+        }
         result.put(pkgId, TargetPatternResolverUtil.resolvePackageTargets(pkg, policy));
       }
-      return result.build();
+      return result.buildOrThrow();
     } catch (NoSuchThingException e) {
       String message =
           TargetPatternResolverUtil.getParsingErrorMessage(e.getMessage(), originalPattern);

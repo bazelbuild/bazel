@@ -26,8 +26,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests Android support for Blaze's platforms API
- * (https://docs.bazel.build/versions/main/platforms-intro.html).
+ * Tests Android support for Blaze's platforms API (https://bazel.build/concepts/platforms-intro).
  *
  * <p>This only provides the first-level of testing: that <code>--platforms</code> settings directly
  * impact toolchain selection in expected ways. Devs can lean on this test for quick interactive
@@ -65,7 +64,7 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
         "platform(",
         "    name = 'arm_platform',",
         "    constraint_values = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "    ])");
     BazelMockAndroidSupport.setupPlatformResolvableSdks(mockToolsConfig);
 

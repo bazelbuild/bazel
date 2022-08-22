@@ -25,6 +25,7 @@ import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ProtoResourceUsageAnalyzer;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.proto.SerializeFormat.ToolAttributes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.Closeable;
@@ -42,7 +43,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import javax.xml.parsers.ParserConfigurationException;
-import org.xml.sax.SAXException;
 
 /** Represents a collection of raw, merged resources with an optional id list. */
 public class ResourcesZip {
@@ -216,7 +216,6 @@ public class ResourcesZip {
    * @return A ShrunkProtoApk, which must be closed when finished.
    * @throws ParserConfigurationException thrown when the xml parsing not possible.
    * @throws IOException thrown when the filesystem is going pear shaped.
-   * @throws SAXException thrown when the xml parsing goes badly.
    */
   @CheckReturnValue
   public ShrunkProtoApk shrinkUsingProto(
@@ -273,6 +272,7 @@ public class ResourcesZip {
       this.report = report;
     }
 
+    @CanIgnoreReturnValue
     ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
         throws IOException {
       Files.copy(
@@ -286,11 +286,13 @@ public class ResourcesZip {
       Files.copy(resourcesConfig, resourcesConfigOut);
     }
 
+    @CanIgnoreReturnValue
     ShrunkProtoApk writeReportTo(Path reportOut) throws IOException {
       Files.copy(report, reportOut);
       return this;
     }
 
+    @CanIgnoreReturnValue
     ShrunkProtoApk writeResourcesToZip(Path resourcesZip) throws IOException {
       try (final ZipBuilder zip = ZipBuilder.createFor(resourcesZip)) {
         zip.addEntry("apk.pb", Files.readAllBytes(apk.asApkPath()), ZipEntry.STORED);

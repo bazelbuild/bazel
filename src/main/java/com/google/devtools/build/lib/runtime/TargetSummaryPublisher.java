@@ -18,8 +18,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.Collection;
@@ -47,15 +51,23 @@ import javax.annotation.Nullable;
 public final class TargetSummaryPublisher {
 
   private final EventBus eventBus;
+  private final boolean mergedSkyframeAnalysisExecution;
 
   /** Number of top-level aspects populated from {@link BuildStartingEvent}. */
   private final AtomicInteger aspectCount = new AtomicInteger(-1);
 
   private final ConcurrentHashMap<ConfiguredTargetKey, TargetSummaryAggregator> aggregators =
       new ConcurrentHashMap<>();
+  private final ListMultimap<ConfiguredTargetKey, AspectCompleteEvent> queuedAspectCompleteEvents =
+      Multimaps.synchronizedListMultimap(ArrayListMultimap.create());
 
   public TargetSummaryPublisher(EventBus eventBus) {
+    this(eventBus, /*mergedSkyframeAnalysisExecution=*/ false);
+  }
+
+  public TargetSummaryPublisher(EventBus eventBus, boolean mergedSkyframeAnalysisExecution) {
     this.eventBus = eventBus;
+    this.mergedSkyframeAnalysisExecution = mergedSkyframeAnalysisExecution;
   }
 
   /**
@@ -64,9 +76,9 @@ public final class TargetSummaryPublisher {
    */
   @Subscribe
   public void buildStarting(BuildStartingEvent event) {
-    int count = event.getRequest().getAspects().size();
+    int count = event.request().getAspects().size();
     checkState(
-        aspectCount.compareAndSet(/* expect= */ -1, count),
+        aspectCount.compareAndSet(/*expectedValue=*/ -1, count),
         "Duplicate BuildStartingEvent with %s aspects but already have %s",
         count,
         aspectCount);
@@ -79,8 +91,6 @@ public final class TargetSummaryPublisher {
    */
   @Subscribe
   public void populateTargets(TestFilteringCompleteEvent event) {
-    int expectedCompletions = aspectCount.get() + 1; // + 1 for target itself
-    checkState(expectedCompletions > 0, "Haven't received BuildStartingEvent");
     ImmutableSet<ConfiguredTarget> testTargets =
         event.getTestTargets() != null
             ? ImmutableSet.copyOf(event.getTestTargets())
@@ -92,16 +102,59 @@ public final class TargetSummaryPublisher {
         // we'll still get (and ignore) a TestSummary event, but that event isn't published to BEP.
         continue;
       }
-      // We want target summaries for alias targets, but note they don't receive test summaries.
-      TargetSummaryAggregator aggregator =
-          new TargetSummaryAggregator(
-              target,
-              expectedCompletions,
-              !AliasProvider.isAlias(target) && testTargets.contains(target));
-      TargetSummaryAggregator oldAggregator = aggregators.put(asKey(target), aggregator);
+
+      ConfiguredTargetKey configuredTargetKey = asKey(target);
+      TargetSummaryAggregator newAggregator =
+          createAggregatorForTarget(/*isTest=*/ testTargets.contains(target), target);
+      TargetSummaryAggregator oldAggregator =
+          aggregators.putIfAbsent(configuredTargetKey, newAggregator);
       checkState(
-          oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, aggregator);
+          oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, newAggregator);
     }
+  }
+
+  /**
+   * Populates the aggregator for a particular top level target, including test targets.
+   *
+   * <p>Since the event is fired from within a SkyFunction, it is possible to receive duplicate
+   * events. In case of duplication, simply return without creating any new aggregator.
+   *
+   * <p>With skymeld, the corresponding AspectCompleteEvents may arrive before the aggregator is set
+   * up. We therefore need to put those events in a queue and resolve them when the aggregator
+   * becomes available.
+   */
+  @Subscribe
+  @AllowConcurrentEvents
+  public void populateTarget(TopLevelTargetPendingExecutionEvent event) {
+    ConfiguredTargetKey configuredTargetKey = asKey(event.configuredTarget());
+    synchronized (aggregators) {
+      TargetSummaryAggregator aggregator =
+          aggregators.computeIfAbsent(
+              configuredTargetKey,
+              (ConfiguredTargetKey k) ->
+                  createAggregatorForTarget(event.isTest(), event.configuredTarget()));
+
+      if (queuedAspectCompleteEvents.containsKey(configuredTargetKey)) {
+        queuedAspectCompleteEvents
+            .get(configuredTargetKey)
+            .forEach(e -> aggregator.addCompletionEvent(!e.failed()));
+        queuedAspectCompleteEvents.removeAll(configuredTargetKey);
+      }
+    }
+  }
+
+  /**
+   * Creates a TargetSummaryAggregator for the given target.
+   *
+   * @return the created aggregator.
+   */
+  private TargetSummaryAggregator createAggregatorForTarget(
+      boolean isTest, ConfiguredTarget target) {
+    int expectedCompletions = aspectCount.get() + 1; // + 1 for target itself
+    checkState(expectedCompletions > 0, "Haven't received BuildStartingEvent");
+    // We want target summaries for alias targets, but note they don't receive test summaries.
+    return new TargetSummaryAggregator(
+        target, expectedCompletions, isTest && !AliasProvider.isAlias(target));
   }
 
   @Subscribe
@@ -149,8 +202,23 @@ public final class TargetSummaryPublisher {
   @Subscribe
   @AllowConcurrentEvents
   public void aspectComplete(AspectCompleteEvent event) {
-    TargetSummaryAggregator aggregator =
-        aggregators.get(event.getAspectKey().getBaseConfiguredTargetKey());
+    TargetSummaryAggregator aggregator;
+    // Prevent a race condition where #populateTarget finishes checking the
+    // queuedAspectCompleteEvents before the entries are added by this method:
+    // aspectComplete: (sees aggregator == null)                                  (adds to queue)
+    // populateTarget:                         (creates aggregator) (checks queue)
+    synchronized (aggregators) {
+      aggregator = aggregators.get(event.getAspectKey().getBaseConfiguredTargetKey());
+
+      // With skymeld, the corresponding AspectCompleteEvents may arrive before the aggregator is
+      // set up. We therefore need to put those events in a queue and resolve them when the
+      // aggregator becomes available.
+      if (mergedSkyframeAnalysisExecution && aggregator == null) {
+        queuedAspectCompleteEvents.put(event.getAspectKey().getBaseConfiguredTargetKey(), event);
+        return;
+      }
+    }
+
     if (aggregator != null && !aggregator.published.get()) {
       aggregator.addCompletionEvent(!event.failed());
     }

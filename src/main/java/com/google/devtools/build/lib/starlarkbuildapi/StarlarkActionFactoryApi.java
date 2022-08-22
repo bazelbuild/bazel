@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -40,21 +41,19 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   @StarlarkMethod(
       name = "declare_file",
       doc =
-          "Declares that the rule or aspect creates a file with the given filename. "
-              + "If <code>sibling</code> is not specified, the file name is relative to the "
-              + "package "
-              + "directory, otherwise the file is in the same directory as <code>sibling</code>. "
-              + "Files cannot be created outside of the current package."
-              + "<p>Remember that in addition to declaring a file, you must separately create an "
-              + "action that emits the file. Creating that action will require passing the "
-              + "returned <code>File</code> object to the action's construction function."
-              + "<p>Note that <a href='../rules.$DOC_EXT#files'>predeclared output files</a> do "
-              + "not "
-              + "need to be (and cannot be) declared using this function. You can obtain their "
-              + "<code>File</code> objects from "
-              + "<a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
-              + "computed_dependencies/hash.bzl\">See example of use</a>.",
+          "Declares that the rule or aspect creates a file with the given filename. If"
+              + " <code>sibling</code> is not specified, the file name is relative to the package"
+              + " directory, otherwise the file is in the same directory as <code>sibling</code>."
+              + " Files cannot be created outside of the current package.<p>Remember that in"
+              + " addition to declaring a file, you must separately create an action that emits the"
+              + " file. Creating that action will require passing the returned <code>File</code>"
+              + " object to the action's construction function.<p>Note that <a"
+              + " href='https://bazel.build/rules/rules#files'>predeclared output files</a> do not"
+              + " need to be (and cannot be) declared using this function. You can obtain their"
+              + " <code>File</code> objects from <a"
+              + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
+              + " href=\"https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl\">See"
+              + " example of use</a>.",
       parameters = {
         @Param(
             name = "filename",
@@ -165,16 +164,17 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       name = "symlink",
       doc =
           "Creates an action that writes a symlink in the file system."
-              + "<p>This function must be called with exactly one of <code>target_file</code> and "
+              + "<p>This function must be called with exactly one of <code>target_file</code> or "
               + "<code>target_path</code> specified.</p>"
               + "<p>If <code>target_file</code> is used, then <code>output</code> must be declared "
-              + "as a regular file (such as by using "
-              + "<a href=\"#declare_file\"><code>declare_file()</code></a>). It will actually be "
-              + "created as a symlink that points to the path of <code>target_file</code>.</p>"
-              + "<p>If <code>target_path</code> is used instead, then <code>output</code> must be "
-              + "declared as a symlink (such as by using "
+              + "by <a href=\"#declare_file\"><code>declare_file()</code></a> or "
+              + "<a href=\"#declare_directory\"><code>declare_directory()</code></a> and match the "
+              + "type of <code>target_file</code>. In this case, <code>output</code> will be a "
+              + "symlink whose contents are the path of <code>target_file</code>.</p>"
+              + "<p>Otherwise, if <code>target_path</code> is used, then <code>output</code> must "
+              + "be declared with "
               + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>). In this case, "
-              + "the symlink will point to whatever the content of <code>target_path</code> is. "
+              + "<code>output</code> will be a symlink whose contents are <code>target_path</code>."
               + "This can be used to create a dangling symlink.</p>",
       parameters = {
         @Param(
@@ -327,8 +327,13 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional "
-                    + "runfiles that are automatically made available to the action."),
+                    + "additional runfiles that are automatically made available to the action. "
+                    + "When a list is provided, it can be a heterogenous collection of "
+                    + "Files, FilesToRunProvider instances, or depsets of Files. Files which are "
+                    + "directly in the list and come from ctx.executable will have their runfiles "
+                    + "automatically added. When a depset is provided, it must contain only Files. "
+                    + "In both cases, files within depsets are not cross-referenced with "
+                    + "ctx.executable for runfiles."),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -394,7 +399,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Information for scheduling the action. See "
-                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
                     + "for useful keys."),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
@@ -621,7 +626,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             positional = false,
             doc =
                 "Information for scheduling the action. See "
-                    + "<a href=\"$BE_ROOT/common-definitions.html#common.tags\">tags</a> "
+                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
                     + "for useful keys."),
         @Param(
             // TODO(bazel-team): The name here isn't accurate anymore.
@@ -720,16 +725,30 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "substitutions",
             named = true,
             positional = false,
+            defaultValue = "{}",
             doc = "Substitutions to make when expanding the template."),
         @Param(
             name = "is_executable",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the output file should be executable.")
+            doc = "Whether the output file should be executable."),
+        @Param(
+            name = "computed_substitutions",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = TemplateDictApi.class)},
+            defaultValue = "unbound",
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION,
+            valueWhenDisabled = "unbound",
+            doc = "Experimental: Substitutions to make when expanding the template.")
       })
   void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      Object computedSubstitutions)
       throws EvalException;
 
   @StarlarkMethod(
@@ -737,4 +756,10 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)
   CommandLineArgsApi args(StarlarkThread thread);
+
+  @StarlarkMethod(
+      name = "template_dict",
+      doc = "Experimental: Returns a TemplateDict object for memory-efficient template expansion.",
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION)
+  TemplateDictApi templateDict();
 }

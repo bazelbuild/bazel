@@ -125,13 +125,6 @@ public class Javac17Example {
   }
 }
 EOF
-  bazel run java/main:Javac17Example --java_language_version=14 --java_runtime_version=14 \
-     --test_output=all --verbose_failures &>"${TEST_log}" \
-     && fail "Running with --java_language_version=14 unexpectedly succeeded."
-
-  bazel run java/main:Javac17Example --java_language_version=16 --java_runtime_version=16 \
-     --test_output=all --verbose_failures &>"${TEST_log}" \
-     && fail "Running with --java_language_version=16 unexpectedly succeeded."
 
   bazel run java/main:Javac17Example --java_language_version=11 --java_runtime_version=11 \
      --test_output=all --verbose_failures &>"${TEST_log}" \

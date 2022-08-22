@@ -47,13 +47,11 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -61,6 +59,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -78,7 +77,6 @@ import java.util.zip.ZipInputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
@@ -99,31 +97,41 @@ public /*final*/ class ConfiguredRuleClassProvider
     void init(ConfiguredRuleClassProvider.Builder builder);
 
     /** List of required modules. */
-    ImmutableList<RuleSet> requires();
+    default ImmutableList<RuleSet> requires() {
+      return ImmutableList.of();
+    }
   }
 
   /** An InMemoryFileSystem for bundled builtins .bzl files. */
   public static class BundledFileSystem extends InMemoryFileSystem {
-
-    private static final byte[] EMPTY_DIGEST = new byte[0];
-
     public BundledFileSystem() {
       super(DigestHashFunction.SHA256);
     }
 
-    // Bundled files are guaranteed to not change throughout the lifetime of the Bazel server, so it
-    // is permissible to use a fake digest. This helps avoid peculiarities in the interaction of
-    // InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion, including of
-    // possible (but unlikely) future caveats of this approach.
+    // Pretend the digest of a bundled file is uniquely determined by its name, not its contents.
+    //
+    // The contents bundled files are guaranteed to not change throughout the lifetime of the Bazel
+    // server, we do not need to detect changes to a bundled file's contents. Not needing to worry
+    // about get the actual digest and detect changes to that digest helps avoid peculiarities in
+    // the interaction of InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion,
+    // including of possible (but unlikely) future caveats of this approach.
+    //
+    // On the other hand, we do need to want different bundled files to have different digests. That
+    // way the bzl environment hashes for bzl rule classes defined in two different bundled files
+    // are guaranteed to be different, even if their set of transitive load statements is the same.
+    // This is important because it's possible for bzl rule classes defined in different files to
+    // have the same name string, and various part of Blaze rely on the pair of
+    // "rule class name string" and "bzl environment hash" to uniquely identify a bzl rule class.
+    // See b/226379109 for details.
 
     @Override
     protected synchronized byte[] getFastDigest(PathFragment path) {
-      return EMPTY_DIGEST;
+      return getDigest(path);
     }
 
     @Override
-    protected synchronized byte[] getDigest(PathFragment path) throws IOException {
-      return EMPTY_DIGEST;
+    protected synchronized byte[] getDigest(PathFragment path) {
+      return getDigestFunction().getHashFunction().hashString(path.toString(), UTF_8).asBytes();
     }
   }
 
@@ -171,25 +179,35 @@ public /*final*/ class ConfiguredRuleClassProvider
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
 
+    @CanIgnoreReturnValue
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addWorkspaceFileSuffix(String contents) {
       defaultWorkspaceFileSuffix.append(contents);
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder clearWorkspaceFileSuffixForTesting() {
       defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
+      Preconditions.checkArgument(
+          preludeLabelString.startsWith("//"),
+          "Prelude label '%s' must start with '//'",
+          preludeLabelString);
       try {
-        this.preludeLabel = Label.parseAbsolute(preludeLabelString, ImmutableMap.of());
+        // We're parsing this label as if it's in the main repository but it will actually get
+        // massaged into a label in the repository where the package being loaded resides.
+        this.preludeLabel = Label.parseCanonical(preludeLabelString);
       } catch (LabelSyntaxException e) {
         String errorMsg =
             String.format("Prelude label '%s' is invalid: %s", preludeLabelString, e.getMessage());
@@ -198,11 +216,13 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRunfilesPrefix(String runfilesPrefix) {
       this.runfilesPrefix = runfilesPrefix;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setToolsRepository(RepositoryName toolsRepository) {
       this.toolsRepository = toolsRepository;
       return this;
@@ -217,6 +237,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * #useDummyBuiltinsBzl} if they do not rely on any native rules that may be migratable to
      * Starlark.
      */
+    @CanIgnoreReturnValue
     public Builder setBuiltinsBzlZipResource(String name) {
       this.builtinsBzlZipResource = name;
       this.useDummyBuiltinsBzlInsteadOfResource = false;
@@ -232,6 +253,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * this method, but not tests that use AnalysisMock. Otherwise the test may break when a native
      * rule is migrated to Starlark via builtins injection.
      */
+    @CanIgnoreReturnValue
     public Builder useDummyBuiltinsBzl() {
       this.builtinsBzlZipResource = null;
       this.useDummyBuiltinsBzlInsteadOfResource = true;
@@ -244,21 +266,25 @@ public /*final*/ class ConfiguredRuleClassProvider
      * <p>This is required if the rule class provider will be used with {@code
      * --experimental_builtins_bzl_path=%workspace%}, but can be skipped in unit tests.
      */
+    @CanIgnoreReturnValue
     public Builder setBuiltinsBzlPackagePathInSource(String path) {
       this.builtinsBzlPackagePathInSource = path;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setPrerequisiteValidator(PrerequisiteValidator prerequisiteValidator) {
       this.prerequisiteValidator = prerequisiteValidator;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addBuildInfoFactory(BuildInfoFactory factory) {
       buildInfoFactories.add(factory);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addRuleDefinition(RuleDefinition ruleDefinition) {
       Class<? extends RuleDefinition> ruleDefinitionClass = ruleDefinition.getClass();
       ruleDefinitionMap.put(ruleDefinitionClass.getName(), ruleDefinition);
@@ -270,6 +296,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNativeAspectClass(NativeAspectClass aspectFactoryClass) {
       nativeAspectClassMap.put(aspectFactoryClass.getName(), aspectFactoryClass);
       return this;
@@ -281,6 +308,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * <p>Note that configuration fragments annotated with a Starlark name must have a unique name;
      * no two different configuration fragments can share the same name.
      */
+    @CanIgnoreReturnValue
     public Builder addConfigurationFragment(Class<? extends Fragment> fragmentClass) {
       configurationFragmentClasses.add(fragmentClass);
       return this;
@@ -292,42 +320,50 @@ public /*final*/ class ConfiguredRuleClassProvider
      * <p>If {@link #addConfigurationFragment} adds a fragment that also requires these options,
      * this method is redundant.
      */
+    @CanIgnoreReturnValue
     public Builder addConfigurationOptions(Class<? extends FragmentOptions> configurationOptions) {
       this.configurationOptions.add(configurationOptions);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addUniversalConfigurationFragment(Class<? extends Fragment> fragment) {
       this.universalFragments.add(fragment);
       addConfigurationFragment(fragment);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
       this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlarkBuiltinsInternal(String name, Object object) {
       this.starlarkBuiltinsInternals.put(name, object);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addSymlinkDefinition(SymlinkDefinition symlinkDefinition) {
       this.symlinkDefinitions.add(symlinkDefinition);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addReservedActionMnemonic(String mnemonic) {
       this.reservedActionMnemonics.add(mnemonic);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionEnvironmentProvider(
         Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider) {
       this.actionEnvironmentProvider = actionEnvironmentProvider;
@@ -339,6 +375,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * don't depend on rules that aren't compatible with the same environments. Defaults to {@link
      * ConstraintSemantics}. See {@link ConstraintSemantics} for more details.
      */
+    @CanIgnoreReturnValue
     public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
@@ -348,6 +385,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * Sets the policy for checking if third_party rules declare <code>licenses()</code>. See {@link
      * #thirdPartyLicenseExistencePolicy} for the default value.
      */
+    @CanIgnoreReturnValue
     public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
       this.thirdPartyLicenseExistencePolicy = policy;
       return this;
@@ -363,6 +401,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * feature flags, and support for this transition factory will likely be removed at some point
      * in the future (whenever automatic trimming is sufficiently workable).
      */
+    @CanIgnoreReturnValue
     public Builder addTrimmingTransitionFactory(TransitionFactory<RuleTransitionData> factory) {
       Preconditions.checkNotNull(factory);
       Preconditions.checkArgument(!factory.isSplit());
@@ -376,6 +415,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     /** Sets the transition manual feature flag trimming should apply to toolchain deps. */
+    @CanIgnoreReturnValue
     public Builder setToolchainTaggedTrimmingTransition(PatchTransition transition) {
       Preconditions.checkNotNull(transition);
       Preconditions.checkState(toolchainTaggedTrimmingTransition == null);
@@ -399,6 +439,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * Sets the predicate which determines whether the analysis cache should be invalidated for the
      * given options diff.
      */
+    @CanIgnoreReturnValue
     public Builder setShouldInvalidateCacheForOptionDiff(
         OptionsDiffPredicate shouldInvalidateCacheForOptionDiff) {
       Preconditions.checkState(
@@ -556,8 +597,8 @@ public /*final*/ class ConfiguredRuleClassProvider
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          starlarkAccessibleTopLevels.build(),
-          starlarkBuiltinsInternals.build(),
+          starlarkAccessibleTopLevels.buildOrThrow(),
+          starlarkBuiltinsInternals.buildOrThrow(),
           starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
@@ -577,6 +618,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       return Optional.ofNullable(networkAllowlistForTests);
     }
 
+    @CanIgnoreReturnValue
     public Builder setNetworkAllowlistForTests(Label allowlist) {
       networkAllowlistForTests = allowlist;
       return this;
@@ -771,7 +813,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     for (BuildInfoFactory factory : buildInfoFactories) {
       factoryMapBuilder.put(factory.getKey(), factory);
     }
-    return factoryMapBuilder.build();
+    return factoryMapBuilder.buildOrThrow();
   }
 
   /**
@@ -815,7 +857,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(bindings);
     }
-    return bindings.build();
+    return bindings.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createEnvironment(
@@ -825,7 +867,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     StarlarkModules.addPredeclared(envBuilder);
     // Add all the extensions registered with the rule class provider.
     envBuilder.putAll(nativeRuleSpecificBindings);
-    return envBuilder.build();
+    return envBuilder.buildOrThrow();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -837,7 +879,7 @@ public /*final*/ class ConfiguredRuleClassProvider
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   @Override
@@ -860,19 +902,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public void setStarlarkThreadContext(StarlarkThread thread, Label fileLabel) {
-    new BazelStarlarkContext(
-            BazelStarlarkContext.Phase.LOADING,
-            toolsRepository,
-            configurationFragmentMap,
-            /*convertedLabelsInPackage=*/ new HashMap<>(),
-            new SymbolGenerator<>(fileLabel),
-            /*analysisRuleLabel=*/ null,
-            networkAllowlistForTests)
-        .storeInThread(thread);
-  }
-
-  @Override
   public String getDefaultWorkspacePrefix() {
     return defaultWorkspaceFilePrefix;
   }
@@ -883,7 +912,7 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public Map<String, Class<?>> getConfigurationFragmentMap() {
+  public ImmutableMap<String, Class<?>> getConfigurationFragmentMap() {
     return configurationFragmentMap;
   }
 
@@ -908,6 +937,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
     return thirdPartyLicenseExistencePolicy;
+  }
+
+  @Override
+  public Optional<Label> getNetworkAllowlistForTests() {
+    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

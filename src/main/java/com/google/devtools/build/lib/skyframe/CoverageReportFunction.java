@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * A Skyframe function to calculate the coverage report Action and Artifacts.
@@ -40,6 +41,7 @@ public class CoverageReportFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
         CoverageReportValue.COVERAGE_REPORT_KEY.equals(skyKey),
@@ -60,8 +62,8 @@ public class CoverageReportFunction implements SkyFunction {
               actions,
               CoverageReportValue.COVERAGE_REPORT_KEY,
               /*outputFiles=*/ null);
-    } catch (ActionConflictException e) {
-      throw new IllegalStateException("Action conflicts not expected in coverage: " + skyKey, e);
+    } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      throw new IllegalStateException("Issues not expected in coverage: " + skyKey, e);
     }
     return new CoverageReportValue(generatingActions);
   }

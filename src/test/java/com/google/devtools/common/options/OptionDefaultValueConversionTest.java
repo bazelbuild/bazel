@@ -36,7 +36,7 @@ import org.junit.runners.Parameterized.Parameters;
  * {@link Option}-annotated field is considered to be in <i>Prod</i> code if its declaring class and
  * all its enclosing classes do not have {@link RunWith} annotation.
  *
- * @see OptionDefinition#getDefaultValue()
+ * @see OptionDefinition#getDefaultValue
  */
 @RunWith(Parameterized.class)
 public class OptionDefaultValueConversionTest {
@@ -53,7 +53,7 @@ public class OptionDefaultValueConversionTest {
     thrown = ExpectedException.none();
 
     // act
-    optionDefinitionUnderTest.getDefaultValue();
+    optionDefinitionUnderTest.getDefaultValue(/*conversionContext=*/ null);
   }
 
   @Parameters

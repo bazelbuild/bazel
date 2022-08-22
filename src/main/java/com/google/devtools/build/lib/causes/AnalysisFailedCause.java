@@ -43,7 +43,7 @@ public class AnalysisFailedCause implements Cause {
     // TODO(mschaller): Tests expect non-escaped message strings, and protobuf (the FailureDetail in
     //  detailedExitCode) escapes them. Better versions of tests would check structured data, and
     //  doing that requires unwinding test infrastructure. Note the "inTest" blocks in
-    //  SkyframeBuildView#processErrors.
+    //  SkyframeBuildView#processAnalysisErrors.
     return MoreObjects.toStringHelper(this)
         .add("label", label)
         .add("configuration", configuration)

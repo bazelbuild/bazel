@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link DirectoryListingStateValue}s.
@@ -37,15 +38,16 @@ public class DirectoryListingStateFunction implements SkyFunction {
    * re-use the results of expensive readdir() operations, that are likely already executed for
    * evaluating globs.
    */
-  private final AtomicReference<FilesystemCalls> syscallCache;
+  private final SyscallCache syscallCache;
 
   public DirectoryListingStateFunction(
-      ExternalFilesHelper externalFilesHelper, AtomicReference<FilesystemCalls> syscallCache) {
+      ExternalFilesHelper externalFilesHelper, SyscallCache syscallCache) {
     this.externalFilesHelper = externalFilesHelper;
     this.syscallCache = syscallCache;
   }
 
   @Override
+  @Nullable
   public DirectoryListingStateValue compute(SkyKey skyKey, Environment env)
       throws DirectoryListingStateFunctionException, InterruptedException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
@@ -55,14 +57,13 @@ public class DirectoryListingStateFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      if (fileType == FileType.EXTERNAL_REPO
-          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+      if (fileType == FileType.EXTERNAL_REPO) {
         // Do not use syscallCache as files under repositories get generated during the build,
         // while syscallCache is used independently from Skyframe and generally assumes
         // the file system is frozen at the beginning of the build command.
-        return DirectoryListingStateValue.create(dirRootedPath);
+        return DirectoryListingStateValue.create(dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW));
       }
-      return DirectoryListingStateValue.create(syscallCache.get().readdir(dirRootedPath.asPath()));
+      return DirectoryListingStateValue.create(syscallCache.readdir(dirRootedPath.asPath()));
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
       // indicative of a programming bug.

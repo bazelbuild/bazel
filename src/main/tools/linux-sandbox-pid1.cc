@@ -146,8 +146,17 @@ static int CreateTarget(const char *path, bool is_directory) {
   }
 
   // Create the parent directory.
-  if (CreateTarget(dirname(strdupa(path)), true) < 0) {
-    DIE("CreateTarget %s", dirname(strdupa(path)));
+  {
+    char *buf, *dir;
+
+    if (!(buf = strdup(path))) DIE("strdup");
+
+    dir = dirname(buf);
+    if (CreateTarget(dir, true) < 0) {
+      DIE("CreateTarget %s", dir);
+    }
+
+    free(buf);
   }
 
   if (is_directory) {
@@ -212,7 +221,8 @@ static void SetupUserNamespace() {
     }
   }
 
-  int inner_uid, inner_gid;
+  uid_t inner_uid;
+  gid_t inner_gid;
   if (opt.fake_root) {
     // Change our username to 'root'.
     inner_uid = 0;
@@ -231,8 +241,8 @@ static void SetupUserNamespace() {
     inner_uid = global_outer_uid;
     inner_gid = global_outer_gid;
   }
-  WriteFile("/proc/self/uid_map", "%d %d 1\n", inner_uid, global_outer_uid);
-  WriteFile("/proc/self/gid_map", "%d %d 1\n", inner_gid, global_outer_gid);
+  WriteFile("/proc/self/uid_map", "%u %u 1\n", inner_uid, global_outer_uid);
+  WriteFile("/proc/self/gid_map", "%u %u 1\n", inner_gid, global_outer_gid);
 }
 
 static void SetupUtsNamespace() {

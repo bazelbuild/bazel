@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -454,14 +454,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x:c", ImmutableMap.of()),
-                Label.parseAbsolute("//x:j", ImmutableMap.of())));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x:c", ImmutableMap.of()),
-                Label.parseAbsolute("//x:j", ImmutableMap.of())));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
     assertThat(attributes(pkg.getRule("t4")).get("$implicit_tests", BuildType.LABEL_LIST))
@@ -509,14 +505,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertThat(yesFiles)
         .containsExactly(
-            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()));
+            Label.parseCanonical("@//fruit:data/apple"),
+            Label.parseCanonical("@//fruit:data/pear"));
 
     assertThat(noFiles)
         .containsExactly(
-            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/berry", ImmutableMap.of()));
+            Label.parseCanonical("@//fruit:data/apple"),
+            Label.parseCanonical("@//fruit:data/pear"),
+            Label.parseCanonical("@//fruit:data/berry"));
   }
 
   // TODO(bazel-team): This is really a test for GlobCache.
@@ -752,7 +748,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         assertThrows(NoSuchPackageException.class, () -> loadPackage("pkg"));
     assertThat(ex)
         .hasMessageThat()
-        .contains("error globbing [globs/**]: " + dir + " (Permission denied)");
+        .contains("error globbing [globs/**] op=FILES: " + dir + " (Permission denied)");
   }
 
   @Test
@@ -932,7 +928,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
     List<?> globList = (List) pkg.getRule("e").getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:BUILD", ImmutableMap.of()));
+    assertThat(globList).containsExactly(Label.parseCanonical("//e:BUILD"));
   }
 
   @Test
@@ -1112,10 +1108,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "    default_compatible_with=['//foo'],",
             "    default_restricted_to=['//bar'],",
             ")");
-    assertThat(pkg.getDefaultCompatibleWith())
-        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
-    assertThat(pkg.getDefaultRestrictedTo())
-        .containsExactly(Label.parseAbsolute("//bar", ImmutableMap.of()));
+    assertThat(pkg.getDefaultCompatibleWith()).containsExactly(Label.parseCanonical("//foo"));
+    assertThat(pkg.getDefaultRestrictedTo()).containsExactly(Label.parseCanonical("//bar"));
   }
 
   @Test
@@ -1147,10 +1141,12 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 "third_variable = glob(['c'], exclude_directories = 0)"));
     List<String> globs = new ArrayList<>();
     List<String> globsWithDirs = new ArrayList<>();
+    List<String> subpackages = new ArrayList<>();
     PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
+        file, globs, globsWithDirs, subpackages, new HashMap<>(), /*eventHandler=*/ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
+    assertThat(subpackages).isEmpty();
   }
 
   // Tests of BUILD file dialect checks:
@@ -1260,11 +1256,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                   return null;
                 }
               },
-              null,
+              SyscallCache.NO_CACHE,
               executorService,
               -1,
               ThreadStateReceiver.NULL_INSTANCE);
-      assertThat(globCache.globUnsorted(include, exclude, false, true))
+      assertThat(globCache.globUnsorted(include, exclude, Globber.Operation.FILES_AND_DIRS, true))
           .containsExactlyElementsIn(expected);
     } finally {
       executorService.shutdownNow();
@@ -1317,10 +1313,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             includes,
             excludes,
             excludeDirs,
-            Starlark.format(
-                "(result == sorted(%r)) or fail('incorrect glob result: got %%s, want %%s' %%"
-                    + " (result, sorted(%r)))",
-                result, result));
+            String.format(
+                "(result == sorted(%s)) or fail('incorrect glob result: got %%s, want %%s' %%"
+                    + " (result, sorted(%s)))",
+                Starlark.repr(result), Starlark.repr(result)));
     // Execution succeeded. Assert that there were no other errors in the package.
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -1349,9 +1345,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     }
     scratch.file(
         "globs/BUILD",
-        Starlark.format(
-            "result = glob(%r, exclude=%r, exclude_directories=%r)",
-            includes, excludes, excludeDirs ? 1 : 0),
+        String.format(
+            "result = glob(%s, exclude=%s, exclude_directories=%d)",
+            Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
     return loadPackage("globs");
   }

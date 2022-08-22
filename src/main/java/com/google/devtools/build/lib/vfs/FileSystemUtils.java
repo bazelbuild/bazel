@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /** Helper functions that implement often-used complex operations on file systems. */
 @ConditionallyThreadSafe
@@ -168,12 +169,13 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns a new {@code PathFragment} formed by replacing the extension of the
-   * last path segment of {@code path} with {@code newExtension}. Null is
-   * returned iff {@code path} has zero segments or it doesn't end with {@code oldExtension}.
+   * Returns a new {@code PathFragment} formed by replacing the extension of the last path segment
+   * of {@code path} with {@code newExtension}. Null is returned iff {@code path} has zero segments
+   * or it doesn't end with {@code oldExtension}.
    */
-  public static PathFragment replaceExtension(PathFragment path, String newExtension,
-      String oldExtension) {
+  @Nullable
+  public static PathFragment replaceExtension(
+      PathFragment path, String newExtension, String oldExtension) {
     String base = path.getBaseName();
     if (!base.endsWith(oldExtension)) {
       return null;
@@ -183,10 +185,10 @@ public class FileSystemUtils {
   }
 
   /**
-   * Returns a new {@code Path} formed by replacing the extension of the
-   * last path segment of {@code path} with {@code newExtension}. Null is
-   * returned iff {@code path} has zero segments.
+   * Returns a new {@code Path} formed by replacing the extension of the last path segment of {@code
+   * path} with {@code newExtension}. Null is returned iff {@code path} has zero segments.
    */
+  @Nullable
   public static Path replaceExtension(Path path, String newExtension) {
     PathFragment fragment = replaceExtension(path.asFragment(), newExtension);
     return fragment == null ? null : path.getFileSystem().getPath(fragment);
@@ -333,7 +335,7 @@ public class FileSystemUtils {
     if (link.isSymbolicLink()) {
       link.delete(); // Remove the symlink since it is pointing somewhere else.
     } else {
-      createDirectoryAndParents(link.getParentDirectory());
+      link.getParentDirectory().createDirectoryAndParents();
     }
     try {
       link.createSymbolicLink(target);
@@ -409,7 +411,7 @@ public class FileSystemUtils {
    * individual requests are more costly, but can also be larger.
    */
   private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
-    byte[] buf = new byte[131072];
+    byte[] buf = new byte[1 * 1024 * 1024]; // Match libfuse3 maximum FUSE request size of 1 MB.
     long total = 0;
     while (true) {
       int r = from.read(buf);
@@ -687,8 +689,7 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes the specified String using the specified encoding to the file.
-   * Follows symbolic links.
+   * Writes the specified String using the specified encoding to the file. Follows symbolic links.
    *
    * @throws IOException if there was an error
    */
@@ -698,54 +699,52 @@ public class FileSystemUtils {
   }
 
   /**
-   * Writes lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
-   */
-  @ThreadSafe // but not atomic
-  public static void writeLinesAs(Path file, Charset charset, String... lines)
-      throws IOException {
-    writeLinesAs(file, charset, Arrays.asList(lines));
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
-   */
-  @ThreadSafe // but not atomic
-  public static void appendLinesAs(Path file, Charset charset, String... lines)
-      throws IOException {
-    appendLinesAs(file, charset, Arrays.asList(lines));
-  }
-
-  /**
-   * Writes lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
-   */
-  @ThreadSafe // but not atomic
-  public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
-      throws IOException {
-    createDirectoryAndParents(file.getParentDirectory());
-    asByteSink(file).asCharSink(charset).writeLines(lines);
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a
-   * line break '\n' character.
-   */
-  @ThreadSafe // but not atomic
-  public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
-      throws IOException {
-    createDirectoryAndParents(file.getParentDirectory());
-    asByteSink(file, true).asCharSink(charset).writeLines(lines);
-  }
-
-  /**
    * Writes the specified byte array to the output file. Follows symbolic links.
    *
    * @throws IOException if there was an error
    */
   public static void writeContent(Path outputFile, byte[] content) throws IOException {
     asByteSink(outputFile).write(content);
+  }
+
+  /**
+   * Writes lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
+    writeLinesAs(file, charset, Arrays.asList(lines));
+  }
+
+  /**
+   * Writes lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
+      throws IOException {
+    file.getParentDirectory().createDirectoryAndParents();
+    asByteSink(file).asCharSink(charset).writeLines(lines);
+  }
+
+  /**
+   * Appends lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
+    appendLinesAs(file, charset, Arrays.asList(lines));
+  }
+
+  /**
+   * Appends lines to file using the given encoding, ending every line with a line break '\n'
+   * character.
+   */
+  @ThreadSafe // but not atomic
+  public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
+      throws IOException {
+    file.getParentDirectory().createDirectoryAndParents();
+    asByteSink(file, true).asCharSink(charset).writeLines(lines);
   }
 
   /**
@@ -945,7 +944,7 @@ public class FileSystemUtils {
     } else {
       Path parentDir = linkPath.getParentDirectory();
       if (!parentDir.exists()) {
-        FileSystemUtils.createDirectoryAndParents(parentDir);
+        parentDir.createDirectoryAndParents();
       }
       originalPath.createHardLink(linkPath);
     }

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -226,7 +227,9 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     return result.get(key);
   }
 
-  private void setGeneratingActions() throws InterruptedException, ActionConflictException {
+  private void setGeneratingActions()
+      throws InterruptedException, ActionConflictException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
       differencer.inject(
           ImmutableMap.of(
@@ -241,7 +244,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private <E extends SkyValue> EvaluationResult<E> evaluate(SkyKey... keys)
-      throws InterruptedException, ActionConflictException {
+      throws InterruptedException, ActionConflictException,
+          Actions.ArtifactGeneratedByOtherRuleException {
     setGeneratingActions();
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -269,7 +273,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           FileArtifactValue noDigest =
               ActionMetadataHandler.fileArtifactValueFromArtifact(
                   suboutput,
-                  FileStatusWithDigestAdapter.adapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
+                  SyscallCache.NO_CACHE,
                   null);
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());

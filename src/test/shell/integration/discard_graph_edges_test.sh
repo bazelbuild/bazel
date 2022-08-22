@@ -276,7 +276,7 @@ function test_packages_cleared() {
   [[ "$glob_count" -le 1 ]] \
       || fail "glob count $glob_count too high"
   module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
-  [[ "$module_count" -lt 100 ]] \
+  [[ "$module_count" -lt 190 ]] \
       || fail "Module count $module_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
@@ -417,7 +417,7 @@ EOF
 function test_dump_after_discard_incrementality_data() {
   bazel build --notrack_incremental_state //testing:mytest >& "$TEST_log" \
        || fail "Expected success"
-  bazel dump --skyframe=detailed >& "$TEST_log" || fail "Expected success"
+  bazel dump --skyframe=deps >& "$TEST_log" || fail "Expected success"
   expect_log "//testing:mytest"
 }
 

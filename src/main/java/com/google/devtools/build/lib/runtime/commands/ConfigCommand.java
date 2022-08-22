@@ -131,6 +131,7 @@ public class ConfigCommand implements BlazeCommand {
   protected static class ConfigurationForOutput {
     final String skyKey;
     final String configHash;
+    final String mnemonic;
     final boolean isHost;
     final boolean isExec;
     final List<FragmentForOutput> fragments;
@@ -139,12 +140,14 @@ public class ConfigCommand implements BlazeCommand {
     ConfigurationForOutput(
         String skyKey,
         String configHash,
+        String mnemonic,
         boolean isHost,
         boolean isExec,
         List<FragmentForOutput> fragments,
         List<FragmentOptionsForOutput> fragmentOptions) {
       this.skyKey = skyKey;
       this.configHash = configHash;
+      this.mnemonic = mnemonic;
       this.isHost = isHost;
       this.isExec = isExec;
       this.fragments = fragments;
@@ -477,6 +480,7 @@ public class ConfigCommand implements BlazeCommand {
     return new ConfigurationForOutput(
         skyKey.toString(),
         configHash,
+        config.getMnemonic(),
         config.isHostConfiguration(),
         config.isExecConfiguration(),
         fragments.build().asList(),
@@ -557,7 +561,11 @@ public class ConfigCommand implements BlazeCommand {
 
     // --define:
     for (Map.Entry<String, String> entry :
-        config.getOptions().get(CoreOptions.class).commandLineBuildVariables) {
+        config
+            .getOptions()
+            .get(CoreOptions.class)
+            .getNormalizedCommandLineBuildVariables()
+            .entrySet()) {
       ans.put("--define:" + entry.getKey(), Verify.verifyNotNull(entry.getValue()));
     }
     return ans.buildOrThrow();

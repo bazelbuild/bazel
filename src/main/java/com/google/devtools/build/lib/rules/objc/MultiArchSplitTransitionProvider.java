@@ -35,12 +35,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.List;
 import java.util.Map;
@@ -82,14 +80,14 @@ public class MultiArchSplitTransitionProvider
    */
   public static PlatformType getPlatformType(RuleContext ruleContext) throws RuleErrorException {
     String attributeValue =
-        ruleContext.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
+        ruleContext.attributes().get(ObjcRuleClasses.PLATFORM_TYPE_ATTR_NAME, STRING);
     try {
       return getPlatformType(attributeValue);
     } catch (
         @SuppressWarnings("UnusedException")
         ApplePlatform.UnsupportedPlatformTypeException exception) {
       throw ruleContext.throwWithAttributeError(
-          PlatformRule.PLATFORM_TYPE_ATTR_NAME,
+          ObjcRuleClasses.PLATFORM_TYPE_ATTR_NAME,
           String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, attributeValue));
     }
   }
@@ -112,40 +110,12 @@ public class MultiArchSplitTransitionProvider
     }
   }
 
-  /**
-   * Validates that minimum OS was set to a valid value on the current rule.
-   *
-   * @throws RuleErrorException if the platform type attribute in the current rulecontext is an
-   *     invalid value
-   */
-  public static void validateMinimumOs(RuleContext ruleContext) throws RuleErrorException {
-    String attributeValue = ruleContext.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
-    // TODO(b/37096178): This attribute should always be a version.
-    if (Strings.isNullOrEmpty(attributeValue)) {
-      if (ruleContext.getFragment(AppleConfiguration.class).isMandatoryMinimumVersion()) {
-        ruleContext.throwWithAttributeError(PlatformRule.MINIMUM_OS_VERSION,
-            "This attribute must be explicitly specified");
-      }
-    } else {
-      try {
-        DottedVersion minimumOsVersion = DottedVersion.fromString(attributeValue);
-        if (minimumOsVersion.hasAlphabeticCharacters() || minimumOsVersion.numComponents() > 2) {
-          ruleContext.throwWithAttributeError(
-              PlatformRule.MINIMUM_OS_VERSION,
-              String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
-        }
-      } catch (DottedVersion.InvalidDottedVersionException exception) {
-        ruleContext.throwWithAttributeError(
-            PlatformRule.MINIMUM_OS_VERSION,
-            String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
-      }
-    }
-  }
-
   @Override
   public SplitTransition create(AttributeTransitionData data) {
-    String platformTypeString = data.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
-    String minimumOsVersionString = data.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
+    String platformTypeString =
+        data.attributes().get(ObjcRuleClasses.PLATFORM_TYPE_ATTR_NAME, STRING);
+    String minimumOsVersionString =
+        data.attributes().get(ObjcRuleClasses.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;
     Optional<DottedVersion> minimumOsVersion;
     try {

@@ -18,7 +18,6 @@ import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.
 import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.INCLUDE_PATH_ENTRIES;
 import static org.objectweb.asm.Opcodes.ACC_BRIDGE;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
-import static org.objectweb.asm.Opcodes.ASM7;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 
 import com.android.tools.r8.ArchiveProgramResourceProvider;
@@ -33,6 +32,7 @@ import com.google.devtools.build.android.r8.DependencyCollector;
 import com.google.devtools.build.android.r8.DescriptorUtils;
 import com.google.devtools.build.android.r8.Desugar;
 import com.google.devtools.build.android.r8.ZipUtils;
+import org.objectweb.asm.Opcodes;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,6 +72,52 @@ public class OutputConsumer implements ClassFileConsumer {
 
   public boolean finished() {
     return finish;
+  }
+
+  @Override
+  public void finished(DiagnosticsHandler handler) {
+    if (!finished()) {
+      return;
+    }
+    FilteringDependencyCollector dependencyCollector =
+        new FilteringDependencyCollector(this.dependencyCollector);
+    initializeInputDependencies(handler, dependencyCollector);
+    dependencyCollector.setFiltering();
+    try (ZipOutputStream out =
+        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
+      for (ClassFileData classFile : classFiles) {
+        ZipUtils.addEntry(classFile.fileName, classFile.data, ZipEntry.STORED, out);
+        new DesugaredClassFileDependencyCollector(classFile, dependencyCollector).run();
+      }
+      // Add dependency metadata if required.
+      byte[] desugarDeps = dependencyCollector.toByteArray();
+      if (desugarDeps != null) {
+        ZipUtils.addEntry(Desugar.DESUGAR_DEPS_FILENAME, desugarDeps, ZipEntry.STORED, out);
+      }
+      ZipUtils.copyEntries(
+          input,
+          out,
+          entryName ->
+              ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
+                  || ArchiveProgramResourceProvider.includeClassFileEntries(entryName)
+                  || (entryName.endsWith("/") && flags == EXCLUDE_PATH_ENTRIES),
+          name -> {
+            final String metainfServicesPrefix = "META-INF/services/";
+            if (name.startsWith(metainfServicesPrefix)) {
+              String serviceName = name.substring(metainfServicesPrefix.length());
+              if (serviceName.startsWith("java.time.")) {
+                name =
+                    metainfServicesPrefix
+                        + "j$.time."
+                        + serviceName.substring("java.time.".length());
+              }
+            }
+            return name;
+          });
+
+    } catch (IOException e) {
+      handler.error(new ExceptionDiagnostic(e, origin));
+    }
   }
 
   public void setFinish(boolean finish) {
@@ -125,52 +171,6 @@ public class OutputConsumer implements ClassFileConsumer {
             DescriptorUtils.descriptorToClassFileName(descriptor), data.copyByteData()));
   }
 
-  @Override
-  public void finished(DiagnosticsHandler handler) {
-    if (!finished()) {
-      return;
-    }
-    FilteringDependencyCollector dependencyCollector =
-        new FilteringDependencyCollector(this.dependencyCollector);
-    initializeInputDependencies(handler, dependencyCollector);
-    dependencyCollector.setFiltering();
-    try (ZipOutputStream out =
-        new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(archive)))) {
-      for (ClassFileData classFile : classFiles) {
-        ZipUtils.addEntry(classFile.fileName, classFile.data, ZipEntry.STORED, out);
-        new DesugaredClassFileDependencyCollector(classFile, dependencyCollector).run();
-      }
-      // Add dependency metadata if required.
-      byte[] desugarDeps = dependencyCollector.toByteArray();
-      if (desugarDeps != null) {
-        ZipUtils.addEntry(Desugar.DESUGAR_DEPS_FILENAME, desugarDeps, ZipEntry.STORED, out);
-      }
-      ZipUtils.copyEntries(
-          input,
-          out,
-          entryName ->
-              ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
-                  || ArchiveProgramResourceProvider.includeClassFileEntries(entryName)
-                  || (entryName.endsWith("/") && flags == EXCLUDE_PATH_ENTRIES),
-          name -> {
-            final String metainfServicesPrefix = "META-INF/services/";
-            if (name.startsWith(metainfServicesPrefix)) {
-              String serviceName = name.substring(metainfServicesPrefix.length());
-              if (serviceName.startsWith("java.time.")) {
-                name =
-                    metainfServicesPrefix
-                        + "j$.time."
-                        + serviceName.substring("java.time.".length());
-              }
-            }
-            return name;
-          });
-
-    } catch (IOException e) {
-      handler.error(new ExceptionDiagnostic(e, origin));
-    }
-  }
-
   private void initializeInputDependencies(
       DiagnosticsHandler handler, FilteringDependencyCollector dependencyCollector) {
     try (ZipFile zipFile = new ZipFile(input.toFile())) {
@@ -206,7 +206,7 @@ public class OutputConsumer implements ClassFileConsumer {
       private int methodCount;
 
       private DependencyCollectorClassVisitor(DependencyCollector dependencyCollector) {
-        super(ASM7, null);
+        super(Opcodes.ASM9, null);
         this.dependencyCollector = dependencyCollector;
       }
 

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
@@ -150,6 +149,7 @@ public final class ConfiguredTargetFactory {
     }
   }
 
+  @Nullable
   private static TransitiveInfoCollection findVisibilityPrerequisite(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
     for (ConfiguredTargetAndData prerequisite :
@@ -215,17 +215,24 @@ public final class ConfiguredTargetFactory {
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
       }
+      Label ruleLabel = outputFile.getGeneratingRule().getLabel();
       RuleConfiguredTarget rule =
           (RuleConfiguredTarget)
               targetContext.findDirectPrerequisite(
-                  outputFile.getGeneratingRule().getLabel(),
+                  ruleLabel,
                   // Don't pass a specific configuration, as we don't care what configuration the
                   // generating rule is in. There can only be one actual dependency here, which is
                   // the target that generated the output file.
                   Optional.empty());
-      Verify.verifyNotNull(rule);
+      Verify.verifyNotNull(
+          rule, "While analyzing %s, missing generating rule %s", outputFile, ruleLabel);
+      // If analysis failures are allowed and the generating rule has failure info, just propagate
+      // it. The output artifact won't exist, so we can't create an OutputFileConfiguredTarget.
+      if (config.allowAnalysisFailures()
+          && rule.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey()) != null) {
+        return rule;
+      }
       Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
-
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
@@ -304,7 +311,7 @@ public final class ConfiguredTargetFactory {
                     rule,
                     configuration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     prerequisiteMap.values()))
             .build();
 
@@ -315,12 +322,6 @@ public final class ConfiguredTargetFactory {
     }
     if (ruleContext.hasErrors()) {
       return erroredConfiguredTarget(ruleContext);
-    }
-
-    ConfiguredTarget incompatibleTarget =
-        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
-    if (incompatibleTarget != null) {
-      return incompatibleTarget;
     }
 
     try {
@@ -347,19 +348,21 @@ public final class ConfiguredTargetFactory {
       }
 
       try {
+        ConfiguredTarget target;
         if (ruleClass.isStarlark()) {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-          ConfiguredTarget target =
+          target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
                   ruleContext, ruleClass.getAdvertisedProviders());
-
-          return target != null ? target : erroredConfiguredTarget(ruleContext);
+        } else {
+          target =
+              Preconditions.checkNotNull(
+                      ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
+                      "No configured target factory for %s",
+                      ruleClass)
+                  .create(ruleContext);
         }
-        return Preconditions.checkNotNull(
-                ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
-                "No configured target factory for %s",
-                ruleClass)
-            .create(ruleContext);
+        return target != null ? target : erroredConfiguredTarget(ruleContext);
       } finally {
         ruleContext.close();
       }
@@ -481,7 +484,8 @@ public final class ConfiguredTargetFactory {
       Aspect aspect,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext,
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
       BuildConfigurationValue hostConfiguration,
       AspectKeyCreator.AspectKey aspectKey)
@@ -499,10 +503,8 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
             .setAspectAttributes(mergeAspectAttributes(aspectPath))
             .setConfigConditions(configConditions)
-            .setToolchainContext(toolchainContext)
-            // TODO(b/161222568): Implement the exec_properties attr for aspects and read its value
-            // here.
-            .setExecGroupCollectionBuilder(ExecGroupCollection.emptyBuilder())
+            .setToolchainContexts(toolchainContexts)
+            .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setExecProperties(ImmutableMap.of())
             .setRequiredConfigFragments(
                 RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
@@ -511,7 +513,7 @@ public final class ConfiguredTargetFactory {
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
@@ -536,11 +538,11 @@ public final class ConfiguredTargetFactory {
               ruleContext,
               aspect.getParameters(),
               ruleClassProvider.getToolsRepository());
+      if (configuredAspect == null) {
+        return erroredConfiguredAspect(ruleContext);
+      }
     } finally {
       ruleContext.close();
-    }
-    if (configuredAspect == null) {
-      return erroredConfiguredAspect(ruleContext);
     }
 
     validateAdvertisedProviders(

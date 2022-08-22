@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -112,10 +111,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
         "--ios_minimum_os=12.345", "--watchos_minimum_os=" + dummyMinimumOsValue,
         "--watchos_cpus=armv7k");
-
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'watchos',",
@@ -131,8 +131,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     // actions, follow the chain of actions starting at the lipobin
     // creation.
     Artifact lipoBin =
-        getBinArtifact(
-            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
+        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
@@ -161,13 +160,15 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   public void testAppleBuildVariablesMacos() throws Exception {
     MockObjcSupport.setup(mockToolsConfig);
     String dummyMinimumOsValue = "13.579";
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
         "--cpu=darwin_x86_64",
         "--macos_minimum_os=" + dummyMinimumOsValue);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'macos',",
@@ -182,8 +183,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     // In order to get the set of variables that apply to the c++ actions, follow the chain of
     // actions starting at the lipobin creation.
     Artifact lipoBin =
-        getBinArtifact(
-            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
+        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
@@ -206,9 +206,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         "--host_cpu=darwin_x86_64",
         "--macos_minimum_os=10.11",
         "--host_macos_minimum_os=" + dummyMinimumOsValue);
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'macos',",
@@ -221,8 +223,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getHostConfiguredTarget("//x:bin");
     Artifact lipoBin =
-        getBinArtifact(
-            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
+        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);
@@ -269,9 +270,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool",
         "--cpu=darwin_x86_64");
+    ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
-        "apple_binary(",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
         "   name = 'bin',",
         "   deps = [':a'],",
         "   platform_type = 'ios',",
@@ -287,8 +290,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     // In order to get the set of variables that apply to the c++ actions, follow the chain of
     // actions starting at the lipobin creation.
     Artifact lipoBin =
-        getBinArtifact(
-            Label.parseAbsolute("//x:bin", ImmutableMap.of()).getName() + "_lipobin", target);
+        getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);
     Artifact bin = ActionsTestUtil.getFirstArtifactEndingWith(lipoAction.getInputs(), "_bin");
     CommandAction appleBinLinkAction = (CommandAction) getGeneratingAction(bin);

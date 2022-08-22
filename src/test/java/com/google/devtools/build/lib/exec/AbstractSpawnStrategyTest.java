@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,12 +26,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -47,15 +51,18 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.Duration;
+import java.time.Instant;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -88,14 +95,17 @@ public class AbstractSpawnStrategyTest {
   @Mock private SpawnRunner spawnRunner;
   @Mock private ActionExecutionContext actionExecutionContext;
   @Mock private MessageOutputStream messageOutput;
+  private StoredEventHandler eventHandler;
+  private final ManualClock clock = new ManualClock();
 
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     scratch = new Scratch(fs);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
-    StoredEventHandler eventHandler = new StoredEventHandler();
+    eventHandler = new StoredEventHandler();
     when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
+    when(actionExecutionContext.getClock()).thenReturn(clock);
   }
 
   @Test
@@ -114,6 +124,34 @@ public class AbstractSpawnStrategyTest {
 
     // Must only be called exactly once.
     verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+  }
+
+  @Test
+  public void testEventPosting() throws Exception {
+    when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
+    when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
+    Instant beforeTime = Instant.ofEpochMilli(clock.currentTimeMillis());
+    doAnswer(
+            invocation -> {
+              clock.advanceMillis(1);
+              return FutureSpawn.immediate(spawnResult);
+            })
+        .when(spawnRunner)
+        .execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+
+    ImmutableList<SpawnResult> spawnResults =
+        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+
+    assertThat(spawnResults).containsExactly(spawnResult);
+    // Must only be called exactly once.
+    verify(spawnRunner).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
+    assertThat(eventHandler.getPosts()).hasSize(1);
+    SpawnExecutedEvent event = (SpawnExecutedEvent) eventHandler.getPosts().get(0);
+    assertThat(event.getStartTimeInstant()).isEqualTo(beforeTime);
+    assertThat(event.getSpawnResult()).isEqualTo(spawnResult);
+    assertThat(event.getExitCode()).isEqualTo(0);
   }
 
   @Test
@@ -296,7 +334,7 @@ public class AbstractSpawnStrategyTest {
 
   @Test
   public void testLogSpawn() throws Exception {
-    setUpExecutionContext(/* remoteOptions= */ null);
+    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
 
     Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
     scratch.file("/execroot/out1", "123");
@@ -366,13 +404,14 @@ public class AbstractSpawnStrategyTest {
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
             .setWalltime(Duration.getDefaultInstance())
+            .setTargetLabel("//dummy:label")
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
 
   @Test
   public void testLogSpawn_noPlatform_noLoggedPlatform() throws Exception {
-    setUpExecutionContext(/* remoteOptions= */ null);
+    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
 
     Spawn spawn = new SpawnBuilder("cmd").build();
 
@@ -399,7 +438,7 @@ public class AbstractSpawnStrategyTest {
             " value: \"1\"",
             "}");
 
-    setUpExecutionContext(remoteOptions);
+    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
     Spawn spawn = new SpawnBuilder("cmd").build();
     assertThrows(
         SpawnExecException.class,
@@ -412,6 +451,22 @@ public class AbstractSpawnStrategyTest {
             .build();
     SpawnExec expected = defaultSpawnExecBuilder("cmd").setPlatform(platform).build();
     verify(messageOutput).write(expected); // output will reflect default properties
+  }
+
+  @Test
+  public void testLogSpawn_spawnMetrics() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.executionLogSpawnMetrics = true;
+
+    setUpExecutionContext(executionOptions, /* remoteOptions= */ null);
+
+    assertThrows(
+        SpawnExecException.class,
+        () ->
+            new TestedSpawnStrategy(execRoot, spawnRunner)
+                .exec(SIMPLE_SPAWN, actionExecutionContext));
+
+    verify(messageOutput).write(argThat((m) -> ((SpawnExec) m).hasMetrics()));
   }
 
   @Test
@@ -428,7 +483,7 @@ public class AbstractSpawnStrategyTest {
             " name: \"a\"",
             " value: \"1\"",
             "}");
-    setUpExecutionContext(remoteOptions);
+    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
 
     PlatformInfo platformInfo =
         PlatformInfo.builder()
@@ -462,11 +517,14 @@ public class AbstractSpawnStrategyTest {
     verify(messageOutput).write(expected); // output will reflect default properties
   }
 
-  private void setUpExecutionContext(RemoteOptions remoteOptions) throws Exception {
+  private void setUpExecutionContext(ExecutionOptions executionOptions, RemoteOptions remoteOptions)
+      throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
     when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
-        .thenReturn(new SpawnLogContext(execRoot, messageOutput, remoteOptions));
+        .thenReturn(
+            new SpawnLogContext(
+                execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE));
     when(spawnRunner.execAsync(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
             FutureSpawn.immediate(
@@ -491,6 +549,7 @@ public class AbstractSpawnStrategyTest {
         .setStatus("NON_ZERO_EXIT")
         .setExitCode(23)
         .setRemoteCacheable(true)
-        .setWalltime(Duration.getDefaultInstance());
+        .setWalltime(Duration.getDefaultInstance())
+        .setTargetLabel("//dummy:label");
   }
 }

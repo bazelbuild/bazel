@@ -217,7 +217,7 @@ EOF
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
-      --java_runtime_version=15 \
+      --java_runtime_version=17 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 }
@@ -252,7 +252,7 @@ EOF
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
-      --java_runtime_version=15 \
+      --java_runtime_version=17 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 }

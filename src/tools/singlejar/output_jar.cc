@@ -72,8 +72,6 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  manifest_.AppendLine("Manifest-Version: 1.0");
-  manifest_.AppendLine("Created-By: singlejar");
 }
 
 static std::string Basename(const std::string &path) {
@@ -98,6 +96,10 @@ int OutputJar::Doit(Options *options) {
     known_members_.emplace(build_properties_.filename(),
                            EntryInfo{&build_properties_});
   }
+
+  // Populate the manifest file.
+  manifest_.AppendLine("Manifest-Version: 1.0");
+  manifest_.AppendLine("Created-By: " + options_->output_jar_creator);
 
   // TODO(b/28294322): do we need to resolve the path to be absolute or
   // canonical?
@@ -129,9 +131,31 @@ int OutputJar::Doit(Options *options) {
     manifest_.AppendLine("Main-Class: " + options_->main_class);
   }
 
-  // Copy CDS archive file (.jsa) if it is set.
+  // Copy CDS archive file (.jsa) if it is set. Page aligned start offset
+  // is required.
   if (!options_->cds_archive.empty()) {
-    AppendCDSArchive(options->cds_archive);
+    AppendPageAlignedFile(options->cds_archive, "Jsa-Offset", "cds.archive");
+  }
+
+  // Copy JDK lib/modules if set. Page aligned start offset is required for
+  // the file.
+  if (!options_->jdk_lib_modules.empty()) {
+    AppendPageAlignedFile(options_->jdk_lib_modules,
+                          "JDK-Lib-Modules-Offset", std::string());
+  }
+
+  if (options_->multi_release) {
+    manifest_.EnableMultiRelease();
+  }
+  manifest_.AddExports(options_->add_exports);
+  manifest_.AddOpens(options_->add_opens);
+  if (!options_->hermetic_java_home.empty()) {
+    manifest_.AppendLine("Hermetic-Java-Home: " + options_->hermetic_java_home);
+  }
+  for (auto &manifest_line : options_->manifest_lines) {
+    if (!manifest_line.empty()) {
+      manifest_.AppendLine(manifest_line);
+    }
   }
 
   for (auto &build_info_line : options_->build_info_lines) {
@@ -191,16 +215,15 @@ int OutputJar::Doit(Options *options) {
   // Ready to write zip entries. Decide whether created entries should be
   // compressed.
   bool compress = options_->force_compression || options_->preserve_compression;
-
-  // Write a directory entry for the META-INF
+  // First, write a directory entry for the META-INF, followed by the manifest
+  // file, followed by the build properties file.
   WriteMetaInf();
-
-  // Write the build properties file.
+  WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
     WriteEntry(build_properties_.OutputEntry(compress));
   }
 
-  // Write classpath resources.
+  // Then classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
     bool do_compress = compress;
     if (do_compress && !options_->nocompress_suffixes.empty()) {
@@ -228,21 +251,12 @@ int OutputJar::Doit(Options *options) {
     WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
-  // Copy source files' contents.
+  // Then copy source files' contents.
   for (size_t ix = 0; ix < options_->input_jars.size(); ++ix) {
     if (!AddJar(ix)) {
       exit(1);
     }
   }
-
-  for (auto &manifest_line : options_->manifest_lines) {
-    if (!manifest_line.empty()) {
-      manifest_.AppendLine(manifest_line);
-    }
-  }
-
-  // Write the manifest file
-  WriteEntry(manifest_.OutputEntry(compress));
 
   // All entries written, write Central Directory and close.
   Close();
@@ -1042,22 +1056,25 @@ off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
   return aligned_offset;
 }
 
-void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
+void OutputJar::AppendPageAlignedFile(const std::string &file,
+                                      const std::string &manifest_attr_name,
+                                      const std::string &property_name) {
   // Align the shared archive start offset at page alignment, which is
   // required by mmap.
-  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(cds_archive);
+  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(file);
 
-  // Write the file offset of the shared archive section as a manifest
-  // attribute.
-  char cds_manifest_attr[50];
-  snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
-    "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
-                                              // google-runtime-int)
-  manifest_.AppendLine(cds_manifest_attr);
+  // Write the start offset of the copied content as a manifest attribute.
+  char manifest_attr[50];
+  snprintf(manifest_attr, sizeof(manifest_attr),
+    "%s: %ld", manifest_attr_name.c_str(),
+    (long)aligned_offset); // NOLINT(runtime/int,
+                           // google-runtime-int)
+  manifest_.AppendLine(manifest_attr);
 
-  // Add to build_properties
-  build_properties_.AddProperty("cds.archive",
-                                cds_archive.c_str());
+  if (!property_name.empty()) {
+    // Add to build_properties.
+    build_properties_.AddProperty(property_name.c_str(), file.c_str());
+  }
 }
 
 void OutputJar::ExtraCombiner(const std::string &entry_name,

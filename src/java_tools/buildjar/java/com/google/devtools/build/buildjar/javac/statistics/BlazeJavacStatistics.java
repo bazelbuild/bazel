@@ -18,6 +18,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.tools.javac.util.Context;
 import java.time.Duration;
 import java.util.Optional;
@@ -64,6 +65,10 @@ public abstract class BlazeJavacStatistics {
 
   public abstract ImmutableMap<String, Duration> bugpatternTiming();
 
+  public abstract Optional<Duration> totalProcessorTime();
+
+  public abstract ImmutableMap<String, Duration> processorTiming();
+
   public abstract ImmutableSet<String> processors();
 
   public abstract int transitiveClasspathLength();
@@ -99,7 +104,11 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder totalErrorProneTime(Duration totalErrorProneTime);
 
+    public abstract Builder totalProcessorTime(Duration totalProcessorTime);
+
     abstract ImmutableMap.Builder<String, Duration> bugpatternTimingBuilder();
+
+    abstract ImmutableMap.Builder<String, Duration> processorTimingBuilder();
 
     abstract ImmutableMap.Builder<AuxiliaryDataSource, byte[]> auxiliaryDataBuilder();
 
@@ -113,8 +122,15 @@ public abstract class BlazeJavacStatistics {
 
     public abstract Builder transitiveClasspathFallback(boolean fallback);
 
+    @CanIgnoreReturnValue
     public Builder addBugpatternTiming(String key, Duration value) {
       bugpatternTimingBuilder().put(key, value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProcessorTiming(String key, Duration value) {
+      processorTimingBuilder().put(key, value);
       return this;
     }
 
@@ -129,11 +145,13 @@ public abstract class BlazeJavacStatistics {
      * the byte[] data type. If we find a way to make this more safe, we would prefer to use a
      * protobuf ByteString instead for its immutability.
      */
+    @CanIgnoreReturnValue
     public Builder addAuxiliaryData(AuxiliaryDataSource key, byte[] serializedData) {
       auxiliaryDataBuilder().put(key, serializedData.clone());
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addProcessor(String processor) {
       processorsBuilder().add(processor);
       return this;

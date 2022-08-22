@@ -147,6 +147,7 @@ message FailureDetail {
     StarlarkLoading starlark_loading = 179;
     ExternalDeps external_deps = 181;
     DiffAwareness diff_awareness = 182;
+    ModqueryCommand modquery_command = 183;
   }
 
   reserved 102; // For internal use
@@ -448,7 +449,7 @@ message Workspaces {
     WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
 
     // See `managed_directories` in
-    // https://docs.bazel.build/versions/main/skylark/lib/globals.html#workspace.
+    // https://bazel.build/rules/lib/globals#workspace.
     ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES = 3
         [(metadata) = { exit_code: 1 }];
     WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES = 4
@@ -797,6 +798,7 @@ message ActionQuery {
         [(metadata) = { exit_code: 2 }];
     SKYFRAME_STATE_AFTER_EXECUTION = 12 [(metadata) = { exit_code: 1 }];
     LABELS_FUNCTION_NOT_SUPPORTED = 13 [(metadata) = { exit_code: 2 }];
+    TEMPLATE_EXPANSION_FAILURE = 14 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1248,6 +1250,7 @@ message StarlarkLoading {
     IO_ERROR = 7 [(metadata) = { exit_code: 1 }];
     LABEL_CROSSES_PACKAGE_BOUNDARY = 8 [(metadata) = { exit_code: 1 }];
     BUILTINS_ERROR = 9 [(metadata) = { exit_code: 1 }];
+    VISIBILITY_ERROR = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1270,6 +1273,17 @@ message DiffAwareness {
   enum Code {
     DIFF_AWARENESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     DIFF_STAT_FAILED = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message ModqueryCommand {
+  enum Code {
+    MODQUERY_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MISSING_ARGUMENTS = 1 [(metadata) = { exit_code: 2 }];
+    TOO_MANY_ARGUMENTS = 2 [(metadata) = { exit_code: 2 }];
+    INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

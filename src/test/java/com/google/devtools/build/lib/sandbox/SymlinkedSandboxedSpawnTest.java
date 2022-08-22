@@ -71,7 +71,7 @@ public class SymlinkedSandboxedSpawnTest {
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
-                ImmutableSet.of(),
+                ImmutableMap.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
@@ -102,7 +102,7 @@ public class SymlinkedSandboxedSpawnTest {
             execRoot,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(outputFile.relativeTo(execRoot)), ImmutableSet.of()),
             ImmutableSet.of(),

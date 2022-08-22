@@ -346,6 +346,142 @@ public class HttpDownloaderTest {
   }
 
   @Test
+  public void downloadOneUrl_ok() throws IOException, InterruptedException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+      Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
+      httpDownloader.download(
+          Collections.singletonList(
+              new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+          Collections.emptyMap(),
+          Optional.absent(),
+          "testCanonicalId",
+          destination,
+          eventHandler,
+          Collections.emptyMap(),
+          Optional.absent());
+
+      assertThat(new String(readFile(destination), UTF_8)).isEqualTo("hello");
+    }
+  }
+
+  @Test
+  public void downloadOneUrl_notFound() throws IOException, InterruptedException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 404 Not Found",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "");
+                }
+                return null;
+              });
+      assertThrows(
+          IOException.class,
+          () ->
+              httpDownloader.download(
+                  Collections.singletonList(
+                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                  Collections.emptyMap(),
+                  Optional.absent(),
+                  "testCanonicalId",
+                  fs.getPath(workingDir.newFile().getAbsolutePath()),
+                  eventHandler,
+                  Collections.emptyMap(),
+                  Optional.absent()));
+    }
+  }
+
+  @Test
+  public void downloadTwoUrls_firstNotFoundAndSecondOk() throws IOException, InterruptedException {
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server1.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 404 Not Found",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "");
+                }
+                return null;
+              });
+
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          executor.submit(
+              () -> {
+                while (!executor.isShutdown()) {
+                  try (Socket socket = server2.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "",
+                        "content2");
+                  }
+                }
+                return null;
+              });
+
+      final List<URL> urls = new ArrayList<>(2);
+      urls.add(new URL(String.format("http://localhost:%d/foo", server1.getLocalPort())));
+      urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
+
+      Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
+      httpDownloader.download(
+          urls,
+          Collections.emptyMap(),
+          Optional.absent(),
+          "testCanonicalId",
+          destination,
+          eventHandler,
+          Collections.emptyMap(),
+          Optional.absent());
+
+      assertThat(new String(readFile(destination), UTF_8)).isEqualTo("content2");
+    }
+  }
+
+  @Test
   public void downloadAndReadOneUrl_ok() throws IOException, InterruptedException {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")

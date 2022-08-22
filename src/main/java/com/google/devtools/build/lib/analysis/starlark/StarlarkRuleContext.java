@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -93,6 +93,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Dict.ImmutableKeyTrackingDict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -159,6 +160,15 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   private StarlarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
   private Outputs outputsObject;
+
+  /**
+   * Counter for calls to {@code ctx.resolve_command} with a command longer than {@link
+   * CommandHelper#maxCommandLength}.
+   *
+   * <p>Such calls require generating a script. This counter ensures that each call results in
+   * unique script name to avoid action conflicts.
+   */
+  private int resolveCommandScriptCounter = 0;
 
   /**
    * Creates a new StarlarkRuleContext wrapping ruleContext.
@@ -494,7 +504,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
 
     return StructProvider.STRUCT.create(
-        splitAttrInfos.build(),
+        splitAttrInfos.buildOrThrow(),
         "No attribute '%s' in split_attr."
             + "This attribute is not defined with a split configuration.");
   }
@@ -895,16 +905,33 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public String expandLocation(String input, Sequence<?> targets, StarlarkThread thread)
+  public String expandLocation(
+      String input, Sequence<?> targets, boolean shortPaths, StarlarkThread thread)
       throws EvalException {
     checkMutable("expand_location");
     try {
-      return LocationExpander.withExecPaths(
-              ruleContext,
-              makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets")))
-          .expand(input);
+      ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap =
+          makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets"));
+      LocationExpander expander;
+      if (!shortPaths) {
+        expander = LocationExpander.withExecPaths(ruleContext, labelMap);
+      } else {
+        checkPrivateAccess(thread);
+        expander = LocationExpander.withRunfilesPaths(ruleContext, labelMap);
+      }
+      return expander.expand(input);
     } catch (IllegalStateException ise) {
       throw new EvalException(ise);
+    }
+  }
+
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!"test".equals(label.getPackageName()) // for tests
+        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
 
@@ -929,7 +956,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
-      builder.addArtifacts(Sequence.cast(files, Artifact.class, "files"));
+      Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
+      checkForMiddlemanArtifacts(artifacts);
+      builder.addArtifacts(artifacts);
     }
     if (transitiveFiles != Starlark.NONE) {
       NestedSet<Artifact> transitiveArtifacts =
@@ -941,6 +970,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             "order '%s' is invalid for transitive_files",
             transitiveArtifacts.getOrder().getStarlarkName());
       }
+      checkForMiddlemanArtifacts(transitiveArtifacts.toList());
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {
@@ -969,6 +999,16 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return runfiles;
   }
 
+  private void checkForMiddlemanArtifacts(Iterable<Artifact> artifacts) throws EvalException {
+    for (Artifact artifact : artifacts) {
+      if (artifact.isMiddlemanArtifact()) {
+        throw Starlark.errorf(
+            "Middleman artifacts are forbidden here. Artifact: %s, owner: %s",
+            artifact, artifact.getOwner());
+      }
+    }
+  }
+
   private static boolean isNonEmptyDict(Object o) {
     return o instanceof Dict && !((Dict<?, ?>) o).isEmpty();
   }
@@ -989,7 +1029,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkThread thread)
       throws EvalException {
     checkMutable("resolve_command");
-    Label ruleLabel = getLabel();
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
     // The best way to fix this probably is to convert CommandHelper to Starlark.
     CommandHelper helper =
@@ -997,14 +1036,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .addLabelMap(labelDict)
             .build();
-    String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
+    String attribute = Type.STRING.convertOptional(attributeUnchecked, "attribute");
     if (expandLocations) {
       command =
           helper.resolveCommandAndExpandLabels(command, attribute, /*allowDataInLabel=*/ false);
     }
     if (!Starlark.isNullOrNone(makeVariablesUnchecked)) {
       Map<String, String> makeVariables =
-          Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables", ruleLabel);
+          Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables");
       command = expandMakeVariables(attribute, command, makeVariables);
     }
     // TODO(lberki): This flattens a NestedSet.
@@ -1018,15 +1057,15 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
                 String.class,
                 String.class,
                 "execution_requirements"));
-    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+    // TODO(b/234923262): Take exec_group into consideration instead of using the default
+    // exec_group.
+    PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext.getExecutionPlatform());
 
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionRequirements,
             shExecutable,
-            // Hash the command-line to prevent multiple actions from the same rule invocation
-            // conflicting with each other.
-            "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
+            String.format(".resolve_command_%d.script.sh", resolveCommandScriptCounter++));
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
     return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
@@ -1084,9 +1123,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return convertedMap;
   }
 
-  /** suffix of script to be used in case the command is too long to fit on a single line */
-  private static final String SCRIPT_SUFFIX = ".script.sh";
-
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)
       throws EvalException {
     if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NEW_ACTIONS_API)) {
@@ -1113,6 +1149,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
-    return builder.build();
+    return builder.buildOrThrow();
   }
 }

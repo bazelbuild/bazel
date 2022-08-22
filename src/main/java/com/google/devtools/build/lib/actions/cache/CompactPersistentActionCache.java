@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -53,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.Nullable;
 
 /**
  * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
@@ -279,11 +281,15 @@ public class CompactPersistentActionCache implements ActionCache {
   private static void renameCorruptedFiles(Path cacheRoot) {
     try {
       for (Path path :
-          UnixGlob.forPath(cacheRoot).addPattern("action_*_v" + VERSION + ".*").glob()) {
+          new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+              .addPattern("action_*_v" + VERSION + ".*")
+              .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
       for (Path path :
-          UnixGlob.forPath(cacheRoot).addPattern("filename_*_v" + VERSION + ".*").glob()) {
+          new UnixGlob.Builder(cacheRoot, SyscallCache.NO_CACHE)
+              .addPattern("filename_*_v" + VERSION + ".*")
+              .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
     } catch (UnixGlob.BadPattern ex) {
@@ -328,6 +334,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
+  @Nullable
   public ActionCache.Entry get(String key) {
     int index = indexer.getIndex(key);
     if (index < 0) {
@@ -648,7 +655,7 @@ public class CompactPersistentActionCache implements ActionCache {
         }
 
         SerializableTreeArtifactValue value =
-            SerializableTreeArtifactValue.create(childValues.build(), archivedFileValue);
+            SerializableTreeArtifactValue.create(childValues.buildOrThrow(), archivedFileValue);
         outputTrees.put(treeKey, value);
       }
 

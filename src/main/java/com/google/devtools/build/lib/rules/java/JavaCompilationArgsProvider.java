@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -226,6 +227,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
      * objects.
      */
     // TODO(bazel-team): Remove when we get rid of JavaCompilationArtifacts.
+    @CanIgnoreReturnValue
     public Builder merge(JavaCompilationArtifacts other, boolean isNeverLink) {
       if (!isNeverLink) {
         addRuntimeJars(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, other.getRuntimeJars()));
@@ -246,17 +248,20 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       return merge(other, /* isNeverLink= */ false);
     }
 
+    @CanIgnoreReturnValue
     public Builder addRuntimeJar(Artifact runtimeJar) {
       this.runtimeJarsBuilder.add(runtimeJar);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addRuntimeJars(NestedSet<Artifact> runtimeJars) {
       this.runtimeJarsBuilder.addTransitive(runtimeJars);
       return this;
     }
 
     /** Adds a pair of direct interface and implementation jars. */
+    @CanIgnoreReturnValue
     public Builder addDirectCompileTimeJar(Artifact interfaceJar, Artifact fullJar) {
       this.directCompileTimeJarsBuilder.add(interfaceJar);
       this.transitiveCompileTimeJarsBuilder.add(interfaceJar);
@@ -266,6 +271,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     }
 
     /** Adds paired sets of direct interface and implementation jars. */
+    @CanIgnoreReturnValue
     public Builder addDirectCompileTimeJars(
         NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
       this.directCompileTimeJarsBuilder.addTransitive(interfaceJars);
@@ -282,12 +288,14 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
      *     deprecated. It allows creating providers where the direct compile-time jars aren't a
      *     subset of the transitive jars, and it doesn't provide a way to associate the 'full' jars.
      */
+    @CanIgnoreReturnValue
     @Deprecated
     public Builder addTransitiveCompileTimeJars(NestedSet<Artifact> transitiveCompileTimeJars) {
       this.transitiveCompileTimeJarsBuilder.addTransitive(transitiveCompileTimeJars);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCompileTimeJavaDependencyArtifacts(
         NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
       this.compileTimeJavaDependencyArtifactsBuilder.addTransitive(
@@ -337,6 +345,7 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
      * @param args the {@link JavaCompilationArgsProvider} instance
      * @param type the classpath(s) to consider
      */
+    @CanIgnoreReturnValue
     private Builder addArgs(
         JavaCompilationArgsProvider args, ClasspathType type, boolean recursive) {
       if (!ClasspathType.RUNTIME_ONLY.equals(type)) {

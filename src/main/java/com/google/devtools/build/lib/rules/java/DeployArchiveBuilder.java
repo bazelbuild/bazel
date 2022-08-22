@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -30,10 +31,13 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -69,6 +73,12 @@ public class DeployArchiveBuilder {
   private OneVersionEnforcementLevel oneVersionEnforcementLevel = OneVersionEnforcementLevel.OFF;
   @Nullable private Artifact oneVersionAllowlistArtifact;
   @Nullable private Artifact sharedArchive;
+  private boolean multiReleaseDeployJars;
+  @Nullable private PathFragment javaHome;
+  @Nullable private Artifact libModules;
+  private NestedSet<Artifact> hermeticInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private NestedSet<String> addExports;
+  private NestedSet<String> addOpens;
 
   /** Type of compression to apply to output archive. */
   public enum Compression {
@@ -87,18 +97,21 @@ public class DeployArchiveBuilder {
   }
 
   /** Sets the processed attributes of the rule generating the deploy archive. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setAttributes(JavaTargetAttributes attributes) {
     this.attributes = attributes;
     return this;
   }
 
   /** Sets whether to include build-data.properties in the deploy archive. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setIncludeBuildData(boolean includeBuildData) {
     this.includeBuildData = includeBuildData;
     return this;
   }
 
   /** Sets whether to enable compression of the output deploy archive. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setCompression(Compression compress) {
     this.compression = Preconditions.checkNotNull(compress);
     return this;
@@ -108,59 +121,69 @@ public class DeployArchiveBuilder {
    * Sets additional dependencies to be added to the action that creates the deploy jar so that we
    * force the runtime dependencies to be built.
    */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setRunfilesMiddleman(@Nullable Artifact runfilesMiddleman) {
     this.runfilesMiddleman = runfilesMiddleman;
     return this;
   }
 
   /** Sets the artifact to create with the action. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setOutputJar(Artifact outputJar) {
     this.outputJar = Preconditions.checkNotNull(outputJar);
     return this;
   }
 
   /** Sets the class to launch the Java application. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setJavaStartClass(@Nullable String javaStartClass) {
     this.javaStartClass = javaStartClass;
     return this;
   }
 
   /** Adds additional jars that should be on the classpath at runtime. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder addRuntimeJars(NestedSet<Artifact> jars) {
     this.runtimeJarsBuilder.addTransitive(jars);
     return this;
   }
 
   /** Adds additional jars that should be on the classpath at runtime. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder addRuntimeJars(Iterable<Artifact> jars) {
     this.runtimeJarsBuilder.addAll(jars);
     return this;
   }
 
   /** Sets the list of extra lines to add to the archive's MANIFEST.MF file. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setDeployManifestLines(ImmutableList<String> deployManifestLines) {
     this.deployManifestLines = Preconditions.checkNotNull(deployManifestLines);
     return this;
   }
 
   /** Sets the optional launcher to be used as the executable for this deploy JAR */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setLauncher(@Nullable Artifact launcher) {
     this.launcher = launcher;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setDerivedJarFunction(Function<Artifact, Artifact> derivedJars) {
     this.derivedJars = derivedJars;
     return this;
   }
 
   /** Whether singlejar should process META-INF/desugar_deps files and fail upon inconsistencies. */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setCheckDesugarDeps(boolean checkDesugarDeps) {
     this.checkDesugarDeps = checkDesugarDeps;
     return this;
   }
 
   /** Whether or not singlejar would attempt to enforce one version of java classes in the jar */
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setOneVersionEnforcementLevel(
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
       @Nullable Artifact oneVersionAllowlistArtifact) {
@@ -169,8 +192,45 @@ public class DeployArchiveBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public DeployArchiveBuilder setMultiReleaseDeployJars(boolean multiReleaseDeployJars) {
+    this.multiReleaseDeployJars = multiReleaseDeployJars;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public DeployArchiveBuilder setSharedArchive(@Nullable Artifact sharedArchive) {
     this.sharedArchive = sharedArchive;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public DeployArchiveBuilder setJavaHome(PathFragment javaHome) {
+    this.javaHome = requireNonNull(javaHome);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public DeployArchiveBuilder setLibModules(@Nullable Artifact libModules) {
+    this.libModules = libModules;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public DeployArchiveBuilder setHermeticInputs(NestedSet<Artifact> hermeticInputs) {
+    this.hermeticInputs = requireNonNull(hermeticInputs);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public DeployArchiveBuilder setAddExports(NestedSet<String> addExports) {
+    this.addExports = addExports;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public DeployArchiveBuilder setAddOpens(NestedSet<String> addOpens) {
+    this.addOpens = addOpens;
     return this;
   }
 
@@ -183,7 +243,13 @@ public class DeployArchiveBuilder {
       NestedSet<Artifact> runtimeClasspath,
       boolean includeBuildData,
       Compression compress,
-      Artifact launcher) {
+      Artifact launcher,
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
     return defaultSingleJarCommandLine(
         outputJar,
         javaMainClass,
@@ -195,7 +261,13 @@ public class DeployArchiveBuilder {
         compress,
         launcher,
         OneVersionEnforcementLevel.OFF,
-        null);
+        null,
+        /* multiReleaseDeployJars= */ multiReleaseDeployJars,
+        javaHome,
+        libModules,
+        hermeticInputs,
+        addExports,
+        addOpens);
   }
 
   public static CustomCommandLine.Builder defaultSingleJarCommandLine(
@@ -209,7 +281,13 @@ public class DeployArchiveBuilder {
       Compression compress,
       Artifact launcher,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      @Nullable Artifact oneVersionAllowlistArtifact) {
+      @Nullable Artifact oneVersionAllowlistArtifact,
+      boolean multiReleaseDeployJars,
+      PathFragment javaHome,
+      Artifact libModules,
+      NestedSet<Artifact> hermeticInputs,
+      NestedSet<String> addExports,
+      NestedSet<String> addOpens) {
 
     CustomCommandLine.Builder args = CustomCommandLine.builder();
     args.addExecPath("--output", outputJar);
@@ -253,6 +331,14 @@ public class DeployArchiveBuilder {
         args.add("--succeed_on_found_violations");
       }
     }
+    if (multiReleaseDeployJars) {
+      args.add("--multi_release");
+    }
+    args.addPath("--hermetic_java_home", javaHome);
+    args.addExecPath("--jdk_lib_modules", libModules);
+    args.addExecPaths("--resources", hermeticInputs);
+    args.addAll("--add_exports", addExports);
+    args.addAll("--add_opens", addOpens);
     return args;
   }
 
@@ -335,6 +421,10 @@ public class DeployArchiveBuilder {
     if (sharedArchive != null) {
       inputs.add(sharedArchive);
     }
+    inputs.addTransitive(hermeticInputs);
+    if (libModules != null) {
+      inputs.add(libModules);
+    }
 
     Artifact singlejar = JavaToolchainProvider.from(ruleContext).getSingleJar();
 
@@ -361,7 +451,13 @@ public class DeployArchiveBuilder {
             launcher,
             oneVersionEnforcementLevel,
             oneVersionAllowlistArtifact,
-            sharedArchive);
+            sharedArchive,
+            /* multiReleaseDeployJars= */ multiReleaseDeployJars,
+            javaHome,
+            libModules,
+            hermeticInputs,
+            addExports,
+            addOpens);
     if (checkDesugarDeps) {
       commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
     }
@@ -382,7 +478,7 @@ public class DeployArchiveBuilder {
                 ParamFileInfo.builder(ParameterFileType.SHELL_QUOTED).setUseAlways(true).build())
             .setProgressMessage("Building deploy jar %{output}")
             .setMnemonic("JavaDeployJar")
-            .setExecutionInfo(executionInfo.build())
+            .setExecutionInfo(executionInfo.buildOrThrow())
             .build(ruleContext));
   }
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Class that goes over linker inputs and produces {@link LibraryToLinkValue}s */
 public class LibrariesToLinkCollector {
@@ -68,7 +70,8 @@ public class LibrariesToLinkCollector {
       boolean allowLtoIndexing,
       Iterable<LinkerInput> linkerInputs,
       boolean needWholeArchive,
-      RuleErrorConsumer ruleErrorConsumer) {
+      RuleErrorConsumer ruleErrorConsumer,
+      String workspaceName) {
     this.isNativeDeps = isNativeDeps;
     this.cppConfiguration = cppConfiguration;
     this.ccToolchainProvider = toolchain;
@@ -105,10 +108,20 @@ public class LibrariesToLinkCollector {
       // there's no *one* RPATH setting that fits all targets involved in the sharing.
       rpathRoot = ccToolchainProvider.getSolibDirectory() + "/";
     } else {
-      rpathRoot =
-          "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
-              + ccToolchainProvider.getSolibDirectory()
-              + "/";
+      // When executed from within a runfiles directory, the binary lies under a path such as
+      // target.runfiles/some_repo/pkg/file, whereas the solib directory is located under
+      // target.runfiles/main_repo.
+      PathFragment runfilesPath = outputArtifact.getRunfilesPath();
+      String runfilesExecRoot;
+      if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
+        // runfilesPath is of the form ../some_repo/pkg/file, walk back some_repo/pkg and then
+        // descend into the main workspace.
+        runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 2) + workspaceName + "/";
+      } else {
+        // runfilesPath is of the form pkg/file, walk back pkg to reach the main workspace.
+        runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 1);
+      }
+      rpathRoot = runfilesExecRoot + ccToolchainProvider.getSolibDirectory() + "/";
     }
 
     ltoMap = generateLtoMap();
@@ -330,8 +343,21 @@ public class LibrariesToLinkCollector {
         commonParent = commonParent.getParentDirectory();
       }
 
-      rpathRootsForExplicitSoDeps.add(
-          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
+      // When all dynamic deps are built in transitioned configurations, the default solib dir is
+      // not created. While resolving paths, the dynamic linker stops at the first directory that
+      // does not exist, even when followed by "../". We thus have to normalize the relative path.
+      String relativePathToRoot =
+          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString();
+      String normalizedPathToRoot = PathFragment.create(relativePathToRoot).getPathString();
+      rpathRootsForExplicitSoDeps.add(normalizedPathToRoot);
+
+      // Unless running locally, libraries will be available under the root relative path, so we
+      // should add that to the rpath as well.
+      if (inputArtifact.getRootRelativePathString().startsWith("_solib_")) {
+        PathFragment artifactPathUnderSolib = inputArtifact.getRootRelativePath().subFragment(1);
+        rpathRootsForExplicitSoDeps.add(
+            rpathRoot + artifactPathUnderSolib.getParentDirectory().getPathString());
+      }
     }
 
     librarySearchDirectories.add(inputArtifact.getExecPath().getParentDirectory().getPathString());
@@ -519,6 +545,7 @@ public class LibrariesToLinkCollector {
                 PathFragment.create(CppLinkActionBuilder.SHARED_NONLTO_BACKEND_ROOT_PREFIX));
   }
 
+  @Nullable
   private Map<Artifact, Artifact> generateLtoMap() {
     if (isLtoIndexing || allLtoArtifacts == null) {
       return null;

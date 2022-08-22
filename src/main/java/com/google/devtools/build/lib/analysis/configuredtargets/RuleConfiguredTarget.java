@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -51,6 +52,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A {@link com.google.devtools.build.lib.analysis.ConfiguredTarget} that is produced by a rule.
@@ -154,6 +156,28 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
+  /** Use this constructor for creating incompatible ConfiguredTarget instances. */
+  public RuleConfiguredTarget(
+      Label label,
+      BuildConfigurationKey configurationKey,
+      NestedSet<PackageGroupContents> visibility,
+      TransitiveInfoProviderMap providers,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String ruleClassString) {
+    this(
+        label,
+        configurationKey,
+        visibility,
+        providers,
+        configConditions,
+        ImmutableSet.<ConfiguredTargetKey>of(),
+        ruleClassString,
+        ImmutableList.<ActionAnalysisMetadata>of(),
+        ImmutableMap.<Label, Artifact>of());
+
+    Preconditions.checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, label);
+  }
+
   /** The configuration conditions that trigger this rule's configurable attributes. */
   @Override
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
@@ -179,8 +203,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getErrorMessageForUnknownField(String name) {
-    return Starlark.format(
-        "%r (rule '%s') doesn't have provider '%s'", this, getRuleClassString(), name);
+    return String.format(
+        "%s (rule '%s') doesn't have provider '%s'",
+        Starlark.repr(this), getRuleClassString(), name);
   }
 
   @Override
@@ -218,7 +243,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public void debugPrint(Printer printer) {
+  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     // Show the names of the provider keys that this target propagates.
     // Provider key names might potentially be *private* information, and thus a comprehensive
     // list of provider keys should not be exposed in any way other than for debug information.

@@ -70,7 +70,7 @@ This is my aspect. It does stuff.
     <tr id="my_aspect-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>
@@ -79,13 +79,13 @@ This is my aspect. It does stuff.
     <tr id="my_aspect-first">
       <td><code>first</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#labels">Label</a>; required
+        <a href="https://bazel.build/concepts/labels">Label</a>; required
       </td>
     </tr>
     <tr id="my_aspect-second">
       <td><code>second</code></td>
       <td>
-        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+        <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a>; required
       </td>
     </tr>
   </tbody>
@@ -130,7 +130,7 @@ This is another aspect.
     <tr id="other_aspect-name">
       <td><code>name</code></td>
       <td>
-        <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
+        <a href="https://bazel.build/concepts/labels#target-names">Name</a>; required
         <p>
           A unique name for this target.
         </p>

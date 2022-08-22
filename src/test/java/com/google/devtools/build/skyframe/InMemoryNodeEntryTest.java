@@ -24,14 +24,14 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -44,9 +44,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class InMemoryNodeEntryTest {
 
-  private static final NestedSet<TaggedEvents> NO_EVENTS =
+  private static final NestedSet<Reportable> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private static final NestedSet<Postable> NO_POSTS = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   private static SkyKey key(String name) {
     return GraphTester.toSkyKey(name);
@@ -852,9 +851,7 @@ public final class InMemoryNodeEntryTest {
       NodeEntry entry, SkyValue value, @Nullable ErrorInfo errorInfo, long graphVersion)
       throws InterruptedException {
     return entry.setValue(
-        ValueWithMetadata.normal(value, errorInfo, NO_EVENTS, NO_POSTS),
-        IntVersion.of(graphVersion),
-        null);
+        ValueWithMetadata.normal(value, errorInfo, NO_EVENTS), IntVersion.of(graphVersion), null);
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

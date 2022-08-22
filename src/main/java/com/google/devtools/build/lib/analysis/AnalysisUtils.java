@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -37,7 +40,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -50,6 +52,20 @@ public final class AnalysisUtils {
   }
 
   /**
+   * Returns whether link stamping is enabled for a TriState stamp attribute.
+   *
+   * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
+   * it returns the value of the stamp attribute, or of the stamp option if the attribute value is
+   * AUTO.
+   */
+  public static boolean isStampingEnabled(TriState stamp, BuildConfigurationValue config) {
+    if (config.isToolConfiguration()) {
+      return false;
+    }
+    return stamp.equals(TriState.YES) || (stamp.equals(TriState.AUTO) && config.stampBinaries());
+  }
+
+  /**
    * Returns whether link stamping is enabled for a rule.
    *
    * <p>This returns false for unstampable rule classes and for rules used to build tools. Otherwise
@@ -57,19 +73,15 @@ public final class AnalysisUtils {
    * -1.
    */
   public static boolean isStampingEnabled(RuleContext ruleContext, BuildConfigurationValue config) {
-    if (config.isToolConfiguration()) {
-      return false;
-    }
-    TriState stamp;
     if (ruleContext.attributes().has("stamp", BuildType.TRISTATE)) {
-      stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
-    } else if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
-      int value = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
-      stamp = TriState.fromInt(value);
-    } else {
-      return false;
+      TriState stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE);
+      return isStampingEnabled(stamp, config);
     }
-    return stamp == TriState.YES || (stamp == TriState.AUTO && config.stampBinaries());
+    if (ruleContext.attributes().has("stamp", Type.INTEGER)) {
+      int stamp = ruleContext.attributes().get("stamp", Type.INTEGER).toIntUnchecked();
+      return isStampingEnabled(TriState.fromInt(stamp), config);
+    }
+    return false;
   }
 
   public static boolean isStampingEnabled(RuleContext ruleContext) {
@@ -177,14 +189,13 @@ public final class AnalysisUtils {
       ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException, InterruptedException {
-    // We use a hash set here to remove duplicate nodes; this can happen for input files and package
+    // We use a set here to remove duplicate nodes; this can happen for input files and package
     // groups.
-    LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
-    for (BuildConfigurationValue config : configurations.getTargetConfigurations()) {
-      for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target, config));
-      }
-    }
+    BuildConfigurationValue targetConfiguration = configurations.getTargetConfiguration();
+    ImmutableSet<TargetAndConfiguration> nodes =
+        targets.stream()
+            .map(target -> new TargetAndConfiguration(target, targetConfiguration))
+            .collect(toImmutableSet());
 
     // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
     // configurations for deps including transitions.

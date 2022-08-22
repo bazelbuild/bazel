@@ -50,7 +50,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
       builder.put(queryFunction.getName(), queryFunction);
     }
 
-    functions = builder.build();
+    functions = builder.buildOrThrow();
     runtimeWrapper.addOptionsClass(AqueryOptions.class);
   }
 
@@ -75,8 +75,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     addOptions("--output=text");
     CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
     AqueryProcessor aqueryProcessor = new AqueryProcessor(null);
-    BlazeCommandResult result =
-        aqueryProcessor.dumpActionGraphFromSkyframe(env, createNewRequest("aquery"));
+    BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
 
     assertThat(result.isSuccess()).isFalse();
     assertThat(result.getDetailedExitCode().getFailureDetail().getActionQuery().getCode())

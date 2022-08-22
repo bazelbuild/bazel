@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -32,8 +33,10 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code java_runtime} rule. */
 public class JavaRuntime implements RuleConfiguredTargetFactory {
@@ -42,6 +45,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
   private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
@@ -86,6 +90,15 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     PathFragment javaHomeRunfilesPath =
         javaBinaryRunfilesPath.getParentDirectory().getParentDirectory();
 
+    NestedSet<Artifact> hermeticInputs =
+        PrerequisiteArtifacts.nestedSet(ruleContext, "hermetic_srcs");
+    filesBuilder.addTransitive(hermeticInputs);
+
+    Artifact libModules = ruleContext.getPrerequisiteArtifact("lib_modules");
+
+    ImmutableList<CcInfo> hermeticStaticLibs =
+        ImmutableList.copyOf(ruleContext.getPrerequisites("hermetic_static_libs", CcInfo.PROVIDER));
+
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     // TODO(cushon): clean up uses of java_runtime in data deps and remove this
@@ -100,7 +113,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaHome,
             javaBinaryExecPath,
             javaHomeRunfilesPath,
-            javaBinaryRunfilesPath);
+            javaBinaryRunfilesPath,
+            hermeticInputs,
+            libModules,
+            hermeticStaticLibs);
 
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(
@@ -111,7 +127,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
 
     ToolchainInfo toolchainInfo =
         new ToolchainInfo(
-            ImmutableMap.<String, Object>builder().put("java_runtime", javaRuntime).build());
+            ImmutableMap.<String, Object>builder().put("java_runtime", javaRuntime).buildOrThrow());
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)

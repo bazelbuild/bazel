@@ -88,7 +88,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
       throws InterruptedException {
     ImmutableList<String> linuxSandboxArgv =
-        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true")).build();
+        LinuxSandboxUtil.commandLineBuilder(linuxSandbox, ImmutableList.of("/bin/true"))
+            .setTimeout(Duration.ofSeconds(1))
+            .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
@@ -184,8 +186,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            spawn,
-            context.getArtifactExpander(),
             execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -385,7 +385,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private void checkForConcurrentModifications(SpawnExecutionContext context)
       throws IOException, ForbiddenActionInputException {
-    for (ActionInput input : (context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values())) {
+    for (ActionInput input : context.getInputMapping(PathFragment.EMPTY_FRAGMENT).values()) {
       if (input instanceof VirtualActionInput) {
         continue;
       }

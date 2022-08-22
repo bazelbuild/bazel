@@ -15,12 +15,19 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /**
  * Some static utility functions for testing.
@@ -117,6 +124,34 @@ public class TestUtils {
     }
 
     return randomSeed;
+  }
+
+  public static SyscallCache makeDisappearingFileCache(String path) {
+    PathFragment badPath = PathFragment.create(path);
+    return new SyscallCache() {
+      @Override
+      public Collection<Dirent> readdir(Path path) throws IOException {
+        return SyscallCache.NO_CACHE.readdir(path);
+      }
+
+      @Override
+      public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+        return path.asFragment().endsWith(badPath)
+            ? null
+            : SyscallCache.NO_CACHE.statIfFound(path, symlinks);
+      }
+
+      @Nullable
+      @Override
+      public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
+        return path.asFragment().endsWith(badPath)
+            ? DirentTypeWithSkip.FILE
+            : DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED;
+      }
+
+      @Override
+      public void clear() {}
+    };
   }
 
   /**

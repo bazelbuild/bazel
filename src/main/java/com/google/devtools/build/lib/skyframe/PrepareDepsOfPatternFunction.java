@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.GraphTraversingHelper;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -273,8 +274,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           builder.add(TransitiveTraversalValue.key(target.getLabel()));
         }
         ImmutableList<SkyKey> skyKeys = builder.build();
-        env.getValuesOrThrow(skyKeys, NoSuchPackageException.class, NoSuchTargetException.class);
-        if (env.valuesMissing()) {
+        if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, skyKeys, NoSuchPackageException.class, NoSuchTargetException.class)) {
           throw new MissingDepException();
         }
         return ImmutableSet.of();
@@ -338,8 +339,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
       for (Root root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, directoryPathFragment);
-        env.getValues(getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath));
-        if (env.valuesMissing()) {
+        if (GraphTraversingHelper.declareDependenciesAndCheckIfValuesMissing(
+            env, getDeps(repository, repositoryIgnoredSubdirectories, policy, rootedPath))) {
           throw new MissingDepException();
         }
       }

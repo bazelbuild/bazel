@@ -342,7 +342,7 @@ public class OptionsDataTest {
   }
 
   /** Dummy options class. */
-  public static class StringConverter implements Converter<String> {
+  public static class StringConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) {
       return input;

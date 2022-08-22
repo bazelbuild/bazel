@@ -173,7 +173,10 @@ filegroup(
 
 filegroup(
     name = "jdk-include",
-    srcs = glob(["include/**"]),
+    srcs = glob(
+        ["include/**"],
+        allow_empty = True,
+    ),
 )
 
 filegroup(
@@ -198,21 +201,8 @@ java_runtime(
     ],
 )
 
-filegroup(
-    name = "langtools",
-    srcs = ["lib/tools.jar"],
-    deprecation = DEPRECATION_MESSAGE,
-)
-
-java_import(
-    name = "langtools-neverlink",
-    deprecation = DEPRECATION_MESSAGE,
-    jars = ["lib/tools.jar"],
-    neverlink = 1,
-)
-
 config_setting(
     name = "windows",
-    values = {"cpu": "x64_windows"},
+    constraint_values = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
 )

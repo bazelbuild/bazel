@@ -40,7 +40,7 @@ public class ObjcProviderStarlarkConverters {
           .put(Artifact.class, new DirectConverter())
           .put(String.class, new DirectConverter())
           .put(PathFragment.class, new PathFragmentToStringConverter())
-          .build();
+          .buildOrThrow();
 
   /** Returns a value for a Starlark attribute given a java ObjcProvider key and value. */
   public static Object convertToStarlark(Key<?> javaKey, NestedSet<?> javaValue) {

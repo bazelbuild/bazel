@@ -32,6 +32,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class SystemMemoryPressureEventTest extends BuildIntegrationTestCase {
   static class SystemMemoryPressureEventListener extends BlazeModule {
+    public int memoryPressureNormalEventCount = 0;
     public int memoryPressureWarningEventCount = 0;
     public int memoryPressureCriticalEventCount = 0;
 
@@ -43,6 +44,10 @@ public final class SystemMemoryPressureEventTest extends BuildIntegrationTestCas
     @Subscribe
     public void memoryPressureEvent(SystemMemoryPressureEvent event) {
       switch (event.level()) {
+        case NORMAL:
+          ++memoryPressureNormalEventCount;
+          assertThat(event.logString()).isEqualTo("SystemMemoryPressureEvent: Normal");
+          break;
         case WARNING:
           ++memoryPressureWarningEventCount;
           assertThat(event.logString()).isEqualTo("SystemMemoryPressureEvent: Warning");
@@ -80,12 +85,14 @@ public final class SystemMemoryPressureEventTest extends BuildIntegrationTestCas
         "  outs = ['fire_memory_pressure_notifications.out'],",
         "  cmd = '"
             + notifierFilePath
-            + " com.google.bazel.test.memorypressurelevel.warning 0 > $@; ' + ",
+            + " com.google.bazel.test.memorypressurelevel 0 > $@ && ' + ",
         "        '"
             + notifierFilePath
-            + " com.google.bazel.test.memorypressurelevel.critical 0 >> $@',",
+            + " com.google.bazel.test.memorypressurelevel 1 >> $@ && ' + ",
+        "        '" + notifierFilePath + " com.google.bazel.test.memorypressurelevel 2 >> $@',",
         ")");
     buildTarget("//system_memory_pressure_event:fire_memory_pressure_notifications");
+    assertThat(eventListener.memoryPressureNormalEventCount).isGreaterThan(0);
     assertThat(eventListener.memoryPressureWarningEventCount).isGreaterThan(0);
     assertThat(eventListener.memoryPressureCriticalEventCount).isGreaterThan(0);
   }

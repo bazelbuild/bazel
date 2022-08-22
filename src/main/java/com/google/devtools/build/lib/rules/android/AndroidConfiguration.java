@@ -150,7 +150,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
      * <p>If null/unset, the V4 signing flag should not be passed to apksigner. This extra level of
      * control is needed to support environments where older build tools may be used.
      */
-    public @Nullable Boolean signV4() {
+    @Nullable
+    public Boolean signV4() {
       return signV4;
     }
   }
@@ -173,6 +174,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       return "auto";
     }
 
+    @Nullable
     public static AndroidManifestMerger fromString(String value) {
       for (AndroidManifestMerger merger : AndroidManifestMerger.values()) {
         if (merger.name().equalsIgnoreCase(value)) {
@@ -395,7 +397,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "experimental_incremental_dexing_after_proguard",
-        defaultValue = "1",
+        defaultValue = "50",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {
           OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -409,7 +411,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     /** Whether to use a separate tool to shard classes before merging them into final dex files. */
     @Option(
         name = "experimental_use_dex_splitter_for_incremental_dexing",
-        defaultValue = "false",
+        defaultValue = "true",
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -418,7 +420,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "experimental_incremental_dexing_after_proguard_by_default",
-        defaultValue = "false",
+        defaultValue = "true",
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -882,6 +884,17 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean persistentBusyboxTools;
 
     @Option(
+        name = "experimental_persistent_multiplex_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when multiplex busybox workers are enabled.")
+    public boolean experimentalPersistentMultiplexBusyboxTools;
+
+    @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -922,6 +935,14 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
         help = "Use R.txt from the merging action, instead of from the validation action.")
     public boolean useRTxtFromMergedResources;
+
+    @Option(
+        name = "output_library_merged_assets",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "If disabled, does not produce merged asset.zip outputs for library targets")
+    public boolean outputLibraryMergedAssets;
 
     @Option(
         name = "legacy_main_dex_list_generator",
@@ -966,6 +987,17 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " This will make the build nondeterministic.")
     public boolean includeProguardLocationReferences;
 
+    @Option(
+        name = "incompatible_android_platforms_transition_updated_affected",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "If set to true, the AndroidPlatformsTransition will also update `affected by Starlark"
+                + " transition` with changed options to avoid potential action conflicts.")
+    public boolean androidPlatformsTransitionsUpdateAffected;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -974,6 +1006,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.sdk = sdk;
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
       host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
+      host.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
 
       host.desugarJava8 = desugarJava8;
       host.desugarJava8Libs = desugarJava8Libs;
@@ -994,6 +1027,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
       host.persistentBusyboxTools = persistentBusyboxTools;
+      host.experimentalPersistentMultiplexBusyboxTools =
+          experimentalPersistentMultiplexBusyboxTools;
 
       // Unless the build was started from an Android device, host means MAIN.
       host.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
@@ -1039,11 +1074,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingUpdatedArgs;
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
+  private final boolean experimentalPersistentMultiplexBusyboxTools;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final boolean outputLibraryMergedAssets;
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
@@ -1098,6 +1135,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
+    this.experimentalPersistentMultiplexBusyboxTools =
+        options.experimentalPersistentMultiplexBusyboxTools;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1105,6 +1144,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
+    this.outputLibraryMergedAssets = options.outputLibraryMergedAssets;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
@@ -1279,7 +1319,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public @Nullable Boolean apkSigningMethodV4() {
+  @Nullable
+  public Boolean apkSigningMethodV4() {
     return apkSigningMethod.signV4();
   }
 
@@ -1349,6 +1390,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
+  public boolean persistentMultiplexBusyboxTools() {
+    return experimentalPersistentMultiplexBusyboxTools;
+  }
+
+  @Override
   public boolean incompatibleUseToolchainResolution() {
     return incompatibleUseToolchainResolution;
   }
@@ -1393,6 +1439,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean includeProguardLocationReferences() {
     return includeProguardLocationReferences;
+  }
+
+  boolean outputLibraryMergedAssets() {
+    return outputLibraryMergedAssets;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

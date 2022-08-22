@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -27,12 +28,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -47,6 +53,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import javax.annotation.Nullable;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -72,7 +80,11 @@ import org.junit.runners.JUnit4;
  * direct access to environments.
  */
 @RunWith(JUnit4.class)
-public class ConfigurationsForTargetsTest extends AnalysisTestCase {
+public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
+
+  private static final Label TARGET_PLATFORM_LABEL =
+      Label.parseAbsoluteUnchecked("//platform:target");
+  private static final Label EXEC_PLATFORM_LABEL = Label.parseAbsoluteUnchecked("//platform:exec");
 
   /**
    * A mock {@link SkyFunction} that just calls {@link ConfiguredTargetFunction#computeDependencies}
@@ -117,19 +129,36 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
+        TargetAndConfiguration targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
+        // Set up the toolchain context so that exec transitions resolve properly.
+        ToolchainCollection<ToolchainContext> toolchainContexts =
+            ToolchainCollection.builder()
+                .addDefaultContext(
+                    UnloadedToolchainContextImpl.builder(
+                            ToolchainContextKey.key()
+                                .toolchainTypes(ImmutableSet.of())
+                                .configurationKey(
+                                    targetAndConfiguration.getConfiguration().getKey())
+                                .build())
+                        .setTargetPlatform(
+                            PlatformInfo.builder().setLabel(TARGET_PLATFORM_LABEL).build())
+                        .setExecutionPlatform(
+                            PlatformInfo.builder().setLabel(EXEC_PLATFORM_LABEL).build())
+                        .build())
+                .build();
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             ConfiguredTargetFunction.computeDependencies(
+                new ConfiguredTargetFunction.ComputeDependenciesState(),
+                /*transitivePackagesForPackageRootResolution=*/ null,
+                /*transitiveRootCauses=*/ NestedSetBuilder.stableOrder(),
                 env,
                 new SkyframeDependencyResolver(env),
-                (TargetAndConfiguration) skyKey.argument(),
+                targetAndConfiguration,
                 ImmutableList.of(),
                 ImmutableMap.of(),
-                /*toolchainContexts=*/ null,
-                /*useToolchainTransition=*/ false,
+                toolchainContexts,
                 stateProvider.lateBoundRuleClassProvider(),
-                stateProvider.lateBoundHostConfig(),
-                NestedSetBuilder.stableOrder(),
-                NestedSetBuilder.stableOrder());
+                stateProvider.lateBoundSkyframeBuildView());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;
@@ -161,8 +190,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       return ruleClassProvider;
     }
 
-    BuildConfigurationValue lateBoundHostConfig() {
-      return getHostConfiguration();
+    SkyframeBuildView lateBoundSkyframeBuildView() {
+      return skyframeExecutor.getSkyframeBuildView();
     }
   }
 
@@ -186,7 +215,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
           .put(
               ComputeDependenciesFunction.SKYFUNCTION_NAME,
               new ComputeDependenciesFunction(stateProvider))
-          .build();
+          .buildOrThrow();
     }
   }
 
@@ -214,20 +243,22 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    *
    * <p>Throws an exception if the attribute can't be found.
    */
-  protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
+  private ImmutableList<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
     ConfiguredTarget target = Iterables.getOnlyElement(update(targetLabel).getTargetsToBuild());
-    return getConfiguredDeps(target, attrName);
+    ImmutableList<ConfiguredTarget> maybeConfiguredDeps = getConfiguredDeps(target, attrName);
+    assertThat(maybeConfiguredDeps).isNotNull();
+    return maybeConfiguredDeps;
   }
 
   /**
    * Returns the configured deps for a given configured target under the given attribute.
    *
-   * <p>Throws an exception if the attribute can't be found.
+   * <p>Returns null if the attribute can't be found.
    */
-  protected List<ConfiguredTarget> getConfiguredDeps(ConfiguredTarget target, String attrName)
-      throws Exception {
-    String targetLabel = AliasProvider.getDependencyLabel(target).toString();
+  @Nullable
+  private ImmutableList<ConfiguredTarget> getConfiguredDeps(
+      ConfiguredTarget target, String attrName) throws Exception {
     Multimap<DependencyKind, ConfiguredTargetAndData> allDeps = getConfiguredDeps(target);
     for (DependencyKind kind : allDeps.keySet()) {
       Attribute attribute = kind.getAttribute();
@@ -237,17 +268,37 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 allDeps.get(kind), ConfiguredTargetAndData::getConfiguredTarget));
       }
     }
-    throw new AssertionError(
-        String.format("Couldn't find attribute %s for label %s", attrName, targetLabel));
+    return null;
+  }
+
+  @Before
+  public void setUp() throws Exception {
+    scratch.file(
+        "platform/BUILD",
+        // Add basic target and exec platforms for testing.
+        "platform(name = 'target')",
+        "platform(name = 'exec')");
   }
 
   @Test
   public void nullConfiguredDepsHaveExpectedConfigs() throws Exception {
     scratch.file(
-        "a/BUILD",
-        "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
+        "a/BUILD", "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
     ConfiguredTarget genIn = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "srcs"));
     assertThat(getConfiguration(genIn)).isNull();
+  }
+
+  @Test
+  public void genQueryScopeHasExpectedConfigs() throws Exception {
+    scratch.file(
+        "p/BUILD",
+        "sh_library(name='a')",
+        "genquery(name='q', scope=[':a'], expression='deps(//p:a)')");
+    ConfiguredTarget target = Iterables.getOnlyElement(update("//p:q").getTargetsToBuild());
+    // There are no configured targets for the "scope" attribute.
+    @Nullable
+    ImmutableList<ConfiguredTarget> configuredScopeDeps = getConfiguredDeps(target, "scope");
+    assertThat(configuredScopeDeps).isNull();
   }
 
   @Test
@@ -266,14 +317,31 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     }
   }
 
+  /**
+   * Tests dependencies in attribute with host transition.
+   *
+   * <p>Note: This cannot be used to test exec transition, because mocks don't set up toolchain
+   * contexts.
+   */
   @Test
-  public void hostDeps() throws Exception {
+  public void execDeps() throws Exception {
+    scratch.file(
+        "a/exec_rule.bzl",
+        "exec_rule = rule(",
+        "  implementation = lambda ctx: [],",
+        "  attrs = {'tools': attr.label_list(cfg = 'exec')},",
+        ")");
     scratch.file(
         "a/BUILD",
-        "cc_binary(name = 'host_tool', srcs = ['host_tool.cc'])",
-        "genrule(name = 'gen', srcs = [], cmd = '', outs = ['gen.out'], tools = [':host_tool'])");
+        "load('//a:exec_rule.bzl', 'exec_rule')",
+        "sh_binary(name = 'exec_tool', srcs = ['exec_tool.sh'])",
+        "exec_rule(name = 'gen', tools = [':exec_tool'])");
+
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
-    assertThat(getConfiguration(toolDep).isHostConfiguration()).isTrue();
+    BuildConfigurationValue toolConfiguration = getConfiguration(toolDep);
+    assertThat(toolConfiguration.isToolConfiguration()).isTrue();
+    assertThat(toolConfiguration.getOptions().get(PlatformOptions.class).platforms)
+        .containsExactly(EXEC_PLATFORM_LABEL);
   }
 
   @Test

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
@@ -51,6 +51,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.Any;
@@ -98,11 +100,14 @@ public class CommandEnvironment {
   private final PathPackageLocator packageLocator;
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
+  private final SyscallCache syscallCache;
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
   private final Consumer<String> shutdownReasonConsumer;
+  private final BuildResultListener buildResultListener;
+  private final CommandLinePathFactory commandLinePathFactory;
 
   private OutputService outputService;
   private String workspaceName;
@@ -123,6 +128,7 @@ public class CommandEnvironment {
   private MetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
+    @Nullable
     @Override
     public Path getFileFromWorkspace(Label label) {
       Path buildFile = getPackageManager().getBuildFileForPackage(label.getPackageIdentifier());
@@ -159,6 +165,7 @@ public class CommandEnvironment {
       Thread commandThread,
       Command command,
       OptionsParsingResult options,
+      SyscallCache syscallCache,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -173,6 +180,7 @@ public class CommandEnvironment {
     this.command = command;
     this.options = options;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
+    this.syscallCache = syscallCache;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -260,10 +268,15 @@ public class CommandEnvironment {
         value = System.getenv(name);
       }
       if (value != null) {
-        repoEnv.put(entry.getKey(), entry.getValue());
-        repoEnvFromOptions.put(entry.getKey(), entry.getValue());
+        repoEnv.put(name, value);
+        repoEnvFromOptions.put(name, value);
       }
     }
+    this.buildResultListener = new BuildResultListener();
+    this.eventBus.register(this.buildResultListener);
+
+    this.commandLinePathFactory =
+        CommandLinePathFactory.create(runtime.getFileSystem(), directories);
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -692,9 +705,7 @@ public class CommandEnvironment {
         getSkyframeExecutor()
             .sync(
                 reporter,
-                options.getOptions(PackageOptions.class),
                 packageLocator,
-                options.getOptions(BuildLanguageOptions.class),
                 getCommandId(),
                 clientEnv,
                 repoEnvFromOptions,
@@ -788,10 +799,20 @@ public class CommandEnvironment {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =
-            new SingleBuildFileCache(getExecRoot().getPathString(), getRuntime().getFileSystem());
+            new SingleBuildFileCache(
+                getExecRoot().getPathString(), getRuntime().getFileSystem(), syscallCache);
       }
       return fileCache;
     }
+  }
+
+  /** Use {@link #getXattrProvider} when possible: see documentation of {@link SyscallCache}. */
+  public SyscallCache getSyscallCache() {
+    return syscallCache;
+  }
+
+  public XattrProvider getXattrProvider() {
+    return getSyscallCache();
   }
 
   /**
@@ -818,5 +839,13 @@ public class CommandEnvironment {
 
   public void addResponseExtensions(Iterable<Any> extensions) {
     responseExtensions.addAll(extensions);
+  }
+
+  public BuildResultListener getBuildResultListener() {
+    return buildResultListener;
+  }
+
+  public CommandLinePathFactory getCommandLinePathFactory() {
+    return commandLinePathFactory;
   }
 }

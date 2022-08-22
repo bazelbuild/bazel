@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -50,6 +51,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +73,8 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String defaultPlatformFlag() {
-    return String.format("--platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
+    return String.format(
+        "--platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT);
   }
 
   @Override
@@ -148,6 +151,16 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   protected String flagValue(String flag, List<String> args) {
     assertThat(args).contains(flag);
     return args.get(args.indexOf(flag) + 1);
+  }
+
+  protected Set<String> flagValues(String flag, List<String> args) {
+    Set<String> result = new HashSet<>();
+    for (int i = 0; i < args.size(); i++) {
+      if (args.get(i).equals(flag)) {
+        result.add(args.get(++i));
+      }
+    }
+    return result;
   }
 
   /**
@@ -391,12 +404,30 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return getConfiguredTarget(sdk, targetConfig).get(AndroidSdkProvider.PROVIDER);
   }
 
+  /**
+   * Asserts that the expected jar is produced with the expected runtype. Returns the previous
+   * action behind lastStageAction.
+   */
+  private SpawnAction assertJarAndRunType(String runType, SpawnAction lastStageAction, int pass)
+      throws Exception {
+    String jarMnemonic = Ascii.toLowerCase(runType);
+    Artifact lastStageOutput =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            lastStageAction.getInputs(), "_" + jarMnemonic + "_" + pass + ".jar");
+    assertWithMessage(jarMnemonic + "_" + pass + ".jar is not in rule output")
+        .that(lastStageOutput)
+        .isNotNull();
+    SpawnAction previousAction = getGeneratingSpawnAction(lastStageOutput);
+    assertThat(previousAction.getArguments()).contains("-runtype " + runType);
+    return previousAction;
+  }
+
   protected void checkProguardUse(
       ConfiguredTarget binary,
       String artifact,
       boolean expectMapping,
       @Nullable Integer passes,
-      boolean splitOptimizationPass,
+      int bytecodeOptimizationPassActions,
       String... expectedlibraryJars)
       throws Exception {
     assertProguardUsed(binary);
@@ -405,7 +436,9 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     Action dexAction =
         actionsTestUtil()
             .getActionForArtifactEndingWith(
-                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex");
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "classes.dex.zip");
+    dexAction =
+        actionsTestUtil().getActionForArtifactEndingWith(dexAction.getInputs(), "classes.dex.zip");
     Artifact trimmedJar = getFirstArtifactEndingWith(dexAction.getInputs(), artifact);
     assertWithMessage("Dex should be built from jar trimmed with Proguard.")
         .that(trimmedJar)
@@ -437,37 +470,21 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       checkProguardLibJars(proguardAction, expectedlibraryJars);
 
       SpawnAction lastStageAction = proguardAction;
-      // Verify Obfuscation config.
+      // Verify Obfuscation/Optimization config.
       for (int pass = passes; pass > 0; pass--) {
-        if (splitOptimizationPass) {
-          Artifact lastStageOutput =
-              ActionsTestUtil.getFirstArtifactEndingWith(
-                  lastStageAction.getInputs(), "_optimization_final_" + pass + ".jar");
-          assertWithMessage("optimization_final_" + pass + ".jar is not in rule output")
-              .that(lastStageOutput)
-              .isNotNull();
-          lastStageAction = getGeneratingSpawnAction(lastStageOutput);
-          assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION_FINAL");
-
-          lastStageOutput =
-              ActionsTestUtil.getFirstArtifactEndingWith(
-                  lastStageAction.getInputs(), "_optimization_initial_" + pass + ".jar");
-          assertWithMessage("optimization_initial_" + pass + ".jar is not in rule output")
-              .that(lastStageOutput)
-              .isNotNull();
-          lastStageAction = getGeneratingSpawnAction(lastStageOutput);
-          assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION_INITIAL");
+        if (bytecodeOptimizationPassActions == 2) {
+          // This is used to provide coverage of the OPTIMIZATION_FINAL/OPTIMIZATION_INITIAL legacy
+          // behavior.
+          lastStageAction = assertJarAndRunType("OPTIMIZATION_FINAL", lastStageAction, pass);
+          lastStageAction = assertJarAndRunType("OPTIMIZATION_INITIAL", lastStageAction, pass);
         } else {
-          Artifact lastStageOutput =
-              ActionsTestUtil.getFirstArtifactEndingWith(
-                  lastStageAction.getInputs(), "_optimization_" + pass + ".jar");
-          assertWithMessage("Proguard_optimization_" + pass + ".jar is not in rule output")
-              .that(lastStageOutput)
-              .isNotNull();
-          lastStageAction = getGeneratingSpawnAction(lastStageOutput);
-
-          // Verify Optimization pass config.
-          assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION");
+          for (int action = bytecodeOptimizationPassActions; action > 0; action--) {
+            lastStageAction =
+                assertJarAndRunType(
+                    "OPTIMIZATION_ACTION_" + action + "_OF_" + bytecodeOptimizationPassActions,
+                    lastStageAction,
+                    pass);
+          }
         }
         checkProguardLibJars(lastStageAction, expectedlibraryJars);
       }

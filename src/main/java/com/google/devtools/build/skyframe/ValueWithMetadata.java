@@ -18,58 +18,43 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reportable;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/**
- * Encapsulation of data stored by {@link NodeEntry} when the value has finished building.
- *
- * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
- */
+/** Encapsulation of data stored by {@link NodeEntry} when the value has finished building. */
 public abstract class ValueWithMetadata implements SkyValue {
   protected final SkyValue value;
 
-  private static final NestedSet<TaggedEvents> NO_EVENTS =
+  private static final NestedSet<Reportable> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-
-  private static final NestedSet<Postable> NO_POSTS = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   private ValueWithMetadata(SkyValue value) {
     this.value = value;
   }
 
-  /**
-   * Builds a value entry value that has an error (and no value value).
-   *
-   * <p>This is intended only for use in alternative {@code MemoizingEvaluator} implementations.
-   */
+  /** Builds a value entry that has an error (and no value). */
   public static ValueWithMetadata error(
-      ErrorInfo errorInfo,
-      NestedSet<TaggedEvents> transitiveEvents,
-      NestedSet<Postable> transitivePostables) {
-    return (ValueWithMetadata) normal(null, errorInfo, transitiveEvents, transitivePostables);
+      ErrorInfo errorInfo, NestedSet<Reportable> transitiveEvents) {
+    return (ValueWithMetadata) normal(null, errorInfo, transitiveEvents);
   }
 
   /**
    * Builds a SkyValue that has a value, and possibly an error, and possibly events/postables. If it
    * has only a value, returns just the value in order to save memory.
-   *
-   * <p>This is public only for use in alternative {@code MemoizingEvaluator} implementations.
    */
   public static SkyValue normal(
       @Nullable SkyValue value,
       @Nullable ErrorInfo errorInfo,
-      NestedSet<TaggedEvents> transitiveEvents,
-      NestedSet<Postable> transitivePostables) {
+      NestedSet<Reportable> transitiveEvents) {
     Preconditions.checkState(
         value != null || errorInfo != null, "Value and error cannot both be null");
     if (errorInfo == null) {
-      return transitiveEvents.isEmpty() && transitivePostables.isEmpty()
+      return transitiveEvents.isEmpty()
           ? value
-          : ValueWithEvents.createValueWithEvents(value, transitiveEvents, transitivePostables);
+          : ValueWithEvents.createValueWithEvents(value, transitiveEvents);
     }
-    return new ErrorInfoValue(errorInfo, value, transitiveEvents, transitivePostables);
+    return new ErrorInfoValue(errorInfo, value, transitiveEvents);
   }
 
   @Nullable
@@ -80,33 +65,24 @@ public abstract class ValueWithMetadata implements SkyValue {
   @Nullable
   abstract ErrorInfo getErrorInfo();
 
-  public abstract NestedSet<TaggedEvents> getTransitiveEvents();
-
-  public abstract NestedSet<Postable> getTransitivePostables();
+  public abstract NestedSet<Reportable> getTransitiveEvents();
 
   /** Implementation of {@link ValueWithMetadata} for the value case. */
   @VisibleForTesting
   public static class ValueWithEvents extends ValueWithMetadata {
-    private final NestedSet<TaggedEvents> transitiveEvents;
-    private final NestedSet<Postable> transitivePostables;
+    private final NestedSet<Reportable> transitiveEvents;
 
-    private ValueWithEvents(
-        SkyValue value,
-        NestedSet<TaggedEvents> transitiveEvents,
-        NestedSet<Postable> transitivePostables) {
+    private ValueWithEvents(SkyValue value, NestedSet<Reportable> transitiveEvents) {
       super(Preconditions.checkNotNull(value));
       this.transitiveEvents = Preconditions.checkNotNull(transitiveEvents);
-      this.transitivePostables = Preconditions.checkNotNull(transitivePostables);
     }
 
     private static ValueWithEvents createValueWithEvents(
-        SkyValue value,
-        NestedSet<TaggedEvents> transitiveEvents,
-        NestedSet<Postable> transitivePostables) {
+        SkyValue value, NestedSet<Reportable> transitiveEvents) {
       if (value instanceof NotComparableSkyValue) {
-        return new NotComparableValueWithEvents(value, transitiveEvents, transitivePostables);
+        return new NotComparableValueWithEvents(value, transitiveEvents);
       } else {
-        return new ValueWithEvents(value, transitiveEvents, transitivePostables);
+        return new ValueWithEvents(value, transitiveEvents);
       }
     }
 
@@ -117,13 +93,8 @@ public abstract class ValueWithMetadata implements SkyValue {
     }
 
     @Override
-    public NestedSet<TaggedEvents> getTransitiveEvents() {
+    public NestedSet<Reportable> getTransitiveEvents() {
       return transitiveEvents;
-    }
-
-    @Override
-    public NestedSet<Postable> getTransitivePostables() {
-      return transitivePostables;
     }
 
     /**
@@ -147,16 +118,12 @@ public abstract class ValueWithMetadata implements SkyValue {
       // conservative than deep equals. Using shallow equals means that we may unnecessarily
       // consider some values unequal that are actually equal, but this is still a net win over
       // deep equals.
-      return value.equals(that.value)
-          && transitiveEvents.shallowEquals(that.transitiveEvents)
-          && transitivePostables.shallowEquals(that.transitivePostables);
+      return value.equals(that.value) && transitiveEvents.shallowEquals(that.transitiveEvents);
     }
 
     @Override
     public int hashCode() {
-      return 31 * value.hashCode()
-          + transitiveEvents.shallowHashCode()
-          + 3 * transitivePostables.shallowHashCode();
+      return 31 * value.hashCode() + transitiveEvents.shallowHashCode();
     }
 
     @Override
@@ -164,18 +131,14 @@ public abstract class ValueWithMetadata implements SkyValue {
       return MoreObjects.toStringHelper(this)
           .add("value", value)
           .add("transitiveEvents size", transitiveEvents.memoizedFlattenAndGetSize())
-          .add("transitivePostables size", transitivePostables.memoizedFlattenAndGetSize())
           .toString();
     }
   }
 
   private static final class NotComparableValueWithEvents extends ValueWithEvents
       implements NotComparableSkyValue {
-    private NotComparableValueWithEvents(
-        SkyValue value,
-        NestedSet<TaggedEvents> transitiveEvents,
-        NestedSet<Postable> transitivePostables) {
-      super(value, transitiveEvents, transitivePostables);
+    private NotComparableValueWithEvents(SkyValue value, NestedSet<Reportable> transitiveEvents) {
+      super(value, transitiveEvents);
     }
   }
 
@@ -188,18 +151,13 @@ public abstract class ValueWithMetadata implements SkyValue {
       implements NotComparableSkyValue {
 
     private final ErrorInfo errorInfo;
-    private final NestedSet<TaggedEvents> transitiveEvents;
-    private final NestedSet<Postable> transitivePostables;
+    private final NestedSet<Reportable> transitiveEvents;
 
     ErrorInfoValue(
-        ErrorInfo errorInfo,
-        @Nullable SkyValue value,
-        NestedSet<TaggedEvents> transitiveEvents,
-        NestedSet<Postable> transitivePostables) {
+        ErrorInfo errorInfo, @Nullable SkyValue value, NestedSet<Reportable> transitiveEvents) {
       super(value);
       this.errorInfo = Preconditions.checkNotNull(errorInfo);
       this.transitiveEvents = Preconditions.checkNotNull(transitiveEvents);
-      this.transitivePostables = Preconditions.checkNotNull(transitivePostables);
     }
 
     @Nullable
@@ -209,13 +167,8 @@ public abstract class ValueWithMetadata implements SkyValue {
     }
 
     @Override
-    public NestedSet<TaggedEvents> getTransitiveEvents() {
+    public NestedSet<Reportable> getTransitiveEvents() {
       return transitiveEvents;
-    }
-
-    @Override
-    public NestedSet<Postable> getTransitivePostables() {
-      return transitivePostables;
     }
 
     @Override
@@ -237,15 +190,12 @@ public abstract class ValueWithMetadata implements SkyValue {
       // deep equals.
       return Objects.equals(this.value, that.value)
           && Objects.equals(this.errorInfo, that.errorInfo)
-          && transitiveEvents.shallowEquals(that.transitiveEvents)
-          && transitivePostables.shallowEquals(that.transitivePostables);
+          && transitiveEvents.shallowEquals(that.transitiveEvents);
     }
 
     @Override
     public int hashCode() {
-      return 31 * Objects.hash(value, errorInfo)
-          + transitiveEvents.shallowHashCode()
-          + 3 * transitivePostables.shallowHashCode();
+      return 31 * Objects.hash(value, errorInfo) + transitiveEvents.shallowHashCode();
     }
 
     @Override
@@ -276,7 +226,7 @@ public abstract class ValueWithMetadata implements SkyValue {
     if (value instanceof ValueWithMetadata) {
       return (ValueWithMetadata) value;
     }
-    return ValueWithEvents.createValueWithEvents(value, NO_EVENTS, NO_POSTS);
+    return ValueWithEvents.createValueWithEvents(value, NO_EVENTS);
   }
 
   @Nullable
@@ -287,17 +237,10 @@ public abstract class ValueWithMetadata implements SkyValue {
     return null;
   }
 
-  public static NestedSet<TaggedEvents> getEvents(SkyValue value) {
+  public static NestedSet<Reportable> getEvents(SkyValue value) {
     if (value instanceof ValueWithMetadata) {
       return ((ValueWithMetadata) value).getTransitiveEvents();
     }
     return NO_EVENTS;
-  }
-
-  public static NestedSet<Postable> getPosts(SkyValue value) {
-    if (value instanceof ValueWithMetadata) {
-      return ((ValueWithMetadata) value).getTransitivePostables();
-    }
-    return NO_POSTS;
   }
 }

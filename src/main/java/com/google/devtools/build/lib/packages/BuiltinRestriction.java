@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -27,7 +28,7 @@ public final class BuiltinRestriction {
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
   }

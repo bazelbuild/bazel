@@ -32,12 +32,14 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Factory for 'extra_action'.
  */
 public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     // This rule doesn't produce any output when listed as a build target.
@@ -72,7 +74,8 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     boolean requiresActionOutput =
         context.attributes().get("requires_action_output", Type.BOOLEAN);
 
-    PathFragment shExecutable = ShToolchain.getPathOrError(context);
+    // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
+    PathFragment shExecutable = ShToolchain.getPathOrError(context.getExecutionPlatform());
     if (context.hasErrors()) {
       return null;
     }

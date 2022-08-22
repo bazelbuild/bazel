@@ -50,8 +50,10 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -146,6 +148,33 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testSerializedDiagnosticsFileFeature() throws Exception {
+    useConfiguration("--features=serialized_diagnostics_file");
+
+    createLibraryTargetWriter("//objc/lib1")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .write();
+
+    createLibraryTargetWriter("//objc/lib2")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib1")
+        .write();
+
+    createLibraryTargetWriter("//objc:x")
+        .setAndCreateFiles("srcs", "a.m", "private.h")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib2:lib2")
+        .write();
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//objc:x", "a.o");
+
+    assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
+        .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d", "objc/_objs/x/arc/a.dia");
+  }
+
+  @Test
   public void testCompilesSourcesWithSameBaseName() throws Exception {
     createLibraryTargetWriter("//foo:lib")
         .setAndCreateFiles("srcs", "a.m", "pkg1/a.m", "b.m")
@@ -201,6 +230,74 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments())
         .containsAtLeast("-stdlib=libc++", "-std=gnu++11", "-mmacosx-version-min=9.10.11");
+  }
+
+  @Test
+  public void testObjcSourceContainsObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.m");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.m']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).contains("--xyzzy");
+  }
+
+  @Test
+  public void testObjcppSourceContainsObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.mm");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.mm']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).contains("--xyzzy");
+  }
+
+  @Test
+  public void testCSourceDoesNotContainObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.c");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.c']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testCppSourceDoesNotContainObjccopt() throws Exception {
+    useConfiguration("--objccopt=--xyzzy");
+    scratch.file("objc/a.cc");
+    scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "lib", "srcs", "['a.cc']"));
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+    assertThat(compileActionA.getArguments()).doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testCppHeaderDoesNotContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/x.h.processed", x).getArguments())
+        .doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testObjcHeaderContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/x.h.processed", x).getArguments())
+        .contains("--xyzzy");
   }
 
   @Test
@@ -494,6 +591,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
+    addAppleBinaryStarlarkRule(scratch);
     addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -896,9 +994,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .setList("deps", "//lib1:lib1")
         .setList("defines", "C=bar", "D")
         .write();
-    createBinaryTargetWriter("//bin:bin")
-        .setList("deps", "//lib2:lib2")
-        .write();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//lib2:lib2'],",
+        ")");
 
     assertThat(compileAction("//lib1:lib1", "a.o").getArguments())
         .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
@@ -1650,15 +1754,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
     useConfiguration("--cpu=ios_i386");
+    addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(
         "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "cc_library(",
         "    name = 'cc_lib',",
         "    srcs = ['a.cc'],",
         ")",
         "",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'objc_bin',",
         "    platform_type = 'ios',",
         "    deps = [':main_lib'],",
@@ -1869,8 +1975,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider dependerProvider = providerForTarget("//x:bar");
-    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.HEADER)))
-        .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
 
@@ -2053,7 +2157,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
 
     CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
-    assertThat(archiveAction.getMnemonic()).isEqualTo("CppLink");
+    assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
   protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
@@ -2323,11 +2427,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
-    ActionAnalysisMetadata linkAction =
+    ActionAnalysisMetadata archiveAction =
         libTarget.getActions().stream()
-            .filter((a) -> a.getMnemonic().equals("CppLink"))
+            .filter((a) -> a.getMnemonic().equals("CppArchive"))
             .collect(onlyElement());
-    assertThat(linkAction.getInputs().toList())
+    assertThat(archiveAction.getInputs().toList())
         .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
 
     ActionAnalysisMetadata objcCompileAction =
@@ -2400,5 +2504,132 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
     assertThat(compileA.compileCommandLine.getCopts())
         .containsAtLeast("bin/lib1.m", "bin/lib2.m", "bin/data.data", "bin/header.h");
+  }
+
+  @Test
+  public void testEnableCoveragePropagatesSupportFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "objc_library(",
+        "    name = 'lib',",
+        ")");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+
+    CcToolchainProvider ccToolchainProvider =
+        getConfiguredTarget("//a:toolchain").get(CcToolchainProvider.PROVIDER);
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isNotEmpty();
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList())
+        .containsExactlyElementsIn(ccToolchainProvider.getCoverageFiles().toList());
+  }
+
+  @Test
+  public void testDisableCoverageDoesNotPropagateSupportFiles() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'toolchain')",
+        "objc_library(",
+        "    name = 'lib',",
+        ")");
+
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+
+    assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
+  }
+
+  private ImmutableList<String> getCcInfoUserLinkFlagsFromTarget(String target)
+      throws LabelSyntaxException {
+    return getConfiguredTarget(target)
+        .get(CcInfo.PROVIDER)
+        .getCcLinkingContext()
+        .getUserLinkFlags()
+        .toList()
+        .stream()
+        .map(CcLinkingContext.LinkOptions::get)
+        .flatMap(List::stream)
+        .collect(toImmutableList());
+  }
+
+  @Test
+  public void testSdkUserLinkFlagsFromSdkFieldsAndLinkoptsArePropagatedOnCcInfo() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'foo',",
+        "    linkopts = [",
+        "        '-lxml2',",
+        "        '-framework AVFoundation',",
+        "    ],",
+        "    sdk_dylibs = ['libz'],",
+        "    sdk_frameworks = ['CoreData'],",
+        "    deps = [':bar', ':car'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    linkopts = [",
+        "        '-lsqlite3',",
+        "    ],",
+        "    sdk_frameworks = ['Foundation'],",
+        ")",
+        "objc_library(",
+        "    name = 'car',",
+        "    linkopts = [",
+        "        '-framework UIKit',",
+        "    ],",
+        "    sdk_dylibs = ['libc++'],",
+        ")");
+
+    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
+    assertThat(userLinkFlags).isNotEmpty();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "AVFoundation").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-lz", "-lc++", "-lxml2", "-lsqlite3");
+  }
+
+  @Test
+  public void testNoDuplicateSdkUserLinkFlagsFromMultipleDepsOnCcInfo() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'foo',",
+        "    linkopts = [",
+        "        '-lsqlite3',",
+        "        '-framework UIKit',",
+        "    ],",
+        "    sdk_dylibs = ['libc++'],",
+        "    sdk_frameworks = ['Foundation'],",
+        "    deps = [':bar', ':car'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    linkopts = [",
+        "        '-lsqlite3',",
+        "        '-framework CoreData',",
+        "    ],",
+        "    sdk_frameworks = ['Foundation'],",
+        ")",
+        "objc_library(",
+        "    name = 'car',",
+        "    linkopts = [",
+        "        '-framework UIKit',",
+        "        '-framework CoreData',",
+        "    ],",
+        "    sdk_dylibs = ['libc++'],",
+        ")");
+    ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
+    assertThat(userLinkFlags).isNotEmpty();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "CoreData").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "Foundation").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-framework", "UIKit").inOrder();
+    assertThat(userLinkFlags).containsAtLeast("-lc++", "-lsqlite3");
+    ImmutableList<String> userLinkFlagsWithoutFrameworkFlags =
+        userLinkFlags.stream().filter(s -> !s.equals("-framework")).collect(toImmutableList());
+    assertThat(userLinkFlagsWithoutFrameworkFlags).containsNoDuplicates();
   }
 }

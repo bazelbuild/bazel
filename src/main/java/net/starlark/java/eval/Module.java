@@ -204,6 +204,7 @@ public final class Module implements Resolver.Module {
    * Returns the value of the specified global variable, or null if not bound. Does not look in the
    * predeclared environment.
    */
+  @Nullable
   public Object getGlobal(String name) {
     Integer i = globalIndex.get(name);
     return i != null ? globals[i] : null;

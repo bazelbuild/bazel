@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -73,7 +74,10 @@ public class EvaluationResult<T extends SkyValue> {
     return catastrophe != null || !errorMap.isEmpty();
   }
 
-  /** @return catastrophic error encountered during evaluation, if any */
+  /**
+   * Catastrophic error encountered during evaluation, if any. If the evaluation failed with a
+   * catastrophe, this will be non-null.
+   */
   @Nullable
   public Exception getCatastrophe() {
     return catastrophe;
@@ -156,6 +160,7 @@ public class EvaluationResult<T extends SkyValue> {
     private WalkableGraph walkableGraph = null;
 
     /** Adds a value to the result. An error for this key must not already be present. */
+    @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
     public Builder<T> addResult(SkyKey key, SkyValue value) {
       result.put(key, Preconditions.checkNotNull((T) value, key));
@@ -164,8 +169,12 @@ public class EvaluationResult<T extends SkyValue> {
       return this;
     }
 
-    /** Adds an error to the result. A successful value for this key must not already be present. */
-    Builder<T> addError(SkyKey key, ErrorInfo error) {
+    /**
+     * Adds an error to the result. A successful value for this key must not already be present.
+     * Publicly visible only for testing: should be package-private.
+     */
+    @CanIgnoreReturnValue
+    public Builder<T> addError(SkyKey key, ErrorInfo error) {
       errors.put(key, Preconditions.checkNotNull(error, key));
       Preconditions.checkState(
           !result.containsKey(key), "%s in both result and errors: %s %s", error, result);
@@ -175,11 +184,13 @@ public class EvaluationResult<T extends SkyValue> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> setWalkableGraph(WalkableGraph walkableGraph) {
       this.walkableGraph = walkableGraph;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> mergeFrom(EvaluationResult<T> otherResult) {
       result.putAll(otherResult.resultMap);
       errors.putAll(otherResult.errorMap);
@@ -191,9 +202,23 @@ public class EvaluationResult<T extends SkyValue> {
       return new EvaluationResult<>(result, errors, catastrophe, walkableGraph);
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> setCatastrophe(Exception catastrophe) {
       this.catastrophe = catastrophe;
       return this;
+    }
+
+    void maybeEnsureCatastrophe(boolean hasCatastrophe) {
+      if (!hasCatastrophe || catastrophe != null) {
+        return;
+      }
+      for (ErrorInfo errorInfo : errors.values()) {
+        if (errorInfo.getException() != null) {
+          catastrophe = errorInfo.getException();
+          return;
+        }
+      }
+      throw new IllegalStateException("Should have found exception in catastrophe: " + errors);
     }
 
     boolean isEmpty() {

@@ -21,6 +21,16 @@ public interface Globber {
   /** An opaque token for fetching the result of a glob computation. */
   abstract class Token {}
 
+  /** Indicates the type of globbing operations we are doing. */
+  enum Operation {
+    // Return only files.
+    FILES,
+    // Return files and directories, but not sub-packages.
+    FILES_AND_DIRS,
+    // Return only sub-packages.
+    SUBPACKAGES,
+  }
+
   /** Used to indicate an invalid glob pattern. */
   class BadGlobException extends Exception {
     public BadGlobException(String message) {
@@ -35,7 +45,7 @@ public interface Globber {
    *     invalid.
    */
   Token runAsync(
-      List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty)
+      List<String> includes, List<String> excludes, Operation operation, boolean allowEmpty)
       throws BadGlobException, InterruptedException;
 
   /**

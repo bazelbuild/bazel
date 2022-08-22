@@ -29,9 +29,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
+import javax.annotation.Nullable;
 
 /** Implementation of the {@code cc_toolchain_alias} rule. */
 public class CcHostToolchainAliasRule implements RuleDefinition {
@@ -44,7 +45,7 @@ public class CcHostToolchainAliasRule implements RuleDefinition {
         .removeAttribute("distribs")
         .add(
             attr("$cc_toolchain_alias", LABEL)
-                .cfg(HostTransition.createFactory())
+                .cfg(ExecutionTransitionFactory.create())
                 .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
         .build();
   }
@@ -61,6 +62,7 @@ public class CcHostToolchainAliasRule implements RuleDefinition {
   /** Implementation of cc_host_toolchain_alias. */
   public static class CcHostToolchainAlias implements RuleConfiguredTargetFactory {
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
 

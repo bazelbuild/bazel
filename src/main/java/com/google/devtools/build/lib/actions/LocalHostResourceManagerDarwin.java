@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.unix.NativePosixSystem;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * This class estimates the local host's resource capacity for Darwin.
@@ -31,6 +32,7 @@ public class LocalHostResourceManagerDarwin {
     return NativePosixSystem.sysctlbynameGetLong("hw.memsize") / 1E6;
   }
 
+  @Nullable
   public static ResourceSet getLocalHostResources() {
     if (!JniLoader.isJniAvailable()) {
       return null;

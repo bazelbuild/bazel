@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -101,7 +101,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
+                skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(getConfiguration(dep)).isNotEqualTo(getTargetConfiguration());
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEqualTo("PATCHED!");
   }
@@ -121,11 +121,17 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "    name = 'latebound_dep')");
     update("//foo:gen");
     assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
+    // TODO(b/203203933) Fix LateboundDefault-s to return exec configuration
+    ImmutableList<ConfiguredTarget> deps =
+        ImmutableList.copyOf(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-                skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep", ImmutableMap.of())));
-    assertThat(getConfiguration(dep)).isEqualTo(getHostConfiguration());
+                skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
+    assertThat(deps).hasSize(2);
+    ConfiguredTarget dep =
+        deps.stream()
+            .filter(d -> getConfiguration(d).equals(getHostConfiguration()))
+            .findFirst()
+            .get();
     // This is technically redundant, but slightly stronger in checking that the host configuration
     // doesn't happen to match what the patch would have done.
     assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEmpty();

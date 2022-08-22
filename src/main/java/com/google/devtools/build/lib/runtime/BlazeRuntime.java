@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionDefinition;
@@ -116,6 +117,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -184,7 +186,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private final ProjectFile.Provider projectFileProvider;
   private final QueryRuntimeHelper.Factory queryRuntimeHelperFactory;
-  @Nullable private final InvocationPolicy moduleInvocationPolicy;
+  private final InvocationPolicy moduleInvocationPolicy;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final BugReporter bugReporter;
   private final String productName;
@@ -300,7 +302,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  @Nullable
   public InvocationPolicy getModuleInvocationPolicy() {
     return moduleInvocationPolicy;
   }
@@ -396,6 +397,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,
             options.alwaysProfileSlowOperations,
+            options.collectWorkerDataInProfiler,
+            options.collectLoadAverageInProfiler,
+            WorkerMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
@@ -551,6 +555,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
+      if (workspace == null) {
+        return; // A crash during server startup.
+      }
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
       if (eventBus != null) {
         workspace
@@ -1571,46 +1578,55 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return runtime;
     }
 
+    @CanIgnoreReturnValue
     public Builder setProductName(String productName) {
       this.productName = productName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFileSystem(FileSystem fileSystem) {
       this.fileSystem = fileSystem;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setServerDirectories(ServerDirectories serverDirectories) {
       this.serverDirectories = serverDirectories;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setClock(Clock clock) {
       this.clock = clock;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setAbruptShutdownHandler(Runnable handler) {
       this.abruptShutdownHandler = handler;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartupOptionsProvider(OptionsParsingResult startupOptionsProvider) {
       this.startupOptionsProvider = startupOptionsProvider;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addBlazeModule(BlazeModule blazeModule) {
       blazeModules.add(blazeModule);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInstanceId(UUID id) {
       instanceId = id;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setEventBusExceptionHandler(
         SubscriberExceptionHandler eventBusExceptionHandler) {
@@ -1618,12 +1634,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setBugReporter(BugReporter bugReporter) {
       this.bugReporter = bugReporter;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionKeyContext(ActionKeyContext actionKeyContext) {
       this.actionKeyContext = actionKeyContext;
       return this;

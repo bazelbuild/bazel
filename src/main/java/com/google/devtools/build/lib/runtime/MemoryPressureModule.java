@@ -14,9 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.skyframe.SkyframeHighWaterMarkLimiter;
+import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
@@ -25,32 +24,40 @@ import javax.annotation.Nullable;
  * pressure events.
  */
 public class MemoryPressureModule extends BlazeModule {
-  private SkyframeHighWaterMarkLimiter skyframeHighWaterMarkLimiter;
   private RetainedHeapLimiter retainedHeapLimiter;
   @Nullable private MemoryPressureListener memoryPressureListener;
 
   @Override
   public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-    skyframeHighWaterMarkLimiter = new SkyframeHighWaterMarkLimiter();
+
     retainedHeapLimiter = RetainedHeapLimiter.create(runtime.getBugReporter());
-    memoryPressureListener =
-        MemoryPressureListener.create(
-            ImmutableList.of(
-                // Put SkyframeHighWaterMarkLimiter first so it has a chance to make things
-                // eligible for GC before RetainedHeapLimiter would trigger a full GC.
-                skyframeHighWaterMarkLimiter, retainedHeapLimiter));
+    memoryPressureListener = MemoryPressureListener.create(retainedHeapLimiter);
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
-    // In practice, the SkyframeExecutor instance is fixed for the lifetime of the Blaze server. But
-    // BlazeModule doesn't give us access to it in any of the once-per-server methods.
-    skyframeHighWaterMarkLimiter.setSkyframeExecutor(env.getSkyframeExecutor());
+    if (memoryPressureListener != null) {
+      memoryPressureListener.setEventBus(env.getEventBus());
+    }
 
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    skyframeHighWaterMarkLimiter.setThreshold(commonOptions.skyframeHighWaterMarkMemoryThreshold);
+    HighWaterMarkLimiter highWaterMarkLimiter =
+        new HighWaterMarkLimiter(
+            env.getSkyframeExecutor(),
+            env.getSyscallCache(),
+            commonOptions.skyframeHighWaterMarkMemoryThreshold);
+
     retainedHeapLimiter.setThreshold(
         /*listening=*/ memoryPressureListener != null, commonOptions.oomMoreEagerlyThreshold);
+
+    env.getEventBus().register(highWaterMarkLimiter);
+  }
+
+  @Override
+  public void afterCommand() {
+    if (memoryPressureListener != null) {
+      memoryPressureListener.setEventBus(null);
+    }
   }
 }

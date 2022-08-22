@@ -86,7 +86,7 @@ class JUnit4Config {
 
   private static boolean installSecurityManager(Properties systemProperties) {
     String securityManager = systemProperties.getProperty("java.security.manager");
-    if (securityManager != null) {
+    if (securityManager != null && !securityManager.equals("allow")) {
       return false; // Don't install over the specified security manager
     }
     return Boolean.valueOf(

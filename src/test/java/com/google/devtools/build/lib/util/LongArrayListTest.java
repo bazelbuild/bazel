@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -147,24 +148,24 @@ public class LongArrayListTest {
     assertThat(list.get(last)).isEqualTo(last);
   }
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testRemoveExceptionEmpty() throws Exception {
-    list.remove(0);
+    assertThrows(IndexOutOfBoundsException.class, () -> list.remove(0));
   }
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testRemoveExceptionFilled() throws Exception {
     for (int i = 0; i < 15; i++) {
       list.add(i);
     }
-    list.remove(15);
+    assertThrows(IndexOutOfBoundsException.class, () -> list.remove(15));
   }
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testGetException() throws Exception {
     for (int i = 0; i < 15; i++) {
       list.add(i);
     }
-    list.get(15);
+    assertThrows(IndexOutOfBoundsException.class, () -> list.get(15));
   }
 }

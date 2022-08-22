@@ -41,7 +41,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:rxjava3",
         "//third_party:truth",
-        "//third_party/grpc:grpc-jar",
+        "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_proto",

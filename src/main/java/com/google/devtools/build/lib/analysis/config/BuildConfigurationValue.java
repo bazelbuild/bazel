@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -28,15 +29,14 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -83,9 +82,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
-
-  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
-      BlazeInterners.newWeakInterner();
 
   /** Global state necessary to build a BuildConfiguration. */
   public interface GlobalStateProvider {
@@ -164,6 +160,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
       BuildOptions buildOptions,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -178,6 +175,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         buildOptions,
         mainRepositoryName,
         siblingRepositoryLayout,
+        transitionDirectoryNameFragment,
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -195,7 +193,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         fragments.put(fragmentClass, fragment);
       }
     }
-    return fragments.build();
+    return fragments.buildOrThrow();
   }
 
   // Package-visible for serialization purposes.
@@ -203,6 +201,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
       BuildOptions buildOptions,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout,
+      String transitionDirectoryNameFragment,
       // Arguments below this are either server-global and constant or completely dependent values.
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
@@ -219,8 +218,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     if (buildOptions.contains(PlatformOptions.class)) {
       platformOptions = buildOptions.get(PlatformOptions.class);
     }
-    this.transitionDirectoryNameFragment =
-        FunctionTransitionUtil.computeOutputDirectoryNameFragment(buildOptions);
+    this.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     this.outputDirectories =
         new OutputDirectories(
             directories,
@@ -236,11 +234,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
     // and ImmutableMap.Builder does not support that.
-    Map<String, String> commandLineDefinesBuilder = new TreeMap<>();
-    for (Map.Entry<String, String> define : options.commandLineBuildVariables) {
-      commandLineDefinesBuilder.put(define.getKey(), define.getValue());
-    }
-    commandLineBuildVariables = ImmutableMap.copyOf(commandLineDefinesBuilder);
+    commandLineBuildVariables =
+        ImmutableMap.copyOf(options.getNormalizedCommandLineBuildVariables());
 
     this.actionEnv = actionEnvironment;
     this.testEnv = setupTestEnvironment();
@@ -278,12 +273,14 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.mainRepositoryName.equals(otherVal.mainRepositoryName)
-        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout;
+        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
+        && this.transitionDirectoryNameFragment.equals(otherVal.transitionDirectoryNameFragment);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, mainRepositoryName, siblingRepositoryLayout);
+    return Objects.hash(
+        buildOptions, mainRepositoryName, siblingRepositoryLayout, transitionDirectoryNameFragment);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -295,7 +292,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         builder.put(module.name(), fragmentClass);
       }
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /**
@@ -352,13 +349,14 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   /**
-   * Returns the include directory for this build configuration.
+   * Returns the build-info directory for this build configuration, where language-specific
+   * generated build-info artifacts are located.
    *
-   * @deprecated Use {@code RuleContext#getIncludeDirectory} instead whenever possible.
+   * @deprecated Use {@code RuleContext#getBuildInfoDirectory} instead whenever possible.
    */
   @Deprecated
-  public ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getIncludeDirectory(repositoryName);
+  public ArtifactRoot getBuildInfoDirectory(RepositoryName repositoryName) {
+    return outputDirectories.getBuildInfoDirectory(repositoryName);
   }
 
   /** @deprecated Use {@link #getGenfilesDirectory} instead. */
@@ -444,16 +442,29 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public String getMainRepositoryName() {
-    return mainRepositoryName.strippedName();
+    return mainRepositoryName.getName();
   }
 
   /**
-   * Returns the configuration-dependent string for this configuration. This is also the name of the
-   * configuration's base output directory unless {@link #isHostConfiguration} is {@code true}, in
-   * which case the output directory is named {@code host}.
+   * Returns the configuration-dependent string for this configuration.
+   *
+   * <p>This is also the name of the configuration's base output directory unless {@link
+   * #isHostConfiguration} is {@code true}, in which case the output directory is named {@code
+   * "host"}. See also {@link #getOutputDirectoryName}.
    */
   public String getMnemonic() {
     return outputDirectories.getMnemonic();
+  }
+
+  /**
+   * Returns the name of the base output directory under which actions in this configuration write
+   * their outputs.
+   *
+   * <p>This is the same as {@link #getMnemonic} except in the host configuration, in which case it
+   * is {@code "host"}.
+   */
+  public String getOutputDirectoryName() {
+    return outputDirectories.getOutputDirName();
   }
 
   @VisibleForTesting
@@ -487,7 +498,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    */
   @Override
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return actionEnv.getFixedEnv().toMap();
+    return actionEnv.getFixedEnv();
   }
 
   /**
@@ -599,7 +610,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
     return stampBinaries();
@@ -631,7 +642,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
    */
   @Override
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnv.getFixedEnv().toMap();
+    return testEnv.getFixedEnv();
   }
 
   /**
@@ -679,7 +690,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
             .label()
             .getRepository();
-    if (!"@_builtins".equals(repository.getName())) {
+    if (!"@_builtins".equals(repository.getNameWithAt())) {
       throw Starlark.errorf("private API only for use in builtins");
     }
     return isToolConfiguration();
@@ -687,6 +698,10 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   public boolean checkVisibility() {
     return options.checkVisibility;
+  }
+
+  public boolean checkTestonlyForOutputFiles() {
+    return options.checkTestonlyForOutputFiles;
   }
 
   public boolean checkLicenses() {
@@ -710,7 +725,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   }
 
   public List<Label> getActionListeners() {
-    return options.actionListeners;
+    return options.actionListeners == null ? ImmutableList.of() : options.actionListeners;
   }
 
   /**
@@ -809,7 +824,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
     modifyExecutionInfo(mutableCopy, mnemonic);
-    return executionInfoInterner.intern(ImmutableSortedMap.copyOf(mutableCopy));
+    return ImmutableSortedMap.copyOf(mutableCopy);
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
@@ -867,6 +882,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
                 .setPlatformName(getCpu())
                 .putAllMakeVariable(getMakeEnvironment())
                 .setCpu(getCpu())
+                .setIsTool(isToolConfiguration())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());
   }

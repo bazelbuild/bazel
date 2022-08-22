@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** An implementation for the "android_device" rule. */
 public class AndroidDevice implements RuleConfiguredTargetFactory {
@@ -88,6 +89,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);

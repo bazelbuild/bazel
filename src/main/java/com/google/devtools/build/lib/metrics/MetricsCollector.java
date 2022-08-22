@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -49,32 +52,17 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsEvent;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.stream.Stream;
-
-class ActionStats {
-  LongAccumulator firstStarted;
-  LongAccumulator lastEnded;
-  AtomicLong numActions;
-  String mnemonic;
-
-  ActionStats(String mnemonic) {
-    this.mnemonic = mnemonic;
-    firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
-    lastEnded = new LongAccumulator(Math::max, 0);
-    numActions = new AtomicLong();
-  }
-}
 
 class MetricsCollector {
   private final CommandEnvironment env;
@@ -92,9 +80,9 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
-  private final List<WorkerMetrics> workerMetricsList = new ArrayList<>();
   private final SpawnStats spawnStats = new SpawnStats();
 
+  @CanIgnoreReturnValue
   private MetricsCollector(
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
@@ -127,7 +115,7 @@ class MetricsCollector {
     targetMetrics
         .setTargetsConfigured(targetsConfigured.total())
         .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesLoaded());
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
   }
 
@@ -202,12 +190,10 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
-  @SuppressWarnings("unused")
-  @Subscribe
-  private void onWorkerMetricsEvent(WorkerMetricsEvent workerMetricsEvent) {
-    for (WorkerMetric workerMetric : workerMetricsEvent.getWorkerMetrics()) {
-      workerMetricsList.add(workerMetric.toProto());
-    }
+  private ImmutableList<WorkerMetrics> createWorkerMetrics() {
+    return WorkerMetricsCollector.instance().collectMetrics().stream()
+        .map(WorkerMetric::toProto)
+        .collect(toImmutableList());
   }
 
   private BuildMetrics createBuildMetrics() {
@@ -220,7 +206,7 @@ class MetricsCollector {
         .setCumulativeMetrics(createCumulativeMetrics())
         .setArtifactMetrics(artifactMetrics.build())
         .setBuildGraphMetrics(buildGraphMetrics.build())
-        .addAllWorkerMetrics(workerMetricsList)
+        .addAllWorkerMetrics(createWorkerMetrics())
         .build();
   }
 
@@ -263,7 +249,6 @@ class MetricsCollector {
 
   private MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
-    long usedHeapSizePostBuild = 0;
     if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
       memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
@@ -272,11 +257,16 @@ class MetricsCollector {
         .map(PeakHeap::bytes)
         .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
 
-    if (memoryMetrics.getPeakPostGcHeapSize() < usedHeapSizePostBuild) {
+    if (memoryMetrics.getPeakPostGcHeapSize() < memoryMetrics.getUsedHeapSizePostBuild()) {
       // If we just did a GC and computed the heap size, update the one we got from the GC
       // notification (which may arrive too late for this specific GC).
-      memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
+      memoryMetrics.setPeakPostGcHeapSize(memoryMetrics.getUsedHeapSizePostBuild());
     }
+
+    PostGCMemoryUseRecorder.get()
+        .getPeakPostGcHeapTenuredSpace()
+        .map(PeakHeap::bytes)
+        .ifPresent(memoryMetrics::setPeakPostGcTenuredSpaceHeapSize);
 
     Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
     for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
@@ -305,5 +295,19 @@ class MetricsCollector {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
     }
     return timingMetrics.build();
+  }
+
+  private static class ActionStats {
+    final LongAccumulator firstStarted;
+    final LongAccumulator lastEnded;
+    final AtomicLong numActions;
+    final String mnemonic;
+
+    ActionStats(String mnemonic) {
+      this.mnemonic = mnemonic;
+      firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
+      lastEnded = new LongAccumulator(Math::max, 0);
+      numActions = new AtomicLong();
+    }
   }
 }

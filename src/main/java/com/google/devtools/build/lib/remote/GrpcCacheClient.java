@@ -37,6 +37,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.CountingOutputStream;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
+import io.grpc.Context;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -67,10 +69,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import org.apache.commons.compress.utils.CountingOutputStream;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
@@ -93,14 +93,20 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       CallCredentialsProvider callCredentialsProvider,
       RemoteOptions options,
       RemoteRetrier retrier,
-      DigestUtil digestUtil,
-      ByteStreamUploader uploader) {
+      DigestUtil digestUtil) {
     this.callCredentialsProvider = callCredentialsProvider;
     this.channel = channel;
     this.options = options;
     this.digestUtil = digestUtil;
     this.retrier = retrier;
-    this.uploader = uploader;
+    this.uploader =
+        new ByteStreamUploader(
+            options.remoteInstanceName,
+            channel,
+            callCredentialsProvider,
+            options.remoteTimeout.getSeconds(),
+            retrier,
+            options.maximumOpenFiles);
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
@@ -157,7 +163,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     if (closed.getAndSet(true)) {
       return;
     }
-    uploader.release();
     channel.release();
   }
 
@@ -298,7 +303,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     if (digest.getSizeBytes() == 0) {
-      return Futures.immediateFuture(null);
+      return Futures.immediateVoidFuture();
     }
 
     @Nullable Supplier<Digest> digestSupplier = null;
@@ -308,18 +313,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       out = digestOut;
     }
 
-    CountingOutputStream outputStream;
-    if (options.cacheCompression) {
-      try {
-        outputStream = new ZstdDecompressingOutputStream(out);
-      } catch (IOException e) {
-        return Futures.immediateFailedFuture(e);
-      }
-    } else {
-      outputStream = new CountingOutputStream(out);
-    }
-
-    return downloadBlob(context, digest, outputStream, digestSupplier);
+    return downloadBlob(context, digest, new CountingOutputStream(out), digestSupplier);
   }
 
   private ListenableFuture<Void> downloadBlob(
@@ -327,7 +321,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       Digest digest,
       CountingOutputStream out,
       @Nullable Supplier<Digest> digestSupplier) {
-    AtomicLong offset = new AtomicLong(0);
     ProgressiveBackoff progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
     ListenableFuture<Long> downloadFuture =
         Utils.refreshIfUnauthenticatedAsync(
@@ -338,7 +331,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                             channel ->
                                 requestRead(
                                     context,
-                                    offset,
                                     progressiveBackoff,
                                     digest,
                                     out,
@@ -365,97 +357,135 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   private ListenableFuture<Long> requestRead(
       RemoteActionExecutionContext context,
-      AtomicLong offset,
       ProgressiveBackoff progressiveBackoff,
       Digest digest,
-      CountingOutputStream out,
+      CountingOutputStream rawOut,
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
     String resourceName =
         getResourceName(options.remoteInstanceName, digest, options.cacheCompression);
     SettableFuture<Long> future = SettableFuture.create();
-    bsAsyncStub(context, channel)
-        .read(
-            ReadRequest.newBuilder()
-                .setResourceName(resourceName)
-                .setReadOffset(offset.get())
-                .build(),
-            new StreamObserver<ReadResponse>() {
+    OutputStream out;
+    try {
+      out = options.cacheCompression ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
+    }
+    Context.CancellableContext grpcContext = Context.current().withCancellation();
+    future.addListener(() -> grpcContext.cancel(null), MoreExecutors.directExecutor());
+    grpcContext.run(
+        () ->
+            bsAsyncStub(context, channel)
+                .read(
+                    ReadRequest.newBuilder()
+                        .setResourceName(resourceName)
+                        .setReadOffset(rawOut.getCount())
+                        .build(),
+                    new StreamObserver<ReadResponse>() {
+                      @Override
+                      public void onNext(ReadResponse readResponse) {
+                        ByteString data = readResponse.getData();
+                        try {
+                          data.writeTo(out);
+                        } catch (IOException e) {
+                          // Cancel the call.
+                          throw new RuntimeException(e);
+                        }
+                        // reset the stall backoff because we've made progress or been kept alive
+                        progressiveBackoff.reset();
+                      }
 
-              @Override
-              public void onNext(ReadResponse readResponse) {
-                ByteString data = readResponse.getData();
-                try {
-                  data.writeTo(out);
-                  offset.set(out.getBytesWritten());
-                } catch (IOException e) {
-                  // Cancel the call.
-                  throw new RuntimeException(e);
-                }
-                // reset the stall backoff because we've made progress or been kept alive
-                progressiveBackoff.reset();
-              }
+                      @Override
+                      public void onError(Throwable t) {
+                        if (rawOut.getCount() == digest.getSizeBytes()) {
+                          // If the file was fully downloaded, it doesn't matter if there was an
+                          // error at
+                          // the end of the stream.
+                          logger.atInfo().withCause(t).log(
+                              "ignoring error because file was fully received");
+                          onCompleted();
+                          return;
+                        }
+                        releaseOut();
+                        Status status = Status.fromThrowable(t);
+                        if (status.getCode() == Status.Code.NOT_FOUND) {
+                          future.setException(new CacheNotFoundException(digest));
+                        } else {
+                          future.setException(t);
+                        }
+                      }
 
-              @Override
-              public void onError(Throwable t) {
-                if (offset.get() == digest.getSizeBytes()) {
-                  // If the file was fully downloaded, it doesn't matter if there was an error at
-                  // the end of the stream.
-                  logger.atInfo().withCause(t).log(
-                      "ignoring error because file was fully received");
-                  onCompleted();
-                  return;
-                }
-                Status status = Status.fromThrowable(t);
-                if (status.getCode() == Status.Code.NOT_FOUND) {
-                  future.setException(new CacheNotFoundException(digest));
-                } else {
-                  future.setException(t);
-                }
-              }
+                      @Override
+                      public void onCompleted() {
+                        try {
+                          try {
+                            out.flush();
+                          } finally {
+                            releaseOut();
+                          }
+                          if (digestSupplier != null) {
+                            Utils.verifyBlobContents(digest, digestSupplier.get());
+                          }
+                        } catch (IOException e) {
+                          future.setException(e);
+                        } catch (RuntimeException e) {
+                          logger.atWarning().withCause(e).log("Unexpected exception");
+                          future.setException(e);
+                        }
+                        future.set(rawOut.getCount());
+                      }
 
-              @Override
-              public void onCompleted() {
-                try {
-                  if (digestSupplier != null) {
-                    Utils.verifyBlobContents(digest, digestSupplier.get());
-                  }
-                  out.flush();
-                  future.set(offset.get());
-                } catch (IOException e) {
-                  future.setException(e);
-                } catch (RuntimeException e) {
-                  logger.atWarning().withCause(e).log("Unexpected exception");
-                  future.setException(e);
-                }
-              }
-            });
+                      private void releaseOut() {
+                        if (out instanceof ZstdDecompressingOutputStream) {
+                          try {
+                            ((ZstdDecompressingOutputStream) out).closeShallow();
+                          } catch (IOException e) {
+                            logger.atWarning().withCause(e).log(
+                                "failed to cleanly close output stream");
+                          }
+                        }
+                      }
+                    }));
     return future;
   }
 
   @Override
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path path) {
-    return uploader.uploadBlobAsync(
+    return uploadChunker(
         context,
         digest,
         Chunker.builder()
             .setInput(digest.getSizeBytes(), path)
             .setCompressed(options.cacheCompression)
-            .build(),
-        /* forceUpload= */ true);
+            .build());
   }
 
   @Override
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploader.uploadBlobAsync(
+    return uploadChunker(
         context,
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
             .setCompressed(options.cacheCompression)
-            .build(),
-        /* forceUpload= */ true);
+            .build());
+  }
+
+  ListenableFuture<Void> uploadChunker(
+      RemoteActionExecutionContext context, Digest digest, Chunker chunker) {
+    ListenableFuture<Void> f = uploader.uploadBlobAsync(context, digest, chunker);
+    f.addListener(
+        () -> {
+          try {
+            chunker.reset();
+          } catch (IOException e) {
+            logger.atWarning().withCause(e).log(
+                "failed to reset chunker uploading %s/%d", digest.getHash(), digest.getSizeBytes());
+          }
+        },
+        MoreExecutors.directExecutor());
+    return f;
   }
 }

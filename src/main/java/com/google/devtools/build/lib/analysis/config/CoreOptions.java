@@ -80,13 +80,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, constraint settings from @bazel_tools are removed.")
   public boolean usePlatformsRepoForConstraints;
 
+  // Note: This value may contain conflicting duplicate values for the same define.
+  // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
+  // (last-wins).
   @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
@@ -251,7 +254,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean enableAspectHints;
 
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
-  public static class EmptyListConverter implements Converter<List<String>> {
+  public static class EmptyListConverter extends Converter.Contextless<List<String>> {
     @Override
     public List<String> convert(String input) throws OptionsParsingException {
       return ImmutableList.of();
@@ -284,6 +287,45 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INTERNAL})
   public List<String> affectedByStarlarkTransition;
 
+  /** Values for the --experimental_exec_configuration_distinguisher options * */
+  public enum ExecConfigurationDistinguisherScheme {
+    /** Use hash of selected execution platform for platform_suffix. * */
+    LEGACY,
+    /** Do not touch platform_suffix or do anything else. * */
+    OFF,
+    /** Use hash of entire configuration (with platform_suffix="") for platform_suffix. * */
+    FULL_HASH,
+    /** Set platform_suffix to "exec", instead update `affected by starlark transition` * */
+    DIFF_TO_AFFECTED
+  }
+
+  /** Converter for the {@code --experimental_exec_configuration_distinguisher} options. */
+  public static class ExecConfigurationDistinguisherSchemeConverter
+      extends EnumConverter<ExecConfigurationDistinguisherScheme> {
+    public ExecConfigurationDistinguisherSchemeConverter() {
+      super(
+          ExecConfigurationDistinguisherScheme.class,
+          "Exec transition configuration distinguisher scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_exec_configuration_distinguisher",
+      defaultValue = "legacy",
+      converter = ExecConfigurationDistinguisherSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy due to"
+              + " potential for action conflicts. Controls how the execution transition changes the"
+              + " platform_suffix flag. In legacy mode, sets it to a hash of the execution"
+              + " platform. In fullhash mode, sets it to a hash of the entire configuration. In off"
+              + " mode, does not touch it.")
+  public ExecConfigurationDistinguisherScheme execConfigurationDistinguisherScheme;
+
+  /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
+   * is being used as a configuration distinguisher for the exec transition. */
   @Option(
       name = "platform_suffix",
       defaultValue = "null",
@@ -426,35 +468,23 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public RunUnder runUnder;
 
   @Option(
-      name = "distinct_host_configuration",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "Build all the tools used during the build for a distinct configuration from that used "
-              + "for the target program. When this is disabled, the same configuration is used for "
-              + "host and target programs. This may cause undesirable rebuilds of tools such as "
-              + "the protocol compiler (and then everything downstream) whenever a minor change "
-              + "is made to the target configuration, such as setting the linker options. When "
-              + "this is enabled (the default), a distinct configuration will be used to build the "
-              + "tools, preventing undesired rebuilds. However, certain libraries will then need "
-              + "to be compiled twice, once for each configuration, which may cause some builds "
-              + "to be slower. As a rule of thumb, this option is likely to benefit users that "
-              + "make frequent changes in configuration (e.g. opt/dbg).  "
-              + "Please read the user manual for the full explanation.")
-  public boolean useDistinctHostConfiguration;
-
-  @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help = "If disabled, visibility errors are demoted to warnings.")
   public boolean checkVisibility;
+
+  @Option(
+      name = "incompatible_check_testonly_for_output_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "If enabled, check testonly for prerequisite targets that are output files by"
+              + " looking up the testonly of the generating rule. This matches visibility"
+              + " checking.")
+  public boolean checkTestonlyForOutputFiles;
 
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely
@@ -493,6 +523,37 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Deprecated in favor of aspects. Use action_listener to attach an extra_action to"
               + " existing build actions.")
   public List<Label> actionListeners;
+
+  /** Values for the --experimental_output_directory_naming_scheme options */
+  public enum OutputDirectoryNamingScheme {
+    /** Use `affected by starlark transition` to track configuration changes */
+    LEGACY,
+    /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
+    DIFF_AGAINST_BASELINE
+  }
+
+  /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
+  public static class OutputDirectoryNamingSchemeConverter
+      extends EnumConverter<OutputDirectoryNamingScheme> {
+    public OutputDirectoryNamingSchemeConverter() {
+      super(OutputDirectoryNamingScheme.class, "Output directory naming scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_output_directory_naming_scheme",
+      defaultValue = "legacy",
+      converter = OutputDirectoryNamingSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy. In"
+              + " legacy mode, transitions (generally only Starlark) set and use `affected by"
+              + " Starlark transition` to determine the ST hash. In diff_against_baseline mode,"
+              + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
+              + " for all configuration, by diffing against the top-level configuration.")
+  public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   @Option(
       name = "is host configuration",
@@ -538,7 +599,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "1000",
+      defaultValue = "2000",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -586,6 +647,20 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "target_environment values.")
   public Label autoCpuEnvironmentGroup;
 
+  @Option(
+      name = "experimental_allow_unresolved_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      help =
+          "If enabled, Bazel allows the use of ctx.action.declare_symlink() and the use of "
+              + "ctx.actions.symlink() without a target file, thus allowing the creation of "
+              + "unresolved symlinks")
+  public boolean allowUnresolvedSymlinks;
+
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode {
     /** Use the production output path model. */
@@ -600,6 +675,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      * <p>Follow the above link for latest details on exact scope.
      */
     CONTENT,
+    /**
+     * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
+     * registered to support this feature.
+     *
+     * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for details.
+     */
+    STRIP,
   }
 
   /** Converter for --experimental_output_paths. */
@@ -608,19 +690,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       super(OutputPathsMode.class, "output path mode");
     }
   }
-
-  @Option(
-      name = "experimental_allow_unresolved_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
-              + "allowing the user to create symlinks (resolved and unresolved)")
-  public boolean allowUnresolvedSymlinks;
 
   @Option(
       name = "experimental_output_paths",
@@ -836,9 +905,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.affectedByStarlarkTransition = affectedByStarlarkTransition;
+    host.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
+    host.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;
@@ -887,8 +958,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
     host.enableAspectHints = enableAspectHints;
+    host.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
     return host;
+  }
+
+  /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
+  public LinkedHashMap<String, String> getNormalizedCommandLineBuildVariables() {
+    LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : commandLineBuildVariables) {
+      // If the same --define flag is passed multiple times we keep the last value.
+      flagValueByName.put(entry.getKey(), entry.getValue());
+    }
+    return flagValueByName;
   }
 
   @Override
@@ -896,11 +978,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions result = (CoreOptions) clone();
 
     if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
-      for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
-        // If the same --define flag is passed multiple times we keep the last value.
-        flagValueByName.put(entry.getKey(), entry.getValue());
-      }
+      LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
 
       // This check is an optimization to avoid creating a new list if the normalization was a
       // no-op.

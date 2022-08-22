@@ -55,6 +55,7 @@ public interface FeatureFlagValue {
   enum DefaultValue implements FeatureFlagValue {
     INSTANCE;
 
+    @Nullable
     @Override
     public String getValue() {
       return null;
@@ -93,7 +94,7 @@ public interface FeatureFlagValue {
     for (Map.Entry<Label, String> entry : newValues.entrySet()) {
       newValueObjects.put(entry.getKey(), SetValue.of(entry.getValue()));
     }
-    result.addStarlarkOptions(newValueObjects.build());
+    result.addStarlarkOptions(newValueObjects.buildOrThrow());
     BuildOptions builtResult = result.build();
     if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
       builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = true;
@@ -165,7 +166,7 @@ public interface FeatureFlagValue {
     if (!unknownFlags.isEmpty()) {
       throw new UnknownValueException(unknownFlags);
     }
-    return knownValues.build();
+    return knownValues.buildOrThrow();
   }
 
   /** Exception class for when getFlagValues runs into UNKNOWN_VALUE. */

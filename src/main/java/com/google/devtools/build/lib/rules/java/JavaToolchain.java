@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code java_toolchain} rule. */
 public class JavaToolchain implements RuleConfiguredTargetFactory {
@@ -56,6 +57,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
   }
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ImmutableList<String> javacopts = getJavacOpts(ruleContext);
@@ -77,9 +79,10 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     boolean forciblyDisableHeaderCompilation =
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar");
-    Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion");
+    FilesToRunProvider oneVersion = ruleContext.getExecutablePrerequisite("oneversion");
     Artifact oneVersionAllowlist = ruleContext.getPrerequisiteArtifact("oneversion_whitelist");
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass");
+    Artifact depsChecker = ruleContext.getPrerequisiteArtifact("deps_checker");
     Artifact resourceJarBuilder = ruleContext.getPrerequisiteArtifact("resourcejar");
     Artifact timezoneData = ruleContext.getPrerequisiteArtifact("timezone_data");
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar");
@@ -140,6 +143,12 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
               jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);
     }
 
+    JavaToolchainTool bytecodeOptimizer =
+        JavaToolchainTool.fromFilesToRunProvider(
+            ruleContext.getExecutablePrerequisite(":bytecode_optimizer"));
+    ImmutableList<Artifact> localJavaOptimizationConfiguration =
+        ruleContext.getPrerequisiteArtifacts(":local_java_optimization_configuration").list();
+
     AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
@@ -167,6 +176,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompilerDirect,
             androidLint,
             jspecifyInfo,
+            bytecodeOptimizer,
+            localJavaOptimizationConfiguration,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,
@@ -174,6 +185,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersion,
             oneVersionAllowlist,
             genClass,
+            depsChecker,
             resourceJarBuilder,
             timezoneData,
             ijar,
@@ -184,7 +196,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             semantics,
             javaRuntime);
     ToolchainInfo toolchainInfo =
-        new ToolchainInfo(ImmutableMap.<String, Object>builder().put("java", provider).build());
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder().put("java", provider).buildOrThrow());
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)

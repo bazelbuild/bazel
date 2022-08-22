@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +28,9 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -40,15 +43,18 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.IncorrectRepositoryReferencePackageLookupValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -124,20 +130,19 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             null,
             /*packageProgress=*/ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-            PackageFunction.IncrementalityIntent.INCREMENTAL,
+            GlobbingStrategy.SKYFRAME_HYBRID,
             k -> ThreadStateReceiver.NULL_INSTANCE));
     skyFunctions.put(
-        FileStateValue.FILE_STATE,
+        FileStateKey.FILE_STATE,
         new FileStateFunction(
-            new AtomicReference<>(),
-            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+            Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
+            SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator));
+    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
-        new DirectoryListingStateFunction(
-            externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
+        new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
         new IgnoredPackagePrefixesFunction(
@@ -171,7 +176,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
 
     differencer = new SequencedRecordingDifferencer();
@@ -340,6 +344,35 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void invisibleRepo_main() throws Exception {
+    scratch.file("BUILD");
+    PackageLookupValue packageLookupValue =
+        lookupPackage(
+            PackageIdentifier.create(
+                RepositoryName.MAIN.toNonVisible(RepositoryName.BAZEL_TOOLS),
+                PathFragment.EMPTY_FRAGMENT));
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.REPOSITORY_NOT_FOUND);
+    assertThat(packageLookupValue.getErrorMsg()).contains("not visible from repository");
+  }
+
+  @Test
+  public void invisibleRepo_nonMain() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
+    scratch.file("local/repo/WORKSPACE");
+    scratch.file("local/repo/BUILD");
+
+    PackageLookupValue packageLookupValue =
+        lookupPackage(
+            PackageIdentifier.create(
+                RepositoryName.createUnvalidated("local").toNonVisible(RepositoryName.BAZEL_TOOLS),
+                PathFragment.EMPTY_FRAGMENT));
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.REPOSITORY_NOT_FOUND);
+    assertThat(packageLookupValue.getErrorMsg()).contains("not visible from repository");
+  }
+
+  @Test
   public void testPackageLookupValueHashCodeAndEqualsContract() {
     Root root1 = Root.fromPath(rootDirectory.getRelative("root1"));
     Root root2 = Root.fromPath(rootDirectory.getRelative("root2"));
@@ -373,7 +406,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
     // First, use the correct label.
     PackageLookupValue packageLookupValue =
-        lookupPackage(PackageIdentifier.create("@local", PathFragment.EMPTY_FRAGMENT));
+        lookupPackage(PackageIdentifier.create("local", PathFragment.EMPTY_FRAGMENT));
     assertThat(packageLookupValue.packageExists()).isTrue();
 
     // Then, use the incorrect label.

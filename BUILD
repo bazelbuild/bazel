@@ -2,9 +2,20 @@
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_license//rules:license.bzl", "license")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
+
+license(
+    name = "license",
+    package_name = "bazelbuild/bazel",
+    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
 
 exports_files(["LICENSE"])
 
@@ -28,7 +39,9 @@ filegroup(
         "//tools:srcs",
         "//third_party:srcs",
         "//src/main/starlark/tests/builtins_bzl:srcs",
+        "//src/main/java/com/google/devtools/build/docgen/release:srcs",
     ] + glob([".bazelci/*"]) + [".bazelrc"],
+    applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -212,6 +225,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
         exec_properties = {
             "dockerNetwork": "standard",
             "dockerPrivileged": "true",
+            "Pool": "default",
         },
         parents = ["@" + platform_name + "//config:platform"],
     )
@@ -227,7 +241,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1804_java11",)
             "//:highcpu_machine",
         ],
         exec_properties = {
-            "gceMachineType": "e2-highcpu-32",
+            "Pool": "highcpu",
         },
         parents = ["//:" + platform_name + "_platform"],
     )

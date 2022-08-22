@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -39,7 +38,7 @@ import net.starlark.java.syntax.SyntaxError;
  */
 @Immutable
 @CheckReturnValue
-public final class Event {
+public final class Event implements Reportable {
 
   private final EventKind kind;
 
@@ -65,6 +64,16 @@ public final class Event {
     this.kind = checkNotNull(kind);
     this.message = checkNotNull(message);
     this.properties = checkNotNull(properties);
+  }
+
+  @Override
+  public void reportTo(ExtendedEventHandler handler) {
+    handler.handle(this);
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return kind != EventKind.PROGRESS && kind != EventKind.INFO;
   }
 
   public EventKind getKind() {
@@ -152,12 +161,15 @@ public final class Event {
   }
 
   /**
-   * Like {@link #withProperty(Class, Object)}, with {@code type.equals(String.class)}.
+   * {@inheritDoc}
+   *
+   * <p>Behaves like {@link #withProperty(Class, Object)}, with {@code type.equals(String.class)}.
    *
    * <p>Additionally, if the event this is called on already has a {@link String} property with
    * value {@code tag}, or if {@code tag} is {@code null} and the event has no {@link String}
    * property, then this returns that event (it does not create a new {@link Event} instance).
    */
+  @Override
   public Event withTag(@Nullable String tag) {
     if (Objects.equals(tag, getProperty(String.class))) {
       return this;
@@ -400,22 +412,6 @@ public final class Event {
   public static void replayEventsOn(EventHandler handler, List<SyntaxError> errors) {
     for (SyntaxError error : errors) {
       handler.handle(Event.error(error.location(), error.message()));
-    }
-  }
-
-  /**
-   * Converts a list of {@link SyntaxError}s to events, each with a specified property, and replays
-   * them on {@code handler}.
-   */
-  public static <T> void replayEventsOn(
-      EventHandler handler,
-      List<SyntaxError> errors,
-      Class<T> propertyType,
-      Function<SyntaxError, T> toProperty) {
-    for (SyntaxError error : errors) {
-      handler.handle(
-          Event.error(error.location(), error.message())
-              .withProperty(propertyType, toProperty.apply(error)));
     }
   }
 

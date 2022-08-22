@@ -15,8 +15,11 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
@@ -38,6 +41,8 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -51,7 +56,6 @@ import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -179,10 +183,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
         "Spawn can't be executed remotely. This is a bug.");
 
     Stopwatch totalTime = Stopwatch.createStarted();
-    boolean uploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
-    boolean acceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
+    boolean acceptCachedResult = remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
+    boolean uploadLocalResults = remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
+
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
@@ -268,12 +273,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // It's already late at this stage, but we should at least report once.
             reporter.reportExecutingIfNot();
 
-            FileOutErr outErr = context.getFileOutErr();
-            String message = result.getMessage();
-            if (!result.success() && !message.isEmpty()) {
-              outErr.printErr(message + "\n");
-            }
+            maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
+            profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
 
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
@@ -302,6 +304,50 @@ public class RemoteSpawnRunner implements SpawnRunner {
     } catch (IOException e) {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
+  }
+
+  private static void profileAccounting(ExecutedActionMetadata executedActionMetadata) {
+    MillisSinceEpochToNanosConverter converter =
+        BlazeClock.createMillisSinceEpochToNanosConverter();
+
+    logProfileTask(
+        converter,
+        executedActionMetadata.getQueuedTimestamp(),
+        executedActionMetadata.getWorkerStartTimestamp(),
+        REMOTE_QUEUE,
+        "queue");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getInputFetchStartTimestamp(),
+        executedActionMetadata.getInputFetchCompletedTimestamp(),
+        REMOTE_SETUP,
+        "fetch");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getExecutionStartTimestamp(),
+        executedActionMetadata.getExecutionCompletedTimestamp(),
+        PROCESS_TIME,
+        "execute");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getOutputUploadStartTimestamp(),
+        executedActionMetadata.getOutputUploadCompletedTimestamp(),
+        UPLOAD_TIME,
+        "upload");
+  }
+
+  private static void logProfileTask(
+      MillisSinceEpochToNanosConverter converter,
+      Timestamp start,
+      Timestamp end,
+      ProfilerTask type,
+      String description) {
+    Profiler.instance()
+        .logSimpleTask(
+            converter.toNanos(Timestamps.toMillis(start)),
+            converter.toNanos(Timestamps.toMillis(end)),
+            type,
+            description);
   }
 
   /** conversion utility for protobuf Timestamp difference to java.time.Duration */
@@ -373,10 +419,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // subtract network time consumed here to ensure wall clock during fetch is not double
     // counted, and metrics time computation does not exceed total time
     return createSpawnResult(
+        action.getActionKey(),
         result.getExitCode(),
         cacheHit,
         cacheName,
         inMemoryOutput,
+        result.getExecutionMetadata().getWorkerStartTimestamp(),
+        result.getExecutionMetadata().getWorkerCompletedTimestamp(),
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
             .setTotalTime(totalTime.elapsed())
@@ -393,6 +442,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
   @Override
   public boolean handlesCaching() {
     return true;
+  }
+
+  private void maybePrintExecutionMessages(
+      SpawnExecutionContext context, String message, boolean success) {
+    FileOutErr outErr = context.getFileOutErr();
+    boolean printMessage =
+        remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
+            && !message.isEmpty();
+    if (printMessage) {
+      outErr.printErr(message + "\n");
+    }
   }
 
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
@@ -451,10 +511,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
     }
-    return handleError(action, cause);
+    return handleError(action, cause, context);
   }
 
-  private SpawnResult handleError(RemoteAction action, IOException exception)
+  private SpawnResult handleError(
+      RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed =
         BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
@@ -473,6 +534,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       }
       if (e.isExecutionTimeout()) {
+        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)

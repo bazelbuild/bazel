@@ -19,16 +19,15 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
@@ -36,6 +35,8 @@ import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 
 /**
  * Common attributes for Java rules.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaLibraryRule implements RuleDefinition {
   @Override
@@ -58,8 +59,8 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(data) -->
         The list of files needed by this library at runtime.
         See general comments about <code>data</code> at
-        <a href="${link common-definitions#common-attributes}">Attributes common to all build rules
-        </a>.
+        <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+        most build rules</a>.
         <p>
           When building a <code>java_library</code>, Bazel doesn't put these files anywhere; if the
           <code>data</code> files are generated files then Bazel generates them. When building a
@@ -71,8 +72,8 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(deps) -->
         The list of libraries to link into this library.
         See general comments about <code>deps</code> at
-        <a href="${link common-definitions#common-attributes}">Attributes common to all build rules
-        </a>.
+        <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+        most build rules</a>.
         <p>
           The jars built by <code>java_library</code> rules listed in <code>deps</code> will be on
           the compile-time classpath of this rule. Furthermore the transitive closure of their
@@ -156,8 +157,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
                 .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .allowedFileTypes())
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 
@@ -166,7 +165,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("java_library")
         .ancestors(JavaRule.class, ProguardLibraryRule.class)
-        .factoryClass(BazelJavaLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

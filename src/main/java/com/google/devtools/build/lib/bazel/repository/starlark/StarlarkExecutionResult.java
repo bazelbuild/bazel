@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.time.Duration;
@@ -126,6 +127,7 @@ final class StarlarkExecutionResult implements StarlarkValue {
      * expected to be the binary to execute. The subsequent arguments are the arguments passed to
      * the binary.
      */
+    @CanIgnoreReturnValue
     Builder addArguments(List<String> args) {
       this.args.addAll(args);
       return this;
@@ -135,30 +137,32 @@ final class StarlarkExecutionResult implements StarlarkValue {
      * Set the path to the directory to execute the result process. This method must be called
      * before calling {@link #execute()}.
      */
+    @CanIgnoreReturnValue
     Builder setDirectory(File path) {
       this.directory = path;
       return this;
     }
 
     /**
-     * Add an environment variables to be added to the list of environment variables. For all
-     * key <code>k</code> of <code>variables</code>, the resulting process will have the variable
-     * <code>k=variables.get(k)</code> defined.
+     * Add an environment variables to be added to the list of environment variables. For all key
+     * <code>k</code> of <code>variables</code>, the resulting process will have the variable <code>
+     * k=variables.get(k)</code> defined.
      */
+    @CanIgnoreReturnValue
     Builder addEnvironmentVariables(Map<String, String> variables) {
       this.envBuilder.putAll(variables);
       return this;
     }
 
-    /**
-     * Sets the timeout, in milliseconds, after which the executed command will be terminated.
-     */
+    /** Sets the timeout, in milliseconds, after which the executed command will be terminated. */
+    @CanIgnoreReturnValue
     Builder setTimeout(long timeout) {
       Preconditions.checkArgument(timeout > 0, "Timeout must be a positive number.");
       this.timeout = timeout;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setQuiet(boolean quiet) {
       this.quiet = quiet;
       return this;

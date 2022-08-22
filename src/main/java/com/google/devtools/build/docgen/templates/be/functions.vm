@@ -1,26 +1,27 @@
 #if (!$singlePage)
----
-layout: documentation
-title: Functions
----
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 #end
 
-<h1>Functions</h1>
+<h1 class="page-title">Functions</h1>
 
 #if (!$singlePage)
-<div class="toc">
-  <h1>Contents</h1>
-  <ul>
-    <li><a href="#package">package</a></li>
-    <li><a href="#package_group">package_group</a></li>
-    <li><a href="#exports_files">exports_files</a></li>
-    <li><a href="#glob">glob</a></li>
-    <li><a href="#select">select</a></li>
-  </ul>
-</div>
+<h2>Contents</h2>
+<ul>
+  <li><a href="#package">package</a></li>
+  <li><a href="#package_group">package_group</a></li>
+  <li><a href="#exports_files">exports_files</a></li>
+  <li><a href="#glob">glob</a></li>
+  <li><a href="#select">select</a></li>
+  <li><a href="#subpackages">subpackages</a></li>
+</ul>
 #end
 <!-- =================================================================
                               package()
@@ -55,12 +56,12 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
-        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
         <p>The default visibility of the rules in this package.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
         attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of <a href="../visibility.md">visibility</a>.
+        attribute, see the documentation of <a href="$expander.expandRef("visibility")">visibility</a>.
         The package default visibility does not apply to
         <a href="#exports_files">exports_files</a>, which is
         public by default.</p>
@@ -143,14 +144,14 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
     <tr>
       <td id="package_group.name"><code>name</code></td>
       <td>
-        <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+        <p><code><a href="$expander.expandRef("build-ref#name")">Name</a>; required</code></p>
         <p>A unique name for this target.</p>
       </td>
     </tr>
     <tr>
       <td id="package_group.packages"><code>packages</code></td>
       <td>
-        <p><code>List of <a href="../build-ref.html#packages">Package</a>; optional</code></p>
+        <p><code>List of <a href="$expander.expandRef("build-ref#packages")">Package</a>; optional</code></p>
         <p>A complete enumeration of packages in this group.</p>
 
         <p>Packages should be referred to using their full names,
@@ -179,7 +180,7 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
     <tr>
       <td id="package_group.includes"><code>includes</code></td>
       <td>
-        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
         <p>Other package groups that are included in this one.</p>
 
         <p>The labels in this attribute must refer to other package
@@ -259,7 +260,7 @@ package_group(
   The BUILD file for a package may only refer directly to source files belonging
   to another package if they are explicitly exported with an
   <code>exports_files()</code> statement. Read more about
-  <a href="../visibility.md#visibility-of-a-file">visibility of files</a>.
+  <a href="$expander.expandRef("visibility#visibility-of-a-file")">visibility of files</a>.
 </p>
    <p>
   As a legacy behaviour, also files mentioned as input to a rule are exported
@@ -419,7 +420,7 @@ There are several important limitations and caveats:
     existence of BUILD files &mdash; that is, the same glob expression would
     include <code>x/y/z.cc</code> if there was no package called
     <code>x/y</code> or it was marked as deleted using the
-    <a href="../user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    <a href="$expander.expandRef("user-manual#flag--deleted_packages")">--deleted_packages</a>
     flag.
     </p>
 
@@ -501,6 +502,7 @@ sh_test(
 </pre>
 
 <h3 id="recursive_glob_example">Recursive Glob Examples</h3>
+
 
 <p>Make the test depend on all txt files in the testdata directory and any
    of its subdirectories (and their subdirectories, and so on).
@@ -615,10 +617,10 @@ sh_binary(
   </li>
   <li>If multiple conditions match and one is a specialization of the others,
     the specialization takes precedence. Condition B is considered a
-    specialization of condition A if B has all the same flags as A plus some
-    additional flags. However, the number of constraint values that A and B have
-    are not considered in this comparison -- one condition cannot match a
-    platform <i>more than</i> another condition does.
+    specialization of condition A if B has all the same flags and constraint
+    values as A plus some additional flags or constraint values. This also
+    means that specialization resolution is not designed to create an ordering as
+    demonstrated in Example 2 below.
   </li>
   <li>If multiple conditions match and one is not a specialization of all the
     others, Bazel fails with an error.
@@ -636,49 +638,57 @@ sh_binary(
   <li><code>select</code> works with most, but not all, attributes. Incompatible
   attributes are marked <code>nonconfigurable</code> in their documentation.
 
-  </li>
-</ul>
+<!-- =================================================================
+                        subpackages()
+     =================================================================
+  -->
 
-By default, Bazel produces the following error when no conditions match:
-<pre class="code">
-Configurable attribute "foo" doesn't match this configuration (would a default
-condition help?).
-Conditions checked:
- //pkg:conditionA.
- //pkg:conditionB.
-</pre>
+<h2 id="subpackages">subpackages</h2>
 
-You can signal more precise errors with <code>no_match_error</code>.
-
-<h3 id="select_example">Examples</h3>
-
-<pre class="code">
-config_setting(
-    name = "windows",
-    values = {
-        "crosstool_top": "//crosstools/windows",
-    },
-)
-
-cc_binary(
-    name = "multiplatform_app",
-    ...
-    linkopts = select({
-        ":windows": [
-            "-Wl,windows_support1.lib",
-            "-Wl,windows_support2.lib",
-        ],
-        "//conditions:default": [],
-    ...
-)
-</pre>
-
-<p>In the above example, <code>multiplatform_app</code> links with additional
-  options when invoked with <code>bazel build //pkg:multiplatform_app
-  --crosstool_top=//crosstools/windows </code>.
+<pre>subpackages(include, exclude=[], allow_empty=True)</pre>
 
 <p>
+  <code>subpackages()</code> is a helper function, similar to <code>glob()</code>
+  that lists subpackages instead of files and directories.  It uses the same
+  path patterns as <code>glob()</code> and can match any subpackage that is a
+  direct descendant of the currently loading BUILD file.  See <a
+  href="#glob">glob</a> for a detailed explanation and examples of include and
+  exclude patterns.
+</p>
+
+<p>
+  The resulting list of subpackages returned is in sorted order and contains
+  paths relative to the current loading package that match the given patterns in
+  <code>include</code> and not those in <code>exclude</code>.
+
+<h3 id=subpackages_example">Example</h3>
+
+<p>
+  The following example lists all the direct subpackages for the package <code>foo/BUILD</code>
+
+<pre class="code">
+# The following BUILD files exist:
+# foo/BUILD
+# foo/bar/baz/BUILD
+# foo/sub/BUILD
+# foo/sub/deeper/BUILD
+#
+# In foo/BUILD a call to
+subs = subpackages(include = ["**"])
+
+# results in subs == ["sub", "bar/baz"]
+#
+# 'sub/deeper' is not included because it is a subpackage of 'foo/sub' not of
+# 'foo'
+</pre>
+
+    <p>
+    In general it is preferred that instead of calling this function directly
+    that users use the 'subpackages' module of
+    <a href="https://github.com/bazelbuild/bazel-skylib">skylib</a>.
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+</body>
+</html>
 #end

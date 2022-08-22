@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -51,27 +53,57 @@ public final class AndroidPlatformsTransition implements PatchTransition {
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
     return ImmutableSet.of(
-        AndroidConfiguration.Options.class, PlatformOptions.class, CppOptions.class);
+        AndroidConfiguration.Options.class,
+        PlatformOptions.class,
+        CoreOptions.class,
+        CppOptions.class);
   }
 
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
-    if (!androidOptions.incompatibleUseToolchainResolution
-        || androidOptions.androidPlatforms.isEmpty()) {
+    if (!androidOptions.incompatibleUseToolchainResolution) {
       // No change.
       return options.underlying();
     }
 
     BuildOptionsView newOptions = options.clone();
     PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
-    newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+    // Set the value of --platforms for this target and its dependencies.
+    // 1. If --android_platforms is set, use a value from that.
+    // 2. Otherwise, leave --platforms alone (this will probably lead to build errors).
+    if (!androidOptions.androidPlatforms.isEmpty()) {
+      // If the current value of --platforms is not one of the values of --android_platforms, change
+      // it to be the first one. If the curent --platforms is part of --android_platforms, leave it
+      // as-is.
+      // NOTE: This does not handle aliases at all, so if someone is using aliases with platform
+      // definitions this check will break.
+      if (!androidOptions.androidPlatforms.containsAll(newPlatformOptions.platforms)) {
+        newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+      }
+    }
 
     // If we are using toolchain resolution for Android, also use it for CPP.
     // This needs to be before the AndroidBinary is analyzed so that all native dependencies
     // use the same configuration.
     if (androidOptions.incompatibleUseToolchainResolution) {
       newOptions.get(CppOptions.class).enableCcToolchainResolution = true;
+    }
+
+    if (androidOptions.androidPlatformsTransitionsUpdateAffected) {
+      ImmutableSet.Builder<String> affected = ImmutableSet.builder();
+      if (!options
+          .get(PlatformOptions.class)
+          .platforms
+          .equals(newOptions.get(PlatformOptions.class).platforms)) {
+        affected.add("//command_line_option:platforms");
+      }
+      if (options.get(CppOptions.class).enableCcToolchainResolution
+          != newOptions.get(CppOptions.class).enableCcToolchainResolution) {
+        affected.add("//command_line_option:incompatible_enable_cc_toolchain_resolution");
+      }
+      FunctionTransitionUtil.updateAffectedByStarlarkTransition(
+          newOptions.get(CoreOptions.class), affected.build());
     }
 
     return newOptions.underlying();

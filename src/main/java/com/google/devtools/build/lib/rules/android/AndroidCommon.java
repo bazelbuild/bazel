@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * A helper class for android rules.
@@ -187,25 +188,18 @@ public class AndroidCommon {
       Artifact jarToDex,
       Artifact classesDex,
       List<String> dexOptions,
-      boolean multidex,
+      int minSdkVersion,
       Artifact mainDexList) {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     commandLine.add("--dex");
 
-    // Multithreaded dex does not work when using --multi-dex.
-    if (!multidex) {
-      // Multithreaded dex tends to run faster, but only up to about 5 threads (at which point the
-      // law of diminishing returns kicks in). This was determined experimentally, with 5-thread dex
-      // performing about 25% faster than 1-thread dex.
-      commandLine.add("--num-threads=" + DEX_THREADS);
-    }
-
     commandLine.addAll(dexOptions);
-    if (multidex) {
-      commandLine.add("--multi-dex");
-      if (mainDexList != null) {
-        commandLine.addPrefixedExecPath("--main-dex-list=", mainDexList);
-      }
+    if (minSdkVersion > 0) {
+      commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
+    commandLine.add("--multi-dex");
+    if (mainDexList != null) {
+      commandLine.addPrefixedExecPath("--main-dex-list=", mainDexList);
     }
     commandLine.addPrefixedExecPath("--output=", classesDex);
     commandLine.addExecPath(jarToDex);
@@ -293,6 +287,7 @@ public class AndroidCommon {
     }
   }
 
+  @Nullable
   static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
     PathFragment resourceDir = AndroidResources.findResourceDir(resource);
     if (resourceDir == null) {
@@ -431,6 +426,7 @@ public class AndroidCommon {
     javacHelper.createSourceJarAction(resourceSourceJar, null);
   }
 
+  @Nullable
   public JavaTargetAttributes init(
       JavaSemantics javaSemantics,
       AndroidSemantics androidSemantics,
@@ -683,7 +679,7 @@ public class AndroidCommon {
 
     filesToBuild = filesBuilder.build();
 
-    if ((attributes.hasSources()) && jar != null) {
+    if (attributes.hasSources() && jar != null) {
       iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -239,31 +240,37 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
     // Use the static builder() method instead.
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder setLocation(Location location) {
       this.location = location;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTransitiveSources(NestedSet<Artifact> transitiveSources) {
       this.transitiveSources = transitiveSources;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setUsesSharedLibraries(boolean usesSharedLibraries) {
       this.usesSharedLibraries = usesSharedLibraries;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setImports(NestedSet<String> imports) {
       this.imports = imports;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setHasPy2OnlySources(boolean hasPy2OnlySources) {
       this.hasPy2OnlySources = hasPy2OnlySources;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setHasPy3OnlySources(boolean hasPy3OnlySources) {
       this.hasPy3OnlySources = hasPy3OnlySources;
       return this;

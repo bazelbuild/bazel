@@ -271,7 +271,7 @@ def _impl(repository_ctx):
       repository_ctx: The repository context.
     """
 
-    os_name = repository_ctx.os.name.lower()
+    os_name = repository_ctx.os.name
     build_contents = "package(default_visibility = ['//visibility:public'])\n\n"
     if (os_name.startswith("mac os")):
         build_contents += _darwin_build_file(repository_ctx)
@@ -295,3 +295,7 @@ def xcode_configure(xcode_locator_label, remote_xcode_label = None):
         xcode_locator = xcode_locator_label,
         remote_xcode = remote_xcode_label,
     )
+
+xcode_configure_extension = module_extension(
+    implementation = lambda ctx: xcode_configure("@bazel_tools//tools/osx:xcode_locator.m"),
+)

@@ -51,6 +51,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -143,28 +144,13 @@ public class AppleStarlarkCommon
   }
 
   @Override
-  public Provider getAppleDylibBinaryConstructor() {
-    return AppleDylibBinaryInfo.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
   public Provider getAppleExecutableBinaryConstructor() {
     return AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
-  public AppleStaticLibraryInfo.Provider getAppleStaticLibraryProvider() {
-    return AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
   public Provider getAppleDebugOutputsConstructor() {
     return AppleDebugOutputsInfo.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
-  public Provider getAppleLoadableBundleBinaryConstructor() {
-    return AppleLoadableBundleBinaryInfo.STARLARK_CONSTRUCTOR;
   }
 
   @Override
@@ -259,7 +245,6 @@ public class AppleStarlarkCommon
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkInt stamp,
-      Boolean shouldLipo,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     try {
@@ -278,10 +263,36 @@ public class AppleStarlarkCommon
               avoidDepsList,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
-              isStampingEnabled,
-              shouldLipo);
-      return createStarlarkLinkingOutputs(linkingOutputs, thread, shouldLipo);
+              isStampingEnabled);
+      return createStarlarkLinkingOutputs(linkingOutputs, thread);
     } catch (RuleErrorException | ActionConflictException exception) {
+      throw new EvalException(exception);
+    }
+  }
+
+  @Override
+  public StructImpl linkMultiArchStaticLibrary(
+      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    try {
+      RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+      StarlarkFunction linkMultiArchLibrary =
+          (StarlarkFunction)
+              ruleContext.getStarlarkDefinedBuiltin("link_multi_arch_static_library");
+      Dict<String, StructImpl> splitTargetTriplets =
+          MultiArchBinarySupport.getSplitTargetTripletFromCtads(
+              ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets(
+                  ObjcRuleClasses.CHILD_CONFIG_ATTR));
+      return (StructImpl)
+          ruleContext.callStarlarkOrThrowRuleError(
+              linkMultiArchLibrary,
+              ImmutableList.of(),
+              ImmutableMap.of(
+                  "ctx",
+                  ruleContext.getStarlarkRuleContext(),
+                  "split_target_triplets",
+                  splitTargetTriplets));
+    } catch (RuleErrorException exception) {
       throw new EvalException(exception);
     }
   }
@@ -311,24 +322,25 @@ public class AppleStarlarkCommon
    * function.
    */
   private StructImpl createStarlarkLinkingOutputs(
-      AppleLinkingOutputs linkingOutputs, StarlarkThread thread, boolean shouldLipo) {
+      AppleLinkingOutputs linkingOutputs, StarlarkThread thread) {
     Provider linkingOutputConstructor =
         new BuiltinProvider<StructImpl>("apple_linking_output", StructImpl.class) {};
     ImmutableList.Builder<StarlarkInfo> outputStructs = ImmutableList.builder();
 
     for (AppleLinkingOutputs.LinkingOutput linkingOutput : linkingOutputs.getOutputs()) {
+      AppleLinkingOutputs.TargetTriplet targetTriplet = linkingOutput.getTargetTriplet();
       outputStructs.add(
           StarlarkInfo.create(
               linkingOutputConstructor,
               ImmutableMap.<String, Object>builder()
-                  .put("platform", linkingOutput.getPlatform())
-                  .put("architecture", linkingOutput.getArchitecture())
-                  .put("environment", linkingOutput.getEnvironment())
+                  .put("platform", targetTriplet.platform())
+                  .put("architecture", targetTriplet.architecture())
+                  .put("environment", targetTriplet.environment())
                   .put("binary", linkingOutput.getBinary())
                   .put("bitcode_symbols", valueOrNone(linkingOutput.getBitcodeSymbols()))
                   .put("dsym_binary", valueOrNone(linkingOutput.getDsymBinary()))
                   .put("linkmap", valueOrNone(linkingOutput.getLinkmap()))
-                  .build(),
+                  .buildOrThrow(),
               Location.BUILTIN));
     }
 
@@ -347,14 +359,9 @@ public class AppleStarlarkCommon
     // defined in Starlark and propagated by rules_apple instead.
     fields.put("debug_outputs_provider", linkingOutputs.getLegacyDebugOutputsProvider());
 
-    if (shouldLipo) {
-      fields.put("binary", linkingOutputs.getLegacyBinaryArtifact());
-      fields.put("binary_provider", linkingOutputs.getLegacyBinaryInfoProvider());
-    }
-
     Provider linkingOutputsConstructor =
         new BuiltinProvider<StructImpl>("apple_linking_outputs", StructImpl.class) {};
-    return StarlarkInfo.create(linkingOutputsConstructor, fields.build(), Location.BUILTIN);
+    return StarlarkInfo.create(linkingOutputsConstructor, fields.buildOrThrow(), Location.BUILTIN);
   }
 
   private static boolean isStampingEnabled(int stamp, BuildConfigurationValue config)

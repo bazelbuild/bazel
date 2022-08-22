@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -31,7 +32,11 @@ public abstract class ModuleExtensionUsage {
   /** The name of the extension. */
   public abstract String getExtensionName();
 
-  /** The location where this proxy object was created (by the {@code use_extension} call). */
+  /**
+   * The location where this proxy object was created (by the {@code use_extension} call). Note that
+   * if there were multiple {@code use_extension} calls on same extension, then this only stores the
+   * location of the first one.
+   */
   public abstract Location getLocation();
 
   /**
@@ -64,6 +69,7 @@ public abstract class ModuleExtensionUsage {
 
     abstract ImmutableList.Builder<Tag> tagsBuilder();
 
+    @CanIgnoreReturnValue
     public ModuleExtensionUsage.Builder addTag(Tag value) {
       tagsBuilder().add(value);
       return this;

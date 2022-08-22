@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
@@ -101,8 +102,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   private final Rule rule;
   private final PathPackageLocator packageLocator;
+  private final Path workspaceRoot;
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
+  private final SyscallCache syscallCache;
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -119,7 +122,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor remoteExecutor)
+      @Nullable RepositoryRemoteExecutor remoteExecutor,
+      SyscallCache syscallCache,
+      Path workspaceRoot)
       throws EvalException {
     super(
         outputDirectory,
@@ -133,6 +138,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     this.rule = rule;
     this.packageLocator = packageLocator;
     this.ignoredPatterns = ignoredPatterns;
+    this.syscallCache = syscallCache;
+    this.workspaceRoot = workspaceRoot;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -142,7 +149,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             Attribute.getStarlarkName(name), Attribute.valueToStarlark(attrs.getObject(name)));
       }
     }
-    attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
+    attrObject = StructProvider.STRUCT.create(attrBuilder.buildOrThrow(), "No such attribute '%s'");
   }
 
   @Override
@@ -156,6 +163,14 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       doc = "The name of the external repository created by this rule.")
   public String getName() {
     return rule.getName();
+  }
+
+  @StarlarkMethod(
+      name = "workspace_root",
+      structField = true,
+      doc = "The path to the root workspace of the bazel invocation.")
+  public StarlarkPath getWorkspaceRoot() {
+    return new StarlarkPath(workspaceRoot);
   }
 
   @StarlarkMethod(
@@ -176,7 +191,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         || path.startsWith(workingDirectory)) {
       return starlarkPath;
     }
-    Path workspaceRoot = packageLocator.getWorkspaceFile().getParentDirectory();
+    Path workspaceRoot = packageLocator.getWorkspaceFile(syscallCache).getParentDirectory();
     PathFragment relativePath = path.relativeTo(workspaceRoot);
     for (PathFragment ignoredPattern : ignoredPatterns) {
       if (relativePath.startsWith(ignoredPattern)) {
@@ -546,8 +561,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       name = "download",
       doc =
           "Downloads a file to the output path for the provided url and returns a struct"
-              + " containing a hash of the file with the fields <code>sha256</code> and"
-              + " <code>integrity</code>.",
+              + " containing <code>success</code>, a flag which is <code>true</code> if the"
+              + " download completed successfully, and if successful, a hash of the file"
+              + " with the fields <code>sha256</code> and <code>integrity</code>.",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -773,9 +789,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          "Downloads a file to the output path for the provided url, extracts it, and returns"
-              + " a struct containing a hash of the downloaded file with the fields"
-              + " <code>sha256</code> and <code>integrity</code>.",
+          "Downloads a file to the output path for the provided url, extracts it, and returns a"
+              + " struct containing <code>success</code>, a flag which is <code>true</code> if the"
+              + " download completed successfully, and if successful, a hash of the file with the"
+              + " fields <code>sha256</code> and <code>integrity</code>.",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -821,7 +838,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " By default, the archive type is determined from the file extension of"
                     + " the URL."
                     + " If the file has no extension, you can explicitly specify either \"zip\","
-                    + " \"jar\", \"war\", \"aar\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\""
+                    + " \"jar\", \"war\", \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\","
+                    + " \"txz\", \".tar.zst\", \".tzst\", \"tar.bz2\", \".ar\", or \".deb\""
                     + " here."),
         @Param(
             name = "stripPrefix",
@@ -1083,7 +1101,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
-    return StarlarkInfo.create(StructProvider.STRUCT, out.build(), Location.BUILTIN);
+    return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
@@ -1249,7 +1267,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         throw new EvalException(e);
       }
     }
-    return headers.build();
+    return headers.buildOrThrow();
   }
 
   private static class ExtractProgress implements FetchProgress {

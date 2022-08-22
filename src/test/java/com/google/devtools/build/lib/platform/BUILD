@@ -108,3 +108,26 @@ java_test(
         "@bazel_tools//tools/java/runfiles",
     ],
 )
+
+java_test(
+    name = "SystemCPUSpeedEventTest",
+    timeout = "short",
+    srcs = ["SystemCPUSpeedEventTest.java"],
+    data = select({
+        "//src/conditions:darwin": [
+            "//src/test/java/com/google/devtools/build/lib/platform/darwin:notifier",
+        ],
+        "//conditions:default": [
+        ],
+    }),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/platform:system_cpu_speed_module",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@bazel_tools//tools/java/runfiles",
+    ],
+)

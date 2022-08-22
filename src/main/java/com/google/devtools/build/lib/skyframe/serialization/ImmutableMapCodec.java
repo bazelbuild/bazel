@@ -112,7 +112,7 @@ class ImmutableMapCodec<V> implements ObjectCodec<ImmutableMap<?, V>> {
               ImmutableMap.builderWithExpectedSize(length), length, context, codedIn);
     }
     try {
-      return builder.build();
+      return builder.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw new SerializationException(
           "Duplicate keys during ImmutableMapCodec deserialization", e);

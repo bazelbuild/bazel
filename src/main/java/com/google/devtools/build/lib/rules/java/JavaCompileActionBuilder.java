@@ -26,9 +26,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -45,8 +45,11 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -198,15 +201,18 @@ public final class JavaCompileActionBuilder {
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
 
-    CommandLine executableLine = javaBuilder.buildCommandLine(toolchain, toolsBuilder);
-
+    CustomCommandLine.Builder executableLine =
+        javaBuilder.buildCommandLine(toolchain, toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
-        ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
+        ruleContext
+            .getConfiguration()
+            .getActionEnvironment()
+            .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
 
-    NestedSetBuilder<Artifact> mandatoryInputs = NestedSetBuilder.stableOrder();
-    mandatoryInputs
+    NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
+    mandatoryInputsBuilder
         .addTransitive(plugins.processorClasspath())
         .addTransitive(plugins.data())
         .addTransitive(extraData)
@@ -218,7 +224,7 @@ public final class JavaCompileActionBuilder {
         .addAll(additionalInputs)
         .addTransitive(bootClassPath.systemInputs());
     if (coverageArtifact != null) {
-      mandatoryInputs.add(coverageArtifact);
+      mandatoryInputsBuilder.add(coverageArtifact);
     }
 
     JavaCompileExtraActionInfoSupplier extraActionInfoSupplier =
@@ -248,12 +254,23 @@ public final class JavaCompileActionBuilder {
                 .put(
                     ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
                     outputs.depsProto().getExecPathString())
-                .build();
+                .buildOrThrow();
       }
     }
 
     NestedSet<Artifact> tools = toolsBuilder.build();
-    mandatoryInputs.addTransitive(tools);
+    mandatoryInputsBuilder.addTransitive(tools);
+    NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
+
+    boolean stripOutputPaths =
+        JavaCompilationHelper.stripOutputPaths(
+            JavaCompileAction.allInputs(
+                mandatoryInputs, classpathEntries, compileTimeDependencyArtifacts),
+            ruleContext.getConfiguration());
+    if (stripOutputPaths) {
+      executableLine.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
+    }
+
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
         /* owner= */ ruleContext.getActionOwner(),
@@ -266,14 +283,14 @@ public final class JavaCompileActionBuilder {
             /* sourceFiles= */ sourceFiles,
             /* sourceJars= */ sourceJars,
             /* plugins= */ plugins),
-        /* mandatoryInputs= */ mandatoryInputs.build(),
+        /* mandatoryInputs= */ mandatoryInputs,
         /* transitiveInputs= */ classpathEntries,
         /* directJars= */ directJars,
         /* outputs= */ allOutputs(),
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-        /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(internedJcopts),
+        /* executableLine= */ executableLine.build(),
+        /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
@@ -286,14 +303,18 @@ public final class JavaCompileActionBuilder {
             .add(outputs.output())
             .addAll(additionalOutputs);
     Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
-        .filter(x -> x != null)
+        .filter(Objects::nonNull)
         .forEachOrdered(result::add);
     return result.build();
   }
 
-  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts) {
+  private CustomCommandLine buildParamFileContents(
+      ImmutableList<String> javacOpts, boolean stripOutputPaths) {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
+    if (stripOutputPaths) {
+      result.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
+    }
 
     result.addExecPath("--output", outputs.output());
     result.addExecPath("--native_header_output", outputs.nativeHeader());
@@ -316,7 +337,21 @@ public final class JavaCompileActionBuilder {
     result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
     result.addExecPaths("--sources", sourceFiles);
     if (!javacOpts.isEmpty()) {
-      result.addAll("--javacopts", javacOpts);
+      if (stripOutputPaths) {
+        // Use textual search/replace to remove configuration prefixes from javacopts. This should
+        // ideally be constructed directly from artifact exec paths. In this case, targets with
+        // make variables like $(execpath ...)" stringify those paths before we get to this class.
+        // TODO(https://github.com/bazelbuild/bazel/issues/6526): provide direct path stripping
+        //   support for make variable expansion.
+        PathStripper.StringStripper coptStripper =
+            new PathStripper.StringStripper(
+                ruleContext.getConfiguration().getDirectories().getRelativeOutputPath());
+        result.addAll(
+            "--javacopts",
+            javacOpts.stream().map(coptStripper::strip).collect(Collectors.toList()));
+      } else {
+        result.addAll("--javacopts", javacOpts);
+      }
       // terminate --javacopts with `--` to support javac flags that start with `--`
       result.add("--");
     }
@@ -350,16 +385,19 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setAdditionalOutputs(ImmutableSet<Artifact> outputs) {
     this.additionalOutputs = outputs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setSourceFiles(ImmutableSet<Artifact> sourceFiles) {
     this.sourceFiles = sourceFiles;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setSourceJars(ImmutableList<Artifact> sourceJars) {
     checkState(this.sourceJars.isEmpty());
     this.sourceJars = checkNotNull(sourceJars, "sourceJars must not be null");
@@ -367,23 +405,27 @@ public final class JavaCompileActionBuilder {
   }
 
   /** Sets the strictness of Java dependency checking, see {@link StrictDepsMode}. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setStrictJavaDeps(StrictDepsMode strictDeps) {
     strictJavaDeps = strictDeps;
     return this;
   }
 
   /** Sets the tool with which to fix dependency errors. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setFixDepsTool(String depsTool) {
     fixDepsTool = depsTool;
     return this;
   }
 
   /** Accumulates the given jar artifacts as being provided by direct dependencies. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setDirectJars(NestedSet<Artifact> directJars) {
     this.directJars = checkNotNull(directJars, "directJars must not be null");
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCompileTimeDependencyArtifacts(
       NestedSet<Artifact> dependencyArtifacts) {
     checkNotNull(compileTimeDependencyArtifacts, "dependencyArtifacts must not be null");
@@ -391,37 +433,44 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavacOpts(ImmutableList<String> copts) {
     this.javacOpts = Preconditions.checkNotNull(copts);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavacExecutionInfo(
       ImmutableMap<String, String> executionInfo) {
     this.executionInfo = executionInfo;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCompressJar(boolean compressJar) {
     this.compressJar = compressJar;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setClasspathEntries(NestedSet<Artifact> classpathEntries) {
     this.classpathEntries = classpathEntries;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setBootClassPath(BootClassPathInfo bootClassPath) {
     this.bootClassPath = bootClassPath;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setSourcePathEntries(ImmutableList<Artifact> sourcePathEntries) {
     this.sourcePathEntries = Preconditions.checkNotNull(sourcePathEntries);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setPlugins(JavaPluginData plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
@@ -429,6 +478,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setBuiltinProcessorNames(
       ImmutableSet<String> builtinProcessorNames) {
     this.builtinProcessorNames =
@@ -443,32 +493,38 @@ public final class JavaCompileActionBuilder {
   }
 
   /** Sets the tools jars. */
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setToolsJars(NestedSet<Artifact> toolsJars) {
     checkNotNull(toolsJars, "toolsJars must not be null");
     this.toolsJars = toolsJars;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setJavaBuilder(JavaToolchainTool javaBuilder) {
     this.javaBuilder = javaBuilder;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCoverageArtifact(Artifact coverageArtifact) {
     this.coverageArtifact = coverageArtifact;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setTargetLabel(Label targetLabel) {
     this.targetLabel = targetLabel;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setInjectingRuleKind(@Nullable String injectingRuleKind) {
     this.injectingRuleKind = injectingRuleKind;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public JavaCompileActionBuilder setAdditionalInputs(ImmutableList<Artifact> additionalInputs) {
     checkNotNull(additionalInputs, "additionalInputs must not be null");
     this.additionalInputs = additionalInputs;

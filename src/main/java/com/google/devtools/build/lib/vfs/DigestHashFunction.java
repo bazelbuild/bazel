@@ -128,7 +128,7 @@ public class DigestHashFunction {
   }
 
   /** Converts a string to its registered {@link DigestHashFunction}. */
-  public static class DigestFunctionConverter implements Converter<DigestHashFunction> {
+  public static class DigestFunctionConverter extends Converter.Contextless<DigestHashFunction> {
     @Override
     public DigestHashFunction convert(String input) throws OptionsParsingException {
       for (Entry<String, DigestHashFunction> possibleFunctions : hashFunctionRegistry.entrySet()) {
@@ -187,7 +187,7 @@ public class DigestHashFunction {
 
   private static boolean supportsClone(MessageDigest toCheck) {
     try {
-      toCheck.clone();
+      var unused = toCheck.clone();
       return true;
     } catch (CloneNotSupportedException e) {
       return false;

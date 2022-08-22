@@ -50,8 +50,8 @@ public class VarInt {
   }
 
   /**
-   * Reads a varint  from src, places its values into the first element of
-   * dst and returns the offset in to src of the first byte after the varint.
+   * Reads a varint from src, places its values into the first element of dst and returns the offset
+   * in to src of the first byte after the varint.
    *
    * @param src source buffer to retrieve from
    * @param offset offset within src
@@ -77,31 +77,10 @@ public class VarInt {
   }
 
   /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, into a
-   * destination byte[], following the protocol buffer convention.
+   * Reads a varint from the current position of the given ByteBuffer and returns the decoded value
+   * as 32 bit integer.
    *
-   * @param v the int value to write to sink
-   * @param sink the sink buffer to write to
-   * @param offset the offset within sink to begin writing
-   * @return the updated offset after writing the varint
-   */
-  public static int putVarInt(int v, byte[] sink, int offset) {
-    do {
-      // Encode next 7 bits + terminator bit
-      int bits = v & 0x7F;
-      v >>>= 7;
-      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
-      sink[offset++] = b;
-    } while (v != 0);
-    return offset;
-  }
-
-  /**
-   * Reads a varint from the current position of the given ByteBuffer and
-   * returns the decoded value as 32 bit integer.
-   *
-   * <p>The position of the buffer is advanced to the first byte after the
-   * decoded varint.
+   * <p>The position of the buffer is advanced to the first byte after the decoded varint.
    *
    * @param src the ByteBuffer to get the var int from
    * @return The integer value of the decoded varint
@@ -138,26 +117,7 @@ public class VarInt {
   }
 
   /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, to a
-   * ByteBuffer sink.
-   * @param v the value to encode
-   * @param sink the ByteBuffer to add the encoded value
-   */
-  public static void putVarInt(int v, ByteBuffer sink) {
-    while (true) {
-      int bits = v & 0x7f;
-      v >>>= 7;
-      if (v == 0) {
-        sink.put((byte) bits);
-        return;
-      }
-      sink.put((byte) (bits | 0x80));
-    }
-  }
-
-  /**
-   * Reads a varint from the given InputStream and returns the decoded value
-   * as an int.
+   * Reads a varint from the given InputStream and returns the decoded value as an int.
    *
    * @param inputStream the InputStream to read from
    */
@@ -179,8 +139,46 @@ public class VarInt {
   }
 
   /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, and
-   * writes it to the given OutputStream.
+   * Encodes an integer in a variable-length encoding, 7 bits per byte, into a destination byte[],
+   * following the protocol buffer convention.
+   *
+   * @param v the int value to write to sink
+   * @param sink the sink buffer to write to
+   * @param offset the offset within sink to begin writing
+   * @return the updated offset after writing the varint
+   */
+  public static int putVarInt(int v, byte[] sink, int offset) {
+    do {
+      // Encode next 7 bits + terminator bit
+      int bits = v & 0x7F;
+      v >>>= 7;
+      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
+      sink[offset++] = b;
+    } while (v != 0);
+    return offset;
+  }
+
+  /**
+   * Encodes an integer in a variable-length encoding, 7 bits per byte, to a ByteBuffer sink.
+   *
+   * @param v the value to encode
+   * @param sink the ByteBuffer to add the encoded value
+   */
+  public static void putVarInt(int v, ByteBuffer sink) {
+    while (true) {
+      int bits = v & 0x7f;
+      v >>>= 7;
+      if (v == 0) {
+        sink.put((byte) bits);
+        return;
+      }
+      sink.put((byte) (bits | 0x80));
+    }
+  }
+
+  /**
+   * Encodes an integer in a variable-length encoding, 7 bits per byte, and writes it to the given
+   * OutputStream.
    *
    * @param v the value to encode
    * @param outputStream the OutputStream to write to

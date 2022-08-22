@@ -23,11 +23,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException3;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Helper class that looks up {@link ConstraintValueInfo} data. */
@@ -38,20 +36,11 @@ public class ConstraintValueLookupUtil {
       Iterable<ConfiguredTargetKey> constraintValueKeys, Environment env)
       throws InterruptedException, InvalidConstraintValueException {
 
-    Map<
-            SkyKey,
-            ValueOrException3<
-                ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>>
-        values =
-            env.getValuesOrThrow(
-                constraintValueKeys,
-                ConfiguredValueCreationException.class,
-                NoSuchThingException.class,
-                ActionConflictException.class);
+    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(constraintValueKeys);
     boolean valuesMissing = env.valuesMissing();
     List<ConstraintValueInfo> constraintValues = valuesMissing ? null : new ArrayList<>();
     for (ConfiguredTargetKey key : constraintValueKeys) {
-      ConstraintValueInfo constraintValueInfo = findConstraintValueInfo(key, values.get(key));
+      ConstraintValueInfo constraintValueInfo = findConstraintValueInfo(key, values);
       if (!valuesMissing && constraintValueInfo != null) {
         constraintValues.add(constraintValueInfo);
       }
@@ -64,20 +53,22 @@ public class ConstraintValueLookupUtil {
 
   /**
    * Returns the {@link ConstraintValueInfo} provider from the {@link ConfiguredTarget} in the
-   * {@link ValueOrException3}, or {@code null} if the {@link ConfiguredTarget} is not present. If
-   * the {@link ConfiguredTarget} does not have a {@link ConstraintValueInfo} provider, a {@link
+   * {@link SkyframeIterableResult}, or {@code null} if the {@link ConfiguredTarget} is not present.
+   * If the {@link ConfiguredTarget} does not have a {@link ConstraintValueInfo} provider, a {@link
    * InvalidConstraintValueException} is thrown.
    */
   @Nullable
   private static ConstraintValueInfo findConstraintValueInfo(
-      ConfiguredTargetKey key,
-      ValueOrException3<
-              ConfiguredValueCreationException, NoSuchThingException, ActionConflictException>
-          valueOrException)
+      ConfiguredTargetKey key, SkyframeIterableResult values)
       throws InvalidConstraintValueException {
 
     try {
-      ConfiguredTargetValue ctv = (ConfiguredTargetValue) valueOrException.get();
+      ConfiguredTargetValue ctv =
+          (ConfiguredTargetValue)
+              values.nextOrThrow(
+                  ConfiguredValueCreationException.class,
+                  NoSuchThingException.class,
+                  ActionConflictException.class);
       if (ctv == null) {
         return null;
       }

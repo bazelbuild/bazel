@@ -236,13 +236,7 @@ TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWarnsAboutDuplicates) {
 
 void assert_equal_vector_char_pointer(std::vector<std::string> expected,
                                       std::vector<std::string> actual) {
-  ASSERT_EQ(actual.size(), expected.size())
-      << "Vectors expected and actual are of unequal length";
-
-  for (int i = 0; i < actual.size(); ++i) {
-    ASSERT_EQ(actual[i], expected[i])
-        << "Vectors expected and actual differ at index " << i;
-  }
+  ASSERT_THAT(actual, testing::ContainerEq(expected));
 }
 
 TEST_F(BlazeUtilTest, TestSearchAllUnaryForEmpty) {

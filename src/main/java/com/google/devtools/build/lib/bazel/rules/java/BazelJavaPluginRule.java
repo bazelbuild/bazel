@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -26,6 +27,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
  * Rule definition for the java_plugin rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaPluginRule implements RuleDefinition {
   @Override
@@ -78,7 +81,7 @@ public final class BazelJavaPluginRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("java_plugin")
         .ancestors(BazelJavaLibraryRule.class)
-        .factoryClass(BazelJavaPlugin.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

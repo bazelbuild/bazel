@@ -49,8 +49,8 @@ import net.starlark.java.eval.StarlarkValue;
             + "manipulating the data. <code>Args</code> objects do not process the depsets they "
             + "encapsulate until the execution phase, when it comes time to calculate the command "
             + "line. This helps defer any expensive copying until after the analysis phase is "
-            + "complete. See the <a href='../performance.$DOC_EXT'>Optimizing Performance</a> page "
-            + "for more information."
+            + "complete. See the <a href='https://bazel.build/rules/performance'>Optimizing "
+            + "Performance</a> page for more information."
             + ""
             + "<p><code>Args</code> are constructed by calling <a href='actions.html#args'><code>"
             + "ctx.actions.args()</code></a>. They can be passed as the <code>arguments</code> "
@@ -370,7 +370,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
                     + "This arg will not be added if <code>omit_if_empty</code> is true "
                     + "(the default) and there are no strings derived from <code>values</code> "
                     + "to join together (which can happen if <code>values</code> is empty "
-                    + "or all of its items are filtered)."
+                    + "or all of its items are filtered). "
                     + "If only one positional parameter is passed, it is interpreted as "
                     + "<code>values</code> (see below)."),
         @Param(
@@ -473,7 +473,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
           "Spills the args to a params file, replacing them with a pointer to the param file. "
               + "Use when your args may be too large for the system's command length limits."
               + "<p>Bazel may choose to elide writing the params file to the output tree during "
-              + "execution for efficiency."
+              + "execution for efficiency. "
               + "If you are debugging actions and want to inspect the param file, "
               + "pass <code>--materialize_param_files</code> to your build.",
       parameters = {

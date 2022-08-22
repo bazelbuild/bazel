@@ -20,14 +20,12 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstDerivedArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIPO;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Action;
@@ -57,6 +55,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -74,14 +73,13 @@ import javax.annotation.Nullable;
  *
  * <p>TODO(matvore): split this up into more helper classes, especially the check... methods, which
  * are many and not shared by all objc_ rules.
+ *
  * <p>TODO(matvore): find a more concise way to repeat common tests (in particular, those which
  * simply call a check... method) across several rule types.
  */
 public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
-  protected static final String MOCK_XCRUNWRAPPER_PATH =
-      toolsRepoExecPath("tools/objc/xcrunwrapper.sh");
   protected static final String MOCK_XCRUNWRAPPER_EXECUTABLE_PATH =
       toolExecutable("tools/objc/xcrunwrapper");
   protected static final ImmutableList<String> FASTBUILD_COPTS = ImmutableList.of("-O0", "-DDEBUG");
@@ -109,8 +107,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   /**
    * Returns the bin dir for artifacts built for a given Apple architecture (as set by a
-   * configuration transition) and configuration distinguisher but the global
-   * default for {@code --cpu} and the platform default for minimum OS.
+   * configuration transition) and configuration distinguisher but the global default for {@code
+   * --cpu} and the platform default for minimum OS.
    *
    * @param arch the given Apple architecture which artifacts are built under this configuration.
    *     Note this will likely be different than the value of {@code --cpu}
@@ -143,20 +141,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         + "bin/";
   }
 
-   /**
+  /**
    * Returns the genfiles dir for artifacts built for a given Apple architecture and minimum OS
    * version (as set by a configuration transition) and configuration distinguisher but the global
    * default for {@code --cpu}.
    *
    * @param arch the given Apple architecture which artifacts are built under this configuration.
    *     Note this will likely be different than the value of {@code --cpu}.
-   * @param configurationDistinguisher the configuration distinguisher used to describe the
-   *     a configuration transition
-   * @param minOsVersion the minimum os version for which to compile artifacts in the
-   *     configuration
+   * @param configurationDistinguisher the configuration distinguisher used to describe the a
+   *     configuration transition
+   * @param minOsVersion the minimum os version for which to compile artifacts in the configuration
    */
   protected String configurationGenfiles(
-      String arch, ConfigurationDistinguisher configurationDistinguisher,
+      String arch,
+      ConfigurationDistinguisher configurationDistinguisher,
       DottedVersion minOsVersion) {
     return configurationDir(
             arch, configurationDistinguisher, minOsVersion, CompilationMode.FASTBUILD)
@@ -183,11 +181,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       case UNKNOWN:
         return String.format("%s-out/ios_%s-%s/", TestConstants.PRODUCT_NAME, arch, modeSegment);
       case APPLE_CROSSTOOL:
-        return String.format("%1$s-out/apl-ios_%2$s%3$s-%4$s/",
-            TestConstants.PRODUCT_NAME,
-            arch,
-            minOsSegment,
-            modeSegment);
+        return String.format(
+            "%1$s-out/apl-ios_%2$s%3$s-%4$s/",
+            TestConstants.PRODUCT_NAME, arch, minOsSegment, modeSegment);
       case APPLEBIN_IOS:
         return String.format(
             "%1$s-out/ios-%2$s%4$s-%3$s-ios_%2$s-%5$s/",
@@ -219,17 +215,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     MockObjcSupport.setup(mockToolsConfig);
   }
 
-  /**
-   * Creates an {@code objc_library} target writer for the label indicated by the given String.
-   */
+  /** Creates an {@code objc_library} target writer for the label indicated by the given String. */
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
     return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
-  }
-
-  /** Creates an {@code apple_binary} target writer for the label indicated by the given String. */
-  protected ScratchAttributeWriter createBinaryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "apple_binary", labelString)
-        .set("platform_type", "'ios'");
   }
 
   private static String compilationModeFlag(CompilationMode mode) {
@@ -256,19 +244,33 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
+  /** Override this to trigger platform-based Apple toolchain resolution. */
+  protected boolean platformBasedToolchains() {
+    return false;
+  }
+
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
+    ImmutableList<String> extraArgs;
+    if (platformBasedToolchains()) {
+      extraArgs = MockObjcSupport.requiredObjcPlatformFlags();
+    } else {
+      extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
+    }
     args = Arrays.copyOf(args, args.length + extraArgs.size());
     for (int i = 0; i < extraArgs.size(); i++) {
       args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
     }
-
     super.useConfiguration(args);
   }
 
   protected void useConfigurationWithCustomXcode(String... args) throws Exception {
-    ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig();
+    ImmutableList<String> extraArgs;
+    if (platformBasedToolchains()) {
+      extraArgs = MockObjcSupport.requiredObjcPlatformFlagsNoXcodeConfig();
+    } else {
+      extraArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig();
+    }
     args = Arrays.copyOf(args, args.length + extraArgs.size());
     for (int i = 0; i < extraArgs.size(); i++) {
       args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
@@ -287,8 +289,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Returns the arguments to pass to clang for specifying module map artifact location and
-   * module name.
+   * Returns the arguments to pass to clang for specifying module map artifact location and module
+   * name.
    *
    * @param packagePath the path to the package this target is in
    * @param targetName the name of the target
@@ -299,7 +301,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             targetName + ".modulemaps/module.modulemap", packagePath + ":" + targetName);
     String moduleName = packagePath + ":" + targetName;
 
-    return ImmutableList.of("-iquote",
+    return ImmutableList.of(
+        "-iquote",
         moduleMapArtifact.getExecPath().getParentDirectory().toString(),
         "-fmodule-name=" + moduleName);
   }
@@ -435,16 +438,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     if (executableProvider != null) {
       return executableProvider.getDepsObjcProvider();
     }
-    AppleDylibBinaryInfo dylibProvider =
-        getConfiguredTarget(label).get(AppleDylibBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (dylibProvider != null) {
-      return dylibProvider.getDepsObjcProvider();
-    }
-    AppleLoadableBundleBinaryInfo loadableBundleProvider =
-        getConfiguredTarget(label).get(AppleLoadableBundleBinaryInfo.STARLARK_CONSTRUCTOR);
-    if (loadableBundleProvider != null) {
-      return loadableBundleProvider.getDepsObjcProvider();
-    }
     return null;
   }
 
@@ -469,10 +462,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected ConfiguredTarget addBinWithTransitiveDepOnFrameworkImport() throws Exception {
     ConfiguredTarget lib = addLibWithDepOnFrameworkImport();
-    return createBinaryTargetWriter("//bin:bin")
-        .setList("deps", lib.getLabel().toString())
-        .write();
-
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['" + lib.getLabel().toString() + "'],",
+        ")");
+    return getConfiguredTarget("//bin:bin");
   }
 
   private ConfiguredTarget addLibWithDepOnFrameworkImport() throws Exception {
@@ -504,6 +502,120 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .write();
   }
 
+  protected static void addAppleBinaryStarlarkRule(Scratch scratch) throws Exception {
+    scratch.file("test_starlark/BUILD");
+    RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
+    String toolsLoc = toolsRepo + "//tools/objc";
+
+    scratch.file(
+        "test_starlark/apple_binary_starlark.bzl",
+        "def apple_binary_starlark_impl(ctx):",
+        "    all_avoid_deps = list(ctx.attr.avoid_deps)",
+        "    binary_type = ctx.attr.binary_type",
+        "    bundle_loader = ctx.attr.bundle_loader",
+        "    linkopts = []",
+        "    link_inputs = []",
+        "    if binary_type == 'dylib':",
+        "        linkopts.append('-dynamiclib')",
+        "    elif binary_type == 'loadable_bundle':",
+        "        linkopts.extend(['-bundle', '-Wl,-rpath,@loader_path/Frameworks'])",
+        "    if ctx.attr.bundle_loader:",
+        "        bundle_loader = ctx.attr.bundle_loader",
+        "        bundle_loader_file = bundle_loader[apple_common.AppleExecutableBinary].binary",
+        "        all_avoid_deps.append(bundle_loader)",
+        "        linkopts.extend(['-bundle_loader', bundle_loader_file.path])",
+        "        link_inputs.append(bundle_loader_file)",
+        "    link_result = apple_common.link_multi_arch_binary(",
+        "        ctx = ctx,",
+        "        avoid_deps = all_avoid_deps,",
+        "        extra_linkopts = linkopts,",
+        "        extra_link_inputs = link_inputs,",
+        "        stamp = ctx.attr.stamp,",
+        "    )",
+        "    processed_binary = ctx.actions.declare_file('{}_lipobin'.format(ctx.label.name))",
+        "    lipo_inputs = [output.binary for output in link_result.outputs]",
+        "    if len(lipo_inputs) > 1:",
+        "        apple_env = {}",
+        "        xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]",
+        "        apple_env.update(apple_common.apple_host_system_env(xcode_config))",
+        "        apple_env.update(",
+        "            apple_common.target_apple_env(",
+        "                xcode_config,",
+        "                ctx.fragments.apple.single_arch_platform,",
+        "            ),",
+        "        )",
+        "        args = ctx.actions.args()",
+        "        args.add('-create')",
+        "        args.add_all(lipo_inputs)",
+        "        args.add('-output', processed_binary)",
+        "        ctx.actions.run(",
+        "            arguments = [args],",
+        "            env = apple_env,",
+        "            executable = '/usr/bin/lipo',",
+        "            execution_requirements = xcode_config.execution_info(),",
+        "            inputs = lipo_inputs,",
+        "            outputs = [processed_binary],",
+        "        )",
+        "    else:",
+        "        ctx.actions.symlink(target_file = lipo_inputs[0], output = processed_binary)",
+        "    providers = [",
+        "        DefaultInfo(files=depset([processed_binary])),",
+        "        OutputGroupInfo(**link_result.output_groups),",
+        "        link_result.debug_outputs_provider,",
+        "    ]",
+        "    if binary_type == 'executable':",
+        "        providers.append(apple_common.new_executable_binary_provider(",
+        "            binary = processed_binary,",
+        "            objc = link_result.objc,",
+        "        ))",
+        "    return providers",
+        "apple_binary_starlark = rule(",
+        "    apple_binary_starlark_impl,",
+        "    attrs = {",
+        "        '_child_configuration_dummy': attr.label(",
+        "            cfg=apple_common.multi_arch_split,",
+        "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
+        "        '_dummy_lib': attr.label(",
+        "            default = Label('" + toolsLoc + ":dummy_lib'),),",
+        "        '_grep_includes': attr.label(",
+        "            cfg = 'host',",
+        "            allow_single_file = True,",
+        "            executable = True,",
+        "            default = Label('" + toolsRepo + "//tools/cpp:grep-includes'),",
+        "        ),",
+        "        '_j2objc_dead_code_pruner': attr.label(",
+        "            executable = True,",
+        "            allow_files=True,",
+        "            cfg = 'exec',",
+        "            default = Label('" + toolsLoc + ":j2objc_dead_code_pruner_binary'),),",
+        "        '_xcode_config': attr.label(",
+        "            default=configuration_field(",
+        "                fragment='apple', name='xcode_config_label'),),",
+        "        '_xcrunwrapper': attr.label(",
+        "            executable=True,",
+        "            cfg='exec',",
+        "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
+        "        'additional_linker_inputs': attr.label_list(",
+        "            allow_files = True,",
+        "        ),",
+        "        'avoid_deps': attr.label_list(default=[]),",
+        "        'binary_type': attr.string(",
+        "             default = 'executable',",
+        "             values = ['dylib', 'executable', 'loadable_bundle']",
+        "        ),",
+        "        'bundle_loader': attr.label(),",
+        "        'deps': attr.label_list(",
+        "             cfg=apple_common.multi_arch_split,",
+        "        ),",
+        "        'linkopts': attr.string_list(),",
+        "        'platform_type': attr.string(),",
+        "        'minimum_os_version': attr.string(),",
+        "        'stamp': attr.int(values=[-1,0,1],default=-1),",
+        "    },",
+        "    fragments = ['apple', 'objc', 'cpp',],",
+        ")");
+  }
+
   protected CommandAction compileAction(String ownerLabel, String objFileName) throws Exception {
     Action archiveAction = archiveAction(ownerLabel);
     return (CommandAction)
@@ -513,20 +625,17 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   /**
    * Verifies simply that some rule type creates the {@link CompilationArtifacts} object
-   * successfully; in particular, makes sure it is not ignoring attributes. If the scope of
-   * {@link CompilationArtifacts} expands, make sure this method tests it properly.
+   * successfully; in particular, makes sure it is not ignoring attributes. If the scope of {@link
+   * CompilationArtifacts} expands, make sure this method tests it properly.
    *
-   * <p>This test only makes sure the attributes are not being ignored - it does not test any
-   * other functionality in depth, which is covered by other unit tests.
+   * <p>This test only makes sure the attributes are not being ignored - it does not test any other
+   * functionality in depth, which is covered by other unit tests.
    */
   protected void checkPopulatesCompilationArtifacts(RuleType ruleType) throws Exception {
     scratch.file("x/a.m");
     scratch.file("x/b.m");
     scratch.file("x/c.pch");
-    ruleType.scratchTarget(scratch,
-        "srcs", "['a.m']",
-        "non_arc_srcs", "['b.m']",
-        "pch", "'c.pch'");
+    ruleType.scratchTarget(scratch, "srcs", "['a.m']", "non_arc_srcs", "['b.m']", "pch", "'c.pch'");
     ImmutableList<String> includeFlags = ImmutableList.of("-include", "x/c.pch");
     assertContainsSublist(compileAction("//x:x", "a.o").getArguments(), includeFlags);
     assertContainsSublist(compileAction("//x:x", "b.o").getArguments(), includeFlags);
@@ -568,9 +677,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void checkCompilesWithHdrs(RuleType ruleType) throws Exception {
     scratch.file("x/a.m");
     scratch.file("x/a.h");
-    ruleType.scratchTarget(scratch,
-        "srcs", "['a.m']",
-        "hdrs", "['a.h']");
+    ruleType.scratchTarget(scratch, "srcs", "['a.m']", "hdrs", "['a.h']");
     assertThat(compileAction("//x:x", "a.o").getPossibleInputsForTesting().toList())
         .contains(getSourceArtifact("x/a.h"));
   }
@@ -613,7 +720,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "libs/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
         "  return [apple_common.new_objc_provider(",
-        "      static_framework_file=depset(ctx.files.link_inputs))]",
+        "      static_framework_file=depset(ctx.files.link_inputs)), CcInfo()]",
         "custom_static_framework_import = rule(",
         "    _custom_static_framework_import_impl,",
         "    attrs={'link_inputs': attr.label_list(allow_files=True)},",
@@ -648,19 +755,24 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkBundleLoaderIsCorrectlyPassedToTheLinker(RuleType ruleType) throws Exception {
-    scratch.file("bin/BUILD",
+    if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
+      addAppleBinaryStarlarkRule(scratch);
+    }
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "objc_library(",
         "    name = 'lib',",
         "    srcs = ['a.m'],",
         ")",
-        "apple_binary(",
+        "apple_binary_starlark(",
         "    name = 'bin',",
         "    deps = [':lib'],",
         "    platform_type = 'ios',",
         ")");
 
-    ruleType.scratchTarget(scratch, "binary_type", "'loadable_bundle'", "bundle_loader",
-        "'//bin:bin'");
+    ruleType.scratchTarget(
+        scratch, "binary_type", "'loadable_bundle'", "bundle_loader", "'//bin:bin'");
     ConfiguredTarget binTarget = getConfiguredTarget("//bin:bin");
 
     CommandAction linkAction = linkAction("//x:x");
@@ -707,13 +819,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return linkAction;
   }
 
-  protected Action actionProducingArtifact(String targetLabel,
-      String artifactSuffix) throws Exception {
+  protected Action actionProducingArtifact(String targetLabel, String artifactSuffix)
+      throws Exception {
     ConfiguredTarget libraryTarget = getConfiguredTarget(targetLabel);
-    Label parsedLabel = Label.parseAbsolute(targetLabel, ImmutableMap.of());
-    Artifact linkedLibrary = getBinArtifact(
-        parsedLabel.getName() + artifactSuffix,
-        libraryTarget);
+    Label parsedLabel = Label.parseCanonical(targetLabel);
+    Artifact linkedLibrary = getBinArtifact(parsedLabel.getName() + artifactSuffix, libraryTarget);
     return getGeneratingAction(linkedLibrary);
   }
 
@@ -733,24 +843,26 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return rootedPaths.build();
   }
 
-  protected void checkErrorsWrongFileTypeForSrcsWhenCompiling(RuleType ruleType)
-      throws Exception {
-    scratch.file("fg/BUILD",
+  protected void checkErrorsWrongFileTypeForSrcsWhenCompiling(RuleType ruleType) throws Exception {
+    scratch.file(
+        "fg/BUILD",
         "filegroup(",
         "    name = 'fg',",
         "    srcs = ['non_matching', 'matchingh.h', 'matchingc.c'],",
         ")");
-    checkError("x1", "x1",
+    checkError(
+        "x1",
+        "x1",
         "does not match expected type: " + SRCS_TYPE,
-        ruleType.target(scratch, "x1", "x1",
-            "srcs", "['//fg:fg']"));
+        ruleType.target(scratch, "x1", "x1", "srcs", "['//fg:fg']"));
   }
 
-  protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode,
-      CodeCoverageMode codeCoverageMode) throws Exception {
-    ImmutableList.Builder<String> allExpectedCoptsBuilder = ImmutableList.<String>builder()
-        .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-        .addAll(compilationModeCopts(mode));
+  protected void checkClangCoptsForCompilationMode(
+      RuleType ruleType, CompilationMode mode, CodeCoverageMode codeCoverageMode) throws Exception {
+    ImmutableList.Builder<String> allExpectedCoptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+            .addAll(compilationModeCopts(mode));
 
     switch (codeCoverageMode) {
       case NONE:
@@ -774,8 +886,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         break;
     }
     scratch.file("x/a.m");
-    ruleType.scratchTarget(scratch,
-        "srcs", "['a.m']");
+    ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
@@ -784,15 +895,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
-     ImmutableList.Builder<String> allExpectedCoptsBuilder = ImmutableList.<String>builder()
-        .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
-        .addAll(ObjcConfiguration.DBG_COPTS);
+    ImmutableList.Builder<String> allExpectedCoptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+            .addAll(ObjcConfiguration.DBG_COPTS);
 
     useConfiguration(
         "--apple_platform_type=ios", "--compilation_mode=dbg", "--objc_debug_with_GLIBCXX=false");
     scratch.file("x/a.m");
-    ruleType.scratchTarget(scratch,
-        "srcs", "['a.m']");
+    ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
     CommandAction compileActionA = compileAction("//x:x", "a.o");
 
@@ -813,12 +924,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .setList("defines", "C=bar", "D")
         .write();
 
-    topLevelRuleType.scratchTarget(scratch,
-        "srcs", "['a.m']",
-        "non_arc_srcs", "['b.m']",
-        "deps", "['//lib2:lib2']",
-        "defines", "['E=baz']",
-        "copts", "['explicit_copt']");
+    topLevelRuleType.scratchTarget(
+        scratch,
+        "srcs",
+        "['a.m']",
+        "non_arc_srcs",
+        "['b.m']",
+        "deps",
+        "['//lib2:lib2']",
+        "defines",
+        "['E=baz']",
+        "copts",
+        "['explicit_copt']");
   }
 
   protected void checkReceivesTransitivelyPropagatedDefines(RuleType ruleType) throws Exception {
@@ -850,9 +967,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkSdkIncludesUsedInCompileAction(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "sdk_includes", "['foo', 'bar/baz']",
-        "srcs", "['a.m', 'b.m']");
+    ruleType.scratchTarget(scratch, "sdk_includes", "['foo', 'bar/baz']", "srcs", "['a.m', 'b.m']");
     String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
     // we remove spaces, since the legacy rules put a space after "-I" in include paths.
     String compileActionACommandLine =
@@ -884,16 +999,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
 
     // We remove spaces because the crosstool case does not use spaces for include paths.
-    String compileAArgs = Joiner.on("")
-        .join(compileAction("//lib:lib", "a.o").getArguments())
-        .replace(" ", "");
+    String compileAArgs =
+        Joiner.on("").join(compileAction("//lib:lib", "a.o").getArguments()).replace(" ", "");
     assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/from_lib");
     assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/foo");
     assertThat(compileAArgs).contains("-I" + sdkIncludeDir + "/bar/baz");
 
-    String compileBArgs = Joiner.on("")
-        .join(compileAction("//bin:main_lib", "b.o").getArguments())
-        .replace(" ", "");
+    String compileBArgs =
+        Joiner.on("").join(compileAction("//bin:main_lib", "b.o").getArguments()).replace(" ", "");
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/from_bin");
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/from_lib");
     assertThat(compileBArgs).contains("-I" + sdkIncludeDir + "/foo");
@@ -906,10 +1019,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   public void checkWarningForBlacklistedTypesInHeaders(RuleType ruleType) throws Exception {
-    checkWarning("x1", "x1",
+    checkWarning(
+        "x1",
+        "x1",
         "file 'foo.a' from target '//x1:foo.a' is not allowed in hdrs",
         ruleType.target(scratch, "x1", "x1", "hdrs", "['foo.a']"));
-    checkWarning("x2", "x2",
+    checkWarning(
+        "x2",
+        "x2",
         "file 'bar.o' from target '//x2:bar.o' is not allowed in hdrs",
         ruleType.target(scratch, "x2", "x2", "hdrs", "['bar.o']"));
   }
@@ -933,24 +1050,24 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Verifies that the given rule supports the minimum_os attribute, and adds compile and link
-   * args to set the minimum os appropriately, including compile args for dependencies.
+   * Verifies that the given rule supports the minimum_os attribute, and adds compile and link args
+   * to set the minimum os appropriately, including compile args for dependencies.
    *
    * @param ruleType the rule to test
    */
   protected void checkMinimumOsLinkAndCompileArg(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:objcLib']",
-        "minimum_os_version", "'5.4'");
-    scratch.file("package/BUILD",
-        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+    ruleType.scratchTarget(scratch, "deps", "['//package:objcLib']", "minimum_os_version", "'5.4'");
+    scratch.file("package/BUILD", "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
     useConfiguration("--xcode_version=5.8");
 
     CommandAction linkAction = linkAction("//x:x");
-    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
-    CommandAction objcLibCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "b.o"));
+    CommandAction objcLibArchiveAction =
+        (CommandAction)
+            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+    CommandAction objcLibCompileAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "b.o"));
 
     String linkArgs = Joiner.on(" ").join(linkAction.getArguments());
     String compileArgs = Joiner.on(" ").join(objcLibCompileAction.getArguments());
@@ -959,26 +1076,32 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Verifies that the given rule supports the minimum_os attribute under the watchOS platform
-   * type, and adds compile and link args to set the minimum os appropriately for watchos,
-   * including compile args for dependencies.
+   * Verifies that the given rule supports the minimum_os attribute under the watchOS platform type,
+   * and adds compile and link args to set the minimum os appropriately for watchos, including
+   * compile args for dependencies.
    *
    * @param ruleType the rule to test
    */
   protected void checkMinimumOsLinkAndCompileArg_watchos(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:objcLib']",
-        "platform_type", "'watchos'",
-        "minimum_os_version", "'5.4'");
-    scratch.file("package/BUILD",
-        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+    ruleType.scratchTarget(
+        scratch,
+        "deps",
+        "['//package:objcLib']",
+        "platform_type",
+        "'watchos'",
+        "minimum_os_version",
+        "'5.4'");
+    scratch.file("package/BUILD", "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
     useConfiguration("--xcode_version=5.8");
 
     CommandAction linkAction = linkAction("//x:x");
-    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
-    CommandAction objcLibCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "b.o"));
+    CommandAction objcLibArchiveAction =
+        (CommandAction)
+            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+    CommandAction objcLibCompileAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "b.o"));
 
     String linkArgs = Joiner.on(" ").join(linkAction.getArguments());
     String compileArgs = Joiner.on(" ").join(objcLibCompileAction.getArguments());
@@ -986,40 +1109,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(compileArgs).contains("-mwatchos-simulator-version-min=5.4");
   }
 
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_nonVersion(RuleType ruleType) throws Exception {
-    checkError(
-        "x", "x", "the form", ruleType.target(scratch, "x", "x", "minimum_os_version", "'foobar'"));
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_containsAlphabetic(RuleType ruleType) throws Exception {
-    checkError(
-        "x",
-        "x",
-        "Invalid version string",
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3alpha'"));
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_tooManyComponents(RuleType ruleType) throws Exception {
-    checkError(
-        "x",
-        "x",
-        "Invalid version string",
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3.1'"));
-  }
-
-  private void checkDylibDependenciesSetupFramework() throws Exception {
+  private void checkAvoidDepsDependenciesSetupFramework() throws Exception {
     scratch.file(
         "fx/defs.bzl",
         "def _custom_dynamic_framework_import_impl(ctx):",
@@ -1042,36 +1132,31 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         ")");
   }
 
-  protected void checkDylibDependencies(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
+  protected void checkAvoidDepsDependencies(RuleType ruleType, ExtraLinkArgs extraLinkArgs)
       throws Exception {
-    ruleType.scratchTarget(scratch, "dylibs", "['//fx:framework_import']");
+    ruleType.scratchTarget(scratch, "avoid_deps", "['//fx:framework_import']");
 
-    checkDylibDependenciesSetupFramework();
+    checkAvoidDepsDependenciesSetupFramework();
 
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     Action lipobinAction = lipoBinAction("//x:x");
 
-    String i386Bin =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS)
-            + "x/x_bin";
+    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
     String i386Filelist =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS)
-            + "x/x-linker.objlist";
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-linker.objlist";
     String x8664Bin =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS)
-            + "x/x_bin";
+        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
     String x8664Filelist =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS)
-            + "x/x-linker.objlist";
+        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-linker.objlist";
 
     Artifact i386BinArtifact = getFirstArtifactEndingWith(lipobinAction.getInputs(), i386Bin);
     Artifact i386FilelistArtifact =
         getFirstArtifactEndingWith(getGeneratingAction(i386BinArtifact).getInputs(), i386Filelist);
     Artifact x8664BinArtifact = getFirstArtifactEndingWith(lipobinAction.getInputs(), x8664Bin);
     Artifact x8664FilelistArtifact =
-        getFirstArtifactEndingWith(getGeneratingAction(x8664BinArtifact).getInputs(),
-            x8664Filelist);
+        getFirstArtifactEndingWith(
+            getGeneratingAction(x8664BinArtifact).getInputs(), x8664Filelist);
 
     verifyLinkAction(
         i386BinArtifact,
@@ -1095,52 +1180,48 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     CommandAction action = (CommandAction) lipoBinAction("//x:x");
-    String i386Bin =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
+    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
     String x8664Bin =
         configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x_bin";
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            i386Bin, x8664Bin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+        .containsExactly(i386Bin, x8664Bin);
 
     assertThat(action.getArguments())
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH,
-            LIPO,
+            "/usr/bin/lipo",
             "-create",
             i386Bin,
             x8664Bin,
-            "-o",
+            "-output",
             execPathEndingWith(action.getOutputs(), "x_lipobin"))
         .inOrder();
 
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
-        .containsExactly("x/x_lipobin");
+    assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly("x/x_lipobin");
     assertRequiresDarwin(action);
   }
 
   protected void checkMultiarchCcDep(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:cclib']");
-    scratch.file("package/BUILD",
-        "cc_library(name = 'cclib', srcs = ['dep.c'])");
+    ruleType.scratchTarget(scratch, "deps", "['//package:cclib']");
+    scratch.file("package/BUILD", "cc_library(name = 'cclib', srcs = ['dep.c'])");
 
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     Action appLipoAction = actionProducingArtifact("//x:x", "_lipobin");
-    String i386Prefix =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS);
-    String x8664Prefix =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS);
+    String i386Prefix = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS);
+    String x8664Prefix = configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS);
 
-    CommandAction i386BinAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(appLipoAction.getInputs(), i386Prefix + "x/x_bin"));
+    CommandAction i386BinAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(appLipoAction.getInputs(), i386Prefix + "x/x_bin"));
 
-    CommandAction x8664BinAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(appLipoAction.getInputs(), x8664Prefix + "x/x_bin"));
+    CommandAction x8664BinAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(appLipoAction.getInputs(), x8664Prefix + "x/x_bin"));
 
     verifyObjlist(i386BinAction, "package/libcclib.a");
     verifyObjlist(x8664BinAction, "package/libcclib.a");
@@ -1155,7 +1236,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void checkAliasedLinkoptsThroughObjcLibrary(RuleType ruleType) throws Exception {
     useConfiguration("--cpu=ios_i386");
 
-    scratch.file("bin/BUILD",
+    scratch.file(
+        "bin/BUILD",
         "objc_library(",
         "    name = 'objclib',",
         "    srcs = ['objcdep.c'],",
@@ -1171,19 +1253,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    linkopts = ['-somelinkopt'],",
         ")");
 
-    ruleType.scratchTarget(scratch,
-        "deps", "['//bin:objclib']");
+    ruleType.scratchTarget(scratch, "deps", "['//bin:objclib']");
 
     // Frameworks should get placed together with no duplicates.
-    assertThat(Joiner.on(" ").join(linkAction("//x").getArguments()))
-        .contains("-somelinkopt");
+    assertThat(Joiner.on(" ").join(linkAction("//x").getArguments())).contains("-somelinkopt");
   }
 
-  protected void checkCcDependencyLinkoptsArePropagatedToLinkAction(
-      RuleType ruleType) throws Exception {
+  protected void checkCcDependencyLinkoptsArePropagatedToLinkAction(RuleType ruleType)
+      throws Exception {
     useConfiguration("--cpu=ios_i386");
 
-    scratch.file("bin/BUILD",
+    scratch.file(
+        "bin/BUILD",
         "cc_library(",
         "    name = 'cclib1',",
         "    srcs = ['dep1.c'],",
@@ -1202,8 +1283,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    deps = ['cclib1'],",
         ")");
 
-    ruleType.scratchTarget(scratch,
-        "deps", "['//bin:cclib2', '//bin:cclib3']");
+    ruleType.scratchTarget(scratch, "deps", "['//bin:cclib2', '//bin:cclib3']");
 
     // Frameworks from the CROSSTOOL "apply_implicit_frameworks" feature should be present.
     assertThat(Joiner.on(" ").join(linkAction("//x").getArguments()))
@@ -1258,7 +1338,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected void checkObjcProviderLinkInputsInLinkAction(RuleType ruleType) throws Exception {
     useConfiguration("--cpu=ios_i386");
 
-    scratch.file("bin/defs.bzl",
+    scratch.file(
+        "bin/defs.bzl",
         "def _custom_rule_impl(ctx):",
         "  return struct(objc=apple_common.new_objc_provider(",
         "      link_inputs=depset(ctx.files.link_inputs)))",
@@ -1269,15 +1350,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     scratch.file("bin/input.txt");
 
-    scratch.file("bin/BUILD",
+    scratch.file(
+        "bin/BUILD",
         "load('//bin:defs.bzl', 'custom_rule')",
         "custom_rule(",
         "    name = 'custom',",
         "    link_inputs = ['input.txt'],",
         ")");
 
-    ruleType.scratchTarget(scratch,
-        "deps", "['//bin:custom']");
+    ruleType.scratchTarget(scratch, "deps", "['//bin:custom']");
 
     Artifact inputFile = getSourceArtifact("bin/input.txt");
     assertThat(linkAction("//x").getInputs().toList()).contains(inputFile);
@@ -1317,14 +1398,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkAppleSdkWatchsimulatorPlatformEnv(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "platform_type", "'watchos'");
+    ruleType.scratchTarget(scratch, "platform_type", "'watchos'");
     useConfiguration("--watchos_cpus=i386");
 
     Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
 
-    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x_bin";
+    String i386Bin =
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -1332,15 +1412,13 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkAppleSdkWatchosPlatformEnv(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "platform_type", "'watchos'");
+    ruleType.scratchTarget(scratch, "platform_type", "'watchos'");
     useConfiguration("--watchos_cpus=armv7k");
 
     Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
 
     String armv7kBin =
-        configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x_bin";
+        configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7kBin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -1348,8 +1426,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkAppleSdkTvsimulatorPlatformEnv(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "platform_type", "'tvos'");
+    ruleType.scratchTarget(scratch, "platform_type", "'tvos'");
     useConfiguration("--tvos_cpus=x86_64");
 
     CommandAction linkAction = linkAction("//x:x");
@@ -1358,8 +1435,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkAppleSdkTvosPlatformEnv(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "platform_type", "'tvos'");
+    ruleType.scratchTarget(scratch, "platform_type", "'tvos'");
     useConfiguration("--tvos_cpus=arm64");
 
     CommandAction linkAction = linkAction("//x:x");
@@ -1374,39 +1450,34 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkWatchSimulatorDepCompile(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:objcLib']",
-        "platform_type", "'watchos'");
-    scratch.file("package/BUILD",
-        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+    ruleType.scratchTarget(scratch, "deps", "['//package:objcLib']", "platform_type", "'watchos'");
+    scratch.file("package/BUILD", "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
 
     Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
 
-    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x_bin";
+    String i386Bin =
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
-    CommandAction objcLibCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
+    CommandAction objcLibCompileAction =
+        (CommandAction)
+            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
 
     assertAppleSdkPlatformEnv(objcLibCompileAction, "WatchSimulator");
     assertThat(objcLibCompileAction.getArguments()).containsAtLeast("-arch_only", "i386").inOrder();
   }
 
   protected void checkWatchSimulatorLinkAction(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:objcLib']",
-        "platform_type", "'watchos'");
-    scratch.file("package/BUILD",
-        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+    ruleType.scratchTarget(scratch, "deps", "['//package:objcLib']", "platform_type", "'watchos'");
+    scratch.file("package/BUILD", "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
 
     // Tests that ios_multi_cpus and cpu are completely ignored.
     useConfiguration("--ios_multi_cpus=x86_64", "--cpu=ios_x86_64", "--watchos_cpus=i386");
 
     Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
 
-    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x_bin";
+    String i386Bin =
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -1417,34 +1488,32 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkWatchSimulatorLipoAction(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "platform_type", "'watchos'");
+    ruleType.scratchTarget(scratch, "platform_type", "'watchos'");
 
     // Tests that ios_multi_cpus and cpu are completely ignored.
     useConfiguration("--ios_multi_cpus=x86_64", "--cpu=ios_x86_64", "--watchos_cpus=i386,armv7k");
 
     CommandAction action = (CommandAction) lipoBinAction("//x:x");
-    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x_bin";
-    String armv7kBin = configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x_bin";
+    String i386Bin =
+        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
+    String armv7kBin =
+        configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
 
     assertThat(Artifact.asExecPaths(action.getInputs()))
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+        .containsExactly(i386Bin, armv7kBin);
 
     assertThat(action.getArguments())
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsAtLeast(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create")
+        .containsAtLeast("/usr/bin/lipo", "-create")
         .inOrder();
     assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
-    assertContainsSublist(action.getArguments(), ImmutableList.of(
-        "-o", execPathEndingWith(action.getOutputs(), "x_lipobin")));
+    assertContainsSublist(
+        action.getArguments(),
+        ImmutableList.of("-output", execPathEndingWith(action.getOutputs(), "x_lipobin")));
 
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
-        .containsExactly("x/x_lipobin");
-    assertAppleSdkPlatformEnv(action, "WatchOS");
+    assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly("x/x_lipobin");
+    assertAppleSdkPlatformEnv(action, "MacOSX");
     assertRequiresDarwin(action);
   }
 
@@ -1488,7 +1557,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file(
         bzlPath,
         "def framework_stub_impl(ctx):",
-        "  bin_provider = ctx.attr.binary[apple_common.AppleDylibBinary]",
+        "  bin_provider = ctx.attr.binary[apple_common.AppleExecutableBinary]",
         "  my_provider = apple_common.new_dynamic_framework_provider(",
         "      objc = bin_provider.objc,",
         "      binary = bin_provider.binary,",
@@ -1498,7 +1567,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "framework_stub_rule = rule(",
         "    framework_stub_impl,",
         "    attrs = {'binary': attr.label(mandatory=True,",
-        "                                  providers=[apple_common.AppleDylibBinary])},",
+        "                                  providers=[apple_common.AppleExecutableBinary])},",
         "    fragments = ['apple', 'objc'],",
         ")");
   }
@@ -1506,7 +1575,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   private void assertAvoidDepsObjects(RuleType ruleType) throws Exception {
     /*
      * The target tree for ease of understanding:
-     * x depends on "avoidLib" as a dylib and "objcLib" as a static dependency.
      *
      *               (    objcLib    )
      *              /              \
@@ -1518,12 +1586,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
      *
      * All libraries prefixed with "avoid" shouldn't be statically linked in the top level target.
      */
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:objcLib']",
-        "dylibs", "['//package:avoidLib']");
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
+    if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
+      addAppleBinaryStarlarkRule(scratch);
+    }
     scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file(
         "package/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ],",
         "    deps = [':avoidLibDep', ':baseLib'])",
@@ -1532,7 +1603,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "objc_library(name = 'baseLibDep', srcs = [ 'basedep.m' ],",
         "    sdk_frameworks = ['BaseSDK'])",
         "framework_stub_rule(name = 'avoidLib', binary = ':avoidLibBinary')",
-        "apple_binary(name = 'avoidLibBinary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'avoidLibBinary', binary_type = 'executable',",
         "    platform_type = 'ios',",
         "    deps = [':avoidLibDep'])",
         "objc_library(name = 'avoidLibDep', srcs = [ 'd.m' ], deps = [':avoidLibDepTwo'])",
@@ -1554,40 +1625,87 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLibDep.a")).isNull();
   }
 
-  public void checkAvoidDepsObjectsWithCrosstool(RuleType ruleType) throws Exception {
-    useConfiguration("--ios_multi_cpus=i386,x86_64");
-    assertAvoidDepsObjects(ruleType);
-  }
-
   public void checkAvoidDepsObjects(RuleType ruleType) throws Exception {
     useConfiguration("--ios_multi_cpus=i386,x86_64");
     assertAvoidDepsObjects(ruleType);
   }
 
+  private void assertAvoidDepsObjcLibraries(RuleType ruleType) throws Exception {
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
+    scratch.file(
+        "package/BUILD",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib', ':baseLib'])",
+        "objc_library(name = 'baseLib', srcs = [ 'base.m' ])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    Action lipobinAction = lipoBinAction("//x:x");
+    Artifact binArtifact = getFirstArtifactEndingWith(lipobinAction.getInputs(), "x/x_bin");
+
+    Action action = getGeneratingAction(binArtifact);
+
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libobjcLib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libbaseLib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLib.a")).isNull();
+  }
+
+  public void checkAvoidDepsObjcLibraries(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
+    assertAvoidDepsObjcLibraries(ruleType);
+  }
+
+  public void assertAvoidDepsObjcLibrariesAvoidViaCcLibrary(RuleType ruleType) throws Exception {
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidCclib']");
+    scratch.file(
+        "package/BUILD",
+        "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ], deps = [':avoidLib'])",
+        "objc_library(name = 'avoidLib', srcs = [ 'c.m' ])");
+
+    Action lipobinAction = lipoBinAction("//x:x");
+    Artifact binArtifact = getFirstArtifactEndingWith(lipobinAction.getInputs(), "x/x_bin");
+
+    Action action = getGeneratingAction(binArtifact);
+
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidCclib.a")).isNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libobjcLib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(action.getInputs(), "package/libavoidLib.a")).isNull();
+  }
+
+  public void checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(RuleType ruleType) throws Exception {
+    useConfiguration("--ios_multi_cpus=i386,x86_64");
+    assertAvoidDepsObjcLibrariesAvoidViaCcLibrary(ruleType);
+  }
+
   /**
-   * Verifies that if apple_binary A depends on a dylib B1 which then depends on a dylib B2,
-   * that the symbols from B2 are not present in A.
+   * Verifies that if apple_binary_starlark A has an avoid deps dep on B1 which then depends on an
+   * apple_binary_starlark B2, that the symbols from B2 are not present in A.
    */
-  public void checkAvoidDepsThroughDylib(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:ObjcLib']",
-        "dylibs", "['//package:dylib1']");
+  public void checkAvoidDepsThroughAvoidDep(RuleType ruleType) throws Exception {
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:ObjcLib']", "avoid_deps", "['//package:dylib1']");
+    if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
+      addAppleBinaryStarlarkRule(scratch);
+    }
     scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
-    scratch.file("package/BUILD",
+    scratch.file(
+        "package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "objc_library(name = 'ObjcLib', srcs = [ 'ObjcLib.m' ],",
         "    deps = [':Dylib1Lib', ':Dylib2Lib'])",
         "objc_library(name = 'Dylib1Lib', srcs = [ 'Dylib1Lib.m' ])",
         "objc_library(name = 'Dylib2Lib', srcs = [ 'Dylib2Lib.m' ])",
         "framework_stub_rule(name = 'dylib1', binary = ':dylib1Binary')",
-        "apple_binary(name = 'dylib1Binary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'dylib1Binary', binary_type = 'executable',",
         "    platform_type = 'ios',",
-        "    deps = [':Dylib1Lib'], dylibs = ['//package:dylib2'])",
+        "    deps = [':Dylib1Lib'], avoid_deps = ['//package:dylib2'])",
         "framework_stub_rule(name = 'dylib2', binary = ':dylib2Binary')",
-        "apple_binary(name = 'dylib2Binary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'dylib2Binary', binary_type = 'executable',",
         "    platform_type = 'ios',",
         "    deps = [':Dylib2Lib'])",
-        "apple_binary(name = 'alternate',",
+        "apple_binary_starlark(name = 'alternate',",
         "    platform_type = 'ios',",
         "    deps = ['//package:ObjcLib'])");
 
@@ -1596,41 +1714,47 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     Action linkAction = getGeneratingAction(binArtifact);
 
-    assertThat(getFirstArtifactEndingWith(linkAction.getInputs(),
-        "package/libObjcLib.a")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(linkAction.getInputs(),
-        "package/libDylib1Lib.a")).isNull();
-    assertThat(getFirstArtifactEndingWith(linkAction.getInputs(),
-        "package/libDylib2Lib.a")).isNull();
+    assertThat(getFirstArtifactEndingWith(linkAction.getInputs(), "package/libObjcLib.a"))
+        .isNotNull();
+    assertThat(getFirstArtifactEndingWith(linkAction.getInputs(), "package/libDylib1Lib.a"))
+        .isNull();
+    assertThat(getFirstArtifactEndingWith(linkAction.getInputs(), "package/libDylib2Lib.a"))
+        .isNull();
 
-    // Check that the identical binary without dylibs would be fully linked.
+    // Check that the identical binary without avoid_deps would be fully linked.
     Action alternateLipobinAction = lipoBinAction("//package:alternate");
-    Artifact alternateBinArtifact = getFirstArtifactEndingWith(alternateLipobinAction.getInputs(),
-        "package/alternate_bin");
+    Artifact alternateBinArtifact =
+        getFirstArtifactEndingWith(alternateLipobinAction.getInputs(), "package/alternate_bin");
     Action alternateLinkAction = getGeneratingAction(alternateBinArtifact);
 
-    assertThat(getFirstArtifactEndingWith(alternateLinkAction.getInputs(),
-        "package/libObjcLib.a")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(alternateLinkAction.getInputs(),
-        "package/libDylib1Lib.a")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(alternateLinkAction.getInputs(),
-        "package/libDylib2Lib.a")).isNotNull();
+    assertThat(getFirstArtifactEndingWith(alternateLinkAction.getInputs(), "package/libObjcLib.a"))
+        .isNotNull();
+    assertThat(
+            getFirstArtifactEndingWith(alternateLinkAction.getInputs(), "package/libDylib1Lib.a"))
+        .isNotNull();
+    assertThat(
+            getFirstArtifactEndingWith(alternateLinkAction.getInputs(), "package/libDylib2Lib.a"))
+        .isNotNull();
   }
 
   /**
-   * Tests that direct cc_library dependencies of a dylib (and their dependencies) are correctly
+   * Tests that direct cc_library dependencies of an avoid_dep (and its dependencies) are correctly
    * removed from the main binary.
    */
   // transitively avoided, even if it is not present in deps.
   public void checkAvoidDepsObjects_avoidViaCcLibrary(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch,
-        "deps", "['//package:objcLib']",
-        "dylibs", "['//package:avoidLib']");
+    ruleType.scratchTarget(
+        scratch, "deps", "['//package:objcLib']", "avoid_deps", "['//package:avoidLib']");
+    if (!"apple_binary_starlark".equals(ruleType.getRuleTypeName())) {
+      addAppleBinaryStarlarkRule(scratch);
+    }
     scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
-    scratch.file("package/BUILD",
+    scratch.file(
+        "package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
         "framework_stub_rule(name = 'avoidLib', binary = ':avoidLibBinary')",
-        "apple_binary(name = 'avoidLibBinary', binary_type = 'dylib',",
+        "apple_binary_starlark(name = 'avoidLibBinary', binary_type = 'executable',",
         "    platform_type = 'ios',",
         "    deps = [':avoidCclib'])",
         "cc_library(name = 'avoidCclib', srcs = ['cclib.c'], deps = [':avoidObjcLib'])",
@@ -1651,8 +1775,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch);
     ConfiguredTarget target = getConfiguredTarget("//x:x");
     assertThat(
-            ActionsTestUtil.baseNamesOf(
-                getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE)))
+            ActionsTestUtil.baseNamesOf(getOutputGroup(target, OutputGroupInfo.FILES_TO_COMPILE)))
         .isEqualTo("a.o");
   }
 
@@ -1669,11 +1792,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "srcs = ['b.m'],",
         "module_map = '//y:mm'",
         ")");
-    scratch.file("y/BUILD",
-        "filegroup(",
-            "name = 'mm',",
-            "srcs = ['module.modulemap']",
-        ")");
+    scratch.file("y/BUILD", "filegroup(", "name = 'mm',", "srcs = ['module.modulemap']", ")");
 
     CommandAction compileActionA = compileAction("//z:testModuleMap", "b.o");
     assertThat(compileActionA.getArguments()).doesNotContain("-fmodule-maps");
@@ -1688,24 +1807,24 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   /**
-   * Verifies that the given rule supports different minimum_os attribute values for two targets
-   * in the same build, and adds compile args to set the minimum os appropriately for
-   * dependencies of each.
+   * Verifies that the given rule supports different minimum_os attribute values for two targets in
+   * the same build, and adds compile args to set the minimum os appropriately for dependencies of
+   * each.
    *
    * @param ruleType the rule to test
    * @param multiArchArtifactSuffix the suffix of the artifact that the rule-under-test produces
-   * @param singleArchArtifactSuffix the suffix of the single-architecture artifact that is an
-   *     input to the rule-under-test's generating action
+   * @param singleArchArtifactSuffix the suffix of the single-architecture artifact that is an input
+   *     to the rule-under-test's generating action
    */
-  protected void checkMinimumOsDifferentTargets(RuleType ruleType, String multiArchArtifactSuffix,
-      String singleArchArtifactSuffix) throws Exception {
-    ruleType.scratchTarget("nine", "nine", scratch,
-        "deps", "['//package:objcLib']",
-        "minimum_os_version", "'9.0'");
-    ruleType.scratchTarget("eight", "eight", scratch,
-        "deps", "['//package:objcLib']",
-        "minimum_os_version", "'8.0'");
-    scratch.file("package/BUILD",
+  protected void checkMinimumOsDifferentTargets(
+      RuleType ruleType, String multiArchArtifactSuffix, String singleArchArtifactSuffix)
+      throws Exception {
+    ruleType.scratchTarget(
+        "nine", "nine", scratch, "deps", "['//package:objcLib']", "minimum_os_version", "'9.0'");
+    ruleType.scratchTarget(
+        "eight", "eight", scratch, "deps", "['//package:objcLib']", "minimum_os_version", "'8.0'");
+    scratch.file(
+        "package/BUILD",
         "genrule(name = 'root', srcs = ['//nine:nine', '//eight:eight'], outs = ['genout'],",
         "    cmd = 'touch genout')",
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
@@ -1714,10 +1833,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     Artifact rootArtifact = getGenfilesArtifact("genout", rootTarget);
 
     Action genruleAction = getGeneratingAction(rootArtifact);
-    Action eightLipoAction = getGeneratingAction(
-        getFirstArtifactEndingWith(genruleAction.getInputs(), "eight" + multiArchArtifactSuffix));
-    Action nineLipoAction = getGeneratingAction(
-        getFirstArtifactEndingWith(genruleAction.getInputs(), "nine" + multiArchArtifactSuffix));
+    Action eightLipoAction =
+        getGeneratingAction(
+            getFirstArtifactEndingWith(
+                genruleAction.getInputs(), "eight" + multiArchArtifactSuffix));
+    Action nineLipoAction =
+        getGeneratingAction(
+            getFirstArtifactEndingWith(
+                genruleAction.getInputs(), "nine" + multiArchArtifactSuffix));
     Artifact eightBin =
         getFirstArtifactEndingWith(eightLipoAction.getInputs(), singleArchArtifactSuffix);
     Artifact nineBin =
@@ -1726,14 +1849,22 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     CommandAction eightLinkAction = (CommandAction) getGeneratingAction(eightBin);
     CommandAction nineLinkAction = (CommandAction) getGeneratingAction(nineBin);
 
-    CommandAction eightObjcLibArchiveAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(eightLinkAction.getInputs(), "libobjcLib.a"));
-    CommandAction eightObjcLibCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(eightObjcLibArchiveAction.getInputs(), "b.o"));
-    CommandAction nineObjcLibArchiveAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(nineLinkAction.getInputs(), "libobjcLib.a"));
-    CommandAction nineObjcLibCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(nineObjcLibArchiveAction.getInputs(), "b.o"));
+    CommandAction eightObjcLibArchiveAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(eightLinkAction.getInputs(), "libobjcLib.a"));
+    CommandAction eightObjcLibCompileAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(eightObjcLibArchiveAction.getInputs(), "b.o"));
+    CommandAction nineObjcLibArchiveAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(nineLinkAction.getInputs(), "libobjcLib.a"));
+    CommandAction nineObjcLibCompileAction =
+        (CommandAction)
+            getGeneratingAction(
+                getFirstArtifactEndingWith(nineObjcLibArchiveAction.getInputs(), "b.o"));
 
     assertThat(Joiner.on(" ").join(eightObjcLibCompileAction.getArguments()))
         .contains("-mios-simulator-version-min=8.0");
@@ -1741,18 +1872,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains("-mios-simulator-version-min=9.0");
   }
 
-  protected void verifyDrops32BitArchitecture(RuleType ruleType) throws Exception {
-    scratch.file("libs/BUILD",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['a.m'],",
-        ")");
+  protected void verifyDrops32BitIosArchitecture(RuleType ruleType) throws Exception {
+    scratch.file(
+        "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
 
     ruleType.scratchTarget(
         scratch,
-        "deps", "['//libs:objc_lib']",
-        "platform_type", "'ios'",
-        "minimum_os_version", "'11.0'"); // Does not support 32-bit architectures.
+        "deps",
+        "['//libs:objc_lib']",
+        "platform_type",
+        "'ios'",
+        "minimum_os_version",
+        "'11.0'"); // Does not support 32-bit architectures.
 
     useConfiguration("--ios_multi_cpus=armv7,arm64,i386,x86_64");
 
@@ -1761,6 +1892,29 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     getSingleArchBinary(lipoAction, "arm64");
     getSingleArchBinary(lipoAction, "x86_64");
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7")).isNull();
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
+  }
+
+  protected void verifyDrops32BitWatchArchitecture(RuleType ruleType) throws Exception {
+    scratch.file(
+        "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
+
+    ruleType.scratchTarget(
+        scratch,
+        "deps",
+        "['//libs:objc_lib']",
+        "platform_type",
+        "'watchos'",
+        "minimum_os_version",
+        "'9.0'"); // Does not support 32-bit architectures.
+
+    useConfiguration("--watchos_cpus=armv7k,arm64_32,i386,x86_64");
+
+    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
+
+    getSingleArchBinary(lipoAction, "arm64_32");
+    getSingleArchBinary(lipoAction, "x86_64");
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7k")).isNull();
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
   }
 

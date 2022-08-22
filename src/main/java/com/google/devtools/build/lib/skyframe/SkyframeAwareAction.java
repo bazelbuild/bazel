@@ -18,8 +18,7 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.ValueOrException;
-import java.util.Map;
+import com.google.devtools.build.skyframe.SkyframeIterableResult;
 
 /**
  * Interface of an Action that is Skyframe-aware.
@@ -43,7 +42,7 @@ import java.util.Map;
  * Therefore it's crucial to bypass action cache checking by marking the action as unconditionally
  * executed.
  */
-public interface SkyframeAwareAction<E extends Exception> {
+public interface SkyframeAwareAction {
 
   /** Wrapper and/or base class for exceptions raised in {@link #processSkyframeValues}. */
   class ExceptionBase extends Exception {
@@ -61,9 +60,6 @@ public interface SkyframeAwareAction<E extends Exception> {
 
   /** Returns the complete list of skyframe dependencies that this action needs. */
   ImmutableList<? extends SkyKey> getDirectSkyframeDependencies();
-
-  /** Declares the type of exception to wrap in {@link ValueOrException}. */
-  Class<E> getExceptionType();
 
   /**
    * Processes the skyframe dependencies requested in {@link #getDirectSkyframeDependencies}.
@@ -92,9 +88,7 @@ public interface SkyframeAwareAction<E extends Exception> {
    *     {@code keys}
    */
   Object processSkyframeValues(
-      ImmutableList<? extends SkyKey> keys,
-      Map<SkyKey, ValueOrException<E>> values,
-      boolean valuesMissing)
+      ImmutableList<? extends SkyKey> keys, SkyframeIterableResult values, boolean valuesMissing)
       throws ExceptionBase;
 
   /**

@@ -31,9 +31,11 @@ java_library(
     testonly = 1,
     srcs = [
         "DocCheckerUtilsTest.java",
+        "DocLinkMapTest.java",
         "RuleDocumentationAttributeTest.java",
         "RuleDocumentationTest.java",
         "RuleLinkExpanderTest.java",
+        "StarlarkDocExpanderTest.java",
         "StarlarkDocumentationTest.java",
     ],
     deps = [

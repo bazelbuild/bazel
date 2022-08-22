@@ -30,7 +30,7 @@ import net.starlark.java.eval.StarlarkThread;
     category = DocCategory.PROVIDER,
     doc =
         "Encapsulates information provided by <a href=\""
-            + "../../be/protocol-buffer.html#proto_library\">proto_library.</a>"
+            + "${link protocol-buffer#proto_library}\">proto_library.</a>"
             + "<p>"
             + "Please consider using `load(\"@rules_proto//proto:defs.bzl\", \"ProtoInfo\")` "
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
@@ -63,6 +63,9 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       doc = "Proto sources from the 'srcs' attribute.",
       structField = true)
   ImmutableList<FileT> getDirectProtoSources();
+
+  @StarlarkMethod(name = "direct_proto_sources", documented = false, useStarlarkThread = true)
+  ImmutableList<?> getDirectProtoSourcesForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "check_deps_sources",
@@ -107,12 +110,6 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
               + " as a source, that source file would be imported as 'import c/d.proto'",
       structField = true)
   String getDirectProtoSourceRoot();
-
-  @StarlarkMethod(name = "strict_importable_sources", documented = false, useStarlarkThread = true)
-  Depset getStrictImportableSourcesForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(name = "public_import_sources", documented = false, useStarlarkThread = true)
-  Depset getPublicImportSourcesForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(name = "transitive_proto_sources", documented = false, useStarlarkThread = true)
   Depset getTransitiveSourcesForStarlark(StarlarkThread thread) throws EvalException;

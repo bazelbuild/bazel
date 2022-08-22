@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -140,9 +139,7 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "simple_rule(name = 'other-child')");
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "MyInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
     BuildConfigurationValue dep =
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
     BuildConfigurationValue execGroupDep =
@@ -383,7 +380,12 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     ExecGroupCollection execGroups = getRuleContext(ct).getExecGroups();
     assertThat(execGroups).isNotNull();
     assertThat(execGroups).hasExecGroup("watermelon");
-    assertThat(execGroups).execGroup("watermelon").hasRequiredToolchain("//rule:toolchain_type_1");
+    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
+    assertThat(execGroups).execGroup("watermelon").hasToolchainType("//rule:toolchain_type_1");
+    assertThat(execGroups)
+        .execGroup("watermelon")
+        .toolchainType("//rule:toolchain_type_1")
+        .isMandatory();
     assertThat(execGroups).execGroup("watermelon").hasExecCompatibleWith("//platform:constraint_1");
   }
 

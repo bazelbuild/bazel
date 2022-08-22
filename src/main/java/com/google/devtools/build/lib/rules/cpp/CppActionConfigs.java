@@ -382,6 +382,10 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
+      if (!existingFeatureNames.contains(
+          CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS)) {
+        featureBuilder.add(getFeature("name: 'propeller_optimize_thinlto_compile_actions'"));
+      }
       if (!existingFeatureNames.contains(CppRuleClasses.PROPELLER_OPTIMIZE)) {
         featureBuilder.add(
             getFeature(

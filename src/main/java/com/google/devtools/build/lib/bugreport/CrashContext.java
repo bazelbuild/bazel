@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -57,18 +58,21 @@ public final class CrashContext {
   }
 
   /** Sets the arguments that {@link BugReporter} should include with the bug report. */
+  @CanIgnoreReturnValue
   public CrashContext withArgs(String... args) {
     this.args = ImmutableList.copyOf(args);
     return this;
   }
 
   /** Sets the arguments that {@link BugReporter} should include with the bug report. */
+  @CanIgnoreReturnValue
   public CrashContext withArgs(List<String> args) {
     this.args = ImmutableList.copyOf(args);
     return this;
   }
 
   /** Disables bug reporting. */
+  @CanIgnoreReturnValue
   public CrashContext withoutBugReport() {
     sendBugReport = false;
     return this;
@@ -78,6 +82,7 @@ public final class CrashContext {
    * Sets a custom additional message that should be including when handling an {@link
    * OutOfMemoryError}.
    */
+  @CanIgnoreReturnValue
   public CrashContext withExtraOomInfo(String extraOomInfo) {
     this.extraOomInfo = extraOomInfo;
     return this;
@@ -100,6 +105,7 @@ public final class CrashContext {
    *
    * <p>If this method is not called, the event is printed to {@link System#err}.
    */
+  @CanIgnoreReturnValue
   public CrashContext reportingTo(EventHandler eventHandler) {
     this.eventHandler = eventHandler;
     return this;

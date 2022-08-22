@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 
 /** A fake implementation of the {@link MetadataProvider} interface. */
@@ -38,7 +39,8 @@ final class FakeActionInputFileCache implements MetadataProvider {
 
   FakeActionInputFileCache(Path execRoot) {
     this.execRoot = execRoot;
-    this.digestUtil = new DigestUtil(execRoot.getFileSystem().getDigestFunction());
+    this.digestUtil =
+        new DigestUtil(SyscallCache.NO_CACHE, execRoot.getFileSystem().getDigestFunction());
   }
 
   @Override

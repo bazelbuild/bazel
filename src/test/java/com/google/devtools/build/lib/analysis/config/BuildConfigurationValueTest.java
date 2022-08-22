@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
@@ -54,7 +53,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .matches(outputDirPrefix);
     assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/bin");
-    assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getRoot().toString())
+    assertThat(config.getBuildInfoDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/include");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
@@ -94,7 +93,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     }
 
     BuildConfigurationCollection configs = createCollection("--cpu=piii");
-    BuildConfigurationValue config = Iterables.getOnlyElement(configs.getTargetConfigurations());
+    BuildConfigurationValue config = configs.getTargetConfiguration();
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
 
@@ -114,59 +113,14 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testConfigurationsHaveUniqueOutputDirectories() throws Exception {
-    assertConfigurationsHaveUniqueOutputDirectories(createCollection());
-    assertConfigurationsHaveUniqueOutputDirectories(createCollection("--compilation_mode=opt"));
-  }
-
-  @Test
-  public void testMultiCpu() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-
-    BuildConfigurationCollection master = createCollection("--multi_cpu=k8", "--multi_cpu=piii");
-    assertThat(master.getTargetConfigurations()).hasSize(2);
-    // Note: the cpus are sorted alphabetically.
-    assertThat(master.getTargetConfigurations().get(0).getCpu()).isEqualTo("k8");
-    assertThat(master.getTargetConfigurations().get(1).getCpu()).isEqualTo("piii");
-  }
-
-  /**
-   * Check that the cpus are sorted alphabetically regardless of the order in which they are
-   * specified.
-   */
-  @Test
-  public void testMultiCpuSorting() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-
-    for (int order = 0; order < 2; order++) {
-      BuildConfigurationCollection master;
-      if (order == 0) {
-        master = createCollection("--multi_cpu=k8", "--multi_cpu=piii");
-      } else {
-        master = createCollection("--multi_cpu=piii", "--multi_cpu=k8");
-      }
-      assertThat(master.getTargetConfigurations()).hasSize(2);
-      assertThat(master.getTargetConfigurations().get(0).getCpu()).isEqualTo("k8");
-      assertThat(master.getTargetConfigurations().get(1).getCpu()).isEqualTo("piii");
-    }
-  }
-
-  @Test
   public void testTargetEnvironment() throws Exception {
     BuildConfigurationValue oneEnvConfig = create("--target_environment=//foo");
-    assertThat(oneEnvConfig.getTargetEnvironments())
-        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
+    assertThat(oneEnvConfig.getTargetEnvironments()).containsExactly(Label.parseCanonical("//foo"));
 
     BuildConfigurationValue twoEnvsConfig =
         create("--target_environment=//foo", "--target_environment=//bar");
     assertThat(twoEnvsConfig.getTargetEnvironments())
-        .containsExactly(
-            Label.parseAbsolute("//foo", ImmutableMap.of()),
-            Label.parseAbsolute("//bar", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//foo"), Label.parseCanonical("//bar"));
 
     BuildConfigurationValue noEnvsConfig = create();
     assertThat(noEnvsConfig.getTargetEnvironments()).isEmpty();
@@ -389,16 +343,20 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "@testrepo", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "@testrepo", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false, ""),
+            createRaw(parseBuildOptions("--test_arg=1a"), "testrepo", false, ""))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "@testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "testrepo", false, ""))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "@testrepo", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "@testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", true, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "testrepo", false, ""))
         // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "@testrepo1", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "@testrepo2", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo1", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo2", false, ""))
+        // Different transitionDirectoryNameFragment means non-equal
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, ""))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, "a"))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "testrepo", false, "b"))
         .testEquals();
   }
 

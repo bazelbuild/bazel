@@ -425,6 +425,7 @@ struct Attribute {
   virtual ~Attribute() {}
   virtual void Write(u1 *&p) = 0;
   virtual void ExtractClassNames() {}
+  virtual bool KeepForCompile() const { return false; }
 
   void WriteProlog(u1 *&p, u2 length) {
     put_u2be(p, attribute_name_->slot());
@@ -432,10 +433,6 @@ struct Attribute {
   }
 
   Constant *attribute_name_;
-};
-
-struct KeepForCompileAttribute : Attribute {
-  void Write(u1 *&p) { WriteProlog(p, 0); }
 };
 
 struct HasAttrs {
@@ -1080,6 +1077,15 @@ struct AnnotationsAttribute : Attribute {
     }
   }
 
+  virtual bool KeepForCompile() const {
+    for (auto *annotation : annotations_) {
+      if (annotation->type_->Display() == "Lkotlin/Metadata;") {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void Write(u1 *&p) {
     WriteProlog(p, -1);
     u1 *payload_start = p - 4;
@@ -1410,7 +1416,7 @@ struct ClassFile : HasAttrs {
 
   bool ReadConstantPool(const u1 *&p);
 
-  bool IsExplicitlyKept();
+  bool KeepForCompile();
 
   bool IsLocalOrAnonymous();
 
@@ -1506,7 +1512,8 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
           ParameterAnnotationsAttribute::Read(p, attribute_name));
     } else if (attr_name == "Scala" ||
                attr_name == "ScalaSig" ||
-               attr_name == "ScalaInlineInfo") {
+               attr_name == "ScalaInlineInfo" ||
+               attr_name == "TurbineTransitiveJar") {
       // These are opaque blobs, so can be handled with a general
       // attribute handler
       attributes.push_back(GeneralAttribute::Read(p, attribute_name,
@@ -1530,16 +1537,13 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
     } else if (attr_name == "PermittedSubclasses") {
       attributes.push_back(
           PermittedSubclassesAttribute::Read(p, attribute_name));
-    } else if (attr_name == "com.google.devtools.ijar.KeepForCompile") {
-      auto attr = new KeepForCompileAttribute;
-      attr->attribute_name_ = attribute_name;
-      attributes.push_back(attr);
     } else {
       // Skip over unknown attributes with a warning.  The JVM spec
       // says this is ok, so long as we handle the mandatory attributes.
       // Don't even warn for the D8 desugar SynthesizedClass attribute. It is
       // not relevant for ijar.
-      if (attr_name != "com.android.tools.r8.SynthesizedClass") {
+      if (attr_name != "com.android.tools.r8.SynthesizedClass" &&
+          attr_name != "com.android.tools.r8.SynthesizedClassV2") {
         fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
                 attr_name.c_str());
       }
@@ -1677,22 +1681,16 @@ bool ClassFile::IsLocalOrAnonymous() {
 
 static bool HasKeepForCompile(const std::vector<Attribute *> attributes) {
   for (const Attribute *attribute : attributes) {
-    if (attribute->attribute_name_->Display() ==
-        "com.google.devtools.ijar.KeepForCompile") {
+    if (attribute->KeepForCompile()) {
       return true;
     }
   }
   return false;
 }
 
-bool ClassFile::IsExplicitlyKept() {
+bool ClassFile::KeepForCompile() {
   if (HasKeepForCompile(attributes)) {
     return true;
-  }
-  for (const Member *method : methods) {
-    if (HasKeepForCompile(method->attributes)) {
-      return true;
-    }
   }
   return false;
 }
@@ -1743,12 +1741,6 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
   u2 methods_count = get_u2be(p);
   for (int ii = 0; ii < methods_count; ++ii) {
     Member *method = Member::Read(p);
-
-    if (HasKeepForCompile(method->attributes)) {
-      // Always keep methods marked as such
-      clazz->methods.push_back(method);
-      continue;
-    }
 
     // drop class initializers
     if (method->name->Display() == "<clinit>") continue;
@@ -1950,10 +1942,8 @@ void ClassFile::WriteClass(u1 *&p) {
 bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
   ClassFile *clazz = ReadClass(classdata_in, in_length);
   bool keep = true;
-  if (clazz == NULL || clazz->IsExplicitlyKept()) {
+  if (clazz == NULL || clazz->KeepForCompile()) {
     // Class is invalid or kept. Simply copy it to the output and call it a day.
-    // TODO: If kept, only emit methods marked with KeepForCompile attribute,
-    // as opposed to the entire type.
     put_n(classdata_out, classdata_in, in_length);
   } else if (clazz->IsLocalOrAnonymous()) {
     keep = false;

@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
@@ -138,7 +139,7 @@ public class BlazeJavacMain {
       } catch (PropagatedException e) {
         throw e.getCause();
       }
-    } catch (Throwable t) {
+    } catch (Exception t) {
       if (t.getCause() instanceof CancelRequestException) {
         return BlazeJavacResult.cancelled(t.getCause().getMessage());
       }
@@ -320,6 +321,11 @@ public class BlazeJavacMain {
     }
   }
 
+  private static final boolean BOOT_CLASSPATH_CACHE_ENABLED =
+      Boolean.parseBoolean(
+          System.getProperty(
+              "com.google.devtools.build.buildjar.javac.enable_boot_classpath_cache", "true"));
+
   /**
    * Multiple javac file manager instances each specific for a combination of bootClassPaths with
    * their digest.
@@ -331,8 +337,13 @@ public class BlazeJavacMain {
    * Returns a BootClassPathCachingFileManager instance that matches the combination of
    * bootClassPaths and their digest in the case of a worker with valid arguments.
    */
+  @Nullable
   private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
       BlazeJavacArguments arguments) {
+    if (!BOOT_CLASSPATH_CACHE_ENABLED) {
+      // Caching disabled by a feature switch.
+      return null;
+    }
     if (!arguments.requestId().isPresent()) {
       // worker mode is not enabled
       return null;
@@ -383,7 +394,7 @@ public class BlazeJavacMain {
     protected ClassLoader getClassLoader(URL[] urls) {
       return new URLClassLoader(
           urls,
-          new ClassLoader(getPlatformClassLoader()) {
+          new ClassLoader(ClassLoader.getPlatformClassLoader()) {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.google.errorprone.")
@@ -404,17 +415,6 @@ public class BlazeJavacMain {
               throw new ClassNotFoundException(name);
             }
           });
-    }
-  }
-
-  public static ClassLoader getPlatformClassLoader() {
-    try {
-      // In JDK 9+, all platform classes are visible to the platform class loader:
-      // https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html#getPlatformClassLoader--
-      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
-      return null;
     }
   }
 

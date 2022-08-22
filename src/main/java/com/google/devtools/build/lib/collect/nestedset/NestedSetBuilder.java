@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
 
 /**
@@ -64,12 +65,13 @@ public final class NestedSetBuilder<E> {
    *
    * <p>The relative left-to-right order of direct members is preserved from the sequence of calls
    * to {@link #add} and {@link #addAll}. Since the traversal {@link Order} controls whether direct
-   * members appear before or after transitive ones, the interleaving of
-   * {@link #add}/{@link #addAll} with {@link #addTransitive} does not matter.
+   * members appear before or after transitive ones, the interleaving of {@link #add}/{@link
+   * #addAll} with {@link #addTransitive} does not matter.
    *
    * @param element item to add; must not be null
    * @return the builder
    */
+  @CanIgnoreReturnValue
   public NestedSetBuilder<E> add(E element) {
     Preconditions.checkNotNull(element);
     if (items == null) {
@@ -85,12 +87,13 @@ public final class NestedSetBuilder<E> {
    *
    * <p>The relative left-to-right order of direct members is preserved from the sequence of calls
    * to {@link #add} and {@link #addAll}. Since the traversal {@link Order} controls whether direct
-   * members appear before or after transitive ones, the interleaving of
-   * {@link #add}/{@link #addAll} with {@link #addTransitive} does not matter.
+   * members appear before or after transitive ones, the interleaving of {@link #add}/{@link
+   * #addAll} with {@link #addTransitive} does not matter.
    *
    * @param elements the sequence of items to add; must not be null
    * @return the builder
    */
+  @CanIgnoreReturnValue
   public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
     if (items == null) {
@@ -128,6 +131,7 @@ public final class NestedSetBuilder<E> {
    * @throws IllegalArgumentException if the order of {@code subset} is not compatible with the
    *     order of this builder
    */
+  @CanIgnoreReturnValue
   @SuppressWarnings("unchecked") // Cast to NestedSet<E> is safe because NestedSet is immutable.
   public NestedSetBuilder<E> addTransitive(NestedSet<? extends E> subset) {
     Preconditions.checkNotNull(subset);

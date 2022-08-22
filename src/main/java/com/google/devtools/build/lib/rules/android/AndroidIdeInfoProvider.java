@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -83,83 +84,98 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           resourceApk);
     }
 
+    @CanIgnoreReturnValue
     public Builder setJavaPackage(String javaPackage) {
       this.javaPackage = javaPackage;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDefinesAndroidResources(boolean definesAndroidResources) {
       this.definesAndroidResources = definesAndroidResources;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setApk(Artifact apk) {
       Preconditions.checkState(this.apk == null);
       this.apk = apk;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setManifest(Artifact manifest) {
       Preconditions.checkState(this.manifest == null);
       this.manifest = manifest;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setGeneratedManifest(Artifact manifest) {
       Preconditions.checkState(this.generatedManifest == null);
       this.generatedManifest = manifest;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setIdlClassJar(@Nullable Artifact idlClassJar) {
       Preconditions.checkState(this.idlClassJar == null);
       this.idlClassJar = idlClassJar;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setIdlSourceJar(@Nullable Artifact idlSourceJar) {
       Preconditions.checkState(this.idlSourceJar == null);
       this.idlSourceJar = idlSourceJar;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setResourceJarJavaOutput(JavaOutput resourceJarJavaOutput) {
       this.resourceJarJavaOutput = resourceJarJavaOutput;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setResourceApk(Artifact resourceApk) {
       this.resourceApk = resourceApk;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setAar(Artifact aar) {
       this.aar = aar;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNativeLibs(Map<String, NestedSet<Artifact>> nativeLibs) {
       this.nativeLibs = nativeLibs;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addIdlImportRoot(String idlImportRoot) {
       this.idlImportRoot = idlImportRoot;
       return this;
     }
 
     /** Add "idl_srcs" contents. */
+    @CanIgnoreReturnValue
     public Builder addIdlSrcs(Collection<Artifact> idlSrcs) {
       this.idlSrcs.addAll(idlSrcs);
       return this;
     }
 
     /** Add the java files generated from "idl_srcs". */
+    @CanIgnoreReturnValue
     public Builder addIdlGeneratedJavaFiles(Collection<Artifact> idlGeneratedJavaFiles) {
       this.idlGeneratedJavaFiles.addAll(idlGeneratedJavaFiles);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addAllApksUnderTest(Iterable<Artifact> apks) {
       Iterables.addAll(apksUnderTest, apks);
       return this;
@@ -310,7 +326,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
     for (Map.Entry<String, NestedSet<Artifact>> entry : getNativeLibs().entrySet()) {
       builder.put(entry.getKey(), Depset.of(Artifact.TYPE, entry.getValue()));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   /** Provider class for {@link AndroidIdeInfoProvider} objects. */
@@ -360,7 +376,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           ImmutableList.copyOf(
               Sequence.cast(idlGeneratedJavaFiles, Artifact.class, "idl_generated_java_files")),
           ImmutableList.copyOf(Sequence.cast(apksUnderTest, Artifact.class, "apks_under_test")),
-          builder.build(),
+          builder.buildOrThrow(),
           fromNoneable(resourceApk, Artifact.class));
     }
   }

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
@@ -179,15 +180,23 @@ public final class UiEventHandler implements EventHandler {
     this.locationPrinter =
         new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
     // If we have cursor control, we try to fit in the terminal width to avoid having
-    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
+    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 2
     // characters to avoid depending on knowing whether the underlying terminal does the
     // line feed already when reaching the last character of the line, or only once an
     // additional character is written. Another column is lost for the continuation character
     // in the wrapping process.
-    this.stateTracker =
-        this.cursorControl
-            ? new UiStateTracker(clock, this.terminalWidth - 2)
-            : new UiStateTracker(clock);
+
+    if (options.skymeldUi) {
+      this.stateTracker =
+          this.cursorControl
+              ? new SkymeldUiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              : new SkymeldUiStateTracker(clock);
+    } else {
+      this.stateTracker =
+          this.cursorControl
+              ? new UiStateTracker(clock, /*targetWidth=*/ this.terminalWidth - 2)
+              : new UiStateTracker(clock);
+    }
     this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
@@ -394,13 +403,13 @@ public final class UiEventHandler implements EventHandler {
       return null;
     }
 
-    if (size < maxStdoutErrBytes) {
+    if (size <= maxStdoutErrBytes) {
       return getContent.get();
     } else {
       return String.format(
-              "%s (%s) exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
+              "%s (%s) %d exceeds maximum size of --experimental_ui_max_stdouterr_bytes=%d bytes;"
                   + " skipping\n",
-              name, getPath.get(), maxStdoutErrBytes)
+              name, getPath.get(), size, maxStdoutErrBytes)
           .getBytes(StandardCharsets.ISO_8859_1);
     }
   }
@@ -752,6 +761,12 @@ public final class UiEventHandler implements EventHandler {
   public void testFilteringComplete(TestFilteringCompleteEvent event) {
     stateTracker.testFilteringComplete(event);
     refresh();
+  }
+
+  @Subscribe
+  public void singleTestAnalyzed(TestAnalyzedEvent event) {
+    stateTracker.singleTestAnalyzed(event);
+    refreshSoon();
   }
 
   /**

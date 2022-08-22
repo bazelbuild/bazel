@@ -160,7 +160,10 @@ public class ExecutionOptions extends OptionsBase {
       converter = ShowSubcommandsConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Display the subcommands executed during a build.")
+      help =
+          "Display the subcommands executed during a build. Related flags:"
+              + " --execution_log_json_file, --execution_log_binary_file (for logging subcommands"
+              + " to a file in a tool-friendly format).")
   public ShowSubcommands showSubcommands;
 
   @Option(
@@ -265,7 +268,7 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+          "Specifies maximum per-test-log size that can be emitted when --test_output is 'errors' "
               + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
               + "output. The test header is included in the log size. Negative values imply no "
               + "limit. Output is all or nothing.")
@@ -278,10 +281,12 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Specifies the desired format ot the test summary. Valid values are 'short' to print "
-              + "information only about tests executed, 'terse', to print information only about "
-              + "unsuccessful tests that were run, 'detailed' to print detailed information about "
-              + "failed test cases, and 'none' to omit the summary.")
+          "Specifies the desired format of the test summary. Valid values are 'short' to print"
+              + " information only about tests executed, 'terse', to print information only about"
+              + " unsuccessful tests that were run, 'detailed' to print detailed information about"
+              + " failed test cases, 'testcase' to print summary in test case resolution, do not"
+              + " print detailed information about failed test cases and 'none' to omit the"
+              + " summary.")
   public TestSummaryFormat testSummary;
 
   @Option(
@@ -298,12 +303,11 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set the number of local CPU threads available to Bazel. Takes "
-              + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
-              + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
-              + "number of CPU cores available for the locally executed build actions. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
+              + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
+              + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
+              + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
+              + " the number of CPU cores available.",
       converter = CpuResourceConverter.class)
   public float localCpuResources;
 
@@ -313,30 +317,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Explicitly set the amount of local host RAM (in MB) available to Bazel. Takes "
-              + "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_RAM*.5 to use half the available RAM)."
-              + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
-              + "amount of RAM available for the locally executed build actions and will use 67% "
-              + "of available RAM. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
+              + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
+              + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
+              + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
+              + " the amount of RAM available and will use 67% of it.",
       converter = RamResourceConverter.class)
   public float localRamResources;
-
-  @Option(
-    name = "experimental_local_memory_estimate",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Estimate the actual memory available online. "
-            + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
-            + "that against the total available system memory, regardless of how much memory is "
-            + "actually available.  This option enables online estimation of how much memory is "
-            + "available at any given time, and thus does not require accurate estimation of how "
-            + "much memory a given action will take."
-  )
-  public boolean localMemoryEstimate;
 
   @Option(
       name = "local_test_jobs",
@@ -417,7 +404,13 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos, according to "
+              + "src/main/protobuf/spawn.proto. This file is written in order of the execution "
+              + "of the Spawns. Related flags:"
+              + " --execution_log_binary_file (ordered binary protobuf format),"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogFile;
 
   @Option(
@@ -427,8 +420,23 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      help =
+          "Log the executed spawns into this file as delimited Spawn protos, according to"
+              + " src/main/protobuf/spawn.proto. The log is first written unordered and is then,"
+              + " at the end of the invocation, sorted in a stable order (can be CPU and memory"
+              + " intensive). Related flags:"
+              + " --execution_log_json_file (ordered text json format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
+
+  @Option(
+      name = "experimental_execution_log_spawn_metrics",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Include spawn metrics in the executed spawns log.")
+  public boolean executionLogSpawnMetrics;
 
   @Option(
       name = "execution_log_json_file",
@@ -439,7 +447,12 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos.")
+              + " protos, according to src/main/protobuf/spawn.proto. The log is first written"
+              + " unordered and is then, at the end of the invocation, sorted in a stable order"
+              + " (can be CPU and memory intensive). Related flags:"
+              + " Related flags: --execution_log_binary_file (ordered binary protobuf format),"
+              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
   @Option(
@@ -452,24 +465,6 @@ public class ExecutionOptions extends OptionsBase {
               + "Bazel uses a separate action to generate a dummy test.xml file containing the "
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
-
-  @Option(
-      name = "experimental_path_agnostic_action",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Setting this to an action's mnemonic declares that the action's output doesn't "
-              + "depend on its input or output paths. For example, "
-              + "\"mytool blaze-out/x86-fastbuild/input -o  bar/output\" produces the same output "
-              + "as \"mytool blaze-out/input -o baz/output\". The action executor may strip "
-              + "configuration prefixes from paths before running these actions to improve cache "
-              + "efficiency. For for example, \"blaze-out/k8-fastbuild/foo\" -> \"blaze-out/foo\". "
-              + "Be especially careful with actions that process debug symbol paths or manifest "
-              + "files.")
-  // TODO(bazel-team): merge this and --experimental_output_paths into a coherent final API.
-  public List<String> pathAgnosticActions;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {

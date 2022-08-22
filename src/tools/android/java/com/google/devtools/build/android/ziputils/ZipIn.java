@@ -21,6 +21,8 @@ import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENSIZ;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDOFF;
 import static com.google.devtools.build.android.ziputils.EndOfCentralDirectory.ENDSUB;
 
+import com.google.common.primitives.UnsignedInts;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -185,7 +187,7 @@ public class ZipIn {
    * @throws IOException
    */
   public LocalFileHeader nextHeaderFrom(DirectoryEntry dirEntry) throws IOException {
-    Integer nextOffset = dirEntry == null ? -1 : dirEntry.get(CENOFF);
+    Long nextOffset = dirEntry == null ? -1 : dirEntry.get(CENOFF);
     while ((nextOffset = cdir.mapByOffset().higherKey(nextOffset)) != null) {
       LocalFileHeader header = localHeaderAt(nextOffset);
       if (header != null) {
@@ -248,15 +250,15 @@ public class ZipIn {
    * @throws IOException
    */
   public ZipEntry nextFrom(DirectoryEntry entry) throws IOException {
-    int offset = entry == null ? -1 : entry.get(CENOFF);
-    Map.Entry<Integer, DirectoryEntry> mapEntry = cdir.mapByOffset().higherEntry(offset);
+    long offset = entry == null ? -1 : entry.get(CENOFF);
+    Map.Entry<Long, DirectoryEntry> mapEntry = cdir.mapByOffset().higherEntry(offset);
     if (mapEntry == null) {
       return entryWith(null);
     }
     LocalFileHeader header = localHeaderAt(mapEntry.getKey());
     return entryWith(header, mapEntry.getValue());
   }
-  
+
   /**
    * Finds the zip file entry, for a given directory entry.
    *
@@ -283,12 +285,11 @@ public class ZipIn {
   /**
    * Constructs a {@link ZipEntry} view of the entry at the location of the given header.
    *
-   * @param header a previously located header. If (@code useDirectory} is set, this will
-   * attempt to lookup a corresponding directory entry. If there is none, and {@code ignoreDeleted}
-   * is also set, the return value will flag this entry with a
-   * {@code ZipEntry.Status.ENTRY_NOT_FOUND} status code.
-   *
-   * @return  {@link ZipEntry} for the given location.
+   * @param header a previously located header. If (@code useDirectory} is set, this will attempt to
+   *     lookup a corresponding directory entry. If there is none, and {@code ignoreDeleted} is also
+   *     set, the return value will flag this entry with a {@code ZipEntry.Status.ENTRY_NOT_FOUND}
+   *     status code.
+   * @return {@link ZipEntry} for the given location.
    * @throws IOException
    */
   public ZipEntry entryWith(LocalFileHeader header) throws IOException {
@@ -299,12 +300,83 @@ public class ZipIn {
     long offset = header.fileOffset();
     DirectoryEntry dirEntry = null;
     if (useDirectory) {
-      dirEntry = cdir.mapByOffset().get((int) offset);
+      dirEntry = cdir.mapByOffset().get(offset);
       if (dirEntry == null && ignoreDeleted) {
         return new ZipEntry().withCode(ZipEntry.Status.ENTRY_DELETED);
       }
     }
     return entryWith(header, dirEntry);
+  }
+
+  /**
+   * Constructs a zip entry object for the location of the given header, with the corresponding
+   * directory entry.
+   *
+   * @param header local file header for the entry.
+   * @param dirEntry corresponding directory entry, or {@code null} if not available.
+   * @return a zip entry with the given header and directory entry.
+   * @throws IOException
+   */
+  private ZipEntry entryWith(LocalFileHeader header, DirectoryEntry dirEntry) throws IOException {
+    ZipEntry zipEntry = new ZipEntry().withHeader(header).withEntry(dirEntry);
+    long offset = header.fileOffset() + header.getSize();
+    // !useDirectory || dirEntry != null || !ignoreDeleted
+    String entryName = header.getFilename();
+    if (dirEntry != null && !entryName.equals(dirEntry.getFilename())) {
+      return zipEntry.withEntry(dirEntry).withCode(ZipEntry.Status.FILENAME_ERROR);
+    }
+    long sizeByHeader = header.dataSize();
+    long sizeByDir = dirEntry != null ? dirEntry.dataSize() : -1;
+    ByteBuffer content;
+    if (sizeByDir == sizeByHeader && sizeByDir >= 0) {
+      // Ideal case, header and directory in agreement
+      content = getData(offset, sizeByHeader);
+      if (content.limit() == sizeByHeader) {
+        return zipEntry.withContent(content).withCode(ZipEntry.Status.ENTRY_OK);
+      } else {
+        return zipEntry.withContent(content).withCode(ZipEntry.Status.NOT_ENOUGH_DATA);
+      }
+    }
+    if (sizeByDir >= 0) {
+      // If file is correct, we get here because of a 0x8 flag, and we expect
+      // data to be followed by a data descriptor.
+      content = getData(offset, sizeByDir);
+      DataDescriptor dataDesc = descriptorAt(offset + sizeByDir, dirEntry);
+      if (dataDesc != null) {
+        return zipEntry
+            .withContent(content)
+            .withDescriptor(dataDesc)
+            .withCode(ZipEntry.Status.ENTRY_OK);
+      }
+      return zipEntry.withContent(content).withCode(ZipEntry.Status.NO_DATA_DESC);
+    }
+    if (!ignoreDeleted) {
+      if (sizeByHeader >= 0) {
+        content = getData(offset, sizeByHeader);
+        if (content.limit() == sizeByHeader) {
+          return zipEntry.withContent(content).withCode(ZipEntry.Status.ENTRY_OK);
+        }
+        return zipEntry.withContent(content).withCode(ZipEntry.Status.NOT_ENOUGH_DATA);
+      } else {
+
+        DataDescriptor dataDesc = descriptorFrom(offset, dirEntry);
+        if (dataDesc == null) {
+          // Only way now would be to decompress
+          return zipEntry.withCode(ZipEntry.Status.UNKNOWN_SIZE);
+        }
+        long sizeByDesc = dataDesc.get(EXTSIZ);
+        if (sizeByDesc != dataDesc.fileOffset() - offset) {
+          // That just can't be the right
+          return zipEntry.withDescriptor(dataDesc).withCode(ZipEntry.Status.UNKNOWN_SIZE);
+        }
+        content = getData(offset, sizeByDesc);
+        return zipEntry
+            .withContent(content)
+            .withDescriptor(dataDesc)
+            .withCode(ZipEntry.Status.ENTRY_OK);
+      }
+    }
+    return zipEntry.withCode(ZipEntry.Status.UNKNOWN_SIZE);
   }
 
   /**
@@ -345,73 +417,6 @@ public class ZipIn {
   }
 
   /**
-   * Constructs a zip entry object for the location of the given header, with the corresponding
-   * directory entry.
-   *
-   * @param header local file header for the entry.
-   * @param dirEntry corresponding directory entry, or {@code null} if not available.
-   * @return a zip entry with the given header and directory entry.
-   * @throws IOException
-   */
-  private ZipEntry entryWith(LocalFileHeader header, DirectoryEntry dirEntry) throws IOException {
-    ZipEntry zipEntry = new ZipEntry().withHeader(header).withEntry(dirEntry);
-    int offset = (int) (header.fileOffset() + header.getSize());
-    // !useDirectory || dirEntry != null || !ignoreDeleted
-    String entryName = header.getFilename();
-    if (dirEntry != null && !entryName.equals(dirEntry.getFilename())) {
-      return zipEntry.withEntry(dirEntry).withCode(ZipEntry.Status.FILENAME_ERROR);
-    }
-    int sizeByHeader = header.dataSize();
-    int sizeByDir = dirEntry != null ? dirEntry.dataSize() : -1;
-    ByteBuffer content;
-    if (sizeByDir == sizeByHeader && sizeByDir >= 0) {
-      // Ideal case, header and directory in agreement
-      content = getData(offset, sizeByHeader);
-      if (content.limit() == sizeByHeader) {
-        return zipEntry.withContent(content).withCode(ZipEntry.Status.ENTRY_OK);
-      } else {
-        return zipEntry.withContent(content).withCode(ZipEntry.Status.NOT_ENOUGH_DATA);
-      }
-    }
-    if (sizeByDir >= 0) {
-      // If file is correct, we get here because of a 0x8 flag, and we expect
-      // data to be followed by a data descriptor.
-      content = getData(offset, sizeByDir);
-      DataDescriptor dataDesc = descriptorAt(offset + sizeByDir, dirEntry);
-      if (dataDesc != null) {
-        return zipEntry.withContent(content).withDescriptor(dataDesc).withCode(
-            ZipEntry.Status.ENTRY_OK);
-      }
-      return zipEntry.withContent(content).withCode(ZipEntry.Status.NO_DATA_DESC);
-    }
-    if (!ignoreDeleted) {
-      if (sizeByHeader >= 0) {
-        content = getData(offset, sizeByHeader);
-        if (content.limit() == sizeByHeader) {
-          return zipEntry.withContent(content).withCode(ZipEntry.Status.ENTRY_OK);
-        }
-        return zipEntry.withContent(content).withCode(ZipEntry.Status.NOT_ENOUGH_DATA);
-      } else {
-
-        DataDescriptor dataDesc = descriptorFrom(offset, dirEntry);
-        if (dataDesc == null) {
-          // Only way now would be to decompress
-          return zipEntry.withCode(ZipEntry.Status.UNKNOWN_SIZE);
-        }
-        int sizeByDesc = dataDesc.get(EXTSIZ);
-        if (sizeByDesc != dataDesc.fileOffset() - offset) {
-          // That just can't be the right
-          return zipEntry.withDescriptor(dataDesc).withCode(ZipEntry.Status.UNKNOWN_SIZE);
-        }
-        content = getData(offset, sizeByDesc);
-        return zipEntry.withContent(content).withDescriptor(dataDesc).withCode(
-            ZipEntry.Status.ENTRY_OK);
-      }
-    }
-    return zipEntry.withCode(ZipEntry.Status.UNKNOWN_SIZE);
-  }
-
-  /**
    * Constructs a local header view over a give byte buffer.
    *
    * @param buffer byte buffer with local header data.
@@ -445,11 +450,11 @@ public class ZipIn {
     return null;
   }
 
-  /**
-   * Obtains a byte buffer at a given offset.
-   */
-  private ByteBuffer getData(long offset, int size) throws IOException {
-    return bufferedFile.getBuffer(offset, size).order(ByteOrder.LITTLE_ENDIAN);
+  /** Obtains a byte buffer at a given offset. */
+  private ByteBuffer getData(long offset, long size) throws IOException {
+    return bufferedFile
+        .getBuffer(offset, UnsignedInts.checkedCast(size))
+        .order(ByteOrder.LITTLE_ENDIAN);
   }
 
   /**
@@ -561,8 +566,10 @@ public class ZipIn {
 
     /**
      * Sets the header of this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withHeader(LocalFileHeader header) {
       this.header = header;
       return this;
@@ -577,8 +584,10 @@ public class ZipIn {
 
     /**
      * Sets the data descriptor of this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withDescriptor(DataDescriptor descriptor) {
       this.descriptor = descriptor;
       return this;
@@ -593,8 +602,10 @@ public class ZipIn {
 
     /**
      * Sets the byte buffer providing access to the raw content of this zip entry.
+     *
      * @return this object
      */
+    @CanIgnoreReturnValue
     public ZipEntry withContent(ByteBuffer content) {
       this.content = content;
       return this;
@@ -609,8 +620,10 @@ public class ZipIn {
 
     /**
      * Sets the central directory entry for this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withEntry(DirectoryEntry entry) {
       this.entry = entry;
       return this;
@@ -625,8 +638,10 @@ public class ZipIn {
 
     /**
      * Sets the status code for this zip entry.
+     *
      * @return this object.
      */
+    @CanIgnoreReturnValue
     public ZipEntry withCode(Status code) {
       this.code = code;
       return this;

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.platform.SystemMemoryPressureMonitor.Level;
 
 /**
  * This event is fired from {@link
@@ -23,38 +24,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  */
 public class SystemMemoryPressureEvent implements ExtendedEventHandler.Postable {
 
-  /** The possible reasons a system could be suspended. */
-  public enum Level {
-    WARNING("Warning"),
-    CRITICAL("Critical");
-
-    private final String logString;
-
-    Level(String logString) {
-      this.logString = logString;
-    }
-
-    public String logString() {
-      return logString;
-    }
-
-    /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
-    static Level fromInt(int number) {
-      switch (number) {
-        case 0:
-          return WARNING;
-        case 1:
-          return CRITICAL;
-        default:
-          throw new IllegalStateException("Unknown memory pressure level: " + number);
-      }
-    }
-  };
-
   private final Level level;
 
-  public SystemMemoryPressureEvent(int level) {
-    this.level = Level.fromInt(level);
+  public SystemMemoryPressureEvent(Level level) {
+    this.level = level;
   }
 
   public Level level() {

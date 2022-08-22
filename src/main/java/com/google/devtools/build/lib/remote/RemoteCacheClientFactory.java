@@ -45,12 +45,11 @@ public final class RemoteCacheClientFactory {
       PathFragment diskCachePath,
       boolean remoteVerifyDownloads,
       DigestUtil digestUtil,
-      RemoteCacheClient remoteCacheClient,
-      RemoteOptions options)
+      RemoteCacheClient remoteCacheClient)
       throws IOException {
     DiskCacheClient diskCacheClient =
         createDiskCache(workingDirectory, diskCachePath, remoteVerifyDownloads, digestUtil);
-    return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient, options);
+    return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient);
   }
 
   public static RemoteCacheClient create(
@@ -155,12 +154,7 @@ public final class RemoteCacheClientFactory {
 
     RemoteCacheClient httpCache = createHttp(options, cred, authAndTlsOptions, digestUtil);
     return createDiskAndRemoteClient(
-        workingDirectory,
-        diskCachePath,
-        options.remoteVerifyDownloads,
-        digestUtil,
-        httpCache,
-        options);
+        workingDirectory, diskCachePath, options.remoteVerifyDownloads, digestUtil, httpCache);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {

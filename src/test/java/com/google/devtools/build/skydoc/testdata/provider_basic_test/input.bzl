@@ -15,3 +15,8 @@ Look on my works, ye mighty, and despair!
         "favorite_color": "A string representing my favorite color",
     },
 )
+
+named_providers_are_hashable = {
+    MyFooInfo: "MyFooInfo is hashable",
+    MyVeryDocumentedInfo: "So is MyVeryDocumentedInfo",
+}

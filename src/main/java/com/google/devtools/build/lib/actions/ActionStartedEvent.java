@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
-/**
- * This event is fired during the build, when an action is started.
- */
-public class ActionStartedEvent implements ProgressLike {
+/** This event is fired during the build, when an action is started. */
+public final class ActionStartedEvent implements Postable {
   private final Action action;
   private final long nanoTimeStart;
 

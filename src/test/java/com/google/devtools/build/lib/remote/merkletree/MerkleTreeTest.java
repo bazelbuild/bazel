@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.Arrays;
@@ -61,7 +62,7 @@ public class MerkleTreeTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
-    digestUtil = new DigestUtil(fs.getDigestFunction());
+    digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
   }
 
   @Test

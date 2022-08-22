@@ -19,16 +19,19 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /** A helper class to get {@link RepoSpec} for Bzlmod generated repositories. */
 public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
 
   @Override
-  public Optional<RepoSpec> getRepoSpec(Environment env, String repositoryName)
+  @Nullable
+  public Optional<RepoSpec> getRepoSpec(Environment env, RepositoryName repositoryName)
       throws InterruptedException, IOException {
 
     RootModuleFileValue root =
@@ -58,7 +61,7 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
   }
 
   private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
-      RootModuleFileValue root, String repositoryName) {
+      RootModuleFileValue root, RepositoryName repositoryName) {
     String moduleName = root.getNonRegistryOverrideCanonicalRepoNameLookup().get(repositoryName);
     if (moduleName == null) {
       return Optional.empty();
@@ -71,7 +74,7 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
       BazelModuleResolutionValue bazelModuleResolutionValue,
       ImmutableMap<String, ModuleOverride> overrides,
       ExtendedEventHandler eventListener,
-      String repositoryName)
+      RepositoryName repositoryName)
       throws InterruptedException, IOException {
     ModuleKey moduleKey =
         bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(repositoryName);
@@ -100,7 +103,7 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
     return RepoSpec.builder()
         .setBzlFile(repoSpec.bzlFile())
         .setRuleClassName(repoSpec.ruleClassName())
-        .setAttributes(attrBuilder.build())
+        .setAttributes(attrBuilder.buildOrThrow())
         .build();
   }
 }

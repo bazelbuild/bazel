@@ -85,7 +85,7 @@ public class OutputDirectories {
     MIDDLEMAN("internal"),
     TESTLOGS("testlogs"),
     COVERAGE("coverage-metadata"),
-    INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
+    BUILDINFO(BlazeDirectories.RELATIVE_BUILD_INFO_DIR),
     OUTPUT("");
 
     private final String name;
@@ -101,7 +101,7 @@ public class OutputDirectories {
     public ArtifactRoot getRoot(
         String outputDirName, BlazeDirectories directories, RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1
-      Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
+      Path execRoot = directories.getExecRoot(mainRepositoryName.getName());
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
           execRoot,
@@ -118,7 +118,7 @@ public class OutputDirectories {
 
   private final ArtifactRoot outputDirectory;
   private final ArtifactRoot binDirectory;
-  private final ArtifactRoot includeDirectory;
+  private final ArtifactRoot buildInfoDirectory;
   private final ArtifactRoot genfilesDirectory;
   private final ArtifactRoot coverageDirectory;
   private final ArtifactRoot testlogsDirectory;
@@ -147,8 +147,8 @@ public class OutputDirectories {
     this.outputDirectory =
         OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
     this.binDirectory = OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
-    this.includeDirectory =
-        OutputDirectory.INCLUDE.getRoot(outputDirName, directories, mainRepositoryName);
+    this.buildInfoDirectory =
+        OutputDirectory.BUILDINFO.getRoot(outputDirName, directories, mainRepositoryName);
     this.genfilesDirectory =
         OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
     this.coverageDirectory =
@@ -160,7 +160,7 @@ public class OutputDirectories {
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
-    this.execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
+    this.execRoot = directories.getExecRoot(mainRepositoryName.getName());
   }
 
   private static void addMnemonicPart(
@@ -265,7 +265,7 @@ public class OutputDirectories {
         execRoot,
         rootType,
         directories.getRelativeOutputPath(),
-        repository.strippedName(),
+        repository.getName(),
         outputDirName,
         nameFragment);
   }
@@ -280,11 +280,11 @@ public class OutputDirectories {
     return siblingRepositoryLayout ? buildDerivedRoot("bin", repositoryName, false) : binDirectory;
   }
 
-  /** Returns the include directory for this build configuration. */
-  ArtifactRoot getIncludeDirectory(RepositoryName repositoryName) {
+  /** Returns the build-info directory for this build configuration. */
+  ArtifactRoot getBuildInfoDirectory(RepositoryName repositoryName) {
     return siblingRepositoryLayout
-        ? buildDerivedRoot(BlazeDirectories.RELATIVE_INCLUDE_DIR, repositoryName, false)
-        : includeDirectory;
+        ? buildDerivedRoot(BlazeDirectories.RELATIVE_BUILD_INFO_DIR, repositoryName, false)
+        : buildInfoDirectory;
   }
 
   /** Returns the genfiles directory for this build configuration. */
@@ -339,6 +339,10 @@ public class OutputDirectories {
 
   String getMnemonic() {
     return mnemonic;
+  }
+
+  String getOutputDirName() {
+    return outputDirName;
   }
 
   boolean mergeGenfilesDirectory() {

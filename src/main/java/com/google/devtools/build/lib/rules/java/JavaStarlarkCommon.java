@@ -19,24 +19,29 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A module that contains Starlark utilities for Java support. */
@@ -83,10 +88,16 @@ public class JavaStarlarkCommon
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
+      Sequence<?> resourceJars, // <Artifact> expected
       Sequence<?> classpathResources, // <Artifact> expected
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
       Boolean enableCompileJarAction,
+      Boolean enableJSpecify,
+      boolean includeCompilationInfo,
+      Object injectingRuleKind,
+      Sequence<?> addExports, // <String> expected
+      Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -124,7 +135,12 @@ public class JavaStarlarkCommon
               .getImmutableList();
     }
     // checks for private API access
-    if (!enableCompileJarAction || !classpathResources.isEmpty()) {
+    if (!enableCompileJarAction
+        || !enableJSpecify
+        || !includeCompilationInfo
+        || !classpathResources.isEmpty()
+        || !resourceJars.isEmpty()
+        || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
     return JavaInfoBuildHelper.getInstance()
@@ -153,11 +169,17 @@ public class JavaStarlarkCommon
             javaToolchain,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
+            Sequence.cast(resourceJars, Artifact.class, "resource_jars"),
             Sequence.cast(classpathResources, Artifact.class, "classpath_resources"),
             neverlink,
             enableAnnotationProcessing,
             enableCompileJarAction,
+            enableJSpecify,
+            includeCompilationInfo,
             javaSemantics,
+            injectingRuleKind,
+            Sequence.cast(addExports, String.class, "add_exports"),
+            Sequence.cast(addOpens, String.class, "add_opens"),
             thread);
   }
 
@@ -214,9 +236,16 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo mergeJavaProviders(
-      Sequence<?> providers, /* <JavaInfo> expected. */ StarlarkThread thread)
+      Sequence<?> providers, /* <JavaInfo> expected. */
+      boolean mergeJavaOutputs,
+      boolean mergeSourceJars,
+      StarlarkThread thread)
       throws EvalException {
-    return JavaInfo.merge(Sequence.cast(providers, JavaInfo.class, "providers"));
+    if (!mergeJavaOutputs || !mergeSourceJars) {
+      checkPrivateAccess(thread);
+    }
+    return JavaInfo.merge(
+        Sequence.cast(providers, JavaInfo.class, "providers"), mergeJavaOutputs, mergeSourceJars);
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -255,9 +284,12 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo addConstraints(JavaInfo javaInfo, Sequence<?> constraints) throws EvalException {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
+    List<String> constraintStrings = Sequence.cast(constraints, String.class, "constraints");
+    ImmutableList<String> mergedConstraints =
+        Stream.concat(javaInfo.getJavaConstraints().stream(), constraintStrings.stream())
+            .distinct()
+            .collect(toImmutableList());
+    return JavaInfo.Builder.copyOf(javaInfo).setJavaConstraints(mergedConstraints).build();
   }
 
   @Override
@@ -297,6 +329,9 @@ public class JavaStarlarkCommon
   @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
+    if (target instanceof MergedConfiguredTarget) {
+      target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
+    }
     if (target instanceof AbstractConfiguredTarget) {
       return ((AbstractConfiguredTarget) target).getRuleClassString();
     }
@@ -308,7 +343,7 @@ public class JavaStarlarkCommon
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
     if (!PRIVATE_STARLARKIFACTION_ALLOWLIST.contains(label.getPackageName())
-        && !label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+        && !label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
   }
@@ -338,9 +373,14 @@ public class JavaStarlarkCommon
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
+      JavaCompilationArgsProvider compilationArgsProvider =
+          javaInfo.getProvider(JavaCompilationArgsProvider.class);
       builder.addProvider(
-          JavaCompilationArgsProvider.class,
-          javaInfo.getProvider(JavaCompilationArgsProvider.class));
+          JavaCompilationInfoProvider.class,
+          new JavaCompilationInfoProvider.Builder()
+              .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
+              .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
+              .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
       builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
@@ -350,7 +390,6 @@ public class JavaStarlarkCommon
         .addProvider(
             JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
-        .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
         .build();
   }
 
@@ -360,5 +399,12 @@ public class JavaStarlarkCommon
     checkPrivateAccess(thread);
     return StarlarkList.immutableCopyOf(
         ruleContext.getRuleContext().getBuildInfo(JavaBuildInfoFactory.KEY));
+  }
+
+  @Override
+  public boolean getExperimentalJavaProtoLibraryDefaultHasServices(
+      StarlarkSemantics starlarkSemantics) throws EvalException {
+    return starlarkSemantics.getBool(
+        BuildLanguageOptions.EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES);
   }
 }

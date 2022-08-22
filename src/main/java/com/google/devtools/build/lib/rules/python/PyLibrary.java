@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Base implementation of {@code py_library}. */
 public abstract class PyLibrary implements RuleConfiguredTargetFactory {
@@ -37,6 +38,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
   protected abstract PythonSemantics createSemantics();
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
@@ -68,7 +70,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
             new PyCcLinkParamsProvider(
-                semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps"))))
+                semantics.buildCcInfoProvider(ruleContext, ruleContext.getPrerequisites("deps"))))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfilesBuilder.build()))
         .build();
   }

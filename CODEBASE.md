@@ -90,7 +90,7 @@ from the client are handled by `GrpcServerImpl.run()`.
 
 Bazel creates a somewhat complicated set of directories during a build. A full
 description is available
-[here](https://docs.bazel.build/versions/main/output_directories.html).
+[here](https://bazel.build/docs/output_directories).
 
 The "workspace" is the source tree Bazel is run in. It usually corresponds to
 something you checked out from source control.
@@ -194,7 +194,7 @@ Bazel learns about option classes in the following ways:
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
-    [here](https://docs.bazel.build/versions/main/skylark/config.html))
+    [here](https://bazel.build/rules/config))
 
 Each option (excluding Starlark-defined options) is a member variable of a
 `FragmentOptions` subclass that has the `@Option` annotation, which specifies
@@ -212,7 +212,7 @@ Bazel is in the business of building software, which happens by reading and
 interpreting the source code. The totality of the source code Bazel operates on
 is called "the workspace" and it is structured into repositories, packages and
 rules. A description of these concepts for the users of Bazel is available
-[here](https://docs.bazel.build/versions/main/build-ref.html).
+[here](https://bazel.build/concepts/build-ref).
 
 ### Repositories
 
@@ -379,7 +379,14 @@ Generating a new `SkyValue` involves the following steps:
 
 A consequence of this is that if not all dependencies are available in (3), the
 function needs to be completely restarted and thus computation needs to be
-re-done. This is obviously inefficient. We work around this in a number of ways:
+re-done, which is obviously inefficient. `SkyFunction.Environment.getState()`
+lets us directly work around this issue by having Skyframe maintain the
+`SkyKeyComputeState` instance between calls to `SkyFunction.compute` for the
+same `SkyKey`. Check out the example in the javadoc for
+`SkyFunction.Environment.getState()`, as well as real usages in the Bazel
+codebase.
+
+Other indirect workarounds:
 
 1.  Declaring dependencies of `SkyFunction`s in groups so that if a function
     has, say, 10 dependencies, it only needs to restart once instead of ten
@@ -387,12 +394,8 @@ re-done. This is obviously inefficient. We work around this in a number of ways:
 2.  Splitting `SkyFunction`s so that one function does not need to be restarted
     many times. This has the side effect of interning data into Skyframe that
     may be internal to the `SkyFunction`, thus increasing memory use.
-3.  Using caches "behind the back of Skyframe" to keep state (e.g. the state of
-    actions being executed in `ActionExecutionFunction.stateMap` . In the
-    extreme, this ends up resulting in writing code in continuation-passing
-    style (e.g. action execution), which does not help readability.
 
-Of course, these are all just workarounds for the limitations of Skyframe, which
+These are all just workarounds for the limitations of Skyframe, which
 is mostly a consequence of the fact that Java doesn't support lightweight
 threads and that we routinely have hundreds of thousands of in-flight Skyframe
 nodes.
@@ -428,10 +431,10 @@ Starlark is used in four contexts:
 
 The dialects available for BUILD and .bzl files are slightly different because
 they express different things. A list of differences is available
-[here](https://docs.bazel.build/versions/main/skylark/language.html#differences-between-build-and-bzl-files).
+[here](https://bazel.build/rules/language#differences-between-build-and-bzl-files).
 
 More information about Starlark is available
-[here](https://docs.bazel.build/versions/main/skylark/language.html).
+[here](https://bazel.build/rules/language).
 
 ## The loading/analysis phase
 
@@ -535,7 +538,7 @@ If a configuration transition results in multiple configurations, it's called a
 _split transition._
 
 Configuration transitions can also be implemented in Starlark (documentation
-[here](https://docs.bazel.build/versions/main/skylark/config.html))
+[here](https://bazel.build/rules/config))
 
 ### Transitive info providers
 
@@ -634,7 +637,7 @@ necessitates the following additional components:
 
 Aspects are a way to "propagate computation down the dependency graph". They are
 described for users of Bazel
-[here](https://docs.bazel.build/versions/main/skylark/aspects.html). A good
+[here](https://bazel.build/rules/aspects). A good
 motivating example is protocol buffers: a `proto_library` rule should not know
 about any particular language, but building the implementation of a protocol
 buffer message (the “basic unit” of protocol buffers) in any programming
@@ -685,7 +688,7 @@ Bazel supports multi-platform builds, that is, builds where there may be
 multiple architectures where build actions run and multiple architectures for
 which code is built. These architectures are referred to as _platforms_ in Bazel
 parlance (full documentation
-[here](https://docs.bazel.build/versions/main/platforms.html))
+[here](https://bazel.build/docs/platforms))
 
 A platform is described by a key-value mapping from _constraint settings_ (e.g.
 the concept of "CPU architecture") to _constraint values_ (e.g. a particular CPU
@@ -698,7 +701,7 @@ different compilers; for example, a particular C++ toolchain may run on a
 specific OS and be able to target some other OSes. Bazel must determine the C++
 compiler that is used based on the set execution and target platform
 (documentation for toolchains
-[here](https://docs.bazel.build/versions/main/toolchains.html)).
+[here](https://bazel.build/docs/toolchains)).
 
 In order to do this, toolchains are annotated with the set of execution and
 target platform constraints they support. In order to do this, the definition of
@@ -835,7 +838,7 @@ _will_ come to depend on all parts of your code).
 Bazel supports this by the mechanism called _visibility: _you can declare that a
 particular rule can only be depended on using the visibility attribute
 (documentation
-[here](https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes)).
+[here](https://bazel.build/reference/be/common-definitions#common-attributes)).
 This attribute is a little special because unlike every other attribute, the set
 of dependencies it generates is not simply the set of labels listed (yes, this
 is a design flaw).
@@ -1090,7 +1093,7 @@ inputs reflects the result of input discovery and pruning done before.
 
 Starlark actions can make use of the facility to declare some inputs as unused
 using the `unused_inputs_list=` argument of
-<code>[ctx.actions.run()](https://docs.bazel.build/versions/main/skylark/lib/actions.html#run)</code>.
+<code>[ctx.actions.run()](https://bazel.build/rules/lib/actions#run)</code>.
 
 ### Various ways to run actions: Strategies/ActionContexts
 
@@ -1254,7 +1257,7 @@ runs the test in the requested way.
 Tests are run according to an elaborate protocol that uses environment variables
 to tell tests what's expected from them. A detailed description of what Bazel
 expects from tests and what tests can expect from Bazel is available
-[here](https://docs.bazel.build/versions/main/test-encyclopedia.html). At the
+[here](https://bazel.build/reference/test-encyclopedia). At the
 simplest, an exit code of 0 means success, anything else means failure.
 
 In addition to the cache status file, each test process emits a number of other
@@ -1367,7 +1370,7 @@ attribute of the first test that is executed.
 ## The query engine
 
 Bazel has a
-[little language](https://docs.bazel.build/versions/main/query-how-to.html)
+[little language](https://bazel.build/docs/query-how-to)
 used to ask it various things about various graphs. The following query kinds
 are provided:
 
@@ -1425,7 +1428,7 @@ interested in. For example, the following things are represented as events:
 *   A test was run (`TestAttempt`, `TestSummary`)
 
 Some of these events are represented outside of Bazel in the
-[Build Event Protocol](https://docs.bazel.build/versions/main/build-event-protocol.html)
+[Build Event Protocol](https://bazel.build/docs/build-event-protocol)
 (they are `BuildEvent`s). This allows not only `BlazeModule`s, but also things
 outside the Bazel process to observe the build. They are accessible either as a
 file that contains protocol messages or Bazel can connect to a server (called
@@ -1659,10 +1662,13 @@ Of integration tests, we have two kinds:
 1.  Ones implemented using a very elaborate bash test framework under
     `src/test/shell`
 2.  Ones implemented in Java. These are implemented as subclasses of
-    `AbstractBlackBoxTest`.
+    'BuildIntegrationTestCase'
 
-`AbstractBlackBoxTest` has the virtue that it works on Windows, too, but most of
-our integration tests are written in bash.
+`BuildIntegrationTestCase` is the preferred integration testing framework as it
+is well-equipped for most testing scenarios. As it is a Java framework, it
+provides debuggability and seamless integration with many common development
+tools. There are many examples of `BuildIntegrationTestCase` classes in the
+Bazel repository.
 
 Analysis tests are implemented as subclasses of `BuildViewTestCase`. There is a
 scratch file system you can use to write BUILD files, then various helper

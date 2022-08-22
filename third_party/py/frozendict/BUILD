@@ -11,7 +11,7 @@ filegroup(
 py_library(
     name = "frozendict",
     srcs = glob(["**/*.py"]),
-    srcs_version = "PY2AND3",
     imports = ["."],
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
 )

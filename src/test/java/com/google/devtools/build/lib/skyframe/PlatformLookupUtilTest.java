@@ -58,7 +58,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
       return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
           .putAll(super.getSkyFunctions(directories))
           .put(GET_PLATFORM_INFO_FUNCTION, new GetPlatformInfoFunction())
-          .build();
+          .buildOrThrow();
     }
   }
 

@@ -26,11 +26,13 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /** Implementation for the {@code py_runtime} rule. */
 public final class PyRuntime implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
     PythonConfiguration pyConfig = ruleContext.getFragment(PythonConfiguration.class);

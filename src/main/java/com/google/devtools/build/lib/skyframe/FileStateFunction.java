@@ -18,12 +18,13 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyFunction} for {@link FileStateValue}s.
@@ -33,13 +34,13 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class FileStateFunction implements SkyFunction {
 
-  private final AtomicReference<TimestampGranularityMonitor> tsgm;
-  private final AtomicReference<FilesystemCalls> syscallCache;
+  private final Supplier<TimestampGranularityMonitor> tsgm;
+  private final SyscallCache syscallCache;
   private final ExternalFilesHelper externalFilesHelper;
 
   public FileStateFunction(
-      AtomicReference<TimestampGranularityMonitor> tsgm,
-      AtomicReference<FilesystemCalls> syscallCache,
+      Supplier<TimestampGranularityMonitor> tsgm,
+      SyscallCache syscallCache,
       ExternalFilesHelper externalFilesHelper) {
     this.tsgm = tsgm;
     this.syscallCache = syscallCache;
@@ -51,6 +52,7 @@ public class FileStateFunction implements SkyFunction {
   // deciding which overload of FileStateFunctionException() to call.
   @SuppressWarnings("UseMultiCatch")
   @Override
+  @Nullable
   public FileStateValue compute(SkyKey skyKey, Environment env)
       throws FileStateFunctionException, InterruptedException {
     RootedPath rootedPath = (RootedPath) skyKey.argument();
@@ -60,12 +62,11 @@ public class FileStateFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      if (fileType == FileType.EXTERNAL_REPO
-          || fileType == FileType.EXTERNAL_IN_MANAGED_DIRECTORY) {
+      if (fileType == FileType.EXTERNAL_REPO) {
         // do not use syscallCache as files under repositories get generated during the build
-        return FileStateValue.create(rootedPath, tsgm.get());
+        return FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, tsgm.get());
       }
-      return FileStateValue.create(rootedPath, syscallCache.get(), tsgm.get());
+      return FileStateValue.create(rootedPath, syscallCache, tsgm.get());
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
       return FileStateValue.NONEXISTENT_FILE_STATE_NODE;
     } catch (InconsistentFilesystemException e) {

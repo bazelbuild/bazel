@@ -39,7 +39,6 @@ public final class MockProtoSupport {
    */
   public static void setup(MockToolsConfig config) throws IOException {
     createNetProto2(config);
-    createJavascriptJspb(config);
   }
 
   /**
@@ -63,8 +62,6 @@ public final class MockProtoSupport {
           "java_import(name = 'protocol2',",
           "            jars = [ 'protocol2.jar' ])");
 
-      config.linkTool("net/proto2/compiler/public/release/protocol_compiler_linux",
-          "net/proto2/compiler/public/protocol_compiler");
       config.linkTool("javatests/com/google/devtools/build/lib/prepackaged_protocol_deploy.jar",
           "java/com/google/io/protocol/protocol.jar");
       config.linkTool("javatests/com/google/devtools/build/lib/prepackaged_protocol2_deploy.jar",
@@ -127,13 +124,10 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "py_library(name = 'proto1',",
         "           srcs = [ 'pyproto.py' ])");
-    config.create("net/rpc/no_stubby_rpc_libs_please_dont_depend_on_this.cc", "");
     config.create(
         "net/rpc/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "cc_library(name = 'stubby12_proto_rpc_libs')",
-        "cc_library(name = 'no_stubby_rpc_libs_please_dont_depend_on_this',"
-            + " srcs=['no_stubby_rpc_libs_please_dont_depend_on_this.cc'])");
+        "cc_library(name = 'stubby12_proto_rpc_libs')");
     config.create("net/rpc4/public/core/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "cc_library(name = 'stubby4_rpc_libs')");
@@ -189,11 +183,6 @@ public final class MockProtoSupport {
         "package(default_visibility=['//visibility:public'])",
         "go_library(name = 'context',",
         "           srcs = [ 'context.go' ])");
-    config.create("third_party/py/six/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "licenses(['notice'])",
-        "py_library(name = 'six',",
-        "           srcs = [ '__init__.py' ])");
     // TODO(b/77901188): remove once j_p_l migration is complete
     config.create(
         "third_party/java/jsr250_annotations/BUILD",
@@ -207,36 +196,6 @@ public final class MockProtoSupport {
         "licenses(['notice'])",
         "go_library(name = 'metadata',",
         "           srcs = [ 'metadata.go' ])");
-  }
-
-  /** Create a dummy jspb support package. */
-  private static void createJavascriptJspb(MockToolsConfig config) throws IOException {
-    config.create(
-        "net/proto2/compiler/js/internal/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "cc_binary(name = 'protoc-gen-js',",
-        "    srcs = ['plugin.cc'])");
-    config.create(
-        "javascript/apps/jspb/BUILD",
-        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'message',",
-        "       srcs = ['message.js'],",
-        "       deps_mgmt = 'legacy')");
-    config.create(
-        "javascript/closure/array/BUILD",
-        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'array',",
-        "       srcs = ['array.js'],",
-        "       deps_mgmt = 'legacy')");
-    config.create(
-        "javascript/apps/xid/BUILD",
-        "load('//tools/build_defs/js:rules.bzl', 'js_library')",
-        "package(default_visibility=['//visibility:public'])",
-        "js_library(name = 'xid',",
-        "       srcs = ['xid.js'],",
-        "       deps_mgmt = 'legacy')");
   }
 
   public static void setupWorkspace(Scratch scratch) throws Exception {

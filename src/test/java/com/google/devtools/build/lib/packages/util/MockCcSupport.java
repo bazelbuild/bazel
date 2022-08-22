@@ -85,6 +85,12 @@ public abstract class MockCcSupport {
 
   public static final String SPLIT_FUNCTIONS = "split_functions";
 
+  public static final String FSAFDO = "fsafdo";
+
+  public static final String IMPLICIT_FSAFDO = "implicit_fsafdo";
+
+  public static final String ENABLE_FSAFDO = "enable_fsafdo";
+
   public static final ImmutableList<String> STATIC_LINK_TWEAKED_ARTIFACT_NAME_PATTERN =
       ImmutableList.of("static_library", "lib", ".lib");
 
@@ -187,23 +193,13 @@ public abstract class MockCcSupport {
 
   public void setupCcToolchainConfigForCpu(MockToolsConfig config, String... cpus)
       throws IOException {
-    if (config.isRealFileSystem()) {
-      String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
-      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
-      writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
-    } else {
-      ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
-      toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
-      for (String cpu : cpus) {
-        toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
-      }
-      new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
-          .setCcToolchainFile(readCcToolchainConfigFile())
-          .setSupportedArchs(getCrosstoolArchs())
-          .setToolchainConfigs(toolchainConfigBuilder.build())
-          .setSupportsHeaderParsing(true)
-          .write();
+
+    ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder = ImmutableList.builder();
+    toolchainConfigBuilder.add(CcToolchainConfig.getDefaultCcToolchainConfig());
+    for (String cpu : cpus) {
+      toolchainConfigBuilder.add(CcToolchainConfig.getCcToolchainConfigForCpu(cpu));
     }
+    setupCcToolchainConfig(config, toolchainConfigBuilder.build());
   }
 
   protected boolean shouldUseRealFileSystemCrosstool() {
@@ -217,6 +213,12 @@ public abstract class MockCcSupport {
   public void setupCcToolchainConfig(
       MockToolsConfig config, CcToolchainConfig.Builder ccToolchainConfig) throws IOException {
     setupCcToolchainConfig(config, ImmutableList.of(ccToolchainConfig.build()));
+  }
+
+  public void setupCcToolchainConfig(
+      MockToolsConfig config, ImmutableList.Builder<CcToolchainConfig> toolchainConfigBuilder)
+      throws IOException {
+    setupCcToolchainConfig(config, toolchainConfigBuilder.build());
   }
 
   void setupCcToolchainConfig(

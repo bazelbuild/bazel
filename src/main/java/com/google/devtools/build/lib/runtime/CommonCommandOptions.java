@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 
 /** Options common to all commands. */
 public class CommonCommandOptions extends OptionsBase {
@@ -52,6 +53,8 @@ public class CommonCommandOptions extends OptionsBase {
       help = "No-op, being removed. See https://github.com/bazelbuild/bazel/issues/13892")
   public Void allIncompatibleChanges;
 
+  // It's by design that this field is unused: this command line option takes effect by reading its
+  // value during options parsing based on its (string) name.
   @Option(
       name = "enable_platform_specific_config",
       defaultValue = "false",
@@ -115,9 +118,10 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean alwaysProfileSlowOperations;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
-  public static class UUIDConverter implements Converter<UUID> {
+  public static class UUIDConverter extends Converter.Contextless<UUID> {
 
     @Override
+    @Nullable
     public UUID convert(String input) throws OptionsParsingException {
       if (isNullOrEmpty(input)) {
         return null;
@@ -140,9 +144,10 @@ public class CommonCommandOptions extends OptionsBase {
    * Converter for options (--build_request_id) that accept prefixed UUIDs. Since we do not care
    * about the structure of this value after validation, we store it as a string.
    */
-  public static class PrefixedUUIDConverter implements Converter<String> {
+  public static class PrefixedUUIDConverter extends Converter.Contextless<String> {
 
     @Override
+    @Nullable
     public String convert(String input) throws OptionsParsingException {
       if (isNullOrEmpty(input)) {
         return null;
@@ -304,9 +309,25 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean recordFullProfilerData;
 
   @Option(
+      name = "experimental_collect_worker_data_in_profiler",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects worker's aggregated resource data.")
+  public boolean collectWorkerDataInProfiler;
+
+  @Option(
+      name = "experimental_collect_load_average_in_profiler",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects the system's overall load average.")
+  public boolean collectLoadAverageInProfiler;
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
@@ -202,41 +203,49 @@ public final class ObjcCompilationContext implements StarlarkValue {
 
     Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder addDefines(Iterable<String> defines) {
       Iterables.addAll(this.defines, defines);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPublicHeaders(Iterable<Artifact> headers) {
       Iterables.addAll(this.publicHeaders, headers);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPublicTextualHeaders(Iterable<Artifact> headers) {
       Iterables.addAll(this.publicTextualHeaders, headers);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPrivateHeaders(Iterable<Artifact> headers) {
       Iterables.addAll(this.privateHeaders, headers);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addIncludes(Iterable<PathFragment> includes) {
       Iterables.addAll(this.includes, includes);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addSystemIncludes(Iterable<PathFragment> includes) {
       Iterables.addAll(this.systemIncludes, includes);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addQuoteIncludes(Iterable<PathFragment> includes) {
       Iterables.addAll(this.quoteIncludes, includes);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addObjcProviders(Iterable<ObjcProvider> objcProviders) {
       for (ObjcProvider objcProvider : objcProviders) {
         this.strictDependencyIncludes.addAll(objcProvider.getStrictDependencyIncludes());
@@ -244,17 +253,20 @@ public final class ObjcCompilationContext implements StarlarkValue {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCcCompilationContexts(Iterable<CcCompilationContext> ccCompilationContexts) {
       Iterables.addAll(this.ccCompilationContexts, ccCompilationContexts);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDirectCcCompilationContexts(
         Iterable<CcCompilationContext> ccCompilationContexts) {
       Iterables.addAll(this.directCcCompilationContexts, ccCompilationContexts);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCcCompilationContext(CcCompilationContext ccCompilationContext) {
       this.ccCompilationContexts.add(ccCompilationContext);
       return this;

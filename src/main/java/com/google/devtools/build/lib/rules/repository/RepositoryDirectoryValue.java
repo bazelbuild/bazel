@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -25,13 +26,12 @@ import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -59,13 +59,6 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
    */
   public abstract String getErrorMsg();
 
-  /**
-   * Returns the set of relative (to the workspace root) paths to managed directories for this
-   * repository. We need to keep this information in a value, since managed directories are part of
-   * the repository definition.
-   */
-  public abstract ImmutableSet<PathFragment> getManagedDirectories();
-
   /** Represents a successful repository lookup. */
   public static final class SuccessfulRepositoryDirectoryValue extends RepositoryDirectoryValue {
     private final Path path;
@@ -73,21 +66,18 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     @Nullable private final byte[] digest;
     @Nullable private final DirectoryListingValue sourceDir;
     private final ImmutableMap<SkyKey, SkyValue> fileValues;
-    private final ImmutableSet<PathFragment> managedDirectories;
 
     private SuccessfulRepositoryDirectoryValue(
         Path path,
         boolean fetchingDelayed,
-        DirectoryListingValue sourceDir,
+        @Nullable DirectoryListingValue sourceDir,
         byte[] digest,
-        ImmutableMap<SkyKey, SkyValue> fileValues,
-        ImmutableSet<PathFragment> managedDirectories) {
+        ImmutableMap<SkyKey, SkyValue> fileValues) {
       this.path = path;
       this.fetchingDelayed = fetchingDelayed;
       this.sourceDir = sourceDir;
       this.digest = digest;
       this.fileValues = fileValues;
-      this.managedDirectories = managedDirectories;
     }
 
     @Override
@@ -111,11 +101,6 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     }
 
     @Override
-    public ImmutableSet<PathFragment> getManagedDirectories() {
-      return managedDirectories;
-    }
-
-    @Override
     public boolean equals(Object other) {
       if (this == other) {
         return true;
@@ -126,16 +111,14 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         return Objects.equal(path, otherValue.path)
             && Objects.equal(sourceDir, otherValue.sourceDir)
             && Arrays.equals(digest, otherValue.digest)
-            && Objects.equal(fileValues, otherValue.fileValues)
-            && Objects.equal(managedDirectories, otherValue.managedDirectories);
+            && Objects.equal(fileValues, otherValue.fileValues);
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(
-          path, sourceDir, Arrays.hashCode(digest), fileValues, managedDirectories);
+      return Objects.hashCode(path, sourceDir, Arrays.hashCode(digest), fileValues);
     }
 
     @Override
@@ -172,10 +155,6 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
       throw new IllegalStateException();
     }
 
-    @Override
-    public ImmutableSet<PathFragment> getManagedDirectories() {
-      throw new IllegalStateException();
-    }
   }
 
   /** Creates a key from the given repository name. */
@@ -214,39 +193,38 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     private Path path = null;
     private boolean fetchingDelayed = false;
     private byte[] digest = null;
-    private DirectoryListingValue sourceDir = null;
+    @Nullable private DirectoryListingValue sourceDir = null;
     private Map<SkyKey, SkyValue> fileValues = ImmutableMap.of();
-    private ImmutableSet<PathFragment> managedDirectories = ImmutableSet.of();
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder setPath(Path path) {
       this.path = path;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFetchingDelayed() {
       this.fetchingDelayed = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setDigest(byte[] digest) {
       this.digest = digest;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSourceDir(DirectoryListingValue sourceDir) {
       this.sourceDir = sourceDir;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFileValues(Map<SkyKey, SkyValue> fileValues) {
       this.fileValues = fileValues;
-      return this;
-    }
-
-    public Builder setManagedDirectories(Collection<PathFragment> managedDirectories) {
-      this.managedDirectories = ImmutableSet.copyOf(managedDirectories);
       return this;
     }
 
@@ -260,9 +238,8 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
           path,
           fetchingDelayed,
           sourceDir,
-          digest,
-          ImmutableMap.copyOf(fileValues),
-          managedDirectories);
+          checkNotNull(digest, "Null digest: %s %s %s", path, fetchingDelayed, sourceDir),
+          ImmutableMap.copyOf(fileValues));
     }
   }
 }

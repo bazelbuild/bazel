@@ -14,10 +14,6 @@
 """Rules for manipulation of various packaging."""
 
 load(":path.bzl", "compute_data_path", "dest_path")
-load("//tools/config:common_settings.bzl", "BuildSettingInfo")
-
-# Filetype to restrict inputs
-tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.bz2"]
 
 def _remap(remap_paths, path):
     """If path starts with a key in remap_paths, rewrite it."""
@@ -33,10 +29,6 @@ def _quote(filename, protect = "="):
 def _pkg_tar_impl(ctx):
     """Implementation of the pkg_tar rule."""
 
-    if ctx.attr._no_build_defs_pkg_flag[BuildSettingInfo].value:
-        fail("The built-in version of pkg_tar has been removed. Please use" +
-             " https://github.com/bazelbuild/rules_pkg/blob/master/pkg.")
-
     # Compute the relative path
     data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
 
@@ -51,12 +43,6 @@ def _pkg_tar_impl(ctx):
         "--owner=" + ctx.attr.owner,
         "--owner_name=" + ctx.attr.ownername,
     ]
-    if ctx.attr.mtime != -1:  # Note: Must match default in rule def.
-        if ctx.attr.portable_mtime:
-            fail("You may not set both mtime and portable_mtime")
-        args.append("--mtime=%d" % ctx.attr.mtime)
-    if ctx.attr.portable_mtime:
-        args.append("--mtime=portable")
 
     # Add runfiles if requested
     file_inputs = []
@@ -82,21 +68,6 @@ def _pkg_tar_impl(ctx):
             fail("Each input must describe exactly one file.", attr = "files")
         file_inputs += target_files
         args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
-    if ctx.attr.modes:
-        args += [
-            "--modes=%s=%s" % (_quote(key), ctx.attr.modes[key])
-            for key in ctx.attr.modes
-        ]
-    if ctx.attr.owners:
-        args += [
-            "--owners=%s=%s" % (_quote(key), ctx.attr.owners[key])
-            for key in ctx.attr.owners
-        ]
-    if ctx.attr.ownernames:
-        args += [
-            "--owner_names=%s=%s" % (_quote(key), ctx.attr.ownernames[key])
-            for key in ctx.attr.ownernames
-        ]
     if ctx.attr.extension:
         dotPos = ctx.attr.extension.find(".")
         if dotPos > 0:
@@ -104,16 +75,11 @@ def _pkg_tar_impl(ctx):
             args += ["--compression=%s" % ctx.attr.extension[dotPos:]]
         elif ctx.attr.extension == "tgz":
             args += ["--compression=gz"]
-    args += ["--tar=" + f.path for f in ctx.files.deps]
-    args += [
-        "--link=%s:%s" % (_quote(k, protect = ":"), ctx.attr.symlinks[k])
-        for k in ctx.attr.symlinks
-    ]
     arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
     ctx.actions.write(arg_file, "\n".join(args))
 
     ctx.actions.run(
-        inputs = file_inputs + ctx.files.deps + [arg_file],
+        inputs = file_inputs + [arg_file],
         executable = ctx.executable.build_tar,
         arguments = ["--flagfile", arg_file.path],
         outputs = [ctx.outputs.out],
@@ -127,48 +93,29 @@ _real_pkg_tar = rule(
     attrs = {
         "strip_prefix": attr.string(),
         "package_dir": attr.string(default = "/"),
-        "deps": attr.label_list(allow_files = tar_filetype),
         "srcs": attr.label_list(allow_files = True),
         "files": attr.label_keyed_string_dict(allow_files = True),
         "mode": attr.string(default = "0555"),
-        "modes": attr.string_dict(),
-        "mtime": attr.int(default = -1),
-        "portable_mtime": attr.bool(default = True),
         "out": attr.output(),
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
-        "owners": attr.string_dict(),
-        "ownernames": attr.string_dict(),
         "extension": attr.string(default = "tar"),
-        "symlinks": attr.string_dict(),
         "include_runfiles": attr.bool(),
         "remap_paths": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
-        ),
-        "_no_build_defs_pkg_flag": attr.label(
-            default = "//tools/build_defs/pkg:incompatible_no_build_defs_pkg",
         ),
     },
 )
 
-def pkg_tar(**kwargs):
-    # Compatibility with older versions of pkg_tar that define files as
-    # a flat list of labels.
-    if "srcs" not in kwargs:
-        if "files" in kwargs:
-            if not hasattr(kwargs["files"], "items"):
-                label = "%s//%s:%s" % (native.repository_name(), native.package_name(), kwargs["name"])
-                print("%s: you provided a non dictionary to the pkg_tar `files` attribute. " % (label,) +
-                      "This attribute was renamed to `srcs`. " +
-                      "Consider renaming it in your BUILD file.")
-                kwargs["srcs"] = kwargs.pop("files")
+def pkg_tar(name, **kwargs):
     extension = kwargs.get("extension") or "tar"
     _real_pkg_tar(
-        out = kwargs["name"] + "." + extension,
+        name = name,
+        out = name + "." + extension,
         **kwargs
     )

@@ -14,6 +14,7 @@ filegroup(
 
 java_test(
     name = "AarImportTest",
+    timeout = "long",
     srcs = ["AarImportTest.java"],
     deps = [
         ":AndroidBuildViewTestCase",
@@ -216,6 +217,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -305,7 +307,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/execution_info",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party:guava",

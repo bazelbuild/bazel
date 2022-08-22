@@ -28,9 +28,6 @@ import java.lang.annotation.Target;
  * </li>
  * <li>Non-trivial calculations and field initialization. {@link
  * com.google.devtools.build.lib.pkgcache.TestFilter} </li>
- * <li>AutoCodec has a bug that is not tested but DynamicCodec triggers the bug, so AutoCodec is
- * left for legacy reasons. {@link
- * com.google.devtools.build.lib.analysis.actions.CustomCommandLine.ExpandedTreeArtifactArg} </li>
  * <li>Some paths are forbidden for DynamicCodec. {@link
  * com.google.devtools.build.lib.skyframe.serialization.AutoRegistry} </li>
  * </ol>

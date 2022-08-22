@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@code java_runtime} */
@@ -42,6 +44,22 @@ public final class JavaRuntimeRule implements RuleDefinition {
         All files in the runtime.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(hermetic_srcs) -->
+        Files in the runtime needed for hermetic deployments.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("hermetic_srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(lib_modules) -->
+        The lib/modules file needed for hermetic deployments.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("lib_modules", LABEL)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
+        .add(
+            attr("hermetic_static_libs", LABEL_LIST)
+                .mandatoryProviders(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))
+                .allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java) -->
         The path to the java executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
