@@ -308,24 +308,5 @@ public final class ExecLogParserTest {
     assertThat(p.getNext()).isEqualTo(c);
     assertThat(p.getNext()).isNull();
   }
-
-  @Test
-  public void reorderUniqueActionsWithShardOrder() throws Exception {
-    List<String> golden = Arrays.asList();
-
-    // Include extra command arguments not present in golden
-    SpawnExec shard_1 = SpawnExec.newBuilder().addListedOutputs("shard_1").build();
-    SpawnExec shard_2 = SpawnExec.newBuilder().addListedOutputs("shard_2").build();
-    SpawnExec shard_3 = SpawnExec.newBuilder().addListedOutputs("shard_3").build();
-    Parser input = new FakeParser(Arrays.asList(shard_2, shard_3, shard_1));
-
-    ReorderingParser p = new ReorderingParser(getGolden(golden), input);
-
-    assertThat(p.getNext()).isEqualTo(shard_1);
-    assertThat(p.getNext()).isEqualTo(shard_2);
-    assertThat(p.getNext()).isEqualTo(shard_3);
-    assertThat(p.getNext()).isNull();
-  }
-
 }
 

@@ -87,7 +87,6 @@ final class ExecLogParser {
       // Value: the position of the action in the file (e.g., 0th, 1st etc).
       private final Map<String, Integer> positions;
       private int index;
-      private boolean isShardSorted;
 
       public Golden() {
         positions = new HashMap<>();
@@ -134,7 +133,7 @@ final class ExecLogParser {
 
     // use regex expression to find shard value in file
     private int getShard(SpawnExec ex) {
-      Pattern pattern = Pattern.compile("shard_[1-9][0-9]?");
+      Pattern pattern = Pattern.compile("shard_([1-9][0-9]{0,2}|1000)$");
       Matcher matcher = pattern.matcher(ex.toString());
       if (matcher.find())
         return Integer.parseInt(matcher.group(0).substring(6));

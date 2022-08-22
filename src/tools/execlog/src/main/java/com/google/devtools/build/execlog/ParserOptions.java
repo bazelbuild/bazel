@@ -60,5 +60,4 @@ public class ParserOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If set, only output the executions that used the given runner.")
   public String restrictToRunner;
-
 }
