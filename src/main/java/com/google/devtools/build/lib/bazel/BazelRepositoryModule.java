@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
@@ -127,6 +128,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFile = Optional.empty();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private Set<String> outputVerificationRules = ImmutableSet.of();
@@ -383,6 +385,21 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
+      if (repoOptions.moduleOverrides != null) {
+        Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
+        for (RepositoryOptions.ModuleOverride modOverride : repoOptions.moduleOverrides) {
+          moduleOverrideMap.put(modOverride.moduleName(),
+              LocalPathOverride.create(modOverride.path()));
+        }
+        ImmutableMap<String, ModuleOverride> newModOverrides =
+            ImmutableMap.copyOf(moduleOverrideMap);
+        if (!Maps.difference(moduleOverrides, newModOverrides).areEqual()) {
+          moduleOverrides = newModOverrides;
+        }
+      } else {
+        moduleOverrides = ImmutableMap.of();
+      }
+
       enableBzlmod.set(repoOptions.enableBzlmod);
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
@@ -438,6 +455,7 @@ public class BazelRepositoryModule extends BlazeModule {
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
         PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION, resolvedFile),
         PrecomputedValue.injected(

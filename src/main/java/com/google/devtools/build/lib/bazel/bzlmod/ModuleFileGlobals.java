@@ -52,12 +52,6 @@ import net.starlark.java.syntax.Location;
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @DocumentMethods
 public class ModuleFileGlobals {
-  /**
-   * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
-   * digit; 3) be at least 2 characters long; 4) contain only lowercase letters, digits, or one of
-   * '._-'.
-   */
-  private static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z][a-z0-9._-]*[a-z0-9]");
 
   private boolean moduleCalled = false;
   private final boolean ignoreDevDeps;
@@ -110,7 +104,7 @@ public class ModuleFileGlobals {
 
   @VisibleForTesting
   static void validateModuleName(String moduleName) throws EvalException {
-    if (!VALID_MODULE_NAME.matcher(moduleName).matches()) {
+    if (!RepositoryName.VALID_MODULE_NAME.matcher(moduleName).matches()) {
       throw Starlark.errorf(
           "invalid module name '%s': valid names must 1) only contain lowercase letters (a-z),"
               + " digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin with a"
