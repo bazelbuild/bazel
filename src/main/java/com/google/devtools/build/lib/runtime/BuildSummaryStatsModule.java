@@ -64,9 +64,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private SpawnStats spawnStats;
   private Path profilePath;
   private static final long UNKNOWN_CPU_TIME = -1;
-  private Duration cpuUserTimeForActions;
-  private Duration cpuSystemTimeForActions;
-  private Duration cpuTimeForBazelJvm;
+  private Duration cpuUserTimeForActions = Duration.ofMillis(0);
+  private Duration cpuSystemTimeForActions = Duration.ofMillis(0);
+  private Duration cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -90,9 +90,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
     statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
-    cpuUserTimeForActions = Duration.ofMillis(0);
-    cpuSystemTimeForActions = Duration.ofMillis(0);
-    cpuTimeForBazelJvm = Duration.ofMillis(UNKNOWN_CPU_TIME);
   }
 
   @Subscribe
