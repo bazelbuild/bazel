@@ -39,13 +39,12 @@ import static org.mockito.Mockito.verify;
 public class BuildSummaryStatsModuleTest {
   private BuildSummaryStatsModule buildSummaryStatsModule;
   private Reporter reporterMock;
-  private ActionKeyContext actionKeyContextMock;
   private Class tBSSM;
 
   @Before
   public void setUp() throws Exception {
     CommandEnvironment env = mock(CommandEnvironment.class);
-    actionKeyContextMock = mock(ActionKeyContext.class);
+    ActionKeyContext actionKeyContextMock = mock(ActionKeyContext.class);
     reporterMock = mock(Reporter.class);
     SkyframeExecutor skyframeExecutorMock = mock(SkyframeExecutor.class);
     EventBus eventBusMock = mock(EventBus.class);
