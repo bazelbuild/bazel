@@ -364,6 +364,25 @@ class BazelModuleTest(test_base.TestBase):
             in line for line in stderr
         ]))
 
+  def testModuleOverride(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "ss", version = "1.0")',
+    ])
+    self.ScratchFile('BUILD')
+    self.ScratchFile('WORKSPACE')
+
+    self.ScratchFile('ss/MODULE.bazel', [
+        'module(name=\'ss\')',
+    ])
+    self.ScratchFile('ss/BUILD', [
+        'filegroup(name = "whatever")',
+    ])
+    self.ScratchFile('ss/WORKSPACE')
+
+    _, stdout, stderr = self.RunBazel(
+          ['build', '--experimental_enable_bzlmod', '@ss//:all',
+          '--override_module', 'ss=' + self.Path('ss')], allow_failure=False)
+    self.assertIn('Target @@ss~override//:whatever up-to-date (nothing to build)', stderr)
 
 if __name__ == '__main__':
   unittest.main()

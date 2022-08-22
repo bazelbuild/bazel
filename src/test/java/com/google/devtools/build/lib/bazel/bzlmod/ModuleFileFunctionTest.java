@@ -65,6 +65,8 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -328,6 +330,48 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    // The version is empty here due to the override.
+    SkyKey skyKey =
+        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("code_for_b"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    ModuleFileValue moduleFileValue = result.get(skyKey);
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(
+            ModuleBuilder.create("bbb", "1.0")
+                .setKey(createModuleKey("bbb", ""))
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .build());
+  }
+
+  @Test
+  public void testModuleOverrides() throws Exception {
+    // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name = \"bbb\", version = \"1.0\")");
+    scratch.file(
+        rootDirectory.getRelative("code_for_b/MODULE.bazel").getPathString(),
+        "module(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')");
+    scratch.file(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    //Inject overrides for testing
+    Map<String, ModuleOverride> moduleOverride = new LinkedHashMap<>() {{
+      put("bbb", LocalPathOverride.create("code_for_b"));
+    }};
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
 
     // The version is empty here due to the override.
     SkyKey skyKey =
