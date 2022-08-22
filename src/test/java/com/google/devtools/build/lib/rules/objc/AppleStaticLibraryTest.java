@@ -430,8 +430,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")",
         "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
 
-    // Tests that ios_multi_cpus and ios_cpu are completely ignored.
-    useConfiguration("--ios_multi_cpus=x86_64", "--ios_cpu=x86_64", "--watchos_cpus=i386");
+    // Tests that ios_multi_cpus and cpu are completely ignored.
+    useConfiguration("--ios_multi_cpus=x86_64", "--cpu=ios_x86_64", "--watchos_cpus=i386");
 
     Action lipoAction = lipoLibAction("//package:test");
 
