@@ -16,10 +16,6 @@
 
 """Installs an Android application, possibly in an incremental way."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 from concurrent import futures
 import hashlib
@@ -37,7 +33,6 @@ import zipfile
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-import six
 
 flags.DEFINE_string("split_main_apk", None, "The main APK for split install")
 flags.DEFINE_multi_string("split_apk", [], "Split APKs to install")
@@ -181,8 +176,6 @@ class Adb(object):
 
     # Check these first so that the more specific error gets raised instead of
     # the more generic AdbError.
-    stdout = six.ensure_str(stdout)
-    stderr = six.ensure_str(stderr)
     if "device not found" in stderr:
       raise DeviceNotFoundError()
     elif "device unauthorized" in stderr:
@@ -212,7 +205,7 @@ class Adb(object):
   def GetInstallTime(self, package):
     """Get the installation time of a package."""
     _, stdout, _, _ = self._Shell("dumpsys package %s" % package)
-    match = re.search("firstInstallTime=(.*)$", six.ensure_str(stdout),
+    match = re.search("firstInstallTime=(.*)$", stdout,
                       re.MULTILINE)
     if match:
       return match.group(1)
@@ -247,8 +240,8 @@ class Adb(object):
     local = self._CreateLocalFile()
     try:
       self._Exec(["pull", remote, local])
-      with open(local, "rb") as f:
-        return six.ensure_str(f.read(), "utf-8")
+      with open(local, "r", encoding="utf-8") as f:
+        return f.read()
     except (AdbError, IOError):
       return None
 
@@ -349,8 +342,8 @@ def ParseManifest(contents):
 
 def GetAppPackage(stub_datafile):
   """Returns the app package specified in a stub data file."""
-  with open(stub_datafile, "rb") as f:
-    return six.ensure_str(f.readlines()[1], "utf-8").strip()
+  with open(stub_datafile, "r", encoding="utf-8") as f:
+    return f.readlines()[1].strip()
 
 
 def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
@@ -516,7 +509,7 @@ def ConvertNativeLibs(args):
   native_libs = {}
   if args is not None:
     for native_lib in args:
-      abi, path = six.ensure_str(native_lib).split(":")
+      abi, path = native_lib.split(":")
       if abi not in native_libs:
         native_libs[abi] = set()
 
@@ -622,7 +615,7 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
     f.result()
 
   install_manifest = [
-      six.ensure_str(name) + " " + checksum
+      name + " " + checksum
       for name, checksum in install_checksums.items()
   ]
   adb.PushString("\n".join(install_manifest),
@@ -712,7 +705,7 @@ def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
     adb.InstallMultiple(targetpath.join(execroot, apk), app_package)
 
   install_manifest = [
-      six.ensure_str(name) + " " + checksum
+      name + " " + checksum
       for name, checksum in install_checksums.items()
   ]
   adb.PushString("\n".join(install_manifest),
@@ -764,8 +757,8 @@ def IncrementalInstall(adb_path,
       if not apk:
         VerifyInstallTimestamp(adb, app_package)
 
-      with open(hostpath.join(execroot, dexmanifest), "rb") as f:
-        dexmanifest = six.ensure_str(f.read(), "utf-8")
+      with open(hostpath.join(execroot, dexmanifest), "r", encoding="utf-8") as f:
+        dexmanifest = f.read()
       UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, bool(apk))
       # TODO(ahumesky): UploadDexes waits for all the dexes to be uploaded, and
       # then UploadResources is called. We could instead enqueue everything
