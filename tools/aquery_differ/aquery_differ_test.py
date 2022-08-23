@@ -15,18 +15,12 @@
 
 import os
 import unittest
+from io import StringIO
+
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from third_party.py import mock
-import six
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ import aquery_differ
-
-# pylint: disable=g-import-not-at-top
-if six.PY2:
-  from cStringIO import StringIO
-else:
-  from io import StringIO
-# pylint: enable=g-import-not-at-top
 
 
 def make_aquery_output(action_objs, artifact_objs, path_fragment_objs):
