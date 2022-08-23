@@ -4,6 +4,8 @@ package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
 
+licenses(["notice"])
+
 # Libraries
 # =========================================================
 java_library(

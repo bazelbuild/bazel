@@ -4,6 +4,8 @@ package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
 
+licenses(["notice"])
+
 # JUnit4 test runner core code.
 java_library(
     name = "junit4",

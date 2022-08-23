@@ -4,6 +4,8 @@ package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
 
+licenses(["notice"])
+
 # Internal code for the JUnit runner that does not depend on JUnit 4.
 # Code used by the JUnit runner that does depend on JUnit 4
 # lives in the ":junit4" rule.

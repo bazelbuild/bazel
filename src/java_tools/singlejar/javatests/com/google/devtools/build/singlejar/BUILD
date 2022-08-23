@@ -4,6 +4,8 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 #   Tests for SingleJar
 package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
 
+licenses(["notice"])
+
 java_library(
     name = "libSingleJarTesting",
     testonly = 1,
