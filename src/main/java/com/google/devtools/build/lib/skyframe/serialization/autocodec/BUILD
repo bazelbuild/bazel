@@ -3,6 +3,8 @@ load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(default_visibility = ["//src:__subpackages__"])
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     srcs = glob(
