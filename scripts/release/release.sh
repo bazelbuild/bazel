@@ -225,7 +225,6 @@ function __do_release() {
     echo "Pushing the change to remote repositories"
     git push "${MASTER_REPOSITORY}" +master
     __push_ref "refs/tags/${tag_name}"
-    __cleanup_branches "${tag_name}"
   fi
 }
 
