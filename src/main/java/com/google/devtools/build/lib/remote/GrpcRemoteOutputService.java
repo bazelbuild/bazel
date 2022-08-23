@@ -591,12 +591,16 @@ public class GrpcRemoteOutputService implements OutputService, ActionResultDownl
           .setPath(fixupExecRootPath(PathFragment.create(symlink.getPath())));
     }
 
-    return Futures.transform(
-        channel.withChannelFuture(
-            channel ->
-                RemoteOutputServiceGrpc.newFutureStub(channel)
-                    .batchCreate(builder.build())),
-        (result) -> null,
+    return Futures.catchingAsync(
+        Futures.transform(
+            channel.withChannelFuture(
+                channel ->
+                    RemoteOutputServiceGrpc.newFutureStub(channel)
+                        .batchCreate(builder.build())),
+            (result) -> null,
+            MoreExecutors.directExecutor()),
+        StatusRuntimeException.class,
+        (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
         MoreExecutors.directExecutor());
   }
 
