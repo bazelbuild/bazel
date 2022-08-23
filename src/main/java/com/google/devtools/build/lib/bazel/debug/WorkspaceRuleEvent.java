@@ -117,18 +117,17 @@ public final class WorkspaceRuleEvent implements Postable {
       String ruleLabel,
       Location location) {
 
-    WorkspaceLogProtos.ExtractEvent.Builder e =
+    ExtractEvent e =
         WorkspaceLogProtos.ExtractEvent.newBuilder()
             .setArchive(archive)
             .setOutput(output)
-            .setStripPrefix(stripPrefix);
-    if (renameFiles != null) {
-      e = e.putAllRenameFiles(renameFiles);
-    }
+            .setStripPrefix(stripPrefix)
+            .putAllRenameFiles(renameFiles)
+            .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
-    result = result.setExtractEvent(e.build());
+    result = result.setExtractEvent(e);
     if (location != null) {
       result = result.setLocation(location.toString());
     }
@@ -155,12 +154,10 @@ public final class WorkspaceRuleEvent implements Postable {
             .setSha256(sha256)
             .setIntegrity(integrity)
             .setType(type)
-            .setStripPrefix(stripPrefix);
+            .setStripPrefix(stripPrefix)
+            .putAllRenameFiles(renameFiles);
     for (URL u : urls) {
       e.addUrl(u.toString());
-    }
-    if (renameFiles != null) {
-      e = e.putAllRenameFiles(renameFiles);
     }
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =

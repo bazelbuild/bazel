@@ -58,9 +58,7 @@ public abstract class CompressedTarFunction implements Decompressor {
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
         String entryName = entry.getName();
-        if (renameFiles != null) {
-          entryName = renameFiles.getOrDefault(entryName, entryName);
-        }
+        entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 

@@ -757,7 +757,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             doc =
                 "An optional dict specifying files to rename during the extraction. Archive entries"
                     + " with names exactly matching a key will be renamed to the value, prior to"
-                    + " any directory prefix adjustment."),
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
       })
   public void extract(
       Object archive,
@@ -908,7 +910,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             doc =
                 "An optional dict specifying files to rename during the extraction. Archive entries"
                     + " with names exactly matching a key will be renamed to the value, prior to"
-                    + " any directory prefix adjustment."),
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
       })
   public StructImpl downloadAndExtract(
       Object url,

@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -40,7 +42,7 @@ public class DecompressorDescriptor {
   private DecompressorDescriptor(
       String targetKind, String targetName, Path archivePath, Path repositoryPath,
       @Nullable String prefix, boolean executable,
-      @Nullable Map<String, String> renameFiles,
+      Map<String, String> renameFiles,
       Decompressor decompressor) {
     this.targetKind = targetKind;
     this.targetName = targetName;
@@ -135,8 +137,12 @@ public class DecompressorDescriptor {
       if (decompressor == null) {
         decompressor = DecompressorValue.getDecompressor(archivePath);
       }
+      if (renameFiles == null) {
+        renameFiles = Collections.emptyMap();
+      }
       return new DecompressorDescriptor(
-          targetKind, targetName, archivePath, repositoryPath, prefix, executable, renameFiles, decompressor);
+          targetKind, targetName, archivePath, repositoryPath, prefix, executable,
+          renameFiles, decompressor);
     }
 
     @CanIgnoreReturnValue
@@ -177,7 +183,7 @@ public class DecompressorDescriptor {
 
     @CanIgnoreReturnValue
     public Builder setRenameFiles(Map<String, String> renameFiles) {
-      this.renameFiles = renameFiles;
+      this.renameFiles = ImmutableMap.copyOf(renameFiles);
       return this;
     }
 

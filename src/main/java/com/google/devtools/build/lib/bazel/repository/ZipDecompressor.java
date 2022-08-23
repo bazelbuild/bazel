@@ -88,9 +88,7 @@ public class ZipDecompressor implements Decompressor {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
         String entryName = entry.getName();
-        if (renameFiles != null) {
-          entryName = renameFiles.getOrDefault(entryName, entryName);
-        }
+        entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {

@@ -57,9 +57,7 @@ public class ArFunction implements Decompressor {
       ArArchiveEntry entry;
       while ((entry = arStream.getNextArEntry()) != null) {
         String entryName = entry.getName();
-        if (renameFiles != null) {
-          entryName = renameFiles.getOrDefault(entryName, entryName);
-        }
+        entryName = renameFiles.getOrDefault(entryName, entryName);
         Path filePath = descriptor.repositoryPath().getRelative(entryName);
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
