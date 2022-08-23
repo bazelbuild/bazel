@@ -752,6 +752,69 @@ EOF
   assert_contains "abc" bazel-genfiles/external/x/catter.out
 }
 
+function test_adding_prefix_zip() {
+  mkdir -p z
+  echo "abc" > z/w
+  zip -r z z
+  local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
+  serve_file z.zip
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "ws",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    add_prefix = "x/y",
+    build_file = "@//:ws.BUILD",
+)
+EOF
+  cat > ws.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["x/y/z/w"],
+)
+EOF
+  touch BUILD
+
+  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/ws/catter.out
+}
+
+function test_adding_and_stripping_prefix_zip() {
+  mkdir -p z
+  echo "abc" > z/w
+  zip -r z z
+  local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
+  serve_file z.zip
+
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "ws",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    strip_prefix = "z",
+    add_prefix = "x",
+    build_file = "@//:ws.BUILD",
+)
+EOF
+  cat > ws.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["x/w"],
+)
+EOF
+  touch BUILD
+
+  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/ws/catter.out
+}
+
 function test_moving_build_file() {
   echo "abc" > w
   tar czf x.tar.gz w

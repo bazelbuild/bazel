@@ -1,5 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,

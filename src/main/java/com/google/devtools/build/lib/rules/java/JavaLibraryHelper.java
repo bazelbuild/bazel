@@ -312,7 +312,7 @@ public final class JavaLibraryHelper {
       } else {
         artifactsBuilder.addCompileTimeJarAsFullJar(output);
       }
-    } else if (!resources.isEmpty()) {
+    } else if (!resources.isEmpty() || !resourceJars.isEmpty()) {
       artifactsBuilder.addRuntimeJar(output);
     }
 

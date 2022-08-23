@@ -205,18 +205,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
 
-  @Deprecated
-  @Option(
-      name = "ios_cpu",
-      defaultValue = DEFAULT_IOS_CPU,
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help =
-          "No-op. Kept here for backwards compatibility. This field will be removed in a "
-              + "future release.")
-  public String iosCpu;
-
   @Option(
     name = "apple_compiler",
     defaultValue = "null",
