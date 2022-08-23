@@ -86,6 +86,27 @@ public class CompressedTarFunctionTest {
     assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
   }
 
+  /**
+   * Test that entry renaming is applied prior to prefix stripping.
+   */
+  @Test
+  public void testDecompressWithRenamedFilesAndPrefix() throws Exception {
+    String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
+
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(
+      innerDirName + "/hardLinkFile",
+      innerDirName + "/renamedFile");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor.createDescriptorBuilder()
+            .setPrefix(ROOT_FOLDER_NAME)
+            .setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder);
+
+    Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
+    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+  }
+
   private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {
     descriptorBuilder.setDecompressor(TarGzFunction.INSTANCE);
     return new CompressedTarFunction() {
