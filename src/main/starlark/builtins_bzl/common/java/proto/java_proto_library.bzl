@@ -114,6 +114,7 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
             exports = exports,
             output = output_jar,
             output_source_jar = source_jar,
+            strict_deps = ctx.fragments.proto.strict_proto_deps(),
             injecting_rule_kind = injecting_rule_kind,
             javac_opts = java_toolchain.compatible_javacopts("proto"),
             enable_jspecify = False,
@@ -140,7 +141,7 @@ bazel_java_proto_aspect = aspect(
     attr_aspects = ["deps", "exports"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],
-    fragments = ["java"],
+    fragments = ["java", "proto"],
 )
 
 def bazel_java_proto_library_rule(ctx):
