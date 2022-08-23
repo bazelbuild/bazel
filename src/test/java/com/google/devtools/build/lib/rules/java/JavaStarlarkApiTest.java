@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -3344,9 +3345,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    Depset hermeticStaticLibs = (Depset) myInfo.getValue("hermetic_static_libs");
+    @SuppressWarnings("unchecked")
+    Sequence<CcInfo> hermeticStaticLibs =
+        (Sequence<CcInfo>) myInfo.getValue("hermetic_static_libs");
+    assertThat(hermeticStaticLibs).hasSize(1);
     assertThat(
-            hermeticStaticLibs.getSet(LibraryToLink.class).toList().stream()
+            hermeticStaticLibs.get(0).getCcLinkingContext().getLibraries().toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("a/libStatic");
   }
