@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -114,6 +115,63 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void analysisTestNotReturningAnalysisTestResultInfo_cannotPropagate() throws Exception {
+    scratch.file(
+        "test/BUILD", //
+        "providerless_analysis_test(name = 'providerless')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:providerless");
+    assertContainsEvent(
+        "Error while collecting analysis-phase failure information for '//test:providerless': rules"
+            + " with analysis_test=true must return an instance of AnalysisTestResultInfo");
+  }
+
+  /** Regression test for b/233890545 */
+  @Test
+  public void analysisTestExpectingFailureDependedOnByAnalysisTest_cannotPropagate()
+      throws Exception {
+    useConfiguration("--allow_analysis_failures=false");
+    scratch.file(
+        "test/extension.bzl",
+        "def bad_rule_impl(ctx):",
+        "   fail('Bad rule fails')",
+        "",
+        "bad_rule = rule(",
+        "  implementation = bad_rule_impl,",
+        "  attrs = {'dep': attr.label()}",
+        ")",
+        "",
+        "def analysis_test_impl(ctx):",
+        "  return [AnalysisTestResultInfo(success = False, message = 'Expect failure')]",
+        "",
+        "_transition = analysis_test_transition(",
+        "  settings = {'//command_line_option:allow_analysis_failures': 'True'}",
+        ")",
+        "",
+        "analysis_test = rule(",
+        "  implementation = analysis_test_impl,",
+        "  analysis_test = True,",
+        "  attrs = {'dep': attr.label(cfg = _transition)}",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'bad_rule', 'analysis_test')",
+        "",
+        "analysis_test(name = 'outer', dep = ':inner')",
+        "analysis_test(name = 'inner', dep = ':tested_by_inner')",
+        "bad_rule(name = 'tested_by_inner')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:outer");
+    assertContainsEvent(
+        "Error while collecting analysis-phase failure information for '//test:inner':"
+            + " analysis_test rule '//test:inner' cannot be transitively depended on by another"
+            + " analysis test rule");
+  }
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -122,7 +180,17 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
                 ((MockRule)
                     () ->
                         MockRule.factory(FailingRuleConfiguredTargetFactory.class)
-                            .define("native_rule_with_failing_configured_target_factory")));
+                            .define("native_rule_with_failing_configured_target_factory")))
+            .addRuleDefinition(
+                (MockRule)
+                    () ->
+                        MockRule.ancestor(
+                                BaseRuleClasses.TestBaseRule.class,
+                                BaseRuleClasses.NativeBuildRule.class)
+                            .type(RuleClassType.TEST)
+                            .define(
+                                "providerless_analysis_test",
+                                (ruleClassBuilder, env) -> ruleClassBuilder.setIsAnalysisTest()));
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
