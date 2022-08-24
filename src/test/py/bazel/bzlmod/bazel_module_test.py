@@ -379,7 +379,7 @@ class BazelModuleTest(test_base.TestBase):
     ])
     self.ScratchFile('ss/WORKSPACE')
 
-    _, stdout, stderr = self.RunBazel(
+    _, _, stderr = self.RunBazel(
           ['build', '--experimental_enable_bzlmod', '@ss//:all',
           '--override_module', 'ss=' + self.Path('ss')], allow_failure=False)
     self.assertIn('Target @@ss~override//:whatever up-to-date (nothing to build)', stderr)

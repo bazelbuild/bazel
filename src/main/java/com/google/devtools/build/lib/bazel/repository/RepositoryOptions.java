@@ -315,19 +315,18 @@ public class RepositoryOptions extends OptionsBase {
       }
 
       if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces[0]).matches()) {
-        throw new OptionsParsingException(
+        throw new OptionsParsingException(String.format(
             "invalid module name '%s': valid names must 1) only contain lowercase letters (a-z),"
                 + " digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin with a"
                 + " lowercase letter; 3) end with a lowercase letter or digit; 4) be at least two"
                 + " characters long.",
-            pieces[0]);
+            pieces[0]));
       }
 
       OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
           new OptionsUtils.AbsolutePathFragmentConverter();
-      PathFragment path;
       try {
-        path = absolutePathFragmentConverter.convert(pieces[1]);
+        var unused = absolutePathFragmentConverter.convert(pieces[1]);
       } catch (OptionsParsingException e) {
         throw new OptionsParsingException(
             "Module override directory must be an absolute path", input, e);

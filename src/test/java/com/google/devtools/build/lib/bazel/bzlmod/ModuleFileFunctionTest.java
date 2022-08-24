@@ -369,9 +369,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
     //Inject overrides for testing
-    Map<String, ModuleOverride> moduleOverride = new LinkedHashMap<>() {{
-      put("bbb", LocalPathOverride.create("code_for_b"));
-    }};
+    Map<String, ModuleOverride> moduleOverride =
+        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("code_for_b")));
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
 
     // The version is empty here due to the override.
