@@ -749,8 +749,24 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " archive. Instead of needing to specify this prefix over and over in the"
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
       })
-  public void extract(Object archive, Object output, String stripPrefix, StarlarkThread thread)
+  public void extract(
+      Object archive,
+      Object output,
+      String stripPrefix,
+      Dict<?, ?> renameFiles, // <String, String> expected
+      StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     StarlarkPath archivePath = getPath("extract()", archive);
 
@@ -762,11 +778,15 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     StarlarkPath outputPath = getPath("extract()", output);
     checkInOutputDirectory("write", outputPath);
 
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(
             archive.toString(),
             output.toString(),
             stripPrefix,
+            renameFilesMap,
             rule.getLabel().toString(),
             thread.getCallerLocation());
     env.getListener().post(w);
@@ -782,6 +802,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             .setArchivePath(archivePath.getPath())
             .setRepositoryPath(outputPath.getPath())
             .setPrefix(stripPrefix)
+            .setRenameFiles(renameFilesMap)
             .build());
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
@@ -881,6 +902,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " risk to omit the checksum as remote files can change. At best omitting this"
                     + " field will make your build non-hermetic. It is optional to make development"
                     + " easier but should be set before shipping."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -892,6 +924,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       String canonicalId,
       Dict<?, ?> auth, // <String, Dict> expected
       String integrity,
+      Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     Map<URI, Map<String, String>> authHeaders = getAuthHeaders(getAuthContents(auth, "auth"));
@@ -911,6 +944,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       checksumValidation = e;
     }
 
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadAndExtractEvent(
             urls,
@@ -919,6 +955,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             integrity,
             type,
             stripPrefix,
+            renameFilesMap,
             rule.getLabel().toString(),
             thread.getCallerLocation());
 
@@ -977,6 +1014,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               .setArchivePath(downloadedPath)
               .setRepositoryPath(outputPath.getPath())
               .setPrefix(stripPrefix)
+              .setRenameFiles(renameFilesMap)
               .build());
       env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }

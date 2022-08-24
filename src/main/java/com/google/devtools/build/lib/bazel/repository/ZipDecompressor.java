@@ -79,6 +79,7 @@ public class ZipDecompressor implements Decompressor {
       throws IOException, InterruptedException {
     Path destinationDirectory = descriptor.repositoryPath();
     Optional<String> prefix = descriptor.prefix();
+    Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
@@ -86,7 +87,9 @@ public class ZipDecompressor implements Decompressor {
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        String entryName = entry.getName();
+        entryName = renameFiles.getOrDefault(entryName, entryName);
+        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;

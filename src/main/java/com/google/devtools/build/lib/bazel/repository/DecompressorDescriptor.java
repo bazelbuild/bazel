@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -33,17 +36,25 @@ public class DecompressorDescriptor {
   private final Path repositoryPath;
   private final Optional<String> prefix;
   private final boolean executable;
+  private final Map<String, String> renameFiles;
   private final Decompressor decompressor;
 
   private DecompressorDescriptor(
-      String targetKind, String targetName, Path archivePath, Path repositoryPath,
-      @Nullable String prefix, boolean executable, Decompressor decompressor) {
+      String targetKind,
+      String targetName,
+      Path archivePath,
+      Path repositoryPath,
+      @Nullable String prefix,
+      boolean executable,
+      Map<String, String> renameFiles,
+      Decompressor decompressor) {
     this.targetKind = targetKind;
     this.targetName = targetName;
     this.archivePath = archivePath;
     this.repositoryPath = repositoryPath;
     this.prefix = Optional.fromNullable(prefix);
     this.executable = executable;
+    this.renameFiles = renameFiles;
     this.decompressor = decompressor;
   }
 
@@ -71,6 +82,10 @@ public class DecompressorDescriptor {
     return executable;
   }
 
+  public Map<String, String> renameFiles() {
+    return renameFiles;
+  }
+
   public Decompressor getDecompressor() {
     return decompressor;
   }
@@ -92,12 +107,13 @@ public class DecompressorDescriptor {
         && Objects.equals(repositoryPath, descriptor.repositoryPath)
         && Objects.equals(prefix, descriptor.prefix)
         && Objects.equals(executable, descriptor.executable)
+        && Objects.equals(renameFiles, descriptor.renameFiles)
         && decompressor == descriptor.decompressor;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(targetKind, targetName, archivePath, repositoryPath, prefix);
+    return Objects.hash(targetKind, targetName, archivePath, repositoryPath, prefix, renameFiles);
   }
 
   public static Builder builder() {
@@ -115,6 +131,7 @@ public class DecompressorDescriptor {
     private Path repositoryPath;
     private String prefix;
     private boolean executable;
+    private Map<String, String> renameFiles;
     private Decompressor decompressor;
 
     private Builder() {
@@ -124,8 +141,18 @@ public class DecompressorDescriptor {
       if (decompressor == null) {
         decompressor = DecompressorValue.getDecompressor(archivePath);
       }
+      if (renameFiles == null) {
+        renameFiles = Collections.emptyMap();
+      }
       return new DecompressorDescriptor(
-          targetKind, targetName, archivePath, repositoryPath, prefix, executable, decompressor);
+          targetKind,
+          targetName,
+          archivePath,
+          repositoryPath,
+          prefix,
+          executable,
+          renameFiles,
+          decompressor);
     }
 
     @CanIgnoreReturnValue
@@ -161,6 +188,12 @@ public class DecompressorDescriptor {
     @CanIgnoreReturnValue
     public Builder setExecutable(boolean executable) {
       this.executable = executable;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setRenameFiles(Map<String, String> renameFiles) {
+      this.renameFiles = ImmutableMap.copyOf(renameFiles);
       return this;
     }
 

@@ -47,6 +47,7 @@ public abstract class CompressedTarFunction implements Decompressor {
       throw new InterruptedException();
     }
     Optional<String> prefix = descriptor.prefix();
+    Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
@@ -56,7 +57,9 @@ public abstract class CompressedTarFunction implements Decompressor {
       TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        String entryName = entry.getName();
+        entryName = renameFiles.getOrDefault(entryName, entryName);
+        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
         if (prefix.isPresent() && !foundPrefix) {

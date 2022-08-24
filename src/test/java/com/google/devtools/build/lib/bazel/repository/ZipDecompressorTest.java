@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescript
 import static com.google.devtools.build.lib.bazel.repository.TestArchiveDescriptor.ROOT_FOLDER_NAME;
 
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.HashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -66,6 +67,43 @@ public class ZipDecompressorTest {
     Path outputDir = decompress(descriptorBuilder);
 
     archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
+  }
+
+  /**
+   * Test decompressing a zip file, with some entries being renamed during the extraction process.
+   */
+  @Test
+  public void testDecompressWithRenamedFiles() throws Exception {
+    TestArchiveDescriptor archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", false);
+    String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
+
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(innerDirName + "/hardLinkFile", innerDirName + "/renamedFile");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor.createDescriptorBuilder().setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder);
+
+    Path innerDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
+    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
+  }
+
+  /** Test that entry renaming is applied prior to prefix stripping. */
+  @Test
+  public void testDecompressWithRenamedFilesAndPrefix() throws Exception {
+    TestArchiveDescriptor archiveDescriptor = new TestArchiveDescriptor(ARCHIVE_NAME, "out", false);
+    String innerDirName = ROOT_FOLDER_NAME + "/" + INNER_FOLDER_NAME;
+
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put(innerDirName + "/hardLinkFile", innerDirName + "/renamedFile");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        archiveDescriptor
+            .createDescriptorBuilder()
+            .setPrefix(ROOT_FOLDER_NAME)
+            .setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder);
+
+    Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
+    assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
   }
 
   private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {

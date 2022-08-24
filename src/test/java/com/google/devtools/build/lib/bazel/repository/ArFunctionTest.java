@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -60,6 +61,22 @@ public class ArFunctionTest {
     // There are 20 bytes in the content "this is the second test file"
     assertThat(secondFile.getFileSize()).isEqualTo(29);
     assertThat(secondFile.isSymbolicLink()).isFalse();
+  }
+
+  /**
+   * Test decompressing an ar file, with some entries being renamed during the extraction process.
+   */
+  @Test
+  public void testDecompressWithRenamedFiles() throws Exception {
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put("archived_first.txt", "renamed_file.txt");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        createDescriptorBuilder().setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder);
+
+    assertThat(outputDir.exists()).isTrue();
+    Path renamedFile = outputDir.getRelative("renamed_file.txt");
+    assertThat(renamedFile.exists()).isTrue();
   }
 
   private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {

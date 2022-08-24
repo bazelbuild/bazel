@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
 
@@ -49,11 +50,15 @@ public class ArFunction implements Decompressor {
       throw new InterruptedException();
     }
 
+    Map<String, String> renameFiles = descriptor.renameFiles();
+
     try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
       ArArchiveInputStream arStream = new ArArchiveInputStream(decompressorStream);
       ArArchiveEntry entry;
       while ((entry = arStream.getNextArEntry()) != null) {
-        Path filePath = descriptor.repositoryPath().getRelative(entry.getName());
+        String entryName = entry.getName();
+        entryName = renameFiles.getOrDefault(entryName, entryName);
+        Path filePath = descriptor.repositoryPath().getRelative(entryName);
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           // ar archives don't contain any directory information, so this should never
