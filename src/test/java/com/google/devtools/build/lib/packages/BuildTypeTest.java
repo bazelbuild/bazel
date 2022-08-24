@@ -357,6 +357,50 @@ public final class BuildTypeTest {
   }
 
   @Test
+  public void testSelectorDict() throws Exception {
+    Object selector1 =
+        new SelectorValue(
+            ImmutableMap.of(
+                "//conditions:a",
+                ImmutableMap.of("//a:a", "a"),
+                "//conditions:b",
+                ImmutableMap.of("//b:b", "b")),
+            "");
+    Object selector2 =
+        new SelectorValue(
+            ImmutableMap.of(
+                "//conditions:c",
+                ImmutableMap.of("//c:c", "c"),
+                "//conditions:d",
+                ImmutableMap.of("//d:d", "d")),
+            "");
+    BuildType.SelectorList<Map<Label, String>> selectorList =
+        new BuildType.SelectorList<>(
+            ImmutableList.of(selector1, selector2),
+            null,
+            labelConverter,
+            BuildType.LABEL_KEYED_STRING_DICT);
+
+    assertThat(selectorList.getOriginalType()).isEqualTo(BuildType.LABEL_KEYED_STRING_DICT);
+    assertThat(selectorList.getKeyLabels())
+        .containsExactly(
+            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:c", ImmutableMap.of()),
+            Label.parseAbsolute("//conditions:d", ImmutableMap.of()));
+
+    List<Selector<Map<Label, String>>> selectors = selectorList.getSelectors();
+    assertThat(selectors.get(0).getEntries().entrySet())
+        .containsExactlyElementsIn(
+            ImmutableMap.of(
+                    Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
+                    ImmutableMap.of(Label.create("@//a", "a"), "a"),
+                    Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
+                    ImmutableMap.of(Label.create("@//b", "b"), "b"))
+                .entrySet());
+  }
+
+  @Test
   public void testSelectorListMixedTypes() throws Exception {
     Object selector1 =
         new SelectorValue(ImmutableMap.of("//conditions:a", ImmutableList.of("//a:a")), "");
