@@ -340,7 +340,7 @@ java_library(
         ":rule_configured_object_value",
         ":rule_definition_environment",
         ":run_environment_info",
-        "runfiles_library_info",
+        ":runfiles_library_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
