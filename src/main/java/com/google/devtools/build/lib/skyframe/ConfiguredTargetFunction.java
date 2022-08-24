@@ -1263,7 +1263,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } else {
       Preconditions.checkState(
           analysisEnvironment.getRegisteredActions().isEmpty(),
-          "Non-rule can't have actions: %s %s %s %s",
+          "Non-rule can't have actions: %s %s %s",
           configuredTargetKey,
           analysisEnvironment.getRegisteredActions(),
           configuredTarget);
