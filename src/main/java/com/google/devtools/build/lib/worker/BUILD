@@ -24,6 +24,7 @@ java_library(
             "WorkerMetric.java",
             "WorkerMetricsEvent.java",
             "WorkerOptions.java",
+            "WorkerLifecycleManager.java",
         ],
     ),
     deps = [
@@ -64,6 +65,7 @@ java_library(
 java_library(
     name = "worker_spawn_runner",
     srcs = [
+        "WorkerLifecycleManager.java",
         "WorkerParser.java",
         "WorkerSpawnRunner.java",
     ],
@@ -92,6 +94,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:apache_commons_pool2",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party/protobuf:protobuf_java",
     ],
@@ -116,11 +120,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/events",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -174,6 +178,7 @@ java_library(
     name = "worker_options",
     srcs = ["WorkerOptions.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
