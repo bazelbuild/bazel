@@ -127,6 +127,7 @@ public class ConsistencyTest {
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
         "--experimental_bzl_visibility_allowlist=" + rand.nextDouble(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
+        "--enable_bzlmod=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
@@ -172,6 +173,7 @@ public class ConsistencyTest {
             ImmutableList.of(String.valueOf(rand.nextDouble())))
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.ENABLE_BZLMOD, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, rand.nextBoolean())

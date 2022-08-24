@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -155,7 +156,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .buildOrThrow(),
             differencer);
 
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
@@ -166,7 +169,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.set(
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
-    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
   }
 

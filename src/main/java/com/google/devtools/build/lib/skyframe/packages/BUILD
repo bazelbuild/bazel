@@ -96,6 +96,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )

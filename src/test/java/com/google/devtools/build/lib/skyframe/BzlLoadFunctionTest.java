@@ -92,11 +92,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
-  @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
     try {
       moduleRoot = scratch.dir("modules");
@@ -907,6 +902,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBzlFileFromBzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry
         .addModule(

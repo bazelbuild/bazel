@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,6 +47,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link SkyFunction} that returns all registered toolchains available for toolchain resolution.
@@ -57,7 +58,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     BuildConfigurationValue configuration =
         (BuildConfigurationValue)
             env.getValue(((RegisteredToolchainsValue.Key) skyKey).getConfigurationKey());
@@ -87,7 +88,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     // Get registered toolchains from bzlmod.
-    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(env);
+    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(starlarkSemantics, env);
     if (bzlmodToolchains == null) {
       return null;
     }
@@ -144,9 +145,10 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   }
 
   @Nullable
-  private static ImmutableList<TargetPattern> getBzlmodToolchains(Environment env)
+  private static ImmutableList<TargetPattern> getBzlmodToolchains(
+      StarlarkSemantics semantics, Environment env)
       throws InterruptedException, RegisteredToolchainsFunctionException {
-    if (!RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+    if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       return ImmutableList.of();
     }
     BazelModuleResolutionValue bazelModuleResolutionValue =

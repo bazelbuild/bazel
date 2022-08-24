@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -44,7 +43,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,14 +64,10 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
   }
 
-  @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
   @Before
-  public void setUpForBzlmod() throws IOException, ParseException {
-    scratch.file("MODULE.bazel", "module()");
+  public void setUpForBzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+    scratch.file("MODULE.bazel");
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(scratch.dir("modules").getPathString());
     ModuleFileFunction.REGISTRIES.set(
         getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of(registry.getUrl()));
