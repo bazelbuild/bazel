@@ -1,3 +1,213 @@
+## Release 6.0.0-pre.20220818.1 (2022-08-24)
+
+```
+Baseline: 62d1b0b2b6c9646855698b5d7f9515521bc37a45
+```
+
+Incompatible changes:
+
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since the path would refer to a
+    netrc file inside the external repository by absolute path.
+    Migration should be straightforward.
+  - genrule switched to use exec transition instead of host. This can
+    break targets with hardcoded output paths. To avoid using
+    hardcoded paths use make variables, see
+    https://docs.bazel.build/versions/4.2.2/be/make-variables.html#pre
+    defined_label_variables
+  - this incompatible change breaks old instances of http_archive
+    that specified netrc as an absolute path. It is unlikely there
+    are many instances in the wild since...
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+  - Error Prone now checks for unused return values of additional
+    methods on `java.lang.Object`, which can be disabled using
+    `--javacopts=-Xep:ReturnValueIgnored:OFF`
+  - The --incompatible_existing_rules_immutable_view flag has been
+    flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/13907 for
+    migration notes.
+  - Split up the C++ archive from the C++ link action and set
+    `CppArchive` as mnemonic.
+  - workspace(managed_directories=) is not available anymore.
+  - --legacy_important_outputs now has a default of false.
+  - --legacy_important_outputs default reverted to true.
+  - objc_library now requires CcInfo in its deps.  If this breaks
+    you, add empty CcInfo() to your rule.
+  - Flag --experimental_local_memory_estimate removed.
+  - Added a new flag
+    --incompatible_unambiguous_label_stringification, which causes
+    labels in the main repo to stringify into unambiguous forms
+    starting with an @. See
+    https://github.com/bazelbuild/bazel/issues/15916 for more
+    information.
+
+Important changes:
+
+  - Deprecate --incompatible_applicable_licenses flag, in preparation
+    for removal in Bazel 6.x.
+  - Treat py_*.srcs_version="PY2" the same as "PY2ONLY".
+  - The Build Event Protocol now contains file digests and sizes
+    along with the file name and URI.
+  - Refactor system suspend event handling.
+  - alias() can now select() directly on constraint_value()
+  - Allow \a \b \f \v escape sequences in Starlark.
+  - Match remote and local xcode version by most granular version.
+  - Adds `--experimental_worker_multiplex_sandboxing` flag that
+    controls whether to sandbox multiplex workers that support it.
+  - provider() has a new parameter: init, a callback for performing
+    pre-processing and validation of field values. Iff this parameter
+    is set,
+    provider() returns a tuple of 2 elements: the usual provider
+    symbol (which,
+    when called, invokes init) and a raw constructor (which bypasses
+    init).
+  - Tests that fail to create or complete their
+    `TestAttemptContinuation` by
+    throwing an `ExecException` will report an `INCOMPLETE` status.
+    Previously, Bazel
+    would fail to report any status for the test attempt.
+  - Fixed an issue where Bazel could erroneously report a test passes
+    in coverage mode without actually running the test.
+  - Include more information about configurations in cquery proto
+    formatted output. This deprecates the configuration field of
+    AnalysisProtosV2.ConfiguredTarget, and adds a new field,
+    configuration_id, to
+    be used instead.
+  - experimental cc_library.implementation_deps inverted to
+    interface_deps
+  - In aquery and cquery proto output, indicate if a configuration is
+    a
+    tool or non-tool configuration.
+  - Include complete configurations in cquery proto output.
+  - experimental cc_library.implementation_deps inverted to
+    interface_deps
+  - Make protocOpts() publicly accessible.
+  - Add some documentation about how configuration information is
+    conveyed in cquery proto output.
+  - Introduces experimental static library linking API under
+    apple_common.link_multi_arch_static_library
+  - Further deprecation and removal of pkg_tar. Stop supporting
+    legacy use of 'files' attribute, where it could be a list of
+    labels instead of a map of paths to labels.
+  - Removed --incompatible_no_build_defs_pkg flag. It never fulfilled
+    its purpose because --all_incompatible_changes would never set
+    it. The last rule it gated (pkg_tar) is scheduled to be removed
+    in Bazel 6.x.
+  - Add coverage configuration fragment, used to expose
+    output_generator label.
+  - Bazel now no longer includes system headers on macOS in coverage
+    reports (#14969).
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+  - The default dexer is now d8. dx can be optionally enabled using:
+      --define=android_dexmerger_tool=dx_dexmerger \
+      --define=android_incremental_dexing_tool=dx_dexbuilder \
+      --define=android_standalone_dexing_tool=dx_compat_dx \
+      --use_workers_with_dexbuilder
+  - Packaging support for deploy JAR embedded JDK files (hermetic
+    Java).
+  - Don't stamp cc_common.link actions for tool dependencies.
+  - Starlark test rules can use the new inherited_environment
+    parameter of testing.TestEnvironment to specify environment
+    variables
+    whose values should be inherited from the shell environment.
+  - Enable merging permissions during Android manifest merging with
+    the --merge_android_manifest_permissions flag.
+  - Allow specialization to work with constraint_values.
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - Make ijar / java_import preserve classes with `@kotlin.Metadata`
+    annotations
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather than always linking statically when Windows is
+    the _host_).
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather than always linking statically when Windows is
+    the _host_).
+  - Add devtools/build/lib/worker:work_request_handlers to the remote
+    android tools release package. This will be transitively packaged
+    into all_android_tools.
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - android_sdk_repository read $ANDROID_SDK_ROOT in addition to
+    $ANDROID_HOME.
+  - Advance android_tools_pkg version to 0.24.0.
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather
+    than always linking statically when Windows is the _host_).
+  - Bazel uses the D8 jar from Maven instead of the SDK.
+  - "blaze config" now only reports info from the last build. To
+    compare configurations across multiple builds, redirect "blaze
+    config" output to a file and run your favorite diff tool.
+  - The --incompatible_override_toolchain_transition flag is now
+    always set, and will be removed in the future. Thus,
+    --noincompatible_override_toolchain_transition has no effect, and
+    the value of the incompatible_use_toolchain_transition parameter
+    in aspect() and rule() builtins is ignored.
+  - Switch cc_test implementation to Starlark. Note: cc_test will now
+    link statically when _targeting_ Windows regardless of host
+    platform (rather
+    than always linking statically when Windows is the _host_).
+  - Toolchain types may now be optional, in addition to mandatory.
+    See https://bazel.build/docs/toolchains#optional-toolchains for
+    further details.
+  - Add six to deps of has_services=1 py_proto_librarys.
+  - pkg_tar(symlinks) has been removed. Users needing that feature
+    should
+    migrate to @rules_pkg.
+  - Aspects can now define and use exec groups using the same API as
+    rules.
+  - Removed the obsolete --incompatible_applicable_licenses flag. The
+    feature is permanently enabled.
+  - embedded_tools packages R8 desugarer again
+  - Bazel now selects sh path based on execution platform instead of
+    host platform, making it possible to execute sh actions in
+    multiplatform builds. --shell_executable now only applies to
+    actions configured for host.
+  - labels in genquery.scope are no longer configured.
+  - When Bzlmod is enabled, all Bzlmod-generated repos will have an
+    extra '@' prepended to their names. This effectively enables the
+    canonical label literal syntax for Bzlmod-generated repos
+    (`@@canonicalRepoName//pkg:target`; see
+    https://docs.google.com/document/d/1N81qfCa8oskCk5LqTW-LNthy6EBrDo
+    t7bdUsjz6JFC4/edit?usp=sharing).
+  - Exposed `CcSharedLibraryInfo` to Starlark builtins.
+  - Enable --use_top_level_targets_for_symlinks by default.
+  - Singlejar accepts runtime Created-By field
+  - --noincompatible_disable_managed_directories, and with that,
+    workspace(managed_directories=) is not supported anymore.
+  - Bazel supports D8 desugaring, albeit without persistent workers
+  - Remove mtime options from pkg_tar. Users should migrate to
+    @rules_pkg.
+  - Test for experimental multiplexed persistent resource processor.
+  - Added new register_{execution_platforms,toolchains} directives to
+    the MODULE.bazel file, to replace the
+    {execution_platforms,toolchains}_to_register attributes on the
+    module() directive.
+  - The legacy pkg_tar no longer supports the ability to untar and
+    repackage an input tar file (`deps` attribute). Users needed that
+    capability must switch to github.com/bazelbuild/rules_pkg.
+  - `cquery`'s new output mode
+    [`--output=files`](https://bazel.build/docs/cquery#files-output)
+    lists the output files of the targets matching the query. It
+    takes the current value of `--output_groups` into account.
+  - Change singlejar metadata to report Created-By Bazel
+  - Add support for fetching RPC credentials from credential helper.
+  - Revert interface_deps back to implementation_deps after problem
+    reported in. Use `buildozer 'rename deps implementation_deps'
+    //...:%cc_library; buildozer 'rename interface_deps deps'
+    //...:%cc_library`
+  - Fix for desugaring failure on Bazel+Android+Windows build
+    scenario.
+  - D8 is the default desugarer
+  - Migrate main_dex_list_creator to D8 (DX deprecation)
+
+This release contains contributions from many people at Google, as well as Adam Azarchs, Adam Wolf, Albert Lloveras, Alessandro Patti, Alex Eagle, Alex Scott, Alex Torok, Andreas Fuchs, Andreas Herrmann, Andrew Katson, Andrew Klotz, Ara Nguyen, arunkumar9t2, arun.sampathkumar, Ast-x64, Benedek Thaler, Benjamin Lee, Benjamin Peterson, Ben Lee, Bohdan Vanieiev, Bradley Burns, Brandon Duffany, Brandon Jacklyn, Brentley Jones, Brentley Jones, Chad Miller, Chris Clearwater, Chris Fredrickson, Christopher Peterson Sauer, Christopher Sauer, ckiffel, Cristian Hancila, crydell-ericsson, Dan Fleming, Daniel Wagner-Hall, Danny Wolf, David Ostrovsky, David Sanderson, Denys Kurylenko, dhmemi, Dimi Shahbaz, divanorama, dmaclach, Ed Schouten, Emil Kattainen, Eric Song, Fabian Brandstetter, Fabian Meumertzheim, floriographygoth, Fredrik Medley, George Prekas, gkgoat1, gkorlam, Greg Estren, Greg, Greg Roodt, Grzegorz Lukasik, Halil Sener, Hannes Kufler, homuler, hvadehra, hvd, Jan, Jason Tan, Jay Bazuzi, Jeremy Volkman, jheaff1, Jiawen Chen, Joel Williamson, John Laxson, John Millikin, Jonathan Gerrish, Jon Shea, juanchoviedo, Kaiqin Chen, Keith Smiley, Ken Micklas, Kevin Lin, Krishna Ersson, lihu, Luc Bertrand, Luis Fernando Pino Duque, Marek uppa, Matt Clarkson, Matt Mackay, Michael P. Nitowski, Mikhail Balabin, Mostyn Bramley-Moore, Nick Korostelev, Nitesh Anandan, Niyas Sait, Noa Resare, Oscar Bonilla, Patrick Balestra, Paul Tarjan, Peter Mounce, Philipp Schrader, Pras Velagapudi, Rahul Butani, Rifqi Mulya Fahmi, Roman Salvador, rustberry, Ryan Beasley, Ryan Schmidt, Sahin Yort, Saleem Abdulrasool, Simon Bjorklen, Son Luong Ngoc, Stephan Wolski, Steve Vermeulen, Stiopa Koltsov, Sven Tiffe, Takeo Sawada, Tao Wang, Ted Kaplan, Tetsuo Kiso, Thi Doan, Thomas Chen, ThomasCJY, Thomas Zayouna, Timothe Peignier, Tomas Volf, Tom de Goede, Ulf Adams, Ulrik Falklof, Vasilios Pantazopoulos, Vladimir Tagakov, William Muir, Xavier Bonaventura, Xdng Yng, Yannic Bonenberger, Yannic, Yesudeep Mangalapilly, Yuval K, Zhongpeng Lin.
+
 ## Release 5.3.0 (2022-08-22)
 
 ```
