@@ -595,10 +595,11 @@ public class ExecutionTool {
                 request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
+        String message = String.format("Source forest creation failed: %s", e.getMessage());
         throw new AbruptExitException(
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
-                    .setMessage("Source forest creation failed")
+                    .setMessage(message)
                     .setSymlinkForest(
                         FailureDetails.SymlinkForest.newBuilder()
                             .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
