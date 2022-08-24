@@ -156,9 +156,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       help =
           "A comma-separated list of packages (sans \"//\") which, if --experimental_bzl_visibility"
               + " is enabled, are permitted to contain .bzl files that set a bzl-visibility by"
-              + " calling the `visibility()` function. (Known issue: This flag may not work"
-              + " correctly in the presence of repository remapping, which is used by bzlmod.)"
-              + " If the list includes the special item \"everyone\", all packages are permitted.")
+              + " calling the `visibility()` function. Subpackages may also be included by"
+              + " appending `/...`. (Known issue: This flag may not work correctly in the presence"
+              + " of repository remapping, which is used by bzlmod.) If the list includes the"
+              + " special item \"everyone\", all packages are permitted.")
   public List<String> experimentalBzlVisibilityAllowlist;
 
   @Option(
