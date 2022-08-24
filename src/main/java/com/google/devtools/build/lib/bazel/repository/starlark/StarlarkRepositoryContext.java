@@ -797,10 +797,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 outputPath.getPath().toString(), "Extracting " + archivePath.getPath()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
-            .setTargetKind(rule.getTargetKind())
-            .setTargetName(rule.getName())
+            .setContext(getIdentifyingStringForLogging())
             .setArchivePath(archivePath.getPath())
-            .setRepositoryPath(outputPath.getPath())
+            .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)
             .setRenameFiles(renameFilesMap)
             .build());
@@ -1009,10 +1008,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               new ExtractProgress(outputPath.getPath().toString(), "Extracting " + downloadedPath));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
-              .setTargetKind(rule.getTargetKind())
-              .setTargetName(rule.getName())
+              .setContext(getIdentifyingStringForLogging())
               .setArchivePath(downloadedPath)
-              .setRepositoryPath(outputPath.getPath())
+              .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
               .setRenameFiles(renameFilesMap)
               .build());

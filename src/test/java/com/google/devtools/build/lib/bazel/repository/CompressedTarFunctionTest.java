@@ -48,7 +48,7 @@ public class CompressedTarFunctionTest {
    */
   @Test
   public void testDecompressWithoutPrefix() throws Exception {
-    Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder());
+    Path outputDir = decompress(archiveDescriptor.createDescriptorBuilder().build());
 
     archiveDescriptor.assertOutputFiles(outputDir, ROOT_FOLDER_NAME, INNER_FOLDER_NAME);
   }
@@ -61,7 +61,7 @@ public class CompressedTarFunctionTest {
   public void testDecompressWithPrefix() throws Exception {
     DecompressorDescriptor.Builder descriptorBuilder =
         archiveDescriptor.createDescriptorBuilder().setPrefix(ROOT_FOLDER_NAME);
-    Path outputDir = decompress(descriptorBuilder);
+    Path outputDir = decompress(descriptorBuilder.build());
 
     archiveDescriptor.assertOutputFiles(outputDir, INNER_FOLDER_NAME);
   }
@@ -78,7 +78,7 @@ public class CompressedTarFunctionTest {
     renameFiles.put(innerDirName + "/hardLinkFile", innerDirName + "/renamedFile");
     DecompressorDescriptor.Builder descriptorBuilder =
         archiveDescriptor.createDescriptorBuilder().setRenameFiles(renameFiles);
-    Path outputDir = decompress(descriptorBuilder);
+    Path outputDir = decompress(descriptorBuilder.build());
 
     Path innerDir = outputDir.getRelative(ROOT_FOLDER_NAME).getRelative(INNER_FOLDER_NAME);
     assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
@@ -96,20 +96,19 @@ public class CompressedTarFunctionTest {
             .createDescriptorBuilder()
             .setPrefix(ROOT_FOLDER_NAME)
             .setRenameFiles(renameFiles);
-    Path outputDir = decompress(descriptorBuilder);
+    Path outputDir = decompress(descriptorBuilder.build());
 
     Path innerDir = outputDir.getRelative(INNER_FOLDER_NAME);
     assertThat(innerDir.getRelative("renamedFile").exists()).isTrue();
   }
 
-  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {
-    descriptorBuilder.setDecompressor(TarGzFunction.INSTANCE);
+  private Path decompress(DecompressorDescriptor descriptor) throws Exception {
     return new CompressedTarFunction() {
       @Override
       protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
           throws IOException {
         return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
       }
-    }.decompress(descriptorBuilder.build());
+    }.decompress(descriptor);
   }
 }

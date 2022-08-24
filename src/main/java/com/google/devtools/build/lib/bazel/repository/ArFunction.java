@@ -58,7 +58,7 @@ public class ArFunction implements Decompressor {
       while ((entry = arStream.getNextArEntry()) != null) {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
-        Path filePath = descriptor.repositoryPath().getRelative(entryName);
+        Path filePath = descriptor.destinationPath().getRelative(entryName);
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           // ar archives don't contain any directory information, so this should never
@@ -81,6 +81,6 @@ public class ArFunction implements Decompressor {
       }
     }
 
-    return descriptor.repositoryPath();
+    return descriptor.destinationPath();
   }
 }

@@ -138,7 +138,7 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
         TarFunction.INSTANCE.decompress(
             DecompressorDescriptor.builder()
                 .setArchivePath(dataTarPathForDecompress)
-                .setRepositoryPath(dataTarPathForDecompress.getParentDirectory())
+                .setDestinationPath(dataTarPathForDecompress.getParentDirectory())
                 .build());
     return Paths.get(directory.getPathString());
   }

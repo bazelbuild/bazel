@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
@@ -89,8 +90,8 @@ public class DecompressorValue implements SkyValue {
     return directory.hashCode();
   }
 
-  static Decompressor getDecompressor(Path archivePath)
-      throws RepositoryFunctionException {
+  @VisibleForTesting
+  static Decompressor getDecompressor(Path archivePath) throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
     if (baseName.endsWith(".zip")
         || baseName.endsWith(".jar")
@@ -122,7 +123,7 @@ public class DecompressorValue implements SkyValue {
   public static Path decompress(DecompressorDescriptor descriptor)
       throws RepositoryFunctionException, InterruptedException {
     try {
-      return descriptor.getDecompressor().decompress(descriptor);
+      return getDecompressor(descriptor.archivePath()).decompress(descriptor);
     } catch (IOException e) {
       Path destinationDirectory = descriptor.archivePath().getParentDirectory();
       throw new RepositoryFunctionException(

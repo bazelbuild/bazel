@@ -47,7 +47,7 @@ public class ArFunctionTest {
 
   @Test
   public void testDecompress() throws Exception {
-    Path outputDir = decompress(createDescriptorBuilder());
+    Path outputDir = decompress(createDescriptorBuilder().build());
 
     assertThat(outputDir.exists()).isTrue();
     Path firstFile = outputDir.getRelative(FIRST_FILE_NAME);
@@ -72,16 +72,15 @@ public class ArFunctionTest {
     renameFiles.put("archived_first.txt", "renamed_file.txt");
     DecompressorDescriptor.Builder descriptorBuilder =
         createDescriptorBuilder().setRenameFiles(renameFiles);
-    Path outputDir = decompress(descriptorBuilder);
+    Path outputDir = decompress(descriptorBuilder.build());
 
     assertThat(outputDir.exists()).isTrue();
     Path renamedFile = outputDir.getRelative("renamed_file.txt");
     assertThat(renamedFile.exists()).isTrue();
   }
 
-  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {
-    descriptorBuilder.setDecompressor(ArFunction.INSTANCE);
-    return new ArFunction().decompress(descriptorBuilder.build());
+  private Path decompress(DecompressorDescriptor descriptor) throws Exception {
+    return new ArFunction().decompress(descriptor);
   }
 
   private DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
@@ -100,6 +99,6 @@ public class ArFunctionTest {
     Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     Path outDir = workingDir.getRelative("out");
 
-    return DecompressorDescriptor.builder().setRepositoryPath(outDir).setArchivePath(tarballPath);
+    return DecompressorDescriptor.builder().setDestinationPath(outDir).setArchivePath(tarballPath);
   }
 }
