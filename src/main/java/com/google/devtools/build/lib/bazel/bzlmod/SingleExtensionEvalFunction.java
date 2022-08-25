@@ -15,11 +15,14 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -39,6 +42,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -213,7 +217,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    return SingleExtensionEvalValue.create(threadContext.getGeneratedRepos());
+    return SingleExtensionEvalValue.create(
+        threadContext.getGeneratedRepos(),
+        threadContext.getGeneratedRepos().keySet().stream()
+            .collect(
+                toImmutableBiMap(
+                    e ->
+                        RepositoryName.createUnvalidated(
+                            usagesValue.getExtensionUniqueName() + "~" + e),
+                    Function.identity())));
   }
 
   private ModuleExtensionContext createContext(
