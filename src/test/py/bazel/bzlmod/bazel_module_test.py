@@ -386,8 +386,9 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(
           ['build', '--experimental_enable_bzlmod', '@ss//:all',
           '--override_module', 'ss=' + self.Path('bb')], allow_failure=False)
-    #module file override should be ignored, and "choose_me" should be the selected one
-    self.assertIn('Target @ss~override//:choose_me up-to-date (nothing to build)', stderr)
+    #module file override should be ignored, and bb directory should be used
+    self.assertIn('Target @ss~override//:choose_me up-to-date '
+                  '(nothing to build)', stderr)
 
 if __name__ == '__main__':
   unittest.main()
