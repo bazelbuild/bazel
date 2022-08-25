@@ -32,7 +32,6 @@ public final class RepositoryMappingTest {
             ImmutableMap.of("A", RepositoryName.create("com_foo_bar_a")));
     assertThat(mapping.get("A")).isEqualTo(RepositoryName.create("com_foo_bar_a"));
     assertThat(mapping.get("B")).isEqualTo(RepositoryName.create("B"));
-    assertThat(mapping.get("@canon")).isEqualTo(RepositoryName.create("@canon"));
   }
 
   @Test
@@ -45,7 +44,6 @@ public final class RepositoryMappingTest {
     assertThat(mapping.get("B"))
         .isEqualTo(
             RepositoryName.create("B").toNonVisible(RepositoryName.create("fake_owner_repo")));
-    assertThat(mapping.get("@canon")).isEqualTo(RepositoryName.create("@canon"));
   }
 
   @Test
@@ -60,6 +58,5 @@ public final class RepositoryMappingTest {
     assertThat(mapping.get("C"))
         .isEqualTo(
             RepositoryName.create("C").toNonVisible(RepositoryName.create("fake_owner_repo")));
-    assertThat(mapping.get("@canon")).isEqualTo(RepositoryName.create("@canon"));
   }
 }
