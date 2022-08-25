@@ -308,8 +308,7 @@ public class RepositoryOptions extends OptionsBase {
         throw new OptionsParsingException(String.format(
             "invalid module name '%s': valid names must 1) only contain lowercase letters (a-z),"
                 + " digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin with a"
-                + " lowercase letter; 3) end with a lowercase letter or digit; 4) be at least two"
-                + " characters long.",
+                + " lowercase letter; 3) end with a lowercase letter or digit.",
             pieces[0]));
       }
 
