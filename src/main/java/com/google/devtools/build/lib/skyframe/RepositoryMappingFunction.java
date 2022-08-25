@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,6 +38,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
@@ -47,10 +47,14 @@ public class RepositoryMappingFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
     RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
 
     BazelModuleResolutionValue bazelModuleResolutionValue = null;
-    if (Preconditions.checkNotNull(RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env))) {
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
         // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
         // such as @platforms.

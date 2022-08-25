@@ -176,7 +176,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
-    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, false);
   }
 
   private ContainingPackageLookupValue lookupContainingPackage(String packageName)

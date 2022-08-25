@@ -41,7 +41,13 @@ public class DynamicExecutionOptions extends OptionsBase {
       expansion = {
         "--internal_spawn_scheduler",
         "--spawn_strategy=dynamic",
-      })
+      },
+      deprecationWarning =
+          "--experimental_spawn_scheduler is deprecated. Using dynamic execution for everything is"
+              + " rarely a good idea (see https://bazel.build/remote/dynamic). If you really want"
+              + " to enable dynamic execution globally, pass `--internal_spawn_scheduler "
+              + "--spawn_strategy=dynamic`.")
+  @Deprecated
   public Void experimentalSpawnScheduler;
 
   @Option(

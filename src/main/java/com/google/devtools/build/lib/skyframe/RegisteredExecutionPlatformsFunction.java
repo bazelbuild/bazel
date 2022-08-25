@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -53,6 +53,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} that returns all registered execution platforms available. */
 public class RegisteredExecutionPlatformsFunction implements SkyFunction {
@@ -65,7 +66,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
-
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     BuildConfigurationValue configuration =
         (BuildConfigurationValue)
             env.getValue(((RegisteredExecutionPlatformsValue.Key) skyKey).getConfigurationKey());
@@ -97,7 +98,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
 
     // Get registered execution platforms from bzlmod.
-    ImmutableList<TargetPattern> bzlmodExecutionPlatforms = getBzlmodExecutionPlatforms(env);
+    ImmutableList<TargetPattern> bzlmodExecutionPlatforms =
+        getBzlmodExecutionPlatforms(starlarkSemantics, env);
     if (bzlmodExecutionPlatforms == null) {
       return null;
     }
@@ -154,9 +156,10 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   }
 
   @Nullable
-  private static ImmutableList<TargetPattern> getBzlmodExecutionPlatforms(Environment env)
+  private static ImmutableList<TargetPattern> getBzlmodExecutionPlatforms(
+      StarlarkSemantics semantics, Environment env)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
-    if (!RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+    if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       return ImmutableList.of();
     }
     BazelModuleResolutionValue bazelModuleResolutionValue =

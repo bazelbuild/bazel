@@ -35,7 +35,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.stream.Collectors;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,11 +45,6 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   private Path moduleRoot;
   private FakeRegistry registry;
-
-  @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
 
   @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
@@ -66,11 +60,6 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -304,6 +293,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   @Test
   public void testRegisteredToolchains_bzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(toolchains_to_register=['//:tool'])",

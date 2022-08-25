@@ -132,7 +132,6 @@ public class BazelRepositoryModule extends BlazeModule {
   private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
   private List<String> registries;
-  private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
@@ -383,7 +382,6 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
-      enableBzlmod.set(repoOptions.enableBzlmod);
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
 
@@ -454,7 +452,6 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod.get()),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(

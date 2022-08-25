@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,6 +56,7 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A {@link SkyFunction} that implements delegation to the correct repository fetcher.
@@ -80,9 +83,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");
-
-  // This indicates whether we should load external repositories from the Bzlmod system.
-  public static final Precomputed<Boolean> ENABLE_BZLMOD = new Precomputed<>("enable_bzlmod");
 
   public static final String DONT_FETCH_UNCONDITIONALLY = "";
 
@@ -236,6 +236,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
     if (!repositoryName.isVisible()) {
@@ -262,7 +266,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     Rule rule = null;
 
-    if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       // Tries to get a repository rule instance from Bzlmod generated repos.
       SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
       BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);

@@ -181,16 +181,6 @@ public class RepositoryOptions extends OptionsBase {
   public String downloaderConfig;
 
   @Option(
-      name = "experimental_enable_bzlmod",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If true, Bazel tries to load external repositories from the Bzlmod system before "
-              + "looking into the WORKSPACE file.")
-  public boolean enableBzlmod;
-
-  @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,

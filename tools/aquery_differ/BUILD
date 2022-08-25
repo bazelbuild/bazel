@@ -17,7 +17,7 @@ load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -37,7 +37,6 @@ py_binary(
     python_version = "PY3",
     deps = [
         ":aquery_differ_main_lib",
-        "//third_party/py/six",
     ],
 )
 
@@ -48,7 +47,6 @@ py_library(
         ":aquery_differ_resolvers",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/abseil",
-        "//third_party/py/six",
     ],
 )
 
@@ -61,6 +59,5 @@ py_test_alias(
         ":aquery_differ_main_lib",
         "//src/main/protobuf:analysis_v2_py_proto",
         "//third_party/py/mock",
-        "//third_party/py/six",
     ],
 )

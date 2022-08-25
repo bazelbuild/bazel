@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
@@ -208,4 +209,15 @@ public class WorkerOptions extends OptionsBase {
               + " will cause an error. Worker arguments must have exactly one @flagfile argument"
               + " as the last of its list of arguments.")
   public boolean strictFlagfiles;
+
+  @Option(
+      name = "experimental_total_worker_memoty_limit_mb",
+      converter = RamResourceConverter.class,
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If this limit is greater than zero idle workers might be killed if the total memory"
+              + " usage of all  workers exceed the limit.")
+  public int totalWorkerMemoryLimitMb;
 }
