@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -93,11 +92,6 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
-  @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
     try {
       moduleRoot = scratch.dir("modules");
@@ -112,11 +106,6 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -341,6 +330,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(execution_platforms_to_register=['//:plat'])",
@@ -380,8 +370,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             ")",
             "bazel_dep(name='eee',version='1.0')")
         .addModule(createModuleKey("eee", "1.0"), "module(name='eee', version='1.0')");
-    for (String repo :
-        ImmutableList.of("@bbb~1.0", "@ccc~1.1", "@ddd~1.0", "@ddd~1.1", "@eee~1.0")) {
+    for (String repo : ImmutableList.of("bbb~1.0", "ccc~1.1", "ddd~1.0", "ddd~1.1", "eee~1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),

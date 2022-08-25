@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Ascii;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -93,13 +91,6 @@ import net.starlark.java.syntax.Location;
             + " as an argument to the <code>implementation</code> function when you create a"
             + " repository rule.")
 public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
-  private static final ImmutableList<String> WHITELISTED_REPOS_FOR_FLAG_ENABLED =
-      ImmutableList.of("@rules_cc", "@bazel_tools");
-  private static final ImmutableList<String> WHITELISTED_PATHS_FOR_FLAG_ENABLED =
-      ImmutableList.of(
-          "rules_cc/cc/private/toolchain/unix_cc_configure.bzl",
-          "bazel_tools/tools/cpp/unix_cc_configure.bzl");
-
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final Path workspaceRoot;
@@ -749,8 +740,24 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " archive. Instead of needing to specify this prefix over and over in the"
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
                     + " files."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
       })
-  public void extract(Object archive, Object output, String stripPrefix, StarlarkThread thread)
+  public void extract(
+      Object archive,
+      Object output,
+      String stripPrefix,
+      Dict<?, ?> renameFiles, // <String, String> expected
+      StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     StarlarkPath archivePath = getPath("extract()", archive);
 
@@ -762,11 +769,15 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     StarlarkPath outputPath = getPath("extract()", output);
     checkInOutputDirectory("write", outputPath);
 
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newExtractEvent(
             archive.toString(),
             output.toString(),
             stripPrefix,
+            renameFilesMap,
             rule.getLabel().toString(),
             thread.getCallerLocation());
     env.getListener().post(w);
@@ -777,11 +788,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 outputPath.getPath().toString(), "Extracting " + archivePath.getPath()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
-            .setTargetKind(rule.getTargetKind())
-            .setTargetName(rule.getName())
+            .setContext(getIdentifyingStringForLogging())
             .setArchivePath(archivePath.getPath())
-            .setRepositoryPath(outputPath.getPath())
+            .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)
+            .setRenameFiles(renameFilesMap)
             .build());
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
@@ -881,6 +892,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                     + " risk to omit the checksum as remote files can change. At best omitting this"
                     + " field will make your build non-hermetic. It is optional to make development"
                     + " easier but should be set before shipping."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -892,6 +914,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       String canonicalId,
       Dict<?, ?> auth, // <String, Dict> expected
       String integrity,
+      Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
     Map<URI, Map<String, String>> authHeaders = getAuthHeaders(getAuthContents(auth, "auth"));
@@ -911,6 +934,9 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       checksumValidation = e;
     }
 
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadAndExtractEvent(
             urls,
@@ -919,6 +945,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             integrity,
             type,
             stripPrefix,
+            renameFilesMap,
             rule.getLabel().toString(),
             thread.getCallerLocation());
 
@@ -972,11 +999,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
               new ExtractProgress(outputPath.getPath().toString(), "Extracting " + downloadedPath));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
-              .setTargetKind(rule.getTargetKind())
-              .setTargetName(rule.getName())
+              .setContext(getIdentifyingStringForLogging())
               .setArchivePath(downloadedPath)
-              .setRepositoryPath(outputPath.getPath())
+              .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
+              .setRenameFiles(renameFilesMap)
               .build());
       env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }
@@ -993,42 +1020,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           Transience.TRANSIENT);
     }
     return downloadResult;
-  }
-
-  @StarlarkMethod(
-      name = "flag_enabled",
-      doc =
-          "This method is present temporarily for a migration. It can be used only by a few "
-              + "whitelisted bzl files embedded in Bazel.",
-      useStarlarkThread = true,
-      documented = false,
-      parameters = {
-        @Param(name = "flag", doc = "Flag to get the value for."),
-      })
-  public boolean flagEnabled(String flag, StarlarkThread starlarkThread) throws EvalException {
-    if (WHITELISTED_PATHS_FOR_FLAG_ENABLED.stream()
-        .noneMatch(x -> !starlarkThread.getCallerLocation().toString().endsWith(x))) {
-      throw Starlark.errorf(
-          "flag_enabled() is restricted to: '%s'.",
-          Joiner.on(", ").join(WHITELISTED_REPOS_FOR_FLAG_ENABLED));
-    }
-
-    // This function previously exposed the names of the StarlarkSemantics
-    // options, which have historically been *almost* the same as the corresponding
-    // flag names, but for minor accidental differences (e.g. case, plurals, underscores).
-    // But now that we have decoupled Bazel's Starlarksemantics features from the core
-    // interpreter, there is no reliable way to look up a semantics key by flag name.
-    // (For booleans, the key must encode its default value).
-    // So, for now, we'll special-case this to a single flag.
-    // Thank goodness (and laurentlb) it is access-restricted to a single .bzl file that we control.
-    // If this hack is really necessary, we could add logic to BuildLanguageOptions to extract
-    // values from StarlarkSemantics based on flag name.
-    switch (flag) {
-      case "incompatible_linkopts_to_linklibs":
-        return starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS);
-      default:
-        throw Starlark.errorf("flag_enabled: unsupported key: %s", flag);
-    }
   }
 
   private Checksum calculateChecksum(Optional<Checksum> originalChecksum, Path path)

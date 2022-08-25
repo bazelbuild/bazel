@@ -5,6 +5,8 @@ load("@rules_java//java:defs.bzl", "java_library")
 #   into a single zip file.
 package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),

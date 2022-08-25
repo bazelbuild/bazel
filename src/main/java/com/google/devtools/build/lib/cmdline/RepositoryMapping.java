@@ -82,10 +82,6 @@ public abstract class RepositoryMapping {
    * provided apparent repo name is assumed to be valid.
    */
   public RepositoryName get(String preMappingName) {
-    if (preMappingName.startsWith("@")) {
-      // The given name is actually a canonical, post-mapping repo name already.
-      return RepositoryName.createUnvalidated(preMappingName);
-    }
     RepositoryName canonicalRepoName = repositoryMapping().get(preMappingName);
     if (canonicalRepoName != null) {
       return canonicalRepoName;

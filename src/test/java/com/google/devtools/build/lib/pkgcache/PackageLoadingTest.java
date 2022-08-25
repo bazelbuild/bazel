@@ -118,8 +118,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,

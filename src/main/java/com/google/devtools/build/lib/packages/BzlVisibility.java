@@ -52,19 +52,28 @@ public abstract class BzlVisibility {
       };
 
   /**
-   * A visibility that enumerates the packages whose BUILD and .bzl files may load the .bzl.
-   * Subpackages are not implicitly included.
+   * A visibility that decides whether a package's BUILD and .bzl files may load the .bzl by
+   * checking the package against a set of package specifications.
+   *
+   * <p>Package specifications may have the form {@code //foo/bar} or {@code //foo/bar/...}. Negated
+   * package specifications are not yet supported.
    */
+  // TODO(b/22193153): Negation.
   public static class PackageListBzlVisibility extends BzlVisibility {
-    private final ImmutableList<PackageIdentifier> packages;
+    private final ImmutableList<PackageSpecification> specs;
 
-    public PackageListBzlVisibility(List<PackageIdentifier> packages) {
-      this.packages = ImmutableList.copyOf(packages);
+    public PackageListBzlVisibility(List<PackageSpecification> specs) {
+      this.specs = ImmutableList.copyOf(specs);
     }
 
     @Override
     public boolean allowsPackage(PackageIdentifier pkg) {
-      return packages.contains(pkg);
+      for (PackageSpecification spec : specs) {
+        if (spec.containsPackage(pkg)) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 }

@@ -39,17 +39,16 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("@?[\\w\\-.~]*");
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.~]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
   private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
 
   /**
    * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
-   * digit; 3) be at least 2 characters long; 4) contain only lowercase letters, digits, or one of
-   * '._-'.
+   * digit; 3) contain only lowercase letters, digits, or one of * '._-'.
    */
-  public static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z][a-z0-9._-]*[a-z0-9]");
+  public static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z]([a-z0-9._-]*[a-z0-9])?");
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()

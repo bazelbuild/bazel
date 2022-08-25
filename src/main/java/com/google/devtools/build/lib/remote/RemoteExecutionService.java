@@ -677,7 +677,7 @@ public class RemoteExecutionService {
 
               FileSystemUtils.copyFile(localPath, dst);
             } catch (Exception ee) {
-              ee.addSuppressed(ee);
+              e.addSuppressed(ee);
             }
           }
         }

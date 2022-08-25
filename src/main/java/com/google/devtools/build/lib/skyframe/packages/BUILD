@@ -2,6 +2,8 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -94,6 +96,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )

@@ -68,7 +68,7 @@ public class BazelModuleInspectorFunctionTest {
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         BazelModuleInspectorFunction.computeAugmentedGraph(
-            unprunedDepGraph, usedModules, /*overrides*/ ImmutableMap.of());
+            unprunedDepGraph, usedModules, /* overrides= */ ImmutableMap.of());
 
     assertThat(depGraph.entrySet())
         .containsExactly(

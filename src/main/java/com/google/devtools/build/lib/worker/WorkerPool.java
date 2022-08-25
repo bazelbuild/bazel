@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
@@ -25,6 +26,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
+import org.apache.commons.pool2.impl.EvictionPolicy;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 
 /**
@@ -38,7 +40,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
  * requests, but do so through WorkerProxy instances.
  */
 @ThreadSafe
-public final class WorkerPool {
+public class WorkerPool {
   /** Unless otherwise specified, the max number of workers per WorkerKey. */
   private static final int DEFAULT_MAX_WORKERS = 4;
   /** Unless otherwise specified, the max number of multiplex workers per WorkerKey. */
@@ -117,11 +119,28 @@ public final class WorkerPool {
   }
 
   public int getMaxTotalPerKey(WorkerKey key) {
-    return this.getPool(key).getMaxTotalPerKey();
+    return getPool(key).getMaxTotalPerKey();
+  }
+
+  public int getNumIdlePerKey(WorkerKey key) {
+    return getPool(key).getNumIdle();
   }
 
   public int getNumActive(WorkerKey key) {
-    return this.getPool(key).getNumActive(key);
+    return getPool(key).getNumActive(key);
+  }
+
+  // TODO (b/242835648) filter throwed exceptions better
+  void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {
+    for (SimpleWorkerPool pool : workerPools.values()) {
+      try {
+        pool.setEvictionPolicy(evictionPolicy);
+        pool.evict();
+      } catch (Throwable t) {
+        Throwables.propagateIfPossible(t, InterruptedException.class);
+        throw new VerifyException("unexpected", t);
+      }
+    }
   }
 
   /**

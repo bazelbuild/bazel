@@ -17,17 +17,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 
 /**
- * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
+ * Converter for --local_cpu_resources, which takes an integer greater than or equal to 0, or
  * "HOST_RAM", optionally followed by [-|*]<float>.
  */
 public final class RamResourceConverter extends ResourceConverter {
   public RamResourceConverter() {
     super(
-        ImmutableMap.of(
+        /* keywords= */ ImmutableMap.of(
             "HOST_RAM",
             () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
-        1,
-        Integer.MAX_VALUE);
+        /* minValue= */ 0,
+        /* maxValue= */ Integer.MAX_VALUE);
   }
 
   @Override

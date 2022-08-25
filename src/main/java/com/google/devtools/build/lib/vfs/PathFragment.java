@@ -338,7 +338,7 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns true iff {@code other} is an ancestor of this path.
    *
    * <p>If this == other, true is returned.
    *
@@ -361,8 +361,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns true iff {@code suffix}, considered as a list of path segments, is relative and a
-   * suffix of {@code this}, or both are absolute and equal.
+   * Returns true iff {@code other}, considered as a list of path segments, is relative and a suffix
+   * of {@code this}, or both are absolute and equal.
    *
    * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial order)
    */

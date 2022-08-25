@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -1614,12 +1615,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  deps = [':mya'], runtime_deps = [':myb'])");
     assertNoEvents();
 
+    setBuildLanguageOptions("--experimental_google_legacy_api");
     // Test that all bottom jars are on the runtime classpath.
     ConfiguredTarget binary = getConfiguredTarget("//foo:binary");
     assertThat(
             prettyArtifactNames(
                 binary
-                    .getProvider(JavaRuntimeClasspathProvider.class)
+                    .get(JavaInfo.PROVIDER)
+                    .getCompilationInfoProvider()
                     .getRuntimeClasspath()
                     .getSet(Artifact.class)))
         .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
@@ -1970,6 +1973,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
 
+    setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
 
     TemplateExpansionAction action =
@@ -2217,6 +2221,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
 
+    setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget target = getConfiguredTarget("//java/test:plugin");
     assertThat(
             actionsTestUtil()
@@ -3344,9 +3349,12 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    Depset hermeticStaticLibs = (Depset) myInfo.getValue("hermetic_static_libs");
+    @SuppressWarnings("unchecked")
+    Sequence<CcInfo> hermeticStaticLibs =
+        (Sequence<CcInfo>) myInfo.getValue("hermetic_static_libs");
+    assertThat(hermeticStaticLibs).hasSize(1);
     assertThat(
-            hermeticStaticLibs.getSet(LibraryToLink.class).toList().stream()
+            hermeticStaticLibs.get(0).getCcLinkingContext().getLibraries().toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("a/libStatic");
   }

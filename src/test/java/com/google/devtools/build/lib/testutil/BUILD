@@ -11,6 +11,8 @@ package(
     ],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,

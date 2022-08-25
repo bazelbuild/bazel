@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
@@ -201,8 +203,8 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   }
 
   @Override
-  public Depset starlarkHermeticStaticLibs() {
-    return Depset.of(LibraryToLink.TYPE, collectHermeticStaticLibrariesToLink());
+  public Sequence<CcInfo> starlarkHermeticStaticLibs() {
+    return StarlarkList.immutableCopyOf(hermeticStaticLibs());
   }
 
   @Override

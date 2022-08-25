@@ -4,6 +4,8 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
@@ -49,6 +51,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:apache_commons_compress",
+        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:java-diff-utils",

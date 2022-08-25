@@ -411,10 +411,8 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     ), ":")
 
     use_libcpp = darwin or bsd
-    bazel_linkopts = "-lc++:-lm" if use_libcpp else "-lstdc++:-lm"
-    bazel_linklibs = ""
-    if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
-        bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
+    bazel_linklibs = "-lc++:-lm" if use_libcpp else "-lstdc++:-lm"
+    bazel_linkopts = ""
 
     link_opts = split_escaped(get_env_var(
         repository_ctx,
