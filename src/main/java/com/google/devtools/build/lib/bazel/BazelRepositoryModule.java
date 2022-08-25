@@ -399,7 +399,6 @@ public class BazelRepositoryModule extends BlazeModule {
         moduleOverrides = ImmutableMap.of();
       }
 
-      enableBzlmod.set(repoOptions.enableBzlmod);
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
 
