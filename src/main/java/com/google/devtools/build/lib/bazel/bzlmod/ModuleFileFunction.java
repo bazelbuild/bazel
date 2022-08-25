@@ -167,7 +167,7 @@ public class ModuleFileFunction implements SkyFunction {
     ImmutableMap<String, ModuleOverride> overrides = ImmutableMap.<String, ModuleOverride>builder()
         .putAll(moduleOverrides)
         .putAll(commandOverrides)
-        .build();
+        .buildKeepingLast();
 
     // Check that overrides don't contain the root module itself.
     ModuleOverride rootOverride = overrides.get(module.getName());

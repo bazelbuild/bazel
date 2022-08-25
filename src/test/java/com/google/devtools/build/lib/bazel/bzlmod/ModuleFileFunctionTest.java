@@ -350,17 +350,33 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testModuleOverrides() throws Exception {
-    // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
+  public void testCommandLineModuleOverrides() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
-        "bazel_dep(name = \"bbb\", version = \"1.0\")");
+        "bazel_dep(name = \"bbb\", version = \"1.0\")",
+        "local_path_override(module_name='bbb', path='ignored_override')"
+    );
+
+    // Command line override has the priority. Thus, "used_override" with dependency on 'ccc'
+    // should be selected.
     scratch.file(
-        rootDirectory.getRelative("code_for_b/MODULE.bazel").getPathString(),
+        rootDirectory.getRelative("ignored_override/MODULE.bazel").getPathString(),
+        "module(name='bbb',version='1.0')"
+        );
+    scratch.file(rootDirectory.getRelative("ignored_override/WORKSPACE").getPathString());
+    scratch.file(
+        rootDirectory.getRelative("used_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.file(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
+    scratch.file(rootDirectory.getRelative("used_override/WORKSPACE").getPathString());
+
+    // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
+    // Inject for testing
+    Map<String, ModuleOverride> moduleOverride =
+        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("used_override")));
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
+
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
@@ -368,14 +384,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-    //Inject overrides for testing
-    Map<String, ModuleOverride> moduleOverride =
-        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("code_for_b")));
-    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
 
     // The version is empty here due to the override.
     SkyKey skyKey =
-        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("code_for_b"));
+        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("used_override"));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
