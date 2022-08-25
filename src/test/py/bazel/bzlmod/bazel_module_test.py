@@ -364,25 +364,30 @@ class BazelModuleTest(test_base.TestBase):
             in line for line in stderr
         ]))
 
-  def testModuleOverride(self):
+  def testCommandLineModuleOverride(self):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ss", version = "1.0")',
+        'local_path_override(',
+        '  module_name = "ss",',
+        '  path = "%s",' % self.Path('aa'),
+        ')',
     ])
     self.ScratchFile('BUILD')
     self.ScratchFile('WORKSPACE')
 
-    self.ScratchFile('ss/MODULE.bazel', [
-        'module(name=\'ss\')',
-    ])
-    self.ScratchFile('ss/BUILD', [
-        'filegroup(name = "whatever")',
-    ])
-    self.ScratchFile('ss/WORKSPACE')
+    self.ScratchFile('aa/MODULE.bazel', ['module(name=\'ss\')',])
+    self.ScratchFile('aa/BUILD', [ 'filegroup(name = "never_ever")',])
+    self.ScratchFile('aa/WORKSPACE')
+
+    self.ScratchFile('bb/MODULE.bazel', [ 'module(name=\'ss\')',])
+    self.ScratchFile('bb/BUILD', ['filegroup(name = "choose_me")',])
+    self.ScratchFile('bb/WORKSPACE')
 
     _, _, stderr = self.RunBazel(
           ['build', '--experimental_enable_bzlmod', '@ss//:all',
-          '--override_module', 'ss=' + self.Path('ss')], allow_failure=False)
-    self.assertIn('Target @@ss~override//:whatever up-to-date (nothing to build)', stderr)
+          '--override_module', 'ss=' + self.Path('bb')], allow_failure=False)
+    #module file override should be ignored, and "choose_me" should be the selected one
+    self.assertIn('Target @ss~override//:choose_me up-to-date (nothing to build)', stderr)
 
 if __name__ == '__main__':
   unittest.main()
