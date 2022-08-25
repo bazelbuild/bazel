@@ -83,6 +83,9 @@ public final class ExampleWorker {
     @Override
     @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
+      ByteArrayOutputStream captured = new ByteArrayOutputStream();
+      WorkerIO workerIO = new WorkerIO(System.in, System.out, System.err, captured, captured);
+
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
@@ -100,11 +103,18 @@ public final class ExampleWorker {
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          startResponseThread(request);
+          startResponseThread(workerIO, request);
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
         }
+      }
+
+      try {
+        // Unwrap the system streams placing the original streams back
+        workerIO.close();
+      } catch (Exception e) {
+        workerIO.getOriginalErrorStream().println(e.getMessage());
       }
     }
   }
