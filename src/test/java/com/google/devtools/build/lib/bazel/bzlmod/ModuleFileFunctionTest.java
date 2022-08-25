@@ -642,9 +642,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileGlobals.validateModuleName("a3");
     ModuleFileGlobals.validateModuleName("a.e");
     ModuleFileGlobals.validateModuleName("a.-_e");
+    ModuleFileGlobals.validateModuleName("a");
 
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName(""));
-    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("f"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("fooBar"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("_foo"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo#bar"));
@@ -655,24 +655,24 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void badModuleName_module() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='f',version='0.1')");
+        "module(name='f.',version='0.1')");
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
-    assertContainsEvent("invalid module name 'f'");
+    assertContainsEvent("invalid module name 'f.'");
   }
 
   @Test
   public void badModuleName_bazelDep() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "bazel_dep(name='f',version='0.1')");
+        "bazel_dep(name='f.',version='0.1')");
 
     reporter.removeHandler(failFastHandler); // expect failures
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
-    assertContainsEvent("invalid module name 'f'");
+    assertContainsEvent("invalid module name 'f.'");
   }
 
   @Test
