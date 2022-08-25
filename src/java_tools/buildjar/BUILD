@@ -4,6 +4,8 @@ load("@rules_java//java:defs.bzl", "java_binary")
 # JavaBuilder and java tools used by Bazel
 package(default_visibility = [":buildjar_package_group"])
 
+licenses(["notice"])  # Apache 2.0
+
 filegroup(
     name = "srcs",
     srcs = [
