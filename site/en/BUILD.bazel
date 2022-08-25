@@ -8,8 +8,8 @@ exports_files(
         "versions/_toc.yaml",
     ],
     visibility = [
-        "//scripts/docs:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/packages:__pkg__",
+        "//third_party/bazel/scripts/docs:__pkg__",
+        "//third_party/bazel/src/test/java/com/google/devtools/build/lib/packages:__pkg__",
     ],
 )
 
@@ -17,8 +17,8 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//scripts/docs:__pkg__",
-        "//site:__pkg__",
+        "//third_party/bazel/scripts/docs:__pkg__",
+        "//third_party/bazel/site:__pkg__",
     ],
 )
 
@@ -29,5 +29,5 @@ pkg_tar(
         exclude = ["**/BUILD"],
     ),
     strip_prefix = "/site/en",
-    visibility = ["//scripts/docs:__pkg__"],
+    visibility = ["//third_party/bazel/scripts/docs:__pkg__"],
 )
