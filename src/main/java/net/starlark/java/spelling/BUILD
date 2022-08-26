@@ -1,7 +1,5 @@
 # The spelling checker used by the Starlark interpreter.
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

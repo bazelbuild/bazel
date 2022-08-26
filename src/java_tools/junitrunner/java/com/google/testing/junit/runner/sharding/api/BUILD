@@ -4,8 +4,6 @@ package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
 
-licenses(["notice"])
-
 # TODO(bazel-team): This should be testonly = 1.
 java_library(
     name = "api",

@@ -2,8 +2,6 @@ load("@rules_java//java:defs.bzl", "java_binary")
 
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
-licenses(["notice"])  # Apache 2.0
-
 java_binary(
     name = "turbine_direct_binary",
     main_class = "com.google.turbine.main.Main",

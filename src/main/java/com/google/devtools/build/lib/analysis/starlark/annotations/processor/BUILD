@@ -4,8 +4,6 @@ load("@rules_java//java:defs.bzl", "java_plugin")
 #   A preprocessor for Starlark annotations.
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

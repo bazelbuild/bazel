@@ -9,8 +9,6 @@ package(
     default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
 )
 
-licenses(["notice"])  # Apache 2.0
-
 # Exports the canonical javac bootclasspath artifact locations
 genrule(
     name = "javac-bootclasspath-locations",
