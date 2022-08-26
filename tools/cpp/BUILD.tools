@@ -14,7 +14,7 @@
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 # The toolchain type used to distinguish cc toolchains.
 toolchain_type(name = "toolchain_type")
