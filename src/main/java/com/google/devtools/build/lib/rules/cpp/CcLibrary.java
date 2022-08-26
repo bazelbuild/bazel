@@ -253,7 +253,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     if (common.getLinkopts().contains("-static")) {
       ruleContext.attributeWarning("linkopts", "Using '-static' here won't work. "
-                                   + "Did you mean to use 'linkstatic=1' instead?");
+                                   + "Did you mean to use 'linkstatic=True' instead?");
     }
 
     linkingHelper.setShouldCreateDynamicLibrary(createDynamicLibrary);
@@ -509,7 +509,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         && ccCompilationOutputs.getObjectFiles(true).isEmpty()) {
       if (!linkstaticAttribute && appearsToHaveObjectFiles(ruleContext.attributes())) {
         ruleContext.attributeWarning("linkstatic",
-            "setting 'linkstatic=1' is recommended if there are no object files");
+            "setting 'linkstatic=True' is recommended if there are no object files");
       }
     } else {
       if (!linkstaticAttribute && !appearsToHaveObjectFiles(ruleContext.attributes())) {
@@ -522,9 +522,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
              + element.prettyPrint() + ". "
              + "(You may have used some very confusing rule names in srcs? "
              + "Or the library consists entirely of a linker script?) "
-             + "Bazel assumed linkstatic=1, but this may be inappropriate. "
+             + "Bazel assumed linkstatic=True, but this may be inappropriate. "
              + "You may need to add an explicit '.cc' file to 'srcs'. "
-             + "Alternatively, add 'linkstatic=1' to suppress this warning");
+             + "Alternatively, add 'linkstatic=True' to suppress this warning");
       }
     }
   }
