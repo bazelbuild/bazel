@@ -325,7 +325,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'rule_with_transition')",
         "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
         "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
-        "label_flag(name = 'my_flag3', build_setting_default = ':first_rule')",
         "filegroup(name = 'first_rule')",
         "rule_with_transition(name = 'buildme')");
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
