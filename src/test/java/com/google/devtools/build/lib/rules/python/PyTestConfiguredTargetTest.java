@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -22,5 +27,37 @@ import org.junit.runners.JUnit4;
 public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTestBase {
   public PyTestConfiguredTargetTest() {
     super("py_test");
+  }
+
+  @Test
+  public void macRequiresDarwinForExecution() throws Exception {
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin_x86_64");
+    useConfiguration("--cpu=darwin_x86_64");
+    scratch.file(
+        "pkg/BUILD", //
+        "py_test(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        ")");
+    ExecutionInfo executionInfo =
+        (ExecutionInfo) getOkPyTarget("//pkg:foo").get(ExecutionInfo.PROVIDER.getKey());
+    assertThat(executionInfo).isNotNull();
+    assertThat(executionInfo.getExecutionInfo()).containsKey(ExecutionRequirements.REQUIRES_DARWIN);
+  }
+
+  @Test
+  public void nonMacDoesNotRequireDarwinForExecution() throws Exception {
+    scratch.file(
+        "pkg/BUILD", //
+        "py_test(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        ")");
+    ExecutionInfo executionInfo =
+        (ExecutionInfo) getOkPyTarget("//pkg:foo").get(ExecutionInfo.PROVIDER.getKey());
+    if (executionInfo != null) {
+      assertThat(executionInfo.getExecutionInfo())
+          .doesNotContainKey(ExecutionRequirements.REQUIRES_DARWIN);
+    }
   }
 }

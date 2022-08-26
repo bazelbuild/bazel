@@ -1452,6 +1452,107 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelListNoDuplicatesNoError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_list': attr.label_list(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list=[\"a.txt\"])");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelListNoDuplicatesNonOverlappingSelectsNoError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_list': attr.label_list(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "config_setting(",
+        "   name = 'arm_cpu',",
+        "   values = {'cpu': 'arm'},",
+        ")",
+        "my_rule(name='r',",
+        "        label_list=select({",
+        "    ':arm_cpu': [],",
+        "    '//conditions:default': ['a.txt'],",
+        "}) + select({",
+        "    ':arm_cpu': ['a.txt'],",
+        "    '//conditions:default': [],",
+        "}),",
+        ")");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelListNoDuplicatesOverlappingSelectsHasError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_list': attr.label_list(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "config_setting(",
+        "   name = 'arm_cpu',",
+        "   values = {'cpu': 'arm'},",
+        ")",
+        "my_rule(name='r',",
+        "        label_list=select({",
+        "    ':arm_cpu': [],",
+        "    '//conditions:default': ['a.txt'],",
+        "}) + select({",
+        "    ':arm_cpu': ['a.txt'],",
+        "    '//conditions:default': ['a.txt'],",
+        "}),",
+        ")");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "in label_list attribute of my_rule rule //:r: " + "Label \'//:a.txt\' is duplicated");
+  }
+
+  @Test
   public void testLabelKeyedStringDictForbidsMissingAttributeWhenMandatoryIsTrue()
       throws Exception {
     reporter.removeHandler(failFastHandler);

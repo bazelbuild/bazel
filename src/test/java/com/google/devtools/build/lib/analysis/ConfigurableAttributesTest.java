@@ -282,7 +282,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void duplicatesAcrossMultipleSelects() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = select({",
@@ -290,15 +291,16 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "        '//conditions:b': ['b.java'],",
         "        })",
         "        + select({",
-        "        '//conditions:c': ['c.java'],",
-        "        '//conditions:d': ['a.java'],",
+        "        '//conditions:a': ['a.java'],",
+        "        '//conditions:b': ['c.java'],",
         "    }))");
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent(
-        "Label '//java/hello:a.java' is duplicated in the 'srcs' attribute of rule 'hello'");
+        "in srcs attribute of java_binary rule //java/hello:hello: Label '//java/hello:a.java' is"
+            + " duplicated");
   }
 
   /**
