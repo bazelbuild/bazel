@@ -280,8 +280,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
-    scratch.file("modules/@foo~1.0/WORKSPACE");
-    scratch.file("modules/@foo~1.0/BUILD", "filegroup(name='other_rule')");
+    scratch.file("modules/foo~1.0/WORKSPACE");
+    scratch.file("modules/foo~1.0/BUILD", "filegroup(name='other_rule')");
 
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -325,7 +325,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'rule_with_transition')",
         "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
         "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
-        "label_flag(name = 'my_flag3', build_setting_default = ':first_rule')",
         "filegroup(name = 'first_rule')",
         "rule_with_transition(name = 'buildme')");
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();

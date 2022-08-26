@@ -6,6 +6,8 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 #   compile Java source code.
 package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
 
+licenses(["notice"])  # Apache 2.0
+
 java_library(
     name = "plugins",
     srcs = ["BlazeJavaCompilerPlugin.java"],

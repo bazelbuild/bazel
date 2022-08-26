@@ -9,8 +9,8 @@ if needed as a backup option (for example, if you don't have admin access).
 
 Supported Ubuntu Linux platforms:
 
+*   20.04 (LTS)
 *   18.04 (LTS)
-*   16.04 (LTS)
 
 Bazel should be compatible with other Ubuntu releases and Debian
 "stretch" and above, but is untested and not guaranteed to work.

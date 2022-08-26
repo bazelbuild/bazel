@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -225,16 +223,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new ModuleFileFunction(registryFactory, rootPath, ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
-                    SkyFunctions.MODULE_EXTENSION_RESOLUTION,
-                    new SkyFunction() {
-                      @Override
-                      public SkyValue compute(SkyKey skyKey, Environment env) {
-                        // Dummy SkyFunction that returns nothing.
-                        return ModuleExtensionResolutionValue.create(
-                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
-                      }
-                    })
-                .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(
                         ruleClassProvider, directories, new BzlmodRepoRuleHelperImpl()))
@@ -309,7 +297,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .build();
 
     assertThat(checker.check(key, fetchDelayed, SyscallCache.NO_CACHE, tsgm).isDirty()).isTrue();
-
   }
 
   @Test

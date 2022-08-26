@@ -39,7 +39,7 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("@?[\\w\\-.~]*");
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.~]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
   private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");

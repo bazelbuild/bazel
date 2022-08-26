@@ -226,7 +226,9 @@ class DexFileSplitter implements Closeable {
   private DexLimitTracker tracker;
   private Boolean inCoreLib;
 
+  @SuppressWarnings("LenientFormatStringValidation")
   private DexFileSplitter(Path outputDirectory, int maxNumberOfIdxPerDex) throws IOException {
+    // Expected 0 args, but got 1.
     checkArgument(!Files.isRegularFile(outputDirectory), "Must be a directory: ", outputDirectory);
     this.maxNumberOfIdxPerDex = maxNumberOfIdxPerDex;
     this.outputDirectory = outputDirectory;

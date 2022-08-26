@@ -54,10 +54,9 @@ import net.starlark.java.syntax.Location;
 public class ModuleFileGlobals {
   /**
    * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
-   * digit; 3) be at least 2 characters long; 4) contain only lowercase letters, digits, or one of
-   * '._-'.
+   * digit; 3) contain only lowercase letters, digits, or one of * '._-'.
    */
-  private static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z][a-z0-9._-]*[a-z0-9]");
+  private static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z]([a-z0-9._-]*[a-z0-9])?");
 
   private boolean moduleCalled = false;
   private final boolean ignoreDevDeps;
@@ -114,8 +113,7 @@ public class ModuleFileGlobals {
       throw Starlark.errorf(
           "invalid module name '%s': valid names must 1) only contain lowercase letters (a-z),"
               + " digits (0-9), dots (.), hyphens (-), and underscores (_); 2) begin with a"
-              + " lowercase letter; 3) end with a lowercase letter or digit; 4) be at least two"
-              + " characters long.",
+              + " lowercase letter; 3) end with a lowercase letter or digit.",
           moduleName);
     }
   }
@@ -136,7 +134,7 @@ public class ModuleFileGlobals {
                     + " in, if it's not going to be depended on by another module). A valid module"
                     + " name must: 1) only contain lowercase letters (a-z), digits (0-9), dots (.),"
                     + " hyphens (-), and underscores (_); 2) begin with a lowercase letter; 3) end"
-                    + " with a lowercase letter or digit; 4) be at least two characters long.",
+                    + " with a lowercase letter or digit.",
             named = true,
             positional = false,
             defaultValue = "''"),

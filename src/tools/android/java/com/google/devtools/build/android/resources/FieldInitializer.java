@@ -41,4 +41,7 @@ public interface FieldInitializer {
   void writeInitSource(Writer writer, boolean finalFields) throws IOException;
 
   String getFieldName();
+
+  /** Returns the maximum size in bytes from generating code for this initializer. */
+  int getMaxBytecodeSize();
 }

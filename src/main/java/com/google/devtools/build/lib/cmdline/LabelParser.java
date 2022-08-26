@@ -28,11 +28,20 @@ final class LabelParser {
    */
   static final class Parts {
     /**
-     * The {@code @repo} part of the string (sans the {@literal @}); can be null if it doesn't have
-     * such a part.
+     * The {@code @repo} or {@code @@canonical_repo} part of the string (sans any leading
+     * {@literal @}s); can be null if it doesn't have such a part (i.e. if it doesn't start with a
+     * {@literal @}).
      */
     @Nullable final String repo;
-    /** Whether the package part of the string is prefixed by double-slash. */
+    /**
+     * Whether the repo part is using the canonical repo syntax (two {@literal @}s) or not (one
+     * {@literal @}). If there is no repo part, this is false.
+     */
+    final boolean repoIsCanonical;
+    /**
+     * Whether the package part of the string is prefixed by double-slash. This can only be false if
+     * the repo part is missing.
+     */
     final boolean pkgIsAbsolute;
     /** The package part of the string (sans double-slash, if any). */
     final String pkg;
@@ -42,8 +51,14 @@ final class LabelParser {
     final String raw;
 
     private Parts(
-        @Nullable String repo, boolean pkgIsAbsolute, String pkg, String target, String raw) {
+        @Nullable String repo,
+        boolean repoIsCanonical,
+        boolean pkgIsAbsolute,
+        String pkg,
+        String target,
+        String raw) {
       this.repo = repo;
+      this.repoIsCanonical = repoIsCanonical;
       this.pkgIsAbsolute = pkgIsAbsolute;
       this.pkg = pkg;
       this.target = target;
@@ -51,42 +66,62 @@ final class LabelParser {
     }
 
     private static Parts validateAndCreate(
-        @Nullable String repo, boolean pkgIsAbsolute, String pkg, String target, String raw)
+        @Nullable String repo,
+        boolean repoIsCanonical,
+        boolean pkgIsAbsolute,
+        String pkg,
+        String target,
+        String raw)
         throws LabelSyntaxException {
       validateRepoName(repo);
       validatePackageName(pkg, target);
-      return new Parts(repo, pkgIsAbsolute, pkg, validateAndProcessTargetName(pkg, target), raw);
+      return new Parts(
+          repo,
+          repoIsCanonical,
+          pkgIsAbsolute,
+          pkg,
+          validateAndProcessTargetName(pkg, target),
+          raw);
     }
 
     /**
      * Parses a raw label string into parts. The logic can be summarized by the following table:
      *
      * {@code
-     *  raw                 | repo   | pkgIsAbsolute | pkg       | target
-     * ---------------------+--------+---------------+-----------+-----------
-     *  foo/bar             | null   | false         | ""        | "foo/bar"
-     *  //foo/bar           | null   | true          | "foo/bar" | "bar"
-     *  @repo               | "repo" | true          | ""        | "repo"
-     *  @repo//foo/bar      | "repo" | true          | "foo/bar" | "bar"
-     *  :quux               | null   | false         | ""        | "quux"
-     *  foo/bar:quux        | null   | false         | "foo/bar" | "quux"
-     *  //foo/bar:quux      | null   | true          | "foo/bar" | "quux"
-     *  @repo//foo/bar:quux | "repo" | true          | "foo/bar" | "quux"
+     *  raw                  | repo   | repoIsCanonical | pkgIsAbsolute | pkg       | target
+     * ----------------------+--------+-----------------+---------------+-----------+-----------
+     *  foo/bar              | null   | false           | false         | ""        | "foo/bar"
+     *  //foo/bar            | null   | false           | true          | "foo/bar" | "bar"
+     *  @repo                | "repo" | false           | true          | ""        | "repo"
+     *  @@repo               | "repo" | true            | true          | ""        | "repo"
+     *  @repo//foo/bar       | "repo" | false           | true          | "foo/bar" | "bar"
+     *  @@repo//foo/bar      | "repo" | true            | true          | "foo/bar" | "bar"
+     *  :quux                | null   | false           | false         | ""        | "quux"
+     *  foo/bar:quux         | null   | false           | false         | "foo/bar" | "quux"
+     *  //foo/bar:quux       | null   | false           | true          | "foo/bar" | "quux"
+     *  @repo//foo/bar:quux  | "repo" | false           | true          | "foo/bar" | "quux"
+     *  @@repo//foo/bar:quux | "repo" | true            | true          | "foo/bar" | "quux"
      * }
      */
     static Parts parse(String rawLabel) throws LabelSyntaxException {
       @Nullable final String repo;
+      final boolean repoIsCanonical = rawLabel.startsWith("@@");
       final int startOfPackage;
       final int doubleSlashIndex = rawLabel.indexOf("//");
       final boolean pkgIsAbsolute;
       if (rawLabel.startsWith("@")) {
         if (doubleSlashIndex < 0) {
           // Special case: the label "@foo" is synonymous with "@foo//:foo".
-          repo = rawLabel.substring(1);
+          repo = rawLabel.substring(repoIsCanonical ? 2 : 1);
           return validateAndCreate(
-              repo, /*pkgIsAbsolute=*/ true, /*pkg=*/ "", /*target=*/ repo, rawLabel);
+              repo,
+              repoIsCanonical,
+              /*pkgIsAbsolute=*/ true,
+              /*pkg=*/ "",
+              /*target=*/ repo,
+              rawLabel);
         } else {
-          repo = rawLabel.substring(1, doubleSlashIndex);
+          repo = rawLabel.substring(repoIsCanonical ? 2 : 1, doubleSlashIndex);
           startOfPackage = doubleSlashIndex + 2;
           pkgIsAbsolute = true;
         }
@@ -114,7 +149,7 @@ final class LabelParser {
         pkg = "";
         target = rawLabel.substring(startOfPackage);
       }
-      return validateAndCreate(repo, pkgIsAbsolute, pkg, target, rawLabel);
+      return validateAndCreate(repo, repoIsCanonical, pkgIsAbsolute, pkg, target, rawLabel);
     }
 
     private static void validateRepoName(@Nullable String repo) throws LabelSyntaxException {
