@@ -211,7 +211,7 @@ public class WorkerOptions extends OptionsBase {
   public boolean strictFlagfiles;
 
   @Option(
-      name = "experimental_total_worker_memoty_limit_mb",
+      name = "experimental_total_worker_memory_limit_mb",
       converter = RamResourceConverter.class,
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
