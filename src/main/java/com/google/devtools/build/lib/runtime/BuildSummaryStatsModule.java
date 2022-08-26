@@ -88,6 +88,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
     statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
+    if (enabled) {
+      criticalPathComputer = new CriticalPathComputer(actionKeyContext, BlazeClock.instance());
+      eventBus.register(criticalPathComputer);
+    }
   }
 
   @Subscribe
@@ -111,10 +115,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private void markExecutionPhaseStarted() {
     // TODO(ulfjack): Make sure to use the same clock as for commandStartMillis.
     executionStartMillis = BlazeClock.instance().currentTimeMillis();
-    if (enabled) {
-      criticalPathComputer = new CriticalPathComputer(actionKeyContext, BlazeClock.instance());
-      eventBus.register(criticalPathComputer);
-    }
   }
 
   @Subscribe
