@@ -176,6 +176,24 @@ public class ChunkerTest {
   }
 
   @Test
+  public void seekForwards() throws IOException {
+    byte[] data = new byte[10];
+    for (byte i = 0; i < data.length; i++) {
+      data[i] = i;
+    }
+    Chunker chunker = Chunker.builder().setInput(data).setChunkSize(2).build();
+
+    var chunk = chunker.next();
+    assertThat(chunk.getOffset()).isEqualTo(0);
+    assertThat(chunk.getData().toByteArray()).isEqualTo(new byte[] {0, 1});
+    chunker.seek(8);
+    chunk = chunker.next();
+    assertThat(chunk.getOffset()).isEqualTo(8);
+    assertThat(chunk.getData().toByteArray()).isEqualTo(new byte[] {8, 9});
+    assertThat(chunker.hasNext()).isFalse();
+  }
+
+  @Test
   public void testSingleChunkCompressed() throws IOException {
     byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
     Chunker chunker =
