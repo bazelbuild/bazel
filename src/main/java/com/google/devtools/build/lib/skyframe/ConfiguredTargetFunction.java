@@ -1171,6 +1171,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private static ConfiguredTargetValue createConfiguredTarget(
       SkyframeBuildView view,
@@ -1261,6 +1262,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ? null
               : transitivePackagesForPackageRootResolution.build());
     } else {
+      // Expected 4 args, but got 3.
       Preconditions.checkState(
           analysisEnvironment.getRegisteredActions().isEmpty(),
           "Non-rule can't have actions: %s %s %s",
