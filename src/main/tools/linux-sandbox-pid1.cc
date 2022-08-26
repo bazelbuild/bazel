@@ -382,13 +382,15 @@ static void MakeFilesystemMostlyReadOnly() {
       // /proc/sys/fs/binfmt_misc, because it is hidden. If we get ESTALE, the
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
-      // should just ignore it.
+      // should just ignore it. Similarly, one can get ENODEV in case of
+      // autofs/automount failure.
       switch (errno) {
         case EACCES:
         case EPERM:
         case EINVAL:
         case ENOENT:
         case ESTALE:
+        case ENODEV:
           PRINT_DEBUG(
               "remount(nullptr, %s, nullptr, %d, nullptr) failure (%m) ignored",
               ent->mnt_dir, mountFlags);
