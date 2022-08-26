@@ -6,8 +6,6 @@ package(default_visibility = [
     "//src/java_tools:__subpackages__",
 ])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [

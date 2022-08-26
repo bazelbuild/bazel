@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.android.SdkConstants;
@@ -21,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
@@ -34,8 +36,11 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -66,6 +71,87 @@ public class RClassGeneratorTest {
   @Test
   public void nonFinalFields() throws Exception {
     checkSimpleInts(false);
+  }
+
+  @Test
+  public void clinitOverflowIntFields() throws Exception {
+    // Ensures that RClassGenerator avoids MethodTooLargeException when there are too many fields
+    // to initialize int the <clinit> alone.
+    int startResourceId = 0x7f010000;
+    int numResourceFields = 15000;
+    List<String> resourceFields = new ArrayList<>(numResourceFields);
+    Map<String, Integer> resourceFieldValues = Maps.newHashMapWithExpectedSize(numResourceFields);
+    for (int i = 0; i < numResourceFields; ++i) {
+      String fieldName = "field" + i;
+      int fieldValue = (startResourceId + i);
+      resourceFields.add("int string " + fieldName + " " + fieldValue);
+      resourceFieldValues.put(fieldName, fieldValue);
+    }
+    ResourceSymbols symbolValues = createSymbolFile("R.txt", resourceFields.toArray(new String[0]));
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    RClassGenerator writer =
+        RClassGenerator.with(out, symbolValues.asInitializers(), /*finalFields=*/ false);
+
+    writer.write("com.bar", symbolValues.asInitializers());
+
+    Class<?> outerClass = checkTopLevelClass(out, "com.bar.R", "com.bar.R$string");
+    checkInnerClass(
+        out,
+        "com.bar.R$string",
+        outerClass,
+        ImmutableMap.copyOf(resourceFieldValues),
+        ImmutableMap.<String, List<Integer>>of(),
+        /*areFieldsFinal=*/ false);
+  }
+
+  @Test
+  public void clinitOverflowIntArrayFields() throws Exception {
+    // Ensures that RClassGenerator avoids MethodTooLargeException when there are too many array
+    // fields to initialize int the <clinit> alone.
+    int numResourceFields = 15000;
+    List<String> resourceFields = new ArrayList<>(numResourceFields);
+    Map<String, List<Integer>> resourceFieldValues =
+        Maps.newHashMapWithExpectedSize(numResourceFields);
+    for (int i = 0; i < numResourceFields; ++i) {
+      String fieldName = "ActionMenu" + i;
+      resourceFields.add("int[] styleable " + fieldName + " { 1, 2, 3, 4 }");
+      resourceFieldValues.put(fieldName, ImmutableList.of(1, 2, 3, 4));
+    }
+    ResourceSymbols symbolValues = createSymbolFile("R.txt", resourceFields.toArray(new String[0]));
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    RClassGenerator writer =
+        RClassGenerator.with(out, symbolValues.asInitializers(), /*finalFields=*/ false);
+
+    writer.write("com.bar", symbolValues.asInitializers());
+
+    Class<?> outerClass = checkTopLevelClass(out, "com.bar.R", "com.bar.R$styleable");
+    checkInnerClass(
+        out,
+        "com.bar.R$styleable",
+        outerClass,
+        ImmutableMap.<String, Integer>of(),
+        ImmutableMap.copyOf(resourceFieldValues),
+        /*areFieldsFinal=*/ false);
+  }
+
+  @Test
+  public void arrayFieldTooBigToWrite() throws Exception {
+    ImmutableList<String> arrayValue =
+        IntStream.range(0, 10000).boxed().map(Object::toString).collect(toImmutableList());
+    String fieldName = "ActionMenu";
+    String resourceField =
+        "int[] styleable " + fieldName + " { " + String.join(", ", arrayValue) + " }";
+    ResourceSymbols symbolValues = createSymbolFile("R.txt", resourceField);
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    RClassGenerator writer =
+        RClassGenerator.with(out, symbolValues.asInitializers(), /*finalFields=*/ false);
+
+    thrown.expect(IllegalStateException.class);
+
+    writer.write("com.bar", symbolValues.asInitializers());
   }
 
   private void checkSimpleInts(boolean finalFields) throws Exception {

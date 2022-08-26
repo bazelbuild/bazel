@@ -6,8 +6,6 @@ load("@rules_java//java:defs.bzl", "java_library")
 #   entry data and raw file access.
 package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],

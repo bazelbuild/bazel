@@ -92,8 +92,8 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_debug",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "Enables debugging features for the sandboxing feature. This includes two things: first, "
               + "the sandbox root contents are left untouched after a build (and if sandboxfs is "
@@ -106,8 +106,8 @@ public class SandboxOptions extends OptionsBase {
       name = "sandbox_base",
       oldName = "experimental_sandbox_base",
       defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "Lets the sandbox create its sandbox directories underneath this path. Specify a path on"
               + " tmpfs (like /run/shm) to possibly improve performance a lot when your build /"
@@ -118,16 +118,16 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_fake_hostname",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "Change the current hostname to 'localhost' for sandboxed actions.")
   public boolean sandboxFakeHostname;
 
   @Option(
       name = "sandbox_fake_username",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "Change the current username to 'nobody' for sandboxed actions.")
   public boolean sandboxFakeUsername;
 
@@ -135,8 +135,8 @@ public class SandboxOptions extends OptionsBase {
       name = "sandbox_block_path",
       allowMultiple = true,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "For sandboxed actions, disallow access to this path.")
   public List<String> sandboxBlockPath;
 
@@ -145,8 +145,8 @@ public class SandboxOptions extends OptionsBase {
       allowMultiple = true,
       converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "For sandboxed actions, mount an empty, writable directory at this absolute path"
               + " (if supported by the sandboxing implementation, ignored otherwise).")
@@ -156,8 +156,8 @@ public class SandboxOptions extends OptionsBase {
       name = "sandbox_writable_path",
       allowMultiple = true,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "For sandboxed actions, make an existing directory writable in the sandbox"
               + " (if supported by the sandboxing implementation, ignored otherwise).")
@@ -168,8 +168,8 @@ public class SandboxOptions extends OptionsBase {
       allowMultiple = true,
       converter = MountPairConverter.class,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "Add additional path pair to mount in sandbox.")
   public List<ImmutableMap.Entry<String, String>> sandboxAdditionalMounts;
 
@@ -178,7 +178,7 @@ public class SandboxOptions extends OptionsBase {
       converter = TriStateConverter.class,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "Use sandboxfs to create the actions' execroot directories instead of building a symlink "
               + "tree. If \"yes\", the binary provided by --experimental_sandboxfs_path must be "
@@ -190,7 +190,7 @@ public class SandboxOptions extends OptionsBase {
       name = "experimental_sandboxfs_path",
       defaultValue = "sandboxfs",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "Path to the sandboxfs binary to use when --experimental_use_sandboxfs is true. If a "
               + "bare name, use the first binary of that name found in the PATH.")
@@ -199,8 +199,8 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "experimental_sandboxfs_map_symlink_targets",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "If true, maps the targets of symbolic links specified as action inputs into the "
               + "sandbox. This feature exists purely to workaround buggy rules that do not do "
@@ -248,7 +248,7 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "experimental_collect_local_sandbox_action_metrics",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "When enabled, execution statistics (such as user and system time) are recorded for "
@@ -293,7 +293,7 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "experimental_docker_verbose",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If enabled, Bazel will print more verbose messages about the Docker sandbox strategy.")
@@ -302,7 +302,7 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "experimental_docker_privileged",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If enabled, Bazel will pass the --privileged flag to 'docker run' when running actions. "
@@ -314,7 +314,7 @@ public class SandboxOptions extends OptionsBase {
       name = "sandbox_default_allow_network",
       oldName = "experimental_sandbox_default_allow_network",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Allow network access by default for actions; this may not work with all sandboxing "
@@ -326,7 +326,7 @@ public class SandboxOptions extends OptionsBase {
       defaultValue = "0",
       converter = AsyncTreeDeletesConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "If 0, delete sandbox trees as soon as an action completes (causing completion of the "
               + "action to be delayed). If greater than zero, execute the deletion of such threes"
@@ -337,7 +337,7 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "incompatible_legacy_local_fallback",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
@@ -351,7 +351,7 @@ public class SandboxOptions extends OptionsBase {
       name = "experimental_reuse_sandbox_directories",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "If set to true, directories used by sandboxed non-worker execution may be reused to"
               + " avoid unnecessary setup costs.")

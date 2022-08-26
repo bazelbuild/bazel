@@ -9,8 +9,6 @@ package(
         ["//src:__subpackages__"],
 )
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

@@ -1,3 +1,4 @@
+# The Bazel site
 load("@rules_pkg//pkg:pkg.bzl", "pkg_tar")
 
 licenses(["notice"])
