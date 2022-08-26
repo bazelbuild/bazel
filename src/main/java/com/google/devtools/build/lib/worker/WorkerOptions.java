@@ -35,8 +35,8 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_persistent_javac",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "Enable the experimental persistent Java compiler.",
       expansion = {
         "--strategy=Javac=worker",
@@ -87,8 +87,8 @@ public class WorkerOptions extends OptionsBase {
       name = "worker_max_instances",
       converter = MultiResourceConverter.class,
       defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many instances of a worker process (like the persistent Java compiler) may be "
               + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
@@ -103,8 +103,8 @@ public class WorkerOptions extends OptionsBase {
       name = "experimental_worker_max_multiplex_instances",
       converter = MultiResourceConverter.class,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
               + " 'worker' strategy with --experimental_worker_multiplex. May be specified as"
@@ -118,8 +118,8 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "high_priority_workers",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Mnemonics of workers to run with high priority. When high priority workers are running "
               + "all other workers are throttled.",
@@ -129,15 +129,15 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_quit_after_build",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, all workers quit after a build is done.")
   public boolean workerQuitAfterBuild;
 
   @Option(
       name = "worker_verbose",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If enabled, prints verbose messages when workers are started, shutdown, ...")
   public boolean workerVerbose;
@@ -146,8 +146,8 @@ public class WorkerOptions extends OptionsBase {
       name = "worker_extra_flag",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Extra command-flags that will be passed to worker processes in addition to "
               + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
@@ -157,16 +157,16 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_sandboxing",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, workers will be executed in a sandboxed environment.")
   public boolean workerSandboxing;
 
   @Option(
       name = "experimental_worker_multiplex",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If enabled, workers that support the experimental multiplexing feature will use that"
               + " feature.")
@@ -175,7 +175,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_worker_cancellation",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, Bazel may send cancellation requests to workers that support them.")
   public boolean workerCancellation;
@@ -183,15 +183,15 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_worker_as_resource",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.EXECUTION},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, workers are acquired as resources from ResourceManager.")
   public boolean workerAsResource;
 
   @Option(
       name = "experimental_worker_multiplex_sandboxing",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If enabled, multiplex workers will be sandboxed, using a separate sandbox directory"
@@ -202,7 +202,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_worker_strict_flagfiles",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If enabled, actions arguments for workers that do not follow the worker specification"
@@ -214,8 +214,8 @@ public class WorkerOptions extends OptionsBase {
       name = "experimental_total_worker_memoty_limit_mb",
       converter = RamResourceConverter.class,
       defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.EXECUTION},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If this limit is greater than zero idle workers might be killed if the total memory"
               + " usage of all  workers exceed the limit.")
