@@ -283,8 +283,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//foo:A': "
-                + "target 'A' not declared in package 'foo' defined by /workspace/foo/BUILD");
+            "no such target '//foo:A': target 'A' not declared in package 'foo' defined by"
+                + " /workspace/foo/BUILD (Tip: use `query //foo:*` to see all the targets in that"
+                + " package)");
 
     // These are the only input files: BUILD, Z
     Set<String> inputFiles = Sets.newTreeSet();
@@ -412,27 +413,26 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .hasMessageThat()
         .isEqualTo(
             "no such target '//x:y.cc': "
-                + "target 'y.cc' not declared in package 'x'; "
+                + "target 'y.cc' not declared in package 'x' "
+                + "defined by /workspace/x/BUILD; "
                 + "however, a source file of this name exists.  "
-                + "(Perhaps add 'exports_files([\"y.cc\"])' to x/BUILD?) "
-                + "defined by /workspace/x/BUILD");
+                + "(Perhaps add 'exports_files([\"y.cc\"])' to x/BUILD?)");
 
     e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("z.cc"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//x:z.cc': "
-                + "target 'z.cc' not declared in package 'x' (did you mean 'x.cc'?) "
-                + "defined by /workspace/x/BUILD");
+            "no such target '//x:z.cc': target 'z.cc' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean 'x.cc'? Tip: use `query //x:*` to see all the"
+                + " targets in that package)");
 
     e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("dir"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//x:dir': target 'dir' not declared in package 'x'; "
-                + "however, a source directory of this name exists.  "
-                + "(Perhaps add 'exports_files([\"dir\"])' to x/BUILD, "
-                + "or define a filegroup?) defined by /workspace/x/BUILD");
+            "no such target '//x:dir': target 'dir' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD; however, a source directory of this name exists.  (Perhaps"
+                + " add 'exports_files([\"dir\"])' to x/BUILD, or define a filegroup?)");
   }
 
   @Test

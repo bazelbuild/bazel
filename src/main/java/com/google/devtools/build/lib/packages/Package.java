@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -690,8 +691,8 @@ public class Package {
       throw new NoSuchTargetException(
           label,
           String.format(
-              "target '%s' not declared in package '%s'%s defined by %s",
-              targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString()));
+              "target '%s' not declared in package '%s' defined by %s%s",
+              targetName, getName(), filename.asPath().getPathString(), alternateTargetSuggestion));
     }
   }
 
@@ -725,7 +726,15 @@ public class Package {
           + getName()
           + "/BUILD?)";
     } else {
-      return SpellChecker.didYouMean(targetName, targets.keySet());
+      String suggestedTarget = SpellChecker.suggest(targetName, targets.keySet());
+      String targetSuggestion =
+          suggestedTarget == null ? null : String.format("did you mean '%s'?", suggestedTarget);
+      String blazeQuerySuggestion =
+          String.format(
+              "Tip: use `query %s:*` to see all the targets in that package",
+              packageIdentifier.getCanonicalForm());
+      return String.format(
+          " (%s)", Joiner.on(" ").skipNulls().join(targetSuggestion, blazeQuerySuggestion));
     }
   }
 
