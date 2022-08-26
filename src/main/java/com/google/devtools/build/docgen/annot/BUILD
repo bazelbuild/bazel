@@ -1,7 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-licenses(["notice"])
-
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(

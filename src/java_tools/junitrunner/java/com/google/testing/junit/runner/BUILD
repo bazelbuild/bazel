@@ -4,8 +4,6 @@ package(default_visibility = [
     "//src/java_tools/junitrunner:junitrunner_package_group",
 ])
 
-licenses(["notice"])
-
 filegroup(
     name = "common_runner_java_files",
     srcs = [

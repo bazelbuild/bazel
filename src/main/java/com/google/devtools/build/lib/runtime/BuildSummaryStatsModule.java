@@ -35,11 +35,13 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Blaze module for the build summary message that reports various stats to the user.
@@ -60,6 +62,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionEndMillis;
   private SpawnStats spawnStats;
   private Path profilePath;
+  private AtomicBoolean executionStarted;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -69,6 +72,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     commandStartMillis = env.getCommandStartTime();
     this.spawnStats = new SpawnStats();
     eventBus.register(this);
+    executionStarted = new AtomicBoolean(false);
   }
 
   @Override
@@ -77,6 +81,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.eventBus = null;
     this.reporter = null;
     this.spawnStats = null;
+    executionStarted.set(false);
   }
 
   @Override
@@ -87,6 +92,23 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
+    markExecutionPhaseStarted();
+  }
+
+  /**
+   * Skymeld-specific marking of the start of execution. Multiple instances of this event might be
+   * fired during the build, but we make sure to only mark the start of the execution phase when the
+   * first one is received.
+   */
+  @Subscribe
+  public void executionPhaseStarting(
+      @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
+    if (executionStarted.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+      markExecutionPhaseStarted();
+    }
+  }
+
+  private void markExecutionPhaseStarted() {
     // TODO(ulfjack): Make sure to use the same clock as for commandStartMillis.
     executionStartMillis = BlazeClock.instance().currentTimeMillis();
     if (enabled) {

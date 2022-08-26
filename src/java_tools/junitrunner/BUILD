@@ -2,8 +2,6 @@
 #   Run JUnit tests in a controlled environment.
 package(default_visibility = ["//visibility:private"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = [

@@ -2,8 +2,6 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache 2.0
-
 java_library(
     name = "statistics",
     srcs = ["BlazeJavacStatistics.java"],
