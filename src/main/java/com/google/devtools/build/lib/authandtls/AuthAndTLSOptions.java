@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
@@ -21,8 +25,11 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * Common options for authentication and TLS.
@@ -110,12 +117,13 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then "
-              + "Bazel sends pings after this much time of no read operations on the connection, "
-              + "but only if there is at least one pending gRPC call. Times are treated as second "
-              + "granularity; it is an error to set a value less than one second. By default, "
-              + "keep-alive pings are disabled. You should coordinate with the service owner "
-              + "before enabling this setting.")
+          "Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel"
+              + " sends pings after this much time of no read operations on the connection, but"
+              + " only if there is at least one pending gRPC call. Times are treated as second"
+              + " granularity; it is an error to set a value less than one second. By default,"
+              + " keep-alive pings are disabled. You should coordinate with the service owner"
+              + " before enabling this setting. For example to set a value of 30 seconds to this"
+              + " flag, it should be done as this --grpc_keepalive_time=30s ")
   public Duration grpcKeepaliveTime;
 
   @Option(
@@ -131,4 +139,91 @@ public class AuthAndTLSOptions extends OptionsBase {
               + "granularity; it is an error to set a value less than one second. If keep-alive "
               + "pings are disabled, then this setting is ignored.")
   public Duration grpcKeepaliveTimeout;
+
+  @Option(
+      name = "experimental_credential_helper",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = UnresolvedScopedCredentialHelperConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures Credential Helpers to use for retrieving credentials for the provided scope"
+              + " (domain).\n\n"
+              + "Credentials from Credential Helpers take precedence over credentials from"
+              + " <code>--google_default_credentials</code>, `--google_credentials`, or"
+              + " <code>.netrc</code>.\n\n"
+              + "See https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md"
+              + " for details.")
+  public List<UnresolvedScopedCredentialHelper> credentialHelpers;
+
+  @Option(
+      name = "experimental_credential_helper_timeout",
+      defaultValue = "5s",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Configures the timeout for the Credential Helper.\n\n"
+              + "Credential Helpers failing to respond within this timeout will fail the"
+              + " invocation.")
+  public Duration credentialHelperTimeout;
+
+  @Option(
+      name = "experimental_credential_helper_cache_duration",
+      defaultValue = "30m",
+      converter = DurationConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Configures the duration for which credentials from Credential Helpers are cached.")
+  public Duration credentialHelperCacheTimeout;
+
+  /** One of the values of the `--credential_helper` flag. */
+  @AutoValue
+  public abstract static class UnresolvedScopedCredentialHelper {
+    /** Returns the scope of the credential helper (if any). */
+    public abstract Optional<String> getScope();
+
+    /** Returns the (unparsed) path of the credential helper. */
+    public abstract String getPath();
+  }
+
+  /** A {@link Converter} for the `--credential_helper` flag. */
+  public static final class UnresolvedScopedCredentialHelperConverter
+      extends Converter.Contextless<UnresolvedScopedCredentialHelper> {
+    public static final UnresolvedScopedCredentialHelperConverter INSTANCE =
+        new UnresolvedScopedCredentialHelperConverter();
+
+    @Override
+    public String getTypeDescription() {
+      return "An (unresolved) path to a credential helper for a scope.";
+    }
+
+    @Override
+    public UnresolvedScopedCredentialHelper convert(String input) throws OptionsParsingException {
+      Preconditions.checkNotNull(input);
+
+      int pos = input.indexOf('=');
+      if (pos >= 0) {
+        String scope = input.substring(0, pos);
+        if (Strings.isNullOrEmpty(scope)) {
+          throw new OptionsParsingException("Scope of credential helper must not be empty");
+        }
+        String path = checkPath(input.substring(pos + 1));
+        return new AutoValue_AuthAndTLSOptions_UnresolvedScopedCredentialHelper(
+            Optional.of(scope), path);
+      }
+
+      // `input` does not specify a scope.
+      return new AutoValue_AuthAndTLSOptions_UnresolvedScopedCredentialHelper(
+          Optional.empty(), checkPath(input));
+    }
+
+    private String checkPath(@Nullable String input) throws OptionsParsingException {
+      if (Strings.isNullOrEmpty(input)) {
+        throw new OptionsParsingException("Path to credential helper must not be empty");
+      }
+      return input;
+    }
+  }
 }

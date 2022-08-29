@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -80,6 +81,7 @@ public class PackageLookupFunction implements SkyFunction {
     private int buildFileNamePos = 0;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
@@ -93,6 +95,15 @@ public class PackageLookupFunction implements SkyFunction {
     if (packageNameErrorMsg != null) {
       return PackageLookupValue.invalidPackageName(
           "Invalid package name '" + packageKey + "': " + packageNameErrorMsg);
+    }
+
+    RepositoryName repoName = packageKey.getRepository();
+    if (!repoName.isVisible()) {
+      return new PackageLookupValue.NoRepositoryPackageLookupValue(
+          repoName.getNameWithAt(),
+          String.format(
+              "Repository '%s' is not visible from repository '%s'",
+              repoName.getNameWithAt(), repoName.getOwnerRepoIfNotVisible().getNameWithAt()));
     }
 
     if (deletedPackages.get().contains(packageKey)) {
@@ -234,6 +245,7 @@ public class PackageLookupFunction implements SkyFunction {
     return fileValue;
   }
 
+  @Nullable
   private PackageLookupValue getPackageLookupValue(
       Environment env,
       Root packagePathEntry,
@@ -318,6 +330,7 @@ public class PackageLookupFunction implements SkyFunction {
     return false;
   }
 
+  @Nullable
   private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
       throws InterruptedException {
     RootedPath workspaceFile = externalPackageHelper.findWorkspaceFile(env);
@@ -349,6 +362,7 @@ public class PackageLookupFunction implements SkyFunction {
    * <p>To do this, it looks up the "external" package and finds a path mapping for the repository
    * name.
    */
+  @Nullable
   private PackageLookupValue computeExternalPackageLookupValue(
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException, InterruptedException {

@@ -132,7 +132,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         attr("my-label-attr", LABEL)
             .mandatory()
             .legacyAllowAnyFileType()
-            .value(Label.parseAbsolute("//default:label", ImmutableMap.of()))
+            .value(Label.parseCanonical("//default:label"))
             .build(),
         attr("my-labellist-attr", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
         attr("my-integer-attr", INTEGER).value(StarlarkInt.of(42)).build(),
@@ -198,7 +198,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     // default based on type
     assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
     assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
-        .isEqualTo(Label.parseAbsolute("//default:label", ImmutableMap.of()));
+        .isEqualTo(Label.parseCanonical("//default:label"));
     assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
     assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
@@ -312,6 +312,218 @@ public class RuleClassTest extends PackageLoadingTestCase {
   private void assertDupError(String label, String attrName, String ruleName) {
     assertContainsEvent(String.format("Label '%s' is duplicated in the '%s' attribute of rule '%s'",
         label, attrName, ruleName));
+  }
+
+  @Test
+  public void testDuplicatedDepsWithinSingleSelectConditionError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1 =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of("//conditions:a", ImmutableList.of(":dup1", ":dup1")), ""));
+
+    // expect errors
+    reporter.removeHandler(failFastHandler);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(1);
+    assertDupError("//testpackage:dup1", "list1", "depsRule");
+  }
+
+  @Test
+  public void testDuplicatedDepsWithinConditionMultipleSelectsErrors() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":dup1", "dup1"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:c", ImmutableList.of(":dup2", "dup2"),
+                    "//conditions:d", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    // expect errors
+    reporter.removeHandler(failFastHandler);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(2);
+    assertDupError("//testpackage:dup1", "list1", "depsRule");
+    assertDupError("//testpackage:dup2", "list1", "depsRule");
+  }
+
+  @Test
+  public void testSameDepAcrossMultipleSelectsNoDuplicateNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    // ignore duplicatess across selects where values appear duplicated but are not
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":nodup1"),
+                    "//conditions:b", ImmutableList.of(":nodup2")),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":nodup2"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+  }
+
+  @Test
+  public void testSameDepAcrossMultipleSelectsIsDuplicateNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    // repetition of dup1 is identified at analysis time, not loading time
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":dup1"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":dup1"),
+                    "//conditions:b", ImmutableList.of(":nodup2")),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+  }
+
+  @Test
+  public void testSameDepAcrossConditionsInSelectNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1 =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":nodup1"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
   }
 
   @Test
@@ -745,8 +957,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new BuildLangTypedAttributeValuesMap(attributeValues),
         reporter,
         location,
-        callstack,
-        /*checkThirdPartyRulesHaveLicenses=*/ true);
+        callstack);
   }
 
   @Test
@@ -997,8 +1208,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST));
 
     ruleClassBuilder.addToolchainTypes(
-        ToolchainTypeRequirement.create(Label.parseAbsolute("//toolchain:tc1", ImmutableMap.of())),
-        ToolchainTypeRequirement.create(Label.parseAbsolute("//toolchain:tc2", ImmutableMap.of())));
+        ToolchainTypeRequirement.create(Label.parseCanonical("//toolchain:tc1")),
+        ToolchainTypeRequirement.create(Label.parseCanonical("//toolchain:tc2")));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
@@ -1014,15 +1225,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST));
 
     ruleClassBuilder.addExecutionPlatformConstraints(
-        Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-        Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+        Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+            Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
   }
 
   @Test
@@ -1031,8 +1240,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("$parentRuleClass", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
             .addExecutionPlatformConstraints(
-                Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-                Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()))
+                Label.parseCanonical("//constraints:cv1"),
+                Label.parseCanonical("//constraints:cv2"))
             .build();
 
     RuleClass childRuleClass =
@@ -1042,8 +1251,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+            Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
   }
 
   @Test
@@ -1057,15 +1265,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("childRuleClass", RuleClassType.NORMAL, false, parentRuleClass)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecutionPlatformConstraints(
-                Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-                Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+                Label.parseCanonical("//constraints:cv1"),
+                Label.parseCanonical("//constraints:cv2"));
 
     RuleClass childRuleClass = childRuleClassBuilder.build();
 
     assertThat(childRuleClass.getExecutionPlatformConstraints())
         .containsExactly(
-            Label.parseAbsolute("//constraints:cv1", ImmutableMap.of()),
-            Label.parseAbsolute("//constraints:cv2", ImmutableMap.of()));
+            Label.parseCanonical("//constraints:cv1"), Label.parseCanonical("//constraints:cv2"));
   }
 
   @Test

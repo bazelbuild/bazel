@@ -130,9 +130,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
-                ? ruleContext.getRequiredConfigFragments()
-                : RequiredConfigFragmentsProvider.EMPTY,
             ImmutableSet.copyOf(constraintValueSettings),
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
@@ -479,8 +476,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                   : provider.getDefaultValue();
           Object convertedSpecifiedValue;
           try {
+            // We don't need to supply a base package or repo mapping for the conversion here,
+            // because `specifiedValue` is already canonicalized.
             convertedSpecifiedValue =
-                BUILD_SETTING_CONVERTERS.get(provider.getType()).convert(specifiedValue);
+                BUILD_SETTING_CONVERTERS
+                    .get(provider.getType())
+                    .convert(specifiedValue, /*conversionContext=*/ null);
           } catch (OptionsParsingException e) {
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
@@ -581,13 +582,9 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     if (!BuildType.isLabelType(flagTarget.getProvider(BuildSettingProvider.class).getType())) {
       return expectedValue;
     }
-    if (!expectedValue.startsWith(":")) {
-      return expectedValue;
-    }
     try {
-      return Label.create(
-              ruleContext.getRule().getPackage().getPackageIdentifier(), expectedValue.substring(1))
-          .getCanonicalForm();
+      return Label.parseWithPackageContext(expectedValue, ruleContext.getPackageContext())
+          .getUnambiguousCanonicalForm();
     } catch (LabelSyntaxException e) {
       // Swallow this: the subsequent type conversion already checks for this.
       return expectedValue;

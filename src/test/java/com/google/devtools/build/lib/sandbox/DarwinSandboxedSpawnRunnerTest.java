@@ -125,7 +125,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   public void testSimpleExecution() throws Exception {
     DarwinSandboxedSpawnRunner runner =
         new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,
@@ -138,7 +138,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   public void testSupportsParamFiles() throws Exception {
     DarwinSandboxedSpawnRunner runner =
         new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             /* sandboxfsProcess= */ null,
@@ -179,7 +179,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
 
     DarwinSandboxedSpawnRunner runner =
         new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(/*delayVirtualInputMaterialization=*/ true),
+            new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
             sandboxfsProcess,

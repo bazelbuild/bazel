@@ -5,8 +5,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     testonly = 0,
@@ -45,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
@@ -53,7 +52,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
@@ -102,7 +100,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",

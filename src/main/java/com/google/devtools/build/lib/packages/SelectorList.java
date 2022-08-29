@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -31,7 +32,8 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
 
 /**
- * An attribute value consisting of a concatenation of native types and selects, e.g:
+ * An attribute value consisting of a concatenation (via the {@code +} operator for lists or the
+ * {@code |} operator for dicts) of native types and selects, e.g:
  *
  * <pre>
  *   rule(
@@ -120,7 +122,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
       }
       if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
         throw Starlark.errorf(
-            "'+' operator applied to incompatible types (%s, %s)",
+            "Cannot combine incompatible types (%s, %s)",
             getTypeName(firstValue), getTypeName(value));
       }
     }
@@ -139,8 +141,13 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   @Override
+  @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
+    if (getNativeType(that).equals(Dict.class)) {
+      if (op == TokenKind.PIPE) {
+        return thisLeft ? concat(this, that) : concat(that, this);
+      }
+    } else if (op == TokenKind.PLUS) {
       return thisLeft ? concat(this, that) : concat(that, this);
     }
     return null;

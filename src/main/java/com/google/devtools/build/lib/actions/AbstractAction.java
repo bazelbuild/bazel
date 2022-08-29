@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
@@ -55,6 +56,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -358,6 +360,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return false;
   }
 
+  @Nullable
   @Override
   public final String getProgressMessage() {
     String message = getRawProgressMessage();
@@ -605,24 +608,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
             .setOwner(owner.getLabel().toString())
             .setId(getKey(actionKeyContext, /*artifactExpander=*/ null))
             .setMnemonic(getMnemonic());
-    Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
-    AspectDescriptor lastAspect = null;
-
-    for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
-      ExtraActionInfo.AspectDescriptor.Builder builder =
-          ExtraActionInfo.AspectDescriptor.newBuilder()
-            .setAspectName(aspectDescriptor.getAspectClass().getName());
-      for (Map.Entry<String, Collection<String>> entry :
-          aspectDescriptor.getParameters().getAttributes().asMap().entrySet()) {
-          builder.putAspectParameters(
-            entry.getKey(),
-            ExtraActionInfo.AspectDescriptor.StringList.newBuilder()
-                .addAllValue(entry.getValue())
-                .build()
-          );
-      }
-      lastAspect = aspectDescriptor;
-    }
+    ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
+    AspectDescriptor lastAspect =
+        aspectDescriptors.isEmpty() ? null : Iterables.getLast(aspectDescriptors);
     if (lastAspect != null) {
       result.setAspectName(lastAspect.getAspectClass().getName());
 
@@ -687,7 +675,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Dict<String, String> getStarlarkSubstitutions() {
+  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
     return null;
   }
 
@@ -698,8 +686,16 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Dict<String, String> getEnv() {
-    return Dict.immutableCopyOf(env.getFixedEnv());
+  public Dict<String, String> getEnv(StarlarkSemantics semantics) throws EvalException {
+    if (semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV)) {
+      try {
+        return Dict.immutableCopyOf(getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()));
+      } catch (CommandLineExpansionException ex) {
+        throw new EvalException(ex);
+      }
+    } else {
+      return Dict.immutableCopyOf(env.getFixedEnv());
+    }
   }
 
   @Override

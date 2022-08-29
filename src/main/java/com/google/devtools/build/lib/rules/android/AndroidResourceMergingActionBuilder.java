@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -48,31 +49,37 @@ public class AndroidResourceMergingActionBuilder {
    * The primary resource for merging. This resource will overwrite any resource or data value in
    * the transitive closure.
    */
+  @CanIgnoreReturnValue
   private AndroidResourceMergingActionBuilder withPrimary(ParsedAndroidResources primary) {
     this.primary = primary;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder withDependencies(ResourceDependencies resourceDeps) {
     this.dependencies = resourceDeps;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setMergedResourcesOut(Artifact mergedResourcesOut) {
     this.mergedResourcesOut = mergedResourcesOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setClassJarOut(Artifact classJarOut) {
     this.classJarOut = classJarOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setAapt2RTxtOut(Artifact aapt2RTxtOut) {
     this.aapt2RTxtOut = aapt2RTxtOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setManifestOut(Artifact manifestOut) {
     this.manifestOut = manifestOut;
     return this;
@@ -84,28 +91,33 @@ public class AndroidResourceMergingActionBuilder {
    * <p>If null, data binding processing is skipped (and data binding expressions aren't allowed in
    * layout resources).
    */
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setDataBindingInfoZip(Artifact zip) {
     this.dataBindingInfoZip = zip;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setJavaPackage(String customJavaPackage) {
     this.customJavaPackage = customJavaPackage;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setThrowOnResourceConflict(
       boolean throwOnResourceConflict) {
     this.throwOnResourceConflict = throwOnResourceConflict;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setAnnotateRFieldsFromTransitiveDeps(
       boolean annotateRFieldsFromTransitiveDeps) {
     this.annotateRFieldsFromTransitiveDeps = annotateRFieldsFromTransitiveDeps;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AndroidResourceMergingActionBuilder setOmitTransitiveDependenciesFromAndroidRClasses(
       boolean omitTransitiveDependenciesFromAndroidRClasses) {
     this.omitTransitiveDependenciesFromAndroidRClasses =

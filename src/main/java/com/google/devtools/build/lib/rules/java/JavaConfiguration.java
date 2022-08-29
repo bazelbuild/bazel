@@ -81,6 +81,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean isDisallowStrictDepsForJpl;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
+  private final boolean enforceOneVersionValidationAction;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
   private final boolean allowRuntimeDepsOnNeverLink;
   private final JavaClasspathMode javaClasspath;
@@ -94,6 +95,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean runLocalJavaOptimizations;
   private final ImmutableList<Label> localJavaOptimizationConfiguration;
   private final boolean splitBytecodeOptimizationPass;
+  private final int bytecodeOptimizationPassActions;
   private final boolean enforceProguardFileExtension;
   private final boolean runAndroidLint;
   private final boolean limitAndroidLintToAndroidCompatible;
@@ -131,12 +133,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.localJavaOptimizationConfiguration =
         ImmutableList.copyOf(javaOptions.localJavaOptimizationConfiguration);
     this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
+    this.bytecodeOptimizationPassActions = javaOptions.bytecodeOptimizationPassActions;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
+    this.enforceOneVersionValidationAction = javaOptions.enforceOneVersionValidationAction;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
     this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
@@ -298,11 +302,20 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /**
-   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
+   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across two
    * actions.
    */
   public boolean splitBytecodeOptimizationPass() {
     return splitBytecodeOptimizationPass;
+  }
+
+  /**
+   * This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer
+   * into. Note that if split_bytecode_optimization_pass is set, this will only change behavior if
+   * it is > 2.
+   */
+  public int bytecodeOptimizationPassActions() {
+    return bytecodeOptimizationPassActions;
   }
 
   /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
@@ -381,6 +394,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean enforceOneVersionOnJavaTests() {
     return enforceOneVersionOnJavaTests;
+  }
+
+  public boolean enforceOneVersionValidationAction() {
+    return enforceOneVersionValidationAction;
   }
 
   public ImportDepsCheckingLevel getImportDepsCheckingLevel() {

@@ -47,6 +47,7 @@ public abstract class CompressedTarFunction implements Decompressor {
       throw new InterruptedException();
     }
     Optional<String> prefix = descriptor.prefix();
+    Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     Set<String> availablePrefixes = new HashSet<>();
     // Store link, target info of symlinks, we create them after regular files are extracted.
@@ -56,7 +57,9 @@ public abstract class CompressedTarFunction implements Decompressor {
       TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        String entryName = entry.getName();
+        entryName = renameFiles.getOrDefault(entryName, entryName);
+        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
         if (prefix.isPresent() && !foundPrefix) {
@@ -71,18 +74,18 @@ public abstract class CompressedTarFunction implements Decompressor {
           continue;
         }
 
-        Path filePath = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
+        Path filePath = descriptor.destinationPath().getRelative(entryPath.getPathFragment());
         filePath.getParentDirectory().createDirectoryAndParents();
         if (entry.isDirectory()) {
           filePath.createDirectoryAndParents();
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
             PathFragment targetName = PathFragment.create(entry.getLinkName());
-            targetName = maybeDeprefixSymlink(targetName, prefix, descriptor.repositoryPath());
+            targetName = maybeDeprefixSymlink(targetName, prefix, descriptor.destinationPath());
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
-              Path targetPath = descriptor.repositoryPath().getRelative(targetName);
+              Path targetPath = descriptor.destinationPath().getRelative(targetName);
               if (filePath.equals(targetPath)) {
                 // The behavior here is semantically different, depending on whether the underlying
                 // filesystem is case-sensitive or case-insensitive. However, it is effectively the
@@ -130,6 +133,6 @@ public abstract class CompressedTarFunction implements Decompressor {
       }
     }
 
-    return descriptor.repositoryPath();
+    return descriptor.destinationPath();
   }
 }

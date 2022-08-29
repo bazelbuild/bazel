@@ -67,11 +67,11 @@ def _build_common_variables(
         ctx,
         toolchain,
         use_pch = False,
-        disable_layering_check = False,
-        disable_parse_hdrs = False,
         empty_compilation_artifacts = False,
         deps = [],
         runtime_deps = [],
+        extra_disabled_features = [],
+        extra_enabled_features = [],
         extra_import_libraries = [],
         linkopts = [],
         alwayslink = False,
@@ -101,11 +101,11 @@ def _build_common_variables(
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
+        extra_disabled_features = extra_disabled_features,
+        extra_enabled_features = extra_enabled_features,
         objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = use_pch,
-        disable_layering_check = disable_layering_check,
-        disable_parse_headers = disable_parse_hdrs,
         objc_config = ctx.fragments.objc,
         objc_provider = objc_provider,
     )
@@ -115,14 +115,11 @@ def _build_feature_configuration(common_variables, for_swift_module_map, support
 
     enabled_features = []
     enabled_features.extend(ctx.features)
+    enabled_features.extend(common_variables.extra_enabled_features)
 
     disabled_features = []
     disabled_features.extend(ctx.disabled_features)
-    if common_variables.disable_parse_headers:
-        disabled_features.append("parse_headers")
-
-    if common_variables.disable_layering_check:
-        disabled_features.append("layering_check")
+    disabled_features.extend(common_variables.extra_disabled_features)
 
     if not support_parse_headers:
         disabled_features.append("parse_headers")
@@ -271,11 +268,11 @@ def _register_compile_and_archive_actions_for_j2objc(
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
+        extra_enabled_features = ["j2objc_transpiled"],
+        extra_disabled_features = ["layering_check", "parse_headers"],
         objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = False,
-        disable_layering_check = True,
-        disable_parse_headers = True,
         objc_config = ctx.fragments.objc,
         objc_provider = None,
     )

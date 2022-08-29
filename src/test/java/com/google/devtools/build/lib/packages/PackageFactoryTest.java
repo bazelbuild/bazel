@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -284,8 +283,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//foo:A': "
-                + "target 'A' not declared in package 'foo' defined by /workspace/foo/BUILD");
+            "no such target '//foo:A': target 'A' not declared in package 'foo' defined by"
+                + " /workspace/foo/BUILD (Tip: use `query //foo:*` to see all the targets in that"
+                + " package)");
 
     // These are the only input files: BUILD, Z
     Set<String> inputFiles = Sets.newTreeSet();
@@ -413,27 +413,26 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .hasMessageThat()
         .isEqualTo(
             "no such target '//x:y.cc': "
-                + "target 'y.cc' not declared in package 'x'; "
+                + "target 'y.cc' not declared in package 'x' "
+                + "defined by /workspace/x/BUILD; "
                 + "however, a source file of this name exists.  "
-                + "(Perhaps add 'exports_files([\"y.cc\"])' to x/BUILD?) "
-                + "defined by /workspace/x/BUILD");
+                + "(Perhaps add 'exports_files([\"y.cc\"])' to x/BUILD?)");
 
     e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("z.cc"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//x:z.cc': "
-                + "target 'z.cc' not declared in package 'x' (did you mean 'x.cc'?) "
-                + "defined by /workspace/x/BUILD");
+            "no such target '//x:z.cc': target 'z.cc' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD (did you mean 'x.cc'? Tip: use `query //x:*` to see all the"
+                + " targets in that package)");
 
     e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("dir"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//x:dir': target 'dir' not declared in package 'x'; "
-                + "however, a source directory of this name exists.  "
-                + "(Perhaps add 'exports_files([\"dir\"])' to x/BUILD, "
-                + "or define a filegroup?) defined by /workspace/x/BUILD");
+            "no such target '//x:dir': target 'dir' not declared in package 'x' defined by"
+                + " /workspace/x/BUILD; however, a source directory of this name exists.  (Perhaps"
+                + " add 'exports_files([\"dir\"])' to x/BUILD, or define a filegroup?)");
   }
 
   @Test
@@ -455,14 +454,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x:c", ImmutableMap.of()),
-                Label.parseAbsolute("//x:j", ImmutableMap.of())));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(
-                Label.parseAbsolute("//x:c", ImmutableMap.of()),
-                Label.parseAbsolute("//x:j", ImmutableMap.of())));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
     assertThat(attributes(pkg.getRule("t4")).get("$implicit_tests", BuildType.LABEL_LIST))
@@ -510,14 +505,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertThat(yesFiles)
         .containsExactly(
-            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()));
+            Label.parseCanonical("@//fruit:data/apple"),
+            Label.parseCanonical("@//fruit:data/pear"));
 
     assertThat(noFiles)
         .containsExactly(
-            Label.parseAbsolute("@//fruit:data/apple", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/pear", ImmutableMap.of()),
-            Label.parseAbsolute("@//fruit:data/berry", ImmutableMap.of()));
+            Label.parseCanonical("@//fruit:data/apple"),
+            Label.parseCanonical("@//fruit:data/pear"),
+            Label.parseCanonical("@//fruit:data/berry"));
   }
 
   // TODO(bazel-team): This is really a test for GlobCache.
@@ -933,7 +928,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
     List<?> globList = (List) pkg.getRule("e").getAttr("data");
-    assertThat(globList).containsExactly(Label.parseAbsolute("//e:BUILD", ImmutableMap.of()));
+    assertThat(globList).containsExactly(Label.parseCanonical("//e:BUILD"));
   }
 
   @Test
@@ -1113,10 +1108,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "    default_compatible_with=['//foo'],",
             "    default_restricted_to=['//bar'],",
             ")");
-    assertThat(pkg.getDefaultCompatibleWith())
-        .containsExactly(Label.parseAbsolute("//foo", ImmutableMap.of()));
-    assertThat(pkg.getDefaultRestrictedTo())
-        .containsExactly(Label.parseAbsolute("//bar", ImmutableMap.of()));
+    assertThat(pkg.getDefaultCompatibleWith()).containsExactly(Label.parseCanonical("//foo"));
+    assertThat(pkg.getDefaultRestrictedTo()).containsExactly(Label.parseCanonical("//bar"));
   }
 
   @Test
@@ -1320,10 +1313,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             includes,
             excludes,
             excludeDirs,
-            Starlark.format(
-                "(result == sorted(%r)) or fail('incorrect glob result: got %%s, want %%s' %%"
-                    + " (result, sorted(%r)))",
-                result, result));
+            String.format(
+                "(result == sorted(%s)) or fail('incorrect glob result: got %%s, want %%s' %%"
+                    + " (result, sorted(%s)))",
+                Starlark.repr(result), Starlark.repr(result)));
     // Execution succeeded. Assert that there were no other errors in the package.
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -1352,9 +1345,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     }
     scratch.file(
         "globs/BUILD",
-        Starlark.format(
-            "result = glob(%r, exclude=%r, exclude_directories=%r)",
-            includes, excludes, excludeDirs ? 1 : 0),
+        String.format(
+            "result = glob(%s, exclude=%s, exclude_directories=%d)",
+            Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
     return loadPackage("globs");
   }

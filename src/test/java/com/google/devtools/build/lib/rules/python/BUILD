@@ -111,7 +111,10 @@ java_test(
     srcs = ["PyTestConfiguredTargetTest.java"],
     deps = [
         ":PyExecutableTestBase",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/execution_info",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

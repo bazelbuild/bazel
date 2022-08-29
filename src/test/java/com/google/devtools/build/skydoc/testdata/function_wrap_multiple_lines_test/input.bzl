@@ -47,7 +47,7 @@ dependencies here.
         "Xwatchconversion": attr.bool(default = False, doc = "Don't delete temporary lexers generated from combined grammars."),
         "_tool": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
 )

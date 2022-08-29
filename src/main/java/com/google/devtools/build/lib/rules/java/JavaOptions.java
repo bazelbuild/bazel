@@ -345,10 +345,8 @@ public class JavaOptions extends FragmentOptions {
       help = "Do not use.")
   public List<Label> localJavaOptimizationConfiguration;
 
-  /**
-   * If true, the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
-   * actions.
-   */
+  // TODO(b/237004872) Remove this after rollout of bytecode_optimization_pass_actions.
+  /** If true, the OPTIMIZATION stage of the bytecode optimizer will be split across two actions. */
   @Option(
       name = "split_bytecode_optimization_pass",
       defaultValue = "false",
@@ -356,6 +354,19 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
   public boolean splitBytecodeOptimizationPass;
+
+  /**
+   * This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer
+   * into. Note that if split_bytecode_optimization_pass is set, bytecode_optimization_pass_actions
+   * will only effectively change build behavior if it is > 2.
+   */
+  @Option(
+      name = "bytecode_optimization_pass_actions",
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use.")
+  public int bytecodeOptimizationPassActions;
 
   @Option(
       name = "enforce_proguard_file_extension",
@@ -439,6 +450,16 @@ public class JavaOptions extends FragmentOptions {
               + " incremental test performance at the expense of missing potential one version"
               + " violations.")
   public boolean enforceOneVersionOnJavaTests;
+
+  @Option(
+      name = "experimental_one_version_enforcement_validation_action",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
+              + " enforce one version using validation actions.")
+  public boolean enforceOneVersionValidationAction;
 
   @Option(
       name = "experimental_allow_runtime_deps_on_neverlink",
@@ -634,6 +655,7 @@ public class JavaOptions extends FragmentOptions {
     host.importDepsCheckingLevel = importDepsCheckingLevel;
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
+    host.enforceOneVersionValidationAction = enforceOneVersionValidationAction;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
     host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
@@ -646,6 +668,7 @@ public class JavaOptions extends FragmentOptions {
 
     host.bytecodeOptimizers = bytecodeOptimizers;
     host.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
+    host.bytecodeOptimizationPassActions = bytecodeOptimizationPassActions;
 
     host.enforceProguardFileExtension = enforceProguardFileExtension;
     host.extraProguardSpecs = extraProguardSpecs;

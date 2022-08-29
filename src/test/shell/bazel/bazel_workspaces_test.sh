@@ -417,6 +417,38 @@ function test_download_and_extract() {
   ensure_output_contains_exactly_once "external/repo/out_dir/download_and_extract.txt" "This is one file"
 }
 
+function test_extract_rename_files() {
+  local archive_tar="${TEST_TMPDIR}/archive.tar"
+
+  # Create a tar archive with two entries, which would have conflicting
+  # paths if extracted to a case-insensitive filesystem.
+  pushd "${TEST_TMPDIR}"
+  mkdir prefix
+  echo "First file: a" > prefix/a.txt
+  tar -cvf archive.tar prefix
+  rm prefix/a.txt
+  echo "Second file: A" > prefix/A.txt
+  tar -rvf archive.tar prefix
+  popd
+
+  set_workspace_command "
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'prefix/', rename_files={
+    'prefix/A.txt': 'prefix/renamed-A.txt',
+  })"
+
+  build_and_process_log --exclude_rule "//external:local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
+  ensure_contains_atleast 'rule: "//external:repo"' 2
+  ensure_contains_exactly 'extract_event' 1
+  ensure_contains_exactly 'rename_files' 1
+  ensure_contains_exactly 'key: "prefix/A.txt"' 1
+  ensure_contains_exactly 'value: "prefix/renamed.A.txt"' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/a.txt" "First file: a"
+  ensure_output_contains_exactly_once "external/repo/out_dir/renamed-A.txt" "Second file: A"
+}
+
 function test_file() {
   set_workspace_command 'repository_ctx.file("filefile.sh", "echo filefile", True)'
 

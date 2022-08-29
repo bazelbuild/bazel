@@ -37,15 +37,13 @@ public final class PerLabelOptions {
   private final List<String> optionsList;
 
   /**
-   * Converts a String to a {@link PerLabelOptions} object. The syntax of the
-   * string is {@code regex_filter@option_1,option_2,...,option_n}. Where
-   * regex_filter stands for the String representation of a {@link RegexFilter},
-   * and {@code option_1} to {@code option_n} stand for arbitrary command line
-   * options. If an option contains a comma it has to be quoted with a
-   * backslash. Options can contain @. Only the first @ is used to split the
-   * string.
+   * Converts a String to a {@link PerLabelOptions} object. The syntax of the string is {@code
+   * regex_filter@option_1,option_2,...,option_n}. Where regex_filter stands for the String
+   * representation of a {@link RegexFilter}, and {@code option_1} to {@code option_n} stand for
+   * arbitrary command line options. If an option contains a comma it has to be quoted with a
+   * backslash. Options can contain @. Only the first @ is used to split the string.
    */
-  public static class PerLabelOptionsConverter implements Converter<PerLabelOptions> {
+  public static class PerLabelOptionsConverter extends Converter.Contextless<PerLabelOptions> {
 
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {

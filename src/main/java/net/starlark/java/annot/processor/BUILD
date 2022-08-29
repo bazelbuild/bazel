@@ -1,7 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_plugin")
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

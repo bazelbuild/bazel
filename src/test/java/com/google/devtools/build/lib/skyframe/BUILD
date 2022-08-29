@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:srcs"],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
@@ -19,13 +19,13 @@ EXCLUDED_FROM_SKYFRAME_TESTS = [
     "PrepareDepsOfTargetsUnderDirectoryFunctionTest.java",  # b/179148968
     "SkyframeErrorProcessorTest.java",
     "BuildDriverFunctionTest.java",
+    "SkyFunctionEnvironmentForTesting.java",
+    "TrackSourceDirectoriesIntegrationTest.java",
 ]
 
 java_library(
     name = "testutil",
-    srcs = glob([
-        "util/*.java",
-    ]),
+    srcs = glob(["util/*.java"]) + ["SkyFunctionEnvironmentForTesting.java"],
     tags = ["skyframe"],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
     deps = [
@@ -176,7 +176,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/managed_directories_knowledge_impl",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
@@ -209,6 +208,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:per_build_syscall_cache",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_exception",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
@@ -223,7 +223,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:metadata_consumer_for_metrics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:output_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_error_message_value",
@@ -381,6 +380,7 @@ java_test(
     tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -432,5 +432,24 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "TrackSourceDirectoriesIntegrationTest",
+    srcs = ["TrackSourceDirectoriesIntegrationTest.java"],
+    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:track_source_directories_flag",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )

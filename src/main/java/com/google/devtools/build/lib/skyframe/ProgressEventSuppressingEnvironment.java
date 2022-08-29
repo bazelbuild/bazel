@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -26,9 +25,8 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * A {@link SkyFunction.Environment} which returns a {@link
- * ExtendedEventHandler.ProgressLike}-suppressing {@link ExtendedEventHandler} from {@link
- * #getListener()}.
+ * A {@link SkyFunction.Environment} which returns a {@link ProgressSuppressingEventHandler} from
+ * #getListener}.
  *
  * <p>Otherwise, delegates calls to its wrapped {@link SkyFunction.Environment}.
  */
@@ -43,7 +41,7 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public ExtendedEventHandler getListener() {
+  public ProgressSuppressingEventHandler getListener() {
     return suppressingEventHandler;
   }
 

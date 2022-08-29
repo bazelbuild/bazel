@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,6 +33,7 @@ import javax.annotation.Nullable;
 public class InMemoryGraphImpl implements InMemoryGraph {
 
   protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
+  private final NodeBatch batch;
 
   InMemoryGraphImpl() {
     this(/*initialCapacity=*/ 1 << 10);
@@ -41,6 +41,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   protected InMemoryGraphImpl(int initialCapacity) {
     this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
+    this.batch = nodeMap::get;
   }
 
   @Override
@@ -54,7 +55,19 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, NodeEntry> getBatch(
+  public NodeBatch getBatch(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return batch;
+  }
+
+  @Override
+  public InterruptibleSupplier<NodeBatch> getBatchAsync(
+      @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
+    return () -> batch;
+  }
+
+  @Override
+  public Map<SkyKey, NodeEntry> getBatchMap(
       SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
     // Use a HashMap, not an ImmutableMap.Builder, because we have not yet deduplicated these keys
     // and ImmutableMap.Builder does not tolerate duplicates. The map will be thrown away shortly.
@@ -81,13 +94,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   private final Function<SkyKey, InMemoryNodeEntry> newNodeEntryFunction = this::newNodeEntry;
 
   @Override
-  public Map<SkyKey, NodeEntry> createIfAbsentBatch(
+  public NodeBatch createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys) {
-    Map<SkyKey, NodeEntry> result = CompactHashMap.createWithExpectedSize(Iterables.size(keys));
     for (SkyKey key : keys) {
-      result.put(key, nodeMap.computeIfAbsent(key, newNodeEntryFunction));
+      nodeMap.computeIfAbsent(key, newNodeEntryFunction);
     }
-    return result;
+    return batch;
   }
 
   @Override
@@ -111,15 +123,9 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
-
     @Override
     protected InMemoryNodeEntry newNodeEntry(SkyKey key) {
       return new EdgelessInMemoryNodeEntry();
-    }
-
-    @Override
-    public boolean storesReverseDeps() {
-      return false;
     }
   }
 }

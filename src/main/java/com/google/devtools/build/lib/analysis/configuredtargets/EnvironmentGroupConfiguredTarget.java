@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import javax.annotation.Nullable;
 
 /**
  * Dummy ConfiguredTarget for environment groups. Contains no functionality, since environment
@@ -38,11 +39,13 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   }
 
   @Override
+  @Nullable
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
   }
 
   @Override
+  @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }

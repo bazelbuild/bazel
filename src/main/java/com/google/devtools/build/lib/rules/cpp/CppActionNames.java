@@ -20,6 +20,8 @@ public class CppActionNames {
   public static final String CC_FLAGS_MAKE_VARIABLE = "cc-flags-make-variable";
   /** A string constant for the strip action name. */
   public static final String STRIP = "strip";
+  /** A string constant for the object copy action name. */
+  public static final String OBJ_COPY = "objcopy_embed_data";
   /** A string constant for the linkstamp-compile action. */
   public static final String LINKSTAMP_COMPILE = "linkstamp-compile";
   /** A string constant for the c compilation action. */

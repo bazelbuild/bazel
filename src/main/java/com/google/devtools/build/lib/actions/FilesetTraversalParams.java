@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -101,8 +101,13 @@ public interface FilesetTraversalParams {
      */
     public abstract PathFragment getRelativePart();
 
+    /** Returns a {@link Path} composed of the root and relative parts. */
+    public final Path asPath() {
+      return getRootPart().getRelative(getRelativePart());
+    }
+
     /** Returns a {@link RootedPath} composed of the root and relative parts. */
-    public RootedPath asRootedPath() {
+    public final RootedPath asRootedPath() {
       return RootedPath.toRootedPath(getRootPart(), getRelativePart());
     }
 
@@ -139,8 +144,12 @@ public interface FilesetTraversalParams {
           fileOrDirectory.getRootRelativePath());
     }
 
-    public static DirectTraversalRoot forRootedPath(RootedPath newPath) {
-      return create(null, newPath.getRoot(), newPath.getRootRelativePath());
+    public static DirectTraversalRoot forRootedPath(RootedPath rootedPath) {
+      return forRootAndPath(rootedPath.getRoot(), rootedPath.getRootRelativePath());
+    }
+
+    public static DirectTraversalRoot forRootAndPath(Root rootPart, PathFragment relativePart) {
+      return create(/*outputArtifact=*/ null, rootPart, relativePart);
     }
 
     @Instantiator
@@ -230,7 +239,7 @@ public interface FilesetTraversalParams {
     @Memoized
     byte[] getFingerprint() {
       Fingerprint fp = new Fingerprint();
-      fp.addPath(getRoot().asRootedPath().asPath());
+      fp.addPath(getRoot().asPath());
       fp.addBoolean(isPackage());
       fp.addBoolean(isFollowingSymlinks());
       fp.addBoolean(isRecursive());
@@ -275,10 +284,11 @@ public interface FilesetTraversalParams {
    * directory (when FilesetEntry.srcdir is specified) or traversal of a single file (when
    * FilesetEntry.files is specified). See {@link DirectTraversal} for more detail.
    *
-   * <p>The value is present if and only if {@link #getNestedArtifact} is null and
-   * {@link #additionalLinks} is null.
+   * <p>The returned value is non-null if and only if {@link #getNestedArtifact} is null and {@link
+   * #additionalLinks} is null.
    */
-  Optional<DirectTraversal> getDirectTraversal();
+  @Nullable
+  DirectTraversal getDirectTraversal();
 
   /**
    * Returns the Fileset Artifact of the nested traversal request, if any.

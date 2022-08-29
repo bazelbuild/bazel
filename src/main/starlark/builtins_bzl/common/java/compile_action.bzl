@@ -16,7 +16,6 @@
 Java compile action
 """
 
-load(":common/rule_util.bzl", "create_dep")
 load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
@@ -54,6 +53,7 @@ def compile_action(
         exports = [],
         exported_plugins = [],
         resources = [],
+        resource_jars = [],
         classpath_resources = [],
         native_libraries = [],
         javacopts = [],
@@ -104,6 +104,7 @@ def compile_action(
       exports: (list[JavaInfo]) A list of exports.
       exported_plugins: (list[JavaInfo]) A list of exported plugins.
       resources: (list[File]) A list of resources.
+      resource_jars: (list[File]) A list of jars to unpack.
       classpath_resources: (list[File]) A list of classpath resources.
       native_libraries: (list[CcInfo]) C++ native library dependencies that are
         needed for this library.
@@ -139,6 +140,7 @@ def compile_action(
         source_files = source_files,
         source_jars = source_jars,
         resources = resources,
+        resource_jars = resource_jars,
         classpath_resources = classpath_resources,
         plugins = plugins,
         deps = deps,
@@ -174,64 +176,3 @@ COMPILE_ACTION_IMPLICIT_ATTRS = {
         providers = [java_common.JavaToolchainInfo],
     ),
 }
-
-# TODO(b/213551463) remove once unused
-COMPILE_ACTION = create_dep(
-    compile_action,
-    attrs = {
-        "srcs": attr.label_list(
-            allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
-            flags = ["DIRECT_COMPILE_TIME_INPUT", "ORDER_INDEPENDENT"],
-        ),
-        "data": attr.label_list(
-            allow_files = True,
-            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
-        ),
-        "resources": attr.label_list(
-            allow_files = True,
-            flags = ["SKIP_CONSTRAINTS_OVERRIDE", "ORDER_INDEPENDENT"],
-        ),
-        "plugins": attr.label_list(
-            providers = [JavaPluginInfo],
-            allow_files = True,
-            cfg = "exec",
-        ),
-        "deps": attr.label_list(
-            allow_files = [".jar"],
-            allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_IN_DEPS_WITH_WARNING,
-            providers = [
-                [CcInfo],
-                [JavaInfo],
-            ],
-            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-        ),
-        "runtime_deps": attr.label_list(
-            allow_files = [".jar"],
-            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-            providers = [[CcInfo], [JavaInfo]],
-            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-        ),
-        "exports": attr.label_list(
-            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-            providers = [[JavaInfo], [CcInfo]],
-        ),
-        "exported_plugins": attr.label_list(
-            providers = [JavaPluginInfo],
-            cfg = "exec",
-        ),
-        "javacopts": attr.string_list(),
-        "neverlink": attr.bool(),
-        "add_exports": attr.string_list(),
-        "add_opens": attr.string_list(),
-        "_java_toolchain": attr.label(
-            default = semantics.JAVA_TOOLCHAIN_LABEL,
-            providers = [java_common.JavaToolchainInfo],
-        ),
-        "_java_plugins": attr.label(
-            default = semantics.JAVA_PLUGINS_FLAG_ALIAS_LABEL,
-            providers = [JavaPluginInfo],
-        ),
-    },
-    fragments = ["java", "cpp"],
-    mandatory_attrs = ["srcs", "deps", "resources", "plugins", "javacopts", "neverlink"],
-)

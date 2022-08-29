@@ -495,7 +495,7 @@ cc_binary(
 
 platform(
     name = 'android_arm',
-    constraint_values = ['@platforms//cpu:armv7', '@bazel_tools//platforms:android'],
+    constraint_values = ['@platforms//cpu:armv7', '@platforms//os:android'],
     visibility = ['//visibility:public']
 )
 EOF

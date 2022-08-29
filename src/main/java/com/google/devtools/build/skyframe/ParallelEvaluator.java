@@ -20,17 +20,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationSuccessState;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
@@ -64,7 +63,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      EmittedEventState emittedEventState,
+      NestedSetVisitor.VisitedState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
@@ -140,10 +139,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ImmutableSet<SkyKey> skyKeys) throws InterruptedException {
     injectErrorTransienceValue();
     try {
-      for (Map.Entry<SkyKey, ? extends NodeEntry> e :
-          graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
-        SkyKey skyKey = e.getKey();
-        NodeEntry entry = e.getValue();
+      NodeBatch batch = graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys);
+      for (SkyKey skyKey : skyKeys) {
+        NodeEntry entry = batch.get(skyKey);
         // This must be equivalent to the code in AbstractParallelEvaluator.Evaluate#enqueueChild,
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
@@ -189,11 +187,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
     NodeEntry errorTransienceEntry =
-        Iterables.getOnlyElement(
-            graph
-                .createIfAbsentBatch(
-                    null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
-                .values());
+        graph
+            .createIfAbsentBatch(
+                null, Reason.PRE_OR_POST_EVALUATION, ImmutableList.of(ErrorTransienceValue.KEY))
+            .get(ErrorTransienceValue.KEY);
     if (!errorTransienceEntry.isDone()) {
       injectValues(
           ImmutableMap.of(ErrorTransienceValue.KEY, ErrorTransienceValue.INSTANCE),
@@ -283,6 +280,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
    * registered during this build (via {@link NodeEntry#getInProgressReverseDeps}. Since we don't
    * allow a node to build with unfinished deps, those parents cannot have built.
    */
+  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(
       final ErrorInfo leafFailure,
@@ -365,6 +363,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           roots,
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
+      // Expected 6 args, but got 8.
       Preconditions.checkState(
           evaluatorContext.getProgressReceiver().isInflight(parent),
           "In-progress reverse deps can only include in-flight nodes: " + "%s %s %s %s %s %s",
@@ -376,6 +375,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           roots,
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
+      // Expected 6 args, but got 8.
       Preconditions.checkState(
           parentEntry.getTemporaryDirectDeps().expensiveContains(errorKey),
           "In-progress reverse deps can only include nodes that have declared a dep: "
@@ -439,13 +439,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             new ReifiedSkyFunctionException(builderException);
         error =
             ErrorInfo.fromException(reifiedBuilderException, /*isTransitivelyTransient=*/ false);
-        Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
-            env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
+        NestedSet<Reportable> events =
+            env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
         ValueWithMetadata valueWithMetadata =
             ValueWithMetadata.error(
-                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                eventsAndPostables.first,
-                eventsAndPostables.second);
+                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
         replay(valueWithMetadata);
         bubbleErrorInfo.put(errorKey, valueWithMetadata);
         continue;
@@ -481,13 +479,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             errorKey, childErrorKey, error, bubbleErrorInfo);
       }
       // Builder didn't throw its own exception, so just propagate this one up.
-      Pair<NestedSet<TaggedEvents>, NestedSet<Postable>> eventsAndPostables =
-          env.buildAndReportEventsAndPostables(parentEntry, /*expectDoneDeps=*/ false);
+      NestedSet<Reportable> events =
+          env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
       ValueWithMetadata valueWithMetadata =
           ValueWithMetadata.error(
-              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              eventsAndPostables.first,
-              eventsAndPostables.second);
+              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
       replay(valueWithMetadata);
       bubbleErrorInfo.put(errorKey, valueWithMetadata);
     }
@@ -595,7 +591,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       ProcessableGraph graph,
       DirtyTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
-    Map<SkyKey, ? extends NodeEntry> prevNodeEntries =
+    NodeBatch prevNodeEntries =
         graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());
     for (Map.Entry<SkyKey, SkyValue> injectionEntry : injectionMap.entrySet()) {
       SkyKey key = injectionEntry.getKey();
@@ -636,8 +632,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // directly without launching the heavy machinery, spawning threads, etc.
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
     boolean allAreDone = true;
-    Map<SkyKey, ? extends NodeEntry> batch =
-        evaluatorContext.getBatchValues(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
+    NodeBatch batch =
+        evaluatorContext.getGraph().getBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeySet);
     for (SkyKey key : skyKeySet) {
       if (!isDoneForBuild(batch.get(key))) {
         allAreDone = false;

@@ -32,6 +32,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -204,6 +205,12 @@ public interface JavaCommonApi<
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
         @Param(
+            name = "resource_jars",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+            defaultValue = "[]"),
+        @Param(
             name = "classpath_resources",
             positional = false,
             named = true,
@@ -289,6 +296,7 @@ public interface JavaCommonApi<
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
+      Sequence<?> resourceJars, // <FileT> expected.
       Sequence<?> classpathResources, // <FileT> expected.
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
@@ -674,4 +682,13 @@ public interface JavaCommonApi<
       useStarlarkThread = true)
   Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
       throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "experimental_java_proto_library_default_has_services",
+      documented = false,
+      useStarlarkSemantics = true,
+      structField = true,
+      doc = "Default value of java_proto_library.has_services")
+  boolean getExperimentalJavaProtoLibraryDefaultHasServices(StarlarkSemantics starlarkSemantics)
+      throws EvalException;
 }

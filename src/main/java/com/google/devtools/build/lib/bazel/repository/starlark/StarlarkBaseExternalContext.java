@@ -481,6 +481,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return null;
   }
 
+  @Nullable
   private StarlarkPath findCommandOnPath(String program) throws IOException {
     String pathEnvVariable = envVariables.get("PATH");
     if (pathEnvVariable == null) {

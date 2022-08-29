@@ -14,11 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distrib_jar_filegroup", "distrib_java_import")
+
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
 
 licenses(["notice"])  # Apache v2
 
-package(default_visibility = ["//visibility:public"])
+license(
+    name = "license",
+    package_name = "grpc-java",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+    package_version = "1.45",
+)
 
 filegroup(
     name = "srcs",
@@ -29,13 +43,21 @@ distrib_jar_filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
         "grpc-api-1.45.1.jar",
+        "grpc-api-1.47.0.jar",
         "grpc-auth-1.45.1.jar",
+        "grpc-auth-1.47.0.jar",
         "grpc-context-1.45.1.jar",
+        "grpc-context-1.47.0.jar",
         "grpc-core-1.45.1.jar",
+        "grpc-core-1.47.0.jar",
         "grpc-netty-1.45.1.jar",
+        "grpc-netty-1.47.0.jar",
         "grpc-protobuf-1.45.1.jar",
+        "grpc-protobuf-1.47.0.jar",
         "grpc-protobuf-lite-1.45.1.jar",
+        "grpc-protobuf-lite-1.47.0.jar",
         "grpc-stub-1.45.1.jar",
+        "grpc-stub-1.47.0.jar",
     ],
     enable_distributions = ["debian"],
 )

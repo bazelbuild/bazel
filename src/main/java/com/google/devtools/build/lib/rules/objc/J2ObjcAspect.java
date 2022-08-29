@@ -84,6 +84,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 
@@ -377,6 +378,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ImmutableList.of());
   }
 
+  @Nullable
   private ConfiguredAspect proto(ConfiguredTarget base, RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     ProtoLangToolchainProvider protoToolchain =

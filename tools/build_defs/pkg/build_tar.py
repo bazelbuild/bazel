@@ -29,11 +29,6 @@ flags.DEFINE_multi_string('file', [], 'A file to add to the layer')
 flags.DEFINE_string('mode', None,
                     'Force the mode on the added files (in octal).')
 
-flags.DEFINE_string(
-    'mtime', None, 'Set mtime on tar file entries. May be an integer or the'
-    ' value "portable", to get the value 2000-01-01, which is'
-    ' is usable with non *nix OSes')
-
 flags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
 
 flags.DEFINE_string('directory', None,
@@ -61,20 +56,17 @@ class TarFile(object):
   class DebError(Exception):
     pass
 
-  def __init__(self, output, directory, compression, root_directory,
-               default_mtime):
+  def __init__(self, output, directory, compression, root_directory):
     self.directory = directory
     self.output = output
     self.compression = compression
     self.root_directory = root_directory
-    self.default_mtime = default_mtime
 
   def __enter__(self):
     self.tarfile = archive.TarFileWriter(
         self.output,
         self.compression,
-        self.root_directory,
-        default_mtime=self.default_mtime)
+        self.root_directory)
     return self
 
   def __exit__(self, t, v, traceback):
@@ -111,21 +103,6 @@ class TarFile(object):
         gid=ids[1],
         uname=names[0],
         gname=names[1])
-
-  def add_tar(self, tar):
-    """Merge a tar file into the destination tar file.
-
-    All files presents in that tar will be added to the output file
-    under self.directory/path. No user name nor group name will be
-    added to the output.
-
-    Args:
-      tar: the tar file to add
-    """
-    root = None
-    if self.directory and self.directory != '/':
-      root = self.directory
-    self.tarfile.add_tar(tar, numeric=True, root=root)
 
 
 def unquote_and_split(arg, c):
@@ -181,7 +158,7 @@ def main(unused_argv):
 
   # Add objects to the tar file
   with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression,
-               FLAGS.root_directory, FLAGS.mtime) as output:
+               FLAGS.root_directory) as output:
 
     def file_attributes(filename):
       if filename.startswith('/'):
@@ -195,8 +172,6 @@ def main(unused_argv):
     for f in FLAGS.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, **file_attributes(tof))
-    for tar in FLAGS.tar:
-      output.add_tar(tar)
 
 
 if __name__ == '__main__':

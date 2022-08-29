@@ -248,7 +248,6 @@ java_library(
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
         "starlark/StarlarkRuleContext.java",
         "starlark/StarlarkRuleTransitionProvider.java",
-        "starlark/StarlarkTransition.java",
         "test/AnalysisTestActionBuilder.java",
         "test/BaselineCoverageAction.java",
         "test/CoverageCommon.java",
@@ -299,6 +298,7 @@ java_library(
         ":config/per_label_options",
         ":config/run_under",
         ":config/starlark_defined_config_transition",
+        ":config/starlark_transition_cache",
         ":config/toolchain_type_requirement",
         ":config/transition_factories",
         ":config/transitions/composing_transition",
@@ -344,14 +344,18 @@ java_library(
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_command_line",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":starlark/starlark_transition",
+        ":starlark/template_dict",
         ":target_and_configuration",
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
+        ":test/analysis_failure_propagation_exception",
         ":test/analysis_test_result_info",
         ":test/baseline_coverage_result",
         ":test/execution_info",
@@ -381,7 +385,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -417,7 +420,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -480,6 +482,16 @@ java_library(
 )
 
 java_library(
+    name = "analysis_operation_watcher",
+    srcs = ["AnalysisOperationWatcher.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "analysis_phase_complete_event",
     srcs = ["AnalysisPhaseCompleteEvent.java"],
     deps = [
@@ -507,6 +519,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -553,6 +566,7 @@ java_library(
     deps = [
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -611,6 +625,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -621,11 +636,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
@@ -1244,6 +1261,23 @@ java_library(
     ],
 )
 
+java_library(
+    name = "starlark/starlark_build_settings_details_value",
+    srcs = [
+        "starlark/StarlarkBuildSettingsDetailsValue.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
+
 # TODO(b/144899336): This should be analysis/actions/BUILD
 java_library(
     name = "actions/abstract_file_write_action",
@@ -1431,6 +1465,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -1465,11 +1500,20 @@ java_library(
 )
 
 java_library(
+    name = "template_expansion_exception",
+    srcs = ["actions/TemplateExpansionException.java"],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
     name = "actions/template_expansion_action",
     srcs = [
         "actions/LocalTemplateExpansionStrategy.java",
         "actions/TemplateExpansionAction.java",
         "actions/TemplateExpansionContext.java",
+        "actions/TemplateExpansionException.java",
     ],
     deps = [
         ":actions/deterministic_writer",
@@ -1481,6 +1525,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
@@ -1617,6 +1662,7 @@ java_library(
         ":config/fragment",
         ":config/host_transition",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:error_prone_annotations",
     ],
 )
 
@@ -1656,6 +1702,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1816,11 +1863,13 @@ java_library(
     name = "config/run_under_converter",
     srcs = ["config/RunUnderConverter.java"],
     deps = [
+        ":config/core_option_converters",
         ":config/run_under",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1829,12 +1878,14 @@ java_library(
     srcs = ["config/StarlarkDefinedConfigTransition.java"],
     deps = [
         ":config/transitions/configuration_transition",
+        ":config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1886,6 +1937,20 @@ java_library(
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "config/starlark_transition_cache",
+    srcs = ["config/StarlarkTransitionCache.java"],
+    deps = [
+        ":config/build_options",
+        ":config/transitions/configuration_transition",
+        ":starlark/starlark_build_settings_details_value",
+        ":starlark/starlark_transition",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:caffeine",
+        "//third_party:jsr305",
     ],
 )
 
@@ -2160,6 +2225,39 @@ java_library(
     ],
 )
 
+java_library(
+    name = "constraints/incompatible_target_checker",
+    srcs = ["constraints/IncompatibleTargetChecker.java"],
+    deps = [
+        ":analysis_cluster",
+        ":file_provider",
+        ":incompatible_platform_provider",
+        ":test/test_configuration",
+        ":transitive_info_provider_map_builder",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
+        "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 # TODO(b/144899336): This should be analysis/starlark/BUILD
 java_library(
     name = "starlark/args",
@@ -2180,13 +2278,28 @@ java_library(
 )
 
 java_library(
+    name = "starlark/template_dict",
+    srcs = ["starlark/TemplateDict.java"],
+    deps = [
+        ":actions/substitution",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "starlark/bazel_build_api_globals",
     srcs = ["starlark/BazelBuildApiGlobals.java"],
     deps = [
         ":starlark/starlark_late_bound_default",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 
@@ -2321,6 +2434,23 @@ java_library(
     ],
 )
 
+java_library(
+    name = "starlark/starlark_transition",
+    srcs = ["starlark/StarlarkTransition.java"],
+    deps = [
+        ":config/build_option_details",
+        ":config/build_options",
+        ":config/fragment_options",
+        ":config/starlark_defined_config_transition",
+        ":config/transitions/configuration_transition",
+        ":required_config_fragments_provider",
+        ":starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:guava",
+    ],
+)
+
 # TODO(b/144899336): This should be lib/analysis/test/BUILD
 java_library(
     name = "test/analysis_failure",
@@ -2341,6 +2471,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
+    ],
+)
+
+java_library(
+    name = "test/analysis_failure_propagation_exception",
+    srcs = ["test/AnalysisFailurePropagationException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
     ],
 )
 

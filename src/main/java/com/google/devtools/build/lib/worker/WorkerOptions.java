@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
@@ -34,8 +35,8 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_persistent_javac",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "Enable the experimental persistent Java compiler.",
       expansion = {
         "--strategy=Javac=worker",
@@ -49,29 +50,31 @@ public class WorkerOptions extends OptionsBase {
   /**
    * Defines a resource converter for named values in the form [name=]value, where the value is
    * {@link ResourceConverter.FLAG_SYNTAX}. If no name is provided (used when setting a default),
-   * the empty string is used as the key. The default value for unspecified mnemonics is {@value
-   * DEFAULT_VALUE}. "auto" currently returns the default.
+   * the empty string is used as the key. The default value for unspecified mnemonics is defined in
+   * {@link WorkerPool.createWorkerPools}. "auto" currently returns the default.
    */
-  public static class MultiResourceConverter implements Converter<Entry<String, Integer>> {
+  public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
-    public static final int DEFAULT_VALUE = 4;
-
-    static ResourceConverter valueConverter =
-        new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
+    static final ResourceConverter valueConverter =
+        new ResourceConverter(() -> 0, 0, Integer.MAX_VALUE);
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
       // TODO(steinman): Make auto value return a reasonable multiplier of host capacity.
-      if (input == null || "null".equals(input)) {
-        input = "auto";
+      if (input == null || "null".equals(input) || "auto".equals(input)) {
+        return Maps.immutableEntry(null, null);
       }
       int pos = input.indexOf('=');
       if (pos < 0) {
-        return Maps.immutableEntry("", valueConverter.convert(input));
+        return Maps.immutableEntry("", valueConverter.convert(input, /*conversionContext=*/ null));
       }
       String name = input.substring(0, pos);
       String value = input.substring(pos + 1);
-      return Maps.immutableEntry(name, valueConverter.convert(value));
+      if ("auto".equals(value)) {
+        return Maps.immutableEntry(name, null);
+      }
+
+      return Maps.immutableEntry(name, valueConverter.convert(value, /*conversionContext=*/ null));
     }
 
     @Override
@@ -84,8 +87,8 @@ public class WorkerOptions extends OptionsBase {
       name = "worker_max_instances",
       converter = MultiResourceConverter.class,
       defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many instances of a worker process (like the persistent Java compiler) may be "
               + "launched if you use the 'worker' strategy. May be specified as [name=value] to "
@@ -100,8 +103,8 @@ public class WorkerOptions extends OptionsBase {
       name = "experimental_worker_max_multiplex_instances",
       converter = MultiResourceConverter.class,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "How many WorkRequests a multiplex worker process may receive in parallel if you use the"
               + " 'worker' strategy with --experimental_worker_multiplex. May be specified as"
@@ -115,8 +118,8 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "high_priority_workers",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Mnemonics of workers to run with high priority. When high priority workers are running "
               + "all other workers are throttled.",
@@ -126,15 +129,15 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_quit_after_build",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, all workers quit after a build is done.")
   public boolean workerQuitAfterBuild;
 
   @Option(
       name = "worker_verbose",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If enabled, prints verbose messages when workers are started, shutdown, ...")
   public boolean workerVerbose;
@@ -143,8 +146,8 @@ public class WorkerOptions extends OptionsBase {
       name = "worker_extra_flag",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Extra command-flags that will be passed to worker processes in addition to "
               + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
@@ -154,16 +157,16 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "worker_sandboxing",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, workers will be executed in a sandboxed environment.")
   public boolean workerSandboxing;
 
   @Option(
       name = "experimental_worker_multiplex",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "If enabled, workers that support the experimental multiplexing feature will use that"
               + " feature.")
@@ -172,7 +175,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_worker_cancellation",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, Bazel may send cancellation requests to workers that support them.")
   public boolean workerCancellation;
@@ -180,19 +183,41 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_worker_as_resource",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.EXECUTION},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help = "If enabled, workers are acquired as resources from ResourceManager.")
   public boolean workerAsResource;
 
   @Option(
       name = "experimental_worker_multiplex_sandboxing",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "If enabled, multiplex workers will be sandboxed, using a separate sandbox directory"
               + " per work request. Only workers that have the 'supports-multiplex-sandboxing' "
               + "execution requirement will be sandboxed.")
   public boolean multiplexSandboxing;
+
+  @Option(
+      name = "experimental_worker_strict_flagfiles",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If enabled, actions arguments for workers that do not follow the worker specification"
+              + " will cause an error. Worker arguments must have exactly one @flagfile argument"
+              + " as the last of its list of arguments.")
+  public boolean strictFlagfiles;
+
+  @Option(
+      name = "experimental_total_worker_memory_limit_mb",
+      converter = RamResourceConverter.class,
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If this limit is greater than zero idle workers might be killed if the total memory"
+              + " usage of all  workers exceed the limit.")
+  public int totalWorkerMemoryLimitMb;
 }

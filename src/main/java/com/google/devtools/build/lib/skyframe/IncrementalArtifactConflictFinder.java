@@ -126,7 +126,7 @@ public final class IncrementalArtifactConflictFinder {
   }
 
   void shutdown() throws InterruptedException {
-    if (ExecutorUtil.interruptibleShutdown(executorService)) {
+    if (!executorService.isShutdown() && ExecutorUtil.uninterruptibleShutdown(executorService)) {
       throw new InterruptedException();
     }
   }

@@ -21,9 +21,6 @@ cc_common = _builtins.toplevel.cc_common
 def _get_proto_aspects():
     return []
 
-def _get_proto_cc_files(dep):
-    return dep[DefaultInfo].files.to_list()
-
 def _should_create_empty_archive():
     return False
 
@@ -125,16 +122,13 @@ def _get_coverage_env(ctx):
 def _should_use_legacy_cc_test(_):
     return True
 
-def _get_interface_deps_allowed_attr():
+def _get_implementation_deps_allowed_attr():
     return {}
 
-def _should_use_interface_deps_behavior(ctx):
-    experimental_cc_interface_deps = ctx.fragments.cpp.experimental_cc_interface_deps()
-    if (not experimental_cc_interface_deps and
-        len(ctx.attr.interface_deps) > 0):
-        fail("requires --experimental_cc_interface_deps", attr = "interface_deps")
-
-    return experimental_cc_interface_deps
+def _check_can_use_implementation_deps(ctx):
+    experimental_cc_implementation_deps = ctx.fragments.cpp.experimental_cc_implementation_deps()
+    if (not experimental_cc_implementation_deps and ctx.attr.implementation_deps):
+        fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
 
 def _check_experimental_cc_shared_library(ctx):
     if not cc_common.check_experimental_cc_shared_library():
@@ -178,8 +172,8 @@ semantics = struct(
     get_stl = _get_stl,
     should_create_empty_archive = _should_create_empty_archive,
     get_grep_includes = _get_grep_includes,
-    get_interface_deps_allowed_attr = _get_interface_deps_allowed_attr,
-    should_use_interface_deps_behavior = _should_use_interface_deps_behavior,
+    get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
+    check_can_use_implementation_deps = _check_can_use_implementation_deps,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     get_linkstatic_default = _get_linkstatic_default,
     get_test_malloc_attr = _get_test_malloc_attr,
@@ -187,6 +181,5 @@ semantics = struct(
     should_use_legacy_cc_test = _should_use_legacy_cc_test,
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
-    get_proto_cc_files = _get_proto_cc_files,
     get_proto_aspects = _get_proto_aspects,
 )

@@ -1,6 +1,20 @@
+load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_cc_library")
 
+package(default_applicable_licenses = [":license"])
+
 licenses(["notice"])  #  BSD/MIT-like license
+
+license(
+    name = "license",
+    package_name = "zlib",
+    copyright_notice = "(C) 1995-2022 Jean-loup Gailly and Mark Adler",
+    license_kinds = [
+        "@rules_license//licenses/spdx:0BSD",
+    ],
+    license_text = "LICENSE.txt",
+    package_version = "1.2.12",
+)
 
 filegroup(
     name = "srcs",

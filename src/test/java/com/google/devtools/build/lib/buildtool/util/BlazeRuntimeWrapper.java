@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -262,7 +263,8 @@ public class BlazeRuntimeWrapper {
 
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
-        new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy(), Level.FINE);
+        new InvocationPolicyEnforcer(
+            runtime.getModuleInvocationPolicy(), Level.FINE, /*conversionContext=*/ null);
     try {
       optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
     } catch (OptionsParsingException e) {
@@ -321,6 +323,9 @@ public class BlazeRuntimeWrapper {
               /*includePrimaryOutput=*/ false,
               /*includeTargetLabel=*/ false,
               /*collectTaskHistograms=*/ true,
+              /*collectWorkerDataInProfiler=*/ false,
+              /*collectLoadAverage=*/ false,
+              WorkerMetricsCollector.instance(),
               runtime.getBugReporter());
 
       StoredEventHandler storedEventHandler = new StoredEventHandler();

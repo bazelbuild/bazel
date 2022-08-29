@@ -34,7 +34,6 @@ java_library(
         ":repository/bind",
         ":repository/bind_rule",
         ":repository/local_repository_rule",
-        ":repository/managed_directories_knowledge_impl",
         ":repository/new_local_repository_function",
         ":repository/new_local_repository_rule",
         ":repository/new_repository_file_handler",
@@ -62,11 +61,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//third_party:guava",
     ],
 )
 
@@ -139,6 +137,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -213,6 +212,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -245,6 +245,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -270,6 +271,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 
@@ -284,6 +287,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -312,20 +316,6 @@ java_library(
 )
 
 java_library(
-    name = "repository/managed_directories_knowledge_impl",
-    srcs = ["repository/ManagedDirectoriesKnowledgeImpl.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "repository/new_local_repository_function",
     srcs = ["repository/NewLocalRepositoryFunction.java"],
     deps = [
@@ -347,6 +337,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -379,6 +370,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -426,13 +418,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/repository:external_package_exception",
         "//src/main/java/com/google/devtools/build/lib/repository:external_package_helper",
         "//src/main/java/com/google/devtools/build/lib/repository:external_rule_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/repository:repository_failed_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
@@ -517,6 +509,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:jsr305",
     ],
 )
 

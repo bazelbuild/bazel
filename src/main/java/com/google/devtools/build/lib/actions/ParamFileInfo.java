@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.charset.Charset;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -113,6 +114,7 @@ public final class ParamFileInfo {
     }
 
     /** Sets the encoding to write the parameter file with. */
+    @CanIgnoreReturnValue
     public Builder setCharset(Charset charset) {
       this.charset = charset;
       return this;
@@ -124,12 +126,14 @@ public final class ParamFileInfo {
      * <p>The format string must have a single "%s" that will be replaced by the execution path to
      * the param file.
      */
+    @CanIgnoreReturnValue
     public Builder setFlagFormatString(String flagFormatString) {
       this.flagFormatString = flagFormatString;
       return this;
     }
 
     /** Set whether the parameter file is always used, regardless of parameter file length. */
+    @CanIgnoreReturnValue
     public Builder setUseAlways(boolean always) {
       this.always = always;
       return this;
@@ -139,6 +143,7 @@ public final class ParamFileInfo {
      * If true, only the flags will be spilled to the file, leaving positional args on the command
      * line. (Default is false.)
      */
+    @CanIgnoreReturnValue
     public Builder setFlagsOnly(boolean flagsOnly) {
       this.flagsOnly = flagsOnly;
       return this;

@@ -116,6 +116,7 @@ public class AndroidIdlHelper {
   /**
    * Returns the root directory under which idl_srcs and idl_parcelables are located in this rule.
    */
+  @Nullable
   public String getIdlImportRoot() {
     return hasExplicitlySpecifiedIdlImportRoot(ruleContext) ? getIdlImportRoot(ruleContext) : null;
   }

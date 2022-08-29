@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -175,7 +176,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
 
     differencer = new SequencedRecordingDifferencer();
@@ -188,7 +188,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
-    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, false);
   }
 
   protected PackageLookupValue lookupPackage(String packageName) throws InterruptedException {
@@ -341,6 +340,35 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         PackageIdentifier.createInMainRepo("external"));
     assertThat(packageLookupValue.packageExists()).isTrue();
     assertThat(packageLookupValue.getRoot()).isEqualTo(Root.fromPath(rootDirectory));
+  }
+
+  @Test
+  public void invisibleRepo_main() throws Exception {
+    scratch.file("BUILD");
+    PackageLookupValue packageLookupValue =
+        lookupPackage(
+            PackageIdentifier.create(
+                RepositoryName.MAIN.toNonVisible(RepositoryName.BAZEL_TOOLS),
+                PathFragment.EMPTY_FRAGMENT));
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.REPOSITORY_NOT_FOUND);
+    assertThat(packageLookupValue.getErrorMsg()).contains("not visible from repository");
+  }
+
+  @Test
+  public void invisibleRepo_nonMain() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
+    scratch.file("local/repo/WORKSPACE");
+    scratch.file("local/repo/BUILD");
+
+    PackageLookupValue packageLookupValue =
+        lookupPackage(
+            PackageIdentifier.create(
+                RepositoryName.createUnvalidated("local").toNonVisible(RepositoryName.BAZEL_TOOLS),
+                PathFragment.EMPTY_FRAGMENT));
+    assertThat(packageLookupValue.packageExists()).isFalse();
+    assertThat(packageLookupValue.getErrorReason()).isEqualTo(ErrorReason.REPOSITORY_NOT_FOUND);
+    assertThat(packageLookupValue.getErrorMsg()).contains("not visible from repository");
   }
 
   @Test

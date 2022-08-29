@@ -241,7 +241,7 @@ TestRunner=+requires-test-runner,\
 Turbine=+requires-turbine,\
 JavaSourceJar=+requires-java-source-jar,\
 Javac=+requires-javac,\
-PyTinypar=+requires-py-tinypar,\
+Py.*=+requires-py,\
 Action=+requires-action \
    > output 2> "$TEST_log" || fail "Expected success"
 
@@ -260,9 +260,7 @@ Action=+requires-action \
   assert_contains "requires-java-source-jar: ''" output
   assert_contains "requires-proto: ''" output  # GenProtoDescriptorSet should match
   if [[ "$PRODUCT_NAME" != "bazel" ]]; then
-    # Python rules generate some cpp actions and local actions, but py-tinypar
-    # is the main unique-to-python rule which runs remotely for a py_binary.
-    assert_contains "requires-py-tinypar: ''" output
+    assert_contains "requires-py: ''" output
   fi
 }
 

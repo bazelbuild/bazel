@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -40,6 +40,12 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -112,8 +118,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -126,7 +131,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
             + " minimum_os_version='7.0')",
         "objc_library(name='b', srcs=['b.c'])");
 
-    useConfiguration("--experimental_apple_mandatory_minimum_version", "ios_cpus=i386");
+    useConfiguration("ios_cpus=i386");
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ConfiguredTarget b = getDirectPrerequisite(a, "//a:b");
 
@@ -141,7 +146,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   public void testMandatoryMinimumOsVersionSet() throws Exception {
     getRuleType()
         .scratchTarget(scratch, "minimum_os_version", "'8.0'", "platform_type", "'watchos'");
-    useConfiguration("--experimental_apple_mandatory_minimum_version");
     getConfiguredTarget("//x:x");
   }
 
@@ -1002,8 +1006,13 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testDrops32BitArchitecture() throws Exception {
-    verifyDrops32BitArchitecture(getRuleType());
+  public void testDrops32BitIosArchitecture() throws Exception {
+    verifyDrops32BitIosArchitecture(getRuleType());
+  }
+
+  @Test
+  public void testDrops32BitWatchArchitecture() throws Exception {
+    verifyDrops32BitWatchArchitecture(getRuleType());
   }
 
   @Test
@@ -1141,5 +1150,41 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     CommandAction action = linkAction("//a:bin");
 
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a.lds");
+  }
+
+  @Test
+  public void testRunimeLib() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig,
+        MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
+    scratch.file(
+        "a/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "apple_binary_starlark(",
+        "    name='bin',",
+        "    platform_type = 'macos',",
+        "    deps = [':lib'])");
+
+    ConfiguredTarget libTarget = getConfiguredTarget("//a:lib");
+    RuleContext libRuleContext = getRuleContext(libTarget);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(libRuleContext, libRuleContext.getPrerequisite("$cc_toolchain"));
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrThrowEvalException(
+            /* requestedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.OBJC,
+            toolchain,
+            libRuleContext.getFragment(CppConfiguration.class));
+    ImmutableList<Artifact> staticRuntimes =
+        toolchain.getStaticRuntimeLinkInputs(featureConfiguration).toList();
+    CommandAction action = linkAction("//a:bin");
+
+    assertThat(paramFileArgsForAction(action))
+        .containsAtLeastElementsIn(ActionsTestUtil.execPaths(staticRuntimes));
   }
 }

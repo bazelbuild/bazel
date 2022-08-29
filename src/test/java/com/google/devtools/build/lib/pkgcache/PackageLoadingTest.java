@@ -118,8 +118,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
@@ -176,7 +175,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   private Target getTarget(String label) throws Exception {
-    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
+    return getTarget(Label.parseCanonical(label));
   }
 
   private void createPkg1() throws IOException {
@@ -223,7 +222,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testGetTarget() throws Exception {
     createPkg1();
-    Label label = Label.parseAbsolute("//pkg1:foo", ImmutableMap.of());
+    Label label = Label.parseCanonical("//pkg1:foo");
     Target target = getTarget(label);
     assertThat(target.getLabel()).isEqualTo(label);
   }
@@ -237,7 +236,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         .hasMessageThat()
         .isEqualTo(
             "no such target '//pkg1:not-there': target 'not-there' "
-                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD");
+                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD (Tip: use "
+                + "`query //pkg1:*` to see all the targets in that package)");
   }
 
   /**
@@ -373,7 +373,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   private void assertLabelValidity(boolean expected, String labelString) throws Exception {
-    Label label = Label.parseAbsolute(labelString, ImmutableMap.of());
+    Label label = Label.parseCanonical(labelString);
 
     boolean actual = false;
     String error = null;

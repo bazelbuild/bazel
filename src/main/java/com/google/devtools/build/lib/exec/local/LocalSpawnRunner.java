@@ -242,7 +242,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               "Retrying crashed subprocess due to exit code %s (attempt %s)",
               result.exitCode(),
               attempts);
-          Thread.sleep(attempts * 1000);
+          Thread.sleep(attempts * 1000L);
           spawnMetrics.addRetryTime(result.exitCode(), rertyStopwatch.elapsed());
           attempts++;
         }
@@ -476,7 +476,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         Status status =
             wasTimeout ? Status.TIMEOUT : (exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT);
         if (exitCode != 0 && localExecutionOptions.localLockfreeOutput && context.speculating()) {
-          // We already "have" the lock, but this also checks if we should ignore failures.
+          // We aren't going to write any output, but we should either abort the remote branch early
+          // or let it finish if this error can be ignored. If the latter, this call will throw
+          // DynamicInterruptedException.
           context.lockOutputFiles(exitCode, "", outErr);
         }
         spawnResultBuilder.setStatus(status).setExitCode(exitCode).setWallTime(wallTime);

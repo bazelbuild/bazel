@@ -54,6 +54,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
 
   // Implementation note: Although LocalRepositoryLookupValue.NOT_FOUND exists, it should never be
   // returned from this method.
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {

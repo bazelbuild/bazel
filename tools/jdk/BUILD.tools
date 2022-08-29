@@ -1,7 +1,6 @@
 load(
     "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
     "DEFAULT_TOOLCHAIN_CONFIGURATION",
-    "JVM8_TOOLCHAIN_CONFIGURATION",
     "PREBUILT_TOOLCHAIN_CONFIGURATION",
     "VANILLA_TOOLCHAIN_CONFIGURATION",
     "bootclasspath",
@@ -377,17 +376,6 @@ default_java_toolchain(
     java_runtime = "@bazel_tools//tools/jdk:remotejdk_18",
     source_version = "18",
     target_version = "18",
-)
-
-# Deprecated, do not use.
-# It will be removed after migration to Java toolchain resolution.
-default_java_toolchain(
-    name = "toolchain_hostjdk8",
-    configuration = JVM8_TOOLCHAIN_CONFIGURATION,
-    java_runtime = ":current_host_java_runtime",
-    source_version = "8",
-    target_version = "8",
-    toolchain_definition = False,
 )
 
 default_java_toolchain(

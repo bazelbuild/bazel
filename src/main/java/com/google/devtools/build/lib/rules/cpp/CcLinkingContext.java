@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryAp
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -274,23 +275,23 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public void debugPrint(Printer printer) {
+    public void debugPrint(Printer printer, StarlarkSemantics semantics) {
       printer.append("<LinkerInput(owner=");
       if (owner == null) {
         printer.append("[null owner, uses old create_linking_context API]");
       } else {
-        owner.debugPrint(printer);
+        owner.debugPrint(printer, semantics);
       }
       printer.append(", libraries=[");
       for (LibraryToLink libraryToLink : libraries) {
-        libraryToLink.debugPrint(printer);
+        libraryToLink.debugPrint(printer, semantics);
         printer.append(", ");
       }
       printer.append("], userLinkFlags=[");
       printer.append(Joiner.on(", ").join(userLinkFlags));
       printer.append("], nonCodeInputs=[");
       for (Artifact nonCodeInput : nonCodeInputs) {
-        nonCodeInput.debugPrint(printer);
+        nonCodeInput.debugPrint(printer, semantics);
         printer.append(", ");
       }
       // TODO(cparsons): Add debug repesentation of linkstamps.
@@ -309,31 +310,37 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
       private final ImmutableList.Builder<Linkstamp> linkstamps = ImmutableList.builder();
 
+      @CanIgnoreReturnValue
       public Builder addLibrary(LibraryToLink library) {
         this.libraries.add(library);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addLibraries(List<LibraryToLink> libraries) {
         this.libraries.addAll(libraries);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
         this.userLinkFlags.addAll(userLinkFlags);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addLinkstamps(List<Linkstamp> linkstamps) {
         this.linkstamps.addAll(linkstamps);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
         this.nonCodeInputs.addAll(nonCodeInputs);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setOwner(Label owner) {
         this.owner = owner;
         return this;
@@ -389,10 +396,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   @Override
-  public void debugPrint(Printer printer) {
+  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
     printer.append("<CcLinkingContext([");
     for (LinkerInput linkerInput : linkerInputs.toList()) {
-      linkerInput.debugPrint(printer);
+      linkerInput.debugPrint(printer, semantics);
       printer.append(", ");
     }
     printer.append("])>");
@@ -567,46 +574,54 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final NestedSetBuilder<LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
     private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
 
+    @CanIgnoreReturnValue
     public Builder setOwner(Label owner) {
       linkerInputBuilder.setOwner(owner);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLibrary(LibraryToLink library) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLibrary(library);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLibraries(List<LibraryToLink> libraries) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLibraries(libraries);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addUserLinkFlags(userLinkFlags);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLinkstamps(List<Linkstamp> linkstamps) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLinkstamps(linkstamps);
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addTransitiveLinkerInputs(NestedSet<LinkerInput> linkerInputs) {
       this.linkerInputs.addTransitive(linkerInputs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExtraLinkTimeLibraries(ExtraLinkTimeLibraries extraLinkTimeLibraries) {
       Preconditions.checkState(this.extraLinkTimeLibraries == null);
       this.extraLinkTimeLibraries = extraLinkTimeLibraries;

@@ -617,6 +617,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.strictSystemIncludes;
   }
 
+  @Nullable
   String getFdoInstrument() {
     if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
@@ -659,6 +660,7 @@ public final class CppConfiguration extends Fragment
     return propellerOptimizeAbsoluteLdProfile;
   }
 
+  @Nullable
   Label getFdoPrefetchHintsLabel() {
     if (isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // We don't want FDO in the host configuration
@@ -697,6 +699,7 @@ public final class CppConfiguration extends Fragment
    * @deprecated Unsafe because it returns a value from target configuration even in the host
    *     configuration.
    */
+  @Nullable
   @Deprecated
   Label getPropellerOptimizeLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
     if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
@@ -709,6 +712,7 @@ public final class CppConfiguration extends Fragment
    * @deprecated Unsafe because it returns a value from target configuration even in the host
    *     configuration.
    */
+  @Nullable
   @Deprecated
   Label getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration() {
     if (cppOptions.fdoOptimizeForBuild != null
@@ -733,6 +737,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.removeCpuCompilerCcToolchainAttributes;
   }
 
+  @Nullable
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {
       return null;
@@ -762,6 +767,7 @@ public final class CppConfiguration extends Fragment
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
+  @Nullable
   public Label getTargetLibcTopLabel() {
     if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294()) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
@@ -877,17 +883,17 @@ public final class CppConfiguration extends Fragment
   }
 
   @StarlarkMethod(
-      name = "experimental_cc_interface_deps",
+      name = "experimental_cc_implementation_deps",
       documented = false,
       useStarlarkThread = true)
-  public boolean experimentalCcInterfaceDepsForStarlark(StarlarkThread thread)
+  public boolean experimentalCcImplementationDepsForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcInterfaceDeps();
+    return experimentalCcImplementationDeps();
   }
 
-  public boolean experimentalCcInterfaceDeps() {
-    return cppOptions.experimentalCcInterfaceDeps;
+  public boolean experimentalCcImplementationDeps() {
+    return cppOptions.experimentalCcImplementationDeps;
   }
 
   public boolean getExperimentalCppCompileResourcesEstimation() {

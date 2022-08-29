@@ -14,26 +14,33 @@
 
 package com.google.devtools.build.lib.events;
 
+import javax.annotation.Nullable;
+
 /**
  * Interface for reporting events during the build. It extends the {@link EventHandler} by also
  * allowing posting more structured information.
  */
 public interface ExtendedEventHandler extends EventHandler {
 
-  /** Interface for declaring events that can be posted via the extended event handler */
-  interface Postable {}
+  /** An event that can be posted via the extended event handler. */
+  interface Postable extends Reportable {
 
-  /** Post an postable object with more refined information about an important build event */
+    @Override
+    default void reportTo(ExtendedEventHandler handler) {
+      handler.post(this);
+    }
+
+    @Override
+    default Postable withTag(@Nullable String tag) {
+      return this; // No tag-based filtering.
+    }
+  }
+
+  /** Posts a {@link Postable} object about an important build event. */
   void post(Postable obj);
 
-  /**
-   * Interface for declaring postable events that report about progress (as opposed to success or
-   * failure) and hence should not be stored and replayed.
-   */
-  interface ProgressLike extends Postable {}
-
-  /** Interface for progress events that report about fetching from a remote site */
-  interface FetchProgress extends ProgressLike {
+  /** A progress event that reports about fetching from a remote site. */
+  interface FetchProgress extends Postable {
 
     /**
      * The resource that was originally requested and uniquely determines the fetch source. The

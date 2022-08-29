@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -357,11 +358,13 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
     private Optional<Artifact> unusedInputsList = Optional.empty();
     private Optional<Action> shadowedAction = Optional.empty();
 
+    @CanIgnoreReturnValue
     public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
       this.unusedInputsList = unusedInputsList;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setShadowedAction(Optional<Action> shadowedAction) {
       this.shadowedAction = shadowedAction;
       return this;

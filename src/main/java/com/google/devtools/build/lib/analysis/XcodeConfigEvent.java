@@ -17,10 +17,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo;
 
 /** Carries the information passed to an {@code xcode_config} rule for logging purposes. */
-public class XcodeConfigEvent implements Postable {
+public final class XcodeConfigEvent implements Postable {
   public final XcodeConfigRuleInfo xcodeConfigInfo;
 
   public XcodeConfigEvent(XcodeConfigRuleInfo xcodeConfigInfo) {
     this.xcodeConfigInfo = xcodeConfigInfo;
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the "test_suite" rule.
@@ -38,6 +39,7 @@ import java.util.List;
 public class TestSuite implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     checkTestsAndSuites(ruleContext, "tests");

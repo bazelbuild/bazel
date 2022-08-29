@@ -84,6 +84,7 @@ public class ModuleFileFunction implements SkyFunction {
     this.builtinModules = builtinModules;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
@@ -137,6 +138,7 @@ public class ModuleFileFunction implements SkyFunction {
     return NonRootModuleFileValue.create(module);
   }
 
+  @Nullable
   private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootedPath moduleFilePath =
@@ -291,7 +293,7 @@ public class ModuleFileFunction implements SkyFunction {
     try {
       return FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
     } catch (IOException e) {
-      throw new ModuleFileFunctionException(e);
+      throw errorf(Code.MODULE_NOT_FOUND, "MODULE.bazel expected but not found at %s", path);
     }
   }
 

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -118,11 +119,13 @@ public class ModifiedFileSet {
       return modified.isEmpty() ? NOTHING_MODIFIED : new ModifiedFileSet(modified);
     }
 
+    @CanIgnoreReturnValue
     public Builder modify(PathFragment pathFragment) {
       setBuilder.add(pathFragment);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder modifyAll(Iterable<PathFragment> pathFragments) {
       setBuilder.addAll(pathFragments);
       return this;

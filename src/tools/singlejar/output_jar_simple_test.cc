@@ -394,6 +394,19 @@ TEST_F(OutputJarSimpleTest, MainClass) {
       manifest);
 }
 
+// --output_jar_creator option
+TEST_F(OutputJarSimpleTest, CreatedByFieldTest) {
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--output_jar_creator", "SingleJarTestValue 123.456"});
+  string manifest = GetEntryContents(out_path, "META-INF/MANIFEST.MF");
+  EXPECT_EQ(
+      "Manifest-Version: 1.0\r\n"
+      "Created-By: SingleJarTestValue 123.456\r\n"
+      "\r\n",
+      manifest);
+}
+
 // --deploy_manifest_lines option.
 TEST_F(OutputJarSimpleTest, DeployManifestLines) {
   string out_path = OutputFilePath("out.jar");
@@ -1013,8 +1026,10 @@ TEST_F(OutputJarSimpleTest, AddExportsManifestLines) {
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
-      "Add-Exports: bar/com.export foo/com.export\r\n"
-      "Add-Opens: bar/com.open foo/com.open\r\n"
+      "Add-Exports: bar/com.export\r\n"
+      "  foo/com.export\r\n"
+      "Add-Opens: bar/com.open\r\n"
+      "  foo/com.open\r\n"
       "\r\n",
       manifest);
 }
@@ -1042,7 +1057,8 @@ TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
   EXPECT_EQ(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
-      "Add-Exports: bar/export foo/export\r\n"
+      "Add-Exports: bar/export\r\n"
+      "  foo/export\r\n"
       "\r\n",
       manifest);
 }

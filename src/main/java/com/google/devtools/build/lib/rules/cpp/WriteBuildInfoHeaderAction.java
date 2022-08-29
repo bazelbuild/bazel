@@ -193,6 +193,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
     writer.write('\n');
   }
 
+  @Nullable
   @Override
   protected String getRawProgressMessage() {
     return null;

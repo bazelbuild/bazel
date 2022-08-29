@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.shell;
 import com.google.auto.value.AutoValue;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.flogger.LazyArgs;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.Optional;
@@ -132,6 +133,7 @@ public abstract class CommandResult {
     public abstract Builder setTerminationStatus(TerminationStatus terminationStatus);
 
     /** Sets the wall execution time. */
+    @CanIgnoreReturnValue
     public Builder setWallExecutionTime(Duration wallExecutionTime) {
       setWallExecutionTime(Optional.of(wallExecutionTime));
       return this;
@@ -141,6 +143,7 @@ public abstract class CommandResult {
     public abstract Builder setWallExecutionTime(Optional<Duration> wallExecutionTime);
 
     /** Sets the user execution time. */
+    @CanIgnoreReturnValue
     public Builder setUserExecutionTime(Duration userExecutionTime) {
       setUserExecutionTime(Optional.of(userExecutionTime));
       return this;
@@ -150,6 +153,7 @@ public abstract class CommandResult {
     public abstract Builder setUserExecutionTime(Optional<Duration> userExecutionTime);
 
     /** Sets the system execution time. */
+    @CanIgnoreReturnValue
     public Builder setSystemExecutionTime(Duration systemExecutionTime) {
       setSystemExecutionTime(Optional.of(systemExecutionTime));
       return this;

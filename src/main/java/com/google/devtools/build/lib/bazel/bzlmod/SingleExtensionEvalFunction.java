@@ -15,11 +15,14 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -38,6 +41,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -83,6 +88,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     this.repositoryRemoteExecutor = repositoryRemoteExecutor;
   }
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
@@ -133,6 +139,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (bzlLoadValue == null) {
       return null;
     }
+    // TODO(wyv): Consider whether there's a need to check bzl-visibility
+    // (BzlLoadFunction#checkLoadVisibilities).
+    // TODO(wyv): Consider refactoring to use PackageFunction#loadBzlModules, or the simpler API
+    // that may be created by b/237658764.
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
@@ -151,7 +161,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     ModuleExtension extension = ((ModuleExtension.InStarlark) exported).get();
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
-            usagesValue.getExtensionUniqueName() + ".",
+            usagesValue.getExtensionUniqueName() + "~",
             extensionId.getBzlFileLabel().getPackageIdentifier(),
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
             directories,
@@ -159,11 +169,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     try (Mutability mu =
         Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       ModuleExtensionContext moduleContext =
           createContext(env, usagesValue, starlarkSemantics, extension);
       threadContext.storeInThread(thread);
-      // TODO(wyv): support native.register_toolchains
-      // TODO(wyv): make sure the Label constructor works
       try {
         Starlark.fastcall(
             thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);
@@ -189,10 +198,34 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    // TODO(wyv): check that all used repos have been generated (for better error reporting). Or...
-    //   somehow check it at use time?
+    // Check that all imported repos have been actually generated
+    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
+      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
+        if (!threadContext.getGeneratedRepos().containsKey(repoImport.getValue())) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
+                      + " is imported as \"%s\" in the usage at %s",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  repoImport.getValue(),
+                  repoImport.getKey(),
+                  usage.getLocation()),
+              Transience.PERSISTENT);
+        }
+      }
+    }
 
-    return SingleExtensionEvalValue.create(threadContext.getGeneratedRepos());
+    return SingleExtensionEvalValue.create(
+        threadContext.getGeneratedRepos(),
+        threadContext.getGeneratedRepos().keySet().stream()
+            .collect(
+                toImmutableBiMap(
+                    e ->
+                        RepositoryName.createUnvalidated(
+                            usagesValue.getExtensionUniqueName() + "~" + e),
+                    Function.identity())));
   }
 
   private ModuleExtensionContext createContext(

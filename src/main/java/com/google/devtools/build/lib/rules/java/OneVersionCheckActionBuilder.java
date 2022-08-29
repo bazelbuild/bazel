@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Utility for generating a call to the one-version binary. */
 public final class OneVersionCheckActionBuilder {
@@ -45,21 +47,25 @@ public final class OneVersionCheckActionBuilder {
     return new OneVersionCheckActionBuilder();
   }
 
+  @CanIgnoreReturnValue
   public OneVersionCheckActionBuilder useToolchain(JavaToolchainProvider toolchain) {
     javaToolchain = toolchain;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public OneVersionCheckActionBuilder checkJars(NestedSet<Artifact> jarsToCheck) {
     this.jarsToCheck = jarsToCheck;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public OneVersionCheckActionBuilder outputArtifact(Artifact outputArtifact) {
     this.outputArtifact = outputArtifact;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public OneVersionCheckActionBuilder withEnforcementLevel(
       OneVersionEnforcementLevel enforcementLevel) {
     Preconditions.checkArgument(
@@ -76,7 +82,7 @@ public final class OneVersionCheckActionBuilder {
     Preconditions.checkNotNull(javaToolchain);
     Preconditions.checkNotNull(jarsToCheck);
 
-    Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
+    FilesToRunProvider oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionAllowlist = javaToolchain.getOneVersionAllowlist();
     if (oneVersionTool == null || oneVersionAllowlist == null) {
       addRuleErrorForMissingArtifacts(ruleContext, javaToolchain);

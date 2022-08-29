@@ -34,9 +34,6 @@ bazel run //tools/aquery_differ:aquery_differ -- \
 --attrs=inputs
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import difflib
 import os
 import sys
@@ -44,7 +41,6 @@ import sys
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-from six.moves import map
 from google.protobuf import text_format
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver

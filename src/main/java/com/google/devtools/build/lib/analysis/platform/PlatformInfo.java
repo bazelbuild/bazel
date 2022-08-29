@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -142,8 +143,7 @@ public class PlatformInfo extends NativeInfo
 
   @Override
   public void repr(Printer printer) {
-    Printer.format(
-        printer, "PlatformInfo(%s, constraints=%s)", label.toString(), constraints.toString());
+    printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
@@ -177,6 +177,7 @@ public class PlatformInfo extends NativeInfo
      * @param parent the platform that is the parent of this platform
      * @return the {@link Builder} instance for method chaining
      */
+    @CanIgnoreReturnValue
     public Builder setParent(@Nullable PlatformInfo parent) {
       this.parent = parent;
       if (parent == null) {
@@ -193,6 +194,7 @@ public class PlatformInfo extends NativeInfo
      * @param label the label identifying this platform
      * @return the {@link Builder} instance for method chaining
      */
+    @CanIgnoreReturnValue
     public Builder setLabel(Label label) {
       this.label = label;
       return this;
@@ -204,6 +206,7 @@ public class PlatformInfo extends NativeInfo
      * @param constraint the constraint to add
      * @return the {@link Builder} instance for method chaining
      */
+    @CanIgnoreReturnValue
     public Builder addConstraint(ConstraintValueInfo constraint) {
       this.constraints.addConstraints(constraint);
       return this;
@@ -215,6 +218,7 @@ public class PlatformInfo extends NativeInfo
      * @param constraints the constraints to add
      * @return the {@link Builder} instance for method chaining
      */
+    @CanIgnoreReturnValue
     public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
       this.constraints.addConstraints(constraints);
       return this;
@@ -255,6 +259,7 @@ public class PlatformInfo extends NativeInfo
      * @param properties the properties to be added
      * @return the {@link Builder} instance for method chaining
      */
+    @CanIgnoreReturnValue
     public Builder setRemoteExecutionProperties(String properties) {
       this.remoteExecutionProperties = properties;
       return this;
@@ -267,6 +272,7 @@ public class PlatformInfo extends NativeInfo
      * inherited. Any properties included in both will use the child's value. Use the value of empty
      * string to unset a property.
      */
+    @CanIgnoreReturnValue
     public Builder setExecProperties(@Nullable ImmutableMap<String, String> properties) {
       this.execProperties = properties;
       return this;
@@ -278,6 +284,7 @@ public class PlatformInfo extends NativeInfo
      * @param location the location where the instance was created
      * @return the {@link Builder} instance for method chaining
      */
+    @CanIgnoreReturnValue
     public Builder setLocation(Location location) {
       this.creationLocation = location;
       return this;

@@ -16,6 +16,7 @@ package com.google.devtools.build.android.dexer;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.android.dex.Dex;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -41,21 +42,24 @@ class DexFileArchive implements Closeable {
     this.out = out;
   }
 
-  /**
-   * Adds a {@code .dex} file with the given details.
-   */
+  /** Adds a {@code .dex} file with the given details. */
+  @SuppressWarnings("LenientFormatStringValidation")
+  @CanIgnoreReturnValue
   public DexFileArchive addFile(ZipEntry entry, Dex dex) throws IOException {
     checkState(inUse.compareAndSet(null, entry), "Already in use");
     entry.setSize(dex.getLength());
     out.putNextEntry(entry);
     dex.writeTo(out);
     out.closeEntry();
+    // Expected 0 args, but got 1.
     checkState(inUse.compareAndSet(entry, null), "Swooped in: ", inUse.get());
     return this;
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   @Override
   public void close() throws IOException {
+    // Expected 0 args, but got 1.
     checkState(inUse.get() == null, "Still in use: ", inUse.get());
     out.close();
   }

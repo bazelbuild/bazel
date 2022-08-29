@@ -14,21 +14,18 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -39,6 +36,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
@@ -47,10 +45,14 @@ public class RepositoryMappingFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
     RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
 
     BazelModuleResolutionValue bazelModuleResolutionValue = null;
-    if (Preconditions.checkNotNull(RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env))) {
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
         // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
         // such as @platforms.
@@ -71,7 +73,7 @@ public class RepositoryMappingFunction implements SkyFunction {
 
       bazelModuleResolutionValue =
           (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-      if (env.valuesMissing()) {
+      if (bazelModuleResolutionValue == null) {
         return null;
       }
 
@@ -114,16 +116,22 @@ public class RepositoryMappingFunction implements SkyFunction {
       }
 
       // Now try and see if this is a repo generated from a module extension.
-      ModuleExtensionResolutionValue moduleExtensionResolutionValue =
-          (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
-      if (env.valuesMissing()) {
-        return null;
-      }
-      mapping =
-          computeForModuleExtensionRepo(
-              repositoryName, bazelModuleResolutionValue, moduleExtensionResolutionValue);
-      if (mapping.isPresent()) {
-        return RepositoryMappingValue.withMapping(mapping.get());
+      Optional<ModuleExtensionId> moduleExtensionId =
+          maybeGetModuleExtensionForRepo(repositoryName, bazelModuleResolutionValue);
+
+      if (moduleExtensionId.isPresent()) {
+        SingleExtensionEvalValue extensionEvalValue =
+            (SingleExtensionEvalValue)
+                env.getValue(SingleExtensionEvalValue.key(moduleExtensionId.get()));
+        if (extensionEvalValue == null) {
+          return null;
+        }
+        return RepositoryMappingValue.withMapping(
+            computeForModuleExtensionRepo(
+                repositoryName,
+                moduleExtensionId.get(),
+                extensionEvalValue,
+                bazelModuleResolutionValue));
       }
     }
 
@@ -162,27 +170,11 @@ public class RepositoryMappingFunction implements SkyFunction {
    * @return the repo mappings for the repo if it's generated from a module extension, otherwise
    *     return Optional.empty().
    */
-  private Optional<RepositoryMapping> computeForModuleExtensionRepo(
+  private RepositoryMapping computeForModuleExtensionRepo(
       RepositoryName repositoryName,
-      BazelModuleResolutionValue bazelModuleResolutionValue,
-      ModuleExtensionResolutionValue moduleExtensionResolutionValue) {
-    ModuleExtensionId extensionId =
-        moduleExtensionResolutionValue.getCanonicalRepoNameToExtensionId().get(repositoryName);
-    if (extensionId == null) {
-      return Optional.empty();
-    }
-    String extensionUniqueName =
-        bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId);
-    // Compute the "internal mappings", containing the mappings from the "internal" names to
-    // canonical names of all repos generated by this extension.
-    ImmutableMap<String, RepositoryName> internalMapping =
-        moduleExtensionResolutionValue.getExtensionIdToRepoInternalNames().get(extensionId).stream()
-            .collect(
-                toImmutableMap(
-                    internalName -> internalName,
-                    internalName ->
-                        RepositoryName.createUnvalidated(
-                            extensionUniqueName + "." + internalName)));
+      ModuleExtensionId extensionId,
+      SingleExtensionEvalValue extensionEvalValue,
+      BazelModuleResolutionValue bazelModuleResolutionValue) {
     // Find the key of the module containing this extension. This will be used to compute additional
     // mappings -- any repo generated by an extension contained in the module "foo" can additionally
     // see all repos that "foo" can see.
@@ -194,9 +186,9 @@ public class RepositoryMappingFunction implements SkyFunction {
     // extension generates an internal repo name "bar", then within a repo generated by the
     // extension, "bar" will refer to the latter. We should explore a way to differentiate between
     // the two to avoid any surprises.
-    return Optional.of(
-        RepositoryMapping.create(internalMapping, repositoryName)
-            .withAdditionalMappings(bazelModuleResolutionValue.getFullRepoMapping(moduleKey)));
+    return RepositoryMapping.create(
+            extensionEvalValue.getCanonicalRepoNameToInternalNames().inverse(), repositoryName)
+        .withAdditionalMappings(bazelModuleResolutionValue.getFullRepoMapping(moduleKey));
   }
 
   private SkyValue computeFromWorkspace(
@@ -213,7 +205,7 @@ public class RepositoryMappingFunction implements SkyFunction {
           RepositoryMapping.createAllowingFallback(
               externalPackage.getRepositoryMapping(repositoryName)));
     }
-    // If bzlmod is in play, we need to transform mappings to "foo" into mappings for "foo.1.3" (if
+    // If bzlmod is in play, we need to transform mappings to "foo" into mappings for "foo~1.3" (if
     // there is a module called "foo" in the dep graph and its version is 1.3, that is).
     ImmutableMap<String, ModuleKey> moduleNameLookup =
         bazelModuleResolutionValue.getModuleNameLookup();
@@ -228,13 +220,21 @@ public class RepositoryMappingFunction implements SkyFunction {
               ModuleKey moduleKey = moduleNameLookup.get(toRepo.getName());
               return moduleKey == null ? toRepo : moduleKey.getCanonicalRepoName();
             }));
-    // If there's no existing mapping to "foo", we should add a mapping from "foo" to "foo.1.3"
+    // If there's no existing mapping to "foo", we should add a mapping from "foo" to "foo~1.3"
     // anyways.
     for (Map.Entry<String, ModuleKey> entry : moduleNameLookup.entrySet()) {
       mapping.putIfAbsent(entry.getKey(), entry.getValue().getCanonicalRepoName());
     }
     return RepositoryMappingValue.withMapping(
         RepositoryMapping.createAllowingFallback(ImmutableMap.copyOf(mapping)));
+  }
+
+  private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(
+      RepositoryName repositoryName, BazelModuleResolutionValue bazelModuleResolutionValue) {
+    return bazelModuleResolutionValue.getExtensionUniqueNames().entrySet().stream()
+        .filter(e -> repositoryName.getName().startsWith(e.getValue() + "~"))
+        .map(Entry::getKey)
+        .findFirst();
   }
 
   private static class RepositoryMappingFunctionException extends SkyFunctionException {

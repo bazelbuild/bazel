@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.xml.Namespaces;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.Writer;
@@ -467,18 +468,21 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
       return startTag(name.getPrefix().isEmpty() ? null : name.getPrefix(), name.getLocalPart());
     }
 
+    @CanIgnoreReturnValue
     @Override
     public ValuesResourceDefinition adopt(FullyQualifiedName fqn) {
       mapper.adopt(fqn);
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public ValuesResourceDefinition addCharactersOf(String characters) {
       mapper.add(characters);
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public ValuesResourceDefinition endTag() {
       Preconditions.checkArgument(
@@ -529,12 +533,14 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
 
     /** Adds a string to the current {@link StringsSegment}. */
+    @CanIgnoreReturnValue
     SegmentMapper add(String line) {
       currentLines.add(line);
       return this;
     }
 
     /** Closes current {@link StringsSegment} and adds a {@link ReferenceSegment} to the store. */
+    @CanIgnoreReturnValue
     SegmentMapper adopt(FullyQualifiedName adoptedKey) {
       segmentStore.put(segmentKey, new StringsSegment(currentLines));
       adopted.add(adoptedKey);

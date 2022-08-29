@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,11 +47,7 @@ public class BlockWaitingModule extends BlazeModule {
   public void afterCommand() throws AbruptExitException {
     checkNotNull(executorService, "executorService must not be null");
 
-    executorService.shutdown();
-    try {
-      executorService.awaitTermination(Long.MAX_VALUE, SECONDS);
-    } catch (InterruptedException e) {
-      executorService.shutdownNow();
+    if (ExecutorUtil.interruptibleShutdown(executorService)) {
       Thread.currentThread().interrupt();
     }
 

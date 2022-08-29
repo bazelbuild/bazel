@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A class to help dealing with WORKSPACE.bazel and WORKSAPCE file */
 public class WorkspaceFileHelper {
@@ -43,6 +44,7 @@ public class WorkspaceFileHelper {
    * @param env Skyframe env
    * @return A RootedPath to the WORKSPACE file we should use for the given directory.
    */
+  @Nullable
   public static RootedPath getWorkspaceRootedFile(RootedPath directory, Environment env)
       throws IOException, InterruptedException {
     RootedPath workspaceRootedFile =

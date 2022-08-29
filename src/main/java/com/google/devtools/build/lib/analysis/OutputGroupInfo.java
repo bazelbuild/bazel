@@ -303,6 +303,7 @@ public final class OutputGroupInfo extends StructImpl
     return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
   }
 
+  @Nullable
   @Override
   public Object getValue(String name) {
     NestedSet<Artifact> result = outputGroups.get(name);

@@ -23,8 +23,7 @@ final class PackageUtils {
 
   private PackageUtils() {}
 
-  static RuleVisibility getVisibility(Label ruleLabel, List<Label> original)
-      throws EvalException {
+  static RuleVisibility getVisibility(List<Label> original) throws EvalException {
     RuleVisibility result;
 
     result = ConstantRuleVisibility.tryParse(original);
@@ -32,7 +31,7 @@ final class PackageUtils {
       return result;
     }
 
-    result = PackageGroupsRuleVisibility.tryParse(ruleLabel, original);
+    result = PackageGroupsRuleVisibility.tryParse(original);
     return result;
   }
 }

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
@@ -439,7 +438,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Type.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
     List<Label> includes =
         BuildType.LABEL_LIST.convert(
-            includesO, "'package_group.includes argument'", context.pkgBuilder.getBuildFileLabel());
+            includesO, "'package_group.includes argument'", context.pkgBuilder.getLabelConverter());
 
     Location loc = thread.getCallerLocation();
     try {
@@ -464,9 +463,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         Starlark.isNullOrNone(visibilityO)
             ? ConstantRuleVisibility.PUBLIC
             : PackageUtils.getVisibility(
-                pkgBuilder.getBuildFileLabel(),
                 BuildType.LABEL_LIST.convert(
-                    visibilityO, "'exports_files' operand", pkgBuilder.getBuildFileLabel()));
+                    visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
@@ -486,32 +484,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         if (license != null && inputFile.isLicenseSpecified()) {
           throw Starlark.errorf(
               "licenses for exported file '%s' declared twice", inputFile.getName());
-        }
-
-        // See if we should check third-party licenses: first checking for any hard-coded policy,
-        // then falling back to user-settable flags.
-        boolean checkLicenses;
-        if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
-            == ThirdPartyLicenseExistencePolicy.ALWAYS_CHECK) {
-          checkLicenses = true;
-        } else if (pkgBuilder.getThirdPartyLicenseExistencePolicy()
-            == ThirdPartyLicenseExistencePolicy.NEVER_CHECK) {
-          checkLicenses = false;
-        } else {
-          checkLicenses =
-              !thread
-                  .getSemantics()
-                  .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING);
-        }
-
-        if (checkLicenses
-            && license == null
-            && !pkgBuilder.getDefaultLicense().isSpecified()
-            && RuleClass.isThirdPartyPackage(pkgBuilder.getPackageIdentifier())) {
-          throw Starlark.errorf(
-              "third-party file '%s' lacks a license declaration with one of the following types:"
-                  + " notice, reciprocal, permissive, restricted, unencumbered, by_exception_only",
-              inputFile.getName());
         }
 
         pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);

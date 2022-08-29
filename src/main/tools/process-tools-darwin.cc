@@ -93,7 +93,11 @@ int WaitForProcessGroupToTerminate(pid_t pgid) {
     if (nprocs == 1) {
       // Found only one process, which must be the leader because we have
       // purposely expect it as a zombie with WaitForProcess.
+#if defined(__OpenBSD__)
+      if (procs->p_pid != pgid) {
+#else
       if (procs->kp_proc.p_pid != pgid) {
+#endif
         DIE("Process group leader must be the only process left");
       }
       free(procs);

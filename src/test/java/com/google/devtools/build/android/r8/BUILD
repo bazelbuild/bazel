@@ -22,7 +22,6 @@ java_library(
         "//external:has_androidsdk": glob(
             ["*Test.java"],
             exclude = [
-                "DexFileMergerTest.java",
                 "NoAndroidSdkStubTest.java",
                 "AllTests.java",
             ],
@@ -60,7 +59,6 @@ java_test(
         "-DCompatDexBuilderTests.naming001=$(location :naming001)",
         "-DCompatDxTests.arithmetic=$(location :arithmetic)",
         "-DCompatDxTests.barray=$(location :barray)",
-        "-DDexFileMergerTest.dexmergersample=$(location :dexmergersample)",
     ],
     runtime_deps = [
         ":tests",

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -163,16 +164,17 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       name = "symlink",
       doc =
           "Creates an action that writes a symlink in the file system."
-              + "<p>This function must be called with exactly one of <code>target_file</code> and "
+              + "<p>This function must be called with exactly one of <code>target_file</code> or "
               + "<code>target_path</code> specified.</p>"
               + "<p>If <code>target_file</code> is used, then <code>output</code> must be declared "
-              + "as a regular file (such as by using "
-              + "<a href=\"#declare_file\"><code>declare_file()</code></a>). It will actually be "
-              + "created as a symlink that points to the path of <code>target_file</code>.</p>"
-              + "<p>If <code>target_path</code> is used instead, then <code>output</code> must be "
-              + "declared as a symlink (such as by using "
+              + "by <a href=\"#declare_file\"><code>declare_file()</code></a> or "
+              + "<a href=\"#declare_directory\"><code>declare_directory()</code></a> and match the "
+              + "type of <code>target_file</code>. In this case, <code>output</code> will be a "
+              + "symlink whose contents are the path of <code>target_file</code>.</p>"
+              + "<p>Otherwise, if <code>target_path</code> is used, then <code>output</code> must "
+              + "be declared with "
               + "<a href=\"#declare_symlink\"><code>declare_symlink()</code></a>). In this case, "
-              + "the symlink will point to whatever the content of <code>target_path</code> is. "
+              + "<code>output</code> will be a symlink whose contents are <code>target_path</code>."
               + "This can be used to create a dangling symlink.</p>",
       parameters = {
         @Param(
@@ -723,16 +725,30 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "substitutions",
             named = true,
             positional = false,
+            defaultValue = "{}",
             doc = "Substitutions to make when expanding the template."),
         @Param(
             name = "is_executable",
             defaultValue = "False",
             named = true,
             positional = false,
-            doc = "Whether the output file should be executable.")
+            doc = "Whether the output file should be executable."),
+        @Param(
+            name = "computed_substitutions",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = TemplateDictApi.class)},
+            defaultValue = "unbound",
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION,
+            valueWhenDisabled = "unbound",
+            doc = "Experimental: Substitutions to make when expanding the template.")
       })
   void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      Object computedSubstitutions)
       throws EvalException;
 
   @StarlarkMethod(
@@ -740,4 +756,10 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)
   CommandLineArgsApi args(StarlarkThread thread);
+
+  @StarlarkMethod(
+      name = "template_dict",
+      doc = "Experimental: Returns a TemplateDict object for memory-efficient template expansion.",
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION)
+  TemplateDictApi templateDict();
 }

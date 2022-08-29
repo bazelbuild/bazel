@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -37,7 +40,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -187,14 +189,13 @@ public final class AnalysisUtils {
       ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException, InterruptedException {
-    // We use a hash set here to remove duplicate nodes; this can happen for input files and package
+    // We use a set here to remove duplicate nodes; this can happen for input files and package
     // groups.
-    LinkedHashSet<TargetAndConfiguration> nodes = new LinkedHashSet<>(targets.size());
-    for (BuildConfigurationValue config : configurations.getTargetConfigurations()) {
-      for (Target target : targets) {
-        nodes.add(new TargetAndConfiguration(target, config));
-      }
-    }
+    BuildConfigurationValue targetConfiguration = configurations.getTargetConfiguration();
+    ImmutableSet<TargetAndConfiguration> nodes =
+        targets.stream()
+            .map(target -> new TargetAndConfiguration(target, targetConfiguration))
+            .collect(toImmutableSet());
 
     // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
     // configurations for deps including transitions.

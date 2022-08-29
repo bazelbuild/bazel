@@ -20,6 +20,8 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -41,52 +43,36 @@ public class NotifyingHelper {
       }
 
       @Override
-      public QueryableGraph transform(QueryableGraph graph) {
-        return new NotifyingQueryableGraph(graph, listener);
-      }
-
-      @Override
       public ProcessableGraph transform(ProcessableGraph graph) {
         return new NotifyingProcessableGraph(graph, listener);
       }
     };
   }
 
-  protected final Listener graphListener;
+  final Listener graphListener;
 
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
   }
 
-  /** Subclasses should override if they wish to subclass NotifyingNodeEntry. */
+  /** Subclasses should override if they wish to subclass {@link NotifyingNodeEntry}. */
   @Nullable
-  protected NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable ThinNodeEntry entry) {
+  @ForOverride
+  NotifyingNodeEntry wrapEntry(SkyKey key, @Nullable NodeEntry entry) {
     return entry == null ? null : new NotifyingNodeEntry(key, entry);
   }
 
-  static class NotifyingQueryableGraph implements QueryableGraph {
-    private final QueryableGraph delegate;
-    protected final NotifyingHelper notifyingHelper;
+  static class NotifyingProcessableGraph implements ProcessableGraph {
+    final ProcessableGraph delegate;
+    final NotifyingHelper notifyingHelper;
 
-    NotifyingQueryableGraph(QueryableGraph delegate, Listener graphListener) {
-      this.notifyingHelper = new NotifyingHelper(graphListener);
-      this.delegate = delegate;
+    NotifyingProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
+      this(delegate, new NotifyingHelper(graphListener));
     }
 
-    NotifyingQueryableGraph(QueryableGraph delegate, NotifyingHelper helper) {
-      this.notifyingHelper = helper;
+    NotifyingProcessableGraph(ProcessableGraph delegate, NotifyingHelper notifyingHelper) {
       this.delegate = delegate;
-    }
-
-    @Override
-    public Map<SkyKey, ? extends NodeEntry> getBatch(
-        @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
-        throws InterruptedException {
-      for (SkyKey key : keys) {
-        notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
-      }
-      return Maps.transformEntries(
-          delegate.getBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
+      this.notifyingHelper = notifyingHelper;
     }
 
     @Nullable
@@ -96,45 +82,31 @@ public class NotifyingHelper {
       return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
     }
 
-  }
-
-  static class NotifyingProcessableGraph
-      extends NotifyingQueryableGraph implements ProcessableGraph {
-    protected final ProcessableGraph delegate;
-
-    NotifyingProcessableGraph(ProcessableGraph delegate, Listener graphListener) {
-      this(delegate, new NotifyingHelper(graphListener));
-    }
-
-    NotifyingProcessableGraph(ProcessableGraph delegate, NotifyingHelper helper) {
-      super(delegate, helper);
-      this.delegate = delegate;
-    }
-
     @Override
     public void remove(SkyKey key) {
       delegate.remove(key);
     }
 
     @Override
-    public Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
+    public NodeBatch createIfAbsentBatch(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.CREATE_IF_ABSENT, Order.BEFORE, null);
       }
-      return Maps.transformEntries(
-          delegate.createIfAbsentBatch(requestor, reason, keys), notifyingHelper::wrapEntry);
+      NodeBatch batch = delegate.createIfAbsentBatch(requestor, reason, keys);
+      return key -> notifyingHelper.wrapEntry(key, batch.get(key));
     }
 
     @Override
-    public Map<SkyKey, ? extends NodeEntry> getBatch(
+    public Map<SkyKey, ? extends NodeEntry> getBatchMap(
         @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
         throws InterruptedException {
       for (SkyKey key : keys) {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
       }
-      return super.getBatch(requestor, reason, keys);
+      return Maps.transformEntries(
+          delegate.getBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
     @Override
@@ -211,22 +183,17 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  protected class NotifyingNodeEntry extends DelegatingNodeEntry implements TestOnlyNodeEntry {
+  class NotifyingNodeEntry extends DelegatingNodeEntry {
     private final SkyKey myKey;
-    private final ThinNodeEntry delegate;
+    private final NodeEntry delegate;
 
-    protected NotifyingNodeEntry(SkyKey key, ThinNodeEntry delegate) {
+    NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
       myKey = key;
       this.delegate = delegate;
     }
 
     @Override
     public NodeEntry getDelegate() {
-      return (NodeEntry) delegate;
-    }
-
-    @Override
-    protected ThinNodeEntry getThinDelegate() {
       return delegate;
     }
 
@@ -354,7 +321,7 @@ public class NotifyingHelper {
 
     @Override
     public void resetForRestartFromScratch() {
-      getDelegate().resetForRestartFromScratch();
+      delegate.resetForRestartFromScratch();
       graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 
@@ -365,18 +332,17 @@ public class NotifyingHelper {
   }
 
   /**
-   * A pair of {@link ThinNodeEntry.DirtyType} and a bit saying whether the dirtying was successful,
-   * emitted to the graph listener as the context {@link Order#AFTER} a call to {@link
-   * EventType#MARK_DIRTY} a node.
+   * A pair of {@link DirtyType} and a bit saying whether the dirtying was successful, emitted to
+   * the graph listener as the context {@link Order#AFTER} a call to {@link EventType#MARK_DIRTY} a
+   * node.
    */
   @AutoValue
   public abstract static class MarkDirtyAfterContext {
-    public abstract ThinNodeEntry.DirtyType dirtyType();
+    public abstract DirtyType dirtyType();
 
     public abstract boolean actuallyDirtied();
 
-    static MarkDirtyAfterContext create(
-        ThinNodeEntry.DirtyType dirtyType, boolean actuallyDirtied) {
+    static MarkDirtyAfterContext create(DirtyType dirtyType, boolean actuallyDirtied) {
       return new AutoValue_NotifyingHelper_MarkDirtyAfterContext(dirtyType, actuallyDirtied);
     }
   }

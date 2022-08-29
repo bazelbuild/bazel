@@ -2594,10 +2594,9 @@ EOF
   bazel build \
     --toolchain_resolution_debug=.* \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  # Verify that no toolchain was provided.
-  expect_log 'Using toolchain: rule message: "this is the rule", toolchain is none: True'
-  # Verify that the exec platform is platform1.
-  expect_log "Selected execution platform //${pkg}/platforms:platform1"
+
+  # Verify that the exec platform is platform2.
+  expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

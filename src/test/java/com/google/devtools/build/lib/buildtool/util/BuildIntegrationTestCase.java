@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
+import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -244,6 +245,10 @@ public abstract class BuildIntegrationTestCase {
     Thread.setDefaultUncaughtExceptionHandler(oldExceptionHandler);
   }
 
+  public final BlazeRuntimeWrapper getRuntimeWrapper() {
+    return runtimeWrapper;
+  }
+
   /**
    * Creates an uncaught exception handler to be used in {@link
    * Thread#setDefaultUncaughtExceptionHandler}.
@@ -298,8 +303,7 @@ public abstract class BuildIntegrationTestCase {
    *
    * <p>The server is reinitialized so that this change is picked up.
    */
-  protected final void setCustomBugReporterAndReinitialize(BugReporter bugReporter)
-      throws Exception {
+  public final void setCustomBugReporterAndReinitialize(BugReporter bugReporter) throws Exception {
     this.bugReporter = checkNotNull(bugReporter);
     reinitializeAndPreserveOptions();
   }
@@ -365,7 +369,7 @@ public abstract class BuildIntegrationTestCase {
    * <p>{@link BugReport} stores information about crashes in a static variable when running tests.
    * Tests which deliberately cause crashes, need to clear that flag not to taint the environment.
    */
-  protected static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
+  public static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
     assertThrows(expected, BugReport::maybePropagateUnprocessedThrowableIfInTest);
   }
 
@@ -470,7 +474,9 @@ public abstract class BuildIntegrationTestCase {
    * <p>These modules are registered <em>before</em> {@link #getStrategyModule}.
    */
   protected ImmutableList<BlazeModule> getSpawnModules() {
-    return ImmutableList.of(new StandaloneModule());
+    return AnalysisMock.get().isThisBazel()
+        ? ImmutableList.of(new StandaloneModule(), new SandboxModule())
+        : ImmutableList.of(new StandaloneModule());
   }
 
   /** Gets a module containing rules (by default, using the TestRuleClassProvider) */
@@ -492,8 +498,7 @@ public abstract class BuildIntegrationTestCase {
             .add(
                 PrecomputedValue.injected(
                     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                    Optional.empty()),
-                PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false))
+                    Optional.empty()))
             .addAll(BAZEL_REPOSITORY_PRECOMPUTED_VALUES)
             .build();
       }
@@ -524,6 +529,7 @@ public abstract class BuildIntegrationTestCase {
             .setBugReporter(bugReporter)
             .setStartupOptionsProvider(startupOptionsParser)
             .addBlazeModule(new BuildIntegrationTestCommandsModule())
+            .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(getMockBazelRepositoryModule());
     getSpawnModules().forEach(builder::addBlazeModule);
@@ -532,12 +538,11 @@ public abstract class BuildIntegrationTestCase {
         .addBlazeModule(getRulesModule())
         .addBlazeModule(getStrategyModule());
 
-    if ("bazel".equals(TestConstants.PRODUCT_NAME)) {
+    if (AnalysisMock.get().isThisBazel()) {
       // Add in modules implicitly added in internal integration test case.
       builder
           .addBlazeModule(new NoSpawnCacheModule())
           .addBlazeModule(new WorkerModule())
-          .addBlazeModule(new SandboxModule())
           .addBlazeModule(new BazelRepositoryModule());
     }
     return builder;
@@ -577,7 +582,7 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.resetOptions();
   }
 
-  protected void addOptions(String... args) {
+  public void addOptions(String... args) {
     runtimeWrapper.addOptions(args);
   }
 
@@ -635,8 +640,7 @@ public abstract class BuildIntegrationTestCase {
   protected ConfiguredTarget getConfiguredTarget(String target)
       throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
           InterruptedException, TransitionException, InvalidConfigurationException {
-    getPackageManager()
-        .getTarget(events.reporter(), Label.parseAbsolute(target, ImmutableMap.of()));
+    getPackageManager().getTarget(events.reporter(), Label.parseCanonical(target));
     return getSkyframeExecutor()
         .getConfiguredTargetForTesting(events.reporter(), label(target), getTargetConfiguration());
   }
@@ -676,7 +680,7 @@ public abstract class BuildIntegrationTestCase {
    */
   protected BuildConfigurationValue getTargetConfiguration() {
     BuildConfigurationValue baseConfiguration =
-        Iterables.getOnlyElement(getConfigurationCollection().getTargetConfigurations());
+        getConfigurationCollection().getTargetConfiguration();
     BuildResult result = getResult();
     if (result == null) {
       return baseConfiguration;
@@ -715,7 +719,7 @@ public abstract class BuildIntegrationTestCase {
 
   /** Utility function: parse a string as a label. */
   protected static Label label(String labelString) throws LabelSyntaxException {
-    return Label.parseAbsolute(labelString, ImmutableMap.of());
+    return Label.parseCanonical(labelString);
   }
 
   protected String run(Artifact executable, String... arguments) throws Exception {
@@ -950,6 +954,10 @@ public abstract class BuildIntegrationTestCase {
     return outputBase;
   }
 
+  protected BlazeDirectories getDirectories() {
+    return directories;
+  }
+
   protected Path getWorkspace() {
     return workspace;
   }
@@ -994,10 +1002,8 @@ public abstract class BuildIntegrationTestCase {
         .collect(toImmutableList());
   }
 
-  /**
-   * Assertion-checks that the expected error was reported,
-   */
-  protected void assertContainsError(String expectedError) {
+  /** Assertion-checks that the expected error was reported, */
+  public final void assertContainsError(String expectedError) {
     for (Event error : events.errors()) {
       if (error.getMessage().contains(expectedError)) {
         return;
@@ -1014,6 +1020,11 @@ public abstract class BuildIntegrationTestCase {
     @Override
     public synchronized void sendBugReport(
         Throwable exception, List<String> args, String... values) {
+      exceptions.add(exception);
+    }
+
+    @Override
+    public synchronized void sendNonFatalBugReport(Exception exception) {
       exceptions.add(exception);
     }
 

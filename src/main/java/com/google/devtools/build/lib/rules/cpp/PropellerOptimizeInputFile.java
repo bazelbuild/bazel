@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.FileType.HasFileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** Value object reused by propeller configurations that has two artifacts. */
 @Immutable
@@ -81,6 +82,7 @@ public final class PropellerOptimizeInputFile implements HasFileType {
     return artifact;
   }
 
+  @Nullable
   public static Artifact getAbsolutePathArtifact(RuleContext ruleContext, String attributeName) {
     String pathString = ruleContext.getExpander().expand(attributeName);
     PathFragment absolutePath = PathFragment.create(pathString);
@@ -97,6 +99,7 @@ public final class PropellerOptimizeInputFile implements HasFileType {
     return createAbsoluteArtifact(ruleContext, absolutePath);
   }
 
+  @Nullable
   public static PropellerOptimizeInputFile fromProfileRule(RuleContext ruleContext) {
 
     boolean isCcProfile =

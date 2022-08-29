@@ -56,14 +56,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     int workerId = pidCounter.getAndIncrement();
     String workTypeName = key.getWorkerTypeName();
     if (!workerBaseDir.isDirectory()) {
-      try {
-        workerBaseDir.createDirectoryAndParents();
-      } catch (IOException e) {
-        System.err.println(
-            "Can't create worker dir, there is a " + workerBaseDir.stat() + " there.");
-      }
+      workerBaseDir.createDirectoryAndParents();
     }
-
     Path logFile =
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 

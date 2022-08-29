@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.AMNESIAC_CACHE;
-import static com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -69,6 +68,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -105,9 +105,9 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -122,7 +122,6 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -308,12 +307,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     SkyFunctions.ARTIFACT_NESTED_SET,
                     ArtifactNestedSetFunction.createInstance(
                         /*valueBasedChangePruningEnabled=*/ true))
-                .build(),
+                .buildOrThrow(),
             differencer,
             evaluationProgressReceiver,
             graphInconsistencyReceiver,
-            DEFAULT_STORED_EVENT_FILTER,
-            new EmittedEventState(),
+            EventFilter.FULL_STORAGE,
+            new NestedSetVisitor.VisitedState(),
             /*keepEdges=*/ true);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
@@ -353,8 +352,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           Set<ConfiguredTarget> targetsToSkip,
           ImmutableSet<AspectKey> aspects,
           Executor executor,
-          Set<ConfiguredTargetKey> builtTargets,
-          Set<AspectKey> builtAspects,
           OptionsProvider options,
           Range<Long> lastExecutionTimeRange,
           TopLevelArtifactContext topLevelArtifactContext,
@@ -457,7 +454,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     return createDerivedArtifact(scratch.getFileSystem(), name);
   }
 
-  Artifact createDerivedArtifact(FileSystem fs, String name) {
+  static Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
     return DerivedArtifact.create(
@@ -516,8 +513,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException {
     tsgm.setCommandStartTime();
     Set<Artifact> artifactsToBuild = Sets.newHashSet(artifacts);
-    Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
-    Set<AspectKey> builtAspects = new HashSet<>();
     try {
       builder.buildArtifacts(
           reporter,
@@ -528,8 +523,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           null,
           null,
           executor,
-          builtTargets,
-          builtAspects,
           options,
           null,
           null,

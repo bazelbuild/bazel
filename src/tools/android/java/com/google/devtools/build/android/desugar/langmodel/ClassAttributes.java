@@ -18,6 +18,7 @@ package com.google.devtools.build.android.desugar.langmodel;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 
 /**
@@ -86,16 +87,19 @@ public abstract class ClassAttributes
 
     public abstract ClassAttributesBuilder setSourceFileName(String value);
 
+    @CanIgnoreReturnValue
     public ClassAttributesBuilder addNestMember(ClassName nestMember) {
       nestMembersBuilder().add(nestMember);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ClassAttributesBuilder addPrivateInstanceMethod(MethodKey methodKey) {
       privateInstanceMethodsBuilder().add(methodKey);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ClassAttributesBuilder addDesugarIgnoredMethods(MethodKey methodKey) {
       desugarIgnoredMethodsBuilder().add(methodKey);
       return this;

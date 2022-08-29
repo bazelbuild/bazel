@@ -25,9 +25,10 @@ import net.starlark.java.eval.StarlarkList;
 public class StarlarkTestingModule implements TestingModuleApi {
 
   @Override
-  public ExecutionInfo executionInfo(Dict<?, ?> requirements /* <String, String> */)
-      throws EvalException {
-    return new ExecutionInfo(Dict.cast(requirements, String.class, String.class, "requirements"));
+  public ExecutionInfo executionInfo(
+      Dict<?, ?> requirements /* <String, String> */, String execGroup) throws EvalException {
+    return new ExecutionInfo(
+        Dict.cast(requirements, String.class, String.class, "requirements"), execGroup);
   }
 
   @Override
@@ -39,6 +40,6 @@ public class StarlarkTestingModule implements TestingModuleApi {
         Dict.cast(environment, String.class, String.class, "environment"),
         StarlarkList.immutableCopyOf(
             Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
-        /* shouldErrorOnNonExecutableRule */ false);
+        /* shouldErrorOnNonExecutableRule= */ false);
   }
 }

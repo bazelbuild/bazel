@@ -15,6 +15,14 @@ filegroup(
 )
 
 gen_workspace_stanza(
+    name = "rules_license_stanza",
+    out = "rules_license_stanza.txt",
+    repos = [
+        "rules_license",
+    ],
+)
+
+gen_workspace_stanza(
     name = "rules_proto_stanza",
     out = "rules_proto_stanza.txt",
     repos = [
@@ -26,6 +34,7 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
+        ":rules_license_stanza.txt",
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
@@ -902,6 +911,7 @@ sh_test(
     size = "medium",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
@@ -1027,14 +1037,6 @@ sh_test(
     name = "build_files_test",
     size = "medium",
     srcs = ["build_files_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
-    name = "license_checking_test",
-    size = "medium",
-    srcs = ["license_checking_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )

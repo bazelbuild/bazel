@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Precomputes an augmented version of the un-pruned dep graph that is used for dep graph
@@ -40,6 +41,7 @@ import java.util.stream.Collectors;
 public class BazelModuleInspectorFunction implements SkyFunction {
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootModuleFileValue root =

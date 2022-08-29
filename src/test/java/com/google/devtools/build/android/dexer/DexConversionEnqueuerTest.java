@@ -56,12 +56,12 @@ public class DexConversionEnqueuerTest {
   private final Cache<DexingKey, byte[]> cache = CacheBuilder.newBuilder().build();
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     makeStuffer();
   }
 
-  private void makeStuffer() {
+  private void makeStuffer() throws Exception {
     stuffer =
         new DexConversionEnqueuer(
             zip,

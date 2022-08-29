@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -66,8 +65,7 @@ public class CustomCommandLineTest {
   public void addScalar_addsSingleArgument() throws Exception {
     assertThat(builder().add("--arg").build().arguments()).containsExactly("--arg");
     assertThat(builder().addDynamicString("--arg").build().arguments()).containsExactly("--arg");
-    assertThat(
-            builder().addLabel(Label.parseAbsolute("//a:b", ImmutableMap.of())).build().arguments())
+    assertThat(builder().addLabel(Label.parseCanonical("//a:b")).build().arguments())
         .containsExactly("//a:b");
     assertThat(builder().addPath(PathFragment.create("path")).build().arguments())
         .containsExactly("path");
@@ -94,11 +92,7 @@ public class CustomCommandLineTest {
     assertThat(builder().add("--arg", "val").build().arguments())
         .containsExactly("--arg", "val")
         .inOrder();
-    assertThat(
-            builder()
-                .addLabel("--arg", Label.parseAbsolute("//a:b", ImmutableMap.of()))
-                .build()
-                .arguments())
+    assertThat(builder().addLabel("--arg", Label.parseCanonical("//a:b")).build().arguments())
         .containsExactly("--arg", "//a:b")
         .inOrder();
     assertThat(builder().addPath("--arg", PathFragment.create("path")).build().arguments())
@@ -137,7 +131,7 @@ public class CustomCommandLineTest {
         .inOrder();
     assertThat(
             builder()
-                .addPrefixedLabel("prefix-", Label.parseAbsolute("//a:b", ImmutableMap.of()))
+                .addPrefixedLabel("prefix-", Label.parseCanonical("//a:b"))
                 .build()
                 .arguments())
         .containsExactly("prefix-//a:b")

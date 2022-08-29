@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A builder of values for {@link ArtifactNestedSetKey}.
@@ -101,6 +102,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
     List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);

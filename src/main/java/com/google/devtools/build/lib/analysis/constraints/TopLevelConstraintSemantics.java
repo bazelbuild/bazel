@@ -168,7 +168,7 @@ public class TopLevelConstraintSemantics {
   @Nullable
   public static EnvironmentCompatibility compatibilityWithTargetEnvironment(
       ConfiguredTarget configuredTarget,
-      BuildConfigurationValue buildConfigurationValue,
+      @Nullable BuildConfigurationValue buildConfigurationValue,
       TargetLookup targetLookup,
       ExtendedEventHandler eventHandler)
       throws InterruptedException, TargetCompatibilityCheckException {
@@ -325,9 +325,12 @@ public class TopLevelConstraintSemantics {
 
     message += "s [";
 
+    // Print out a sorted list to make the output reproducible.
     boolean first = true;
     for (ConstraintValueInfo constraintValueInfo :
-        provider.constraintsResponsibleForIncompatibility()) {
+        ImmutableList.sortedCopyOf(
+            (ConstraintValueInfo a, ConstraintValueInfo b) -> b.label().compareTo(a.label()),
+            provider.constraintsResponsibleForIncompatibility())) {
       if (first) {
         first = false;
       } else {

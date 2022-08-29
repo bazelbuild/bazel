@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
-import com.google.devtools.build.skyframe.NodeEntry.KeepEdgesPolicy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -64,14 +63,7 @@ abstract class ReverseDepsUtility {
     if (dirtyBuildingState == null) {
       return Op.CHECK;
     }
-    switch (entry.keepEdges()) {
-      case ALL:
-        return dirtyBuildingState.isDirty() ? Op.CHECK : Op.ADD;
-      case NONE:
-      case JUST_DEPS:
-        return Op.ADD;
-    }
-    throw new AssertionError(entry);
+    return entry.keepsEdges() && dirtyBuildingState.isDirty() ? Op.CHECK : Op.ADD;
   }
 
   private static void maybeDelayReverseDepOp(InMemoryNodeEntry entry, SkyKey reverseDep, Op op) {
@@ -394,7 +386,7 @@ abstract class ReverseDepsUtility {
   }
 
   private static void writeReverseDepsSet(InMemoryNodeEntry entry, Set<SkyKey> reverseDepsAsSet) {
-    if (entry.keepEdges() != KeepEdgesPolicy.ALL || reverseDepsAsSet.isEmpty()) {
+    if (!entry.keepsEdges() || reverseDepsAsSet.isEmpty()) {
       entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
     } else if (reverseDepsAsSet.size() == 1) {
       entry.setSingleReverseDepForReverseDepsUtil(Iterables.getOnlyElement(reverseDepsAsSet));

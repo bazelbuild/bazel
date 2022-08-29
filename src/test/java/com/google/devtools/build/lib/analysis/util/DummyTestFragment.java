@@ -13,16 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 
 /**
@@ -92,5 +95,36 @@ public final class DummyTestFragment extends Fragment {
         effectTags = {OptionEffectTag.NO_OP},
         help = "A regular bool-typed option")
     public boolean bool;
+
+    @Option(
+        name = "unreadable_by_starlark",
+        defaultValue = "anything",
+        converter = UnreadableStringBoxConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "This cannot be used as an input to a Starlark transition")
+    public UnreadableStringBox unreadableByStarlark;
+
+    @AutoValue
+    public abstract static class UnreadableStringBox {
+      public abstract String value();
+
+      public static UnreadableStringBox create(String value) {
+        return new AutoValue_DummyTestFragment_DummyTestOptions_UnreadableStringBox(value);
+      }
+    }
+
+    public static class UnreadableStringBoxConverter implements Converter<UnreadableStringBox> {
+      @Override
+      public UnreadableStringBox convert(String input, Object conversionContext)
+          throws OptionsParsingException {
+        return UnreadableStringBox.create(input);
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "a string that is not readable by Starlark";
+      }
+    }
   }
 }

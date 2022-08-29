@@ -325,7 +325,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             .addCommandLine(CommandLine.of(ImmutableList.of("arg1")))
             .addCommandLine(CommandLine.of(ImmutableList.of("arg2")))
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
-    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
+    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
   }
 
   @Test
@@ -346,7 +346,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     // getArguments returns all arguments, regardless whether some go in parameter files or not
-    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2");
+    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
   }
 
   @Test
@@ -610,7 +610,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     builder.executableArguments().add("binary").add("execArg1").add("execArg2");
     SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(action);
-    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2").inOrder();
   }
 
   @Test
@@ -620,7 +620,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     builder.executableArguments().add("execArg1").add("execArg2");
     SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(action);
-    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2");
+    assertThat(action.getArguments()).containsExactly("binary", "execArg1", "execArg2").inOrder();
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {

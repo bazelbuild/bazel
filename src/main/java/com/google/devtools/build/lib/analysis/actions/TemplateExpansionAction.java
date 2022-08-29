@@ -35,11 +35,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** Action to expand a template and write the expanded content to a file. */
 @Immutable // if all substitutions are immutable
@@ -127,23 +131,36 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @VisibleForTesting
-  public String getFileContents() throws IOException {
+  public String getFileContents() throws IOException, EvalException {
     return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(this,
         ArtifactPathResolver.IDENTITY);
   }
 
   @Override
-  public String getStarlarkContent() throws IOException {
+  public String getStarlarkContent() throws IOException, EvalException {
     return getFileContents();
   }
 
   @Override
   public final ActionContinuationOrResult beginExecution(
-      ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    SpawnContinuation first =
-        actionExecutionContext
-            .getContext(TemplateExpansionContext.class)
-            .expandTemplate(TemplateExpansionAction.this, actionExecutionContext);
+      ActionExecutionContext actionExecutionContext)
+      throws InterruptedException, ActionExecutionException {
+    SpawnContinuation first;
+    try {
+      first =
+          actionExecutionContext
+              .getContext(TemplateExpansionContext.class)
+              .expandTemplate(TemplateExpansionAction.this, actionExecutionContext);
+    } catch (EvalException e) {
+      DetailedExitCode exitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setExecution(
+                      Execution.newBuilder()
+                          .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
+                  .build());
+      throw new ActionExecutionException(e, /* action= */ this, /* catastrophe= */ false, exitCode);
+    }
     return new ActionContinuationOrResult() {
       private SpawnContinuation spawnContinuation = first;
 
@@ -175,7 +192,8 @@ public final class TemplateExpansionAction extends AbstractAction {
   protected void computeKey(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fp) {
+      Fingerprint fp)
+      throws EvalException {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(template.getKey());
@@ -209,7 +227,7 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public Dict<String, String> getStarlarkSubstitutions() {
+  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
     Dict.Builder<String, String> builder = Dict.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());

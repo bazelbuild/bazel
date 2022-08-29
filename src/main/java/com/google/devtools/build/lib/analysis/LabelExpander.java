@@ -148,10 +148,11 @@ public final class LabelExpander {
   }
 
   /**
-   * Resolves a string to a label text. Uses {@code labelResolver} to do so.
-   * The result is either relative to {@code labelResolver} or is an absolute
-   * label. In case of an invalid label text, the return value is null.
+   * Resolves a string to a label text. Uses {@code labelResolver} to do so. The result is either
+   * relative to {@code labelResolver} or is an absolute label. In case of an invalid label text,
+   * the return value is null.
    */
+  @Nullable
   private static Label resolveLabelText(String labelText, Label labelResolver) {
     try {
       return labelResolver.getRelativeWithRemapping(labelText, ImmutableMap.of());
@@ -163,11 +164,11 @@ public final class LabelExpander {
   }
 
   /**
-   * Scans the argument string from a given start position until the name of a
-   * potential label has been consumed, then returns the label text. If
-   * the expression contains no possible label starting at the start position,
-   * the return value is null.
+   * Scans the argument string from a given start position until the name of a potential label has
+   * been consumed, then returns the label text. If the expression contains no possible label
+   * starting at the start position, the return value is null.
    */
+  @Nullable
   private static String scanLabel(String expression, int start) {
     int offset = start;
     while (offset < expression.length() && LABEL_CHAR_MATCHER.matches(expression.charAt(offset))) {

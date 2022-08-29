@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -191,10 +192,21 @@ final class AspectFunction implements SkyFunction {
     ConfiguredTarget associatedTarget = state.initialValues.associatedTarget;
     Target target = state.initialValues.target;
 
+    // If the target is incompatible, then there's not much to do. The intent here is to create an
+    // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
+    // against this aspect.
+    if (associatedTarget.get(IncompatiblePlatformProvider.PROVIDER) != null) {
+      return new AspectValue(
+          key,
+          aspect,
+          target.getLocation(),
+          ConfiguredAspect.forNonapplicableTarget(),
+          state.transitivePackagesForPackageRootResolution.build());
+    }
+
     if (AliasProvider.isAlias(associatedTarget)) {
       return createAliasAspect(
           env,
-          buildViewProvider.getSkyframeBuildView().getHostConfiguration(),
           new TargetAndConfiguration(target, configuration),
           aspect,
           key,
@@ -320,7 +332,7 @@ final class AspectFunction implements SkyFunction {
                     ? null
                     : unloadedToolchainContexts.asToolchainContexts(),
                 ruleClassProvider,
-                buildViewProvider.getSkyframeBuildView().getHostConfiguration());
+                buildViewProvider.getSkyframeBuildView());
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
             e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
@@ -419,7 +431,7 @@ final class AspectFunction implements SkyFunction {
   }
 
   @Nullable
-  private InitialValues getInitialValues(AspectKey key, Environment env)
+  private static InitialValues getInitialValues(AspectKey key, Environment env)
       throws AspectFunctionException, InterruptedException {
     StarlarkAspectClass starlarkAspectClass;
     ConfiguredAspectFactory aspectFactory = null;
@@ -610,7 +622,6 @@ final class AspectFunction implements SkyFunction {
   @Nullable
   private AspectValue createAliasAspect(
       Environment env,
-      BuildConfigurationValue hostConfiguration,
       TargetAndConfiguration originalTarget,
       Aspect aspect,
       AspectKey originalKey,
@@ -681,8 +692,9 @@ final class AspectFunction implements SkyFunction {
           new ConfigurationResolver(
               env,
               originalTargetAndAspectConfiguration,
-              hostConfiguration,
-              configConditions.asProviders());
+              buildViewProvider.getSkyframeBuildView().getHostConfiguration(),
+              configConditions.asProviders(),
+              buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache());
       ImmutableList<Dependency> deps =
           resolver.resolveConfiguration(depKind, depKey, env.getListener());
       if (deps == null) {
@@ -720,6 +732,7 @@ final class AspectFunction implements SkyFunction {
         transitivePackagesForPackageRootResolution);
   }
 
+  @Nullable
   private static AspectValue createAliasAspect(
       Environment env,
       Target originalTarget,

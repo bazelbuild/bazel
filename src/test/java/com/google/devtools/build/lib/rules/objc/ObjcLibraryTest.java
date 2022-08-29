@@ -206,7 +206,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--cpu=ios_i386",
-        "--ios_cpu=i386",
         "--ios_minimum_os=9.10.11");
     createLibraryTargetWriter("//objc:lib")
         .setList("srcs", "a.mm")
@@ -273,10 +272,37 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testCppHeaderDoesNotContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "cc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/x.h.processed", x).getArguments())
+        .doesNotContain("--xyzzy");
+  }
+
+  @Test
+  public void testObjcHeaderContainsObjccopt() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--features=parse_headers", "--process_headers_in_dependencies", "--objccopt=--xyzzy");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', hdrs = ['x.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/arc/x.h.processed", x).getArguments())
+        .contains("--xyzzy");
+  }
+
+  @Test
   public void testCompilationModeDbg() throws Exception {
     useConfiguration(
         "--cpu=ios_i386",
-        "--ios_cpu=i386",
         "--compilation_mode=dbg");
     scratch.file("objc/a.m");
     scratch.file(
@@ -299,7 +325,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCompilationModeFastbuild() throws Exception {
     useConfiguration(
         "--cpu=ios_i386",
-        "--ios_cpu=i386",
         "--compilation_mode=fastbuild");
     scratch.file("objc/a.m");
     scratch.file(
@@ -322,7 +347,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCompilationModeOpt() throws Exception {
     useConfiguration(
         "--cpu=ios_i386",
-        "--ios_cpu=i386",
         "--compilation_mode=opt");
     scratch.file("objc/a.m");
     scratch.file(
@@ -451,7 +475,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testMultiPlatformLibrary() throws Exception {
-    useConfiguration("--ios_multi_cpus=i386,x86_64,armv7,arm64", "--ios_cpu=armv7");
+    useConfiguration("--ios_multi_cpus=i386,x86_64,armv7,arm64", "--cpu=ios_armv7");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -463,7 +487,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActions_simulator() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
 
     scratch.file("objc/a.m");
     scratch.file("objc/non_arc.m");
@@ -508,7 +532,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActions_device() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7", "--ios_cpu=armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
 
     scratch.file("objc/a.m");
     scratch.file("objc/non_arc.m");
@@ -588,7 +612,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
 
     scratch.file(
         "objc/defs.bzl",
@@ -865,7 +889,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveAction_simulator() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -894,7 +918,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveAction_device() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7", "--ios_cpu=armv7");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -954,7 +978,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testPropagatesDefinesToDependersTransitively() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64", "--ios_cpu=x86_64");
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
     createLibraryTargetWriter("//lib1:lib1")
         .setAndCreateFiles("srcs", "a.m")
         .setAndCreateFiles("non_arc_srcs", "b.m")
@@ -1783,9 +1807,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithIQuotesInCopts() throws Exception {
-    useConfiguration(
-        "--cpu=ios_i386",
-        "--ios_cpu=i386");
+    useConfiguration("--cpu=ios_i386");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1848,7 +1870,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     MockObjcSupport.setup(mockToolsConfig);
     useConfiguration(
         "--cpu=ios_x86_64",
-        "--ios_cpu=x86_64",
         "--apple_grte_top=//x");
     scratch.file(
         "x/BUILD",
@@ -1870,9 +1891,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     // cc_toolchain in use will be the darwin_x86_64 one.
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures("default_feature"));
-    useConfiguration(
-        "--cpu=ios_x86_64",
-        "--ios_cpu=x86_64");
+    useConfiguration("--cpu=ios_x86_64");
     scratch.file(
         "x/BUILD",
         "objc_library(",

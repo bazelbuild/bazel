@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -75,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -94,8 +94,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
       throws LabelSyntaxException {
     Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
+        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -5808,7 +5807,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "            files_to_build.append(library_to_link.pic_static_library)",
         "        if library_to_link.static_library != None:",
         "            files_to_build.append(library_to_link.static_library)",
-        "        files_to_build.append(library_to_link.dynamic_library)",
+        "        if library_to_link.dynamic_library != None:",
+        "            files_to_build.append(library_to_link.dynamic_library)",
         "    return [MyInfo(libraries=[library_to_link]),",
         "            DefaultInfo(files=depset(files_to_build)),",
         "            CcInfo(compilation_context=compilation_context,",
@@ -5936,6 +5936,29 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(library).isNotNull();
     assertThat(library.getDynamicLibrary()).isNotNull();
     assertThat(library.getInterfaceLibrary()).isNotNull();
+  }
+
+  @Test
+  public void testWindowsDoesNotProduceDynamicLibraryWithoutWinDef() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.TARGETS_WINDOWS,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
+    assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
+    assertThat(target).isNotNull();
+    LibraryToLink library =
+        (LibraryToLink) ((StarlarkList) getMyInfoFromTarget(target).getValue("libraries")).get(0);
+    assertThat(library).isNotNull();
+    assertThat(library.getDynamicLibrary()).isNull();
+    assertThat(library.getInterfaceLibrary()).isNull();
   }
 
   @Test
@@ -6069,9 +6092,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
             getConfiguredTarget("//foo:dep")
@@ -6090,9 +6111,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testObjectsApiNeverReturningNones() throws Exception {
     scratchObjectsProvidingRule();
 
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
 
     // Default toolchain is without PIC support, so pic_objects should be None
     StarlarkInfo fooInfoForPic =
@@ -6132,9 +6151,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
             getConfiguredTarget("//foo:dep")
@@ -6168,9 +6185,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
     StarlarkInfo fooInfo =
         (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
@@ -6982,7 +6997,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "build_test_dwp()",
             "grte_top()",
             "enable_legacy_cc_provider()",
-            "experimental_cc_interface_deps()",
+            "experimental_cc_implementation_deps()",
             "share_native_deps()",
             "experimental_platform_cc_test()");
     scratch.file(
@@ -7075,7 +7090,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "  },",
           "  fragments = ['cpp'],",
           ");");
-      invalidatePackages();
+      initializeSkyframeExecutor();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//a:r"));
       assertThat(e).hasMessageThat().contains("cannot use private API");
     }
@@ -7173,7 +7188,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "  },",
           "  fragments = ['cpp'],",
           ")");
-      invalidatePackages();
+      initializeSkyframeExecutor();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }

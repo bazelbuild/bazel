@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@code java_runtime} */
@@ -54,6 +56,10 @@ public final class JavaRuntimeRule implements RuleDefinition {
                 .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        .add(
+            attr("hermetic_static_libs", LABEL_LIST)
+                .mandatoryProviders(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))
+                .allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(java) -->
         The path to the java executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

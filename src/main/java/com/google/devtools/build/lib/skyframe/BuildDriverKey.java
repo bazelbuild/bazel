@@ -84,7 +84,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   }
 
   public boolean isTest() {
-    return TestType.NOT_TEST.equals(testType);
+    return !TestType.NOT_TEST.equals(testType);
   }
 
   public TestType getTestType() {
@@ -139,6 +139,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   enum TestType {
     NOT_TEST,
     PARALLEL,
-    EXCLUSIVE
+    EXCLUSIVE,
+    EXCLUSIVE_IF_LOCAL
   }
 }

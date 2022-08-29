@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -108,7 +109,7 @@ public class CommandLines {
    *
    * @param artifactExpander The artifact expander to use.
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
-   * @param stripPaths function to strip configuration prefixes from output paths, in accordance
+   * @param pathStripper function to strip configuration prefixes from output paths, in accordance
    *     with the logic in {@link PathStripper}
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
@@ -275,10 +276,10 @@ public class CommandLines {
 
   /** An in-memory param file virtual action input. */
   public static final class ParamFileActionInput implements VirtualActionInput {
-    final PathFragment paramFileExecPath;
-    final Iterable<String> arguments;
-    final ParameterFileType type;
-    final Charset charset;
+    private final PathFragment paramFileExecPath;
+    private final Iterable<String> arguments;
+    private final ParameterFileType type;
+    private final Charset charset;
 
     public ParamFileActionInput(
         PathFragment paramFileExecPath,
@@ -416,16 +417,19 @@ public class CommandLines {
       commandLines = new ArrayList<>(other.commandLines);
     }
 
+    @CanIgnoreReturnValue
     public Builder addSingleArgument(Object argument) {
       commandLines.add(argument);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine) {
       commandLines.add(commandLine);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine, ParamFileInfo paramFileInfo) {
       if (paramFileInfo == null) {
         commandLines.add(commandLine);
@@ -435,6 +439,7 @@ public class CommandLines {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLineAndParamFileInfo pair) {
       if (pair.paramFileInfo == null) {
         commandLines.add(pair.commandLine);

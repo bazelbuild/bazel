@@ -24,7 +24,7 @@ Here is a selection of recommended rules:
 * [Kubernetes](https://github.com/bazelbuild/rules_k8s){: .external}
 * [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external){: .external}
 * [Objective C](/docs/bazel-and-apple)
-* [Package building and fetching rules](https://github.com/bazelbuild/rules_pkg){: .external}
+* [Package building](https://github.com/bazelbuild/rules_pkg){: .external}
 * [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel){: .external}
 * [Python](https://github.com/bazelbuild/rules_python){: .external}
 * [Scala](https://github.com/bazelbuild/rules_scala){: .external}

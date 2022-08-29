@@ -700,6 +700,10 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.checkVisibility;
   }
 
+  public boolean checkTestonlyForOutputFiles() {
+    return options.checkTestonlyForOutputFiles;
+  }
+
   public boolean checkLicenses() {
     return options.checkLicenses;
   }

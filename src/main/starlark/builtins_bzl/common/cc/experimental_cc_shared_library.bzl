@@ -268,6 +268,7 @@ def _filter_inputs(
     exports = {}
     linker_inputs_seen = {}
     dynamic_only_roots = {}
+    linked_statically_but_not_exported = {}
     for linker_input in dependency_linker_inputs:
         stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
         if stringified_linker_input in linker_inputs_seen:
@@ -279,8 +280,7 @@ def _filter_inputs(
             linker_inputs.append(dynamic_linker_input)
         elif owner in link_statically_labels:
             if owner in link_once_static_libs_map:
-                fail(owner + " is already linked statically in " +
-                     link_once_static_libs_map[owner] + " but not exported")
+                linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
 
             is_direct_export = owner in direct_exports
             dynamic_only_libraries = []
@@ -345,8 +345,26 @@ def _filter_inputs(
             message += dynamic_only_root + "\n"
         fail(message)
 
+    _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
     _throw_error_if_unaccounted_libs(unaccounted_for_libs)
     return (exports, linker_inputs, curr_link_once_static_libs_map.keys(), precompiled_only_dynamic_libraries)
+
+def _throw_linked_but_not_exported_errors(error_libs_dict):
+    if not error_libs_dict:
+        return
+
+    error_builder = ["The following libraries were linked statically by different cc_shared_libraries but not exported:\n"]
+    for cc_shared_library_target, error_libs in error_libs_dict.items():
+        error_builder.append("cc_shared_library %s:\n" % str(cc_shared_library_target))
+        for error_lib in error_libs:
+            error_builder.append("  \"%s\",\n" % str(error_lib))
+
+    error_builder.append("If you are sure that the previous libraries are exported by the cc_shared_libraries because:\n")
+    error_builder.append("  1. You have visibility declarations in the source code\n")
+    error_builder.append("  2. Or you are passing a visibility script to the linker to export symbols from them\n")
+    error_builder.append("then add those libraries to roots or exports_filter for each cc_shared_library.\n")
+
+    fail("".join(error_builder))
 
 def _throw_error_if_unaccounted_libs(unaccounted_for_libs):
     if not unaccounted_for_libs:
@@ -404,6 +422,16 @@ def _cc_shared_library_impl(ctx):
     merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
     exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
     for export in ctx.attr.roots:
+        # Do not check for overlap between targets matched by the current
+        # rule's exports_filter and what is in exports_map. A library in roots
+        # will have to be linked in statically into the current rule with 100%
+        # guarantee and it will also have to be exported. Therefore, we must
+        # check it's not already exported by a different shared library. On the
+        # other hand, a library in the transitive closure of the current rule
+        # may be matched by the exports_filter but if it's already exported by
+        # a dynamic_dep then it won't be linked statically (therefore not give
+        # an error either) in the current target. The rule will intentionally
+        # not throw an error in these cases.
         if str(export.label) in exports_map:
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
@@ -440,16 +468,6 @@ def _cc_shared_library_impl(ctx):
     main_output = None
     if ctx.attr.shared_lib_name:
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
-
-    debug_files = []
-    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
-
-    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + link_once_static_libs), output = link_once_static_libs_debug_file)
-
-    debug_files.append(exports_debug_file)
-    debug_files.append(link_once_static_libs_debug_file)
 
     win_def_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
@@ -490,6 +508,11 @@ def _cc_shared_library_impl(ctx):
     runfiles_files = []
     if linking_outputs.library_to_link.resolved_symlink_dynamic_library != None:
         runfiles_files.append(linking_outputs.library_to_link.resolved_symlink_dynamic_library)
+
+    # This is different to cc_binary(linkshared=1). Bazel never handles the
+    # linking implicitly for a cc_binary(linkshared=1) but it does so for a cc_shared_library,
+    # for which it will use the symlink in the solib directory. If we don't add it, a dependent
+    # linked against it would fail.
     runfiles_files.append(linking_outputs.library_to_link.dynamic_library)
     runfiles = ctx.runfiles(
         files = runfiles_files,
@@ -505,13 +528,21 @@ def _cc_shared_library_impl(ctx):
         # an interface library which is valid if the actual library is obtained from the system.
         if precompiled_dynamic_library.dynamic_library != None:
             precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
-        if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
-            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
     for export in ctx.attr.roots:
         exports[str(export.label)] = True
+
+    debug_files = []
+    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
+
+    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
+    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + link_once_static_libs), output = link_once_static_libs_debug_file)
+
+    debug_files.append(exports_debug_file)
+    debug_files.append(link_once_static_libs_debug_file)
 
     if not ctx.fragments.cpp.experimental_link_static_libraries_once():
         link_once_static_libs = []
@@ -527,6 +558,8 @@ def _cc_shared_library_impl(ctx):
         interface_library.append(linking_outputs.library_to_link.resolved_symlink_interface_library)
     elif linking_outputs.library_to_link.interface_library != None:
         interface_library.append(linking_outputs.library_to_link.interface_library)
+    else:
+        interface_library = library
 
     return [
         DefaultInfo(
@@ -639,3 +672,4 @@ for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path
 merge_cc_shared_library_infos = _merge_cc_shared_library_infos
 build_link_once_static_libs_map = _build_link_once_static_libs_map
 build_exports_map_from_only_dynamic_deps = _build_exports_map_from_only_dynamic_deps
+throw_linked_but_not_exported_errors = _throw_linked_but_not_exported_errors

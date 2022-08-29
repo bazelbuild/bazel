@@ -551,6 +551,11 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
+    public synchronized void sendNonFatalBugReport(Exception exception) {
+      exceptions.add(exception);
+    }
+
+    @Override
     public void handleCrash(Crash crash, CrashContext ctx) {
       // Unexpected: try to crash JVM.
       BugReport.handleCrash(crash, ctx);

@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -7,6 +8,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/android_dex:srcs",
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/bazel-toolchains:srcs",
@@ -16,6 +18,8 @@ filegroup(
         "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
+        "//third_party/cncf_udpa:srcs",
+        "//third_party/protoc_gen_validate:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
@@ -31,7 +35,6 @@ filegroup(
         "//third_party/jaxb:srcs",
         "//third_party/jetbrains_annotations:srcs",
         "//third_party/jetifier:srcs",
-        "//third_party/jformatstring:srcs",
         "//third_party/juniversalchardet:srcs",
         "//third_party/kotlin_stdlib:srcs",
         "//third_party/pprof:srcs",
@@ -44,6 +47,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
+        "//third_party/upb:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -54,9 +58,7 @@ filegroup(
 # and LGPL code that we use in Bazel.
 filegroup(
     name = "gpl-srcs",
-    srcs = [
-        "//third_party/jformatstring:srcs",
-    ],
+    srcs = [],
 )
 
 # This target only contains the jars that are used for building / running Bazel.
@@ -163,8 +165,8 @@ distrib_java_import(
     jars = [
         "api_client/google-api-client-1.22.0.jar",
         "api_client/google-api-client-gson-1.22.0.jar",
-        "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
-        "api_client/google-http-client-gson-1.22.0.jar",
+        "api_client/google-http-client-1.41.4.jar",
+        "api_client/google-http-client-gson-1.41.4.jar",
     ],
     runtime_deps = [
         ":gson",
@@ -239,6 +241,16 @@ distrib_java_import(
     name = "auto_common",
     enable_distributions = ["debian"],
     jars = ["auto/auto-common-1.1.2.jar"],
+    applicable_licenses = [":auto_license"],
+)
+
+license(
+    name = "auto_license",
+    package_name = "auto-common/1.8.2",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "auto/LICENSE",
 )
 
 java_library(
@@ -398,7 +410,6 @@ java_import(
         ":pcollections",
         ":threeten",
         "//third_party/checker_framework_dataflow",
-        "//third_party/jformatstring",
     ],
 )
 
@@ -449,6 +460,16 @@ distrib_java_import(
         ":jcip_annotations",
         ":jsr305",
     ],
+    applicable_licenses = [":guava_license"],
+)
+
+license(
+    name = "guava_license",
+    package_name = "guava/31.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "guava/LICENSE",
 )
 
 distrib_java_import(
@@ -459,6 +480,16 @@ distrib_java_import(
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
+    applicable_licenses = [":flogger_license"],
+)
+
+license(
+    name = "flogger_license",
+    package_name = "flogger/0.5.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "flogger/LICENSE",
 )
 
 distrib_jar_filegroup(
@@ -477,6 +508,7 @@ distrib_java_import(
     jars = [
         "opencensus/opencensus-api-0.24.0.jar",
         "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
+        "opencensus/opencensus-contrib-http-util-0.31.0.jar",
     ],
 )
 
@@ -712,11 +744,31 @@ java_import(
     deps = [
         ":diffutils",
     ],
+    applicable_licenses = [":truth_license"],
+)
+
+license(
+    name = "truth_license",
+    package_name = "truth/1.0.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "truth/LICENSE",
 )
 
 java_import(
     name = "truth8",
     jars = ["truth8/truth-java8-extension-1.0.1.jar"],
+    applicable_licenses = [":truth8_license"],
+)
+
+license(
+    name = "truth8_license",
+    package_name = "truth8/1.0.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "truth8/LICENSE",
 )
 
 java_import(
@@ -725,12 +777,32 @@ java_import(
         "truth_proto/truth-liteproto-extension-1.0.1.jar",
         "truth_proto/truth-proto-extension-1.0.1.jar",
     ],
+    applicable_licenses = [":truth_proto_license"],
+)
+
+license(
+    name = "truth_proto_license",
+    package_name = "truth_proto/1.0.1",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "truth_proto/LICENSE",
 )
 
 distrib_java_import(
     name = "xz",
     enable_distributions = ["debian"],
     jars = ["xz/xz-1.9.jar"],
+    applicable_licenses = [":xz_license"],
+)
+
+license(
+    name = "xz_license",
+    package_name = "xz/1.9",
+    license_kinds = [
+        "@rules_license//licenses/generic:permissive",
+    ],
+    license_text = "xz/LICENSE",
 )
 
 # To be used by the skylark example.

@@ -25,7 +25,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -387,6 +387,7 @@ public final class Utils {
   public static String grpcAwareErrorMessage(IOException e) {
     io.grpc.Status errStatus = io.grpc.Status.fromThrowable(e);
     if (e.getCause() instanceof ExecutionStatusException) {
+      // Display error message returned by the remote service.
       try {
         return "Remote Execution Failure:\n"
             + executionStatusExceptionErrorMessage((ExecutionStatusException) e.getCause());
@@ -398,9 +399,20 @@ public final class Utils {
       }
     }
     if (!errStatus.getCode().equals(io.grpc.Status.UNKNOWN.getCode())) {
-      // If the error originated in the gRPC library then display it as "STATUS: error message"
-      // to the user
-      return String.format("%s: %s", errStatus.getCode().name(), errStatus.getDescription());
+      // Display error message returned by the gRPC library, prefixed by the status code.
+      StringBuilder sb = new StringBuilder();
+      sb.append(errStatus.getCode().name());
+      sb.append(": ");
+      sb.append(errStatus.getDescription());
+      // If the error originated from a credential helper, print additional debugging information.
+      for (Throwable t = errStatus.getCause(); t != null; t = t.getCause()) {
+        if (t instanceof CredentialHelperException) {
+          sb.append(": ");
+          sb.append(t.getMessage());
+          break;
+        }
+      }
+      return sb.toString();
     }
     return e.getMessage();
   }
@@ -590,86 +602,11 @@ public final class Utils {
     return String.format("%s %s", BYTE_COUNT_FORMAT.format(value / 1024.0), UNITS.get(unitIndex));
   }
 
-  public static boolean shouldAcceptCachedResultFromRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
-  }
-
-  public static boolean shouldAcceptCachedResultFromDiskCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return spawn == null || Spawns.mayBeCached(spawn);
-    } else {
-      return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCached(spawn));
-    }
-  }
-
-  public static boolean shouldAcceptCachedResultFromCombinedCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      // --incompatible_remote_results_ignore_disk is set. Disk cache is treated as local cache.
-      // Actions which are tagged with `no-remote-cache` can still hit the disk cache.
-      return spawn == null || Spawns.mayBeCached(spawn);
-    } else {
-      // Disk cache is treated as a remote cache and disabled for `no-remote-cache`.
-      return remoteOptions.remoteAcceptCached
-          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
-    }
-  }
-
   public static boolean shouldUploadLocalResultsToRemoteCache(
       RemoteOptions remoteOptions, Map<String, String> executionInfo) {
     return remoteOptions.remoteUploadLocalResults
         && Spawns.mayBeCachedRemotely(executionInfo)
         && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
-  }
-
-  public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    ImmutableMap<String, String> executionInfo = null;
-    if (spawn != null) {
-      executionInfo = spawn.getExecutionInfo();
-    }
-    return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
-  }
-
-  public static boolean shouldUploadLocalResultsToDiskCache(
-      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      return Spawns.mayBeCached(executionInfo);
-    } else {
-      return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(executionInfo);
-    }
-  }
-
-  public static boolean shouldUploadLocalResultsToDiskCache(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    ImmutableMap<String, String> executionInfo = null;
-    if (spawn != null) {
-      executionInfo = spawn.getExecutionInfo();
-    }
-    return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
-  }
-
-  public static boolean shouldUploadLocalResultsToCombinedDisk(
-      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
-    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
-      // cache. Actions which are tagged with `no-remote-cache` can still hit the disk cache.
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, executionInfo);
-    } else {
-      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
-      return shouldUploadLocalResultsToRemoteCache(remoteOptions, executionInfo);
-    }
-  }
-
-  public static boolean shouldUploadLocalResultsToCombinedDisk(
-      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
-    ImmutableMap<String, String> executionInfo = null;
-    if (spawn != null) {
-      executionInfo = spawn.getExecutionInfo();
-    }
-    return shouldUploadLocalResultsToCombinedDisk(remoteOptions, executionInfo);
   }
 
   public static void waitForBulkTransfer(

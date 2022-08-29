@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelperImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -66,7 +67,6 @@ import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
@@ -91,6 +91,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -102,6 +103,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -183,53 +185,63 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       this.externalFileAction = externalFileAction;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider) {
       this.ruleClassProvider = ruleClassProvider;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStarlarkSemantics(StarlarkSemantics semantics) {
       this.starlarkSemantics = semantics;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder useDefaultStarlarkSemantics() {
       this.starlarkSemantics = StarlarkSemantics.DEFAULT;
       return this;
     }
 
     /** Sets the reporter used by all skyframe evaluations. */
+    @CanIgnoreReturnValue
     public Builder setCommonReporter(Reporter commonReporter) {
       this.commonReporter = commonReporter;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addExtraSkyFunctions(
         ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions) {
       this.extraSkyFunctions.putAll(extraSkyFunctions);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addExtraPrecomputedValues(PrecomputedValue.Injected... extraPrecomputedValues) {
       return this.addExtraPrecomputedValues(Arrays.asList(extraPrecomputedValues));
     }
 
+    @CanIgnoreReturnValue
     public Builder addExtraPrecomputedValues(
         List<PrecomputedValue.Injected> extraPrecomputedValues) {
       this.extraPrecomputedValues.addAll(extraPrecomputedValues);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNonSkyframeGlobbingThreads(int numThreads) {
       this.nonSkyframeGlobbingThreads = numThreads;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSkyframeThreads(int skyframeThreads) {
       this.skyframeThreads = skyframeThreads;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExternalFileAction(ExternalFileAction externalFileAction) {
       this.externalFileAction = externalFileAction;
       return this;
@@ -246,11 +258,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     public final PackageLoader build() {
       validate();
       externalFilesHelper =
-          ExternalFilesHelper.create(
-              pkgLocatorRef,
-              externalFileAction,
-              directories,
-              ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
+          ExternalFilesHelper.create(pkgLocatorRef, externalFileAction, directories);
       return buildImpl();
     }
 
@@ -417,8 +425,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         preinjectedDifferencer,
         EvaluationProgressReceiver.NULL,
         GraphInconsistencyReceiver.THROWING,
-        InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
-        new MemoizingEvaluator.EmittedEventState(),
+        EventFilter.FULL_STORAGE,
+        new NestedSetVisitor.VisitedState(),
         /*keepEdges=*/ false);
   }
 
@@ -448,6 +456,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCache);
           }
 
+          @Nullable
           @Override
           public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
             Path buildFileForPackage = getBuildFileForPackage(packageName);

@@ -100,6 +100,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -309,6 +310,12 @@ public class LocalSpawnRunnerTest {
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       throw new UnsupportedOperationException();
     }
+
+    @Nullable
+    @Override
+    public FileSystem getActionFileSystem() {
+      return null;
+    }
   }
 
   private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
@@ -333,7 +340,7 @@ public class LocalSpawnRunnerTest {
         });
   }
 
-  private FileSystem setupEnvironmentForFakeExecution() {
+  private FileSystem setupEnvironmentForFakeExecution() throws InterruptedException, IOException {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
@@ -354,7 +361,7 @@ public class LocalSpawnRunnerTest {
    * <p>Tests should call setupEnvironmentForFakeExecution() if they do not want real execution.
    */
   @Before
-  public final void setupEnvironmentForRealExecution() {
+  public final void setupEnvironmentForRealExecution() throws InterruptedException, IOException {
     SubprocessBuilder.setDefaultSubprocessFactory(JavaSubprocessFactory.INSTANCE);
     resourceManager.setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
   }

@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.NodeEntry.MarkedDirtyResult;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
-import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
 import com.google.errorprone.annotations.ForOverride;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -324,8 +324,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       for (SkyKey key : unvisitedKeys) {
         pendingVisitations.add(Pair.of(key, InvalidationType.DELETED));
       }
-      final Map<SkyKey, ? extends NodeEntry> entries =
-          graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
+      NodeBatch entries = graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
       for (SkyKey key : unvisitedKeys) {
         executor.execute(
             () -> {
@@ -367,7 +366,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                 // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
                 // anyway.
                 Map<SkyKey, ? extends NodeEntry> depMap =
-                    graph.getBatch(
+                    graph.getBatchMap(
                         key,
                         Reason.INVALIDATION,
                         Iterables.filter(
@@ -438,7 +437,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         Collections.newSetFromMap(
             new ConcurrentHashMap<>(EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
 
-    protected DirtyingNodeVisitor(
+    DirtyingNodeVisitor(
         QueryableGraph graph,
         DirtyTrackingProgressReceiver progressReceiver,
         InvalidationState state) {
@@ -499,9 +498,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       for (SkyKey key : keysToGet) {
         pendingVisitations.add(Pair.of(key, invalidationType));
       }
-      final Map<SkyKey, ? extends ThinNodeEntry> entries;
+      Map<SkyKey, ? extends NodeEntry> entries;
       try {
-        entries = graph.getBatch(null, Reason.INVALIDATION, keysToGet);
+        entries = graph.getBatchMap(null, Reason.INVALIDATION, keysToGet);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         // This can only happen if the main thread has been interrupted, and so the
@@ -541,10 +540,10 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
     private void dirtyKeyAndVisitParents(
         SkyKey key,
-        Map<SkyKey, ? extends ThinNodeEntry> entries,
+        Map<SkyKey, ? extends NodeEntry> entries,
         InvalidationType invalidationType,
         int depthForOverflowCheck) {
-      ThinNodeEntry entry = entries.get(key);
+      NodeEntry entry = entries.get(key);
 
       if (entry == null) {
         pendingVisitations.remove(Pair.of(key, invalidationType));

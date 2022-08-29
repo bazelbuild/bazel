@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,7 +47,7 @@ public class ArFunctionTest {
 
   @Test
   public void testDecompress() throws Exception {
-    Path outputDir = decompress(createDescriptorBuilder());
+    Path outputDir = decompress(createDescriptorBuilder().build());
 
     assertThat(outputDir.exists()).isTrue();
     Path firstFile = outputDir.getRelative(FIRST_FILE_NAME);
@@ -62,9 +63,24 @@ public class ArFunctionTest {
     assertThat(secondFile.isSymbolicLink()).isFalse();
   }
 
-  private Path decompress(DecompressorDescriptor.Builder descriptorBuilder) throws Exception {
-    descriptorBuilder.setDecompressor(ArFunction.INSTANCE);
-    return new ArFunction().decompress(descriptorBuilder.build());
+  /**
+   * Test decompressing an ar file, with some entries being renamed during the extraction process.
+   */
+  @Test
+  public void testDecompressWithRenamedFiles() throws Exception {
+    HashMap<String, String> renameFiles = new HashMap<>();
+    renameFiles.put("archived_first.txt", "renamed_file.txt");
+    DecompressorDescriptor.Builder descriptorBuilder =
+        createDescriptorBuilder().setRenameFiles(renameFiles);
+    Path outputDir = decompress(descriptorBuilder.build());
+
+    assertThat(outputDir.exists()).isTrue();
+    Path renamedFile = outputDir.getRelative("renamed_file.txt");
+    assertThat(renamedFile.exists()).isTrue();
+  }
+
+  private Path decompress(DecompressorDescriptor descriptor) throws Exception {
+    return new ArFunction().decompress(descriptor);
   }
 
   private DecompressorDescriptor.Builder createDescriptorBuilder() throws IOException {
@@ -83,6 +99,6 @@ public class ArFunctionTest {
     Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     Path outDir = workingDir.getRelative("out");
 
-    return DecompressorDescriptor.builder().setRepositoryPath(outDir).setArchivePath(tarballPath);
+    return DecompressorDescriptor.builder().setDestinationPath(outDir).setArchivePath(tarballPath);
   }
 }

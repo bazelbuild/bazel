@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.GeneratedMessage;
@@ -263,7 +265,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     RuleContext ruleContext = getRuleContext();
 
     if ((targetFile == Starlark.NONE) == (targetPath == Starlark.NONE)) {
-      throw Starlark.errorf("Exactly one of \"target_file\" and \"target_path\" is required");
+      throw Starlark.errorf("Exactly one of \"target_file\" or \"target_path\" is required");
     }
 
     Artifact outputArtifact = (Artifact) output;
@@ -274,27 +276,38 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     SymlinkAction action;
     if (targetFile != Starlark.NONE) {
+      Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_file\" param requires that \"output\" be declared as a "
-                + "regular file, not a symlink (did you mean to use declare_file() instead of "
-                + "declare_symlink()?)");
+                + "file or directory, not a symlink (did you mean to use declare_file() or "
+                + "declare_directory() instead of declare_symlink()?)");
+      }
+
+      boolean inputOutputMismatch =
+          getSemantics().getBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR)
+              ? inputArtifact.isDirectory() != outputArtifact.isDirectory()
+              : !inputArtifact.isDirectory() && outputArtifact.isDirectory();
+      if (inputOutputMismatch) {
+        String inputType = inputArtifact.isDirectory() ? "directory" : "file";
+        String outputType = outputArtifact.isDirectory() ? "directory" : "file";
+        throw Starlark.errorf(
+            "symlink() with \"target_file\" %s param requires that \"output\" be declared as a %s "
+                + "(did you mean to use declare_%s() instead of declare_%s()?)",
+            inputType, inputType, inputType, outputType);
       }
 
       if (isExecutable) {
+        if (outputArtifact.isTreeArtifact()) {
+          throw Starlark.errorf("symlink() with \"output\" directory param cannot be executable");
+        }
         action =
             SymlinkAction.toExecutable(
-                ruleContext.getActionOwner(),
-                (Artifact) targetFile,
-                outputArtifact,
-                progressMessage);
+                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       } else {
         action =
             SymlinkAction.toArtifact(
-                ruleContext.getActionOwner(),
-                (Artifact) targetFile,
-                outputArtifact,
-                progressMessage);
+                ruleContext.getActionOwner(), inputArtifact, outputArtifact, progressMessage);
       }
     } else {
       if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
@@ -306,8 +319,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!outputArtifact.isSymlink()) {
         throw Starlark.errorf(
             "symlink() with \"target_path\" param requires that \"output\" be declared as a "
-                + "symlink, not a regular file (did you mean to use declare_symlink() instead of "
-                + "declare_file()?)");
+                + "symlink, not a file or directory (did you mean to use declare_symlink() instead "
+                + "of declare_file() or declare_directory()?)");
       }
 
       if (isExecutable) {
@@ -831,25 +844,43 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   @Override
   public void expandTemplate(
-      FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
+      FileApi template,
+      FileApi output,
+      Dict<?, ?> substitutionsUnchecked,
+      Boolean executable,
+      /* TemplateDict */ Object computedSubstitutions)
       throws EvalException {
     context.checkMutable("actions.expand_template");
-    ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
+    // We use a map to check for duplicate keys
+    ImmutableMap.Builder<String, Substitution> substitutionsBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
       // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.
       // In the long term, avoiding ParserInput.fromLatin would be a better approach.
-      substitutionsBuilder.add(
+      substitutionsBuilder.put(
+          substitution.getKey(),
           Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+    }
+    if (!Starlark.UNBOUND.equals(computedSubstitutions)) {
+      for (Substitution substitution : ((TemplateDict) computedSubstitutions).getAll()) {
+        substitutionsBuilder.put(substitution.getKey(), substitution);
+      }
+    }
+    ImmutableMap<String, Substitution> substitutionMap;
+    try {
+      substitutionMap = substitutionsBuilder.buildOrThrow();
+    } catch (IllegalArgumentException e) {
+      // user added duplicate keys, report the error, but the stack trace is not of use
+      throw Starlark.errorf("%s", e.getMessage());
     }
     TemplateExpansionAction action =
         new TemplateExpansionAction(
             getRuleContext().getActionOwner(),
             (Artifact) template,
             (Artifact) output,
-            substitutionsBuilder.build(),
+            substitutionMap.values().asList(),
             executable);
     registerAction(action);
   }
@@ -867,6 +898,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public Args args(StarlarkThread thread) {
     return Args.newArgs(thread.mutability(), getSemantics());
+  }
+
+  @Override
+  public TemplateDictApi templateDict() {
+    return TemplateDict.newDict();
   }
 
   @Override

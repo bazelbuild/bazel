@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +50,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mock;
 
 /** Tests for {@link ResourceManager}. */
 @RunWith(JUnit4.class)
@@ -57,7 +58,7 @@ public final class ResourceManagerTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
   private final ResourceManager rm = ResourceManager.instanceForTestingOnly();
-  @Mock private Worker worker;
+  private Worker worker;
   private AtomicInteger counter;
   CyclicBarrier sync;
   CyclicBarrier sync2;
@@ -71,6 +72,7 @@ public final class ResourceManagerTest {
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
     rm.setPrioritizeLocalActions(true);
+    worker = mock(Worker.class);
     rm.setWorkerPool(createWorkerPool());
   }
 
@@ -112,12 +114,8 @@ public final class ResourceManagerTest {
         ResourcePriority.LOCAL);
   }
 
-  private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
-    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, tests));
-  }
-
-  private void release(double ram, double cpu, int tests) {
-    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+  private void release(double ram, double cpu, int tests) throws IOException, InterruptedException {
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests), /* worker=*/ null);
   }
 
   private void validate(int count) {
@@ -178,8 +176,7 @@ public final class ResourceManagerTest {
 
     // When a request for CPU is made that would slightly overallocate CPU,
     // Then the request succeeds:
-    TestThread thread1 =
-        new TestThread(() -> assertThat(acquireNonblocking(0, 0.6, 0)).isNotNull());
+    TestThread thread1 = new TestThread(() -> assertThat(acquire(0, 0.6, 0)).isNotNull());
     thread1.start();
     thread1.joinAndAssertState(10000);
   }
@@ -196,7 +193,7 @@ public final class ResourceManagerTest {
     TestThread thread1 =
         new TestThread(
             () -> {
-              assertThat(acquireNonblocking(0, 0.99, 0)).isNotNull();
+              acquire(0, 0.99, 0);
               // Cleanup
               release(0, 0.99, 0);
             });
@@ -212,9 +209,10 @@ public final class ResourceManagerTest {
 
     // When a request for a small CPU allocation is made,
     // Then the request fails:
-    TestThread thread2 = new TestThread(() -> assertThat(acquireNonblocking(0, 0.099, 0)).isNull());
+    TestThread thread2 = new TestThread(() -> acquire(0, 0.099, 0));
     thread2.start();
-    thread2.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread2.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
     // Note that this behavior is surprising and probably not intended.
   }
 
@@ -226,10 +224,11 @@ public final class ResourceManagerTest {
     acquire(500, 0, 0);
 
     // When a request for RAM is made that would slightly overallocate RAM,
-    // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(600, 0, 0)).isNull());
+    // Then the request fails (got timeout):
+    TestThread thread1 = new TestThread(() -> acquire(600, 0, 0));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
@@ -241,9 +240,10 @@ public final class ResourceManagerTest {
 
     // When a request for tests is made that would slightly overallocate tests,
     // Then the request fails:
-    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(0, 0, 2)).isNull());
+    TestThread thread1 = new TestThread(() -> acquire(0, 0, 2));
     thread1.start();
-    thread1.joinAndAssertState(10000);
+    AssertionError e = assertThrows(AssertionError.class, () -> thread1.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
   @Test
@@ -669,10 +669,13 @@ public final class ResourceManagerTest {
   @Test
   public void testAcquireWithWorker_acquireAndRelease() throws Exception {
     int memory = 100;
+    when(worker.getWorkerKey()).thenReturn(createWorkerKey("dummy"));
 
     assertThat(rm.inUse()).isFalse();
-    acquire(memory, 1, 0, "dummy");
+    ResourceHandle handle = acquire(memory, 1, 0, "dummy");
     assertThat(rm.inUse()).isTrue();
+
+    assertThat(handle.getWorker().getWorkerKey().getMnemonic()).isEqualTo("dummy");
     release(memory, 1, 0);
     // When that RAM is released,
     // Then Resource Manager will not be "in use":

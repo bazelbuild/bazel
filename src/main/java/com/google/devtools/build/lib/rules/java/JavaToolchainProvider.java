@@ -64,6 +64,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return from(collection, null);
   }
 
+  @Nullable
   private static JavaToolchainProvider from(
       ProviderCollection collection, @Nullable RuleErrorConsumer errorConsumer) {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
@@ -106,7 +107,7 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
-      @Nullable Artifact oneVersion,
+      @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact depsChecker,
@@ -168,7 +169,7 @@ public final class JavaToolchainProvider extends NativeInfo
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
-  @Nullable private final Artifact oneVersion;
+  @Nullable private final FilesToRunProvider oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
   @Nullable private final Artifact depsChecker;
@@ -202,7 +203,7 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
-      @Nullable Artifact oneVersion,
+      @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact depsChecker,
@@ -339,7 +340,7 @@ public final class JavaToolchainProvider extends NativeInfo
    */
   @Override
   @Nullable
-  public Artifact getOneVersionBinary() {
+  public FilesToRunProvider getOneVersionBinary() {
     return oneVersion;
   }
 
@@ -429,11 +430,12 @@ public final class JavaToolchainProvider extends NativeInfo
     return javacSupportsWorkerCancellation;
   }
 
-  /** Returns the global {@code java_plugin_configuration} data. */
+  /** Returns the global {@code java_package_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
   }
 
+  @Override
   public FilesToRunProvider getJacocoRunner() {
     return jacocoRunner;
   }

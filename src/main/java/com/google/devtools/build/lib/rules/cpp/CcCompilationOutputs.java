@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import net.starlark.java.eval.EvalException;
@@ -224,6 +225,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
           ImmutableList.copyOf(headerTokenFiles));
     }
 
+    @CanIgnoreReturnValue
     public Builder merge(CcCompilationOutputs outputs) {
       this.objectFiles.addAll(outputs.objectFiles);
       this.picObjectFiles.addAll(outputs.picObjectFiles);
@@ -236,6 +238,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     }
 
     /** Adds an object file. */
+    @CanIgnoreReturnValue
     public Builder addObjectFile(Artifact artifact) {
       // We skip file extension checks for TreeArtifacts because they represent directory artifacts
       // without a file extension.
@@ -245,6 +248,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addObjectFiles(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
         Preconditions.checkArgument(
@@ -255,22 +259,26 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     }
 
     /** Adds a pic object file. */
+    @CanIgnoreReturnValue
     public Builder addPicObjectFile(Artifact artifact) {
       picObjectFiles.add(artifact);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLtoBitcodeFile(
         Artifact fullBitcode, Artifact ltoIndexingBitcode, ImmutableList<String> copts) {
       ltoCompilationContext.addBitcodeFile(fullBitcode, ltoIndexingBitcode, copts);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addLtoCompilationContext(LtoCompilationContext ltoCompilationContext) {
       this.ltoCompilationContext.addAll(ltoCompilationContext);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPicObjectFiles(Iterable<Artifact> artifacts) {
       for (Artifact artifact : artifacts) {
         Preconditions.checkArgument(
@@ -281,24 +289,26 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDwoFile(Artifact artifact) {
       dwoFiles.add(artifact);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPicDwoFile(Artifact artifact) {
       picDwoFiles.add(artifact);
       return this;
     }
 
-    /**
-     * Adds temp files.
-     */
+    /** Adds temp files. */
+    @CanIgnoreReturnValue
     public Builder addTemps(Iterable<Artifact> artifacts) {
       temps.addAll(artifacts);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addHeaderTokenFile(Artifact artifact) {
       headerTokenFiles.add(artifact);
       return this;

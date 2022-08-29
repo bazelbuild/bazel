@@ -24,6 +24,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for actions in Starlark. */
@@ -120,16 +121,17 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  Dict<String, String> getStarlarkSubstitutions();
+  Dict<String, String> getStarlarkSubstitutions() throws EvalException;
 
   @StarlarkMethod(
       name = "env",
       structField = true,
+      useStarlarkSemantics = true,
       doc =
           "The 'fixed' environment variables for this action. This includes only environment"
               + " settings which are explicitly set by the action definition, and thus omits"
               + " settings which are only pre-set in the execution environment.")
-  Dict<String, String> getEnv();
+  Dict<String, String> getEnv(StarlarkSemantics semantics) throws EvalException;
 
   @StarlarkMethod(
       name = "execution_info",

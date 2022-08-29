@@ -9,11 +9,29 @@ TAGS = [
 
 cc_binary(
     name = "should_fail_binary",
-    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo_so"],
+    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
     tags = TAGS,
     deps = [
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:qux",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
+    ],
+)
+
+cc_shared_library(
+    name = "should_fail_shared_lib",
+    dynamic_deps = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:bar_so"],
+    roots = [
+        ":intermediate",
+    ],
+    static_deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
+    ],
+    tags = TAGS,
+)
+
+cc_library(
+    name = "intermediate",
+    deps = [
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:barX",
     ],
 )
 

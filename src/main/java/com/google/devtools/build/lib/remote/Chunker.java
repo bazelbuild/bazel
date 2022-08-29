@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.zstd.ZstdCompressingInputStream;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -157,6 +158,7 @@ public class Chunker {
     // uncompressed form.
     if (initialized && toOffset >= offset && !compressed) {
       ByteStreams.skipFully(data, toOffset - offset);
+      offset = toOffset;
     } else {
       reset();
       initialize(toOffset);
@@ -287,6 +289,7 @@ public class Chunker {
     private boolean compressed;
     protected Supplier<InputStream> inputStream;
 
+    @CanIgnoreReturnValue
     public Builder setInput(byte[] data) {
       checkState(inputStream == null);
       size = data.length;
@@ -294,6 +297,7 @@ public class Chunker {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInput(long size, InputStream in) {
       checkState(inputStream == null);
       checkNotNull(in);
@@ -302,6 +306,7 @@ public class Chunker {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInput(long size, Path file) {
       checkState(inputStream == null);
       this.size = size;
@@ -316,6 +321,7 @@ public class Chunker {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInput(long size, ActionInput actionInput, Path execRoot) {
       checkState(inputStream == null);
       this.size = size;
@@ -341,17 +347,20 @@ public class Chunker {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     protected final Builder setInputSupplier(Supplier<InputStream> inputStream) {
       this.inputStream = inputStream;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCompressed(boolean compressed) {
       this.compressed = compressed;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setChunkSize(int chunkSize) {
       this.chunkSize = chunkSize;
       return this;

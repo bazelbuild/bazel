@@ -1,14 +1,26 @@
 load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_license//rules:license.bzl", "license")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 
-package(default_visibility = ["//visibility:public"])
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
 
 licenses(["notice"])
 
-exports_files(["LICENSE"])
+license(
+    name = "license",
+    package_name = "googleapis",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
 
-load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
-load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
+exports_files(["LICENSE"])
 
 filegroup(
     name = "srcs",
@@ -269,7 +281,6 @@ proto_library(
     srcs = ["google/api/field_behavior.proto"],
     deps = ["@com_google_protobuf//:descriptor_proto"],
 )
-
 
 proto_library(
     name = "google_api_http_proto",

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -169,16 +170,19 @@ public interface IncludeScanner {
         this.modularHeaders = modularHeaders;
       }
 
+      @CanIgnoreReturnValue
       public Builder setSystemIncludeDirs(List<PathFragment> systemIncludeDirs) {
         this.systemIncludeDirs = systemIncludeDirs;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setCmdlineIncludes(List<String> cmdlineIncludes) {
         this.cmdlineIncludes = cmdlineIncludes;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setIsValidUndeclaredHeader(
           @Nullable Predicate<Artifact> isValidUndeclaredHeader) {
         this.isValidUndeclaredHeader = isValidUndeclaredHeader;

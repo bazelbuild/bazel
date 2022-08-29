@@ -48,7 +48,12 @@ def _linking_suffix_test_impl(ctx):
         target_under_test = analysistest.target_under_test(env)
         actions = analysistest.target_actions(env)
 
-        args = actions[2].content.split("\n")
+        target_action = None
+        for action in actions:
+            if action.mnemonic == "FileWrite":
+                target_action = action
+                break
+        args = target_action.content.split("\n")
         user_libs = []
         for arg in args:
             if arg.endswith(".o"):
@@ -72,7 +77,12 @@ def _additional_inputs_test_impl(ctx):
         actions = analysistest.target_actions(env)
 
         found = False
-        for arg in actions[4].argv:
+        target_action = None
+        for action in actions:
+            if action.mnemonic == "CppLink":
+                target_action = action
+                break
+        for arg in target_action.argv:
             if arg.find("-Wl,--script=") != -1:
                 asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
                 found = True
@@ -153,15 +163,24 @@ def _runfiles_test_impl(ctx):
         return analysistest.end(env)
 
     target_under_test = analysistest.target_under_test(env)
-    actual_files = []
-    for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
-        actual_files.append(runfile.basename)
-    expected = [
-        "renamed_so_file_copy.so",
-        "libdirect_so_file.so",
+    expected_suffixes = [
+        "libfoo_so.so",
+        "libbar_so.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
     ]
-    for expected_file in expected:
-        asserts.true(env, expected_file in actual_files, expected_file + " not found in actual files:\n" + "\n".join(actual_files))
+    for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
+        # Ignore Python runfiles
+        if "python" in runfile.path:
+            continue
+        found_suffix = False
+        for expected_suffix in expected_suffixes:
+            if runfile.path.endswith(expected_suffix):
+                found_suffix = True
+                break
+        asserts.true(env, found_suffix, runfile.path + " not found in expected suffixes:\n" + "\n".join(expected_suffixes))
 
     return analysistest.end(env)
 

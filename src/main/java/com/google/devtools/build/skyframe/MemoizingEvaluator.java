@@ -14,12 +14,11 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -87,11 +86,14 @@ public interface MemoizingEvaluator {
   Map<SkyKey, SkyValue> getValues();
 
   /**
-   * Returns the node entries in the graph. Should only be called between evaluations. The returned
-   * iterable is mutable, but do not mutate it unless you know what you are doing! Naively deleting
-   * an entry will break graph invariants and cause a crash.
+   * Returns a mutable map of {@link InMemoryNodeEntry} entries in the graph. It is used to power
+   * --discard_analysis_cache and therefore should only be called between evaluations or for test
+   * infrastructure.
+   *
+   * <p>This method should only be supported if all analysis phase nodes are stored in-memory since
+   * deleting nodes otherwise will break graph invariants and cause a crash.
    */
-  Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries();
+  ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable();
 
   /**
    * Informs the evaluator that a sequence of evaluations at the same version has finished.
@@ -152,19 +154,12 @@ public interface MemoizingEvaluator {
   interface GraphTransformerForTesting {
     InMemoryGraph transform(InMemoryGraph graph);
 
-    QueryableGraph transform(QueryableGraph graph);
-
     ProcessableGraph transform(ProcessableGraph graph);
 
     GraphTransformerForTesting NO_OP =
         new GraphTransformerForTesting() {
           @Override
           public InMemoryGraph transform(InMemoryGraph graph) {
-            return graph;
-          }
-
-          @Override
-          public QueryableGraph transform(QueryableGraph graph) {
             return graph;
           }
 
@@ -192,28 +187,21 @@ public interface MemoizingEvaluator {
   void dumpCount(PrintStream out);
 
   /**
-   * Writes a detailed summary of the graph to the given output stream, omitting keys that do not
-   * match the given filter.
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and deps are printed. The deps are printed in groups
+   * according to the dependency order registered in Skyframe.
    *
    * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
   @ThreadHostile
-  void dumpDetailed(PrintStream out, Predicate<SkyKey> filter);
+  void dumpDeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
 
   /**
-   * Keeps track of already-emitted events. Users of the graph should instantiate an
-   * {@code EmittedEventState} first and pass it to the graph during creation. This allows them to
-   * determine whether or not to replay events.
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and its reverse deps.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
-  class EmittedEventState {
-    final NestedSetVisitor.VisitedState<TaggedEvents> eventState =
-        new NestedSetVisitor.VisitedState<>();
-    final NestedSetVisitor.VisitedState<Postable> postableState =
-        new NestedSetVisitor.VisitedState<>();
-
-    public void clear() {
-      eventState.clear();
-      postableState.clear();
-    }
-  }
+  @ThreadHostile
+  void dumpRdeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
 }

@@ -115,7 +115,6 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     // Finally create what needs creating.
     SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict=*/ true);
     createInputs(inputsToCreate, inputs);
-    inputs.materializeVirtualInputs(sandboxExecRoot);
   }
 
   protected void filterInputsAndDirsToCreate(

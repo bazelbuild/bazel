@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.util;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -32,6 +33,7 @@ public class FakeTestClock extends TestClock {
   private Duration autoIncrementStep = Duration.ZERO;
 
   /** Advances the ticker value by {@code time} in {@code timeUnit}. */
+  @CanIgnoreReturnValue
   public synchronized FakeTestClock advance(Duration duration) {
     monotonic = monotonic.plus(duration);
     return this;
@@ -43,6 +45,7 @@ public class FakeTestClock extends TestClock {
    * <p>The default behavior is to auto increment by zero. i.e: The ticker is left unchanged when
    * queried.
    */
+  @CanIgnoreReturnValue
   public synchronized FakeTestClock setAutoIncrementStep(Duration autoIncrementStep) {
     if (autoIncrementStep.toNanos() < 0) {
       throw new IllegalArgumentException("May not auto-increment by a negative amount");

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -505,8 +504,7 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    BuildConfigurationValue targetConfiguration =
-        Iterables.getOnlyElement(configurations.getTargetConfigurations());
+    BuildConfigurationValue targetConfiguration = configurations.getTargetConfiguration();
     BuildConfigurationValue hostConfiguration = configurations.getHostConfiguration();
     return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
   }

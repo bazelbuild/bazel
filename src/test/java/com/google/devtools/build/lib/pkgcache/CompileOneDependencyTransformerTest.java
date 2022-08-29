@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -59,8 +58,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     transformer = new CompileOneDependencyTransformer(getPackageManager());
   }
 
@@ -93,7 +91,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   private static Set<Label> labels(String... labelStrings) throws LabelSyntaxException {
     Set<Label> labels = new HashSet<>();
     for (String labelString : labelStrings) {
-      labels.add(Label.parseAbsolute(labelString, ImmutableMap.of()));
+      labels.add(Label.parseCanonical(labelString));
     }
     return labels;
   }
@@ -164,7 +162,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         .hasMessageThat()
         .isEqualTo(
             "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
-                + "'foo' defined by /workspace/foo/BUILD");
+                + "'foo' defined by /workspace/foo/BUILD (Tip: use `query //foo:*` to see all the "
+                + "targets in that package)");
 
     // Also, try a valid input file which has no dependent rules in its package.
     e = assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:baz/bang"));

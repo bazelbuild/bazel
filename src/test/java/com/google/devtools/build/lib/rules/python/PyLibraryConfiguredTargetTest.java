@@ -120,14 +120,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
           "'//pkg:bar' does not produce any py_binary srcs files",
           // build file:
           lines);
-    } else {
-      checkWarning(
-          "pkg",
-          "foo",
-          // warning:
-          "rule '//pkg:bar' does not produce any Python source files",
-          // build file:
-          lines);
     }
   }
 

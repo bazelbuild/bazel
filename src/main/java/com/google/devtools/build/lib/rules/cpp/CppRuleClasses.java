@@ -78,9 +78,9 @@ public class CppRuleClasses {
   }
 
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
-    // TODO(https://github.com/bazelbuild/bazel/issues/14727): Evaluate whether this can be
-    // optional.
-    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(true).build();
+    // This is an optional dependency: if a toolchain cannot be found, CppHelper will give an
+    // appropriate error.
+    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(false).build();
   }
 
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
@@ -110,7 +110,7 @@ public class CppRuleClasses {
               FileTypeSet.of(
                   CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
           .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("interface_deps", "deps", "data");
+          .withDependencyAttributes("implementation_deps", "deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =
@@ -486,9 +486,6 @@ public class CppRuleClasses {
    * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
    */
   public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
-
-  /** Tag used to opt in into interface_deps behavior. */
-  public static final String INTERFACE_DEPS_TAG = "__INTERFACE_DEPS__";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

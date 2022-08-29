@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -46,7 +45,7 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
       String target, BuildConfigurationValue config, String... packages) throws Exception {
     ConfiguredTargetValue ctValue =
         SkyframeExecutorTestUtils.getExistingConfiguredTargetValue(
-            skyframeExecutor, Label.parseAbsolute(target, ImmutableMap.of()), config);
+            skyframeExecutor, Label.parseCanonical(target), config);
     List<Package> transitivePackages =
         ctValue.getTransitivePackagesForPackageRootResolution().toList();
     List<String> packageNames = Lists.transform(transitivePackages,

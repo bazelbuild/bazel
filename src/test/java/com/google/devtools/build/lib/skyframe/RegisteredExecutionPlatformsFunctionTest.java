@@ -41,7 +41,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -92,11 +91,6 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
-  @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
     try {
       moduleRoot = scratch.dir("modules");
@@ -110,11 +104,6 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -339,46 +328,47 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(execution_platforms_to_register=['//:plat'])",
-        "bazel_dep(name='B',version='1.0')",
-        "bazel_dep(name='C',version='1.1')");
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.1')");
     registry
         .addModule(
-            createModuleKey("B", "1.0"),
+            createModuleKey("bbb", "1.0"),
             "module(",
-            "    name='B',",
+            "    name='bbb',",
             "    version='1.0',",
             "    execution_platforms_to_register=['//:plat'],",
             ")",
-            "bazel_dep(name='D',version='1.0')")
+            "bazel_dep(name='ddd',version='1.0')")
         .addModule(
-            createModuleKey("C", "1.1"),
+            createModuleKey("ccc", "1.1"),
             "module(",
-            "    name='C',",
+            "    name='ccc',",
             "    version='1.1',",
             "    execution_platforms_to_register=['//:plat'],",
             ")",
-            "bazel_dep(name='D',version='1.1')")
-        // D@1.0 is not selected
+            "bazel_dep(name='ddd',version='1.1')")
+        // ddd@1.0 is not selected
         .addModule(
-            createModuleKey("D", "1.0"),
+            createModuleKey("ddd", "1.0"),
             "module(",
-            "    name='D',",
+            "    name='ddd',",
             "    version='1.0',",
             "    execution_platforms_to_register=['//:plat'],",
             ")")
         .addModule(
-            createModuleKey("D", "1.1"),
+            createModuleKey("ddd", "1.1"),
             "module(",
-            "    name='D',",
+            "    name='ddd',",
             "    version='1.1',",
-            "    execution_platforms_to_register=['@E//:plat', '//:plat'],",
+            "    execution_platforms_to_register=['@eee//:plat', '//:plat'],",
             ")",
-            "bazel_dep(name='E',version='1.0')")
-        .addModule(createModuleKey("E", "1.0"), "module(name='E', version='1.0')");
-    for (String repo : ImmutableList.of("@B.1.0", "@C.1.1", "@D.1.0", "@D.1.1", "@E.1.0")) {
+            "bazel_dep(name='eee',version='1.0')")
+        .addModule(createModuleKey("eee", "1.0"), "module(name='eee', version='1.0')");
+    for (String repo : ImmutableList.of("bbb~1.0", "ccc~1.1", "ddd~1.0", "ddd~1.1", "eee~1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
@@ -400,10 +390,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsExactly(
             Label.parseCanonical("//:plat"),
-            Label.parseCanonical("@@B.1.0//:plat"),
-            Label.parseCanonical("@@C.1.1//:plat"),
-            Label.parseCanonical("@@E.1.0//:plat"),
-            Label.parseCanonical("@@D.1.1//:plat"),
+            Label.parseCanonical("@@bbb~1.0//:plat"),
+            Label.parseCanonical("@@ccc~1.1//:plat"),
+            Label.parseCanonical("@@eee~1.0//:plat"),
+            Label.parseCanonical("@@ddd~1.1//:plat"),
             Label.parseCanonical("//:wsplat"))
         .inOrder();
   }

@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
-
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 
 /** Resolves the appropriate toolchains for the given parameters. */
@@ -83,6 +83,7 @@ public abstract class ExecGroup implements ExecGroupApi {
   public interface Builder {
 
     /** Sets the toolchain type requirements. */
+    @CanIgnoreReturnValue
     default Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes) {
       toolchainTypes.forEach(this::addToolchainType);
       return this;
@@ -90,6 +91,7 @@ public abstract class ExecGroup implements ExecGroupApi {
 
     ImmutableMap.Builder<Label, ToolchainTypeRequirement> toolchainTypesMapBuilder();
 
+    @CanIgnoreReturnValue
     default Builder addToolchainType(ToolchainTypeRequirement toolchainTypeRequirement) {
       this.toolchainTypesMapBuilder()
           .put(toolchainTypeRequirement.toolchainType(), toolchainTypeRequirement);

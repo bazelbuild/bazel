@@ -36,8 +36,8 @@ import java.io.IOException;
 /**
  * Stages output files that are stored remotely to the local filesystem.
  *
- * <p>This is necessary for remote caching/execution when {@code
- * --experimental_remote_download_outputs=minimal} is specified.
+ * <p>This is necessary when a locally executed action consumes outputs produced by a remotely
+ * executed action and {@code --experimental_remote_download_outputs=minimal} is specified.
  */
 class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
@@ -67,7 +67,7 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    return metadata.isRemote();
+    return metadata.isRemote() && !path.exists();
   }
 
   @Override

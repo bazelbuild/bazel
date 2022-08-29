@@ -298,6 +298,7 @@ public class UrlRewriter {
    * @throws UrlRewriterParseException in case the credentials can't be constructed.
    */
   // TODO : consider re-using RemoteModule.newCredentialsFromNetrc
+  @Nullable
   @VisibleForTesting
   static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
       throws UrlRewriterParseException {

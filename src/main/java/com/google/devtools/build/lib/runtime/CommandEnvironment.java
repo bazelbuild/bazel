@@ -107,6 +107,7 @@ public class CommandEnvironment {
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
   private final Consumer<String> shutdownReasonConsumer;
   private final BuildResultListener buildResultListener;
+  private final CommandLinePathFactory commandLinePathFactory;
 
   private OutputService outputService;
   private String workspaceName;
@@ -127,6 +128,7 @@ public class CommandEnvironment {
   private MetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
+    @Nullable
     @Override
     public Path getFileFromWorkspace(Label label) {
       Path buildFile = getPackageManager().getBuildFileForPackage(label.getPackageIdentifier());
@@ -266,12 +268,15 @@ public class CommandEnvironment {
         value = System.getenv(name);
       }
       if (value != null) {
-        repoEnv.put(entry.getKey(), entry.getValue());
-        repoEnvFromOptions.put(entry.getKey(), entry.getValue());
+        repoEnv.put(name, value);
+        repoEnvFromOptions.put(name, value);
       }
     }
     this.buildResultListener = new BuildResultListener();
     this.eventBus.register(this.buildResultListener);
+
+    this.commandLinePathFactory =
+        CommandLinePathFactory.create(runtime.getFileSystem(), directories);
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -838,5 +843,9 @@ public class CommandEnvironment {
 
   public BuildResultListener getBuildResultListener() {
     return buildResultListener;
+  }
+
+  public CommandLinePathFactory getCommandLinePathFactory() {
+    return commandLinePathFactory;
   }
 }

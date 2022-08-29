@@ -374,7 +374,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
 
     if (oneVersionOutputArtifact != null) {
-      builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, oneVersionOutputArtifact);
+      builder.addOutputGroup(
+          javaConfig.enforceOneVersionValidationAction()
+              ? OutputGroupInfo.VALIDATION
+              : OutputGroupInfo.HIDDEN_TOP_LEVEL,
+          oneVersionOutputArtifact);
     }
 
     NestedSet<Artifact> extraFilesToRun =

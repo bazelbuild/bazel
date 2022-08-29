@@ -33,7 +33,9 @@ public final class MockObjcSupport {
           "ios_arm64",
           "darwin_x86_64",
           "watchos_i386",
+          "watchos_x86_64",
           "watchos_armv7k",
+          "watchos_arm64_32",
           "tvos_x86_64",
           "tvos_arm64");
 
@@ -139,8 +141,9 @@ public final class MockObjcSupport {
     // Any device, simulator or maccatalyst platforms created by Apple tests should consider
     // building on one of these targets as parents, to ensure that the proper constraints are set.
     config.create(
-        TestConstants.PLATFORMS_PATH + "/apple/BUILD",
+        TestConstants.CONSTRAINTS_PATH + "/apple/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
         "platform(",
         "  name = 'darwin_x86_64',",
         "  constraint_values = [",
@@ -271,7 +274,9 @@ public final class MockObjcSupport {
         tvos_arm64().build(),
         tvosX86_64().build(),
         watchos_armv7k().build(),
-        watchos_i386().build());
+        watchos_arm64_32().build(),
+        watchos_i386().build(),
+        watchosX86_64().build());
   }
 
   public static CcToolchainConfig.Builder darwinX86_64() {
@@ -572,6 +577,42 @@ public final class MockObjcSupport {
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
   }
 
+  @SuppressWarnings("MemberName") // Following style of other mock toolchain config methods.
+  public static CcToolchainConfig.Builder watchos_arm64_32() {
+    return CcToolchainConfig.builder()
+        .withCpu("watchos_arm64_32")
+        .withCompiler("compiler")
+        .withToolchainIdentifier("watchos_arm64_32")
+        .withHostSystemName("x86_64-apple-ios")
+        .withTargetSystemName("arm64_32-apple-watchos")
+        .withTargetLibc("watchos")
+        .withAbiVersion("local")
+        .withAbiLibcVersion("local")
+        .withCcTargetOs("apple")
+        .withSysroot("")
+        .withCxxBuiltinIncludeDirectories(
+            "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_7.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_7.3.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.2.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode-beta.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode_7.2.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode_7.3.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode_8.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/WatchOS.platform/Developer/SDKs",
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
+  }
+
   public static CcToolchainConfig.Builder watchos_i386() {
     return CcToolchainConfig.builder()
         .withCpu("watchos_i386")
@@ -604,6 +645,42 @@ public final class MockObjcSupport {
             "/usr/include")
         .withToolchainTargetConstraints(
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32",
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
+  }
+
+  @SuppressWarnings("MemberName") // Following style of other mock toolchain config methods.
+  public static CcToolchainConfig.Builder watchosX86_64() {
+    return CcToolchainConfig.builder()
+        .withCpu("watchos_x86_64")
+        .withCompiler("compiler")
+        .withToolchainIdentifier("watchos_x86_64")
+        .withHostSystemName("x86_64-apple-ios")
+        .withTargetSystemName("x86_64-apple-watchos")
+        .withTargetLibc("watchos")
+        .withAbiVersion("local")
+        .withAbiLibcVersion("local")
+        .withCcTargetOs("apple")
+        .withSysroot("")
+        .withCxxBuiltinIncludeDirectories(
+            "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode-beta.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_7.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_7.3.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode_8.2.1.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/",
+            "/Applications/Xcode.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode-beta.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode_7.2.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode_7.3.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode_8.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode_8.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode_8.2.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/Applications/Xcode_8.2.1.app/Contents/Developer/Platforms/WatchSimulator.platform/Developer/SDKs",
+            "/usr/include")
+        .withToolchainTargetConstraints(
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos");
   }
 

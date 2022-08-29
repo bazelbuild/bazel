@@ -14,6 +14,7 @@ java_library(
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -88,6 +89,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -211,7 +213,6 @@ java_library(
         ":fileset_output_symlink",
         ":package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
@@ -326,7 +327,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -370,6 +371,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -146,10 +146,7 @@ public final class TargetCompleteEvent
     this.label = targetAndData.getConfiguredTarget().getLabel();
     this.aliasLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
-        ConfiguredTargetKey.builder()
-            .setConfiguredTarget(targetAndData.getConfiguredTarget())
-            .setConfiguration(targetAndData.getConfiguration())
-            .build();
+        ConfiguredTargetKey.fromConfiguredTarget(targetAndData.getConfiguredTarget());
     postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : getRootCauses().toList()) {
@@ -312,6 +309,10 @@ public final class TargetCompleteEvent
   @Nullable
   public ArtifactsInOutputGroup getOutputGroup(String outputGroup) {
     return outputs.get(outputGroup);
+  }
+
+  public ImmutableMap<String, ArtifactsInOutputGroup> getOutputs() {
+    return outputs;
   }
 
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
@@ -494,6 +495,11 @@ public final class TargetCompleteEvent
   @Override
   public ReportedArtifacts reportedArtifacts() {
     return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifacts);
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 
   static ReportedArtifacts toReportedArtifacts(

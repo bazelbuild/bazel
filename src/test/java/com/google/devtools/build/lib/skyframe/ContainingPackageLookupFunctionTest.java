@@ -164,7 +164,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
 
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
@@ -177,7 +176,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
-    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, false);
   }
 
   private ContainingPackageLookupValue lookupContainingPackage(String packageName)

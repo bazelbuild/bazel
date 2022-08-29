@@ -94,12 +94,12 @@ public class AnalysisOptions extends OptionsBase {
   public long versionWindowForDirtyNodeGc;
 
   @Option(
-    name = "experimental_skyframe_prepare_analysis",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "Switches analysis preparation to a new code path based on Skyframe."
-  )
+      name = "experimental_skyframe_prepare_analysis",
+      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Deprecated. No-op.")
   public boolean skyframePrepareAnalysis;
 
   @Option(

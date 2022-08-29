@@ -15,6 +15,7 @@ package com.google.devtools.build.android.r8;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
@@ -32,6 +33,8 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
+import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
+import com.google.devtools.build.lib.worker.WorkRequestHandler;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -39,11 +42,17 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
 
 /** Desugar compatible wrapper based on D8 desugaring engine */
 public class Desugar {
@@ -51,6 +60,7 @@ public class Desugar {
   public static final String DESUGAR_DEPS_FILENAME = "META-INF/desugar_deps";
   // We shard the compilation if we have more than this number of entries to avoid timing out.
   private static final int NUMBER_OF_ENTRIES_PER_SHARD = 100000;
+  private static final Logger logger = Logger.getLogger(Desugar.class.getName());
 
   /** Commandline options for {@link com.google.devtools.build.android.r8.Desugar}. */
   public static class DesugarOptions extends OptionsBase {
@@ -622,11 +632,10 @@ public class Desugar {
     if (!options.desugarIndifyStringConcat) {
       throw new AssertionError("--desugar_indy_string_concat must be enabled");
     }
-    if (options.persistentWorker) {
-      throw new AssertionError("--persistent_worker is not supported");
+    if (options.inputJars.isEmpty() && !options.persistentWorker) {
+      throw new AssertionError("--input is required when not running as a persistent worker");
     }
 
-    checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
         options.inputJars.size() == options.outputJars.size(),
         "D8 Desugar requires the same number of inputs and outputs to pair them."
@@ -635,10 +644,69 @@ public class Desugar {
         options.outputJars.size());
   }
 
-  public static void main(String[] args) throws Exception {
-    DesugarOptions options = parseCommandLineOptions(args);
+  private static int processRequest(List<String> args) throws Exception {
+    DesugarOptions options = parseCommandLineOptions(args.toArray(new String[0]));
     validateOptions(options);
-
     new Desugar(options).desugar();
+    return 0;
+  }
+
+  private static int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+    int exitCode;
+    try {
+      // Process the actual request and grab the exit code
+      exitCode = processRequest(args);
+    } catch (Exception e) {
+      e.printStackTrace(pw);
+      exitCode = 1;
+    } finally {
+      // Write the captured buffer to the work response. We synchronize to avoid race conditions
+      // while reading from and calling reset on the shared ByteArrayOutputStream.
+      String captured;
+      synchronized (buf) {
+        captured = buf.toString(UTF_8).trim();
+        buf.reset();
+      }
+      pw.print(captured);
+    }
+    return exitCode;
+  }
+
+  private static int runPersistentWorker() {
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    PrintStream ps = new PrintStream(buf, true);
+    PrintStream realStdOut = System.out;
+    PrintStream realStdErr = System.err;
+
+    // Redirect all stdout and stderr output for logging.
+    System.setOut(ps);
+    System.setErr(ps);
+    try {
+      WorkRequestHandler workerHandler =
+          new WorkRequestHandler.WorkRequestHandlerBuilder(
+                  new WorkRequestHandler.WorkRequestCallback(
+                      (request, pw) -> processRequest(request.getArgumentsList(), pw, buf)),
+                  realStdErr,
+                  new ProtoWorkerMessageProcessor(System.in, realStdOut))
+              .setCpuUsageBeforeGc(Duration.ofSeconds(10))
+              .build();
+      workerHandler.processRequests();
+    } catch (IOException e) {
+      logger.severe(e.getMessage());
+      e.printStackTrace(realStdErr);
+      return 1;
+    } finally {
+      System.setOut(realStdOut);
+      System.setErr(realStdErr);
+    }
+    return 0;
+  }
+
+  public static void main(String[] args) throws Exception {
+    if (args.length > 0 && args[0].equals("--persistent_worker")) {
+      System.exit(runPersistentWorker());
+    } else {
+      System.exit(processRequest(Arrays.asList(args)));
+    }
   }
 }

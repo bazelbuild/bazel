@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
@@ -80,11 +81,9 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   }
 
   @Override
+  @Nullable
   public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
-      return thisLeft ? SelectorList.concat(this, that) : SelectorList.concat(that, this);
-    }
-    return null;
+    return SelectorList.of(this).binaryOp(op, that, thisLeft);
   }
 
   @Override

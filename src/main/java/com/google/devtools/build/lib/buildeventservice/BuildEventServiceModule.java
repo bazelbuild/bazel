@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -363,7 +364,14 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     if (bepOptions.publishTargetSummary) {
-      cmdEnv.getEventBus().register(new TargetSummaryPublisher(cmdEnv.getEventBus()));
+      cmdEnv
+          .getEventBus()
+          .register(
+              new TargetSummaryPublisher(
+                  cmdEnv.getEventBus(),
+                  parsingResult
+                      .getOptions(BuildRequestOptions.class)
+                      .shouldMergeSkyframeAnalysisExecution()));
     }
 
     streamer =
@@ -692,7 +700,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
     final BuildEventServiceClient besClient;
     try {
-      besClient = getBesClient(besOptions, authTlsOptions);
+      besClient = getBesClient(cmdEnv, besOptions, authTlsOptions);
     } catch (IOException | OptionsParsingException e) {
       reportError(
           reporter,
@@ -838,7 +846,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   protected abstract Class<OptionsT> optionsClass();
 
   protected abstract BuildEventServiceClient getBesClient(
-      OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
+      CommandEnvironment env, OptionsT besOptions, AuthAndTLSOptions authAndTLSOptions)
       throws IOException, OptionsParsingException;
 
   protected abstract void clearBesClient();

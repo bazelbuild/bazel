@@ -27,7 +27,6 @@ import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +39,7 @@ import com.google.common.truth.IterableSubject;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -51,12 +51,12 @@ import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.ref.WeakReference;
@@ -82,7 +82,7 @@ public abstract class MemoizingEvaluatorTest {
   protected MemoizingEvaluatorTester tester;
   protected EventCollector eventCollector;
   protected ExtendedEventHandler reporter;
-  protected MemoizingEvaluator.EmittedEventState emittedEventState;
+  protected NestedSetVisitor.VisitedState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
   private static final int TEST_NODE_COUNT = 100;
@@ -96,7 +96,7 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   private void initializeTester(@Nullable TrackingProgressReceiver customProgressReceiver) {
-    emittedEventState = new MemoizingEvaluator.EmittedEventState();
+    emittedEventState = new NestedSetVisitor.VisitedState();
     tester = new MemoizingEvaluatorTester();
     if (customProgressReceiver != null) {
       tester.setProgressReceiver(customProgressReceiver);
@@ -1581,7 +1581,10 @@ public abstract class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                env.getOrderedValuesAndExceptions(ImmutableList.of(topKey, depKey));
+                // Order depKey first - makeGraphDeterministic() only makes the batch maps returned
+                // by the graph deterministic, not the order of temporary direct deps. This makes
+                // the order of deps match (alphabetized by the string representation).
+                env.getOrderedValuesAndExceptions(ImmutableList.of(depKey, topKey));
                 assertThat(env.valuesMissing()).isTrue();
                 return null;
               }
@@ -2575,72 +2578,6 @@ public abstract class MemoizingEvaluatorTest {
   public void resetNodeOnRequest_withDeps() throws Exception {
     runResetNodeOnRequest_withDeps(
         RunResetNodeOnRequestWithDepsMode.NO_KEEP_EDGES_SO_NO_REEVALUATION);
-  }
-
-  private void missingDirtyChild(boolean sameGroup) throws Exception {
-    SkyKey topKey = GraphTester.skyKey("top");
-    SkyKey missingChild = GraphTester.skyKey("missing");
-    AtomicInteger numInconsistencyCalls = new AtomicInteger(0);
-    tester.setGraphInconsistencyReceiver(
-        restartEnabledInconsistencyReceiver(
-            (key, otherKeys, inconsistency) -> {
-              Preconditions.checkState(otherKeys.size() == 1, otherKeys);
-              Preconditions.checkState(
-                  missingChild.equals(Iterables.getOnlyElement(otherKeys)),
-                  "%s %s",
-                  missingChild,
-                  otherKeys);
-              Preconditions.checkState(
-                  inconsistency == Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD, inconsistency);
-              Preconditions.checkState(topKey.equals(key), key);
-              numInconsistencyCalls.incrementAndGet();
-            }));
-    tester.initialize();
-    tester.getOrCreate(missingChild).setConstantValue(new StringValue("will go missing"));
-    SkyKey presentChild = GraphTester.nonHermeticKey("present");
-    tester.getOrCreate(presentChild).setConstantValue(new StringValue("present"));
-    StringValue topValue = new StringValue("top");
-    tester
-        .getOrCreate(topKey)
-        .setBuilder(
-            new SkyFunction() {
-              @Nullable
-              @Override
-              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-                if (sameGroup) {
-                  env.getOrderedValuesAndExceptions(ImmutableSet.of(presentChild, missingChild));
-                } else {
-                  env.getValue(presentChild);
-                  if (env.valuesMissing()) {
-                    return null;
-                  }
-                  env.getValue(missingChild);
-                }
-                return env.valuesMissing() ? null : topValue;
-              }
-            });
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
-    deleteKeyFromGraph(missingChild);
-    tester
-        .getOrCreate(presentChild, /*markAsModified=*/ true)
-        .setConstantValue(new StringValue("changed"));
-    tester.invalidate();
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
-    assertThat(numInconsistencyCalls.get()).isEqualTo(1);
-  }
-
-  protected void deleteKeyFromGraph(SkyKey key) throws Exception {
-    Iterables.removeIf(tester.evaluator.getGraphEntries(), entry -> entry.getKey().equals(key));
-  }
-
-  @Test
-  public void missingDirtyChild_SameGroup() throws Exception {
-    missingDirtyChild(/*sameGroup=*/ true);
-  }
-
-  @Test
-  public void missingDirtyChild_DifferentGroup() throws Exception {
-    missingDirtyChild(/*sameGroup=*/ false);
   }
 
   /**
@@ -4079,22 +4016,13 @@ public abstract class MemoizingEvaluatorTest {
     tester.setEventFilter(
         new EventFilter() {
           @Override
-          public boolean storeEventsAndPosts() {
+          public boolean storeEvents() {
             return true;
           }
 
           @Override
-          public boolean apply(Event input) {
-            return true;
-          }
-
-          @Override
-          public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-            if (primaryKey.equals(parent)) {
-              return includedDep::equals;
-            } else {
-              return Predicates.alwaysTrue();
-            }
+          public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
+            return !primaryKey.equals(parent) || depKey.equals(includedDep);
           }
         });
     tester.initialize();
@@ -4124,8 +4052,7 @@ public abstract class MemoizingEvaluatorTest {
                         .getExistingEntryAtCurrentlyEvaluatingVersion(parent)
                         .getValueMaybeWithMetadata())
                 .toList())
-        .containsExactly(
-            new TaggedEvents(null, ImmutableList.of(Event.warn("includedDep warning"))));
+        .containsExactly(Event.warn("includedDep warning"));
   }
 
   // Tests that we have a sane implementation of error transience.
@@ -5189,7 +5116,7 @@ public abstract class MemoizingEvaluatorTest {
         createTrackingProgressReceiver(/*checkEvaluationResults=*/ true);
     private GraphInconsistencyReceiver graphInconsistencyReceiver =
         GraphInconsistencyReceiver.THROWING;
-    private EventFilter eventFilter = InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER;
+    private EventFilter eventFilter = EventFilter.FULL_STORAGE;
 
     /** Constructs a new {@link #evaluator}, so call before injecting a transformer into it! */
     public void initialize() {

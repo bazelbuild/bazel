@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -293,12 +292,7 @@ public class WorkspaceFactory {
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   thread.getSemantics(),
                   thread.getCallStack());
-          if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
-            throw Starlark.errorf(
-                "%s's name field must be a legal workspace name; workspace names may contain only"
-                    + " A-Z, a-z, 0-9, '-', '_', and '.', and must start with a letter",
-                rule);
-          }
+          RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException
             | LabelSyntaxException e) {
@@ -397,9 +391,5 @@ public class WorkspaceFactory {
 
   public Map<String, Object> getVariableBindings() {
     return ImmutableMap.copyOf(bindings);
-  }
-
-  public Map<PathFragment, RepositoryName> getManagedDirectories() {
-    return workspaceGlobals.getManagedDirectories();
   }
 }

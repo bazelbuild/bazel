@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -161,18 +162,21 @@ public class AppleLinkingOutputs {
     }
 
     /** Adds a set of related single-architecture/platform artifacts to the output result. */
+    @CanIgnoreReturnValue
     public Builder addOutput(LinkingOutput output) {
       outputs.add(output);
       return this;
     }
 
     /** Adds a set of output groups to the output result. */
+    @CanIgnoreReturnValue
     public Builder addOutputGroups(Map<String, NestedSet<Artifact>> outputGroupsToAdd) {
       outputGroups.putAll(outputGroupsToAdd);
       return this;
     }
 
     /** Sets the legacy debug outputs provider of the output result. */
+    @CanIgnoreReturnValue
     public Builder setLegacyDebugOutputsProvider(AppleDebugOutputsInfo debugOutputsProvider) {
       this.legacyDebugOutputsProvider = debugOutputsProvider;
       return this;
@@ -182,6 +186,7 @@ public class AppleLinkingOutputs {
      * Sets the {@link ObjcProvider} that contains information about transitive dependencies linked
      * into the binary.
      */
+    @CanIgnoreReturnValue
     public Builder setDepsObjcProvider(ObjcProvider depsObjcProvider) {
       this.depsObjcProvider = depsObjcProvider;
       return this;

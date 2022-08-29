@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ChangedFilesMessage;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.SkyframeIntegrationTestBase;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -38,9 +42,9 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -100,21 +104,22 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
 
   @Test
   public void changedFile_detectsChange() throws Exception {
-    // TODO(bazel-team): Understand why these tests are flaky on Mac. Probably real watchfs bug?
-    Assume.assumeFalse(OS.DARWIN.equals(OS.getCurrent()));
+    // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo there > $@')");
 
-    buildTarget("//foo");
+    buildTargetWithRetryUntilSeesChange("//foo", "foo/BUILD");
 
     assertContents("there", "//foo");
   }
 
   @Test
   public void changedFile_statFails_throwsError() throws Exception {
-    Assume.assumeFalse(OS.DARWIN.equals(OS.getCurrent()));
+    // TODO(b/238606809): Understand why these tests are flaky on Mac. Probably real watchfs bug?
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
     write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
@@ -122,9 +127,38 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     IOException injectedException = new IOException("oh no!");
     throwOnNextStatIfFound.put(buildFile.asFragment(), injectedException);
 
-    AbruptExitException e = assertThrows(AbruptExitException.class, () -> buildTarget("//foo"));
+    AbruptExitException e =
+        assertThrows(
+            AbruptExitException.class,
+            () -> buildTargetWithRetryUntilSeesChange("//foo", "foo/BUILD"));
 
-    assertThat(e.getCause()).hasCauseThat().hasCauseThat().isSameInstanceAs(injectedException);
+    assertThat(e).hasCauseThat().hasCauseThat().hasCauseThat().isSameInstanceAs(injectedException);
+  }
+
+  /**
+   * Runs {@link #buildTarget(String...)} repeatedly until we observe a change for the given path.
+   *
+   * <p>This allows to work around the inherent raciness of {@code LocalDiffAwareness} where the FS
+   * events are delivered asynchronously and fast running test can trigger an incremental build
+   * before the change is observed.
+   */
+  private void buildTargetWithRetryUntilSeesChange(String target, String path) throws Exception {
+    AtomicBoolean changed = new AtomicBoolean();
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @Subscribe
+          private void onChangedFiles(ChangedFilesMessage changedFiles) {
+            changed.compareAndSet(
+                false, changedFiles.changedFiles().contains(PathFragment.create(path)));
+          }
+        });
+    for (int attempt = 0; attempt < 10; ++attempt) {
+      buildTarget(target);
+      if (changed.get()) {
+        return;
+      }
+    }
+    fail("Didn't observe file change within allowed number of retries");
   }
 
   // This test doesn't use --watchfs functionality, but if the source filesystem doesn't offer diffs

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.OptionInfo;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -44,13 +45,11 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 
@@ -85,7 +84,7 @@ public final class FunctionTransitionUtil {
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
       ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(buildOptions);
-      Dict<String, Object> settings =
+      ImmutableMap<String, Object> settings =
           buildSettings(buildOptions, optionInfoMap, starlarkTransition);
 
       ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
@@ -155,7 +154,9 @@ public final class FunctionTransitionUtil {
   }
 
   /**
-   * Enter the options in buildOptions into a Starlark dictionary, and return the dictionary.
+   * Return an ImmutableMap containing only BuildOptions explicitly registered as transition inputs.
+   *
+   * <p>nulls are converted to Starlark.NONE but no other conversions are done.
    *
    * @throws IllegalArgumentException If the method is unable to look up the value in buildOptions
    *     corresponding to an entry in optionInfoMap
@@ -165,7 +166,7 @@ public final class FunctionTransitionUtil {
    * @throws ValidationException if any of the specified transition inputs do not correspond to a
    *     valid build setting
    */
-  private static Dict<String, Object> buildSettings(
+  private static ImmutableMap<String, Object> buildSettings(
       BuildOptions buildOptions,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
@@ -175,57 +176,49 @@ public final class FunctionTransitionUtil {
     LinkedHashSet<String> remainingInputs =
         Sets.newLinkedHashSet(inputsCanonicalizedToGiven.keySet());
 
-    try (Mutability mutability = Mutability.create("build_settings")) {
-      Dict<String, Object> dict = Dict.of(mutability);
+    ImmutableMap.Builder<String, Object> optionsBuilder = ImmutableMap.builder();
 
-      // Add native options
-      for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
-        String optionName = entry.getKey();
-        String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
+    // Add native options
+    for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
+      String optionName = entry.getKey();
+      String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
 
-        if (!remainingInputs.remove(optionKey)) {
-          // This option was not present in inputs. Skip it.
-          continue;
-        }
-        OptionInfo optionInfo = entry.getValue();
-
-        Field field = optionInfo.getDefinition().getField();
-        FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-        try {
-          Object optionValue = field.get(options);
-          dict.putEntry(optionKey, optionValue == null ? Starlark.NONE : optionValue);
-        } catch (IllegalAccessException e) {
-          // These exceptions should not happen, but if they do, throw a RuntimeException.
-          throw new RuntimeException(e);
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex); // can't happen
-        }
+      if (!remainingInputs.remove(optionKey)) {
+        // This option was not present in inputs. Skip it.
+        continue;
       }
+      OptionInfo optionInfo = entry.getValue();
 
-      // Add Starlark options
-      for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
-        String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
-        if (!remainingInputs.remove(canonicalLabelForm)) {
-          continue;
-        }
-        // Convert the canonical form to the user requested form that they expect to see in this
-        // dict.
-        String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
-        try {
-          dict.putEntry(userRequestedLabelForm, starlarkOption.getValue());
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex); // can't happen
-        }
+      Field field = optionInfo.getDefinition().getField();
+      FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
+      try {
+        Object optionValue = field.get(options);
+        // convert nulls here b/c ImmutableMap bans null values
+        optionsBuilder.put(optionKey, optionValue == null ? Starlark.NONE : optionValue);
+      } catch (IllegalAccessException e) {
+        // These exceptions should not happen, but if they do, throw a RuntimeException.
+        throw new IllegalStateException(e);
       }
-
-      if (!remainingInputs.isEmpty()) {
-        throw ValidationException.format(
-            "transition inputs [%s] do not correspond to valid settings",
-            Joiner.on(", ").join(remainingInputs));
-      }
-
-      return dict;
     }
+
+    // Add Starlark options
+    for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
+      String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
+      if (!remainingInputs.remove(canonicalLabelForm)) {
+        continue;
+      }
+      // Convert the canonical form to the user requested form that they expect to see
+      String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
+      optionsBuilder.put(userRequestedLabelForm, starlarkOption.getValue());
+    }
+
+    if (!remainingInputs.isEmpty()) {
+      throw ValidationException.format(
+          "transition inputs [%s] do not correspond to valid settings",
+          Joiner.on(", ").join(remainingInputs));
+    }
+
+    return optionsBuilder.buildOrThrow();
   }
 
   /**
@@ -268,9 +261,25 @@ public final class FunctionTransitionUtil {
         // The transition changes a Starlark option.
         Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
-        if ((oldValue == null && optionValue != null)
-            || (oldValue != null && optionValue == null)
-            || (oldValue != null && !oldValue.equals(optionValue))) {
+        if (oldValue instanceof Label) {
+          // If this is a label-typed build setting, we need to convert the provided new value into
+          // a Label object.
+          if (optionValue instanceof String) {
+            try {
+              optionValue =
+                  Label.parseWithPackageContext(
+                      (String) optionValue, starlarkTransition.getPackageContext());
+            } catch (LabelSyntaxException e) {
+              throw ValidationException.format(
+                  "Error parsing value for option '%s': %s", optionKey, e.getMessage());
+            }
+          } else if (!(optionValue instanceof Label)) {
+            throw ValidationException.format(
+                "Invalid value type for option '%s': want label, got %s",
+                optionKey, Starlark.type(optionValue));
+          }
+        }
+        if (!Objects.equals(oldValue, optionValue)) {
           changedStarlarkOptions.put(optionLabel, optionValue);
           convertedAffectedOptions.add(optionLabel.toString());
         }
@@ -308,12 +317,19 @@ public final class FunctionTransitionUtil {
             // of returning either a scalar or list.
             List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
-              convertedValue = def.getDefaultValue();
+              convertedValue = ImmutableList.of();
             } else {
               convertedValue =
                   def.getConverter()
                       .convert(
-                          optionValueAsList.stream().map(Object::toString).collect(joining(",")));
+                          optionValueAsList.stream()
+                              .map(
+                                  element ->
+                                      element instanceof Label
+                                          ? ((Label) element).getUnambiguousCanonicalForm()
+                                          : element.toString())
+                              .collect(joining(",")),
+                          starlarkTransition.getPackageContext());
             }
           } else if (def.getType() == List.class && optionValue == null) {
             throw ValidationException.format(
@@ -325,15 +341,15 @@ public final class FunctionTransitionUtil {
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
             convertedValue = optionValue;
           } else if (optionValue instanceof String) {
-            convertedValue = def.getConverter().convert((String) optionValue);
+            convertedValue =
+                def.getConverter()
+                    .convert((String) optionValue, starlarkTransition.getPackageContext());
           } else {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
           Object oldValue = field.get(fromOptions.get(optionInfo.getOptionClass()));
-          if ((oldValue == null && convertedValue != null)
-              || (oldValue != null && convertedValue == null)
-              || (oldValue != null && !oldValue.equals(convertedValue))) {
+          if (!Objects.equals(oldValue, convertedValue)) {
             if (toOptions == null) {
               toOptions = fromOptions.clone();
             }

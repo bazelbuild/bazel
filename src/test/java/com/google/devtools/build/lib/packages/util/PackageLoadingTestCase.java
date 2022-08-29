@@ -134,8 +134,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
@@ -152,8 +151,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
@@ -217,7 +215,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   protected Target getTarget(String label)
       throws NoSuchPackageException, NoSuchTargetException,
       LabelSyntaxException, InterruptedException {
-    return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
+    return getTarget(Label.parseCanonical(label));
   }
 
   protected Target getTarget(Label label)
@@ -299,7 +297,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   public static Set<Label> asLabelSet(Iterable<String> strings) throws LabelSyntaxException {
     Set<Label> result = Sets.newTreeSet();
     for (String s : strings) {
-      result.add(Label.parseAbsolute(s, ImmutableMap.of()));
+      result.add(Label.parseCanonical(s));
     }
     return result;
   }
@@ -308,8 +306,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     return skyframeExecutor.getPackageManager();
   }
 

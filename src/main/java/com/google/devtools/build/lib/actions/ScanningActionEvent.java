@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * Notifies that an in-flight action has started being scanned for discovered inputs.
  *
  * <p>This phase ends when an {@link StoppedScanningActionEvent} is posted for this action.
  */
-public class ScanningActionEvent implements ProgressLike {
+public final class ScanningActionEvent implements Postable {
 
   private final ActionExecutionMetadata action;
 

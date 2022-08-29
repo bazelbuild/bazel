@@ -170,11 +170,10 @@ public class BuildViewForTesting {
 
   private Set<ActionLookupKey> populateActionLookupKeyMapAndGetDiff() {
     ImmutableMap<ActionLookupKey, Version> newMap =
-        stream(skyframeExecutor.getEvaluator().getGraphEntries())
+        skyframeExecutor.getEvaluator().getAllValuesMutable().entrySet().stream()
             .filter(e -> e.getKey() instanceof ActionLookupKey)
             .collect(
-                toImmutableMap(
-                    e -> ((ActionLookupKey) e.getKey()), e -> e.getValue().getVersion()));
+                toImmutableMap(e -> (ActionLookupKey) e.getKey(), e -> e.getValue().getVersion()));
     MapDifference<ActionLookupKey, Version> difference =
         Maps.difference(newMap, currentActionLookupKeys);
     currentActionLookupKeys = newMap;
@@ -191,7 +190,6 @@ public class BuildViewForTesting {
   public AnalysisResult update(
       TargetPatternPhaseValue loadingResult,
       BuildOptions targetOptions,
-      Set<String> multiCpu,
       ImmutableSet<Label> explicitTargetPatterns,
       List<String> aspects,
       ImmutableMap<String, String> aspectsParameters,
@@ -207,7 +205,6 @@ public class BuildViewForTesting {
     return buildView.update(
         loadingResult,
         targetOptions,
-        multiCpu,
         explicitTargetPatterns,
         aspects,
         aspectsParameters,
@@ -221,7 +218,9 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /*includeExecutionPhase=*/ false,
-        /*mergedPhasesExecutionJobsCount=*/ 0);
+        /*mergedPhasesExecutionJobsCount=*/ 0,
+        /*resourceManager=*/ null,
+        /*buildResultListener=*/ null);
   }
 
   /** Sets the configurations. Not thread-safe. */
@@ -303,8 +302,7 @@ public class BuildViewForTesting {
 
       // Load the keys of the dependencies of the target, based on data currently in skyframe.
       Iterable<SkyKey> directPrerequisites =
-          walkableGraph.getDirectDeps(
-              ConfiguredTargetKey.builder().setConfiguredTarget(ct).build());
+          walkableGraph.getDirectDeps(ConfiguredTargetKey.fromConfiguredTarget(ct));
 
       // Turn the keys back into ConfiguredTarget instances, possibly merging in aspects that were
       // propagated from the original target.
@@ -579,7 +577,7 @@ public class BuildViewForTesting {
     BuildConfigurationValue targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, target.getConfigurationKey());
     SkyFunction.Environment skyframeEnv =
-        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+        new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
@@ -624,7 +622,7 @@ public class BuildViewForTesting {
     }
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
-        skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
+        new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
 
     ComputedToolchainContexts result =
         ConfiguredTargetFunction.computeUnloadedToolchainContexts(
@@ -662,11 +660,7 @@ public class BuildViewForTesting {
         .setHostConfiguration(configurations.getHostConfiguration())
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
-        .setActionOwnerSymbol(
-            ConfiguredTargetKey.builder()
-                .setConfiguredTarget(configuredTarget)
-                .setConfigurationKey(configuredTarget.getConfigurationKey())
-                .build())
+        .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))
         .setMutability(Mutability.create("configured target"))
         .setVisibility(
             NestedSetBuilder.create(
@@ -676,12 +670,12 @@ public class BuildViewForTesting {
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-        .build();
+        .unsafeBuild();
   }
 
   /** Clears the analysis cache as in --discard_analysis_cache. */
   void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
+      ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     skyframeBuildView.clearAnalysisCache(topLevelTargets, topLevelAspects);
   }
 }

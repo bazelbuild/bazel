@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** Event reporting about the place where a Starlark repository rule was defined. */
-public class StarlarkRepositoryDefinitionLocationEvent implements ProgressLike {
+public final class StarlarkRepositoryDefinitionLocationEvent implements Postable {
 
   private final String name;
   private final String definitionInformation;

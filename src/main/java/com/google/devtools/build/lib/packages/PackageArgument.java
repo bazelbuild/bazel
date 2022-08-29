@@ -40,7 +40,7 @@ public abstract class PackageArgument<T> {
   final void convertAndProcess(
       Package.Builder pkgBuilder, Location location, Object value)
       throws EvalException {
-    T typedValue = type.convert(value, "'package' argument", pkgBuilder.getBuildFileLabel());
+    T typedValue = type.convert(value, "'package' argument", pkgBuilder.getLabelConverter());
     process(pkgBuilder, location, typedValue);
   }
 

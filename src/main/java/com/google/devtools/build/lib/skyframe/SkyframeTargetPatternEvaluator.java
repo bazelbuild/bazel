@@ -168,7 +168,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           exception,
           ((NoSuchPackageException) exception).getDetailedExitCode());
     }
-    BugReport.sendBugReport(
+    BugReport.sendNonFatalBugReport(
         new IllegalStateException("Unexpected exception: " + debugging, exception));
     String message = "Target parsing failed due to unexpected exception: " + exception.getMessage();
     DetailedExitCode detailedExitCode = DetailedException.getDetailedExitCode(exception);
@@ -177,6 +177,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         : new TargetParsingException(message, exception, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
   }
 
+  @Nullable
   private PatternLookup createPatternLookup(
       PathFragment offset,
       ExtendedEventHandler eventHandler,

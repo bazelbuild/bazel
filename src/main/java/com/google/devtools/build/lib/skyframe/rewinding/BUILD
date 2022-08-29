@@ -2,8 +2,6 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -53,6 +51,7 @@ java_library(
     srcs = ["RewindableGraphInconsistencyReceiver.java"],
     deps = [
         ":rewinding_inconsistency_utils",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:graph_inconsistency_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

@@ -44,20 +44,21 @@ import net.starlark.java.eval.Printer;
 /** Command-line options for building for Apple platforms. */
 public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
-    name = "experimental_apple_mandatory_minimum_version",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-    help = "Whether Apple rules must have a mandatory minimum_os_version attribute."
-  )
-  // TODO(b/37096178): This flag should be default-on and then be removed.
+      name = "experimental_apple_mandatory_minimum_version",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "No-op. Kept here for backwards compatibility. This field will be removed in a "
+              + "future release.")
+  // TODO(b/37096178): This flag should be removed.
   public boolean mandatoryMinimumVersion;
 
   @Option(
       name = "experimental_objc_provider_from_linked",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      effectTags = {OptionEffectTag.NO_OP},
       help =
           "No-op. Kept here for backwards compatibility. This field will be removed in a "
               + "future release.")
@@ -203,16 +204,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
-
-  @Option(
-    name = "ios_cpu",
-    defaultValue = DEFAULT_IOS_CPU,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "Specifies to target CPU of iOS compilation."
-  )
-  public String iosCpu;
 
   @Option(
     name = "apple_compiler",

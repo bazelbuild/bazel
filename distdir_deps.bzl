@@ -48,10 +48,9 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
-    # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
-    # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-    # Note: This is not in sync with src/test/java/com/google/devtools/build/lib/blackbox/framework/BlackBoxTestEnvironment.java.
-    #       Perhaps it should be.
+    # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
+    # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+    # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
         "archive": "b1c40e1de81913a3c40e5948f78719c28152486d.zip",
         "sha256": "d0c573b94a6ef20ef6ff20154a23d0efcb409fb0e1ff0979cec318dfe42f0cdd",
@@ -78,8 +77,7 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    # TODO(aiuto): Update src/test/java/com/google/devtools/build/lib/blackbox/framework/BlackBoxTestEnvironment.java to use
-    # this dynamically.
+    # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
         "archive": "7e4afce6fe62dbff0a4a03450143146f9f2d7488.tar.gz",
         "sha256": "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
@@ -126,17 +124,89 @@ DIST_DEPS = {
         ],
     },
     "com_github_grpc_grpc": {
-        "archive": "v1.41.0.tar.gz",
-        "sha256": "e5fb30aae1fa1cffa4ce00aa0bbfab908c0b899fcf0bbc30e268367d660d8656",
-        "strip_prefix": "grpc-1.41.0",
+        "archive": "v1.47.0.tar.gz",
+        "sha256": "271bdc890bf329a8de5b65819f0f9590a5381402429bca37625b63546ed19e54",
+        "strip_prefix": "grpc-1.47.0",
         "urls": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.41.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.41.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.47.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.47.0.tar.gz",
         ],
         "patch_args": ["-p1"],
         "patches": [
-            "//third_party/grpc:grpc_1.41.0.patch",
-            "//third_party/grpc:grpc_1.41.0.win_arm64.patch",
+            "//third_party/grpc:grpc_1.47.0.patch",
+            "//third_party/grpc:grpc_1.47.0.win_arm64.patch",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "com_github_cncf_udpa": {
+        "archive": "cb28da3451f158a947dfc45090fe92b07b243bc1.tar.gz",
+        "sha256": "5bc8365613fe2f8ce6cc33959b7667b13b7fe56cb9d16ba740c06e1a7c4242fc",
+        "urls": [
+            "https://mirror.bazel.build/github.com/cncf/xds/archive/cb28da3451f158a947dfc45090fe92b07b243bc1.tar.gz",
+            "https://github.com/cncf/xds/archive/cb28da3451f158a947dfc45090fe92b07b243bc1.tar.gz",
+        ],
+        "strip_prefix": "xds-cb28da3451f158a947dfc45090fe92b07b243bc1",
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party/cncf_udpa:cncf_udpa_0.0.1.patch",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "com_envoyproxy_protoc_gen_validate": {
+        "archive": "4694024279bdac52b77e22dc87808bd0fd732b69.tar.gz",
+        "sha256": "1e490b98005664d149b379a9529a6aa05932b8a11b76b4cd86f3d22d76346f47",
+        "strip_prefix": "protoc-gen-validate-4694024279bdac52b77e22dc87808bd0fd732b69",
+        "urls": [
+            "https://mirror.bazel.build/github.com/envoyproxy/protoc-gen-validate/archive/4694024279bdac52b77e22dc87808bd0fd732b69.tar.gz",
+            "https://github.com/envoyproxy/protoc-gen-validate/archive/4694024279bdac52b77e22dc87808bd0fd732b69.tar.gz",
+        ],
+        "patch_args": ["-p1"],
+        "patches": [
+            "//third_party/protoc_gen_validate:protoc_gen_validate.patch",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "bazel_gazelle": {
+        "archive": "bazel-gazelle-v0.24.0.tar.gz",
+        "sha256": "de69a09dc70417580aabf20a28619bb3ef60d038470c7cf8442fafcf627c21cb",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.24.0/bazel-gazelle-v0.24.0.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "com_google_googleapis": {
+        "archive": "2f9af297c84c55c8b871ba4495e01ade42476c92.tar.gz",
+        "sha256": "5bb6b0253ccf64b53d6c7249625a7e3f6c3bc6402abd52d3778bfa48258703a0",
+        "strip_prefix": "googleapis-2f9af297c84c55c8b871ba4495e01ade42476c92",
+        "urls": [
+            "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/2f9af297c84c55c8b871ba4495e01ade42476c92.tar.gz",
+            "https://github.com/googleapis/googleapis/archive/2f9af297c84c55c8b871ba4495e01ade42476c92.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "upb": {
+        "archive": "e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
+        "sha256": "03b642a535656560cd95cab3b26e8c53ce37e472307dce5bb7e47c9953bbca0f",
+        "strip_prefix": "upb-e5f26018368b11aab672e8e8bb76513f3620c579",
+        "urls": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/e5f26018368b11aab672e8e8bb76513f3620c579.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -144,12 +214,25 @@ DIST_DEPS = {
         ],
     },
     "c-ares": {
-        "archive": "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
-        "sha256": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
+        "archive": "6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
+        "sha256": "ec76c5e79db59762776bece58b69507d095856c37b81fd35bfb0958e74b61d93",
         "urls": [
-            "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
-            "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+            "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
+            "https://github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
         ],
+        "used_in": [
+            "additional_distfiles",
+            "test_WORKSPACE_files",
+        ],
+    },
+    "zlib": {
+        "archive": "21767c654d31d2dccdde4330529775c6c5fd5389.tar.gz",
+        "sha256": "ef47b0fbe646d69a2fc5ba012cb278de8e8946a8e9649f83a807cc05559f0eff",
+        "urls": [
+            "https://mirror.bazel.build/github.com/madler/zlib/archive/21767c654d31d2dccdde4330529775c6c5fd5389.tar.gz",
+            "https://github.com/madler/zlib/archive/21767c654d31d2dccdde4330529775c6c5fd5389.tar.gz",
+        ],
+        "strip_prefix": "zlib-21767c654d31d2dccdde4330529775c6c5fd5389",
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
@@ -260,13 +343,23 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
-    # for Stardoc
     "build_bazel_rules_nodejs": {
-        "archive": "rules_nodejs-2.2.2.tar.gz",
-        "sha256": "f2194102720e662dbf193546585d705e645314319554c6ce7e47d8b59f459e9c",
+        "archive": "rules_nodejs-5.5.0.tar.gz",
+        "sha256": "0fad45a9bda7dc1990c47b002fd64f55041ea751fafc00cd34efb96107675778",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-5.5.0.tar.gz",
+            "https://github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-5.5.0.tar.gz",
+        ],
+        "used_in": [
+            "additional_distfiles",
+        ],
+    },
+    "rules_nodejs": {
+        "archive": "rules_nodejs-core-5.5.0.tar.gz",
+        "sha256": "4d48998e3fa1e03c684e6bdf7ac98051232c7486bfa412e5b5475bbaec7bb257",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-core-5.5.0.tar.gz",
+            "https://github.com/bazelbuild/rules_nodejs/releases/download/5.5.0/rules_nodejs-core-5.5.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -300,11 +393,11 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v11.7.1.zip",
-        "sha256": "2eede49b2d80135e0ea22180f63df26db2ed4b795c1c041b25cc653d6019fbec",
+        "archive": "java_tools-v11.8.zip",
+        "sha256": "8fb4d3138bd92a9d3324dae29c9f70d91ca2db18cd0bf1997446eed4657d19b3",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.7.1/java_tools-v11.7.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools-v11.7.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.8/java_tools-v11.8.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.8/java_tools-v11.8.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -315,11 +408,11 @@ DIST_DEPS = {
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v11.7.1.zip",
-        "sha256": "f78077f0c043d0d13c82de0ee4a99753e66bb18ec46e3601fa2a10e7f26798a8",
+        "archive": "java_tools_linux-v11.8.zip",
+        "sha256": "41502b293eea292b0577b46e8d7738bfe88180562acbf99ed620b5387a60efee",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.7.1/java_tools_linux-v11.7.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_linux-v11.7.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.8/java_tools_linux-v11.8.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.8/java_tools_linux-v11.8.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -330,11 +423,11 @@ DIST_DEPS = {
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v11.7.1.zip",
-        "sha256": "a7086734866505292ee4c206328c73c6af127e69bd51b98c9c186ae4b9b6d2db",
+        "archive": "java_tools_windows-v11.8.zip",
+        "sha256": "056ed8ba64920409eab63e3c4888c1970a523d2c03965784fc3243e37195318b",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.7.1/java_tools_windows-v11.7.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_windows-v11.7.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.8/java_tools_windows-v11.8.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.8/java_tools_windows-v11.8.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
@@ -345,11 +438,11 @@ DIST_DEPS = {
             "remote_java_tools_test_darwin",
             "remote_java_tools_darwin_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.7.1.zip",
-        "sha256": "4d6d388b54ad3b9aa35b30dd67af8d71c4c240df8cfb5000bbec67bdd5c53a73",
+        "archive": "java_tools_darwin-v11.8.zip",
+        "sha256": "0dcf4500cc4a1de8e563c1d48a079a7a0cf77cc246e39fd37fcc78ddf409ed26",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.7.1/java_tools_darwin-v11.7.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.7.1/java_tools_darwin-v11.7.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.8/java_tools_darwin-v11.8.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.8/java_tools_darwin-v11.8.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",

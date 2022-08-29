@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -526,21 +527,32 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     if (forcedExecutionPlatform.isPresent()) {
       // Is the forced platform suitable?
-      if (isPlatformSuitable(forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains)) {
+      if (isPlatformSuitable(
+          forcedExecutionPlatform.get(), toolchainTypes, resolvedToolchains, true)) {
         return forcedExecutionPlatform;
       }
     }
 
+    // If there is one, choose the first execution platform that has all toolchains.
+    Optional<ConfiguredTargetKey> bestPlatform =
+        availableExecutionPlatformKeys.stream()
+            .filter(epk -> isPlatformSuitable(epk, toolchainTypes, resolvedToolchains, false))
+            .findFirst();
+    if (bestPlatform.isPresent()) {
+      return bestPlatform;
+    }
+
     // Choose the first execution platform that has all mandatory toolchains.
     return availableExecutionPlatformKeys.stream()
-        .filter(epk -> isPlatformSuitable(epk, toolchainTypes, resolvedToolchains))
+        .filter(epk -> isPlatformSuitable(epk, toolchainTypes, resolvedToolchains, true))
         .findFirst();
   }
 
   private static boolean isPlatformSuitable(
       ConfiguredTargetKey executionPlatformKey,
       ImmutableSet<ToolchainType> toolchainTypes,
-      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains,
+      boolean onlyMandatory) {
     if (toolchainTypes.isEmpty()) {
       // Since there aren't any toolchains, we should be able to use any execution platform that
       // has made it this far.
@@ -553,7 +565,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
         .keySet()
         .containsAll(
             toolchainTypes.stream()
-                .filter(ToolchainType::mandatory)
+                .filter(onlyMandatory ? ToolchainType::mandatory : Predicates.alwaysTrue())
                 .map(ToolchainType::toolchainTypeInfo)
                 .collect(toImmutableSet()));
   }

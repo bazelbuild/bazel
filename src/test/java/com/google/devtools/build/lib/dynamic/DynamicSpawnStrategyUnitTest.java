@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.dynamic;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -433,6 +434,36 @@ public class DynamicSpawnStrategyUnitTest {
             Event.info(
                 "Disabling dynamic execution until we have seen a successful build, see"
                     + " --experimental_dynamic_skip_first_build."));
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_excludeTools_onlyRemote() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder()
+            .withMnemonic("TheThing")
+            .withOwnerPrimaryOutput(output1)
+            .withProgressMessage("Building the thing [for tool]")
+            .build();
+    DynamicExecutionOptions options = new DynamicExecutionOptions();
+    options.excludeTools = true;
+    options.localExecutionDelay = 0;
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.ANYWHERE, (s) -> Optional.empty(), options, true);
+
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    when(remote.exec(eq(spawn), any(), any()))
+        .thenReturn(ImmutableList.of(SUCCESSFUL_SPAWN_RESULT));
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    when(actionExecutionContext.getEventHandler()).thenReturn(reporter);
+
+    ImmutableList<SpawnResult> spawnResults =
+        dynamicSpawnStrategy.maybeExecuteNonDynamically(spawn, actionExecutionContext);
+
+    assertWithMessage("Should have been executed remote-only").that(spawnResults).isNotNull();
+    assertThat(spawnResults).containsExactly(SUCCESSFUL_SPAWN_RESULT);
+    verify(local, never()).exec(any(), any(), any());
   }
 
   @Test

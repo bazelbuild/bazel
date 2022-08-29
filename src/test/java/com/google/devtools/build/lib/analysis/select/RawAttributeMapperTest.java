@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.select;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -112,9 +111,9 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     assertThat(rawMapper.getConfigurabilityKeys("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            Label.parseAbsolute("//conditions:a", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:b", ImmutableMap.of()),
-            Label.parseAbsolute("//conditions:default", ImmutableMap.of()));
+            Label.parseCanonical("//conditions:a"),
+            Label.parseCanonical("//conditions:b"),
+            Label.parseCanonical("//conditions:default"));
     assertThat(rawMapper.getConfigurabilityKeys("data", BuildType.LABEL_LIST)).isEmpty();
   }
 
@@ -130,9 +129,9 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
     assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            Label.parseAbsolute("//x:a.sh", ImmutableMap.of()),
-            Label.parseAbsolute("//x:b.sh", ImmutableMap.of()),
-            Label.parseAbsolute("//x:c.sh", ImmutableMap.of()))
+            Label.parseCanonical("//x:a.sh"),
+            Label.parseCanonical("//x:b.sh"),
+            Label.parseCanonical("//x:c.sh"))
         .inOrder();
   }
 
@@ -151,11 +150,11 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(rule);
     assertThat(rawMapper.getMergedValues("srcs", BuildType.LABEL_LIST))
         .containsExactly(
-            Label.parseAbsolute("//x:a1.sh", ImmutableMap.of()),
-            Label.parseAbsolute("//x:b1.sh", ImmutableMap.of()),
-            Label.parseAbsolute("//x:another_b1.sh", ImmutableMap.of()),
-            Label.parseAbsolute("//x:a2.sh", ImmutableMap.of()),
-            Label.parseAbsolute("//x:b2.sh", ImmutableMap.of()))
+            Label.parseCanonical("//x:a1.sh"),
+            Label.parseCanonical("//x:b1.sh"),
+            Label.parseCanonical("//x:another_b1.sh"),
+            Label.parseCanonical("//x:a2.sh"),
+            Label.parseCanonical("//x:b2.sh"))
         .inOrder();
   }
 }

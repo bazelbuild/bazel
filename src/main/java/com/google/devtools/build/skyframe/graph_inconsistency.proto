@@ -24,11 +24,20 @@ enum Inconsistency {
   // printed, we add a dummy enum at position 0.
   IMPOSSIBLE_NO_INCONSISTENCY_TO_MAKE_OTHER_VALUES_NONZERO = 0;
   RESET_REQUESTED = 1;
-  DIRTY_PARENT_HAD_MISSING_CHILD = 2;
+  // Deprecated: children should never be missing. A missing child is not
+  // tolerated and results in a crash, so this inconsistency will not appear in
+  // InconsistencyStats.
+  DIRTY_PARENT_HAD_MISSING_CHILD = 2 [deprecated = true];
   PARENT_FORCE_REBUILD_OF_CHILD = 3;
-  PARENT_FORCE_REBUILD_OF_MISSING_CHILD = 4;
+  // Deprecated: children requested for rewinding should be created if absent.
+  // A missing child is not tolerated and results in a crash, so this
+  // inconsistency will not appear in InconsistencyStats.
+  PARENT_FORCE_REBUILD_OF_MISSING_CHILD = 4 [deprecated = true];
   BUILDING_PARENT_FOUND_UNDONE_CHILD = 5;
-  ALREADY_DECLARED_CHILD_MISSING = 6;
+  // Deprecated: already declared children should never be missing. A missing
+  // already declared child is not tolerated and results in a crash, so this
+  // inconsistency will not appear in InconsistencyStats.
+  ALREADY_DECLARED_CHILD_MISSING = 6 [deprecated = true];
 }
 
 // Information about inconsistencies encountered during an invocation (typically
@@ -36,8 +45,12 @@ enum Inconsistency {
 message InconsistencyStats {
   repeated InconsistencyStat self_stats = 1;
   repeated InconsistencyStat child_stats = 2;
-  repeated InconsistencyStat unexpected_self_stats = 3;
-  repeated InconsistencyStat unexpected_child_stats = 4;
+  // Deprecated: an unexpected inconsistency is not tolerated and results in a
+  // crash, so this field will always be empty.
+  repeated InconsistencyStat unexpected_self_stats = 3 [deprecated = true];
+  // Deprecated: an unexpected inconsistency is not tolerated and results in a
+  // crash, so this field will always be empty.
+  repeated InconsistencyStat unexpected_child_stats = 4 [deprecated = true];
 
   message InconsistencyStat {
     Inconsistency inconsistency = 1;

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Builder for creating aar generator action. */
 public class AarGeneratorBuilder {
@@ -31,41 +32,49 @@ public class AarGeneratorBuilder {
   private Artifact aarOut;
   private boolean throwOnResourceConflict;
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder withPrimaryResources(AndroidResources primaryResources) {
     this.primaryResources = primaryResources;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder withPrimaryAssets(AndroidAssets primaryAssets) {
     this.primaryAssets = primaryAssets;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder withManifest(Artifact manifest) {
     this.manifest = manifest;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder withRtxt(Artifact rTxt) {
     this.rTxt = rTxt;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder withClasses(Artifact classes) {
     this.classes = classes;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder setAAROut(Artifact aarOut) {
     this.aarOut = aarOut;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder setProguardSpecs(ImmutableList<Artifact> proguardSpecs) {
     this.proguardSpecs = proguardSpecs;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public AarGeneratorBuilder setThrowOnResourceConflict(boolean throwOnResourceConflict) {
     this.throwOnResourceConflict = throwOnResourceConflict;
     return this;

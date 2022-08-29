@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Builder for creating a zip filter action. */
 public class ZipFilterBuilder {
@@ -58,12 +58,14 @@ public class ZipFilterBuilder {
   }
 
   /** Sets the Zip file to be filtered. */
+  @CanIgnoreReturnValue
   public ZipFilterBuilder setInputZip(Artifact inputZip) {
     this.inputZip = inputZip;
     return this;
   }
 
   /** Sets the artifact to create with the action. */
+  @CanIgnoreReturnValue
   public ZipFilterBuilder setOutputZip(Artifact outputZip) {
     this.outputZip = outputZip;
     return this;
@@ -73,6 +75,7 @@ public class ZipFilterBuilder {
    * Adds to the Zip files to use as filters. Contents in these files will be omitted from the
    * output.
    */
+  @CanIgnoreReturnValue
   public ZipFilterBuilder addFilterZips(Iterable<Artifact> filterZips) {
     this.filterZipsBuilder.addAll(filterZips);
     return this;
@@ -82,18 +85,21 @@ public class ZipFilterBuilder {
    * Adds to the file types to use as filters. Only contents in the filter Zip files with these
    * extensions will be filtered out.
    */
+  @CanIgnoreReturnValue
   public ZipFilterBuilder addFileTypeToFilter(String filterFileType) {
     this.filterFileTypesBuilder.add(filterFileType);
     return this;
   }
 
   /** Adds filterRegex to the set of filters to always check for and remove. */
+  @CanIgnoreReturnValue
   public ZipFilterBuilder addExplicitFilter(String filterRegex) {
     this.explicitFilterBuilder.add(filterRegex);
     return this;
   }
 
   /** Enable checking of hash mismatches for files with the same name. */
+  @CanIgnoreReturnValue
   public ZipFilterBuilder setCheckHashMismatchMode(CheckHashMismatchMode mode) {
     this.checkHashMismatch = mode;
     return this;

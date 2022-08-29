@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
@@ -241,7 +243,8 @@ public final class ActionExecutionValue implements SkyValue {
       ImmutableMap<Artifact, V> data,
       Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap,
       Action action,
-      BiFunction<Artifact, V, V> transform) {
+      BiFunction<Artifact, V, V> transform)
+      throws ActionTransformException {
     if (data.isEmpty()) {
       return data;
     }
@@ -249,12 +252,11 @@ public final class ActionExecutionValue implements SkyValue {
     ImmutableMap.Builder<Artifact, V> result = ImmutableMap.builderWithExpectedSize(data.size());
     for (Map.Entry<Artifact, V> entry : data.entrySet()) {
       Artifact artifact = entry.getKey();
-      Artifact newArtifact =
-          Preconditions.checkNotNull(
-              newArtifactMap.get(new OwnerlessArtifactWrapper(artifact)),
-              "No output matching %s, cannot share with %s",
-              artifact,
-              action);
+      Artifact newArtifact = newArtifactMap.get(new OwnerlessArtifactWrapper(artifact));
+      if (newArtifact == null) {
+        throw new ActionTransformException(
+            "No output matching %s, cannot share with %s", artifact, action);
+      }
       result.put(newArtifact, transform.apply(newArtifact, entry.getValue()));
     }
     return result.buildOrThrow();
@@ -297,12 +299,11 @@ public final class ActionExecutionValue implements SkyValue {
    * com.google.devtools.build.lib.actions.Actions#canBeShared shareable} with the action that
    * originally produced this {@code ActionExecutionValue}.
    */
-  public ActionExecutionValue transformForSharedAction(Action action) {
-    Preconditions.checkArgument(
-        action.getOutputs().size() == artifactData.size() + treeArtifactData.size(),
-        "Cannot share %s with %s",
-        this,
-        action);
+  public ActionExecutionValue transformForSharedAction(Action action)
+      throws ActionTransformException {
+    if (action.getOutputs().size() != artifactData.size() + treeArtifactData.size()) {
+      throw new ActionTransformException("Cannot share %s with %s", this, action);
+    }
     Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
         Maps.uniqueIndex(action.getOutputs(), OwnerlessArtifactWrapper::new);
     return new ActionExecutionValue(
@@ -312,5 +313,16 @@ public final class ActionExecutionValue implements SkyValue {
         outputSymlinks,
         // Discovered modules come from the action's inputs, and so don't need to be transformed.
         discoveredModules);
+  }
+
+  /**
+   * Exception thrown when {@link #transformForSharedAction} is called with an action that does not
+   * have the same outputs.
+   */
+  public static final class ActionTransformException extends Exception {
+    @FormatMethod
+    private ActionTransformException(@FormatString String format, Object... args) {
+      super(String.format(format, args));
+    }
   }
 }

@@ -2,8 +2,6 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -26,11 +24,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:analysis_v2_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",

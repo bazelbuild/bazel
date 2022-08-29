@@ -705,11 +705,11 @@ def _tree_art_impl(ctx):
 tree_art_rule = rule(implementation = _tree_art_impl,
     attrs = {
         "_makes_tree" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//${package}:makes_tree_artifacts.sh"),
         "_write" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//${package}:write.sh")})
 
@@ -1127,37 +1127,6 @@ EOF
      "could not find 'undeclared inclusion' error message in bazel output"
 }
 
-function test_incompatible_linkopts_to_linklibs() {
-  if is_darwin; then
-    # This only applies to the Unix toolchain.
-    return 0
-  fi
-  mkdir -p foo
-  cat << 'EOF' > foo/BUILD
-cc_library(
-    name = "foo",
-    srcs = ["foo.cc"],
-)
-EOF
-  touch foo/foo.cc
-
-  local -r object_file=".*foo.pic.o"
-  local stdcpp="-lstdc++"
-  local lm="-lm"
-
-  bazel build --incompatible_linkopts_to_linklibs //foo \
-    || fail "Build failed but should have succeeded"
-  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
-
-  expect_log "$object_file$stdcpp$lm"
-
-  bazel build --noincompatible_linkopts_to_linklibs //foo \
-    || fail "Build failed but should have succeeded"
-  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
-
-  expect_log "$stdcpp$lm$object_file"
-}
-
 function test_sibling_repository_layout_include_external_repo_output() {
   mkdir test
   cat > test/BUILD <<'EOF'
@@ -1455,6 +1424,55 @@ EOF
 
   bazel test //pkg:foo_test &> "$TEST_log" && fail "Did not fail as expected. ENV leak?" || true
   FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
+}
+
+function test_getting_compile_action_env_with_cctoolchain_config_features() {
+  [ "$PLATFORM" != "darwin" ] || return 0
+
+  mkdir -p package
+
+  cat > "package/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+
+    for action in target.actions:
+      if action.mnemonic in ["CppCompile", "ObjcCompile"]:
+        compile_action = action
+
+    print(compile_action.env)
+    return []
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+  cat > "package/x.cc" <<EOF
+#include <stdio.h>
+int main() {
+  printf("Hello\n");
+}
+EOF
+
+  cat > "package/BUILD" <<EOF
+cc_binary(
+  name = "x",
+  srcs = ["x.cc"],
+)
+EOF
+
+  # Without the flag, the env should not return extra fixed variables
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  expect_not_log "\"PWD\": \"/proc/self/cwd\""
+
+  # With the flag, the env should return extra fixed variables
+  bazel build "package:x" \
+      --aspects="//package:lib.bzl%actions_test_aspect" \
+      --experimental_get_fixed_configured_action_env &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  expect_log "\"PWD\": \"/proc/self/cwd\""
 }
 
 run_suite "cc_integration_test"

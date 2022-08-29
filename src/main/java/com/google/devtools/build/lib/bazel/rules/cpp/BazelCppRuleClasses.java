@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import javax.annotation.Nullable;
 
 /**
  * Rule class definitions for C++ rules.
@@ -372,6 +373,7 @@ public class BazelCppRuleClasses {
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override
+                        @Nullable
                         public Object getDefault(AttributeMap rule) {
                           // Every cc_rule depends implicitly on the def_parser tool.
                           // The only exceptions are the rules for building def_parser itself.

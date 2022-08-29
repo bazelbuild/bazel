@@ -1,74 +1,154 @@
-book_path: /_book.yaml
 project_path: /_project.yaml
-# custom_css_path: /landing-pages-nav.scss
-title: Getting started
+book_path: /_book.yaml
+
 landing_page:
-  nav: left
+  header:
+    hide_lower_section: true
+  custom_css_path: /bazel.css
+
   rows:
-  - background: BAZEL_THEME
-    options:
-    - hero
+  # Hero Row
+  - options:
     - description-50
+    - hero
+    - large-headings
     - no-image-background
-    - padding-large
+    classname: bazel-hero bazel-hero-full-bleed-light
     items:
-    - image_path: "/images/placeholder_960.png"
-      heading: Getting started
+    - classname: bazel-hero
+      image_path: /images/start.svg
+      heading: >
+        Getting started
       description: >
-        Learn what Bazel is, why it is a good choice for your project, and how you can get started using it.
+        Jump into Bazel with our installation packages, tutorials, and concept guides.
+
+  # Install row
   - options:
-    - cards
-    background: grey
+    - centered-header
+    - logos
+    background: white
+    heading: Install Bazel
+    description: >
+      Find and download Bazel packages and instructions for supported platforms.
+    items_across: 4
     items:
-    - heading: Learn about Bazel
-      classname: fully-clickable
-      path: /start/bazel-intro
-      description: >
-        Bazel is a powerful, open-source build system using human-readable, high-level build language.
-      icon:
-        name: info
-        position: top
-    - heading: Get started
-      classname: fully-clickable
-      path: /start/getting-started
-      description: >
-        Get started with Bazel with installation steps, container information, and links to tutorials.
-      icon:
-        name: start
-        position: top
-    - heading: Install Bazel
-      classname: fully-clickable
-      path: /install
-      description: >
-        Find and download Bazel packages and instructions for supported platforms.
-      icon:
-        name: download
-        position: top
-  - options:
-    - cards
-    background: grey
-    items:
-    - heading: Customize your setup
-      classname: fully-clickable
+    - description: Overview
+      path: /install/
+      custom_image:
+        path: /install/images/install.svg
+    - description: Bazelisk (recommended)
+      path: /install/bazelisk
+      custom_image:
+        path: /install/images/bazelisk.svg
+    - description: MacOS
+      path: /install/os-x
+      custom_image:
+        path: /install/images/mac.svg
+    - description: Windows
+      path: /install/windows
+      custom_image:
+        path: /install/images/windows.svg
+    - description: Fedora and CentOS
+      path: /install/redhat
+      custom_image:
+        path: /install/images/redhat.svg
+    - description: Ubuntu
+      path: /install/ubuntu
+      custom_image:
+        path: /install/images/ubuntu.svg
+    - description: openSUSE
+      path: /install/suse
+      custom_image:
+        path: /install/images/suse.png
+    - description: Docker Container
+      path: /install/docker-container
+      custom_image:
+        path: /install/images/docker.svg
+    - description: Compile from source
+      path: /install/compile-source
+      custom_image:
+        path: /install/images/github.svg
+    - description: Command-line completion
+      path: /install/completion
+      custom_image:
+        path: /install/images/cli.svg
+    - description: IDE integration
       path: /install/ide
-      description: >
-        Integrate Bazel with your favorite IDE, and adjust settings to support your workflow.
-      icon:
-        name: settings
-        position: top
-    - heading: Migrate to Bazel
+      custom_image:
+        path: /install/images/tune.svg
+
+  # First build Row
+  - options:
+    - cards
+    background: grey
+    position: left
+    heading: First build guides
+    description: >
+      Once you have installed Bazel, follow these tutorials to go through the basic Bazel workflow.
+      <br><br>
+      <b>Coming soon:</b> Keep an eye out — we're working on these guides!
+    items:
+    - heading: C++
       classname: fully-clickable
-      path: /migrate/maven
-      description: >
-        If you're coming from another build system, use a migration guide to smooth the transition.
+      path: /start/cpp
       icon:
-        name: fast_forward
-        position: top
-    - heading: Take a tutorial
+        name: grid_view
+        position: left
+    - heading: Java
       classname: fully-clickable
-      path: /tutorials/cpp
-      description: >
-        Follow tutorials covering fundamental workflows to get comfortable using Bazel.
+      path: /start/java
       icon:
-        name: play_lesson
-        position: top
+        name: grid_view
+        position: left
+    - heading: Android
+      classname: fully-clickable
+      path: /start/android-app
+      icon:
+        name: grid_view
+        position: left
+    - heading: iOS
+      classname: fully-clickable
+      path: /start/ios-app
+      icon:
+        name: grid_view
+        position: left
+
+  # Concepts Row
+  - options:
+    - cards
+    background: bazel-theme
+    heading: Build concepts
+    description: >
+      Learn foundational concepts including source code layout, BUILD file syntax, and the types of
+      rules and dependencies.
+    items:
+    - heading: Workspaces, packages, & targets
+      classname: fully-clickable
+      path: /concepts/build-ref
+      description: >
+        The essential building blocks of Bazel.
+    - heading: Labels
+      classname: fully-clickable
+      path: /concepts/labels
+      description: >
+        How to specify and connect workspaces, packages, and targets.
+    - heading: BUILD files
+      classname: fully-clickable
+      path: /concepts/build-files
+      description: >
+        The configuration file telling Bazel what and how to build.
+    - heading: Dependencies
+      classname: fully-clickable
+      path: /concepts/dependencies
+      description: >
+        A directed edge between two targets.
+    - heading: Visibility
+      classname: fully-clickable
+      path: /concepts/visibility
+      description: >
+        Defines whether a target can be depended upon by other targets.
+    - heading: Hermeticity
+      classname: fully-clickable
+      path: /concepts/hermeticity
+      description: >
+        Builds with no external influences for deterministic and correct results.

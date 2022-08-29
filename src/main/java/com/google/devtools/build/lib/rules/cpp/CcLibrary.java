@@ -123,7 +123,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    boolean shouldUseInterfaceDepsBehavior = semantics.shouldUseInterfaceDepsBehavior(ruleContext);
+    semantics.checkCanUseImplementationDeps(ruleContext);
 
     final CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
@@ -158,18 +158,12 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     ImmutableList.Builder<CcCompilationContext> interfaceDeps = ImmutableList.builder();
     ImmutableList.Builder<CcCompilationContext> implementationDeps = ImmutableList.builder();
 
-    if (shouldUseInterfaceDepsBehavior) {
-      interfaceDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))));
-      implementationDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    } else {
-      interfaceDeps.addAll(
-          CppHelper.getCompilationContextsFromDeps(
-              ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
-    }
+    interfaceDeps.addAll(
+        CppHelper.getCompilationContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))));
+    implementationDeps.addAll(
+        CppHelper.getCompilationContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))));
     interfaceDeps.add(CcCompilationHelper.getStlCcCompilationContext(ruleContext));
 
     CcCompilationHelper compilationHelper =
@@ -212,7 +206,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .fromCommon(ruleContext, common)
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("interface_deps"))))
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("deps"))))
+            .addCcLinkingContexts(
+                CppHelper.getLinkingContextsFromDeps(
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())
@@ -255,8 +252,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (common.getLinkopts().contains("-static")) {
-      ruleContext.attributeWarning("linkopts", "Using '-static' here won't work. "
-                                   + "Did you mean to use 'linkstatic=1' instead?");
+      ruleContext.attributeWarning(
+          "linkopts",
+          "Using '-static' here won't work. " + "Did you mean to use 'linkstatic=True' instead?");
     }
 
     linkingHelper.setShouldCreateDynamicLibrary(createDynamicLibrary);
@@ -511,23 +509,25 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ccCompilationOutputs.getObjectFiles(false).isEmpty()
         && ccCompilationOutputs.getObjectFiles(true).isEmpty()) {
       if (!linkstaticAttribute && appearsToHaveObjectFiles(ruleContext.attributes())) {
-        ruleContext.attributeWarning("linkstatic",
-            "setting 'linkstatic=1' is recommended if there are no object files");
+        ruleContext.attributeWarning(
+            "linkstatic", "setting 'linkstatic=True' is recommended if there are no object files");
       }
     } else {
       if (!linkstaticAttribute && !appearsToHaveObjectFiles(ruleContext.attributes())) {
         Artifact element = Iterables.getFirst(
             ccCompilationOutputs.getObjectFiles(false),
             ccCompilationOutputs.getObjectFiles(true).get(0));
-        ruleContext.attributeWarning("srcs",
-             "this library appears at first glance to have no object files, "
-             + "but on closer inspection it does have something to link, e.g. "
-             + element.prettyPrint() + ". "
-             + "(You may have used some very confusing rule names in srcs? "
-             + "Or the library consists entirely of a linker script?) "
-             + "Bazel assumed linkstatic=1, but this may be inappropriate. "
-             + "You may need to add an explicit '.cc' file to 'srcs'. "
-             + "Alternatively, add 'linkstatic=1' to suppress this warning");
+        ruleContext.attributeWarning(
+            "srcs",
+            "this library appears at first glance to have no object files, "
+                + "but on closer inspection it does have something to link, e.g. "
+                + element.prettyPrint()
+                + ". "
+                + "(You may have used some very confusing rule names in srcs? "
+                + "Or the library consists entirely of a linker script?) "
+                + "Bazel assumed linkstatic=True, but this may be inappropriate. "
+                + "You may need to add an explicit '.cc' file to 'srcs'. "
+                + "Alternatively, add 'linkstatic=True' to suppress this warning");
       }
     }
   }

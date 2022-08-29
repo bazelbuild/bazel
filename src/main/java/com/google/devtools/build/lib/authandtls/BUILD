@@ -4,7 +4,9 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -12,7 +14,11 @@ java_library(
     name = "authandtls",
     srcs = glob(["*.java"]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auth",
         "//third_party:auto_value",

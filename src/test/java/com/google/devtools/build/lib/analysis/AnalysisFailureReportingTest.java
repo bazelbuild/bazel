@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
@@ -166,7 +165,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//cycles1", ImmutableMap.of()),
+                Label.parseCanonical("//cycles1"),
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
@@ -185,7 +184,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                Label.parseCanonical("//foo"),
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
@@ -209,7 +208,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
         .valuesForKey(topLevel)
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                Label.parseCanonical("//foo"),
                 toId(
                     Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs())
                         .getConfiguration()),
@@ -240,11 +239,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
     Label topLevel = Label.parseAbsoluteUnchecked("//foo");
     BuildConfigurationValue expectedConfig =
-        Iterables.getOnlyElement(
-            skyframeExecutor
-                .getSkyframeBuildView()
-                .getBuildConfigurationCollection()
-                .getTargetConfigurations());
+        skyframeExecutor
+            .getSkyframeBuildView()
+            .getBuildConfigurationCollection()
+            .getTargetConfiguration();
     String message =
         "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
             + " target '//foo:foo'. Check the visibility declaration of the"
@@ -252,7 +250,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
-                Label.parseAbsolute("//foo", ImmutableMap.of()),
+                Label.parseCanonical("//foo"),
                 toId(expectedConfig),
                 createAnalysisDetailedExitCode(message)));
   }

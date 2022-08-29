@@ -42,7 +42,7 @@ import com.google.devtools.build.skyframe.SkyframeIterableResult;
  * Therefore it's crucial to bypass action cache checking by marking the action as unconditionally
  * executed.
  */
-public interface SkyframeAwareAction<E extends Exception> {
+public interface SkyframeAwareAction {
 
   /** Wrapper and/or base class for exceptions raised in {@link #processSkyframeValues}. */
   class ExceptionBase extends Exception {
@@ -60,9 +60,6 @@ public interface SkyframeAwareAction<E extends Exception> {
 
   /** Returns the complete list of skyframe dependencies that this action needs. */
   ImmutableList<? extends SkyKey> getDirectSkyframeDependencies();
-
-  /** Declares the type of exception to wrap in {@link ValueOrException}. */
-  Class<E> getExceptionType();
 
   /**
    * Processes the skyframe dependencies requested in {@link #getDirectSkyframeDependencies}.

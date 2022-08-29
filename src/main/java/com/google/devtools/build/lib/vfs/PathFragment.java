@@ -183,8 +183,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns a {@link PathFragment} instance representing the relative path between this {@link
-   * PathFragment} and the given {@link PathFragment}.
+   * Returns a {@link PathFragment} instance formed by resolving {@code other} relative to this
+   * path. For example, if this path is "a" and other is "b", returns "a/b".
    *
    * <p>If the passed path is absolute it is returned untouched. This can be useful to resolve
    * symlinks.
@@ -197,8 +197,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns a {@link PathFragment} instance representing the relative path between this {@link
-   * PathFragment} and the given path.
+   * Returns a {@link PathFragment} instance formed by resolving {@code other} relative to this
+   * path. For example, if this path is "a" and other is "b", returns "a/b".
    *
    * <p>See {@link #getRelative(PathFragment)} for details.
    */
@@ -338,7 +338,7 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns true iff {@code other} is an ancestor of this path.
    *
    * <p>If this == other, true is returned.
    *
@@ -361,8 +361,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns true iff {@code suffix}, considered as a list of path segments, is relative and a
-   * suffix of {@code this}, or both are absolute and equal.
+   * Returns true iff {@code other}, considered as a list of path segments, is relative and a suffix
+   * of {@code this}, or both are absolute and equal.
    *
    * <p>This is a reflexive, transitive, anti-symmetric relation (i.e. a partial order)
    */
@@ -648,6 +648,7 @@ public abstract class PathFragment
    * corresponding to {@code newName} will be returned. This behavior is consistent with the
    * behavior of {@link #getRelative(String)}.
    */
+  @Nullable
   public PathFragment replaceName(String newName) {
     PathFragment parent = getParentDirectory();
     return parent != null ? parent.getRelative(newName) : null;

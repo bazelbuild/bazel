@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,7 +45,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   @Test
   public void noRepeatedLabelVisitationForTransitiveTraversalFunction() throws Exception {
     // Create a basic package with a target //foo:foo.
-    Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:foo");
     scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "')");
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAnyImpl targetAndErrorIfAny =
@@ -64,8 +63,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     // Create the GroupedList saying we had already requested two targets the last time we called
     // #compute.
     GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
-    SkyKey fakeDep1 = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
-    SkyKey fakeDep2 = function.getKey(Label.parseAbsolute("//foo:baz", ImmutableMap.of()));
+    SkyKey fakeDep1 = function.getKey(Label.parseCanonical("//foo:bar"));
+    SkyKey fakeDep2 = function.getKey(Label.parseCanonical("//foo:baz"));
     helper.add(PackageValue.key(label.getPackageIdentifier()));
     helper.startGroup();
     // Note that these targets don't actually exist in the package we created initially. It doesn't
@@ -102,7 +101,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
 
   @Test
   public void multipleErrorsForTransitiveTraversalFunction() throws Exception {
-    Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:foo");
     scratch.file(
         "foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
@@ -118,8 +117,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
             return targetAndErrorIfAny;
           }
         };
-    SkyKey dep1 = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
-    SkyKey dep2 = function.getKey(Label.parseAbsolute("//foo:baz", ImmutableMap.of()));
+    SkyKey dep1 = function.getKey(Label.parseCanonical("//foo:bar"));
+    SkyKey dep2 = function.getKey(Label.parseCanonical("//foo:baz"));
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     NoSuchTargetException exp1 = new NoSuchTargetException("bad bar");
     NoSuchTargetException exp2 = new NoSuchTargetException("bad baz");
@@ -142,7 +141,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
 
   @Test
   public void selfErrorWins() throws Exception {
-    Label label = Label.parseAbsolute("//foo:foo", ImmutableMap.of());
+    Label label = Label.parseCanonical("//foo:foo");
     scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAnyImpl targetAndErrorIfAny =
@@ -157,7 +156,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
             return targetAndErrorIfAny;
           }
         };
-    SkyKey dep = function.getKey(Label.parseAbsolute("//foo:bar", ImmutableMap.of()));
+    SkyKey dep = function.getKey(Label.parseCanonical("//foo:bar"));
     NoSuchTargetException exp = new NoSuchTargetException("bad bar");
     SkyframeLookupResult returnedDep =
         new SkyframeLookupResult(
@@ -173,7 +172,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
 
   @Test
   public void getStrictLabelAspectKeys() throws Exception {
-    Label label = Label.parseAbsolute("//test:foo", ImmutableMap.of());
+    Label label = Label.parseCanonical("//test:foo");
     scratch.file(
         "test/aspect.bzl",
         "def _aspect_impl(target, ctx):",
@@ -209,7 +208,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
             return targetAndErrorIfAny;
           }
         };
-    SkyKey badDep = function.getKey(Label.parseAbsolute("//test:bad", ImmutableMap.of()));
+    SkyKey badDep = function.getKey(Label.parseCanonical("//test:bad"));
     NoSuchTargetException exp = new NoSuchTargetException("bad test");
     AtomicBoolean valuesMissing = new AtomicBoolean(false);
     SkyframeLookupResult returnedDep =

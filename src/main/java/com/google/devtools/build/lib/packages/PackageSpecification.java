@@ -26,6 +26,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Represents one of the following:
@@ -130,6 +133,27 @@ public abstract class PackageSpecification {
   }
 
   /**
+   * Parses a string to a {@code PackageSpecification} for use with .bzl visibility.
+   *
+   * <p>This rejects negative package patterns, and translates the exception type into {@code
+   * EvalException}.
+   */
+  // TODO(b/22193153): Support negatives too.
+  public static PackageSpecification fromStringForBzlVisibility(
+      RepositoryName repositoryName, String spec) throws EvalException {
+    PackageSpecification result;
+    try {
+      result = fromString(repositoryName, spec);
+    } catch (InvalidPackageSpecificationException e) {
+      throw new EvalException(e.getMessage());
+    }
+    if (result instanceof NegativePackageSpecification) {
+      throw Starlark.errorf("Cannot use negative package patterns here");
+    }
+    return result;
+  }
+
+  /**
    * Parses the provided {@link Label} into a {@link PackageSpecification} specific to the {@link
    * RepositoryName} associated with the label.
    *
@@ -144,6 +168,7 @@ public abstract class PackageSpecification {
    * <p>Note that there is no {@link Label} associated with the {@link RepositoryName}-agnostic "all
    * packages" specification (corresponding to {@code #fromString(null, "//...")}).
    */
+  @Nullable
   static PackageSpecification fromLabel(Label label) {
     if (label.getName().equals(PACKAGE_LABEL)) {
       return new SinglePackage(label.getPackageIdentifier());

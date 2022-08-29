@@ -374,6 +374,11 @@ public class CppHelper {
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
     ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    if (toolchainInfo == null) {
+      throw ruleContext.throwWithRuleError(
+          "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
+              + " --platforms?");
+    }
     try {
       return (CcToolchainProvider) toolchainInfo.getValue("cc");
     } catch (EvalException e) {
@@ -620,6 +625,7 @@ public class CppHelper {
   }
 
   /** Returns the FDO build subtype. */
+  @Nullable
   public static String getFdoBuildStamp(
       CppConfiguration cppConfiguration,
       FdoContext fdoContext,
@@ -1031,6 +1037,7 @@ public class CppHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
+  @Nullable
   public static Artifact getGrepIncludes(RuleContext ruleContext) {
     return ruleContext.attributes().has("$grep_includes")
         ? ruleContext.getPrerequisiteArtifact("$grep_includes")

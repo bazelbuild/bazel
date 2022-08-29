@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOptions.ExecutionMessagePrintMode;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -184,10 +183,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
         "Spawn can't be executed remotely. This is a bug.");
 
     Stopwatch totalTime = Stopwatch.createStarted();
-    boolean uploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
-    boolean acceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
+    boolean acceptCachedResult = remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
+    boolean uploadLocalResults = remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
+
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
@@ -273,21 +273,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // It's already late at this stage, but we should at least report once.
             reporter.reportExecutingIfNot();
 
-            FileOutErr outErr = context.getFileOutErr();
-            String message = result.getMessage();
-            boolean printMessage =
-                ((!result.success()
-                            && remoteOptions.remotePrintExecutionMessages
-                                == ExecutionMessagePrintMode.FAILURE)
-                        || (result.success()
-                            && remoteOptions.remotePrintExecutionMessages
-                                == ExecutionMessagePrintMode.SUCCESS)
-                        || remoteOptions.remotePrintExecutionMessages
-                            == ExecutionMessagePrintMode.ALL)
-                    && !message.isEmpty();
-            if (printMessage) {
-              outErr.printErr(message + "\n");
-            }
+            maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
             profileAccounting(result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
@@ -458,6 +444,17 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return true;
   }
 
+  private void maybePrintExecutionMessages(
+      SpawnExecutionContext context, String message, boolean success) {
+    FileOutErr outErr = context.getFileOutErr();
+    boolean printMessage =
+        remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
+            && !message.isEmpty();
+    if (printMessage) {
+      outErr.printErr(message + "\n");
+    }
+  }
+
   private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
     if (!executionOptions.shouldMaterializeParamFiles()) {
       return;
@@ -514,10 +511,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
     }
-    return handleError(action, cause);
+    return handleError(action, cause, context);
   }
 
-  private SpawnResult handleError(RemoteAction action, IOException exception)
+  private SpawnResult handleError(
+      RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed =
         BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
@@ -536,6 +534,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         }
       }
       if (e.isExecutionTimeout()) {
+        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
         return new SpawnResult.Builder()
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)

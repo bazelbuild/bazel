@@ -218,7 +218,7 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteBytestreamUriPrefix;
 
   /** Returns the specified duration. Assumes seconds if unitless. */
-  public static class RemoteTimeoutConverter implements Converter<Duration> {
+  public static class RemoteTimeoutConverter extends Converter.Contextless<Duration> {
     private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
 
     @Override
@@ -226,7 +226,7 @@ public final class RemoteOptions extends OptionsBase {
       if (UNITLESS_REGEX.matcher(input).matches()) {
         input += "s";
       }
-      return new Converters.DurationConverter().convert(input);
+      return new Converters.DurationConverter().convert(input, /*conversionContext=*/ null);
     }
 
     @Override
@@ -587,6 +587,18 @@ public final class RemoteOptions extends OptionsBase {
               + "`all` to print always.")
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
 
+  @Option(
+      name = "experimental_remote_download_regex",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Force Bazel to download the artifacts that match the given regexp. To be used in"
+              + " conjunction with --remote_download_minimal or --remote_download_toplevel to allow"
+              + " the client to request certain artifacts that might be needed locally (e.g. IDE"
+              + " support)")
+  public String remoteDownloadRegex;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
@@ -668,6 +680,12 @@ public final class RemoteOptions extends OptionsBase {
       public Converter() {
         super(ExecutionMessagePrintMode.class, "execution message print mode");
       }
+    }
+
+    public boolean shouldPrintMessages(boolean success) {
+      return ((!success && this == ExecutionMessagePrintMode.FAILURE)
+          || (success && this == ExecutionMessagePrintMode.SUCCESS)
+          || this == ExecutionMessagePrintMode.ALL);
     }
   }
 }

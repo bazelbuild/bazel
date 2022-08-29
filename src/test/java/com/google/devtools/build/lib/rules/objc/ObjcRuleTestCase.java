@@ -26,7 +26,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Action;
@@ -823,7 +822,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected Action actionProducingArtifact(String targetLabel, String artifactSuffix)
       throws Exception {
     ConfiguredTarget libraryTarget = getConfiguredTarget(targetLabel);
-    Label parsedLabel = Label.parseAbsolute(targetLabel, ImmutableMap.of());
+    Label parsedLabel = Label.parseCanonical(targetLabel);
     Artifact linkedLibrary = getBinArtifact(parsedLabel.getName() + artifactSuffix, libraryTarget);
     return getGeneratingAction(linkedLibrary);
   }
@@ -1108,39 +1107,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     String compileArgs = Joiner.on(" ").join(objcLibCompileAction.getArguments());
     assertThat(linkArgs).contains("-mwatchos-simulator-version-min=5.4");
     assertThat(compileArgs).contains("-mwatchos-simulator-version-min=5.4");
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_nonVersion(RuleType ruleType) throws Exception {
-    checkError(
-        "x", "x", "the form", ruleType.target(scratch, "x", "x", "minimum_os_version", "'foobar'"));
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_containsAlphabetic(RuleType ruleType) throws Exception {
-    checkError(
-        "x",
-        "x",
-        "Invalid version string",
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3alpha'"));
-  }
-
-  /**
-   * Verifies that the given rule throws a sensible error if the minimum_os attribute has a bad
-   * value.
-   */
-  protected void checkMinimumOs_invalid_tooManyComponents(RuleType ruleType) throws Exception {
-    checkError(
-        "x",
-        "x",
-        "Invalid version string",
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3.1'"));
   }
 
   private void checkAvoidDepsDependenciesSetupFramework() throws Exception {
@@ -1906,7 +1872,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains("-mios-simulator-version-min=9.0");
   }
 
-  protected void verifyDrops32BitArchitecture(RuleType ruleType) throws Exception {
+  protected void verifyDrops32BitIosArchitecture(RuleType ruleType) throws Exception {
     scratch.file(
         "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
 
@@ -1926,6 +1892,29 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     getSingleArchBinary(lipoAction, "arm64");
     getSingleArchBinary(lipoAction, "x86_64");
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7")).isNull();
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
+  }
+
+  protected void verifyDrops32BitWatchArchitecture(RuleType ruleType) throws Exception {
+    scratch.file(
+        "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
+
+    ruleType.scratchTarget(
+        scratch,
+        "deps",
+        "['//libs:objc_lib']",
+        "platform_type",
+        "'watchos'",
+        "minimum_os_version",
+        "'9.0'"); // Does not support 32-bit architectures.
+
+    useConfiguration("--watchos_cpus=armv7k,arm64_32,i386,x86_64");
+
+    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
+
+    getSingleArchBinary(lipoAction, "arm64_32");
+    getSingleArchBinary(lipoAction, "x86_64");
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7k")).isNull();
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
   }
 

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -172,8 +173,6 @@ public class BaseRuleClasses {
             return runUnder != null ? runUnder.getLabel() : null;
           });
 
-  public static final String TEST_RUNNER_EXEC_GROUP = "test";
-
   /**
    * A base rule for all test rules.
    */
@@ -181,7 +180,7 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       builder
-          .addExecGroup(TEST_RUNNER_EXEC_GROUP)
+          .addExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
           // Only necessary at top-level and can be skipped if trimmed.
@@ -404,8 +403,8 @@ public class BaseRuleClasses {
           .add(
               attr("distribs", DISTRIBUTIONS)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
-          // Any rule that has provides its own meaning for the "target_compatible_with" attribute
-          // has to be excluded in `RuleContextConstraintSemantics.incompatibleConfiguredTarget()`.
+          // Any rule that provides its own meaning for the "target_compatible_with" attribute
+          // has to be excluded in `IncompatibleTargetChecker`.
           .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())

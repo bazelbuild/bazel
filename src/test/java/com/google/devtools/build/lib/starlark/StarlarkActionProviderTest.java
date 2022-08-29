@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlark;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -62,8 +61,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
 
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
@@ -123,8 +121,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(
-            Label.parseAbsolute("//test:aspect.bzl", ImmutableMap.of()), "foo");
+        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
 

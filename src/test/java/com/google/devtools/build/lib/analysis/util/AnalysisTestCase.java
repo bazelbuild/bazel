@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
@@ -90,6 +89,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
@@ -130,11 +130,13 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public static final class FlagBuilder {
     private final Set<Flag> flags = EnumSet.noneOf(Flag.class);
 
+    @CanIgnoreReturnValue
     public FlagBuilder with(Flag flag) {
       flags.add(flag);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public FlagBuilder without(Flag flag) {
       flags.remove(flag);
       return this;
@@ -215,6 +217,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
+    skyframeExecutor.setEventBus(new EventBus());
     reinitializeSkyframeExecutor();
     packageManager = skyframeExecutor.getPackageManager();
     buildView = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
@@ -242,7 +245,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false),
             PrecomputedValue.injected(
                 BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                 ruleClassProvider.getBuildInfoFactoriesAsMap())));
@@ -328,7 +330,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * configuration creation phase.
    */
   protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
-    return Iterables.getOnlyElement(universeConfig.getTargetConfigurations());
+    return universeConfig.getTargetConfiguration();
   }
 
   protected BuildConfigurationValue getHostConfiguration() {
@@ -394,13 +396,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             keepGoing,
             /*determineTests=*/ false);
 
-    BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
-    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
     analysisResult =
         buildView.update(
             loadingResult,
             buildOptions,
-            multiCpu,
             explicitTargetPatterns,
             aspects,
             aspectsParameters,
@@ -475,7 +474,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     ensureUpdateWasCalled();
     Label parsedLabel;
     try {
-      parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
+      parsedLabel = Label.parseCanonical(label);
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -491,7 +490,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Target getTarget(String label) throws InterruptedException {
     try {
       return SkyframeExecutorTestUtils.getExistingTarget(
-          skyframeExecutor, Label.parseAbsolute(label, ImmutableMap.of()));
+          skyframeExecutor, Label.parseCanonical(label));
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -526,7 +525,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       String label, BuildConfigurationValue configuration) {
     Label parsedLabel;
     try {
-      parsedLabel = Label.parseAbsolute(label, ImmutableMap.of());
+      parsedLabel = Label.parseCanonical(label);
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -597,11 +596,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
             getTargetConfiguration().getBinDirectory(label.getRepository()),
-            ConfiguredTargetKey.builder()
-                .setConfiguredTarget(owner)
-                .setConfiguration(
-                    skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
-                .build());
+            ConfiguredTargetKey.fromConfiguredTarget(owner));
   }
 
   protected Set<ActionLookupKey> getSkyframeEvaluatedTargetKeys() {

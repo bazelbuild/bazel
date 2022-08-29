@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -106,6 +105,6 @@ public class ExternalPackageTest extends BuildViewTestCase {
     ConfiguredAttributeMapper configuredAttributeMapper =
         getMapperFromConfiguredTargetAndTarget(ctad);
     assertThat(configuredAttributeMapper.get("runtime_deps", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsolute("//:b", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//:b"));
   }
 }

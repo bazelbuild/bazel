@@ -38,10 +38,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -150,6 +150,7 @@ public final class ConfiguredTargetFactory {
     }
   }
 
+  @Nullable
   private static TransitiveInfoCollection findVisibilityPrerequisite(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap, Label label) {
     for (ConfiguredTargetAndData prerequisite :
@@ -181,7 +182,8 @@ public final class ConfiguredTargetFactory {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
+      throws InterruptedException, ActionConflictException, InvalidExecGroupException,
+          AnalysisFailurePropagationException {
     if (target instanceof Rule) {
       try {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
@@ -289,7 +291,8 @@ public final class ConfiguredTargetFactory {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
+      throws InterruptedException, ActionConflictException, InvalidExecGroupException,
+          AnalysisFailurePropagationException {
     RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         ruleClass.getConfigurationFragmentPolicy();
@@ -311,7 +314,7 @@ public final class ConfiguredTargetFactory {
                     rule,
                     configuration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     prerequisiteMap.values()))
             .build();
 
@@ -322,12 +325,6 @@ public final class ConfiguredTargetFactory {
     }
     if (ruleContext.hasErrors()) {
       return erroredConfiguredTarget(ruleContext);
-    }
-
-    ConfiguredTarget incompatibleTarget =
-        RuleContextConstraintSemantics.incompatibleConfiguredTarget(ruleContext, prerequisiteMap);
-    if (incompatibleTarget != null) {
-      return incompatibleTarget;
     }
 
     try {
@@ -405,11 +402,20 @@ public final class ConfiguredTargetFactory {
 
   private static ConfiguredTarget erroredConfiguredTargetWithFailures(
       RuleContext ruleContext, List<NestedSet<AnalysisFailure>> analysisFailures)
-      throws ActionConflictException, InterruptedException {
+      throws ActionConflictException, InterruptedException, AnalysisFailurePropagationException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
     builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
-    return builder.build();
+    ConfiguredTarget configuredTarget = builder.build();
+    if (configuredTarget == null) {
+      // A failure here is a failure in analysis failure testing machinery, not a "normal" analysis
+      // failure that some outer analysis failure test may want to capture. Instead, this failure
+      // means that the outer test would be unusable. So we throw an exception rather than returning
+      // null and allowing it to propagate up in the usual way.
+      throw new AnalysisFailurePropagationException(
+          ruleContext.getLabel(), ruleContext.getSuppressedErrorMessages());
+    }
+    return configuredTarget;
   }
 
   /**
@@ -421,7 +427,7 @@ public final class ConfiguredTargetFactory {
    */
   @Nullable
   private static ConfiguredTarget erroredConfiguredTarget(RuleContext ruleContext)
-      throws ActionConflictException, InterruptedException {
+      throws ActionConflictException, InterruptedException, AnalysisFailurePropagationException {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
 
@@ -432,7 +438,13 @@ public final class ConfiguredTargetFactory {
       builder.addNativeDeclaredProvider(
           AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
       builder.addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
-      return builder.build();
+      ConfiguredTarget configuredTarget = builder.build();
+      if (configuredTarget == null) {
+        // See comment in erroredConfiguredTargetWithFailures.
+        throw new AnalysisFailurePropagationException(
+            ruleContext.getLabel(), ruleContext.getSuppressedErrorMessages());
+      }
+      return configuredTarget;
     } else {
       // Returning a null ConfiguredTarget is an indication a rule error occurred. Exceptions are
       // not propagated, as this would show a nasty stack trace to users, and only provide info
@@ -519,7 +531,7 @@ public final class ConfiguredTargetFactory {
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
-                    configConditions.asProviders(),
+                    configConditions,
                     Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
             .build();
 
@@ -544,11 +556,11 @@ public final class ConfiguredTargetFactory {
               ruleContext,
               aspect.getParameters(),
               ruleClassProvider.getToolsRepository());
+      if (configuredAspect == null) {
+        return erroredConfiguredAspect(ruleContext);
+      }
     } finally {
       ruleContext.close();
-    }
-    if (configuredAspect == null) {
-      return erroredConfiguredAspect(ruleContext);
     }
 
     validateAdvertisedProviders(
@@ -567,6 +579,10 @@ public final class ConfiguredTargetFactory {
     builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
     // Unlike erroredConfiguredTargetAspectWithFailures, we do not add a RunfilesProvider; that
     // would result in a RunfilesProvider being provided twice in the merged configured target.
+
+    // TODO(b/242887801): builder.build() could potentially return null; in that case, should we
+    // throw an exception, as erroredConfiguredTarget does, to avoid propagating the error to an
+    // outer analysis failure test?
     return builder.build();
   }
 
@@ -591,6 +607,10 @@ public final class ConfiguredTargetFactory {
           AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
       // Unlike erroredConfiguredTarget, we do not add a RunfilesProvider; that would result in a
       // RunfilesProvider being provided twice in the merged configured target.
+
+      // TODO(b/242887801): builder.build() could potentially return null; in that case, should we
+      // throw an exception, as erroredConfiguredTarget does, to avoid propagating the error to an
+      // outer analysis failure test?
       return builder.build();
     } else {
       // Returning a null ConfiguredAspect is an indication a rule error occurred. Exceptions are

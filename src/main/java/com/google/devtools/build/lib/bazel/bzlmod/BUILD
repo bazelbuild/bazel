@@ -4,8 +4,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
@@ -21,7 +19,7 @@ java_library(
         "Version.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -74,7 +72,7 @@ java_library(
     deps = [
         ":common",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:gson",
         "//third_party:guava",
@@ -91,7 +89,6 @@ java_library(
         "LocalPathOverride.java",
         "Module.java",
         "ModuleExtensionEvalStarlarkThreadContext.java",
-        "ModuleExtensionResolutionValue.java",
         "ModuleFileValue.java",
         "ModuleOverride.java",
         "MultipleVersionOverride.java",
@@ -129,7 +126,6 @@ java_library(
         "BazelModuleResolutionFunction.java",
         "Discovery.java",
         "ModuleExtensionContext.java",
-        "ModuleExtensionResolutionFunction.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
         "Selection.java",
@@ -179,7 +175,7 @@ java_library(
         "BzlmodRepoRuleValue.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -198,10 +194,11 @@ java_library(
         ":common",
         ":registry",
         ":resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -237,5 +234,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

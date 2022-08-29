@@ -1294,6 +1294,7 @@ public abstract class CcModule
     }
   }
 
+  @Nullable
   private static Object getValueOrNull(Structure x, String name) {
     try {
       return x.getValue(name);
@@ -1802,10 +1803,11 @@ public abstract class CcModule
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
-      Object winDefFile,
+      Object winDefFileObject,
+      Object testOnlyTargetObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFile)) {
+    if (checkObjectsBound(stamp, linkedDllNameSuffix, winDefFileObject, testOnlyTargetObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -1834,6 +1836,7 @@ public abstract class CcModule
     } else {
       staticLinkTargetType = LinkTargetType.OBJC_ARCHIVE;
     }
+    Artifact winDefFile = convertFromNoneable(winDefFileObject, /* defaultValue= */ null);
     List<CcLinkingContext> ccLinkingContexts =
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
     CcLinkingHelper helper =
@@ -1871,8 +1874,9 @@ public abstract class CcModule
             .emitInterfaceSharedLibraries(true)
             .setLinkedDLLNameSuffix(
                 convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
-            .setDefFile(convertFromNoneable(winDefFile, /* defaultValue= */ null))
+            .setDefFile(winDefFile)
             .setIsStampingEnabled(isStampingEnabled)
+            .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
@@ -2015,6 +2019,7 @@ public abstract class CcModule
       Object purposeObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
+      Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -2029,7 +2034,8 @@ public abstract class CcModule
         implementationCcCompilationContextsObject,
         coptsFilterObject,
         starlarkLooseIncludes,
-        separateModuleHeadersObject)) {
+        separateModuleHeadersObject,
+        nonCompilationAdditionalInputsObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
 
@@ -2053,6 +2059,8 @@ public abstract class CcModule
 
     ImmutableList<String> additionalExportedHeaders =
         asClassImmutableList(additionalExportedHeadersObject);
+    ImmutableList<Artifact> nonCompilationAdditionalInputs =
+        asClassImmutableList(nonCompilationAdditionalInputsObject);
     boolean propagateModuleMapToCompileAction =
         convertFromNoneable(propagateModuleMapToCompileActionObject, /* defaultValue= */ true);
     boolean doNotGenerateModuleMap =
@@ -2159,6 +2167,7 @@ public abstract class CcModule
         .addAdditionalCompilationInputs(headersForClifDoNotUseThisParam)
         .addAdditionalCompilationInputs(
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
+        .addAdditionalInputs(nonCompilationAdditionalInputs)
         .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
         .setPurpose(common.getPurpose(getSemantics(language)))
         .addAdditionalExportedHeaders(

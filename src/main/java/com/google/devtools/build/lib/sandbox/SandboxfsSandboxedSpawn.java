@@ -182,8 +182,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
-    inputs.materializeVirtualInputs(sandboxScratchDir);
-
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
     for (PathFragment output : outputs.files()) {
       dirsToCreate.add(output.getParentDirectory());

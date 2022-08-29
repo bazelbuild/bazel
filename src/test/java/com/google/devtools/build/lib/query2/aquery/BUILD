@@ -25,10 +25,11 @@ java_library(
     ],
 )
 
-java_library(
-    name = "action_graph_query_test",
-    testonly = 1,
+java_test(
+    name = "ActionGraphQueryTest",
+    size = "medium",
     srcs = ["ActionGraphQueryTest.java"],
+    shard_count = 2,
     deps = [
         ":action_graph_query_helper",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",

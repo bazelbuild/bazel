@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -89,51 +89,61 @@ public class BuildRequest implements OptionsProvider {
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder setId(UUID id) {
       this.id = id;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setOptions(OptionsParsingResult options) {
       this.options = options;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartupOptions(OptionsParsingResult startupOptions) {
       this.startupOptions = startupOptions;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCommandName(String commandName) {
       this.commandName = commandName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setOutErr(OutErr outErr) {
       this.outErr = outErr;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setTargets(List<String> targets) {
       this.targets = targets;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStartTimeMillis(long startTimeMillis) {
       this.startTimeMillis = startTimeMillis;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNeedsInstrumentationFilter(boolean needsInstrumentationFilter) {
       this.needsInstrumentationFilter = needsInstrumentationFilter;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRunTests(boolean runTests) {
       this.runTests = runTests;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCheckforActionConflicts(boolean checkForActionConflicts) {
       this.checkForActionConflicts = checkForActionConflicts;
       return this;
@@ -148,6 +158,7 @@ public class BuildRequest implements OptionsProvider {
      * output) and false for queries (where users want to understand target relationships or
      * diagnose why incompatible targets are incompatible).
      */
+    @CanIgnoreReturnValue
     public Builder setReportIncompatibleTargets(boolean report) {
       this.reportIncompatibleTargets = report;
       return this;
@@ -234,6 +245,17 @@ public class BuildRequest implements OptionsProvider {
 
     // All this, just to pass a global boolean from the client to the server. :(
     this.runningInEmacs = options.getOptions(UiOptions.class).runningInEmacs;
+  }
+
+  /**
+   * Return whether this BuildRequest contains multiple top-level configs
+   *
+   * <p>Note: The ability to have a multi-top-level-config build is currently completely disabled.
+   * However, certain parts of the infra would fail horribly if it was ever enabled at all so
+   * keeping this flag for those parts to check as a sort of mild future-proofing.
+   */
+  public boolean isMultiConfigBuild() {
+    return false;
   }
 
   /**
@@ -382,6 +404,18 @@ public class BuildRequest implements OptionsProvider {
       warnings.add("--verbose_explanations has no effect when --explain=<file> is not enabled");
     }
 
+    // --nobuild means no execution will be carried out, hence it doesn't make sense to
+    // interleave analysis and execution in that case.
+    // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
+    // makes no different from the users' perspective.
+    if (getBuildOptions().mergedSkyframeAnalysisExecution
+        && !getBuildOptions().performExecutionPhase
+        && !("aquery".equals(commandName) || "cquery".equals(commandName))) {
+      warnings.add(
+          "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and"
+              + " will be ignored.");
+    }
+
     return warnings;
   }
 
@@ -394,10 +428,6 @@ public class BuildRequest implements OptionsProvider {
         getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
             buildOptions.outputGroups, validationMode(), /*shouldRunTests=*/ shouldRunTests()));
-  }
-
-  public ImmutableSortedSet<String> getMultiCpus() {
-    return ImmutableSortedSet.copyOf(getBuildOptions().multiCpus);
   }
 
   public ImmutableList<String> getAspects() {

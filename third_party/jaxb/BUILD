@@ -1,8 +1,22 @@
+load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
+
+package(
+    default_applicable_licenses = [":license"],
+    default_visibility = ["//visibility:public"],
+)
 
 licenses(["reciprocal"])  #  CDDL License
 
-package(default_visibility = ["//visibility:public"])
+license(
+    name = "license",
+    package_name = "jaxb",
+    license_kinds = [
+        "@rules_license//licenses/spdx:CDDL-1.1",
+    ],
+    license_text = "LICENSE.txt",
+    package_version = "2.3.1",
+)
 
 filegroup(
     name = "srcs",

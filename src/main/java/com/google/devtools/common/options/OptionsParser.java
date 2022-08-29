@@ -23,10 +23,12 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
 import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -143,10 +145,15 @@ public class OptionsParser implements OptionsParsingResult {
 
   /** A helper class to create new instances of {@link OptionsParser}. */
   public static final class Builder {
-    private final OptionsParserImpl.Builder implBuilder = OptionsParserImpl.builder();
+    private final OptionsParserImpl.Builder implBuilder;
     private boolean allowResidue = true;
 
+    private Builder(OptionsParserImpl.Builder implBuilder) {
+      this.implBuilder = implBuilder;
+    }
+
     /** Directly sets the {@link OptionsData} used by this parser. */
+    @CanIgnoreReturnValue
     public Builder optionsData(OptionsData optionsData) {
       this.implBuilder.optionsData(optionsData);
       return this;
@@ -177,18 +184,21 @@ public class OptionsParser implements OptionsParsingResult {
     /**
      * Enables the Parser to handle params files using the provided {@link ParamsFilePreProcessor}.
      */
+    @CanIgnoreReturnValue
     public Builder argsPreProcessor(ArgsPreProcessor preProcessor) {
       this.implBuilder.argsPreProcessor(preProcessor);
       return this;
     }
 
     /** Any flags with this prefix will be skipped during processing. */
+    @CanIgnoreReturnValue
     public Builder skippedPrefix(String skippedPrefix) {
       this.implBuilder.skippedPrefix(skippedPrefix);
       return this;
     }
 
     /** Skip all the prefixes associated with Starlark options */
+    @CanIgnoreReturnValue
     public Builder skipStarlarkOptionPrefixes() {
       for (String prefix : STARLARK_SKIPPED_PREFIXES) {
         this.implBuilder.skippedPrefix(prefix);
@@ -202,18 +212,21 @@ public class OptionsParser implements OptionsParsingResult {
      * is true then a call to one of the {@code parse} methods will throw {@link
      * OptionsParsingException} unless {@link #getResidue()} is empty after parsing.
      */
+    @CanIgnoreReturnValue
     public Builder allowResidue(boolean allowResidue) {
       this.allowResidue = allowResidue;
       return this;
     }
 
     /** Sets whether the parser should ignore internal-only options. */
+    @CanIgnoreReturnValue
     public Builder ignoreInternalOptions(boolean ignoreInternalOptions) {
       this.implBuilder.ignoreInternalOptions(ignoreInternalOptions);
       return this;
     }
 
     /** Sets the string the parser should look for as an identifier for flag aliases. */
+    @CanIgnoreReturnValue
     public Builder withAliasFlag(@Nullable String aliasFlag) {
       this.implBuilder.withAliasFlag(aliasFlag);
       return this;
@@ -223,8 +236,14 @@ public class OptionsParser implements OptionsParsingResult {
      * Adds a map of flag aliases for the OptionsParser to reference. The keys are the aliases and
      * the values are the actual options.
      */
+    @CanIgnoreReturnValue
     public Builder withAliases(Map<String, String> aliases) {
       this.implBuilder.withAliases(aliases);
+      return this;
+    }
+
+    public Builder withConversionContext(Object conversionContext) {
+      this.implBuilder.withConversionContext(conversionContext);
       return this;
     }
 
@@ -236,7 +255,11 @@ public class OptionsParser implements OptionsParsingResult {
 
   /** Returns a new {@link Builder} to create {@link OptionsParser} instances. */
   public static Builder builder() {
-    return new Builder();
+    return new Builder(OptionsParserImpl.builder());
+  }
+
+  public Builder toBuilder() {
+    return new Builder(impl.toBuilder()).allowResidue(allowResidue);
   }
 
   private final OptionsParserImpl impl;
@@ -249,6 +272,10 @@ public class OptionsParser implements OptionsParsingResult {
   private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
     this.impl = impl;
     this.allowResidue = allowResidue;
+  }
+
+  public Object getConversionContext() {
+    return impl.getConversionContext();
   }
 
   @Override
@@ -669,12 +696,7 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
     OptionsParserImplResult optionsParserImplResult = impl.parse(priority, sourceFunction, args);
-    residue.addAll(optionsParserImplResult.getResidue());
-    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
-    if (!allowResidue && !residue.isEmpty()) {
-      String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
-      throw new OptionsParsingException(errorMsg);
-    }
+    addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
   }
 
@@ -700,10 +722,16 @@ public class OptionsParser implements OptionsParsingResult {
         args);
     OptionsParserImplResult optionsParserImplResult =
         impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
-    residue.addAll(optionsParserImplResult.getResidue());
-    postDoubleDashResidue.addAll(optionsParserImplResult.postDoubleDashResidue);
-    if (!allowResidue && !residue.isEmpty()) {
-      String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
+    addResidueFromResult(optionsParserImplResult);
+  }
+
+  private void addResidueFromResult(OptionsParserImplResult result) throws OptionsParsingException {
+    residue.addAll(result.getResidue());
+    postDoubleDashResidue.addAll(result.postDoubleDashResidue);
+    if (!allowResidue && (!getSkippedArgs().isEmpty() || !residue.isEmpty())) {
+      String errorMsg =
+          "Unrecognized arguments: "
+              + Joiner.on(' ').join(Iterables.concat(getSkippedArgs(), residue));
       throw new OptionsParsingException(errorMsg);
     }
   }
@@ -745,7 +773,12 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
-  public List<String> getResidue() {
+  public ImmutableList<String> getSkippedArgs() {
+    return ImmutableList.copyOf(impl.getSkippedArgs());
+  }
+
+  @Override
+  public ImmutableList<String> getResidue() {
     return ImmutableList.copyOf(residue);
   }
 

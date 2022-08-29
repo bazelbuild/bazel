@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -40,6 +41,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A module that contains Starlark utilities for Java support. */
@@ -86,6 +88,7 @@ public class JavaStarlarkCommon
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
+      Sequence<?> resourceJars, // <Artifact> expected
       Sequence<?> classpathResources, // <Artifact> expected
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
@@ -136,6 +139,7 @@ public class JavaStarlarkCommon
         || !enableJSpecify
         || !includeCompilationInfo
         || !classpathResources.isEmpty()
+        || !resourceJars.isEmpty()
         || injectingRuleKind != Starlark.NONE) {
       checkPrivateAccess(thread);
     }
@@ -165,6 +169,7 @@ public class JavaStarlarkCommon
             javaToolchain,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
+            Sequence.cast(resourceJars, Artifact.class, "resource_jars"),
             Sequence.cast(classpathResources, Artifact.class, "classpath_resources"),
             neverlink,
             enableAnnotationProcessing,
@@ -368,11 +373,13 @@ public class JavaStarlarkCommon
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
       builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
+      JavaCompilationArgsProvider compilationArgsProvider =
+          javaInfo.getProvider(JavaCompilationArgsProvider.class);
       builder.addProvider(
           JavaCompilationInfoProvider.class,
           new JavaCompilationInfoProvider.Builder()
-              .setRuntimeClasspath(
-                  javaInfo.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars())
+              .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
+              .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
               .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
@@ -392,5 +399,12 @@ public class JavaStarlarkCommon
     checkPrivateAccess(thread);
     return StarlarkList.immutableCopyOf(
         ruleContext.getRuleContext().getBuildInfo(JavaBuildInfoFactory.KEY));
+  }
+
+  @Override
+  public boolean getExperimentalJavaProtoLibraryDefaultHasServices(
+      StarlarkSemantics starlarkSemantics) throws EvalException {
+    return starlarkSemantics.getBool(
+        BuildLanguageOptions.EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES);
   }
 }

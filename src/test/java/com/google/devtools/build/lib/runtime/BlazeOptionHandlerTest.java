@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.events.Event;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.devtools.common.options.TestOptions;
 import java.util.Arrays;
 import org.junit.Before;
@@ -54,7 +57,11 @@ public class BlazeOptionHandlerTest {
         ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
 
     BlazeOptionHandlerTestHelper helper =
-        new BlazeOptionHandlerTestHelper(optionsClasses, /* allowResidue= */ true);
+        new BlazeOptionHandlerTestHelper(
+            optionsClasses,
+            /* allowResidue= */ true,
+            /* aliasFlag= */ null,
+            /* skipStarlarkPrefixes= */ true);
     eventHandler = helper.getEventHandler();
     parser = helper.getOptionsParser();
     optionHandler = helper.getOptionHandler();
@@ -336,6 +343,73 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testExpandConfigOptions_skippedArgsOrderPreserved() throws Exception {
+    ImmutableListMultimap<String, RcChunkOfArgs> rcContent =
+        ImmutableListMultimap.of(
+            "c0:config1",
+            new RcChunkOfArgs("rc1", ImmutableList.of("--//f=2", "--//f=3")),
+            "c0:config2b",
+            new RcChunkOfArgs("rc1", ImmutableList.of("--//f=6")),
+            "c0:config2",
+            new RcChunkOfArgs("rc1", ImmutableList.of("--config=config2a", "--config=config2b")),
+            "c0:config2a",
+            new RcChunkOfArgs("rc1", ImmutableList.of("--//f=5")));
+    parser.parse(
+        "--test_multiple_string=1",
+        "--//f=1",
+        "--test_multiple_string=2",
+        "--config=config1",
+        "--test_multiple_string=3",
+        "--//f=4",
+        "--test_multiple_string=4",
+        "--config=config2",
+        "--test_multiple_string=5",
+        "--//f=7",
+        "--test_multiple_string=6");
+    optionHandler.expandConfigOptions(eventHandler, rcContent);
+
+    assertThat(parser.getSkippedArgs())
+        .containsExactly(
+            "--//f=1", "--//f=2", "--//f=3", "--//f=4", "--//f=5", "--//f=6", "--//f=7")
+        .inOrder();
+
+    // Verify that the order of non-skipped args is as expected and that skipped args are not
+    // reported as parsed.
+    assertThat(
+            parser.asListOfCanonicalOptions().stream()
+                .map(ParsedOptionDescription::getCanonicalForm)
+                .collect(toImmutableList()))
+        .containsExactly(
+            "--test_multiple_string=1",
+            "--test_multiple_string=2",
+            "--config=config1",
+            "--test_multiple_string=3",
+            "--test_multiple_string=4",
+            "--config=config2",
+            "--config=config2a",
+            "--config=config2b",
+            "--test_multiple_string=5",
+            "--test_multiple_string=6")
+        .inOrder();
+    assertThat(
+            parser.asCompleteListOfParsedOptions().stream()
+                .map(ParsedOptionDescription::getCanonicalForm)
+                .collect(toImmutableList()))
+        .containsExactly(
+            "--test_multiple_string=1",
+            "--test_multiple_string=2",
+            "--config=config1",
+            "--test_multiple_string=3",
+            "--test_multiple_string=4",
+            "--config=config2",
+            "--config=config2a",
+            "--config=config2b",
+            "--test_multiple_string=5",
+            "--test_multiple_string=6")
+        .inOrder();
+  }
+
+  @Test
   public void testUndefinedConfig() throws Exception {
     parser.parse("--config=invalid");
     OptionsParsingException e =
@@ -361,6 +435,24 @@ public class BlazeOptionHandlerTest {
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).contains("res");
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
+  }
+
+  @Test
+  public void testParseOptions_disallowResidue_skippedArgsLeadToFailure() throws Exception {
+    ImmutableList<Class<? extends OptionsBase>> optionsClasses =
+        ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
+
+    BlazeOptionHandlerTestHelper helper =
+        new BlazeOptionHandlerTestHelper(
+            optionsClasses,
+            /* allowResidue= */ false,
+            /* aliasFlag= */ null,
+            /* skipStarlarkPrefixes= */ true);
+    OptionsParser parser = helper.getOptionsParser();
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse("--//f=1"));
+    assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: --//f=1");
   }
 
   @Test

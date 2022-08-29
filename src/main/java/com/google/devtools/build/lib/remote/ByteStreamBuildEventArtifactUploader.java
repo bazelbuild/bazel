@@ -30,10 +30,11 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.Step;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
@@ -52,6 +53,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** A {@link BuildEventArtifactUploader} backed by {@link RemoteCache}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
@@ -68,8 +70,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final AtomicBoolean shutdown = new AtomicBoolean();
   private final Scheduler scheduler;
 
-  private final Set<Path> omittedFiles = Sets.newConcurrentHashSet();
-  private final Set<Path> omittedTreeRoots = Sets.newConcurrentHashSet();
+  private final Set<PathFragment> omittedFiles = Sets.newConcurrentHashSet();
+  private final Set<PathFragment> omittedTreeRoots = Sets.newConcurrentHashSet();
   private final XattrProvider xattrProvider;
 
   ByteStreamBuildEventArtifactUploader(
@@ -93,11 +95,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   public void omitFile(Path file) {
-    omittedFiles.add(file);
+    omittedFiles.add(file.asFragment());
   }
 
   public void omitTree(Path treeRoot) {
-    omittedTreeRoots.add(treeRoot);
+    omittedTreeRoots.add(treeRoot.asFragment());
   }
 
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
@@ -157,13 +159,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* omitted= */ false);
     }
 
+    PathFragment filePathFragment = file.asFragment();
     boolean omitted = false;
-    if (omittedFiles.contains(file)) {
+    if (omittedFiles.contains(filePathFragment)) {
       omitted = true;
     } else {
-      for (Path treeRoot : omittedTreeRoots) {
+      for (PathFragment treeRoot : omittedTreeRoots) {
         if (file.startsWith(treeRoot)) {
-          omittedFiles.add(file);
+          omittedFiles.add(filePathFragment);
           omitted = true;
         }
       }
@@ -276,8 +279,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
-    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
-    context.setStep(Step.UPLOAD_BES_FILES);
+    RemoteActionExecutionContext context =
+        RemoteActionExecutionContext.create(metadata)
+            .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY);
 
     return Single.using(
         remoteCache::retain,
@@ -356,6 +360,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     }
 
     @Override
+    @Nullable
     public String apply(Path path) {
       Preconditions.checkNotNull(path);
 
