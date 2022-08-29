@@ -105,6 +105,15 @@ public class CredentialHelperProviderTest {
   }
 
   @Test
+  public void uriWithoutHostComponent() throws Exception {
+    Path helper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
+    CredentialHelperProvider provider =
+        CredentialHelperProvider.builder().add("example.com", helper).build();
+
+    assertThat(provider.findCredentialHelper(URI.create("unix:///path/to/socket"))).isEmpty();
+  }
+
+  @Test
   public void addNonExecutableDefaultHelper() throws Exception {
     Path helper = fileSystem.getPath("/path/to/non/executable");
     setUpHelper(helper);
