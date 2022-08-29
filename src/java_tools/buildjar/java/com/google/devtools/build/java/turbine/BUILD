@@ -13,6 +13,21 @@ java_binary(
     ],
 )
 
+java_library(
+    name = "turbine_wrapper",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
+        "//third_party:turbine",
+    ],
+)
+
+java_binary(
+    name = "turbine_binary",
+    main_class = "com.google.devtools.build.java.turbine.BazelTurbine",
+    runtime_deps = [":turbine_wrapper"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(

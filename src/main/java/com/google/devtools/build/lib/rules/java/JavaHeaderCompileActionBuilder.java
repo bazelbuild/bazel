@@ -73,7 +73,7 @@ import javax.annotation.Nullable;
 public class JavaHeaderCompileActionBuilder {
 
   private static final ParamFileInfo PARAM_FILE_INFO =
-      ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).build();
+      ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).setUseAlways(true).build();
 
   private final RuleContext ruleContext;
 
@@ -363,14 +363,9 @@ public class JavaHeaderCompileActionBuilder {
       }
     }
 
-    ImmutableMap<String, String> executionInfo =
-        TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
-    if (javaConfiguration.inmemoryJdepsFiles()) {
-      executionInfo =
-          ImmutableMap.of(
-              ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-              outputDepsProto.getExecPathString());
-    }
+    NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
+    toolsBuilder.add(headerCompiler.tool().getExecutable());
+    toolsBuilder.addTransitive(toolsJars);
     if (useDirectClasspath) {
       NestedSet<Artifact> classpath;
       if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
@@ -404,7 +399,7 @@ public class JavaHeaderCompileActionBuilder {
       ruleContext.registerAction(
           new SpawnAction(
               /* owner= */ ruleContext.getActionOwner(),
-              /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+              /* tools= */ toolsBuilder.build(),
               /* inputs= */ allInputs,
               /* outputs= */ outputs.build(),
               /* primaryOutput= */ outputJar,
@@ -416,9 +411,7 @@ public class JavaHeaderCompileActionBuilder {
               /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
               /* isShellCommand= */ false,
               /* env= */ actionEnvironment,
-              /* executionInfo= */ ruleContext
-                  .getConfiguration()
-                  .modifiedExecutionInfo(executionInfo, "Turbine"),
+              /* executionInfo= */ getExecutionInfo(),
               /* progressMessage= */ progressMessage,
               /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
               /* mnemonic= */ "Turbine",
@@ -471,14 +464,14 @@ public class JavaHeaderCompileActionBuilder {
             /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
             /* owner= */ ruleContext.getActionOwner(),
             /* env= */ actionEnvironment,
-            /* tools= */ toolsJars,
+            /* tools= */ toolsBuilder.build(),
             /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
             /* progressMessage= */ progressMessage,
             /* mandatoryInputs= */ mandatoryInputs,
             /* transitiveInputs= */ classpathEntries,
             /* directJars= */ directJars,
             /* outputs= */ outputs.build(),
-            /* executionInfo= */ executionInfo,
+            /* executionInfo= */ getExecutionInfo(),
             /* extraActionInfoSupplier= */ null,
             /* executableLine= */ executableLine.build(),
             /* flagLine= */ commandLine.build(),
@@ -512,5 +505,21 @@ public class JavaHeaderCompileActionBuilder {
             // an appropriate error then.
           }
         };
+  }
+
+  private ImmutableMap<String, String> getExecutionInfo() {
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+
+    ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
+    workerInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+
+    executionInfo.putAll(ruleContext.getConfiguration().modifiedExecutionInfo(workerInfo.buildOrThrow(), "Turbine"));
+    executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+    if (ruleContext.getConfiguration().getFragment(JavaConfiguration.class).inmemoryJdepsFiles()) {
+      executionInfo.put(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, outputDepsProto.getExecPathString());
+    }
+    executionInfo.put(ExecutionRequirements.WORKER_KEY_MNEMONIC, "Turbine");
+
+    return executionInfo.buildOrThrow();
   }
 }

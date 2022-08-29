@@ -245,6 +245,11 @@ alias(
 )
 
 alias(
+    name = "turbine_binary_deploy.jar",
+    actual = "@remote_java_tools//:Turbine",
+)
+
+alias(
     name = "javabuilder",
     actual = "@remote_java_tools//:JavaBuilder",
 )
