@@ -76,7 +76,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private static final String MACOS_CPU_PREFIX = "darwin_";
 
   // TODO(b/180572694): Remove after platforms based toolchain resolution supported.
-  /** Prefix for forced iOS and tvOS simulator cpu values */
+  /** Prefix for forced iOS, tvOS, and watchOS simulator cpu values */
   public static final String FORCED_SIMULATOR_CPU_PREFIX = "sim_";
 
   /** Default cpu for iOS builds. */
@@ -230,7 +230,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     // The removeSimPrefix argument is necessary due to a simulator and device both using arm64
     // architecture. In the case of Starlark asking for the architecture, we should return the
     // actual architecture (arm64) but in other cases in this class what we actually want is the
-    // CPU without the ios/tvos prefix (e.g. sim_arm64). This parameter is provided in the private
+    // CPU without the ios/tvos/watchos prefix (e.g. sim_arm64). This parameter is provided in the private
     // method so that internal to this class we are able to use both without duplicating retrieval
     // logic.
     // TODO(b/180572694): Remove removeSimPrefix parameter once platforms are used instead of CPU
