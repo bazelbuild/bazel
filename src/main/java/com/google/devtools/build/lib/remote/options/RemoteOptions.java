@@ -589,15 +589,16 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "experimental_remote_download_regex",
-      defaultValue = "",
+      defaultValue = "null",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Force Bazel to download the artifacts that match the given regexp. To be used in"
-              + " conjunction with --remote_download_minimal or --remote_download_toplevel to allow"
+              + " conjunction with Build without the Bytes (or the internal equivalent) to allow"
               + " the client to request certain artifacts that might be needed locally (e.g. IDE"
               + " support)")
-  public String remoteDownloadRegex;
+  public List<String> remoteDownloadRegex;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

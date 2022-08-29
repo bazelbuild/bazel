@@ -144,7 +144,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -217,18 +216,25 @@ public class RemoteExecutionService {
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
 
-    String regex = remoteOptions.remoteDownloadRegex;
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
-    // used without RemoteOutputsMode.MINIMAL.
-    this.shouldForceDownloads =
-        !regex.isEmpty()
-            && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-                || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
-    Pattern pattern = Pattern.compile(regex);
+    // used without Build without the Bytes.
+    ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
+    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
+        || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
+      for (String regex : remoteOptions.remoteDownloadRegex) {
+        builder.add(Pattern.compile(regex));
+      }
+    }
+    ImmutableList<Pattern> patterns = builder.build();
+    this.shouldForceDownloads = !patterns.isEmpty();
     this.shouldForceDownloadPredicate =
         path -> {
-          Matcher m = pattern.matcher(path);
-          return m.matches();
+          for (Pattern pattern : patterns) {
+            if (pattern.matcher(path).find()) {
+              return true;
+            }
+          }
+          return false;
         };
   }
 
