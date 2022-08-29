@@ -44,8 +44,7 @@ public class RepositoryNameTest {
     assertThat(RepositoryName.create("..foo").getNameWithAt()).isEqualTo("@..foo");
     assertThat(RepositoryName.create("foo..").getNameWithAt()).isEqualTo("@foo..");
     assertThat(RepositoryName.create(".foo").getNameWithAt()).isEqualTo("@.foo");
-    assertThat(RepositoryName.create("@foo").getNameWithAt()).isEqualTo("@@foo");
-    assertThat(RepositoryName.create("@foo~bar").getNameWithAt()).isEqualTo("@@foo~bar");
+    assertThat(RepositoryName.create("foo~bar").getNameWithAt()).isEqualTo("@foo~bar");
 
     assertNotValid(".", "repo names are not allowed to be '@.'");
     assertNotValid("..", "repo names are not allowed to be '@..'");

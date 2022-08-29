@@ -1542,7 +1542,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         return this;
       }
 
+      @SuppressWarnings("LenientFormatStringValidation")
       public HeaderInfo build() {
+        // Expected 0 args, but got 2.
         Preconditions.checkState(
             (separateModule == null || headerModule != null)
                 && (separatePicModule == null || picHeaderModule != null),

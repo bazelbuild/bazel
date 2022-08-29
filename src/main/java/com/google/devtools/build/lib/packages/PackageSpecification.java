@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Represents one of the following:
@@ -128,6 +130,27 @@ public abstract class PackageSpecification {
     return allBeneath
         ? new AllPackagesBeneath(packageIdForSpecifiedRepository)
         : new SinglePackage(packageIdForSpecifiedRepository);
+  }
+
+  /**
+   * Parses a string to a {@code PackageSpecification} for use with .bzl visibility.
+   *
+   * <p>This rejects negative package patterns, and translates the exception type into {@code
+   * EvalException}.
+   */
+  // TODO(b/22193153): Support negatives too.
+  public static PackageSpecification fromStringForBzlVisibility(
+      RepositoryName repositoryName, String spec) throws EvalException {
+    PackageSpecification result;
+    try {
+      result = fromString(repositoryName, spec);
+    } catch (InvalidPackageSpecificationException e) {
+      throw new EvalException(e.getMessage());
+    }
+    if (result instanceof NegativePackageSpecification) {
+      throw Starlark.errorf("Cannot use negative package patterns here");
+    }
+    return result;
   }
 
   /**

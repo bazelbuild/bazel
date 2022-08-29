@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,11 +37,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LabelBuildSettingTest extends BuildViewTestCase {
   private FakeRegistry registry;
-
-  @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
 
   @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
@@ -58,11 +52,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
   }
 
   private void writeRulesBzl(String type) throws Exception {
@@ -287,10 +276,12 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void transitionOutput_otherRepo() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
-    scratch.file("modules/@foo~1.0/WORKSPACE");
-    scratch.file("modules/@foo~1.0/BUILD", "filegroup(name='other_rule')");
+    scratch.file("modules/foo~1.0/WORKSPACE");
+    scratch.file("modules/foo~1.0/BUILD", "filegroup(name='other_rule')");
 
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -334,7 +325,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'rule_with_transition')",
         "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
         "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
-        "label_flag(name = 'my_flag3', build_setting_default = ':first_rule')",
         "filegroup(name = 'first_rule')",
         "rule_with_transition(name = 'buildme')");
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();

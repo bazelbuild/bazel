@@ -158,6 +158,7 @@ public class Chunker {
     // uncompressed form.
     if (initialized && toOffset >= offset && !compressed) {
       ByteStreams.skipFully(data, toOffset - offset);
+      offset = toOffset;
     } else {
       reset();
       initialize(toOffset);

@@ -70,11 +70,49 @@ public class SelectTest {
 
   @Test
   public void testPlusIncompatibleType() throws Exception {
+
     assertFails(
         "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1",
-        "'+' operator applied to incompatible types (select of list, int)");
+        "Cannot combine incompatible types (select of list, int)");
     assertFails(
         "select({'foo': ['FOO']}) + select({'bar': 2})",
-        "'+' operator applied to incompatible types (select of list, select of int)");
+        "Cannot combine incompatible types (select of list, select of int)");
+
+    assertFails(
+        "select({'foo': ['FOO']}) + select({'bar': {'a': 'a'}})",
+        "Cannot combine incompatible types (select of list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) + select({'foo': ['FOO']})",
+        "Cannot combine incompatible types (select of dict, select of list)");
+    assertFails(
+        "['FOO'] + select({'bar': {'a': 'a'}})",
+        "Cannot combine incompatible types (list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) + ['FOO']",
+        "Cannot combine incompatible types (select of dict, list)");
+    assertFails(
+        "select({'foo': ['FOO']}) + {'a': 'a'}", "unsupported binary operation: select + dict");
+    assertFails(
+        "{'a': 'a'} + select({'foo': ['FOO']})", "unsupported binary operation: dict + select");
+  }
+
+  @Test
+  public void testUnionIncompatibleType() throws Exception {
+    assertFails(
+        "select({'foo': ['FOO']}) | select({'bar': {'a': 'a'}})",
+        "Cannot combine incompatible types (select of list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) | select({'foo': ['FOO']})",
+        "Cannot combine incompatible types (select of dict, select of list)");
+    assertFails(
+        "['FOO'] | select({'bar': {'a': 'a'}})", "unsupported binary operation: list | select");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) | ['FOO']", "unsupported binary operation: select | list");
+    assertFails(
+        "select({'foo': ['FOO']}) | {'a': 'a'}",
+        "Cannot combine incompatible types (select of list, dict)");
+    assertFails(
+        "{'a': 'a'} | select({'foo': ['FOO']})",
+        "Cannot combine incompatible types (dict, select of list)");
   }
 }

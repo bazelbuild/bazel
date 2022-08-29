@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -44,7 +43,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -66,14 +64,10 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
   }
 
-  @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
   @Before
-  public void setUpForBzlmod() throws IOException, ParseException {
-    scratch.file("MODULE.bazel", "module()");
+  public void setUpForBzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+    scratch.file("MODULE.bazel");
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(scratch.dir("modules").getPathString());
     ModuleFileFunction.REGISTRIES.set(
         getSkyframeExecutor().getDifferencerForTesting(), ImmutableList.of(registry.getUrl()));
@@ -173,7 +167,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     TestConstants.WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
-                    RepositoryName.create("@bbb~1.0")),
+                    RepositoryName.create("bbb~1.0")),
                 name));
   }
 
@@ -191,7 +185,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             "module(name='ccc', version='1.0')",
             "bazel_dep(name='bbb', version='1.0', repo_name='com_foo_bar_b')");
 
-    RepositoryName name = RepositoryName.create("@ccc~1.0");
+    RepositoryName name = RepositoryName.create("ccc~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -201,8 +195,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "ccc", RepositoryName.create("@ccc~1.0"),
-                    "com_foo_bar_b", RepositoryName.create("@bbb~1.0")),
+                    "ccc", RepositoryName.create("ccc~1.0"),
+                    "com_foo_bar_b", RepositoryName.create("bbb~1.0")),
                 name));
   }
 
@@ -215,7 +209,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "module(name='bbb', version='1.0')",
         "bazel_dep(name='aaa',version='3.0')");
 
-    RepositoryName name = RepositoryName.create("@bbb~1.0");
+    RepositoryName name = RepositoryName.create("bbb~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -225,7 +219,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "bbb", RepositoryName.create("@bbb~1.0"), "aaa", RepositoryName.create("")),
+                    "bbb", RepositoryName.create("bbb~1.0"), "aaa", RepositoryName.create("")),
                 name));
   }
 
@@ -260,9 +254,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     TestConstants.WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "bbb1",
-                    RepositoryName.create("@bbb~1.0"),
+                    RepositoryName.create("bbb~1.0"),
                     "bbb2",
-                    RepositoryName.create("@bbb~2.0")),
+                    RepositoryName.create("bbb~2.0")),
                 name));
   }
 
@@ -284,7 +278,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
         .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
 
-    RepositoryName name = RepositoryName.create("@bbb~1.0");
+    RepositoryName name = RepositoryName.create("bbb~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -296,8 +290,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "bbb", RepositoryName.create("@bbb~1.0"),
-                    "ddd", RepositoryName.create("@ddd~1.0")),
+                    "bbb", RepositoryName.create("bbb~1.0"),
+                    "ddd", RepositoryName.create("ddd~1.0")),
                 name));
   }
 
@@ -317,7 +311,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("bbb", "2.0"), "module(name='bbb', version='2.0')")
         .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')");
 
-    RepositoryName name = RepositoryName.create("@bbb~1.0");
+    RepositoryName name = RepositoryName.create("bbb~1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -329,8 +323,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             withMapping(
                 ImmutableMap.of(
-                    "bbb", RepositoryName.create("@bbb~1.0"),
-                    "com_foo_bar_c", RepositoryName.create("@ccc~1.0")),
+                    "bbb", RepositoryName.create("bbb~1.0"),
+                    "com_foo_bar_c", RepositoryName.create("ccc~1.0")),
                 name));
   }
 
@@ -430,12 +424,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                 ImmutableMap.<String, RepositoryName>builder()
                     .put("root", RepositoryName.MAIN)
                     // mappings to @bbb get remapped to @bbb~1.0 because of module bbb@1.0
-                    .put("bbb_alias", RepositoryName.create("@bbb~1.0"))
-                    .put("bbb_alias2", RepositoryName.create("@bbb~1.0"))
+                    .put("bbb_alias", RepositoryName.create("bbb~1.0"))
+                    .put("bbb_alias2", RepositoryName.create("bbb~1.0"))
                     // mapping from @bbb to @bbb~1.0 is also created
-                    .put("bbb", RepositoryName.create("@bbb~1.0"))
+                    .put("bbb", RepositoryName.create("bbb~1.0"))
                     // mapping from @ccc to @ccc~2.0 is created despite not being mentioned
-                    .put("ccc", RepositoryName.create("@ccc~2.0"))
+                    .put("ccc", RepositoryName.create("ccc~2.0"))
                     // mapping to @ddd is untouched because ddd has a multiple-version override
                     .put("ddd_alias", RepositoryName.create("ddd"))
                     // mapping to @eee is untouched because eee is not a module
@@ -467,7 +461,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                 ImmutableMap.of(
                     "", RepositoryName.MAIN,
                     "aaa", RepositoryName.MAIN,
-                    "bbb", RepositoryName.create("@bbb~1.0"),
+                    "bbb", RepositoryName.create("bbb~1.0"),
                     "root", RepositoryName.MAIN,
                     "ws_repo", RepositoryName.create("ws_repo")),
                 RepositoryName.MAIN));
@@ -497,7 +491,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                 ImmutableMap.of(
                     "", RepositoryName.MAIN,
                     "aaa", RepositoryName.MAIN,
-                    "bbb", RepositoryName.create("@bbb~1.0")),
+                    "bbb", RepositoryName.create("bbb~1.0")),
                 RepositoryName.MAIN));
   }
 
@@ -585,7 +579,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             withMapping(
                 ImmutableMap.of(
                     "bazel_tools", RepositoryName.BAZEL_TOOLS, // bazel_tools is a well-known module
-                    "foo", RepositoryName.create("@foo~1.0"),
+                    "foo", RepositoryName.create("foo~1.0"),
                     "_builtins", RepositoryName.create("_builtins")),
                 name));
   }

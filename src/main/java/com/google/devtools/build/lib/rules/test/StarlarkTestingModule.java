@@ -40,6 +40,6 @@ public class StarlarkTestingModule implements TestingModuleApi {
         Dict.cast(environment, String.class, String.class, "environment"),
         StarlarkList.immutableCopyOf(
             Sequence.cast(inheritedEnvironment, String.class, "inherited_environment")),
-        /* shouldErrorOnNonExecutableRule */ false);
+        /* shouldErrorOnNonExecutableRule= */ false);
   }
 }

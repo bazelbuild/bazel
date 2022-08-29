@@ -185,6 +185,7 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private static TreeArtifactValue createTreeArtifactValueFromActionKey(
       ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {
@@ -246,6 +247,7 @@ public final class ArtifactFunction implements SkyFunction {
     TreeArtifactValue tree = treeBuilder.build();
 
     if (omitted) {
+      // Expected 1 args, but got 2.
       Preconditions.checkState(
           tree.getChildValues().isEmpty(),
           "Action template expansion has some but not all outputs omitted, present outputs: %s",

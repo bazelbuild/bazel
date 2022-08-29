@@ -498,8 +498,7 @@ public abstract class BuildIntegrationTestCase {
             .add(
                 PrecomputedValue.injected(
                     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                    Optional.empty()),
-                PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false))
+                    Optional.empty()))
             .addAll(BAZEL_REPOSITORY_PRECOMPUTED_VALUES)
             .build();
       }

@@ -144,6 +144,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
           ? RepositoryName.MAIN
           : repoContext.currentRepo();
     }
+    if (parts.repoIsCanonical) {
+      // This label uses the canonical label literal syntax starting with two @'s ("@@foo//bar").
+      return RepositoryName.createUnvalidated(parts.repo);
+    }
     return repoContext.repoMapping().get(parts.repo);
   }
 
@@ -386,7 +390,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   /**
    * Renders this label in canonical form.
    *
-   * <p>invariant: {@code parseAbsolute(x.toString(), false).equals(x)}
+   * <p>invariant: {@code parseCanonical(x.toString()).equals(x)}. Note that using {@link
+   * #parseWithPackageContext} or {@link #parseWithRepoContext} on the returned string might not
+   * yield the same label! For that, use {@link #getUnambiguousCanonicalForm()}.
    */
   @Override
   public String toString() {
@@ -396,18 +402,23 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   /**
    * Renders this label in canonical form.
    *
-   * <p>invariant: {@code parseAbsolute(x.getCanonicalForm(), false).equals(x)}
+   * <p>invariant: {@code parseCanonical(x.getCanonicalForm()).equals(x)}. Note that using {@link
+   * #parseWithPackageContext} or {@link #parseWithRepoContext} on the returned string might not
+   * yield the same label! For that, use {@link #getUnambiguousCanonicalForm()}.
    */
   public String getCanonicalForm() {
     return packageIdentifier.getCanonicalForm() + ":" + name;
   }
 
+  /**
+   * Returns an absolutely unambiguous canonical form for this label. Parsing this string in any
+   * environment should yield the same label (as in {@code
+   * Label.parse*(x.getUnambiguousCanonicalForm(), ...).equals(x)}).
+   */
   public String getUnambiguousCanonicalForm() {
-    return packageIdentifier.getRepository().getNameWithAt()
-        + "//"
-        + packageIdentifier.getPackageFragment()
-        + ":"
-        + name;
+    return String.format(
+        "@@%s//%s:%s",
+        packageIdentifier.getRepository().getName(), packageIdentifier.getPackageFragment(), name);
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */
@@ -621,11 +632,30 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   @Override
   public void str(Printer printer, StarlarkSemantics semantics) {
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
-      printer.append(getUnambiguousCanonicalForm());
-    } else {
+    if (getRepository().isMain()
+        && !semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION)) {
+      // If this label is in the main repo and we're not using unambiguous label stringification,
+      // the result should always be "//foo:bar".
       printer.append(getCanonicalForm());
+      return;
     }
+
+    if (semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+      // If Bzlmod is enabled, we use canonical label literal syntax here and prepend an extra '@'.
+      // So the result looks like "@@//foo:bar" for the main repo and "@@foo~1.0//bar:quux" for
+      // other repos.
+      printer.append(getUnambiguousCanonicalForm());
+      return;
+    }
+    // If Bzlmod is not enabled, we just use a single '@'.
+    // So the result looks like "@//foo:bar" for the main repo and "@foo//bar:quux" for other repos.
+    printer.append(
+        String.format(
+            "@%s//%s:%s",
+            packageIdentifier.getRepository().getName(),
+            packageIdentifier.getPackageFragment(),
+            name));
   }
 
   @Override

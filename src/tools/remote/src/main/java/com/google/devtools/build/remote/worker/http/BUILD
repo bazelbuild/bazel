@@ -1,7 +1,5 @@
 package(default_visibility = ["//:__subpackages__"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

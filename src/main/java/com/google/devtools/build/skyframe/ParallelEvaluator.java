@@ -280,6 +280,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
    * registered during this build (via {@link NodeEntry#getInProgressReverseDeps}. Since we don't
    * allow a node to build with unfinished deps, those parents cannot have built.
    */
+  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private Map<SkyKey, ValueWithMetadata> bubbleErrorUp(
       final ErrorInfo leafFailure,
@@ -362,6 +363,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           roots,
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
+      // Expected 6 args, but got 8.
       Preconditions.checkState(
           evaluatorContext.getProgressReceiver().isInflight(parent),
           "In-progress reverse deps can only include in-flight nodes: " + "%s %s %s %s %s %s",
@@ -373,6 +375,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           roots,
           rdepsToBubbleUpTo,
           bubbleErrorInfo);
+      // Expected 6 args, but got 8.
       Preconditions.checkState(
           parentEntry.getTemporaryDirectDeps().expensiveContains(errorKey),
           "In-progress reverse deps can only include nodes that have declared a dep: "

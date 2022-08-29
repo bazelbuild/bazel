@@ -447,7 +447,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testTranspilationActionTreeArtifactOutputsFromSourceJar() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration("--ios_minimum_os=1.0");
     scratch.file("java/com/google/transpile/dummy.java");
     scratch.file("java/com/google/transpile/dummyjar.srcjar");
     scratch.file(
@@ -475,7 +475,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testGeneratedTreeArtifactFromGenJar() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
@@ -751,7 +751,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testArchiveLinkActionWithTreeArtifactFromGenJar() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
@@ -829,7 +829,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testModuleMapFromGenJarTreeArtifact() throws Exception {
-    useConfiguration("--ios_cpu=i386", "--ios_minimum_os=1.0");
+    useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");

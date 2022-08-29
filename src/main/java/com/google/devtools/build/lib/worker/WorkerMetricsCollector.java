@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.OS;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +46,8 @@ public class WorkerMetricsCollector {
   /** Mapping of worker ids to their metrics. */
   private final Map<Integer, WorkerMetric.WorkerProperties> workerIdToWorkerProperties =
       new ConcurrentHashMap<>();
+
+  private MetricsWithTime lastMetrics = new MetricsWithTime(ImmutableList.of(), Instant.EPOCH);
 
   private WorkerMetricsCollector() {}
 
@@ -159,6 +162,20 @@ public class WorkerMetricsCollector {
     return new ProcessBuilder("ps", "-o", "pid,rss", "-p", pids).start();
   }
 
+  /**
+   * Collect worker metrics. If last collected metrics weren't more than interval time ago, then
+   * returns previously collected metrics;
+   */
+  public ImmutableList<WorkerMetric> collectMetrics(Duration interval) {
+    Instant now = Instant.now();
+    if (Duration.between(this.lastMetrics.time, now).compareTo(interval) < 0) {
+      return lastMetrics.metrics;
+    }
+
+    return collectMetrics();
+  }
+
+  // TODO(wilwell): add exception if we couldn't collect the metrics.
   public ImmutableList<WorkerMetric> collectMetrics() {
     Map<Long, WorkerMetric.WorkerStat> workerStats =
         collectStats(
@@ -186,7 +203,7 @@ public class WorkerMetricsCollector {
 
     workerIdToWorkerProperties.keySet().removeAll(nonMeasurableWorkerIds);
 
-    return workerMetrics.build();
+    return updateLastCollectMetrics(workerMetrics.build(), Instant.now()).metrics;
   }
 
   public void clear() {
@@ -208,6 +225,22 @@ public class WorkerMetricsCollector {
     }
 
     workerIdToWorkerProperties.put(properties.getWorkerId(), properties);
+  }
+
+  private synchronized MetricsWithTime updateLastCollectMetrics(
+      ImmutableList<WorkerMetric> metrics, Instant time) {
+    this.lastMetrics = new MetricsWithTime(metrics, time);
+    return lastMetrics;
+  }
+
+  private static class MetricsWithTime {
+    public final ImmutableList<WorkerMetric> metrics;
+    public final Instant time;
+
+    public MetricsWithTime(ImmutableList<WorkerMetric> metrics, Instant time) {
+      this.metrics = metrics;
+      this.time = time;
+    }
   }
 
   // TODO(b/238416583) Add deregister function

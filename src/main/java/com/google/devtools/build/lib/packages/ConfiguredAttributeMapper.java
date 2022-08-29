@@ -13,16 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import java.util.ArrayList;
@@ -31,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -316,5 +321,19 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       }
     }
     return false; // Every select() in this list chooses a path with value "None".
+  }
+
+  /** Returns the labels that appear multiple times in the same attribute value. */
+  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
+    Type<List<Label>> attrType = BuildType.LABEL_LIST;
+    checkArgument(attribute.getType() == attrType, "Not a label list type: %s", attribute);
+    String attrName = attribute.getName();
+    SelectorList<List<Label>> selectorList = getSelectorList(attrName, attrType);
+    // already checked in RuleClass via AggregatingAttributeMapper.checkForDuplicateLabels
+    if (selectorList == null || selectorList.getSelectors().size() == 1) {
+      return ImmutableSet.of();
+    }
+    List<Label> labels = get(attrName, attrType);
+    return CollectionUtils.duplicatedElementsOf(labels);
   }
 }

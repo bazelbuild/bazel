@@ -41,13 +41,19 @@ public class DynamicExecutionOptions extends OptionsBase {
       expansion = {
         "--internal_spawn_scheduler",
         "--spawn_strategy=dynamic",
-      })
+      },
+      deprecationWarning =
+          "--experimental_spawn_scheduler is deprecated. Using dynamic execution for everything is"
+              + " rarely a good idea (see https://bazel.build/remote/dynamic). If you really want"
+              + " to enable dynamic execution globally, pass `--internal_spawn_scheduler "
+              + "--spawn_strategy=dynamic`.")
+  @Deprecated
   public Void experimentalSpawnScheduler;
 
   @Option(
       name = "internal_spawn_scheduler",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "false",
       help =
           "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
@@ -57,7 +63,7 @@ public class DynamicExecutionOptions extends OptionsBase {
   @Option(
       name = "experimental_dynamic_execution_cpu_limited",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "false",
       help =
           "Deprecated. Use --experimental_dynamic_local_load_factor instead, with the values"
@@ -67,8 +73,8 @@ public class DynamicExecutionOptions extends OptionsBase {
   @Option(
       name = "dynamic_local_strategy",
       converter = Converters.StringToStringListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "null",
       allowMultiple = true,
       help =
@@ -80,8 +86,8 @@ public class DynamicExecutionOptions extends OptionsBase {
   @Option(
       name = "dynamic_remote_strategy",
       converter = Converters.StringToStringListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "null",
       allowMultiple = true,
       help =
@@ -97,12 +103,13 @@ public class DynamicExecutionOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.DEPRECATED},
       defaultValue = "",
       help = "Deprecated. Please use --dynamic_local_strategy=worker_strategy,local_strategy.")
+  @Deprecated
   public String dynamicWorkerStrategy;
 
   @Option(
       name = "experimental_local_execution_delay",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "1000",
       help =
           "How many milliseconds should local execution be delayed, if remote execution was faster"
@@ -111,7 +118,7 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_debug_spawn_scheduler",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "false")
   public boolean debugSpawnScheduler;
@@ -150,8 +157,8 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_dynamic_slow_remote_time",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "0",
       help =
           "If >0, the time a dynamically run action must run remote-only before we"
@@ -162,8 +169,8 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_dynamic_local_load_factor",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "0",
       help =
           "Controls how much load from dynamic execution to put on the local machine."
@@ -180,8 +187,8 @@ public class DynamicExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_dynamic_exclude_tools",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "false",
       help =
           "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"

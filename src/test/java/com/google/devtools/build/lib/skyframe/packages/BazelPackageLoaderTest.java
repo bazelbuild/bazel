@@ -173,7 +173,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void buildDotBazelForSubpackageCheckDuringGlobbing() throws Exception {
-    file("a/BUILD", "filegroup(name = 'fg', srcs = glob(['sub/a.txt']))");
+    file("a/BUILD", "filegroup(name = 'fg', srcs = glob(['sub/a.txt'], allow_empty = True))");
     file("a/sub/a.txt");
     file("a/sub/BUILD.bazel");
 

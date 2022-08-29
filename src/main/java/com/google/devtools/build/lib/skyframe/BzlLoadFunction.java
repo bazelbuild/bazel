@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
@@ -736,7 +735,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
-    RepositoryMapping repoMapping = getRepositoryMapping(key, env);
+    RepositoryMapping repoMapping = getRepositoryMapping(key, builtins.starlarkSemantics, env);
     if (repoMapping == null) {
       return null;
     }
@@ -843,9 +842,10 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   @Nullable
-  private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
+  private static RepositoryMapping getRepositoryMapping(
+      BzlLoadValue.Key key, StarlarkSemantics semantics, Environment env)
       throws InterruptedException {
-    if (key.isBuiltins() && !RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+    if (key.isBuiltins() && !semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       // Without Bzlmod, builtins .bzls never have a repo mapping defined for them, so return
       // without requesting a RepositoryMappingValue. (NB: In addition to being a slight
       // optimization, this avoids adding a reverse dependency on the special //external package,

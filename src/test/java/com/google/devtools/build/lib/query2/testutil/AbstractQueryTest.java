@@ -286,7 +286,7 @@ public abstract class AbstractQueryTest<T> {
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
                 + helper.getRootDirectory().getPathString()
-                + "/a/BUILD");
+                + "/a/BUILD (Tip: use `query //a:*` to see all the targets in that package)");
     assertThat(failureDetail.getPackageLoading().getCode())
         .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }

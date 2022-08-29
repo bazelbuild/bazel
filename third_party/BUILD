@@ -35,7 +35,6 @@ filegroup(
         "//third_party/jaxb:srcs",
         "//third_party/jetbrains_annotations:srcs",
         "//third_party/jetifier:srcs",
-        "//third_party/jformatstring:srcs",
         "//third_party/juniversalchardet:srcs",
         "//third_party/kotlin_stdlib:srcs",
         "//third_party/pprof:srcs",
@@ -59,9 +58,7 @@ filegroup(
 # and LGPL code that we use in Bazel.
 filegroup(
     name = "gpl-srcs",
-    srcs = [
-        "//third_party/jformatstring:srcs",
-    ],
+    srcs = [],
 )
 
 # This target only contains the jars that are used for building / running Bazel.
@@ -168,8 +165,8 @@ distrib_java_import(
     jars = [
         "api_client/google-api-client-1.22.0.jar",
         "api_client/google-api-client-gson-1.22.0.jar",
-        "api_client/google-http-client-1.22.0-SNAPSHOT.jar",
-        "api_client/google-http-client-gson-1.22.0.jar",
+        "api_client/google-http-client-1.41.4.jar",
+        "api_client/google-http-client-gson-1.41.4.jar",
     ],
     runtime_deps = [
         ":gson",
@@ -413,7 +410,6 @@ java_import(
         ":pcollections",
         ":threeten",
         "//third_party/checker_framework_dataflow",
-        "//third_party/jformatstring",
     ],
 )
 
@@ -512,6 +508,7 @@ distrib_java_import(
     jars = [
         "opencensus/opencensus-api-0.24.0.jar",
         "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
+        "opencensus/opencensus-contrib-http-util-0.31.0.jar",
     ],
 )
 

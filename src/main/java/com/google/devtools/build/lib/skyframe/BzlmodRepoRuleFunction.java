@@ -18,11 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelper;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -42,6 +44,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -105,17 +108,36 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
 
     // Otherwise, look for the repo from module extension evaluation results.
-    ModuleExtensionResolutionValue extensionResolution =
-        (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
-    if (extensionResolution == null) {
+    BazelModuleResolutionValue moduleResolution =
+        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
+    if (moduleResolution == null) {
       return null;
     }
-    Package pkg = extensionResolution.getCanonicalRepoNameToPackage().get(repositoryName);
-    if (pkg != null) {
-      return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
+
+    Optional<ModuleExtensionId> extensionId =
+        moduleResolution.getExtensionUniqueNames().entrySet().stream()
+            .filter(e -> repositoryName.getName().startsWith(e.getValue() + "~"))
+            .map(Entry::getKey)
+            .findFirst();
+
+    if (extensionId.isEmpty()) {
+      return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
 
-    return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+    SingleExtensionEvalValue extensionEval =
+        (SingleExtensionEvalValue) env.getValue(SingleExtensionEvalValue.key(extensionId.get()));
+    if (extensionEval == null) {
+      return null;
+    }
+
+    String internalRepo = extensionEval.getCanonicalRepoNameToInternalNames().get(repositoryName);
+    if (internalRepo == null) {
+      return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+    }
+    Package pkg = extensionEval.getGeneratedRepos().get(internalRepo);
+    Preconditions.checkNotNull(pkg);
+
+    return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
   }
 
   @Nullable

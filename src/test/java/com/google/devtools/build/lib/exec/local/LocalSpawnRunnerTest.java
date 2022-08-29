@@ -100,6 +100,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -308,6 +309,12 @@ public class LocalSpawnRunnerTest {
     @Override
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       throw new UnsupportedOperationException();
+    }
+
+    @Nullable
+    @Override
+    public FileSystem getActionFileSystem() {
+      return null;
     }
   }
 

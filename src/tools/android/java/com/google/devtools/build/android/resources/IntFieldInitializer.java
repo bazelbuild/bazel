@@ -101,6 +101,13 @@ public final class IntFieldInitializer implements FieldInitializer {
   }
 
   @Override
+  public int getMaxBytecodeSize() {
+    // LDC_W(3)
+    // PUTSTATIC(3)
+    return 6;
+  }
+
+  @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass()).add("value", value).toString();
   }

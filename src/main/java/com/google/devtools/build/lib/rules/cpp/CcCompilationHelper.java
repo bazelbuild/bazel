@@ -1054,6 +1054,7 @@ public final class CcCompilationHelper {
   }
 
   /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
+  @SuppressWarnings("LenientFormatStringValidation")
   private CcCompilationContext.Builder initializeCcCompilationContext(RuleContext ruleContext)
       throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
@@ -1144,6 +1145,7 @@ public final class CcCompilationHelper {
     }
 
     if (!separateModuleHeaders.isEmpty()) {
+      // Expected 0 args, but got 1.
       Preconditions.checkState(
           featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)
               && generateModuleMap

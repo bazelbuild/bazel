@@ -1,7 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
-licenses(["notice"])
-
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
@@ -178,8 +176,8 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestPackageFactoryBuilderFactory",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

@@ -18,6 +18,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
@@ -55,21 +57,107 @@ public class LabelTest {
     }
     {
       Label l = Label.parseCanonical("@foo");
-      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@foo");
+      assertThat(l.getRepository().getName()).isEqualTo("foo");
       assertThat(l.getPackageName()).isEmpty();
       assertThat(l.getName()).isEqualTo("foo");
     }
     {
+      Label l = Label.parseCanonical("@foo//bar");
+      assertThat(l.getRepository().getName()).isEqualTo("foo");
+      assertThat(l.getPackageName()).isEqualTo("bar");
+      assertThat(l.getName()).isEqualTo("bar");
+    }
+    {
+      Label l = Label.parseCanonical("@@foo//bar");
+      assertThat(l.getRepository().getName()).isEqualTo("foo");
+      assertThat(l.getPackageName()).isEqualTo("bar");
+      assertThat(l.getName()).isEqualTo("bar");
+    }
+    {
       Label l = Label.parseCanonical("//@foo");
-      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
+      assertThat(l.getRepository()).isEqualTo(RepositoryName.MAIN);
       assertThat(l.getPackageName()).isEqualTo("@foo");
       assertThat(l.getName()).isEqualTo("@foo");
     }
     {
       Label l = Label.parseCanonical("//xyz/@foo:abc");
-      assertThat(l.getRepository().getNameWithAt()).isEqualTo("@");
+      assertThat(l.getRepository()).isEqualTo(RepositoryName.MAIN);
       assertThat(l.getPackageName()).isEqualTo("xyz/@foo");
       assertThat(l.getName()).isEqualTo("abc");
+    }
+  }
+
+  @Test
+  public void parseWithRepoContext() throws Exception {
+    RepositoryName foo = RepositoryName.createUnvalidated("foo");
+    RepositoryName bar = RepositoryName.createUnvalidated("bar");
+    RepositoryName quux = RepositoryName.createUnvalidated("quux");
+    RepoContext repoContext =
+        RepoContext.of(foo, RepositoryMapping.create(ImmutableMap.of("bar", quux), foo));
+    {
+      Label l = Label.parseWithRepoContext("//lol:kek", repoContext);
+      assertThat(l.getRepository()).isEqualTo(foo);
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithRepoContext("@bar//lol:kek", repoContext);
+      assertThat(l.getRepository()).isEqualTo(quux);
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithRepoContext("@@bar//lol:kek", repoContext);
+      assertThat(l.getRepository()).isEqualTo(bar);
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithRepoContext("@quux//lol:kek", repoContext);
+      assertThat(l.getRepository()).isEqualTo(quux.toNonVisible(foo));
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+  }
+
+  @Test
+  public void parseWithPackageContext() throws Exception {
+    RepositoryName foo = RepositoryName.createUnvalidated("foo");
+    RepositoryName bar = RepositoryName.createUnvalidated("bar");
+    RepositoryName quux = RepositoryName.createUnvalidated("quux");
+    PackageContext packageContext =
+        PackageContext.of(
+            PackageIdentifier.create(foo, PathFragment.create("hah")),
+            RepositoryMapping.create(ImmutableMap.of("bar", quux), foo));
+    {
+      Label l = Label.parseWithPackageContext(":kek", packageContext);
+      assertThat(l.getRepository()).isEqualTo(foo);
+      assertThat(l.getPackageName()).isEqualTo("hah");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithPackageContext("//lol:kek", packageContext);
+      assertThat(l.getRepository()).isEqualTo(foo);
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithPackageContext("@bar//lol:kek", packageContext);
+      assertThat(l.getRepository()).isEqualTo(quux);
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithPackageContext("@@bar//lol:kek", packageContext);
+      assertThat(l.getRepository()).isEqualTo(bar);
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
+    }
+    {
+      Label l = Label.parseWithPackageContext("@quux//lol:kek", packageContext);
+      assertThat(l.getRepository()).isEqualTo(quux.toNonVisible(foo));
+      assertThat(l.getPackageName()).isEqualTo("lol");
+      assertThat(l.getName()).isEqualTo("kek");
     }
   }
 
@@ -425,19 +513,42 @@ public class LabelTest {
   }
 
   @Test
-  public void testStarlarkStrAndRepr() throws Exception {
+  public void starlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
+
+    label = Label.parseCanonical("@hello//x");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@hello//x:x");
+    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@hello//x:x\")");
   }
 
   @Test
-  public void testStarlarkStr_unambiguous() throws Exception {
-    Label label = Label.parseCanonical("//x");
+  public void starlarkStr_unambiguous() throws Exception {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, true)
             .build();
-    assertThat(Starlark.str(label, semantics)).isEqualTo("@//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@x//y:y");
+  }
+
+  @Test
+  public void starlarkStr_canonicalLabelLiteral() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build();
+    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
+  }
+
+  @Test
+  public void starlarkStr_unambiguousAndCanonicalLabelLiteral() throws Exception {
+    StarlarkSemantics semantics =
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, true)
+            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
+            .build();
+    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@@//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
   }
 }

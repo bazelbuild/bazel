@@ -435,6 +435,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return packageConfiguration;
   }
 
+  @Override
   public FilesToRunProvider getJacocoRunner() {
     return jacocoRunner;
   }

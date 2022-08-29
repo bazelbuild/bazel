@@ -20,10 +20,6 @@ are converted from the AAR directory structure of /jni/<cpu>/foo.so to the APK
 directory structure of /lib/<cpu>/foo.so.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import re
 import sys
@@ -32,7 +28,6 @@ import zipfile
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-import six
 
 from tools.android import junction
 
@@ -54,7 +49,7 @@ class UnsupportedArchitectureException(Exception):
 def CreateNativeLibsZip(aar, cpu, native_libs_zip):
   native_lib_pattern = re.compile("^jni/.+/.+\\.so$")
   if any(native_lib_pattern.match(filename) for filename in aar.namelist()):
-    cpu_pattern = re.compile("^jni/" + six.ensure_str(cpu) + "/.+\\.so$")
+    cpu_pattern = re.compile("^jni/" + cpu + "/.+\\.so$")
     libs = [name for name in aar.namelist() if cpu_pattern.match(name)]
     if not libs:
       raise UnsupportedArchitectureException()
@@ -80,9 +75,9 @@ def Main(input_aar_path, output_zip_path, cpu, input_aar_path_for_error_msg):
       try:
         CreateNativeLibsZip(input_aar, cpu, native_libs_zip)
       except UnsupportedArchitectureException:
-        print("AAR " + six.ensure_str(input_aar_path_for_error_msg) +
+        print("AAR " + input_aar_path_for_error_msg +
               " missing native libs for requested architecture: " +
-              six.ensure_str(cpu))
+              cpu)
         sys.exit(1)
 
 

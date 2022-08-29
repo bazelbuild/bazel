@@ -43,6 +43,7 @@ class DexFileArchive implements Closeable {
   }
 
   /** Adds a {@code .dex} file with the given details. */
+  @SuppressWarnings("LenientFormatStringValidation")
   @CanIgnoreReturnValue
   public DexFileArchive addFile(ZipEntry entry, Dex dex) throws IOException {
     checkState(inUse.compareAndSet(null, entry), "Already in use");
@@ -50,12 +51,15 @@ class DexFileArchive implements Closeable {
     out.putNextEntry(entry);
     dex.writeTo(out);
     out.closeEntry();
+    // Expected 0 args, but got 1.
     checkState(inUse.compareAndSet(entry, null), "Swooped in: ", inUse.get());
     return this;
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   @Override
   public void close() throws IOException {
+    // Expected 0 args, but got 1.
     checkState(inUse.get() == null, "Still in use: ", inUse.get());
     out.close();
   }

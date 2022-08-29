@@ -246,7 +246,7 @@ public class GenRuleBaseRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(output_to_bindir) -->
         <p>
-          If set to 1, this option causes output files to be written into the <code>bin</code>
+          If set to True, this option causes output files to be written into the <code>bin</code>
           directory instead of the <code>genfiles</code> directory.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -259,7 +259,7 @@ public class GenRuleBaseRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(local) -->
         <p>
-          If set to 1, this option forces this <code>genrule</code> to run using the "local"
+          If set to True, this option forces this <code>genrule</code> to run using the "local"
           strategy, which means no remote execution, no sandboxing, no persistent workers.
         </p>
         <p>

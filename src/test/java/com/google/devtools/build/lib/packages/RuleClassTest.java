@@ -315,6 +315,218 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testDuplicatedDepsWithinSingleSelectConditionError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1 =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of("//conditions:a", ImmutableList.of(":dup1", ":dup1")), ""));
+
+    // expect errors
+    reporter.removeHandler(failFastHandler);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(1);
+    assertDupError("//testpackage:dup1", "list1", "depsRule");
+  }
+
+  @Test
+  public void testDuplicatedDepsWithinConditionMultipleSelectsErrors() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":dup1", "dup1"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:c", ImmutableList.of(":dup2", "dup2"),
+                    "//conditions:d", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    // expect errors
+    reporter.removeHandler(failFastHandler);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+
+    assertThat(eventCollector.count()).isSameInstanceAs(2);
+    assertDupError("//testpackage:dup1", "list1", "depsRule");
+    assertDupError("//testpackage:dup2", "list1", "depsRule");
+  }
+
+  @Test
+  public void testSameDepAcrossMultipleSelectsNoDuplicateNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    // ignore duplicatess across selects where values appear duplicated but are not
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":nodup1"),
+                    "//conditions:b", ImmutableList.of(":nodup2")),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":nodup2"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+  }
+
+  @Test
+  public void testSameDepAcrossMultipleSelectsIsDuplicateNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    // repetition of dup1 is identified at analysis time, not loading time
+    SelectorList selectorList1a =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":dup1"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+    SelectorList selectorList1b =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":dup1"),
+                    "//conditions:b", ImmutableList.of(":nodup2")),
+                ""));
+    SelectorList selectorList1 = SelectorList.concat(selectorList1a, selectorList1b);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+  }
+
+  @Test
+  public void testSameDepAcrossConditionsInSelectNoError() throws Exception {
+    RuleClass depsRuleClass =
+        newRuleClass(
+            "ruleDeps",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.NONE,
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            PredicatesWithMessage.<Rule>alwaysTrue(),
+            PREFERRED_DEPENDENCY_PREDICATE,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build());
+
+    SelectorList selectorList1 =
+        SelectorList.of(
+            new SelectorValue(
+                ImmutableMap.of(
+                    "//conditions:a", ImmutableList.of(":nodup1"),
+                    "//conditions:b", ImmutableList.of(":nodup1")),
+                ""));
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("list1", selectorList1);
+
+    createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation, NO_STACK);
+  }
+
+  @Test
   public void testCreateRule() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
 

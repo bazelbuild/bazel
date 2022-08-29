@@ -545,6 +545,33 @@ EOF
   expect_log "uri:.*bytestream://example.com/my-instance-name/blobs"
 }
 
+function test_undeclared_test_outputs_bep() {
+  # Test that when using --remote_download_minimal, undeclared outputs in a test
+  # are reported by BEP
+  mkdir -p a
+  cat > a/BUILD <<EOF
+sh_test(
+  name = "foo",
+  srcs = ["foo.sh"],
+)
+EOF
+  cat > a/foo.sh <<'EOF'
+touch $TEST_UNDECLARED_OUTPUTS_DIR/bar.txt
+EOF
+  chmod a+x a/foo.sh
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --build_event_text_file=$TEST_log \
+    //a:foo || fail "Failed to test //a:foo"
+
+  expect_log "test.log"
+  expect_log "test.xml"
+  expect_log "test.outputs__outputs.zip"
+  expect_log "test.outputs_manifest__MANIFEST"
+}
+
 # This test is derivative of test_bep_output_groups in
 # build_event_stream_test.sh, which verifies that successful output groups'
 # artifacts appear in BEP when a top-level target fails to build.

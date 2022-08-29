@@ -1127,37 +1127,6 @@ EOF
      "could not find 'undeclared inclusion' error message in bazel output"
 }
 
-function test_incompatible_linkopts_to_linklibs() {
-  if is_darwin; then
-    # This only applies to the Unix toolchain.
-    return 0
-  fi
-  mkdir -p foo
-  cat << 'EOF' > foo/BUILD
-cc_library(
-    name = "foo",
-    srcs = ["foo.cc"],
-)
-EOF
-  touch foo/foo.cc
-
-  local -r object_file=".*foo.pic.o"
-  local stdcpp="-lstdc++"
-  local lm="-lm"
-
-  bazel build --incompatible_linkopts_to_linklibs //foo \
-    || fail "Build failed but should have succeeded"
-  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
-
-  expect_log "$object_file$stdcpp$lm"
-
-  bazel build --noincompatible_linkopts_to_linklibs //foo \
-    || fail "Build failed but should have succeeded"
-  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > "$TEST_log"
-
-  expect_log "$stdcpp$lm$object_file"
-}
-
 function test_sibling_repository_layout_include_external_repo_output() {
   mkdir test
   cat > test/BUILD <<'EOF'

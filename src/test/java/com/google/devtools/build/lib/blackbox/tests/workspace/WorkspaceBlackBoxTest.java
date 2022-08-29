@@ -260,6 +260,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context().write("BUILD");
     ProcessResult result = context().bazel().shouldFail().build("//...");
     assertThat(result.errString())
-        .contains("Error in local_repository: invalid user-provided repo name '@a'");
+        .contains("Error in local_repository: invalid repository name '@@a'");
   }
 }
