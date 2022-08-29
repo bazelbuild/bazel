@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.Immutable;
@@ -66,7 +67,12 @@ public final class CredentialHelperProvider {
   public Optional<CredentialHelper> findCredentialHelper(URI uri) {
     Preconditions.checkNotNull(uri);
 
-    String host = Preconditions.checkNotNull(uri.getHost());
+    String host = uri.getHost();
+    if (Strings.isNullOrEmpty(host)) {
+      // Some URIs (e.g. unix://) legitimately have no host component.
+      return Optional.empty();
+    }
+
     Optional<Path> credentialHelper =
         findHostCredentialHelper(host)
             .or(() -> findWildcardCredentialHelper(host))
