@@ -1031,43 +1031,6 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(context, result);
     }
 
-    if (result.success()) {
-      // Check that all mandatory outputs are created.
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (action.getSpawn().isMandatoryOutput(output)) {
-          // In the past, remote execution did not create output directories if the action didn't do
-          // this explicitly. This check only remains so that old remote cache entries that do not
-          // include empty output directories remain valid.
-          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-            continue;
-          }
-
-          Path localPath = execRoot.getRelative(output.getExecPath());
-          if (!metadata.files.containsKey(localPath)
-              && !metadata.directories.containsKey(localPath)
-              && !metadata.symlinks.containsKey(localPath)) {
-            throw new IOException(
-                "Invalid action cache entry "
-                    + action.getActionKey().getDigest().getHash()
-                    + ": expected output "
-                    + prettyPrint(output)
-                    + " does not exist.");
-          }
-        }
-      }
-
-      // When downloading outputs from just remotely executed action, the action result comes from
-      // Execution response which means, if disk cache is enabled, action result hasn't been
-      // uploaded to it. Upload action result to disk cache here so next build could hit it.
-      if (useDiskCache(remoteOptions) && result.executeResponse != null) {
-        getFromFuture(
-            remoteCache.uploadActionResult(
-                context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
-                action.getActionKey(),
-                result.actionResult));
-      }
-    }
-
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
@@ -1192,6 +1155,43 @@ public class RemoteExecutionService {
           byte[] data = getFromFuture(inMemoryOutputDownload);
           return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
         }
+      }
+    }
+
+    if (result.success()) {
+      // Check that all mandatory outputs are created.
+      for (ActionInput output : action.getSpawn().getOutputFiles()) {
+        if (action.getSpawn().isMandatoryOutput(output)) {
+          // In the past, remote execution did not create output directories if the action didn't do
+          // this explicitly. This check only remains so that old remote cache entries that do not
+          // include empty output directories remain valid.
+          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+            continue;
+          }
+
+          Path localPath = execRoot.getRelative(output.getExecPath());
+          if (!metadata.files.containsKey(localPath)
+              && !metadata.directories.containsKey(localPath)
+              && !metadata.symlinks.containsKey(localPath)) {
+            throw new IOException(
+                "Invalid action cache entry "
+                    + action.getActionKey().getDigest().getHash()
+                    + ": expected output "
+                    + prettyPrint(output)
+                    + " does not exist.");
+          }
+        }
+      }
+
+      // When downloading outputs from just remotely executed action, the action result comes from
+      // Execution response which means, if disk cache is enabled, action result hasn't been
+      // uploaded to it. Upload action result to disk cache here so next build could hit it.
+      if (useDiskCache(remoteOptions) && result.executeResponse != null) {
+        getFromFuture(
+            remoteCache.uploadActionResult(
+                context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
+                action.getActionKey(),
+                result.actionResult));
       }
     }
 
