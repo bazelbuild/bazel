@@ -66,6 +66,8 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -170,6 +172,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
   }
 
   @Test
@@ -334,6 +337,57 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     // The version is empty here due to the override.
     SkyKey skyKey =
         ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("code_for_b"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    ModuleFileValue moduleFileValue = result.get(skyKey);
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(
+            ModuleBuilder.create("bbb", "1.0")
+                .setKey(createModuleKey("bbb", ""))
+                .addDep("ccc", createModuleKey("ccc", "2.0"))
+                .build());
+  }
+
+  @Test
+  public void testCommandLineModuleOverrides() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name = \"bbb\", version = \"1.0\")",
+        "local_path_override(module_name='bbb', path='ignored_override')");
+
+    // Command line override has the priority. Thus, "used_override" with dependency on 'ccc'
+    // should be selected.
+    scratch.file(
+        rootDirectory.getRelative("ignored_override/MODULE.bazel").getPathString(),
+        "module(name='bbb',version='1.0')");
+    scratch.file(rootDirectory.getRelative("ignored_override/WORKSPACE").getPathString());
+    scratch.file(
+        rootDirectory.getRelative("used_override/MODULE.bazel").getPathString(),
+        "module(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')");
+    scratch.file(rootDirectory.getRelative("used_override/WORKSPACE").getPathString());
+
+    // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
+    // Inject for testing
+    Map<String, ModuleOverride> moduleOverride =
+        new LinkedHashMap<>(ImmutableMap.of("bbb", LocalPathOverride.create("used_override")));
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.copyOf(moduleOverride));
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("bbb", "1.0"),
+                "module(name='bbb',version='1.0');bazel_dep(name='ccc',version='3.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    // The version is empty here due to the override.
+    SkyKey skyKey =
+        ModuleFileValue.key(createModuleKey("bbb", ""), LocalPathOverride.create("used_override"));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {

@@ -244,6 +244,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
   }

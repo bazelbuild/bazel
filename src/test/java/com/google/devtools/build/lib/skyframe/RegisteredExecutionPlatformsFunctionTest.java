@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -102,6 +103,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }

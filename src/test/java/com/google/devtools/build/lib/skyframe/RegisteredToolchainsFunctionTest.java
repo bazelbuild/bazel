@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -58,6 +59,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }

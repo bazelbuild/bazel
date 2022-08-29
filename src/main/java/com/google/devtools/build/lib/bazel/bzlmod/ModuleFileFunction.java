@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -65,6 +66,9 @@ public class ModuleFileFunction implements SkyFunction {
   public static final Precomputed<List<String>> REGISTRIES = new Precomputed<>("registries");
   public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
       new Precomputed<>("ignore_dev_dependency");
+
+  public static final Precomputed<Map<String, ModuleOverride>> MODULE_OVERRIDES =
+      new Precomputed<>("module_overrides");
 
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
@@ -158,8 +162,15 @@ public class ModuleFileFunction implements SkyFunction {
             env);
     Module module = moduleFileGlobals.buildModule();
 
+    ImmutableMap<String, ModuleOverride> moduleOverrides = moduleFileGlobals.buildOverrides();
+    Map<String, ModuleOverride> commandOverrides = MODULE_OVERRIDES.get(env);
+    ImmutableMap<String, ModuleOverride> overrides =
+        ImmutableMap.<String, ModuleOverride>builder()
+            .putAll(moduleOverrides)
+            .putAll(commandOverrides)
+            .buildKeepingLast();
+
     // Check that overrides don't contain the root module itself.
-    ImmutableMap<String, ModuleOverride> overrides = moduleFileGlobals.buildOverrides();
     ModuleOverride rootOverride = overrides.get(module.getName());
     if (rootOverride != null) {
       throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
