@@ -63,7 +63,7 @@ cc_binary_attrs_with_aspects = {
     "malloc": attr.label(
         default = Label("@" + semantics.get_repo() + "//tools/cpp:malloc"),
         allow_files = False,
-        allow_rules = ["cc_library"],
+        providers = [CcInfo],
         aspects = [graph_structure_aspect],
     ),
     "_default_malloc": attr.label(
