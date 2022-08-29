@@ -157,8 +157,7 @@ EOF
       || fail "Failed to build //a:foo with remote cache"
 }
 
-# TODO(b/211478955): Deflake and re-enable.
-function DISABLED_test_remote_grpc_via_unix_socket_proxy() {
+function test_remote_grpc_via_unix_socket_proxy() {
   case "$PLATFORM" in
   darwin|freebsd|linux|openbsd)
     ;;
@@ -182,12 +181,12 @@ EOF
   # small maximum length limits for UNIX domain sockets.
   socket_dir=$(mktemp -d -t "remote_executor.XXXXXXXX")
   PROXY="$(rlocation io_bazel/src/test/shell/bazel/remote/uds_proxy.py)"
-  python "${PROXY}" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
+  python3 "${PROXY}" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
   proxy_pid=$!
 
   bazel build \
       --remote_executor=grpc://noexist.invalid \
-      --remote_proxy="unix:${socket_dir}/executor-socket" \
+      --remote_proxy="unix://${socket_dir}/executor-socket" \
       //a:foo \
       || fail "Failed to build //a:foo with remote cache"
 
@@ -196,8 +195,7 @@ EOF
   rmdir "${socket_dir}"
 }
 
-# TODO(b/211478955): Deflake and re-enable.
-function DISABLED_test_remote_grpc_via_unix_socket_direct() {
+function test_remote_grpc_via_unix_socket_direct() {
   case "$PLATFORM" in
   darwin|freebsd|linux|openbsd)
     ;;
@@ -221,11 +219,11 @@ EOF
   # small maximum length limits for UNIX domain sockets.
   socket_dir=$(mktemp -d -t "remote_executor.XXXXXXXX")
   PROXY="$(rlocation io_bazel/src/test/shell/bazel/remote/uds_proxy.py)"
-  python "${PROXY}" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
+  python3 "${PROXY}" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
   proxy_pid=$!
 
   bazel build \
-      --remote_executor="unix:${socket_dir}/executor-socket" \
+      --remote_executor="unix://${socket_dir}/executor-socket" \
       //a:foo \
       || fail "Failed to build //a:foo with remote cache"
 
