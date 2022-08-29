@@ -1143,7 +1143,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     List<String> globsWithDirs = new ArrayList<>();
     List<String> subpackages = new ArrayList<>();
     PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, subpackages, new HashMap<>(), /*eventHandler=*/ null);
+        file, globs, globsWithDirs, subpackages, new HashMap<>(), /* errors= */ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
     assertThat(subpackages).isEmpty();
@@ -1346,7 +1346,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "globs/BUILD",
         String.format(
-            "result = glob(%s, exclude=%s, exclude_directories=%d)",
+            "result = glob(%s, exclude=%s, exclude_directories=%d, allow_empty = True)",
             Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
     return loadPackage("globs");
