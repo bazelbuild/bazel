@@ -303,6 +303,38 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.UNKNOWN,
         help = "Deprecated, this is no longer in use and should be removed.")
     public boolean overrideToolchainTransition;
+
+    @Option(
+        name = "experimental_dynamic_execution_cpu_limited",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.EXECUTION,
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+        },
+        defaultValue = "false",
+        help =
+            "Deprecated no-op. Use --experimental_dynamic_local_load_factor instead, with the "
+                + "values 0 for false and 1 for true, or with a value in between.")
+    public boolean cpuLimited;
+
+    @Option(
+        name = "dynamic_worker_strategy",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        defaultValue = "",
+        help = "Deprecated no-op. Please use --dynamic_local_strategy=worker,....")
+    @Deprecated
+    public String dynamicWorkerStrategy;
+
+    @Option(
+        name = "experimental_dynamic_skip_first_build",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        help = "Deprecated no-op. Use --experimental_dynamic_local_load_factor instead.")
+    @Deprecated
+    public boolean skipFirstBuild;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
