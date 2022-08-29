@@ -384,7 +384,7 @@ public final class Utils {
         + errorDetailsMessage(status.getDetailsList());
   }
 
-  public static String grpcAwareErrorMessage(IOException e) {
+  private static String grpcAwareErrorMessage(IOException e) {
     io.grpc.Status errStatus = io.grpc.Status.fromThrowable(e);
     if (e.getCause() instanceof ExecutionStatusException) {
       // Display error message returned by the remote service.
