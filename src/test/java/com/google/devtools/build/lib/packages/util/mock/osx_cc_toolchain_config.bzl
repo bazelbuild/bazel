@@ -57,6 +57,11 @@ _default_feature = feature(
     ],
 )
 
+_gcc_quoting_for_param_files_feature = feature(
+    name = "gcc_quoting_for_param_files",
+    enabled = True,
+)
+
 _static_link_cpp_runtimes_feature = feature(
     name = "static_link_cpp_runtimes",
     enabled = True,
@@ -78,6 +83,7 @@ _parse_headers_feature = feature(
 
 _feature_name_to_feature = {
     "default_feature": _default_feature,
+    "gcc_quoting_for_param_files": _gcc_quoting_for_param_files_feature,
     "static_link_cpp_runtimes": _static_link_cpp_runtimes_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,

@@ -88,6 +88,7 @@ _FEATURE_NAMES = struct(
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
     compiler_param_file = "compiler_param_file",
+    gcc_quoting_for_param_files = "gcc_quoting_for_param_files",
     objcopy_embed_flags = "objcopy_embed_flags",
     ld_embed_flags = "ld_embed_flags",
     opt = "opt",
@@ -825,6 +826,11 @@ _compiler_param_file_feature = feature(
     enabled = True,
 )
 
+_gcc_quoting_for_param_files_feature = feature(
+    name = _FEATURE_NAMES.gcc_quoting_for_param_files,
+    enabled = True,
+)
+
 _static_link_cpp_runtimes_feature = feature(
     name = _FEATURE_NAMES.static_link_cpp_runtimes,
     enabled = True,
@@ -1333,6 +1339,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.supports_pic: _supports_pic_feature,
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
+    _FEATURE_NAMES.gcc_quoting_for_param_files: _gcc_quoting_for_param_files_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
     _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,

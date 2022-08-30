@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -1063,5 +1064,25 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
     assertThat(artifactsToStrings(linkAction.getLinkstampObjectFileInputs()))
         .containsExactly("bin x/_objs/bin/x/linkstamp.o");
+  }
+
+  @Test
+  public void testGccQuotingForParamFilesFeature_EnablesGccQuoting() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.GCC_QUOTING_FOR_PARAM_FILES));
+    useConfiguration();
+
+    scratch.file(
+        "foo/BUILD", "cc_binary(", "  name = 'foo',", "  srcs = ['space .cc', 'quote\".cc'],", ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "foo/foo");
+    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(linkAction);
+    assertThat(parameterFileWriteAction).isNotNull();
+
+    assertThat(parameterFileWriteAction.getStringContents()).contains("space\\ .o");
+    assertThat(parameterFileWriteAction.getStringContents()).contains("quote\\\".o");
   }
 }

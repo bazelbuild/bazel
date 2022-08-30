@@ -947,13 +947,18 @@ public class CppLinkActionBuilder {
               Order.STABLE_ORDER,
               Iterables.filter(expandedLinkerArtifacts.toList(), Artifact::isTreeArtifact));
 
+      ParameterFile.ParameterFileType quoting =
+          featureConfiguration.isEnabled(CppRuleClasses.GCC_QUOTING_FOR_PARAM_FILES)
+              ? ParameterFile.ParameterFileType.GCC_QUOTED
+              : ParameterFile.ParameterFileType.UNQUOTED;
+
       Action parameterFileWriteAction =
           new ParameterFileWriteAction(
               getOwner(),
               paramFileActionInputs,
               paramFile,
               linkCommandLine.paramCmdLine(),
-              ParameterFile.ParameterFileType.UNQUOTED);
+              quoting);
       actionConstructionContext.registerAction(parameterFileWriteAction);
     }
 
