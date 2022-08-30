@@ -199,13 +199,17 @@ public final class RepositoryName {
     return ownerRepoIfNotVisible;
   }
 
-  /** Returns if this is the main repository, that is, {@link #getName} is empty. */
+  /** Returns if this is the main repository. */
   public boolean isMain() {
-    return name.isEmpty();
+    return equals(MAIN);
   }
 
   /** Returns the repository name, with leading "{@literal @}". */
   public String getNameWithAt() {
+    if (!isVisible()) {
+      return String.format(
+          "@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible.getNameWithAt());
+    }
     return '@' + name;
   }
 
