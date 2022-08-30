@@ -32,7 +32,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
@@ -43,8 +42,8 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
 
-/** Options for remote execution and distributed caching. */
-public final class RemoteOptions extends OptionsBase {
+/** Options for remote execution and distributed caching for Bazel only. */
+public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "remote_proxy",
@@ -586,19 +585,6 @@ public final class RemoteOptions extends OptionsBase {
               + "to print only on failures, `success` to print only on successes and "
               + "`all` to print always.")
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
-
-  @Option(
-      name = "experimental_remote_download_regex",
-      defaultValue = "null",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Force Bazel to download the artifacts that match the given regexp. To be used in"
-              + " conjunction with Build without the Bytes (or the internal equivalent) to allow"
-              + " the client to request certain artifacts that might be needed locally (e.g. IDE"
-              + " support)")
-  public List<String> remoteDownloadRegex;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
