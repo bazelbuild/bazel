@@ -37,7 +37,7 @@ public class ViewCreationFailedException extends Exception {
   }
 
   public ViewCreationFailedException(FailureDetail failureDetail, Throwable cause) {
-    super(cause);
+    super(cause.getMessage(), cause);
     this.failureDetail = checkNotNull(failureDetail);
   }
 

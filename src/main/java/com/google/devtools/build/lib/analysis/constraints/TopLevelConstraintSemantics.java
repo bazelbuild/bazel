@@ -274,7 +274,7 @@ public class TopLevelConstraintSemantics {
         }
       }
     } catch (TargetCompatibilityCheckException e) {
-      throw new ViewCreationFailedException(e.getMessage(), e.failureDetail);
+      throw new ViewCreationFailedException(e.getFailureDetail(), /*cause=*/ e);
     }
 
     return PlatformRestrictionsResult.builder()
