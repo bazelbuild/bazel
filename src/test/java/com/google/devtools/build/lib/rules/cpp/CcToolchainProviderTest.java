@@ -751,14 +751,25 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         CcToolchainConfig.builder()
             .withFeatures(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES)
             .build()
-            .getCcToolchainConfigRule());
+            .getCcToolchainConfigRule(),
+        "toolchain(",
+        "  name = 'cc-toolchain-b',",
+        "  toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "  toolchain = ':b',",
+        "  target_compatible_with = [],",
+        "  exec_compatible_with = [],",
+        ")");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
     mockToolsConfig.create(
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--crosstool_top=//a:a", "--cpu=k8", "--host_cpu=k8");
+    useConfiguration(
+        "--extra_toolchains=//a:cc-toolchain-b",
+        "--crosstool_top=//a:a",
+        "--cpu=k8",
+        "--host_cpu=k8");
     assertThat(getConfiguredTarget("//a:main")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.");
@@ -795,14 +806,26 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             .withFeatures(
                 CppRuleClasses.STATIC_LINK_CPP_RUNTIMES, CppRuleClasses.SUPPORTS_DYNAMIC_LINKER)
             .build()
-            .getCcToolchainConfigRule());
+            .getCcToolchainConfigRule(),
+        "toolchain(",
+        "  name = 'cc-toolchain-b',",
+        "  toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        "  toolchain = ':b',",
+        "  target_compatible_with = [],",
+        "  exec_compatible_with = [],",
+        ")");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
     mockToolsConfig.create(
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--crosstool_top=//a:a", "--cpu=k8", "--host_cpu=k8", "--dynamic_mode=fully");
+    useConfiguration(
+        "--extra_toolchains=//a:cc-toolchain-b",
+        "--crosstool_top=//a:a",
+        "--cpu=k8",
+        "--host_cpu=k8",
+        "--dynamic_mode=fully");
     assertThat(getConfiguredTarget("//a:test")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");

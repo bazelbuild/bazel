@@ -76,6 +76,8 @@ public final class MockObjcSupport {
   public static ImmutableList<String> requiredObjcPlatformFlagsNoXcodeConfig() {
     ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
 
+    argsBuilder.add("--platforms=" + TestConstants.CONSTRAINTS_PATH + "/apple:darwin_x86_64");
+
     // Set a crosstool_top that is compatible with Apple transitions. Currently, even though this
     // references the old cc_toolchain_suite, it's still required of cc builds even when the
     // incompatible_enable_cc_toolchain_resolution flag is active.
@@ -99,8 +101,8 @@ public final class MockObjcSupport {
     // AppleCrosstoolTransition
     argsBuilder
         .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
+        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+        .add("--noincompatible_enable_cc_toolchain_resolution");
     return argsBuilder.build();
   }
 
@@ -157,6 +159,20 @@ public final class MockObjcSupport {
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
         "  ],",
+        ")",
+        "platform(",
+        "  name = 'ios_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")",
+        "platform(",
+        "  name = 'watchos_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
         ")");
 
     for (String tool :
@@ -198,8 +214,7 @@ public final class MockObjcSupport {
         "xcode_version(",
         "  name = 'version5',",
         "  version = '5',",
-        ")",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
+        ")");
     // If the bazel tools repository is not in the workspace, also create a workspace tools/objc
     // package with a few lingering dependencies.
     // TODO(b/64537078): Move these dependencies underneath the tools workspace.

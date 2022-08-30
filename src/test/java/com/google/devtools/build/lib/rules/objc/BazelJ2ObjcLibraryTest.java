@@ -1150,7 +1150,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             "--output_archive",
             removeConfigFragment(prunedArchive.getExecPathString()),
             "--dummy_archive",
-            execPath + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "tools/objc/libdummy_lib.a",
+            execPath
+                + TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
+                + "tools/objc/dummy/libdummy_lib.a",
             "--xcrunwrapper",
             removeConfigFragment(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH),
             "--dependency_mapping_files",
