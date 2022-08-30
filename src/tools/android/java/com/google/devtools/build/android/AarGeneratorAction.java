@@ -41,6 +41,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -69,11 +71,8 @@ import java.util.zip.ZipOutputStream;
  * </pre>
  */
 public class AarGeneratorAction {
-  public static final long DEFAULT_TIMESTAMP =
-      LocalDateTime.of(2010, 1, 1, 0, 0, 0)
-          .atZone(ZoneId.systemDefault())
-          .toInstant()
-          .toEpochMilli();
+  public static final Instant DEFAULT_TIMESTAMP =
+      LocalDateTime.of(2010, 1, 1, 0, 0, 0).atZone(ZoneId.systemDefault()).toInstant();
 
   private static final Logger logger = Logger.getLogger(AarGeneratorAction.class.getName());
 
@@ -243,13 +242,13 @@ public class AarGeneratorAction {
     try (final ZipOutputStream zipOut =
         new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(aar)))) {
       ZipEntry manifestEntry = new ZipEntry("AndroidManifest.xml");
-      manifestEntry.setTime(DEFAULT_TIMESTAMP);
+      manifestEntry.setTime(DEFAULT_TIMESTAMP.toEpochMilli());
       zipOut.putNextEntry(manifestEntry);
       zipOut.write(Files.readAllBytes(manifest));
       zipOut.closeEntry();
 
       ZipEntry classJar = new ZipEntry("classes.jar");
-      classJar.setTime(DEFAULT_TIMESTAMP);
+      classJar.setTime(DEFAULT_TIMESTAMP.toEpochMilli());
       zipOut.putNextEntry(classJar);
       zipOut.write(Files.readAllBytes(classes));
       zipOut.closeEntry();
@@ -259,14 +258,14 @@ public class AarGeneratorAction {
       resWriter.writeEntries();
 
       ZipEntry r = new ZipEntry("R.txt");
-      r.setTime(DEFAULT_TIMESTAMP);
+      r.setTime(DEFAULT_TIMESTAMP.toEpochMilli());
       zipOut.putNextEntry(r);
       zipOut.write(Files.readAllBytes(rtxt));
       zipOut.closeEntry();
 
       if (!proguardSpecs.isEmpty()) {
         ZipEntry proguardTxt = new ZipEntry("proguard.txt");
-        proguardTxt.setTime(DEFAULT_TIMESTAMP);
+        proguardTxt.setTime(DEFAULT_TIMESTAMP.toEpochMilli());
         zipOut.putNextEntry(proguardTxt);
         for (Path proguardSpec : proguardSpecs) {
           zipOut.write(Files.readAllBytes(proguardSpec));
@@ -282,7 +281,7 @@ public class AarGeneratorAction {
         assetWriter.writeEntries();
       }
     }
-    aar.toFile().setLastModified(DEFAULT_TIMESTAMP);
+    Files.setLastModifiedTime(aar, FileTime.from(DEFAULT_TIMESTAMP));
   }
 
   private static class ZipDirectoryWriter extends SimpleFileVisitor<Path> {
@@ -322,7 +321,7 @@ public class AarGeneratorAction {
 
     private void writeFileEntry(Path file) throws IOException {
       ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
-      entry.setTime(DEFAULT_TIMESTAMP);
+      entry.setTime(DEFAULT_TIMESTAMP.toEpochMilli());
       zipOut.putNextEntry(entry);
       zipOut.write(Files.readAllBytes(file));
       zipOut.closeEntry();
@@ -331,7 +330,7 @@ public class AarGeneratorAction {
     private void writeDirectoryEntry(Path dir) throws IOException {
       ZipEntry entry =
           new ZipEntry(new File(dirName, root.relativize(dir).toString()).toString() + "/");
-      entry.setTime(DEFAULT_TIMESTAMP);
+      entry.setTime(DEFAULT_TIMESTAMP.toEpochMilli());
       zipOut.putNextEntry(entry);
       zipOut.closeEntry();
     }
