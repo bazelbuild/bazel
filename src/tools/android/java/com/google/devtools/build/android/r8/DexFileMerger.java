@@ -152,16 +152,6 @@ public class DexFileMerger {
     public Path mainDexListFile;
 
     @Option(
-        name = "minimal-main-dex",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
-                + "classes.dex file.")
-    public boolean minimalMainDex;
-
-    @Option(
         name = "verbose",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -351,11 +341,6 @@ public class DexFileMerger {
             "--main-dex-list is only supported with multidex enabled, but mode is: "
                 + options.multidexMode);
       }
-      if (options.minimalMainDex) {
-        throw new IllegalStateException(
-            "--minimal-main-dex is only supported with multidex enabled, but mode is: "
-                + options.multidexMode);
-      }
     }
 
     D8Command.Builder builder = D8Command.builder();
@@ -402,8 +387,8 @@ public class DexFileMerger {
       try {
         Method run =
             dexFileMergerHelper.getDeclaredMethod("run", D8Command.class, Boolean.class, Map.class);
-        // DexFileMergerHelper.run(builder.build(), options.minimalMainDex, inputOrdering);
-        run.invoke(null, builder.build(), options.minimalMainDex, inputOrdering);
+        // DexFileMergerHelper.run(builder.build(), false, inputOrdering);
+        run.invoke(null, builder.build(), false, inputOrdering);
       } catch (NoSuchMethodException e) {
         D8.run(builder.build());
       } catch (ReflectiveOperationException e) {
