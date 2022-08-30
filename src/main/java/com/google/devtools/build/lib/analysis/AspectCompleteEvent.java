@@ -132,6 +132,10 @@ public final class AspectCompleteEvent
     return artifactOutputGroups.get(outputGroup);
   }
 
+  public ImmutableMap<String, ArtifactsInOutputGroup> getOutputGroups() {
+    return artifactOutputGroups;
+  }
+
   public CompletionContext getCompletionContext() {
     return completionContext;
   }
