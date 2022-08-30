@@ -77,27 +77,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.tempPathGenerator = tempPathGenerator;
   }
 
-  public void startBuild(EventHandler eventHandler) throws AbruptExitException {
-    Path tempDir = tempPathGenerator.getTempDir();
-    if (tempDir.exists()) {
-      eventHandler.handle(Event.warn("Found stale downloads from previous build, deleting..."));
-      try {
-        tempDir.deleteTree();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format("Failed to delete stale downloads: %s", e.getMessage()))
-                    .setRemoteExecution(
-                        RemoteExecution.newBuilder()
-                            .setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
-                    .build()));
-      }
-    }
-  }
-
   protected abstract boolean shouldDownloadFile(Path path, FileArtifactValue metadata);
 
   /**
