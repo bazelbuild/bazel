@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -41,6 +40,7 @@ public class LibrariesToLinkCollector {
   private final PathFragment toolchainLibrariesSolibDir;
   private final CppConfiguration cppConfiguration;
   private final CcToolchainProvider ccToolchainProvider;
+  private final Artifact outputArtifact;
   private final boolean isLtoIndexing;
   private final PathFragment solibDir;
   private final Iterable<? extends LinkerInput> linkerInputs;
@@ -49,8 +49,7 @@ public class LibrariesToLinkCollector {
   private final Artifact thinltoParamFile;
   private final FeatureConfiguration featureConfiguration;
   private final boolean needWholeArchive;
-  private final ImmutableList<String> potentialExecRoots;
-  private final ImmutableList<String> rpathRoots;
+  private final String rpathRoot;
   private final boolean needToolchainLibrariesRpath;
   private final Map<Artifact, Artifact> ltoMap;
   private final RuleErrorConsumer ruleErrorConsumer;
@@ -77,6 +76,7 @@ public class LibrariesToLinkCollector {
     this.cppConfiguration = cppConfiguration;
     this.ccToolchainProvider = toolchain;
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
+    this.outputArtifact = output;
     this.solibDir = solibDir;
     this.isLtoIndexing = isLtoIndexing;
     this.allLtoArtifacts = allLtoArtifacts;
@@ -106,13 +106,12 @@ public class LibrariesToLinkCollector {
       // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
       // artifact, both are symlinks to the same place, so
       // there's no *one* RPATH setting that fits all targets involved in the sharing.
-      potentialExecRoots = ImmutableList.of();
-      rpathRoots = ImmutableList.of(ccToolchainProvider.getSolibDirectory() + "/");
+      rpathRoot = ccToolchainProvider.getSolibDirectory() + "/";
     } else {
       // When executed from within a runfiles directory, the binary lies under a path such as
       // target.runfiles/some_repo/pkg/file, whereas the solib directory is located under
       // target.runfiles/main_repo.
-      PathFragment runfilesPath = output.getRunfilesPath();
+      PathFragment runfilesPath = outputArtifact.getRunfilesPath();
       String runfilesExecRoot;
       if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
         // runfilesPath is of the form ../some_repo/pkg/file, walk back some_repo/pkg and then
@@ -122,22 +121,7 @@ public class LibrariesToLinkCollector {
         // runfilesPath is of the form pkg/file, walk back pkg to reach the main workspace.
         runfilesExecRoot = "../".repeat(runfilesPath.segmentCount() - 1);
       }
-
-      // When the binary gets run through remote execution as the main executable (i.e., not as a
-      // dependency of another target), it will not be able to find its libraries at
-      // $ORIGIN/../../../_solib_[arch], as execution is not taking place inside the runfiles
-      // directory. Solve this by adding ${executable}.runfiles/${workspace}/_solib_[arch] as an
-      // alternative rpath root.
-      PathFragment rootRelativePath = output.getRootRelativePath();
-      potentialExecRoots =
-          ImmutableList.of(
-              rootRelativePath.getBaseName() + ".runfiles/" + workspaceName + "/",
-              runfilesExecRoot);
-      rpathRoots =
-          ImmutableList.copyOf(
-              Lists.transform(
-                  potentialExecRoots,
-                  (execRoot) -> execRoot + ccToolchainProvider.getSolibDirectory() + "/"));
+      rpathRoot = runfilesExecRoot + ccToolchainProvider.getSolibDirectory() + "/";
     }
 
     ltoMap = generateLtoMap();
@@ -212,10 +196,10 @@ public class LibrariesToLinkCollector {
       // directory. In other words, given blaze-bin/my/package/binary, rpathRoot would be
       // "../../_solib_[arch]".
       if (needToolchainLibrariesRpath) {
-        for (String potentialExecRoot : potentialExecRoots) {
-          runtimeLibrarySearchDirectories.add(
-              potentialExecRoot + toolchainLibrariesSolibName + "/");
-        }
+        runtimeLibrarySearchDirectories.add(
+            "../".repeat(outputArtifact.getRootRelativePath().segmentCount() - 1)
+                + toolchainLibrariesSolibName
+                + "/");
       }
       if (isNativeDeps) {
         // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
@@ -247,9 +231,7 @@ public class LibrariesToLinkCollector {
     NestedSetBuilder<String> allRuntimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
     // rpath ordering matters for performance; first add the one where most libraries are found.
     if (includeSolibDir) {
-      for (String rpathRoot : rpathRoots) {
-        allRuntimeLibrarySearchDirectories.add(rpathRoot);
-      }
+      allRuntimeLibrarySearchDirectories.add(rpathRoot);
     }
     allRuntimeLibrarySearchDirectories.addAll(rpathRootsForExplicitSoDeps.build());
     if (includeToolchainLibrariesSolibDir) {
@@ -364,21 +346,17 @@ public class LibrariesToLinkCollector {
       // When all dynamic deps are built in transitioned configurations, the default solib dir is
       // not created. While resolving paths, the dynamic linker stops at the first directory that
       // does not exist, even when followed by "../". We thus have to normalize the relative path.
-      for (String rpathRoot : rpathRoots) {
-        String relativePathToRoot =
-            rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString();
-        String normalizedPathToRoot = PathFragment.create(relativePathToRoot).getPathString();
-        rpathRootsForExplicitSoDeps.add(normalizedPathToRoot);
-      }
+      String relativePathToRoot =
+          rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString();
+      String normalizedPathToRoot = PathFragment.create(relativePathToRoot).getPathString();
+      rpathRootsForExplicitSoDeps.add(normalizedPathToRoot);
 
       // Unless running locally, libraries will be available under the root relative path, so we
       // should add that to the rpath as well.
       if (inputArtifact.getRootRelativePathString().startsWith("_solib_")) {
         PathFragment artifactPathUnderSolib = inputArtifact.getRootRelativePath().subFragment(1);
-        for (String rpathRoot : rpathRoots) {
-          rpathRootsForExplicitSoDeps.add(
-              rpathRoot + artifactPathUnderSolib.getParentDirectory().getPathString());
-        }
+        rpathRootsForExplicitSoDeps.add(
+            rpathRoot + artifactPathUnderSolib.getParentDirectory().getPathString());
       }
     }
 
