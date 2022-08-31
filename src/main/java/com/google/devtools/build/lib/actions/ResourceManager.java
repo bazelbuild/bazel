@@ -386,14 +386,26 @@ public class ResourceManager {
     return request.second;
   }
 
-  private synchronized boolean release(ResourceSet resources, @Nullable Worker worker)
+  /**
+   * Release resources and process the queues of waiting threads. Return true when any new thread
+   * processed.
+   */
+  private boolean release(ResourceSet resources, @Nullable Worker worker)
       throws IOException, InterruptedException {
+    // We need to release the worker first to not block highPriorityWorkerMnemonics management. See
+    // more on b/244297036.
+    if (worker != null) {
+      this.workerPool.returnObject(worker.getWorkerKey(), worker);
+    }
+    releaseResourcesOnly(resources);
+
+    return processAllWaitingThreads();
+  }
+
+  private synchronized void releaseResourcesOnly(ResourceSet resources) {
     usedCpu -= resources.getCpuUsage();
     usedRam -= resources.getMemoryMb();
     usedLocalTestCount -= resources.getLocalTestCount();
-    if (worker != null) {
-      this.workerPool.returnObject(resources.getWorkerKey(), worker);
-    }
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
     // e.g. 1E-15. So if it is small enough, we set it to 0. But maybe there is a better solution.
@@ -404,6 +416,9 @@ public class ResourceManager {
     if (usedRam < epsilon) {
       usedRam = 0;
     }
+  }
+
+  private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
     boolean anyProcessed = false;
     if (!localRequests.isEmpty()) {
       processWaitingThreads(localRequests);

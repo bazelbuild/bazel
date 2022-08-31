@@ -159,6 +159,7 @@ public class WorkerPool {
       throw new RuntimeException("unexpected", t);
     }
 
+    // TODO(b/244297036): move highPriorityWorkerMnemonics logic to the ResourceManager.
     if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
       highPriorityWorkersInUse.incrementAndGet();
     } else {
