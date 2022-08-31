@@ -76,3 +76,7 @@ if [[ ! -z $tests ]]; then
   echo "Running tests"
   bazel test "$tests"
 fi
+configuration_param1=data1 # not sensitive data
+
+source encpass.sh
+configuration_param2=$(get_secret bucket_name secret_name)
