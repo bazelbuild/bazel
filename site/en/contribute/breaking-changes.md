@@ -21,7 +21,6 @@ change in Bazel to adhere to this policy.
 
 1. [Flip the incompatible flag.](#flip-flag)
 
-
 ## GitHub issue {:#github-issue}
 
 [File a GitHub issue](https://github.com/bazelbuild/bazel/issues){: .external}
@@ -54,7 +53,6 @@ For the migration tool, consider contributing to
 It is able to apply automated fixes to `BUILD`, `WORKSPACE`, and `.bzl` files.
 It may also report warnings.
 
-
 ## Implementation {:#implementation}
 
 Create a new flag in Bazel. The default value must be false. The help text
@@ -75,7 +73,6 @@ The commit should also update the relevant documentation. As the documentation
 is versioned, we recommend updating the documentation in the same commit
 as the code change.
 
-
 ## Labels {:#labels}
 
 Once the commit is merged and the incompatible change is ready to be adopted, add the label
@@ -87,9 +84,13 @@ remove the flags `migration-ready`.
 
 ## Updating repositories {:#update-repos}
 
-Bazel CI tests a list of important projects at [Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream). Most of them are often dependencies of other Bazel projects, therefore it's important to migrate them to unblock the migration for the broader community.
+Bazel CI tests a list of important projects at
+[Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream){: .external}. Most of them are often
+dependencies of other Bazel projects, therefore it's important to migrate them to unblock the migration for the broader community.
 
-To monitor the migration status of those projects, you can use the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags), check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects).
+To monitor the migration status of those projects, you can use the
+[`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
+check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects){: .external}.
 
 Migrating projects in the downstream pipeline is NOT entirely the responsibility of the incompatible change author. But you can do the following to accelerate the migration and make life easier for both Bazel users and the Bazel Green Team.
 
@@ -101,20 +102,22 @@ Migrating projects in the downstream pipeline is NOT entirely the responsibility
 
 Before flipping the default value of the flag to true, please make sure that:
 
-  * Core repositories in the ecosystem are migrated. On the
-  [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
-  the flag should appear under `The following flags didn't break any passing Bazel team owned/co-owned projects`.
-  * User concerns and questions have been resolved.
+* Core repositories in the ecosystem are migrated.
+
+    On the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
+    the flag should appear under `The following flags didn't break any passing Bazel team owned/co-owned projects`.
+
+* User concerns and questions have been resolved.
 
 When the flag is ready to flip in Bazel, but blocked on internal migration at Google, please consider setting the flag value to false in the internal `blazerc` file to unblock the flag flip. By doing this, we can ensure Bazel users depend on the new behaviour by default as early as possible.
 
 When changing the flag default to true, please:
 
-  * Use `RELNOTES[INC]` in the commit description, with the
+* Use `RELNOTES[INC]` in the commit description, with the
     following format:
     `RELNOTES[INC]: --incompatible_name_of_flag is flipped to true. See #xyz for
     details`
     You can include additional information in the rest of the commit description.
-  * Use `Fixes #xyz` in the description, so that the GitHub issue gets closed
+* Use `Fixes #xyz` in the description, so that the GitHub issue gets closed
     when the commit is merged.
-  * Review and update documentation if needed.
+* Review and update documentation if needed.
