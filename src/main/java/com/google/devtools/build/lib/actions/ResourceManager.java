@@ -252,7 +252,7 @@ public class ResourceManager {
     } catch (InterruptedException e) {
       // Synchronize on this to avoid any racing with #processWaitingThreads
       synchronized (this) {
-        if (latchWithWorker.latch.getCount() == 0) {
+        if (latchWithWorker.latch == null || latchWithWorker.latch.getCount() == 0) {
           // Resources already acquired by other side. Release them, but not inside this
           // synchronized block to avoid deadlock.
           release(resources, latchWithWorker.worker);
