@@ -2673,6 +2673,8 @@ def _impl(ctx):
         ],
     )
 
+    archive_param_file_feature = feature(name = "archive_param_file")
+
     if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
@@ -2763,6 +2765,7 @@ def _impl(ctx):
             tsan_feature,
             ubsan_feature,
             default_sanitizer_flags_feature,
+            archive_param_file_feature,
         ]
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "darwin_arm64" or
@@ -2844,6 +2847,7 @@ def _impl(ctx):
             tsan_feature,
             ubsan_feature,
             default_sanitizer_flags_feature,
+            archive_param_file_feature,
         ]
     else:
         fail("Unreachable")

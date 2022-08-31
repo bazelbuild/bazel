@@ -46,6 +46,10 @@ _OBJC_LINK_ACTIONS = [
 
 _ALL_LINK_ACTIONS = _NON_OBJC_LINK_ACTIONS + _OBJC_LINK_ACTIONS
 
+_archive_param_file_feature = feature(
+    name = "archive_param_file",
+)
+
 _default_feature = feature(
     name = "default",
     enabled = True,
@@ -82,6 +86,7 @@ _parse_headers_feature = feature(
 )
 
 _feature_name_to_feature = {
+    "archive_param_file": _archive_param_file_feature,
     "default_feature": _default_feature,
     "gcc_quoting_for_param_files": _gcc_quoting_for_param_files_feature,
     "static_link_cpp_runtimes": _static_link_cpp_runtimes_feature,

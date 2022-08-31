@@ -530,16 +530,16 @@ public class CppLinkActionBuilder {
         return (interfaceOutput == null
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:
+      case OBJC_EXECUTABLE:
+      case OBJCPP_EXECUTABLE:
+        return true;
       case STATIC_LIBRARY:
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
       case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
-      case OBJC_EXECUTABLE:
-      case OBJCPP_EXECUTABLE:
-        return true;
-
+        return featureConfiguration.isEnabled(CppRuleClasses.ARCHIVE_PARAM_FILE);
       default:
         return false;
     }

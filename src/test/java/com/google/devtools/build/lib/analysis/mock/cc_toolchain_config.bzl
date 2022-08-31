@@ -87,6 +87,7 @@ _FEATURE_NAMES = struct(
     link_env = "link_env",
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
+    archive_param_file = "archive_param_file",
     compiler_param_file = "compiler_param_file",
     gcc_quoting_for_param_files = "gcc_quoting_for_param_files",
     objcopy_embed_flags = "objcopy_embed_flags",
@@ -821,6 +822,10 @@ _targets_windows_feature = feature(
     implies = ["copy_dynamic_libraries_to_binary"],
 )
 
+_archive_param_file_feature = feature(
+    name = _FEATURE_NAMES.archive_param_file,
+)
+
 _compiler_param_file_feature = feature(
     name = _FEATURE_NAMES.compiler_param_file,
     enabled = True,
@@ -1338,6 +1343,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.supports_start_end_lib: _supports_start_end_lib_feature,
     _FEATURE_NAMES.supports_pic: _supports_pic_feature,
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
+    _FEATURE_NAMES.archive_param_file: _archive_param_file_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
     _FEATURE_NAMES.gcc_quoting_for_param_files: _gcc_quoting_for_param_files_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
