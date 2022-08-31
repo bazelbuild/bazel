@@ -106,7 +106,7 @@ Before flipping the default value of the flag to true, please make sure that:
   the flag should appear under `The following flags didn't break any passing Bazel team owned/co-owned projects`.
   * User concerns and questions have been resolved.
 
-When the flag is ready to flip in Bazel, but blocked on internal migration at Google, please consider setting the flag value to false in the internal `blazerc` file to unblock the flag flip. By doing this, we can ensure Bazel users depend the new behaviour by default as early as possible.
+When the flag is ready to flip in Bazel, but blocked on internal migration at Google, please consider setting the flag value to false in the internal `blazerc` file to unblock the flag flip. By doing this, we can ensure Bazel users depend on the new behaviour by default as early as possible.
 
 When changing the flag default to true, please:
 
