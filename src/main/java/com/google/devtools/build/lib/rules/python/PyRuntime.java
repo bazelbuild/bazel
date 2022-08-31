@@ -43,7 +43,6 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(ruleContext, "files");
     Artifact interpreter = ruleContext.getPrerequisiteArtifact("interpreter");
-    TransitiveInfoCollection coverageTarget = ruleContext.getPrerequisite("coverage_tool");
     PathFragment interpreterPath =
         PathFragment.create(ruleContext.attributes().get("interpreter_path", Type.STRING));
     PythonVersion pythonVersion =
@@ -68,15 +67,23 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
 
     Artifact coverageTool = null;
     NestedSet<Artifact> coverageFiles = null;
+    TransitiveInfoCollection coverageTarget = ruleContext.getPrerequisite("coverage_tool");
     if (coverageTarget != null) {
-      FilesToRunProvider filesToRun = coverageTarget.getProvider(FilesToRunProvider.class);
-      if (filesToRun == null) {
-        ruleContext.attributeError("coverage_tool", "must be an executable target.");
+      NestedSet<Artifact> coverageToolFiles =
+          coverageTarget.getProvider(FileProvider.class).getFilesToBuild();
+      if (coverageToolFiles.isSingleton()) {
+        coverageTool = coverageToolFiles.getSingleton();
       } else {
-        coverageTool = filesToRun.getExecutable();
+        FilesToRunProvider filesToRun = coverageTarget.getProvider(FilesToRunProvider.class);
+        if (filesToRun == null) {
+          ruleContext.attributeError("coverage_tool",
+              "must be an executable target or must produce exactly one file.");
+        } else {
+          coverageTool = filesToRun.getExecutable();
+        }
       }
       NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-      result.addTransitive(coverageTarget.getProvider(FileProvider.class).getFilesToBuild());
+      result.addTransitive(coverageToolFiles);
       RunfilesProvider runfilesProvider = coverageTarget.getProvider(RunfilesProvider.class);
       if (runfilesProvider != null) {
         result.addTransitive(runfilesProvider.getDefaultRunfiles().getArtifacts());

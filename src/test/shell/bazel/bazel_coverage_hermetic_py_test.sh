@@ -34,9 +34,11 @@ EOF
 # looking at the current $TEST_log. The method fails if TEST_log does not
 # contain any coverage report for a passed test.
 function get_coverage_file_path_from_test_log() {
-  local ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
+  local ending_part
+  ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
 
-  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  local coverage_file_path
+  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
   [[ -e "$coverage_file_path" ]] || fail "Coverage output file does not exist!"
   echo "$coverage_file_path"
 }
@@ -72,9 +74,15 @@ py_library(
     srcs = ["hello.py"],
 )
 
-filegroup(
+py_library(
     name = "mock_coverage",
     srcs = ["mock_coverage.py"],
+    deps = [":coverage_support"],
+)
+
+py_library(
+    name = "coverage_support",
+    srcs = ["coverage_support.py"],
 )
 
 py_test(
@@ -83,12 +91,14 @@ py_test(
     deps = [":hello"],
 )
 EOF
+  echo "# fake dependency" > coverage_support.py
   cat <<EOF > mock_coverage.py
 #!/usr/bin/env python3
 import argparse
 import os
 import subprocess
 import sys
+import coverage_support
 parser = argparse.ArgumentParser()
 mode = sys.argv[1]
 del(sys.argv[1])
@@ -120,7 +130,6 @@ else:
     with open(tmp_cov_file, "r") as in_file:
       out_file.write(in_file.read())
 EOF
-  chmod +x mock_coverage.py
   cat <<EOF > hello.py
 def Hello():
   print("Hello, world!")
@@ -156,7 +165,8 @@ EOF
 function test_py_test_coverage() {
   set_up_py_test_coverage
   bazel coverage --test_output=all //:hello_test &>$TEST_log || fail "Coverage for //:hello_test failed"
-  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local coverage_file_path
+  coverage_file_path="$( get_coverage_file_path_from_test_log )"
   diff expected.dat "$coverage_file_path" >> $TEST_log
   cmp expected.dat "$coverage_file_path" || fail "Coverage output file is different than the expected file for py_library."
 }

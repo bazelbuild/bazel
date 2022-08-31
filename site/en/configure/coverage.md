@@ -193,14 +193,15 @@ If you are using a hermetic python toolchain, instead of adding an attribute to
 every `py_test` rule you can instead add the coverage tool to the toolchain
 configuration.
 
-Because the `pip_install` rule depends on the python toolchain, you cannot use
-it to fetch the `coverage` module.  Instead, add in your `WORKSPACE` e.g.
+Because the [pip_install][pip_install_rule] rule depends on the python
+toolchain, it cannot be used to fetch the `coverage` module.
+Instead, add in your `WORKSPACE` e.g.
 
 ```starlark
 http_archive(
     name = "coverage_linux_x86_64"",
     build_file_content = """
-filegroup(
+py_library(
     name = "coverage",
     srcs = ["coverage/__main__.py"],
     data = glob(["coverage/*", "coverage/**/*.py"]),
