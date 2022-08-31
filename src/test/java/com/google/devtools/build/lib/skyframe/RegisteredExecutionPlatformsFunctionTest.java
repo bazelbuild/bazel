@@ -339,35 +339,23 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     registry
         .addModule(
             createModuleKey("bbb", "1.0"),
-            "module(",
-            "    name='bbb',",
-            "    version='1.0',",
-            "    execution_platforms_to_register=['//:plat'],",
-            ")",
+            "module(name='bbb',version='1.0')",
+            "register_execution_platforms('//:plat')",
             "bazel_dep(name='ddd',version='1.0')")
         .addModule(
             createModuleKey("ccc", "1.1"),
-            "module(",
-            "    name='ccc',",
-            "    version='1.1',",
-            "    execution_platforms_to_register=['//:plat'],",
-            ")",
+            "module(name='ccc',version='1.1')",
+            "register_execution_platforms('//:plat')",
             "bazel_dep(name='ddd',version='1.1')")
         // ddd@1.0 is not selected
         .addModule(
             createModuleKey("ddd", "1.0"),
-            "module(",
-            "    name='ddd',",
-            "    version='1.0',",
-            "    execution_platforms_to_register=['//:plat'],",
-            ")")
+            "module(name='ddd',version='1.0')",
+            "register_execution_platforms('//:plat')")
         .addModule(
             createModuleKey("ddd", "1.1"),
-            "module(",
-            "    name='ddd',",
-            "    version='1.1',",
-            "    execution_platforms_to_register=['@eee//:plat', '//:plat'],",
-            ")",
+            "module(name='ddd',version='1.1')",
+            "register_execution_platforms('@eee//:plat', '//:plat')",
             "bazel_dep(name='eee',version='1.0')")
         .addModule(createModuleKey("eee", "1.0"), "module(name='eee', version='1.0')");
     for (String repo : ImmutableList.of("bbb~1.0", "ccc~1.1", "ddd~1.0", "ddd~1.1", "eee~1.0")) {
