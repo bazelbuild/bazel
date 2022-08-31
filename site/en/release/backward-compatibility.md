@@ -60,6 +60,4 @@ For every incompatible change, the issue specifies the following:
 * Description of the changed functionality
 * Migration recipe
 
-The incompatible change issue is closed when the incompatible flag is flipped at
-HEAD. All incompatible changes that are expected to happen in release X.Y
-are marked with a label "breaking-change-X.Y"."
+When an incompatible change is ready for migration with Bazel at HEAD (therefore, also with the next Bazel rolling release), it should be marked with the `migration-ready` label. The incompatible change issue is closed when the incompatible flag is flipped at HEAD.
