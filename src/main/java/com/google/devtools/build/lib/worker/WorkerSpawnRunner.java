@@ -257,7 +257,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         digestBytes = metadata.getDigest();
       }
       ByteString digest;
-      if (digestBytes.length == 0) {
+      if (digestBytes == null || digestBytes.length == 0) {
         digest = ByteString.EMPTY;
       } else {
         digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
