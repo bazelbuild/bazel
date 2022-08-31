@@ -192,7 +192,8 @@ def _find_cpp_toolchain(ctx):
         toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
         if toolchain_info == None:
             # No cpp toolchain was found, so report an error.
-            fail("Unable to find a CC toolchain using toolchain resolution. Did you properly set --platforms?")
+            fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
+                 (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
         if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
             return toolchain_info.cc
         return toolchain_info

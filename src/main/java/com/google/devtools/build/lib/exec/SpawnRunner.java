@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -270,6 +271,10 @@ public interface SpawnRunner {
 
     /** Throws if rewinding is enabled and lost inputs have been detected. */
     void checkForLostInputs() throws LostInputsExecException;
+
+    /** Returns action-scoped file system or {@code null} if it doesn't exist. */
+    @Nullable
+    FileSystem getActionFileSystem();
   }
 
   /**

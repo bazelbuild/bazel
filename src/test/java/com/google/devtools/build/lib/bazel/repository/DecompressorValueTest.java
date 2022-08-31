@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -37,29 +38,29 @@ public class DecompressorValueTest {
   @Test
   public void testKnownFileExtensionsDoNotThrow() throws Exception {
     Path path = fs.getPath("/foo/.external-repositories/some-repo/bar.zip");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    Decompressor unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.jar");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.zip");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.gz");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tgz");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.xz");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.txz");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.zst");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tzst");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.bz2");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.ar");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.deb");
-    DecompressorDescriptor.builder().setArchivePath(path).build();
+    unused = DecompressorValue.getDecompressor(path);
   }
 
   @Test
@@ -67,8 +68,7 @@ public class DecompressorValueTest {
     Path zipPath = fs.getPath("/foo/.external-repositories/some-repo/bar.baz");
     RepositoryFunctionException expected =
         assertThrows(
-            RepositoryFunctionException.class,
-            () -> DecompressorDescriptor.builder().setArchivePath(zipPath).build());
+            RepositoryFunctionException.class, () -> DecompressorValue.getDecompressor(zipPath));
     assertThat(expected).hasMessageThat().contains("Expected a file with a .zip, .jar,");
   }
 

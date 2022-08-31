@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -142,11 +140,6 @@ public abstract class AnalysisMock extends LoadingMock {
             getBuiltinModules(directories)),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
-        SkyFunctions.MODULE_EXTENSION_RESOLUTION,
-        // Dummy SkyFunction that returns nothing.
-        (skyKey, env) ->
-            ModuleExtensionResolutionValue.create(
-                ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of()),
         CcSkyframeFdoSupportValue.SKYFUNCTION,
         new CcSkyframeFdoSupportFunction(directories));
   }

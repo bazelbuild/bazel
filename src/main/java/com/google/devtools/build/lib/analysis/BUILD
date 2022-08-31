@@ -340,6 +340,7 @@ java_library(
         ":rule_configured_object_value",
         ":rule_definition_environment",
         ":run_environment_info",
+        ":runfiles_library_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
@@ -355,6 +356,7 @@ java_library(
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
+        ":test/analysis_failure_propagation_exception",
         ":test/analysis_test_result_info",
         ":test/baseline_coverage_result",
         ":test/execution_info",
@@ -1026,6 +1028,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "runfiles_library_info",
+    srcs = ["RunfilesLibraryInfo.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
     ],
 )
 
@@ -2470,6 +2482,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
+    ],
+)
+
+java_library(
+    name = "test/analysis_failure_propagation_exception",
+    srcs = ["test/AnalysisFailurePropagationException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
     ],
 )
 

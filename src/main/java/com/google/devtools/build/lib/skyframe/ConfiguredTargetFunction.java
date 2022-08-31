@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -1170,6 +1171,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   @Nullable
   private static ConfiguredTargetValue createConfiguredTarget(
       SkyframeBuildView view,
@@ -1218,6 +1220,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     } catch (InvalidExecGroupException e) {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
+    } catch (AnalysisFailurePropagationException e) {
+      throw new ConfiguredValueCreationException(
+          ctgValue, e.getMessage(), /* rootCauses = */ null, e.getDetailedExitCode());
     }
 
     events.replayOn(env.getListener());
@@ -1257,9 +1262,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ? null
               : transitivePackagesForPackageRootResolution.build());
     } else {
+      // Expected 4 args, but got 3.
       Preconditions.checkState(
           analysisEnvironment.getRegisteredActions().isEmpty(),
-          "Non-rule can't have actions: %s %s %s %s",
+          "Non-rule can't have actions: %s %s %s",
           configuredTargetKey,
           analysisEnvironment.getRegisteredActions(),
           configuredTarget);

@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -111,6 +110,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -144,7 +144,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -217,18 +216,25 @@ public class RemoteExecutionService {
 
     this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
 
-    String regex = remoteOptions.remoteDownloadRegex;
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
-    // used without RemoteOutputsMode.MINIMAL.
-    this.shouldForceDownloads =
-        !regex.isEmpty()
-            && (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
-                || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL);
-    Pattern pattern = Pattern.compile(regex);
+    // used without Build without the Bytes.
+    ImmutableList.Builder<Pattern> builder = ImmutableList.builder();
+    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.MINIMAL
+        || remoteOptions.remoteOutputsMode == RemoteOutputsMode.TOPLEVEL) {
+      for (String regex : remoteOptions.remoteDownloadRegex) {
+        builder.add(Pattern.compile(regex));
+      }
+    }
+    ImmutableList<Pattern> patterns = builder.build();
+    this.shouldForceDownloads = !patterns.isEmpty();
     this.shouldForceDownloadPredicate =
         path -> {
-          Matcher m = pattern.matcher(path);
-          return m.matches();
+          for (Pattern pattern : patterns) {
+            if (pattern.matcher(path).find()) {
+              return true;
+            }
+          }
+          return false;
         };
   }
 
@@ -677,7 +683,7 @@ public class RemoteExecutionService {
 
               FileSystemUtils.copyFile(localPath, dst);
             } catch (Exception ee) {
-              ee.addSuppressed(ee);
+              e.addSuppressed(ee);
             }
           }
         }
@@ -768,11 +774,15 @@ public class RemoteExecutionService {
   }
 
   private void injectRemoteArtifact(
-      RemoteAction action, Artifact output, ActionResultMetadata metadata) throws IOException {
+      RemoteAction action, ActionInput output, ActionResultMetadata metadata) throws IOException {
+    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
+    checkState(actionFileSystem instanceof RemoteActionFileSystem);
+
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
-    MetadataInjector metadataInjector = action.getSpawnExecutionContext().getMetadataInjector();
+    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
+
     Path path = remotePathResolver.outputPathToLocalPath(output);
-    if (output.isTreeArtifact()) {
+    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
       DirectoryMetadata directory = metadata.directory(path);
       if (directory == null) {
         // A declared output wasn't created. It might have been an optional output and if not
@@ -797,7 +807,7 @@ public class RemoteExecutionService {
                 context.getRequestMetadata().getActionId());
         tree.putChild(child, value);
       }
-      metadataInjector.injectTree(parent, tree.build());
+      remoteActionFileSystem.injectTree(parent, tree.build());
     } else {
       FileMetadata outputMetadata = metadata.file(path);
       if (outputMetadata == null) {
@@ -805,7 +815,7 @@ public class RemoteExecutionService {
         // SkyFrame will make sure to fail.
         return;
       }
-      metadataInjector.injectFile(
+      remoteActionFileSystem.injectFile(
           output,
           new RemoteFileArtifactValue(
               DigestUtil.toBinaryDigest(outputMetadata.digest()),
@@ -1027,43 +1037,6 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(context, result);
     }
 
-    if (result.success()) {
-      // Check that all mandatory outputs are created.
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (action.getSpawn().isMandatoryOutput(output)) {
-          // In the past, remote execution did not create output directories if the action didn't do
-          // this explicitly. This check only remains so that old remote cache entries that do not
-          // include empty output directories remain valid.
-          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-            continue;
-          }
-
-          Path localPath = execRoot.getRelative(output.getExecPath());
-          if (!metadata.files.containsKey(localPath)
-              && !metadata.directories.containsKey(localPath)
-              && !metadata.symlinks.containsKey(localPath)) {
-            throw new IOException(
-                "Invalid action cache entry "
-                    + action.getActionKey().getDigest().getHash()
-                    + ": expected output "
-                    + prettyPrint(output)
-                    + " does not exist.");
-          }
-        }
-      }
-
-      // When downloading outputs from just remotely executed action, the action result comes from
-      // Execution response which means, if disk cache is enabled, action result hasn't been
-      // uploaded to it. Upload action result to disk cache here so next build could hit it.
-      if (useDiskCache(remoteOptions) && result.executeResponse != null) {
-        getFromFuture(
-            remoteCache.uploadActionResult(
-                context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
-                action.getActionKey(),
-                result.actionResult));
-      }
-    }
-
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
@@ -1176,9 +1149,7 @@ public class RemoteExecutionService {
           inMemoryOutputDigest = m.digest();
           inMemoryOutput = output;
         }
-        if (output instanceof Artifact) {
-          injectRemoteArtifact(action, (Artifact) output, metadata);
-        }
+        injectRemoteArtifact(action, output, metadata);
       }
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
@@ -1190,6 +1161,43 @@ public class RemoteExecutionService {
           byte[] data = getFromFuture(inMemoryOutputDownload);
           return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
         }
+      }
+    }
+
+    if (result.success()) {
+      // Check that all mandatory outputs are created.
+      for (ActionInput output : action.getSpawn().getOutputFiles()) {
+        if (action.getSpawn().isMandatoryOutput(output)) {
+          // In the past, remote execution did not create output directories if the action didn't do
+          // this explicitly. This check only remains so that old remote cache entries that do not
+          // include empty output directories remain valid.
+          if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+            continue;
+          }
+
+          Path localPath = execRoot.getRelative(output.getExecPath());
+          if (!metadata.files.containsKey(localPath)
+              && !metadata.directories.containsKey(localPath)
+              && !metadata.symlinks.containsKey(localPath)) {
+            throw new IOException(
+                "Invalid action cache entry "
+                    + action.getActionKey().getDigest().getHash()
+                    + ": expected output "
+                    + prettyPrint(output)
+                    + " does not exist.");
+          }
+        }
+      }
+
+      // When downloading outputs from just remotely executed action, the action result comes from
+      // Execution response which means, if disk cache is enabled, action result hasn't been
+      // uploaded to it. Upload action result to disk cache here so next build could hit it.
+      if (useDiskCache(remoteOptions) && result.executeResponse != null) {
+        getFromFuture(
+            remoteCache.uploadActionResult(
+                context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
+                action.getActionKey(),
+                result.actionResult));
       }
     }
 

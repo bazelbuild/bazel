@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -352,6 +353,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       } catch (LostInputsActionExecutionException e) {
         throw e.toExecException();
       }
+    }
+
+    @Nullable
+    @Override
+    public FileSystem getActionFileSystem() {
+      return actionExecutionContext.getActionFileSystem();
     }
   }
 }

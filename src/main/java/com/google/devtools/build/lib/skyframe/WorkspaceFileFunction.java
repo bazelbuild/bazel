@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -125,7 +126,8 @@ public class WorkspaceFileFunction implements SkyFunction {
             workspaceFile.getRoot(),
             workspaceFile.getRootRelativePath().replaceName("WORKSPACE.bzlmod"));
     // We only need to check WORKSPACE.bzlmod when the resolved file isn't used.
-    if (!useWorkspaceResolvedFile && RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+    if (!useWorkspaceResolvedFile
+        && starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       FileValue workspaceBzlmodFileValue =
           (FileValue) env.getValue(FileValue.key(workspaceBzlmodFile));
       if (workspaceBzlmodFileValue == null) {

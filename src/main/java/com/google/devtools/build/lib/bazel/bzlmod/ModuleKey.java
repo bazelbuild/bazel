@@ -30,13 +30,6 @@ public abstract class ModuleKey {
    * normal format seen in {@link #getCanonicalRepoName()}) due to backwards compatibility reasons.
    * For example, bazel_tools must be known as "@bazel_tools" for WORKSPACE repos to work correctly.
    *
-   * <p>NOTE(wyv): We don't prepend an '@' to the repo names of well-known modules. This is because
-   * we still need the repo name to be 'bazel_tools' (not '@bazel_tools') since the command line
-   * flags still don't go through repo mapping yet, and they're asking for '@bazel_tools//:thing',
-   * not '@@bazel_tools//:thing'. We can't switch to the latter syntax because it doesn't work if
-   * Bzlmod is not enabled. On the other hand, this means we cannot write '@@bazel_tools//:thing' to
-   * bypass repo mapping at all, which can be awkward.
-   *
    * <p>TODO(wyv): After we make all flag values go through repo mapping, we can remove the concept
    * of well-known modules altogether.
    */
@@ -76,6 +69,6 @@ public abstract class ModuleKey {
       return RepositoryName.MAIN;
     }
     return RepositoryName.createUnvalidated(
-        String.format("@%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
+        String.format("%s~%s", getName(), getVersion().isEmpty() ? "override" : getVersion()));
   }
 }

@@ -73,8 +73,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String defaultPlatformFlag() {
-    return String.format(
-        "--platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT);
+    return "";
   }
 
   @Override
@@ -82,7 +81,13 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       throws Exception {
 
     if (!platformBasedToolchains()) {
-      super.useConfiguration(starlarkOptions, args);
+      super.useConfiguration(
+          starlarkOptions,
+          ImmutableList.builder()
+              .add((Object[]) args)
+              .add("--noincompatible_enable_cc_toolchain_resolution")
+              .build()
+              .toArray(new String[0]));
       return;
     }
 
@@ -116,8 +121,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       }
     }
     if (!hasPlatform) {
+      fullArgs.add(
+          String.format(
+              "--platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT));
       fullArgs.add(defaultPlatformFlag());
     }
+    fullArgs.add("--incompatible_enable_cc_toolchain_resolution");
     super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
   }
 

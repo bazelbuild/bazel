@@ -2699,7 +2699,7 @@ function test_missing_outputs_dont_upload_action_result() {
 genrule(
   name = 'foo',
   outs = ["foo.txt"],
-  cmd = "echo foo",
+  cmd = "echo foo-generation-error",
 )
 EOF
 
@@ -2707,6 +2707,7 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       //a:foo >& $TEST_log && fail "Should failed to build"
 
+  expect_log "foo-generation-error"
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
   remote_ac_files="$(count_remote_ac_files)"
@@ -2962,6 +2963,59 @@ EOF
       --test_output=errors \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_unresolved_symlink_input() {
+  mkdir -p symlink
+  touch symlink/BUILD
+  cat > symlink/symlink.bzl <<EOF
+def _dangling_symlink_impl(ctx):
+    symlink = ctx.actions.declare_symlink(ctx.label.name)
+    ctx.actions.symlink(
+        output = symlink,
+        target_path = ctx.attr.link_target,
+    )
+    return DefaultInfo(files = depset([symlink]))
+
+dangling_symlink = rule(
+    implementation = _dangling_symlink_impl,
+    attrs = {"link_target": attr.string()},
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="non/existent")
+genrule(
+    name = "b",
+    srcs = [":a"],
+    outs = ["b.txt"],
+    cmd = "readlink $(location :a) > $@",
+)
+EOF
+
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --experimental_allow_unresolved_symlinks \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:b &>$TEST_log || fail "expected build to succeed"
+  # Using regex because the symlink is always absolute. https://github.com/bazelbuild/bazel/issues/14224
+  [[ $(cat bazel-bin/pkg/b.txt) =~ .*/non/existent ]] || fail "expected symlink target to be non/existent"
+
+  bazel clean --expunge
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --experimental_allow_unresolved_symlinks \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_merkle_tree_cache \
+    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  # Using regex because the symlink is always absolute. https://github.com/bazelbuild/bazel/issues/14224
+  [[ $(cat bazel-bin/pkg/b.txt) =~ .*/non/existent ]] || fail "expected symlink target to be non/existent"
 }
 
 run_suite "Remote execution and remote cache tests"

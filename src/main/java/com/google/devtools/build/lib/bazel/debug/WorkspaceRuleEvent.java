@@ -110,12 +110,19 @@ public final class WorkspaceRuleEvent implements Postable {
 
   /** Creates a new WorkspaceRuleEvent for an extract event. */
   public static WorkspaceRuleEvent newExtractEvent(
-      String archive, String output, String stripPrefix, String ruleLabel, Location location) {
+      String archive,
+      String output,
+      String stripPrefix,
+      Map<String, String> renameFiles,
+      String ruleLabel,
+      Location location) {
+
     ExtractEvent e =
         WorkspaceLogProtos.ExtractEvent.newBuilder()
             .setArchive(archive)
             .setOutput(output)
             .setStripPrefix(stripPrefix)
+            .putAllRenameFiles(renameFiles)
             .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
@@ -138,6 +145,7 @@ public final class WorkspaceRuleEvent implements Postable {
       String integrity,
       String type,
       String stripPrefix,
+      Map<String, String> renameFiles,
       String ruleLabel,
       Location location) {
     WorkspaceLogProtos.DownloadAndExtractEvent.Builder e =
@@ -146,7 +154,8 @@ public final class WorkspaceRuleEvent implements Postable {
             .setSha256(sha256)
             .setIntegrity(integrity)
             .setType(type)
-            .setStripPrefix(stripPrefix);
+            .setStripPrefix(stripPrefix)
+            .putAllRenameFiles(renameFiles);
     for (URL u : urls) {
       e.addUrl(u.toString());
     }

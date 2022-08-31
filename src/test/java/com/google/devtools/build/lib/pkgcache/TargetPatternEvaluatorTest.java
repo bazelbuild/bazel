@@ -299,10 +299,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("bar/BUILD");
     scratch.file("bar/quux/somefile");
     expectError(
-        "no such target '//bar:quux': target 'quux' not declared in package 'bar'; "
-            + "however, a source directory of this name exists.  (Perhaps add "
-            + "'exports_files([\"quux\"])' to bar/BUILD, or define a filegroup?) defined by "
-            + "/workspace/bar/BUILD",
+        "no such target '//bar:quux': target 'quux' not declared in package 'bar' defined by "
+            + "/workspace/bar/BUILD; however, a source directory of this name exists.  (Perhaps "
+            + "add 'exports_files([\"quux\"])' to bar/BUILD, or define a filegroup?)",
         "bar/quux");
   }
 

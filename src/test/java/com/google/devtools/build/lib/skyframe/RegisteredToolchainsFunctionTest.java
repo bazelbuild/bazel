@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
@@ -35,7 +36,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.stream.Collectors;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,11 +46,6 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   private Path moduleRoot;
   private FakeRegistry registry;
-
-  @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
 
   @Override
   protected ImmutableList<Injected> extraPrecomputedValues() {
@@ -64,13 +59,9 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -304,6 +295,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   @Test
   public void testRegisteredToolchains_bzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(toolchains_to_register=['//:tool'])",
@@ -355,7 +347,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             createModuleKey("toolchain_def", "1.0"), "module(name='toolchain_def',version='1.0')");
 
     // Everyone depends on toolchain_def@1.0 for the declare_toolchain macro.
-    Path toolchainDefDir = moduleRoot.getRelative("@toolchain_def~1.0");
+    Path toolchainDefDir = moduleRoot.getRelative("toolchain_def~1.0");
     scratch.file(toolchainDefDir.getRelative("WORKSPACE").getPathString());
     scratch.file(
         toolchainDefDir.getRelative("BUILD").getPathString(),
@@ -376,8 +368,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "        data = 'stuff')");
 
     // Now create the toolchains for each module.
-    for (String repo :
-        ImmutableList.of("@bbb~1.0", "@ccc~1.1", "@ddd~1.0", "@ddd~1.1", "@eee~1.0")) {
+    for (String repo : ImmutableList.of("bbb~1.0", "ccc~1.1", "ddd~1.0", "ddd~1.1", "eee~1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),

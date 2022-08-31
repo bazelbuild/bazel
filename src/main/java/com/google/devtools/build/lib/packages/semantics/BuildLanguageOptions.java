@@ -156,9 +156,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       help =
           "A comma-separated list of packages (sans \"//\") which, if --experimental_bzl_visibility"
               + " is enabled, are permitted to contain .bzl files that set a bzl-visibility by"
-              + " calling the `visibility()` function. (Known issue: This flag may not work"
-              + " correctly in the presence of repository remapping, which is used by bzlmod.)"
-              + " If the list includes the special item \"everyone\", all packages are permitted.")
+              + " calling the `visibility()` function. Subpackages may also be included by"
+              + " appending `/...`. (Known issue: This flag may not work correctly in the presence"
+              + " of repository remapping, which is used by bzlmod.) If the list includes the"
+              + " special item \"everyone\", all packages are permitted.")
   public List<String> experimentalBzlVisibilityAllowlist;
 
   @Option(
@@ -180,6 +181,17 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       help = "If set to true, enables the APIs required to support the Android Starlark migration.")
   public boolean experimentalEnableAndroidMigrationApis;
+
+  @Option(
+      name = "enable_bzlmod",
+      oldName = "experimental_enable_bzlmod",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "If true, enables the Bzlmod dependency management system, taking precedence over"
+              + " WORKSPACE. See https://bazel.build/docs/bzlmod for more information.")
+  public boolean enableBzlmod;
 
   @Option(
       name = "experimental_java_proto_library_default_has_services",
@@ -551,17 +563,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
-      name = "incompatible_linkopts_to_linklibs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true the default linkopts in the default toolchain are passed as linklibs "
-              + "instead of linkopts to cc_toolchain_config")
-  public boolean incompatibleLinkoptsToLinklibs;
-
-  @Option(
       name = "incompatible_java_common_parameters",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -650,6 +651,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST, experimentalBzlVisibilityAllowlist)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+            .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(
                 EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
                 experimentalJavaProtoLibraryDefaultHasServices)
@@ -698,7 +700,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
                 incompatibleDepsetForLibrariesToLinkGetter)
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
-            .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(
@@ -734,6 +735,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String ENABLE_BZLMOD = "-enable_bzlmod";
   public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
       "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
@@ -764,8 +766,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "+incompatible_java_common_parameters";
-  public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
-      "+incompatible_linkopts_to_linklibs";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =

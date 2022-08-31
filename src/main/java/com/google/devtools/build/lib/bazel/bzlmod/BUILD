@@ -4,8 +4,6 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
@@ -91,7 +89,6 @@ java_library(
         "LocalPathOverride.java",
         "Module.java",
         "ModuleExtensionEvalStarlarkThreadContext.java",
-        "ModuleExtensionResolutionValue.java",
         "ModuleFileValue.java",
         "ModuleOverride.java",
         "MultipleVersionOverride.java",
@@ -129,7 +126,6 @@ java_library(
         "BazelModuleResolutionFunction.java",
         "Discovery.java",
         "ModuleExtensionContext.java",
-        "ModuleExtensionResolutionFunction.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
         "Selection.java",

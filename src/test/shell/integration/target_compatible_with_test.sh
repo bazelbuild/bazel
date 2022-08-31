@@ -1299,8 +1299,8 @@ function test_aquery_incompatible_target() {
     --platforms=@//target_skipping:foo3_platform \
     '//target_skipping:sh_foo1' &> "${TEST_log}" \
     && fail "Bazel aquery passed unexpectedly."
-  expect_log 'Target //target_skipping:sh_foo1 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
+  expect_log_once 'Target //target_skipping:sh_foo1 is incompatible and cannot be built, but was explicitly requested'
+  expect_log_once "target platform (//target_skipping:foo3_platform) didn't satisfy constraint //target_skipping:foo1"
 }
 
 # Use aspects to interact with incompatible targets and validate the behaviour.
@@ -1445,15 +1445,14 @@ EOF
     --platforms=@//target_skipping:foo1_bar1_platform \
     //target_skipping:twice_inspected_foo3_target &> "${TEST_log}" \
     && fail "Bazel passed unexpectedly."
-  # TODO(#15427): Should use expect_log_once here when the issue is fixed.
-  expect_log 'ERROR: Target //target_skipping:twice_inspected_foo3_target is incompatible and cannot be built, but was explicitly requested.'
-  expect_log '^Dependency chain:$'
-  expect_log '^    //target_skipping:twice_inspected_foo3_target '
-  expect_log '^    //target_skipping:previously_inspected_basic_target '
-  expect_log '^    //target_skipping:inspected_foo3_target '
-  expect_log '^    //target_skipping:aliased_other_basic_target '
-  expect_log '^    //target_skipping:other_basic_target '
-  expect_log "    //target_skipping:basic_foo3_target .*  <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3:"
+  expect_log_once 'ERROR: Target //target_skipping:twice_inspected_foo3_target is incompatible and cannot be built, but was explicitly requested.'
+  expect_log_once '^Dependency chain:$'
+  expect_log_once '^    //target_skipping:twice_inspected_foo3_target '
+  expect_log_once '^    //target_skipping:previously_inspected_basic_target '
+  expect_log_once '^    //target_skipping:inspected_foo3_target '
+  expect_log_once '^    //target_skipping:aliased_other_basic_target '
+  expect_log_once '^    //target_skipping:other_basic_target '
+  expect_log_once "    //target_skipping:basic_foo3_target .*  <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:foo3$"
   expect_log 'FAILED: Build did NOT complete successfully'
   expect_not_log "${debug_message1}"
   expect_not_log "${debug_message2}"

@@ -530,16 +530,16 @@ public class CppLinkActionBuilder {
         return (interfaceOutput == null
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:
+      case OBJC_EXECUTABLE:
+      case OBJCPP_EXECUTABLE:
+        return true;
       case STATIC_LIBRARY:
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
       case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
-      case OBJC_EXECUTABLE:
-      case OBJCPP_EXECUTABLE:
-        return true;
-
+        return featureConfiguration.isEnabled(CppRuleClasses.ARCHIVE_PARAM_FILE);
       default:
         return false;
     }
@@ -947,13 +947,18 @@ public class CppLinkActionBuilder {
               Order.STABLE_ORDER,
               Iterables.filter(expandedLinkerArtifacts.toList(), Artifact::isTreeArtifact));
 
+      ParameterFile.ParameterFileType quoting =
+          featureConfiguration.isEnabled(CppRuleClasses.GCC_QUOTING_FOR_PARAM_FILES)
+              ? ParameterFile.ParameterFileType.GCC_QUOTED
+              : ParameterFile.ParameterFileType.UNQUOTED;
+
       Action parameterFileWriteAction =
           new ParameterFileWriteAction(
               getOwner(),
               paramFileActionInputs,
               paramFile,
               linkCommandLine.paramCmdLine(),
-              ParameterFile.ParameterFileType.UNQUOTED);
+              quoting);
       actionConstructionContext.registerAction(parameterFileWriteAction);
     }
 

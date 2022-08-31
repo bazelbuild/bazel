@@ -197,10 +197,6 @@ public final class CcToolchainRule implements RuleDefinition {
                 .mandatory())
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler_files) -->
         Collection of all cc_toolchain artifacts required for compile actions.
-
-        <p>Currently only used by lto_backend actions, regular compile actions use all_files
-         (<a href="https://github.com/bazelbuild/bazel/issues/6927">#6927</a>).
-        </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("compiler_files", LABEL)

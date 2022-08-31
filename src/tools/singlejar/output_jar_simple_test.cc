@@ -1027,9 +1027,9 @@ TEST_F(OutputJarSimpleTest, AddExportsManifestLines) {
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
       "Add-Exports: bar/com.export\r\n"
-      " foo/com.export\r\n"
+      "  foo/com.export\r\n"
       "Add-Opens: bar/com.open\r\n"
-      " foo/com.open\r\n"
+      "  foo/com.open\r\n"
       "\r\n",
       manifest);
 }
@@ -1058,7 +1058,7 @@ TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n"
       "Add-Exports: bar/export\r\n"
-      " foo/export\r\n"
+      "  foo/export\r\n"
       "\r\n",
       manifest);
 }

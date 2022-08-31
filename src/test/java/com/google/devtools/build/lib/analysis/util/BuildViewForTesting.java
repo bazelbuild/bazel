@@ -670,7 +670,7 @@ public class BuildViewForTesting {
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
-        .build();
+        .unsafeBuild();
   }
 
   /** Clears the analysis cache as in --discard_analysis_cache. */

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 
 /**
@@ -61,6 +62,7 @@ public abstract class ToolchainContextKey implements SkyKey {
 
     Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
 
+    @CanIgnoreReturnValue
     default Builder toolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
       return this.toolchainTypes(ImmutableSet.copyOf(toolchainTypes));
     }
@@ -71,6 +73,7 @@ public abstract class ToolchainContextKey implements SkyKey {
 
     Builder debugTarget(boolean flag);
 
+    @CanIgnoreReturnValue
     default Builder debugTarget() {
       return this.debugTarget(true);
     }
@@ -79,6 +82,7 @@ public abstract class ToolchainContextKey implements SkyKey {
 
     Builder forceExecutionPlatform(Optional<Label> execPlatform);
 
+    @CanIgnoreReturnValue
     default Builder forceExecutionPlatform(Label execPlatform) {
       Preconditions.checkNotNull(execPlatform);
       return forceExecutionPlatform(Optional.of(execPlatform));

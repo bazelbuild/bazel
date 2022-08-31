@@ -17,9 +17,15 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -31,6 +37,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -43,12 +51,15 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation only supports creating local action outputs.
  */
-class RemoteActionFileSystem extends DelegateFileSystem {
+public class RemoteActionFileSystem extends DelegateFileSystem {
 
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final ActionInputMap inputArtifactData;
   private final RemoteActionInputFetcher inputFetcher;
+  private final Map<PathFragment, RemoteFileArtifactValue> injectedMetadata = new HashMap<>();
+
+  @Nullable private MetadataInjector metadataInjector = null;
 
   RemoteActionFileSystem(
       FileSystem localDelegate,
@@ -66,6 +77,35 @@ class RemoteActionFileSystem extends DelegateFileSystem {
   /** Returns true if {@code path} is a file that's stored remotely. */
   boolean isRemote(Path path) {
     return getRemoteInputMetadata(path.asFragment()) != null;
+  }
+
+  public void updateContext(MetadataInjector metadataInjector) {
+    this.metadataInjector = metadataInjector;
+  }
+
+  void injectTree(SpecialArtifact tree, TreeArtifactValue metadata) {
+    checkNotNull(metadataInjector, "metadataInject is null");
+
+    for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
+        metadata.getChildValues().entrySet()) {
+      FileArtifactValue childMetadata = entry.getValue();
+      if (childMetadata instanceof RemoteFileArtifactValue) {
+        TreeFileArtifact child = entry.getKey();
+        injectedMetadata.put(child.getExecPath(), (RemoteFileArtifactValue) childMetadata);
+      }
+    }
+
+    metadataInjector.injectTree(tree, metadata);
+  }
+
+  void injectFile(ActionInput file, RemoteFileArtifactValue metadata) {
+    checkNotNull(metadataInjector, "metadataInject is null");
+
+    injectedMetadata.put(file.getExecPath(), metadata);
+
+    if (file instanceof Artifact) {
+      metadataInjector.injectFile((Artifact) file, metadata);
+    }
   }
 
   @Override
@@ -330,7 +370,8 @@ class RemoteActionFileSystem extends DelegateFileSystem {
     if (m != null && m.isRemote()) {
       return (RemoteFileArtifactValue) m;
     }
-    return null;
+
+    return injectedMetadata.get(execPath);
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {

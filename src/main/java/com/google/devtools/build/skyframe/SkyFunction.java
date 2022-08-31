@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -359,6 +360,20 @@ public interface SkyFunction {
      * <p>See the javadoc of {@link #getState} for motivation and an example.
      */
     interface SkyKeyComputeState {}
+
+    /**
+     * Canonical type-safe heterogeneous container for use with {@link #getState} in SkyFunction
+     * implementations that employ complex or abstract compositional strategies.
+     */
+    class ClassToInstanceMapSkyKeyComputeState implements SkyKeyComputeState {
+      private final MutableClassToInstanceMap<SkyKeyComputeState> map =
+          MutableClassToInstanceMap.create();
+
+      public <T extends SkyKeyComputeState> T getInstance(
+          Class<T> type, Supplier<T> stateSupplier) {
+        return type.cast(map.computeIfAbsent(type, ignored -> stateSupplier.get()));
+      }
+    }
 
     /**
      * Returns (or creates and returns) a "state" object to assist with temporary computations for

@@ -240,13 +240,13 @@ function test_glob_with_subpackage() {
     assert_equals "3" $(wc -l "$TEST_log")
 
     # glob returns an empty list, because t3.txt is outside the package
-    echo "exports_files(glob(['subpkg/t3.txt']))" >$pkg/p/BUILD
+    echo "exports_files(glob(['subpkg/t3.txt'], allow_empty = True))" >$pkg/p/BUILD
     bazel query "$pkg/p:*" -k >$TEST_log || fail "Expected success"
     expect_log "//$pkg/p:BUILD"
     assert_equals "1" $(wc -l "$TEST_log")
 
     # same test, with a nonexisting file
-    echo "exports_files(glob(['subpkg/no_glob.txt']))" >$pkg/p/BUILD
+    echo "exports_files(glob(['subpkg/no_glob.txt'], allow_empty = True))" >$pkg/p/BUILD
     bazel query "$pkg/p:*" -k >$TEST_log || fail "Expected success"
     expect_log "//$pkg/p:BUILD"
     assert_equals "1" $(wc -l "$TEST_log")

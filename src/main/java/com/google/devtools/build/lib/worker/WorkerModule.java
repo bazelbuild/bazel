@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A module that adds the WorkerActionContextProvider to the available action context providers. */
 public class WorkerModule extends BlazeModule {
@@ -42,6 +43,7 @@ public class WorkerModule extends BlazeModule {
 
   private WorkerFactory workerFactory;
   @VisibleForTesting WorkerPool workerPool;
+  @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -137,9 +139,14 @@ public class WorkerModule extends BlazeModule {
 
     if (workerPool == null) {
       workerPool = new WorkerPool(newConfig);
-      // If workerPool is restarted then we should recreate metrics
+      // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
     }
+
+    // Start collecting after a pool is defined
+    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+    workerLifecycleManager.setDaemon(true);
+    workerLifecycleManager.start();
   }
 
   @Override
@@ -176,6 +183,11 @@ public class WorkerModule extends BlazeModule {
           "Build completed, shutting down worker pool...",
           /* alwaysLog= */ false,
           options.workerVerbose);
+    }
+    if (workerLifecycleManager != null) {
+      workerLifecycleManager.stopProcessing();
+      workerLifecycleManager.interrupt();
+      workerLifecycleManager = null;
     }
   }
 
