@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -31,10 +33,7 @@ import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Reports cycles of recursive import of Starlark files. */
-public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleReporter {
-
-  private static final Predicate<SkyKey> IS_STARLARK_MODULE_SKY_KEY =
-      SkyFunctions.isSkyFunction(SkyFunctions.BZL_LOAD);
+public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter {
 
   private static final Predicate<SkyKey> IS_PACKAGE_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE);
@@ -50,6 +49,9 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
 
   private static final Predicate<SkyKey> IS_BZL_LOAD =
       SkyFunctions.isSkyFunction(SkyFunctions.BZL_LOAD);
+
+  private static final Predicate<SkyKey> IS_BZLMOD_EXTENSION =
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL);
 
   private static void requestRepoDefinitions(
       ExtendedEventHandler eventHandler, Iterable<SkyKey> repos) {
@@ -76,39 +78,49 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
     SkyKey lastPathElement = pathToCycle.get(pathToCycle.size() - 1);
     if (alreadyReported) {
       return true;
-    } else if (Iterables.all(cycle, IS_STARLARK_MODULE_SKY_KEY)
-        // The last element before the cycle has to be a PackageFunction, Starlark module, or the
-        // WORKSPACE
+    }
+
+    if (Iterables.all(cycle, IS_BZL_LOAD)
+        // The last element before the cycle has to be a PackageFunction, a .bzl file, the
+        // WORKSPACE, or an extension eval.
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
-            || IS_STARLARK_MODULE_SKY_KEY.apply(lastPathElement)
-            || IS_WORKSPACE_FILE.apply(lastPathElement))) {
+            || IS_BZL_LOAD.apply(lastPathElement)
+            || IS_WORKSPACE_FILE.apply(lastPathElement)
+            || IS_BZLMOD_EXTENSION.apply(lastPathElement))) {
 
       Function<SkyKey, String> printer =
           input -> {
             if (input.argument() instanceof BzlLoadValue.Key) {
               return ((BzlLoadValue.Key) input.argument()).getLabel().toString();
-            } else if (input.argument() instanceof PackageIdentifier) {
-              return ((PackageIdentifier) input.argument()) + "/BUILD";
-            } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
+            }
+            if (input.argument() instanceof PackageIdentifier) {
+              return input.argument() + "/BUILD";
+            }
+            if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
               return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
                   .getPath()
                   .getRootRelativePath()
                   .toString();
-            } else {
-              throw new UnsupportedOperationException();
             }
+            Preconditions.checkArgument(input.argument() instanceof ModuleExtensionId);
+            ModuleExtensionId id = (ModuleExtensionId) input.argument();
+            return String.format(
+                "extension '%s' defined in %s",
+                id.getExtensionName(), id.getBzlFileLabel().getCanonicalForm());
           };
 
       StringBuilder cycleMessage =
           new StringBuilder().append("cycle detected in extension files: ");
 
-      // go back the path that lead to the cycle till we found the BUILD or WORKSPACE
-      // file that lead to the circular load.
+      // go back the path that lead to the cycle till we found the BUILD file, WORKSPACE
+      // file or extension eval that lead to the circular load,
       int startIndex = pathToCycle.size() - 1;
       while (startIndex > 0
           && (IS_PACKAGE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
-              || IS_STARLARK_MODULE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
-              || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1)))) {
+              || IS_BZL_LOAD.apply(pathToCycle.get(startIndex - 1))
+              || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1))
+              || IS_BZLMOD_EXTENSION.apply(pathToCycle.get(startIndex - 1)))) {
+
         startIndex--;
       }
       for (int i = startIndex; i < pathToCycle.size(); i++) {
@@ -176,18 +188,6 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       // To help debugging, request that the information be printed about where the respective
       // repositories were defined.
       requestRepoDefinitions(eventHandler, repos);
-      return true;
-    } else if (Iterables.any(cycle, IS_BZL_LOAD)) {
-      Label fileLabel =
-          ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
-      eventHandler.handle(
-          Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
-      return true;
-    } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-      PackageIdentifier pkg =
-          (PackageIdentifier)
-              Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
-      eventHandler.handle(Event.error(null, "cannot load package '" + pkg + "'"));
       return true;
     }
     return false;

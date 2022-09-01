@@ -106,7 +106,9 @@ java_library(
         ":build_info_collection_value",
         ":build_result_listener",
         ":bzl_compile",
+        ":bzl_load_cycle_reporter",
         ":bzl_load_value",
+        ":bzlmod_repo_cycle_reporter",
         ":cached_bzl_load_value_and_deps",
         ":cached_bzl_load_value_and_deps_builder_factory",
         ":client_environment_function",
@@ -179,7 +181,6 @@ java_library(
         ":skyframe_error_processor",
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
-        ":skylark_module_cycle_reporter",
         ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
         ":target_completion_value",
@@ -2303,15 +2304,35 @@ java_library(
 )
 
 java_library(
-    name = "skylark_module_cycle_reporter",
-    srcs = ["StarlarkModuleCycleReporter.java"],
+    name = "bzl_load_cycle_reporter",
+    srcs = ["BzlLoadCycleReporter.java"],
     deps = [
         ":abstract_label_cycle_reporter",
         ":bzl_load_value",
         ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bzlmod_repo_cycle_reporter",
+    srcs = ["BzlmodRepoCycleReporter.java"],
+    deps = [
+        ":abstract_label_cycle_reporter",
+        ":bzl_load_value",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/skyframe",
