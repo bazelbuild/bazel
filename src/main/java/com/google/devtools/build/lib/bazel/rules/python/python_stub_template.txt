@@ -396,7 +396,13 @@ relative_files = True
     env=env,
     cwd=workspace
   ) or ret_code
-  os.unlink(rcfile_name)
+  try:
+    os.unlink(rcfile_name)
+  except OSError:
+    # It's possible that the profiled program might execute another python
+    # binary through a wrapper that would then delete the rcfile.  Not much
+    # we can do about that, besides ignore the failure here.
+    pass
   if os.path.isfile(output_filename):
     UnresolveSymlinks(output_filename)
   return ret_code
