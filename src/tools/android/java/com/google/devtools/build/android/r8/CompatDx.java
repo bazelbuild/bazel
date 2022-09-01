@@ -293,15 +293,6 @@ public class CompatDx {
     public int maxIndexNumber;
 
     @Option(
-        name = "minimal-main-dex",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Produce smallest possible main dex.")
-    public boolean minimalMainDex;
-
-    @Option(
         name = "main-dex-list",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -379,7 +370,6 @@ public class CompatDx {
     public final boolean noWarning;
     public final boolean multiDex;
     public final String mainDexList;
-    public final boolean minimalMainDex;
     public final int minApiLevel;
     public final String inputList;
     public final List<String> inputs;
@@ -452,7 +442,6 @@ public class CompatDx {
       noWarning = options.noWarning;
       multiDex = options.multiDex;
       mainDexList = options.mainDexList;
-      minimalMainDex = options.minimalMainDex;
       minApiLevel = options.minApiLevel;
       inputList = options.inputList;
       inputs = remaining;
@@ -584,16 +573,6 @@ public class CompatDx {
     } else {
       if (dexArgs.verbose) {
         System.out.println("Warning: strict name checking not yet supported");
-      }
-    }
-
-    if (dexArgs.minimalMainDex && dexArgs.verbose) {
-      if (dexArgs.debug) {
-        System.out.println(
-            "Info: minimal main-dex generation is always done for D8 debug builds."
-                + " Please remove option --minimal-main-dex");
-      } else {
-        throw new DxUsageMessage("Error: minimal main-dex is not supported for D8 release builds");
       }
     }
 
