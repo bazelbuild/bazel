@@ -1210,6 +1210,11 @@ def _impl(ctx):
         ],
     )
 
+    archive_param_file_feature = feature(
+        name = "archive_param_file",
+        enabled = True,
+    )
+
     is_linux = ctx.attr.target_libc != "macosx"
     libtool_feature = feature(
         name = "libtool",
@@ -1270,6 +1275,7 @@ def _impl(ctx):
             sysroot_feature,
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
+            archive_param_file_feature,
         ] + layering_check_features(ctx.attr.compiler)
     else:
         # macOS artifact name patterns differ from the defaults only for dynamic
@@ -1303,6 +1309,7 @@ def _impl(ctx):
             sysroot_feature,
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
+            archive_param_file_feature,
         ] + layering_check_features(ctx.attr.compiler)
 
     return cc_common.create_cc_toolchain_config_info(

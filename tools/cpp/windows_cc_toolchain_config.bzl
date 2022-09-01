@@ -378,6 +378,10 @@ def _impl(ctx):
             ],
         )
 
+        archive_param_file_feature = feature(
+            name = "archive_param_file",
+        )
+
         compiler_param_file_feature = feature(
             name = "compiler_param_file",
         )
@@ -1117,6 +1121,7 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            archive_param_file_feature,
             compiler_param_file_feature,
             compiler_output_flags_feature,
             compiler_input_flags_feature,
@@ -1227,6 +1232,10 @@ def _impl(ctx):
         )
 
         if ctx.attr.cpu == "x64_windows" and ctx.attr.compiler == "mingw-gcc":
+            archive_param_file_feature = feature(
+                name = "archive_param_file",
+            )
+
             compiler_param_file_feature = feature(
                 name = "compiler_param_file",
             )
@@ -1236,6 +1245,7 @@ def _impl(ctx):
                 copy_dynamic_libraries_to_binary_feature,
                 gcc_env_feature,
                 default_compile_flags_feature,
+                archive_param_file_feature,
                 compiler_param_file_feature,
                 default_link_flags_feature,
                 supports_dynamic_linker_feature,

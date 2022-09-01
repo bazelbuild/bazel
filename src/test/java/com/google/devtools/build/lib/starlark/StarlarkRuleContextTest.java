@@ -1452,6 +1452,107 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelListNoDuplicatesNoError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_list': attr.label_list(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_list=[\"a.txt\"])");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelListNoDuplicatesNonOverlappingSelectsNoError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_list': attr.label_list(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "config_setting(",
+        "   name = 'arm_cpu',",
+        "   values = {'cpu': 'arm'},",
+        ")",
+        "my_rule(name='r',",
+        "        label_list=select({",
+        "    ':arm_cpu': [],",
+        "    '//conditions:default': ['a.txt'],",
+        "}) + select({",
+        "    ':arm_cpu': ['a.txt'],",
+        "    '//conditions:default': [],",
+        "}),",
+        ")");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelListNoDuplicatesOverlappingSelectsHasError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("a.txt", "");
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_list': attr.label_list(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "config_setting(",
+        "   name = 'arm_cpu',",
+        "   values = {'cpu': 'arm'},",
+        ")",
+        "my_rule(name='r',",
+        "        label_list=select({",
+        "    ':arm_cpu': [],",
+        "    '//conditions:default': ['a.txt'],",
+        "}) + select({",
+        "    ':arm_cpu': ['a.txt'],",
+        "    '//conditions:default': ['a.txt'],",
+        "}),",
+        ")");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent(
+        "in label_list attribute of my_rule rule //:r: " + "Label \'//:a.txt\' is duplicated");
+  }
+
+  @Test
   public void testLabelKeyedStringDictForbidsMissingAttributeWhenMandatoryIsTrue()
       throws Exception {
     reporter.removeHandler(failFastHandler);
@@ -2082,6 +2183,50 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Error expected.
     assertThat(getConfiguredTarget("//test:test")).isNull();
     assertContainsEvent("Error in runfiles: order 'preorder' is invalid for transitive_files");
+  }
+
+  @Test
+  public void runfiles_failOnMiddlemanInFiles() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  internal_output_group = ctx.attr.bin[OutputGroupInfo]._hidden_top_level_INTERNAL_",
+        "  ctx.runfiles(files = internal_output_group.to_list())",
+        "bad_runfiles = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'bin' : attr.label()}",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'bad_runfiles')",
+        "cc_binary(name = 'bin')",
+        "bad_runfiles(name = 'test', bin = ':bin')");
+
+    reporter.removeHandler(failFastHandler); // Error expected.
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent("Error in runfiles: Middleman artifacts are forbidden here");
+  }
+
+  @Test
+  public void runfiles_failOnMiddlemanInTransitiveFiles() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  internal_output_group = ctx.attr.bin[OutputGroupInfo]._hidden_top_level_INTERNAL_",
+        "  ctx.runfiles(transitive_files = internal_output_group)",
+        "bad_runfiles = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'bin' : attr.label()}",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'bad_runfiles')",
+        "cc_binary(name = 'bin')",
+        "bad_runfiles(name = 'test', bin = ':bin')");
+
+    reporter.removeHandler(failFastHandler); // Error expected.
+    assertThat(getConfiguredTarget("//test:test")).isNull();
+    assertContainsEvent("Error in runfiles: Middleman artifacts are forbidden here");
   }
 
   @Test

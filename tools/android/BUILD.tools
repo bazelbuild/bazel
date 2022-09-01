@@ -143,13 +143,13 @@ sh_binary(
     srcs = select({
         "legacy_desugaring": ["desugar.sh"],
         "d8_desugaring": ["d8_desugar.sh"],
-        "//conditions:default": ["desugar.sh"],
+        "//conditions:default": ["d8_desugar.sh"],
     }),
     deps = ["@bazel_tools//tools/bash/runfiles"],
     data = select({
         "legacy_desugaring": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
         "d8_desugaring": ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:desugar", "chm_only_desugar_jdk_libs.json"],
-        "//conditions:default": ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+        "//conditions:default": ["@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:desugar", "chm_only_desugar_jdk_libs.json"],
     })
 )
 

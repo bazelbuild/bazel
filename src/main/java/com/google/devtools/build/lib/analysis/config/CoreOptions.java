@@ -78,10 +78,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If true, the target platform is used in the output directory name instead of the CPU.")
   public boolean platformInOutputDir;
 
-  // TODO(b/231200175): @aranguyen flip this flag
   @Option(
       name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -475,6 +474,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help = "If disabled, visibility errors are demoted to warnings.")
   public boolean checkVisibility;
+
+  @Option(
+      name = "incompatible_check_testonly_for_output_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help =
+          "If enabled, check testonly for prerequisite targets that are output files by"
+              + " looking up the testonly of the generating rule. This matches visibility"
+              + " checking.")
+  public boolean checkTestonlyForOutputFiles;
 
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely

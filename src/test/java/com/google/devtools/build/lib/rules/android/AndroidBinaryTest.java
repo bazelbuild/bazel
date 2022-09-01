@@ -145,7 +145,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     @Override
     protected String defaultPlatformFlag() {
       return String.format(
-          "--android_platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
+          "--android_platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT);
     }
 
     @Test
@@ -220,12 +220,12 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
           "java/android/platforms/BUILD",
           "platform(",
           "    name = 'x86',",
-          "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
+          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
           "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
           ")",
           "platform(",
           "    name = 'armeabi-v7a',",
-          "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
+          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
           "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
           ")");
       scratch.file(

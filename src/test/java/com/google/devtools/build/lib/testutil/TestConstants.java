@@ -129,9 +129,9 @@ public class TestConstants {
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
-          "--target_platform_fallback=@bazel_tools//platforms:default_target",
-          "--platforms=@bazel_tools//platforms:default_target",
-          "--host_platform=@bazel_tools//platforms:default_host",
+          "--target_platform_fallback=@local_config_platform//:host",
+          "--platforms=@local_config_platform//:host",
+          "--host_platform=@local_config_platform//:host",
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
@@ -143,13 +143,15 @@ public class TestConstants {
 
   public static final String PLATFORM_PACKAGE_ROOT = "@bazel_tools//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
+  public static final String LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT =
+      "@local_config_platform//";
 
   public static final String PLATFORMS_PATH = "embedded_tools/platforms";
   public static final String CONSTRAINTS_PATH = "platforms_workspace";
   public static final String LOCAL_CONFIG_PLATFORM_PATH = "local_config_platform_workspace";
 
   public static final String PLATFORM_LABEL =
-      PLATFORM_PACKAGE_ROOT + ":default_host + " + PLATFORM_PACKAGE_ROOT + ":default_target";
+      LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host";
 
   /** What toolchain type do Android rules use for platform-based toolchain resolution? */
   public static final String ANDROID_TOOLCHAIN_TYPE_LABEL =

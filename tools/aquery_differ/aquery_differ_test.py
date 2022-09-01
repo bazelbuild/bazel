@@ -13,20 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
 import unittest
+
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from third_party.py import mock
-import six
+
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ import aquery_differ
-
-# pylint: disable=g-import-not-at-top
-if six.PY2:
-  from cStringIO import StringIO
-else:
-  from io import StringIO
-# pylint: enable=g-import-not-at-top
 
 
 def make_aquery_output(action_objs, artifact_objs, path_fragment_objs):
@@ -114,7 +109,7 @@ class CmdLineDifferTest(unittest.TestCase):
                 "parent_id": 1
             },
         ])
-    mock_stdout = StringIO()
+    mock_stdout = io.StringIO()
     attrs = ["cmdline"]
     with mock.patch("sys.stdout", mock_stdout):
       aquery_differ._aquery_diff(action_graph, action_graph, attrs, "before",
@@ -184,7 +179,7 @@ class CmdLineDifferTest(unittest.TestCase):
             },
         ])
 
-    mock_stdout = StringIO()
+    mock_stdout = io.StringIO()
     attrs = ["cmdline"]
     with mock.patch("sys.stdout", mock_stdout):
       aquery_differ._aquery_diff(first, second, attrs, "before", "after")
@@ -264,7 +259,7 @@ class CmdLineDifferTest(unittest.TestCase):
     expected_error = ("Aquery output 'before' change contains an action "
                       "that generates the following outputs that aquery "
                       "output 'after' change doesn't:\n{}\n\n".format(baz_path))
-    mock_stdout = StringIO()
+    mock_stdout = io.StringIO()
     attrs = ["cmdline"]
     with mock.patch("sys.stdout", mock_stdout):
       aquery_differ._aquery_diff(first, second, attrs, "before", "after")
@@ -372,7 +367,7 @@ class CmdLineDifferTest(unittest.TestCase):
     ])
     attrs = ["cmdline"]
 
-    mock_stdout = StringIO()
+    mock_stdout = io.StringIO()
     with mock.patch("sys.stdout", mock_stdout):
       aquery_differ._aquery_diff(first, second, attrs, "before", "after")
       self.assertIn(expected_error_one, mock_stdout.getvalue())
@@ -464,7 +459,7 @@ class CmdLineDifferTest(unittest.TestCase):
     ])
     attrs = ["inputs"]
 
-    mock_stdout = StringIO()
+    mock_stdout = io.StringIO()
     with mock.patch("sys.stdout", mock_stdout):
       aquery_differ._aquery_diff(first, second, attrs, "before", "after")
       self.assertIn(expected_error_one, mock_stdout.getvalue())

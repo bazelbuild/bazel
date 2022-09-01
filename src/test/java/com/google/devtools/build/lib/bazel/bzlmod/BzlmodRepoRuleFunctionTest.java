@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
@@ -182,12 +181,6 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     // Dummy function that always falls back.
                     (skyKey, env) ->
                         RepositoryMappingValue.withMapping(RepositoryMapping.ALWAYS_FALLBACK))
-                .put(
-                    SkyFunctions.MODULE_EXTENSION_RESOLUTION,
-                    // Dummy function that returns nothing.
-                    (skyKey, env) ->
-                        ModuleExtensionResolutionValue.create(
-                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,

@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
+import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkBuildApiGlobals;
 import java.util.List;
@@ -68,33 +67,21 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
       }
       // `visibility(["//pkg1", "//pkg2", ...])`
     } else if (value instanceof StarlarkList) {
-      List<String> packageStrings = Sequence.cast(value, String.class, "visibility list");
-      ImmutableList.Builder<PackageIdentifier> packages =
-          ImmutableList.builderWithExpectedSize(packageStrings.size());
-      for (String packageString : packageStrings) {
-        PackageIdentifier packageId;
-        // Disallow "@foo//pkg", or even "@//pkg" or "@the_current_repo//pkg".
-        if (packageString.startsWith("@")) {
-          throw Starlark.errorf("package specifiers cannot begin with '@'");
-        }
-        try {
-          packageId = PackageIdentifier.parse(packageString);
-        } catch (LabelSyntaxException ex) {
-          throw Starlark.errorf("Invalid package: %s", ex.getMessage());
-        }
-        // PackageIdentifier.parse() on a string without a repo qualifier returns an identifier in
-        // the main repo. Substitute it with our own repo.
-        Preconditions.checkState(packageId.getRepository().equals(RepositoryName.MAIN));
-        packages.add(
-            PackageIdentifier.create(
-                context.getBzlFile().getRepository(), packageId.getPackageFragment()));
+      List<String> specStrings = Sequence.cast(value, String.class, "visibility list");
+      ImmutableList.Builder<PackageSpecification> specs =
+          ImmutableList.builderWithExpectedSize(specStrings.size());
+      for (String specString : specStrings) {
+        PackageSpecification spec =
+            PackageSpecification.fromStringForBzlVisibility(
+                context.getBzlFile().getRepository(), specString);
+        specs.add(spec);
       }
-      bzlVisibility = new BzlVisibility.PackageListBzlVisibility(packages.build());
+      bzlVisibility = new BzlVisibility.PackageListBzlVisibility(specs.build());
     }
     if (bzlVisibility == null) {
       throw Starlark.errorf(
-          "Invalid bzl-visibility: got '%s', want \"public\", \"private\", or list of package path"
-              + " strings",
+          "Invalid bzl-visibility: got '%s', want \"public\", \"private\", or list of package"
+              + " specification strings",
           Starlark.type(value));
     }
     context.setBzlVisibility(bzlVisibility);
@@ -109,21 +96,36 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
     // small, and calls to visibility() are relatively infrequent.
     boolean foundMatch = false;
     for (String allowedPkgString : allowlist) {
-      // TODO(b/22193153): This seems incorrect since parse doesn't take into account any repository
-      // map. (This shouldn't matter within Google's monorepo, which doesn't use a repo map.)
+      // Special constant to disable allowlisting. For migration to enable the feature globally.
+      if (allowedPkgString.equals("everyone")) {
+        foundMatch = true;
+        break;
+      }
+      // The wildcard syntax /... is not valid for PackageIdentifiers, so we extract it first.
+      boolean allBeneath = allowedPkgString.endsWith("/...");
+      if (allBeneath) {
+        allowedPkgString = allowedPkgString.substring(0, allowedPkgString.length() - 4);
+        if (allowedPkgString.equals("/")) {
+          // was "//..."
+          allowedPkgString = "//";
+        }
+      }
+      PackageIdentifier allowedPkgId;
       try {
-        // Special constant to disable allowlisting. For migration to enable the feature globally.
-        if (allowedPkgString.equals("everyone")) {
-          foundMatch = true;
-          break;
-        }
-        PackageIdentifier allowedPkgId = PackageIdentifier.parse(allowedPkgString);
-        if (pkgId.equals(allowedPkgId)) {
-          foundMatch = true;
-          break;
-        }
+        // TODO(b/22193153): This seems incorrect since parse doesn't take into account any
+        // repository map. (This shouldn't matter within Google's monorepo, which doesn't use a repo
+        // map.)
+        allowedPkgId = PackageIdentifier.parse(allowedPkgString);
       } catch (LabelSyntaxException ex) {
-        throw new EvalException("Invalid bzl-visibility allowlist", ex);
+        throw Starlark.errorf("Invalid bzl-visibility allowlist: %s", ex.getMessage());
+      }
+
+      if (pkgId.equals(allowedPkgId)
+          || (allBeneath
+              // Again, we're erroneously ignoring repo.
+              && pkgId.getPackageFragment().startsWith(allowedPkgId.getPackageFragment()))) {
+        foundMatch = true;
+        break;
       }
     }
     if (!foundMatch) {

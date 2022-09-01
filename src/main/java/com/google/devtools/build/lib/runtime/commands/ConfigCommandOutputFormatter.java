@@ -65,8 +65,9 @@ abstract class ConfigCommandOutputFormatter {
       configurations.forEach(
           config ->
               writer.printf(
-                  "%s%s%s%n",
+                  "%s %s%s%s%n",
                   config.configHash,
+                  config.mnemonic,
                   (config.isHost ? " (host)" : ""),
                   (config.isExec ? " (exec)" : "")));
     }

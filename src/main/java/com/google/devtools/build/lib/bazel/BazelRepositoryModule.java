@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
@@ -127,12 +127,12 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
+  private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFile = Optional.empty();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
   private List<String> registries;
-  private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
@@ -235,9 +235,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
-        .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .addSkyFunction(
-            SkyFunctions.MODULE_EXTENSION_RESOLUTION, new ModuleExtensionResolutionFunction());
+        .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction());
     filesystem = runtime.getFileSystem();
   }
 
@@ -383,7 +381,21 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
-      enableBzlmod.set(repoOptions.enableBzlmod);
+      if (repoOptions.moduleOverrides != null) {
+        Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
+        for (RepositoryOptions.ModuleOverride modOverride : repoOptions.moduleOverrides) {
+          moduleOverrideMap.put(
+              modOverride.moduleName(), LocalPathOverride.create(modOverride.path()));
+        }
+        ImmutableMap<String, ModuleOverride> newModOverrides =
+            ImmutableMap.copyOf(moduleOverrideMap);
+        if (!Maps.difference(moduleOverrides, newModOverrides).areEqual()) {
+          moduleOverrides = newModOverrides;
+        }
+      } else {
+        moduleOverrides = ImmutableMap.of();
+      }
+
       ignoreDevDeps.set(repoOptions.ignoreDevDependency);
       checkDirectDepsMode = repoOptions.checkDirectDependencies;
 
@@ -438,6 +450,7 @@ public class BazelRepositoryModule extends BlazeModule {
   public ImmutableList<Injected> getPrecomputedValues() {
     return ImmutableList.of(
         PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION, resolvedFile),
         PrecomputedValue.injected(
@@ -454,7 +467,6 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod.get()),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(

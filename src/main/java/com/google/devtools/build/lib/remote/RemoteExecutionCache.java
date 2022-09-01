@@ -28,6 +28,7 @@ import build.bazel.remote.execution.v2.Directory;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -82,20 +83,33 @@ public class RemoteExecutionCache extends RemoteCache {
       Map<Digest, Message> additionalInputs,
       boolean force)
       throws IOException, InterruptedException {
-    ImmutableSet<Digest> allDigests =
-        ImmutableSet.<Digest>builder()
-            .addAll(merkleTree.getAllDigests())
-            .addAll(additionalInputs.keySet())
-            .build();
+    Iterable<Digest> merkleTreeAllDigests;
+    try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
+      merkleTreeAllDigests = merkleTree.getAllDigests();
+    }
+    Iterable<Digest> allDigests = Iterables.concat(merkleTreeAllDigests, additionalInputs.keySet());
 
-    if (allDigests.isEmpty()) {
+    if (Iterables.isEmpty(allDigests)) {
       return;
     }
 
     Flowable<TransferResult> uploads =
         createUploadTasks(context, merkleTree, additionalInputs, allDigests, force)
-            .flatMap(uploadTasks -> findMissingBlobs(context, uploadTasks))
-            .flatMapPublisher(this::waitForUploadTasks);
+            .flatMapPublisher(
+                result ->
+                    Flowable.using(
+                        () -> result,
+                        uploadTasks ->
+                            findMissingBlobs(context, uploadTasks)
+                                .flatMapPublisher(this::waitForUploadTasks),
+                        uploadTasks -> {
+                          for (UploadTask uploadTask : uploadTasks) {
+                            Disposable d = uploadTask.disposable.getAndSet(null);
+                            if (d != null) {
+                              d.dispose();
+                            }
+                          }
+                        }));
 
     try {
       mergeBulkTransfer(uploads).blockingAwait();
@@ -175,15 +189,7 @@ public class RemoteExecutionCache extends RemoteCache {
           UploadTask uploadTask = new UploadTask();
           uploadTask.digest = digest;
           uploadTask.disposable = new AtomicReference<>();
-          uploadTask.completion =
-              Completable.fromObservable(
-                  completion.doOnDispose(
-                      () -> {
-                        Disposable d = uploadTask.disposable.getAndSet(null);
-                        if (d != null) {
-                          d.dispose();
-                        }
-                      }));
+          uploadTask.completion = Completable.fromObservable(completion);
           Completable upload =
               casUploadCache.execute(
                   digest,
@@ -238,44 +244,34 @@ public class RemoteExecutionCache extends RemoteCache {
         () -> Profiler.instance().profile("findMissingDigests"),
         ignored ->
             Single.fromObservable(
-                    Observable.fromSingle(
-                            toSingle(
-                                    () -> {
-                                      ImmutableList<Digest> digestsToQuery =
-                                          uploadTasks.stream()
-                                              .filter(uploadTask -> uploadTask.continuation != null)
-                                              .map(uploadTask -> uploadTask.digest)
-                                              .collect(toImmutableList());
-                                      if (digestsToQuery.isEmpty()) {
-                                        return immediateFuture(ImmutableSet.of());
-                                      }
-                                      return findMissingDigests(context, digestsToQuery);
-                                    },
-                                    directExecutor())
-                                .map(
-                                    missingDigests -> {
-                                      for (UploadTask uploadTask : uploadTasks) {
-                                        if (uploadTask.continuation != null) {
-                                          uploadTask.continuation.onSuccess(
-                                              missingDigests.contains(uploadTask.digest));
-                                        }
-                                      }
-                                      return uploadTasks;
-                                    }))
-                        // Use AsyncSubject so that if downstream is disposed, the
-                        // findMissingDigests call is not cancelled (because it may be needed by
-                        // other
-                        // threads).
-                        .subscribeWith(AsyncSubject.create()))
-                .doOnDispose(
-                    () -> {
-                      for (UploadTask uploadTask : uploadTasks) {
-                        Disposable d = uploadTask.disposable.getAndSet(null);
-                        if (d != null) {
-                          d.dispose();
-                        }
-                      }
-                    }),
+                Observable.fromSingle(
+                        toSingle(
+                                () -> {
+                                  ImmutableList<Digest> digestsToQuery =
+                                      uploadTasks.stream()
+                                          .filter(uploadTask -> uploadTask.continuation != null)
+                                          .map(uploadTask -> uploadTask.digest)
+                                          .collect(toImmutableList());
+                                  if (digestsToQuery.isEmpty()) {
+                                    return immediateFuture(ImmutableSet.of());
+                                  }
+                                  return findMissingDigests(context, digestsToQuery);
+                                },
+                                directExecutor())
+                            .map(
+                                missingDigests -> {
+                                  for (UploadTask uploadTask : uploadTasks) {
+                                    if (uploadTask.continuation != null) {
+                                      uploadTask.continuation.onSuccess(
+                                          missingDigests.contains(uploadTask.digest));
+                                    }
+                                  }
+                                  return uploadTasks;
+                                }))
+                    // Use AsyncSubject so that if downstream is disposed, the
+                    // findMissingDigests call is not cancelled (because it may be needed by
+                    // other threads).
+                    .subscribeWith(AsyncSubject.create())),
         SilentCloseable::close);
   }
 

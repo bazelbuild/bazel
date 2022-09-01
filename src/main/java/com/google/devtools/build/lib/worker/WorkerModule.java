@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
-import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A module that adds the WorkerActionContextProvider to the available action context providers. */
 public class WorkerModule extends BlazeModule {
@@ -43,6 +43,7 @@ public class WorkerModule extends BlazeModule {
 
   private WorkerFactory workerFactory;
   @VisibleForTesting WorkerPool workerPool;
+  @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
@@ -138,20 +139,24 @@ public class WorkerModule extends BlazeModule {
 
     if (workerPool == null) {
       workerPool = new WorkerPool(newConfig);
-      // If workerPool is restarted then we should recreate metrics
+      // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
     }
+
+    // Start collecting after a pool is defined
+    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+    workerLifecycleManager.setDaemon(true);
+    workerLifecycleManager.start();
   }
 
   @Override
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     checkNotNull(workerPool);
-    SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
+            new SandboxHelpers(),
             env.getExecRoot(),
             workerPool,
             env.getReporter(),
@@ -178,6 +183,11 @@ public class WorkerModule extends BlazeModule {
           "Build completed, shutting down worker pool...",
           /* alwaysLog= */ false,
           options.workerVerbose);
+    }
+    if (workerLifecycleManager != null) {
+      workerLifecycleManager.stopProcessing();
+      workerLifecycleManager.interrupt();
+      workerLifecycleManager = null;
     }
   }
 

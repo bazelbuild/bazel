@@ -506,6 +506,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("test_starlark/BUILD");
     RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
     String toolsLoc = toolsRepo + "//tools/objc";
+    scratch.file(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/dummy/BUILD",
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
@@ -576,7 +579,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "            cfg=apple_common.multi_arch_split,",
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_dummy_lib': attr.label(",
-        "            default = Label('" + toolsLoc + ":dummy_lib'),),",
+        "            default = Label('" + toolsLoc + "/dummy:dummy_lib'),),",
         "        '_grep_includes': attr.label(",
         "            cfg = 'host',",
         "            allow_single_file = True,",
@@ -1872,7 +1875,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .contains("-mios-simulator-version-min=9.0");
   }
 
-  protected void verifyDrops32BitArchitecture(RuleType ruleType) throws Exception {
+  protected void verifyDrops32BitIosArchitecture(RuleType ruleType) throws Exception {
     scratch.file(
         "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
 
@@ -1892,6 +1895,29 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     getSingleArchBinary(lipoAction, "arm64");
     getSingleArchBinary(lipoAction, "x86_64");
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7")).isNull();
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
+  }
+
+  protected void verifyDrops32BitWatchArchitecture(RuleType ruleType) throws Exception {
+    scratch.file(
+        "libs/BUILD", "objc_library(", "    name = 'objc_lib',", "    srcs = ['a.m'],", ")");
+
+    ruleType.scratchTarget(
+        scratch,
+        "deps",
+        "['//libs:objc_lib']",
+        "platform_type",
+        "'watchos'",
+        "minimum_os_version",
+        "'9.0'"); // Does not support 32-bit architectures.
+
+    useConfiguration("--watchos_cpus=armv7k,arm64_32,i386,x86_64");
+
+    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
+
+    getSingleArchBinary(lipoAction, "arm64_32");
+    getSingleArchBinary(lipoAction, "x86_64");
+    assertThat(getSingleArchBinaryIfAvailable(lipoAction, "armv7k")).isNull();
     assertThat(getSingleArchBinaryIfAvailable(lipoAction, "i386")).isNull();
   }
 

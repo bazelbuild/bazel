@@ -354,7 +354,7 @@ public class CppOptions extends FragmentOptions {
           "Deprecated, superseded by --incompatible_remove_legacy_whole_archive "
               + "(see https://github.com/bazelbuild/bazel/issues/7362 for details). "
               + "When on, use --whole-archive for cc_binary rules that have "
-              + "linkshared=1 and either linkstatic=1 or '-static' in linkopts. "
+              + "linkshared=True and either linkstatic=True or '-static' in linkopts. "
               + "This is for backwards compatibility only. "
               + "A better alternative is to use alwayslink=1 where required.")
   public boolean legacyWholeArchive;

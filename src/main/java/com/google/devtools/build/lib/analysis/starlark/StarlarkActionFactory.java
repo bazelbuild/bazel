@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -282,11 +283,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 + "file or directory, not a symlink (did you mean to use declare_file() or "
                 + "declare_directory() instead of declare_symlink()?)");
       }
-      // TODO(tjgq): Enforce that input and output are either both files or both directories.
-      // This requires fixing callers passing a directory as the input and a file as the output.
-      if (!inputArtifact.isTreeArtifact() && outputArtifact.isTreeArtifact()) {
-        String inputType = inputArtifact.isTreeArtifact() ? "directory" : "file";
-        String outputType = outputArtifact.isTreeArtifact() ? "directory" : "file";
+
+      boolean inputOutputMismatch =
+          getSemantics().getBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR)
+              ? inputArtifact.isDirectory() != outputArtifact.isDirectory()
+              : !inputArtifact.isDirectory() && outputArtifact.isDirectory();
+      if (inputOutputMismatch) {
+        String inputType = inputArtifact.isDirectory() ? "directory" : "file";
+        String outputType = outputArtifact.isDirectory() ? "directory" : "file";
         throw Starlark.errorf(
             "symlink() with \"target_file\" %s param requires that \"output\" be declared as a %s "
                 + "(did you mean to use declare_%s() instead of declare_%s()?)",

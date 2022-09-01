@@ -1109,7 +1109,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
-  private final SilentCloseable trackDiscardAnalysisCache() {
+  private SilentCloseable trackDiscardAnalysisCache() {
     AutoProfiler profiler = GoogleAutoProfilerUtils.logged("discarding analysis cache");
     return () -> {
       Duration d = Duration.ofNanos(profiler.completeAndGetElapsedTimeNanos());
@@ -1215,24 +1215,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
-  public Collection<Artifact> getWorkspaceStatusArtifacts(ExtendedEventHandler eventHandler)
+  public ImmutableList<Artifact> getWorkspaceStatusArtifacts(ExtendedEventHandler eventHandler)
       throws InterruptedException {
-    // Should already be present, unless the user didn't request any targets for analysis.
-    EvaluationResult<WorkspaceStatusValue> result =
-        evaluate(
-            ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ 1,
-            eventHandler);
-    WorkspaceStatusValue value =
-        Preconditions.checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
-    return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
-  }
-
-  @VisibleForTesting
-  public SkyFunctionEnvironmentForTesting getSkyFunctionEnvironmentForTesting(
-      ExtendedEventHandler eventHandler) {
-    return new SkyFunctionEnvironmentForTesting(eventHandler, this);
+    try (SilentCloseable c =
+        Profiler.instance().profile("SkyframeExecutor.getWorkspaceStatusArtifact")) {
+      // Should already be present, unless the user didn't request any targets for analysis.
+      EvaluationResult<WorkspaceStatusValue> result =
+          evaluate(
+              ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
+              /*keepGoing=*/ true,
+              /*numThreads=*/ 1,
+              eventHandler);
+      WorkspaceStatusValue value =
+          Preconditions.checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
+      return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
+    }
   }
 
   public EventBus getEventBus() {
@@ -1919,7 +1916,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             getStarlarkBuildSettingsDetailsValue(eventHandler, transition);
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, transition, details, eventHandler)
+                    fromOptions,
+                    transition,
+                    details,
+                    eventHandler,
+                    skyframeBuildView.getStarlarkTransitionCache())
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -1945,7 +1946,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             getStarlarkBuildSettingsDetailsValue(eventHandler, key.getTransition());
         toOptions =
             ConfigurationResolver.applyTransitionWithoutSkyframe(
-                    fromOptions, key.getTransition(), details, eventHandler)
+                    fromOptions,
+                    key.getTransition(),
+                    details,
+                    eventHandler,
+                    skyframeBuildView.getStarlarkTransitionCache())
                 .values();
       } catch (TransitionException e) {
         eventHandler.handle(Event.error(e.getMessage()));
@@ -1974,7 +1979,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return builder.build();
   }
 
-  /** Must be in sync with {@link ConfigurationResolver.getStarlarkBuildSettingsDetailsValue} */
+  /** Must be in sync with {@link ConfigurationResolver#getStarlarkBuildSettingsDetailsValue}. */
   private StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
       ExtendedEventHandler eventHandler, ConfigurationTransition transition)
       throws TransitionException {
@@ -1996,7 +2001,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               Iterables.getFirst(newlyLoaded.errorMap().entrySet(), null), newlyLoaded);
       throw new TransitionException(
           "Error when resolving transition build settings, "
-              + starlarkBuildSettings.toString()
+              + starlarkBuildSettings
               + ": "
               + errorEntry.getValue().getException());
     }
@@ -2939,7 +2944,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   @Nullable
-  RuleContextConstraintSemantics getRuleContextConstraintSemantics() {
+  private RuleContextConstraintSemantics getRuleContextConstraintSemantics() {
     return ruleContextConstraintSemantics;
   }
 

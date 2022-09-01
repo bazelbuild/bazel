@@ -258,7 +258,7 @@ public abstract class MockCcSupport {
         "    toolchain = '//" + crosstoolTopPath + ":cc-compiler-arm-llvm',",
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         "    target_compatible_with = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
         "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "    ],",
         ")");

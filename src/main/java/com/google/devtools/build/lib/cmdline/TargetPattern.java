@@ -921,8 +921,8 @@ public abstract class TargetPattern {
         if (!repository.isVisible()) {
           throw new TargetParsingException(
               String.format(
-                  "Repository '%s' is not visible from repository '@%s'",
-                  repository.getNameWithAt(), repository.getOwnerRepoIfNotVisible()),
+                  "Repository '@%s' is not visible from repository '@%s'",
+                  repository.getName(), repository.getOwnerRepoIfNotVisible()),
               Code.PACKAGE_NOT_FOUND);
         }
 

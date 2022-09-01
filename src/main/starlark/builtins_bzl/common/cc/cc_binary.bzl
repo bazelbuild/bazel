@@ -15,7 +15,7 @@
 """cc_binary Starlark implementation replacing native"""
 
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos")
+load(":common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "throw_linked_but_not_exported_errors")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 
 CcInfo = _builtins.toplevel.CcInfo
@@ -403,6 +403,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
     (link_statically_labels, link_dynamically_labels) = _separate_static_and_dynamic_link_libraries(graph_structure_aspect_nodes, can_be_linked_dynamically)
 
     linker_inputs_seen = {}
+    linked_statically_but_not_exported = {}
     for linker_input in linker_inputs:
         stringified_linker_input = cc_helper.stringify_linker_input(linker_input)
         if stringified_linker_input in linker_inputs_seen:
@@ -411,9 +412,11 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
         owner = str(linker_input.owner)
         if owner not in link_dynamically_labels and (owner in link_statically_labels or _get_canonical_form(ctx.label) == owner):
             if owner in link_once_static_libs_map:
-                fail(owner + " is already linked statically in " + link_once_static_libs_map[owner] + " but not exported.")
+                linked_statically_but_not_exported.setdefault(link_once_static_libs_map[owner], []).append(owner)
             else:
                 static_linker_inputs.append(linker_input)
+
+    throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
 
     rule_impl_debug_files = None
     if cpp_config.experimental_cc_shared_library_debug():

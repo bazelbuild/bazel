@@ -59,6 +59,8 @@ message ExtractEvent {
   string output = 2;
   // A directory prefix to strip from extracted files.
   string strip_prefix = 3;
+  // Files to rename during extraction.
+  map<string, string> rename_files = 4;
 }
 
 message DownloadAndExtractEvent {
@@ -74,6 +76,8 @@ message DownloadAndExtractEvent {
   string strip_prefix = 5;
   // checksum in Subresource Integrity format, if specified
   string integrity = 6;
+  // Files to rename during extraction.
+  map<string, string> rename_files = 7;
 }
 
 // Information on "file" event in repository_ctx.

@@ -49,7 +49,6 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -81,11 +80,11 @@ import org.junit.runners.JUnit4;
  * direct access to environments.
  */
 @RunWith(JUnit4.class)
-public class ConfigurationsForTargetsTest extends AnalysisTestCase {
+public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
-  public static final Label TARGET_PLATFORM_LABEL =
+  private static final Label TARGET_PLATFORM_LABEL =
       Label.parseAbsoluteUnchecked("//platform:target");
-  public static final Label EXEC_PLATFORM_LABEL = Label.parseAbsoluteUnchecked("//platform:exec");
+  private static final Label EXEC_PLATFORM_LABEL = Label.parseAbsoluteUnchecked("//platform:exec");
 
   /**
    * A mock {@link SkyFunction} that just calls {@link ConfiguredTargetFunction#computeDependencies}
@@ -159,7 +158,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 ImmutableMap.of(),
                 toolchainContexts,
                 stateProvider.lateBoundRuleClassProvider(),
-                stateProvider.lateBoundHostConfig());
+                stateProvider.lateBoundSkyframeBuildView());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;
@@ -191,8 +190,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
       return ruleClassProvider;
     }
 
-    BuildConfigurationValue lateBoundHostConfig() {
-      return getHostConfiguration();
+    SkyframeBuildView lateBoundSkyframeBuildView() {
+      return skyframeExecutor.getSkyframeBuildView();
     }
   }
 
@@ -244,7 +243,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    *
    * <p>Throws an exception if the attribute can't be found.
    */
-  protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
+  private ImmutableList<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
     ConfiguredTarget target = Iterables.getOnlyElement(update(targetLabel).getTargetsToBuild());
     ImmutableList<ConfiguredTarget> maybeConfiguredDeps = getConfiguredDeps(target, attrName);

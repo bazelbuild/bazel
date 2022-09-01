@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
@@ -161,6 +160,15 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   private StarlarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
   private Outputs outputsObject;
+
+  /**
+   * Counter for calls to {@code ctx.resolve_command} with a command longer than {@link
+   * CommandHelper#maxCommandLength}.
+   *
+   * <p>Such calls require generating a script. This counter ensures that each call results in
+   * unique script name to avoid action conflicts.
+   */
+  private int resolveCommandScriptCounter = 0;
 
   /**
    * Creates a new StarlarkRuleContext wrapping ruleContext.
@@ -948,7 +956,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
-      builder.addArtifacts(Sequence.cast(files, Artifact.class, "files"));
+      Sequence<Artifact> artifacts = Sequence.cast(files, Artifact.class, "files");
+      checkForMiddlemanArtifacts(artifacts);
+      builder.addArtifacts(artifacts);
     }
     if (transitiveFiles != Starlark.NONE) {
       NestedSet<Artifact> transitiveArtifacts =
@@ -960,6 +970,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             "order '%s' is invalid for transitive_files",
             transitiveArtifacts.getOrder().getStarlarkName());
       }
+      checkForMiddlemanArtifacts(transitiveArtifacts.toList());
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (isDepset(symlinks)) {
@@ -986,6 +997,16 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       runfiles.setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     }
     return runfiles;
+  }
+
+  private void checkForMiddlemanArtifacts(Iterable<Artifact> artifacts) throws EvalException {
+    for (Artifact artifact : artifacts) {
+      if (artifact.isMiddlemanArtifact()) {
+        throw Starlark.errorf(
+            "Middleman artifacts are forbidden here. Artifact: %s, owner: %s",
+            artifact, artifact.getOwner());
+      }
+    }
   }
 
   private static boolean isNonEmptyDict(Object o) {
@@ -1044,9 +1065,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         CommandHelper.buildBashCommandConstructor(
             executionRequirements,
             shExecutable,
-            // Hash the command-line to prevent multiple actions from the same rule invocation
-            // conflicting with each other.
-            "." + Hashing.murmur3_32().hashUnencodedChars(command).toString() + SCRIPT_SUFFIX);
+            String.format(".resolve_command_%d.script.sh", resolveCommandScriptCounter++));
     List<String> argv = helper.buildCommandLine(command, inputs, constructor);
     return Tuple.triple(
         StarlarkList.copyOf(thread.mutability(), inputs),
@@ -1103,9 +1122,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
     return convertedMap;
   }
-
-  /** suffix of script to be used in case the command is too long to fit on a single line */
-  private static final String SCRIPT_SUFFIX = ".script.sh";
 
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)
       throws EvalException {

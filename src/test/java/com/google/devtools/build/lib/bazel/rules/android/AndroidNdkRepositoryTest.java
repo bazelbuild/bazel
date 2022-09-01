@@ -73,6 +73,10 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
         mockToolsConfig,
         CcToolchainConfig.builder()
             .withToolchainTargetConstraints("@platforms//os:linux", "@platforms//cpu:x86_64"));
+    BazelMockCcSupport.INSTANCE.setupCcToolchainConfig(
+        mockToolsConfig,
+        CcToolchainConfig.builder()
+            .withToolchainTargetConstraints("@platforms//os:android", "@platforms//cpu:armv7"));
     scratch.overwriteFile("embedded_tools/tools/build_defs/cc/BUILD");
     scratch.overwriteFile(
         "embedded_tools/tools/build_defs/cc/action_names.bzl",
@@ -88,14 +92,19 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
     // Set up a fake @platforms repository.
     scratch.appendFile(
         "WORKSPACE", "local_repository(name = 'platforms', path = 'platforms_workspace')");
-    if (!scratch.resolve("platforms_workspace/WORKSPACE").exists()) {
+    scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform')");
+
+    if (!scratch.resolve("platforms_workspace/WORKSPACE").exists()
+        || !scratch.resolve("local_config_platform_workspace/WORKSPACE").exists()) {
       // Create the needed platforms and constraints if they don't already exist.
       scratch.file("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
       MockPlatformSupport.setup(
           mockToolsConfig,
           "embedded_tools/platforms",
           "@platforms//",
-          "platforms_workspace");
+          "platforms_workspace",
+          "@local_config_platform//",
+          "local_config_platform_workspace");
     }
   }
 

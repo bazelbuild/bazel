@@ -282,7 +282,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void duplicatesAcrossMultipleSelects() throws Exception {
     writeConfigRules();
-    scratch.file("java/hello/BUILD",
+    scratch.file(
+        "java/hello/BUILD",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = select({",
@@ -290,15 +291,16 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "        '//conditions:b': ['b.java'],",
         "        })",
         "        + select({",
-        "        '//conditions:c': ['c.java'],",
-        "        '//conditions:d': ['a.java'],",
+        "        '//conditions:a': ['a.java'],",
+        "        '//conditions:b': ['c.java'],",
         "    }))");
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     useConfiguration("--foo=a");
     getConfiguredTarget("//java/hello:hello");
     assertContainsEvent(
-        "Label '//java/hello:a.java' is duplicated in the 'srcs' attribute of rule 'hello'");
+        "in srcs attribute of java_binary rule //java/hello:hello: Label '//java/hello:a.java' is"
+            + " duplicated");
   }
 
   /**
@@ -804,7 +806,26 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void nativeTypeConcatenatedWithSelect() throws Exception {
     writeConfigRules();
-    scratch.file("java/foo/BUILD",
+    scratch.file(
+        "java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
+    scratch.file(
+        "java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = {':always': 'always'} | select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "        '//conditions:b': {':b': 'b'},",
+        "    })",
+        ")",
         "java_binary(",
         "    name = 'binary',",
         "    srcs = ['binary.java'],",
@@ -828,12 +849,37 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
+
+    checkRule(
+        "//java/foo:mytarget",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
   }
 
   @Test
   public void selectConcatenatedWithNativeType() throws Exception {
     writeConfigRules();
-    scratch.file("java/foo/BUILD",
+    scratch.file(
+        "java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
+    scratch.file(
+        "java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "        '//conditions:b': {':b': 'b'},",
+        "    }) | {':always': 'always'}",
+        ")",
         "java_binary(",
         "    name = 'binary',",
         "    srcs = ['binary.java'],",
@@ -856,12 +902,40 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
+
+    checkRule(
+        "//java/foo:mytarget",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libalways.jar", "bin java/foo/libb.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar"));
   }
 
   @Test
   public void selectConcatenatedWithSelect() throws Exception {
     writeConfigRules();
-    scratch.file("java/foo/BUILD",
+    scratch.file(
+        "java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
+    scratch.file(
+        "java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "        '//conditions:b': {':b': 'b'},",
+        "    }) | select({",
+        "        '//conditions:a': {':a2': 'a2'},",
+        "        '//conditions:b': {':b2': 'b2'},",
+        "    })",
+        ")",
         "java_binary(",
         "    name = 'binary',",
         "    srcs = ['binary.java'],",
@@ -891,6 +965,58 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
+
+    checkRule(
+        "//java/foo:mytarget",
+        "--foo=b",
+        /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
+  }
+
+  @Test
+  public void dictsWithSameKey() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "java/foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    outputs = []",
+        "    for target, value in ctx.attr.deps.items():",
+        "        output = ctx.actions.declare_file(target.label.name + value)",
+        "        ctx.actions.write(content = value, output = output)",
+        "        outputs.append(output)",
+        "    return [DefaultInfo(files=depset(outputs))]",
+        "myrule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_keyed_string_dict()",
+        "    },",
+        ")");
+    scratch.file(
+        "java/foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(",
+        "    name = 'mytarget',",
+        "    deps = select({",
+        "        '//conditions:a': {':a': 'a'},",
+        "    }) | select({",
+        "        '//conditions:a': {':a': 'a2'},",
+        "    })",
+        ")",
+        "java_library(",
+        "    name = 'a',",
+        "    srcs = ['a.java']",
+        ")",
+        "filegroup(",
+        "    name = 'group',",
+        "    srcs = [':mytarget'],",
+        ")");
+
+    checkRule(
+        "//java/foo:group",
+        "srcs",
+        ImmutableList.of("--foo=a"),
+        /*expected:*/ ImmutableList.of("bin java/foo/aa2"),
+        /*not expected:*/ ImmutableList.of("bin java/foo/aa"));
   }
 
   @Test
@@ -923,7 +1049,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//java/foo:binary"));
-    assertContainsEvent("'+' operator applied to incompatible types");
+    assertContainsEvent("Cannot combine incompatible types");
   }
 
   @Test
@@ -950,7 +1076,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void selectsWithGlobsWrongType() throws Exception {
     writeConfigRules();
-    scratch.file("foo/BUILD",
+    scratch.file(
+        "foo/BUILD",
         "genrule(",
         "    name = 'gen',",
         "    srcs = [],",
@@ -958,11 +1085,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    cmd = 'echo' + select({",
         "        '//conditions:a': 'a',",
         "        '//conditions:b': 'b',",
-        "    }) + glob(['globbed.java']))");
+        "    }) + glob(['globbed.java'], allow_empty = True))");
 
     reporter.removeHandler(failFastHandler);
     assertThrows(NoSuchTargetException.class, () -> getTarget("//foo:binary"));
-    assertContainsEvent("'+' operator applied to incompatible types");
+    assertContainsEvent("Cannot combine incompatible types");
   }
 
   @Test
@@ -1152,8 +1279,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration("--define", "mode=a");
     assertThat(getConfiguredTarget("//a:gen")).isNull();
-    assertContainsEvent(
-        "'+' operator applied to incompatible types (select of string, select of NoneType)");
+    assertContainsEvent("Cannot combine incompatible types (select of string, select of NoneType)");
   }
 
   @Test

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 
@@ -109,7 +108,4 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    * class.
    */
   ImmutableMap<String, Class<?>> getConfigurationFragmentMap();
-
-  /** Returns the policy on checking that third-party rules have licenses. */
-  ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy();
 }

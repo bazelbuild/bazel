@@ -40,6 +40,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
+      ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests,
       TopLevelArtifactContext topLevelContext,
       String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
@@ -54,6 +55,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
         artifactsToBuild,
         parallelTests,
         exclusiveTests,
+        exclusiveIfLocalTests,
         topLevelContext,
         /*packageRoots=*/ null,
         workspaceName,

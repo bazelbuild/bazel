@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * Represent a "promise" that the Artifacts under a NestedSet is evaluated by Skyframe and the
- * ValueOrException is available in {@link ArtifactNestedSetFunction#artifactToSkyValueMap}.
+ * Represent a "promise" that the Artifacts under a NestedSet are evaluated by Skyframe and are
+ * available in {@link ArtifactNestedSetFunction#artifactSkyKeyToSkyValue}.
  */
 @Immutable
 @ThreadSafe

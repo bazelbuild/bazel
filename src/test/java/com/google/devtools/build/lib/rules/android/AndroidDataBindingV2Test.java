@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingV2Test.WithPlatforms;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingV2Test.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
@@ -58,6 +59,12 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     @Override
     protected boolean platformBasedToolchains() {
       return true;
+    }
+
+    @Before
+    public void setupCcToolchain() throws Exception {
+      BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+      invalidatePackages(false);
     }
   }
 

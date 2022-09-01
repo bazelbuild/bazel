@@ -44,8 +44,8 @@ public class CommandLinesTest {
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
 
-    assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar");
-    assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
+    assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
+    assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.getParamFiles()).isEmpty();
   }
 
@@ -56,8 +56,8 @@ public class CommandLinesTest {
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
 
-    assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar");
-    assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
+    assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
+    assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.getParamFiles()).isEmpty();
   }
 
@@ -88,10 +88,12 @@ public class CommandLinesTest {
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
 
-    assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar");
+    assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
-    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
+    assertThat(expanded.getParamFiles().get(0).getArguments())
+        .containsExactly("--foo", "--bar")
+        .inOrder();
   }
 
   @Test
@@ -107,7 +109,7 @@ public class CommandLinesTest {
     ExpandedCommandLines expanded =
         commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
 
-    assertThat(expanded.arguments()).containsExactly("--foo", "--bar");
+    assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.getParamFiles()).isEmpty();
   }
 
@@ -127,7 +129,9 @@ public class CommandLinesTest {
 
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
-    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--foo", "--bar");
+    assertThat(expanded.getParamFiles().get(0).getArguments())
+        .containsExactly("--foo", "--bar")
+        .inOrder();
   }
 
   @Test
@@ -151,11 +155,11 @@ public class CommandLinesTest {
     assertThat(expanded.arguments())
         .containsExactly("a", "b", "@output.txt-0.params", "e", "f", "@output.txt-1.params");
     assertThat(expanded.getParamFiles()).hasSize(2);
-    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("c", "d");
-    assertThat(expanded.getParamFiles().get(0).paramFileExecPath.getPathString())
+    assertThat(expanded.getParamFiles().get(0).getArguments()).containsExactly("c", "d").inOrder();
+    assertThat(expanded.getParamFiles().get(0).getExecPathString())
         .isEqualTo("output.txt-0.params");
-    assertThat(expanded.getParamFiles().get(1).arguments).containsExactly("g", "h");
-    assertThat(expanded.getParamFiles().get(1).paramFileExecPath.getPathString())
+    assertThat(expanded.getParamFiles().get(1).getArguments()).containsExactly("g", "h").inOrder();
+    assertThat(expanded.getParamFiles().get(1).getExecPathString())
         .isEqualTo("output.txt-1.params");
   }
 
@@ -176,10 +180,10 @@ public class CommandLinesTest {
         commandLines.expand(
             artifactExpander, execPath, new CommandLineLimits(4), CommandAdjuster.NOOP, 0);
 
-    assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d");
-    assertThat(expanded.arguments()).containsExactly("a", "b", "@output.txt-0.params");
+    assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d").inOrder();
+    assertThat(expanded.arguments()).containsExactly("a", "b", "@output.txt-0.params").inOrder();
     assertThat(expanded.getParamFiles()).hasSize(1);
-    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("c", "d");
+    assertThat(expanded.getParamFiles().get(0).getArguments()).containsExactly("c", "d").inOrder();
   }
 
   /** Filtering of flag and positional arguments with flagsOnly. */
@@ -201,6 +205,8 @@ public class CommandLinesTest {
     assertThat(commandLines.allArguments()).containsExactly("--a", "1", "--b=c", "-2");
     assertThat(expanded.arguments()).containsExactly("1", "-2", "@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
-    assertThat(expanded.getParamFiles().get(0).arguments).containsExactly("--a", "--b=c");
+    assertThat(expanded.getParamFiles().get(0).getArguments())
+        .containsExactly("--a", "--b=c")
+        .inOrder();
   }
 }

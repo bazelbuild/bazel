@@ -158,6 +158,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
@@ -293,9 +294,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY))
             .add(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod()))
-            .add(
-                PrecomputedValue.injected(
                     BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                     ruleClassProvider.getBuildInfoFactoriesAsMap()))
             .addAll(extraPrecomputedValues())
@@ -376,11 +374,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @see BzlLoadFunction#computeInline
    */
   protected boolean usesInliningBzlLoadFunction() {
-    return false;
-  }
-
-  /** Returns whether or not to enable Bzlmod in this test. */
-  protected boolean enableBzlmod() {
     return false;
   }
 
@@ -523,7 +516,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         ImmutableList.of(
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES,
                 ImmutableSet.of()),
@@ -658,7 +650,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() throws InterruptedException {
-    SkyFunction.Environment env = skyframeExecutor.getSkyFunctionEnvironmentForTesting(reporter);
+    SkyFunction.Environment env = new SkyFunctionEnvironmentForTesting(reporter, skyframeExecutor);
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(env.getValue(StarlarkBuiltinsValue.key()));

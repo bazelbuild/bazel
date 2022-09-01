@@ -4,8 +4,6 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 #   Documentation generator for Bazel
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [

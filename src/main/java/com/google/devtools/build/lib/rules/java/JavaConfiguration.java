@@ -81,6 +81,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean isDisallowStrictDepsForJpl;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
+  private final boolean enforceOneVersionValidationAction;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
   private final boolean allowRuntimeDepsOnNeverLink;
   private final JavaClasspathMode javaClasspath;
@@ -139,6 +140,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
+    this.enforceOneVersionValidationAction = javaOptions.enforceOneVersionValidationAction;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
     this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
@@ -392,6 +394,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean enforceOneVersionOnJavaTests() {
     return enforceOneVersionOnJavaTests;
+  }
+
+  public boolean enforceOneVersionValidationAction() {
+    return enforceOneVersionValidationAction;
   }
 
   public ImportDepsCheckingLevel getImportDepsCheckingLevel() {

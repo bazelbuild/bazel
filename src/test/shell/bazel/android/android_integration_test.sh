@@ -180,7 +180,6 @@ EOF
 
   bazel clean
   bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
-      --define=android_desugaring_tool=d8 \
       --strategy=Desugar=sandboxed \
       //java/com/example/hello:hello || fail "build failed"
 }
@@ -199,8 +198,26 @@ EOF
 
   bazel clean
   bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
-      --define=android_desugaring_tool=d8 \
       --strategy=Desugar=worker \
+      //java/com/example/hello:hello || fail "build failed"
+}
+
+function test_legacy_desugar_hello_android() {
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+android_binary(
+    name = 'hello',
+    manifest = "AndroidManifest.xml",
+    srcs = ['MainActivity.java'],
+    resource_files = glob(["res/**"]),
+)
+EOF
+
+  bazel clean
+  # Check that the legacy desugarer still works.
+  bazel build --define=android_standalone_dexing_tool=d8_compat_dx \
+      --define=android_desugaring_tool=legacy \
       //java/com/example/hello:hello || fail "build failed"
 }
 
@@ -247,6 +264,33 @@ android_binary(
     srcs = glob(["*.java"]),
     resource_files = glob(["res/**"]),
     multidex = "native",
+)
+EOF
+
+  write_large_java_file java/com/example/hello/Lib1.java
+  write_large_java_file java/com/example/hello/Lib2.java
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+  assert_multiple_dex_files
+}
+
+function test_manual_main_dex() {
+  # Substantially cribbed from test_native_multidex()
+  write_hello_android_files
+  setup_android_sdk_support
+  cat > java/com/example/hello/BUILD <<'EOF'
+genrule(
+    name = "main_dex_list_txt",
+    cmd = "echo com.example.hello > $@",
+    outs = ["main_dex_list.txt"],
+)
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    multidex = "manual_main_dex",
+    main_dex_list = ":main_dex_list_txt",
 )
 EOF
 

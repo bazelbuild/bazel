@@ -58,8 +58,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     transformer = new CompileOneDependencyTransformer(getPackageManager());
   }
 
@@ -163,7 +162,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         .hasMessageThat()
         .isEqualTo(
             "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
-                + "'foo' defined by /workspace/foo/BUILD");
+                + "'foo' defined by /workspace/foo/BUILD (Tip: use `query //foo:*` to see all the "
+                + "targets in that package)");
 
     // Also, try a valid input file which has no dependent rules in its package.
     e = assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:baz/bang"));

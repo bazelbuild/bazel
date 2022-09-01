@@ -276,13 +276,32 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     Target prerequisiteTarget = prerequisite.getTarget();
     PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
 
-    if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
-      String message =
-          "non-test target '"
-              + rule.getLabel()
-              + "' depends on testonly "
-              + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
-              + " and doesn't have testonly attribute set";
+    String message = null;
+    if (prerequisiteTarget instanceof Rule) {
+      Rule prerequisiteRule = (Rule) prerequisiteTarget;
+      if (isTestOnlyRule(prerequisiteRule) && !isTestOnlyRule(rule)) {
+        message =
+            "non-test target '"
+                + rule.getLabel()
+                + "' depends on testonly "
+                + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
+                + " and doesn't have testonly attribute set";
+      }
+    } else if (context.getConfiguration().checkTestonlyForOutputFiles()
+        && prerequisiteTarget instanceof OutputFile) {
+      Rule generatingRule = ((OutputFile) prerequisiteTarget).getGeneratingRule();
+      if (isTestOnlyRule(generatingRule) && !isTestOnlyRule(rule)) {
+        message =
+            "non-test target '"
+                + rule.getLabel()
+                + "' depends on the output file "
+                + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
+                + " of a testonly rule "
+                + generatingRule.getLabel()
+                + " and doesn't have testonly attribute set";
+      }
+    }
+    if (message != null) {
       if (packageUnderExperimental(thisPackage)) {
         context.ruleWarning(message);
       } else {
@@ -291,9 +310,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
   }
 
-  private static boolean isTestOnlyRule(Target target) {
-    return (target instanceof Rule)
-        && NonconfigurableAttributeMapper.of((Rule) target).has("testonly", Type.BOOLEAN)
-        && NonconfigurableAttributeMapper.of((Rule) target).get("testonly", Type.BOOLEAN);
+  private static boolean isTestOnlyRule(Rule rule) {
+    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
+    return mapper.has("testonly", Type.BOOLEAN) && mapper.get("testonly", Type.BOOLEAN);
   }
 }

@@ -2410,7 +2410,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(
-            Label.parseAbsoluteUnchecked(TestConstants.PLATFORM_PACKAGE_ROOT + ":default_host"));
+            Label.parseAbsoluteUnchecked(
+                TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host"));
   }
 
   @Test
@@ -2465,7 +2466,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "platforms/BUILD",
         "platform(name = 'my_platform',",
-        "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_host'],",
+        "    parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
         "    constraint_values = [],",
         ")");
     scratch.file(

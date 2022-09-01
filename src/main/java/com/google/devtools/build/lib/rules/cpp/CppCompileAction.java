@@ -818,10 +818,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return getIncludeScannerSources().get(0);
   }
 
+  @SuppressWarnings("LenientFormatStringValidation")
   @Override
   public ImmutableList<Artifact> getIncludeScannerSources() {
     if (getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)) {
       boolean isSeparate = outputFile.equals(ccCompilationContext.getSeparateHeaderModule(usePic));
+      // Expected 0 args, but got 1.
       Preconditions.checkState(
           outputFile.equals(ccCompilationContext.getHeaderModule(usePic)) || isSeparate,
           "Trying to build unknown module",

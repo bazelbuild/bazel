@@ -260,7 +260,7 @@ public class NestedSetStore {
     }
 
     ListenableFuture<Void> writeFuture =
-        Futures.whenAllComplete(futureBuilder.build()).call(() -> null, directExecutor());
+        Futures.whenAllSucceed(futureBuilder.build()).call(() -> null, directExecutor());
     FingerprintComputationResult result =
         FingerprintComputationResult.create(fingerprint, writeFuture);
 

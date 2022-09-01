@@ -135,9 +135,6 @@ _common_attrs = {
               "applied. If this attribute is not set, patch_cmds will be executed on Windows, " +
               "which requires Bash binary to exist.",
     ),
-}
-
-_new_git_repository_attrs = dict(_common_attrs.items() + {
     "build_file": attr.label(
         allow_single_file = True,
         doc =
@@ -165,36 +162,16 @@ _new_git_repository_attrs = dict(_common_attrs.items() + {
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
     ),
-}.items())
+}
 
-def _new_git_repository_implementation(ctx):
-    if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
-        (ctx.attr.build_file and ctx.attr.build_file_content)):
-        fail("Exactly one of build_file and build_file_content must be provided.")
+def _git_repository_implementation(ctx):
+    if ctx.attr.build_file and ctx.attr.build_file_content:
+        fail("Only one of build_file and build_file_content can be provided.")
     update = _clone_or_update_repo(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
     ctx.delete(ctx.path(".git"))
-    return _update_git_attrs(ctx.attr, _new_git_repository_attrs.keys(), update)
-
-def _git_repository_implementation(ctx):
-    update = _clone_or_update_repo(ctx)
-    patch(ctx)
-    ctx.delete(ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
-
-new_git_repository = repository_rule(
-    implementation = _new_git_repository_implementation,
-    attrs = _new_git_repository_attrs,
-    doc = """Clone an external git repository.
-
-Clones a Git repository, checks out the specified tag, or commit, and
-makes its targets available for binding. Also determine the id of the
-commit actually checked out and its date, and return a dict with parameters
-that provide a reproducible version of this rule (which a tag not necessarily
-is).
-""",
-)
 
 git_repository = repository_rule(
     implementation = _git_repository_implementation,
@@ -208,3 +185,6 @@ that provide a reproducible version of this rule (which a tag not necessarily
 is).
 """,
 )
+
+# TODO(bazel_7.x): Remove before bazel 7.x
+new_git_repository = git_repository

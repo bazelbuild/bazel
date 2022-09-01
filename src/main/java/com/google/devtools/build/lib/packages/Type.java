@@ -34,6 +34,7 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -213,9 +214,11 @@ public abstract class Type<T> {
 
   /**
    * Implementation of concatenation for this type, as if by {@code elements[0] + ... +
-   * elements[n-1]}). Returns null to indicate concatenation isn't supported. This method exists to
-   * support deferred additions {@code select + T} for catenable types T such as string, int, and
-   * list.
+   * elements[n-1]}) for scalars or lists, or {@code elements[0] | ... | elements[n-1]} for dicts.
+   * Returns null to indicate concatenation isn't supported.
+   *
+   * <p>This method exists to support deferred additions {@code select + T} for catenable types T
+   * such as string, int, list, and deferred unions {@code select | T} for map types T.
    */
   public T concat(Iterable<T> elements) {
     return null;
@@ -565,6 +568,15 @@ public abstract class Type<T> {
             valueType.convert(elem.getValue(), "dict value element", labelConverter));
       }
       return ImmutableMap.copyOf(result);
+    }
+
+    @Override
+    public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
+      Dict.Builder<KeyT, ValueT> output = new Dict.Builder<>();
+      for (Map<KeyT, ValueT> map : iterable) {
+        output.putAll(map);
+      }
+      return output.buildImmutable();
     }
 
     @Override

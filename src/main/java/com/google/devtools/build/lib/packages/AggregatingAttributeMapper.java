@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -181,26 +180,16 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return checkForDuplicateLabels(selectors.get(0).getEntries().values());
     }
 
-    // Multiple selects concatenated together. It's expensive to iterate over every possible
-    // permutation of values, so instead check for duplicates within a single select branch while
-    // also collecting all labels for a cross-select duplicate check at the end. This is overly
-    // strict, since this counts values present in mutually exclusive select branches. We can
-    // presumably relax this if necessary, but doing so would incur some of the expense this code
-    // path avoids.
+    // It's expensive to iterate over every possible permutation of values, so instead check for
+    // duplicates within a single select branch. Then, after analysis we will check for duplicates
+    // within only the used permutations.
     ImmutableSet.Builder<Label> duplicates = null;
-    List<Label> combinedLabels = new ArrayList<>(); // Labels that appear across all selectors.
     for (Selector<List<Label>> selector : selectors) {
-      // Labels within a single selector. It's okay for there to be duplicates as long as
-      // they're in different selector paths (since only one path can actually get chosen).
-      Set<Label> selectorLabels = new LinkedHashSet<>();
       for (List<Label> labelsInSelectorValue : selector.getEntries().values()) {
         // Duplicates within a single select branch are not okay.
         duplicates = addDuplicateLabels(duplicates, labelsInSelectorValue);
-        selectorLabels.addAll(labelsInSelectorValue);
       }
-      combinedLabels.addAll(selectorLabels);
     }
-    duplicates = addDuplicateLabels(duplicates, combinedLabels);
 
     return duplicates == null ? ImmutableSet.of() : duplicates.build();
   }

@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -28,17 +30,18 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -58,20 +61,24 @@ import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 /** Unit tests for the WorkerSpawnRunner. */
-@RunWith(JUnit4.class)
+// @RunWith(JUnitParamsRunner.class)
+@RunWith(Parameterized.class)
 public class WorkerSpawnRunnerTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
@@ -85,12 +92,29 @@ public class WorkerSpawnRunnerTest {
   @Mock Worker worker;
   @Mock WorkerOptions options;
   @Mock WorkerMetricsCollector metricsCollector;
+  @Mock ResourceManager.ResourceHandle resourceHandle;
+
+  @Parameters
+  public static ImmutableList<Object[]> createInputValues() {
+    return ImmutableList.of(
+        // workerAsResourceFlags variables
+        new Object[] {true}, new Object[] {false});
+  }
+
+  private final boolean workerAsResource;
+
+  public WorkerSpawnRunnerTest(boolean workerAsResource) {
+    this.workerAsResource = workerAsResource;
+  }
 
   @Before
-  public void setUp() {
+  public void setUp() throws InterruptedException, IOException, ExecException {
     when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
     when(context.getArtifactExpander()).thenReturn((artifact, output) -> {});
     doNothing().when(metricsCollector).registerWorker(any());
+    when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
+    when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
+    when(resourceHandle.getWorker()).thenReturn(worker);
   }
 
   private WorkerPool createWorkerPool() {
@@ -114,17 +138,20 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_happyPath() throws ExecException, InterruptedException, IOException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerAsResource = workerAsResource;
+
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
-            /* runfilestTreeUpdater */ null,
-            new WorkerOptions(),
+            /* runfilesTreeUpdater= */ null,
+            options,
             metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
@@ -136,7 +163,7 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -148,30 +175,47 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
     verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
+    if (workerAsResource) {
+      verify(resourceHandle, times(1)).close();
+      verify(resourceHandle, times(0)).invalidateAndClose();
+    }
+    verify(context, times(1)).lockOutputFiles(eq(0), eq("out"), ArgumentMatchers.isNull());
   }
 
   @Test
   public void testExecInWorker_virtualInputs_doesntQueryInputFileCache()
       throws ExecException, InterruptedException, IOException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerAsResource = workerAsResource;
+
+    Path execRoot = fs.getPath("/execRoot");
+    Path workDir = execRoot.getRelative("workdir");
+
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
-            fs.getPath("/execRoot"),
+            new SandboxHelpers(),
+            execRoot,
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
-            /* runfilestTreeUpdater */ null,
-            new WorkerOptions(),
+            /* runfilesTreeUpdater= */ null,
+            options,
             metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
+
+    SandboxHelper sandboxHelper = new SandboxHelper(execRoot, workDir);
+    sandboxHelper.addAndCreateVirtualInput("input", "content");
+
+    VirtualActionInput virtualActionInput =
+        Iterables.getOnlyElement(
+            sandboxHelper.getSandboxInputs().getVirtualInputDigests().keySet());
+
     when(worker.getResponse(0))
         .thenReturn(WorkResponse.newBuilder().setExitCode(0).setOutput("out").build());
-    VirtualActionInput virtualActionInput =
-        ActionsTestUtil.createVirtualActionInput("input", "content");
     when(spawn.getInputFiles())
         .thenAnswer(
             invocation ->
@@ -182,9 +226,8 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(
-                ImmutableMap.of(), ImmutableSet.of(virtualActionInput), ImmutableMap.of()),
-            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            sandboxHelper.getSandboxInputs(),
+            sandboxHelper.getSandboxOutputs(),
             ImmutableList.of(),
             inputFileCache,
             spawnMetrics);
@@ -195,21 +238,29 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
     verify(inputFileCache, never()).getMetadata(virtualActionInput);
+    if (workerAsResource) {
+      verify(resourceHandle, times(1)).close();
+      verify(resourceHandle, times(0)).invalidateAndClose();
+    }
+    verify(context, times(1)).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
   }
 
   @Test
-  public void testExecInWorker_finishesAsyncOnInterrupt() throws InterruptedException, IOException {
+  public void testExecInWorker_finishesAsyncOnInterrupt()
+      throws InterruptedException, IOException, ExecException {
+    WorkerOptions options = new WorkerOptions();
+    options.workerAsResource = workerAsResource;
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
             /* runfilesTreeUpdater=*/ null,
-            new WorkerOptions(),
+            options,
             metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
@@ -224,7 +275,7 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -232,6 +283,10 @@ public class WorkerSpawnRunnerTest {
     assertThat(logFile.exists()).isFalse();
     verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
     verify(worker, times(1)).putRequest(WorkRequest.newBuilder().setRequestId(0).build());
+    if (workerAsResource) {
+      verify(resourceHandle, times(0)).close();
+      verify(resourceHandle, times(1)).invalidateAndClose();
+    }
   }
 
   @Test
@@ -240,17 +295,18 @@ public class WorkerSpawnRunnerTest {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerCancellation = true;
     workerOptions.workerSandboxing = true;
+    workerOptions.workerAsResource = workerAsResource;
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     when(worker.isSandboxed()).thenReturn(true);
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
@@ -277,7 +333,7 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -291,24 +347,30 @@ public class WorkerSpawnRunnerTest {
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
     assertThat(argumentCaptor.getAllValues().get(1))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).setCancel(true).build());
+    if (workerAsResource) {
+      Thread.sleep(10);
+      verify(resourceHandle, times(1)).close();
+      verify(resourceHandle, times(0)).invalidateAndClose();
+    }
   }
 
   @Test
   public void testExecInWorker_unsandboxedDiesOnInterrupt()
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, ExecException {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerCancellation = true;
     workerOptions.workerSandboxing = false;
+    workerOptions.workerAsResource = workerAsResource;
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
             /* runfilesTreeUpdater=*/ null,
             workerOptions,
@@ -317,7 +379,6 @@ public class WorkerSpawnRunnerTest {
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(anyInt())).thenThrow(new InterruptedException());
-
     // Since this worker is not sandboxed, it will just get killed on interrupt.
     assertThrows(
         InterruptedException.class,
@@ -326,7 +387,7 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -338,7 +399,12 @@ public class WorkerSpawnRunnerTest {
     verify(worker, times(1)).putRequest(argumentCaptor.capture());
     assertThat(argumentCaptor.getAllValues().get(0))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
-    verify(worker, times(1)).destroy();
+    if (workerAsResource) {
+      verify(resourceHandle, times(0)).close();
+      verify(resourceHandle, times(1)).invalidateAndClose();
+    } else {
+      verify(worker, times(1)).destroy();
+    }
   }
 
   @Test
@@ -346,16 +412,17 @@ public class WorkerSpawnRunnerTest {
       throws ExecException, InterruptedException, IOException {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerMultiplex = true;
+    workerOptions.workerAsResource = workerAsResource;
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
-            /* runfilestTreeUpdater */ null,
+            /* runfilesTreeUpdater= */ null,
             workerOptions,
             metricsCollector,
             SyscallCache.NO_CACHE);
@@ -370,7 +437,7 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -382,21 +449,28 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
     verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
+    if (workerAsResource) {
+      verify(resourceHandle, times(1)).close();
+      verify(resourceHandle, times(0)).invalidateAndClose();
+    }
+    verify(context, times(1)).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
   }
 
-  private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)
-      throws Exception {
+  private void assertRecordedResponsethrowsException(
+      String recordedResponse, String exceptionText, boolean workerAsResource) throws Exception {
+    WorkerOptions workerOptions = new WorkerOptions();
+    workerOptions.workerAsResource = workerAsResource;
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(false),
+            new SandboxHelpers(),
             fs.getPath("/execRoot"),
             createWorkerPool(),
             reporter,
             localEnvProvider,
-            /* binTools */ null,
+            /* binTools= */ null,
             resourceManager,
-            /* runfilestTreeUpdater */ null,
-            new WorkerOptions(),
+            /* runfilesTreeUpdater= */ null,
+            workerOptions,
             metricsCollector,
             SyscallCache.NO_CACHE);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
@@ -404,6 +478,7 @@ public class WorkerSpawnRunnerTest {
     when(worker.getLogFile()).thenReturn(logFile);
     when(worker.getResponse(0)).thenThrow(new IOException("Bad protobuf"));
     when(worker.getRecordingStreamMessage()).thenReturn(recordedResponse);
+    when(worker.getExitValue()).thenReturn(Optional.of(2));
     String workerLog = "Log from worker\n";
     FileSystemUtils.writeIsoLatin1(logFile, workerLog);
     UserExecException execException =
@@ -414,7 +489,7 @@ public class WorkerSpawnRunnerTest {
                     spawn,
                     key,
                     context,
-                    new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                    new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
                     SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                     ImmutableList.of(),
                     inputFileCache,
@@ -434,17 +509,20 @@ public class WorkerSpawnRunnerTest {
     assertThat(execException)
         .hasMessageThat()
         .contains(logMarker("Start of log, file at " + logFile.getPathString()) + workerLog);
+    verify(context, times(1))
+        .lockOutputFiles(
+            eq(2), ArgumentMatchers.contains(exceptionText), ArgumentMatchers.isNull());
   }
-
 
   @Test
   public void testExecInWorker_showsLogFileInException() throws Exception {
-    assertRecordedResponsethrowsException("Some text", "unparseable WorkResponse!\n");
+    assertRecordedResponsethrowsException(
+        "Some text", "unparseable WorkResponse!\n", workerAsResource);
   }
 
   @Test
   public void testExecInWorker_throwsWithEmptyResponse() throws Exception {
-    assertRecordedResponsethrowsException("", "did not return a WorkResponse");
+    assertRecordedResponsethrowsException("", "did not return a WorkResponse", workerAsResource);
   }
 
   private static String logMarker(String text) {

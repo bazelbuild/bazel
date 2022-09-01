@@ -430,11 +430,12 @@ public final class JavaToolchainProvider extends NativeInfo
     return javacSupportsWorkerCancellation;
   }
 
-  /** Returns the global {@code java_plugin_configuration} data. */
+  /** Returns the global {@code java_package_configuration} data. */
   public ImmutableList<JavaPackageConfigurationProvider> packageConfiguration() {
     return packageConfiguration;
   }
 
+  @Override
   public FilesToRunProvider getJacocoRunner() {
     return jacocoRunner;
   }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -49,6 +50,13 @@ public interface SkyFunction {
    * exception with additional context, then this method should catch that exception and throw
    * another containing that additional context. If it has no such additional context, then it
    * should allow its dependency's exception to be thrown through it.
+   *
+   * <p>Be aware that during error bubbling Skyframe will interpret a thrown {@link
+   * InterruptedException} to mean that this method has no additional context to contribute to a
+   * dependency's exception. Also note that Skyframe interrupts the evaluating thread when, during
+   * error bubbling, this method requests a dependency which failed with an exception. Prefer (if
+   * possible) exception enrichment logic simple enough to be insensitive to the evaluating thread's
+   * interrupt state.
    *
    * <p>This method may return {@link Restart} in rare circumstances. See its docs. Do not return
    * values of this type unless you know exactly what you are doing.
@@ -352,6 +360,20 @@ public interface SkyFunction {
      * <p>See the javadoc of {@link #getState} for motivation and an example.
      */
     interface SkyKeyComputeState {}
+
+    /**
+     * Canonical type-safe heterogeneous container for use with {@link #getState} in SkyFunction
+     * implementations that employ complex or abstract compositional strategies.
+     */
+    class ClassToInstanceMapSkyKeyComputeState implements SkyKeyComputeState {
+      private final MutableClassToInstanceMap<SkyKeyComputeState> map =
+          MutableClassToInstanceMap.create();
+
+      public <T extends SkyKeyComputeState> T getInstance(
+          Class<T> type, Supplier<T> stateSupplier) {
+        return type.cast(map.computeIfAbsent(type, ignored -> stateSupplier.get()));
+      }
+    }
 
     /**
      * Returns (or creates and returns) a "state" object to assist with temporary computations for

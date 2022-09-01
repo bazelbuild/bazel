@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -690,8 +690,8 @@ public class Package {
       throw new NoSuchTargetException(
           label,
           String.format(
-              "target '%s' not declared in package '%s'%s defined by %s",
-              targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString()));
+              "target '%s' not declared in package '%s' defined by %s%s",
+              targetName, getName(), filename.asPath().getPathString(), alternateTargetSuggestion));
     }
   }
 
@@ -725,7 +725,15 @@ public class Package {
           + getName()
           + "/BUILD?)";
     } else {
-      return SpellChecker.didYouMean(targetName, targets.keySet());
+      String suggestedTarget = SpellChecker.suggest(targetName, targets.keySet());
+      String targetSuggestion =
+          suggestedTarget == null ? null : String.format("did you mean '%s'?", suggestedTarget);
+      String blazeQuerySuggestion =
+          String.format(
+              "Tip: use `query %s:*` to see all the targets in that package",
+              packageIdentifier.getCanonicalForm());
+      return String.format(
+          " (%s)", Joiner.on(" ").skipNulls().join(targetSuggestion, blazeQuerySuggestion));
     }
   }
 
@@ -1022,9 +1030,6 @@ public class Package {
     private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
     private final List<TargetPattern> registeredToolchains = new ArrayList<>();
 
-    private ThirdPartyLicenseExistencePolicy thirdPartyLicenceExistencePolicy =
-        ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
-
     /**
      * True iff the "package" function has already been called in this package.
      */
@@ -1272,16 +1277,6 @@ public class Package {
     public Builder setWorkspaceName(String workspaceName) {
       pkg.workspaceName = workspaceName;
       return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
-      this.thirdPartyLicenceExistencePolicy = policy;
-      return this;
-    }
-
-    ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
-      return thirdPartyLicenceExistencePolicy;
     }
 
     /**

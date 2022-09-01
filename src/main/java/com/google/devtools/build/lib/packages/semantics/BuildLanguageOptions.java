@@ -64,6 +64,16 @@ public final class BuildLanguageOptions extends OptionsBase {
   // <== Add new options here in alphabetic order ==>
 
   @Option(
+      name = "incompatible_disallow_symlink_file_to_dir",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, `ctx.actions.symlink` will disallow symlinking a file into a directory.")
+  public boolean incompatibleDisallowSymlinkFileToDir;
+
+  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -146,9 +156,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       help =
           "A comma-separated list of packages (sans \"//\") which, if --experimental_bzl_visibility"
               + " is enabled, are permitted to contain .bzl files that set a bzl-visibility by"
-              + " calling the `visibility()` function. (Known issue: This flag may not work"
-              + " correctly in the presence of repository remapping, which is used by bzlmod.)"
-              + " If the list includes the special item \"everyone\", all packages are permitted.")
+              + " calling the `visibility()` function. Subpackages may also be included by"
+              + " appending `/...`. (Known issue: This flag may not work correctly in the presence"
+              + " of repository remapping, which is used by bzlmod.) If the list includes the"
+              + " special item \"everyone\", all packages are permitted.")
   public List<String> experimentalBzlVisibilityAllowlist;
 
   @Option(
@@ -170,6 +181,25 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       help = "If set to true, enables the APIs required to support the Android Starlark migration.")
   public boolean experimentalEnableAndroidMigrationApis;
+
+  @Option(
+      name = "enable_bzlmod",
+      oldName = "experimental_enable_bzlmod",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "If true, enables the Bzlmod dependency management system, taking precedence over"
+              + " WORKSPACE. See https://bazel.build/docs/bzlmod for more information.")
+  public boolean enableBzlmod;
+
+  @Option(
+      name = "experimental_java_proto_library_default_has_services",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "The default value of java_proto_library.has_services.")
+  public boolean experimentalJavaProtoLibraryDefaultHasServices;
 
   @Option(
       name = "incompatible_existing_rules_immutable_view",
@@ -304,10 +334,9 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " and 1 cpu.")
   public boolean experimentalActionResourceSet;
 
-
   @Option(
       name = "experimental_lazy_template_expansion",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -367,23 +396,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "function, use `ctx.attr.dep[MyInfo]`. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetProviderFields;
-
-  // For Bazel, this flag is a no-op. Bazel doesn't support built-in third party license checking
-  // (see https://github.com/bazelbuild/bazel/issues/7444).
-  //
-  // For Blaze in Google, this flag is still needed to deprecate the logic that's already been
-  // removed from Bazel. That logic was introduced before Bazel existed, so Google's dependency on
-  // it is deeper. But we don't want that to add unnecessary baggage to Bazel or slow down Bazel's
-  // development. So this flag lets Blaze migrate on a slower timeline without blocking Bazel. This
-  // means you as a Bazel user are getting better code than Google has! (for a while, at least)
-  @Option(
-      name = "incompatible_disable_third_party_license_checking",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, disables all license checking logic")
-  public boolean incompatibleDisableThirdPartyLicenseChecking;
 
   @Option(
       name = "incompatible_disallow_empty_glob",
@@ -510,6 +522,19 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleUseCcConfigureFromRulesCc;
 
   @Option(
+      name = "incompatible_unambiguous_label_stringification",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, Bazel will stringify the label @//foo:bar to @//foo:bar, instead of"
+              + " //foo:bar. This only affects the behavior of str(), the % operator, and so on;"
+              + " the behavior of repr() is unchanged. See"
+              + " https://github.com/bazelbuild/bazel/issues/15916 for more information.")
+  public boolean incompatibleUnambiguousLabelStringification;
+
+  @Option(
       name = "incompatible_depset_for_libraries_to_link_getter",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -519,17 +544,6 @@ public final class BuildLanguageOptions extends OptionsBase {
           "When true, Bazel no longer returns a list from linking_context.libraries_to_link but "
               + "returns a depset instead.")
   public boolean incompatibleDepsetForLibrariesToLinkGetter;
-
-  @Option(
-      name = "incompatible_linkopts_to_linklibs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true the default linkopts in the default toolchain are passed as linklibs "
-              + "instead of linkopts to cc_toolchain_config")
-  public boolean incompatibleLinkoptsToLinklibs;
 
   @Option(
       name = "incompatible_java_common_parameters",
@@ -610,6 +624,8 @@ public final class BuildLanguageOptions extends OptionsBase {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
+            .setBool(
+                INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
@@ -618,6 +634,10 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BZL_VISIBILITY_ALLOWLIST, experimentalBzlVisibilityAllowlist)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+            .setBool(ENABLE_BZLMOD, enableBzlmod)
+            .setBool(
+                EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
+                experimentalJavaProtoLibraryDefaultHasServices)
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
@@ -632,9 +652,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
                 incompatibleDisableTargetProviderFields)
-            .setBool(
-                INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING,
-                incompatibleDisableThirdPartyLicenseChecking)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
@@ -657,10 +674,12 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, incompatibleUseCcConfigureFromRulesCc)
             .setBool(
+                INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
+                incompatibleUnambiguousLabelStringification)
+            .setBool(
                 INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
                 incompatibleDepsetForLibrariesToLinkGetter)
             .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
-            .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(
@@ -685,6 +704,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
+      "-incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
@@ -694,6 +715,9 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String ENABLE_BZLMOD = "-enable_bzlmod";
+  public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
+      "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
       "+incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
@@ -703,7 +727,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String EXPERIMENTAL_ACTION_RESOURCE_SET = "+experimental_action_resource_set";
   public static final String EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION =
-      "-experimental_lazy_template_expansion";
+      "+experimental_lazy_template_expansion";
   public static final String EXPERIMENTAL_ANALYSIS_TEST_CALL = "+experimental_analysis_test_call";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "-incompatible_allow_tags_propagation";
@@ -713,8 +737,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
-  public static final String INCOMPATIBLE_DISABLE_THIRD_PARTY_LICENSE_CHECKING =
-      "+incompatible_disable_third_party_license_checking";
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "-incompatible_disallow_struct_provider_syntax";
@@ -722,8 +744,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "+incompatible_java_common_parameters";
-  public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
-      "+incompatible_linkopts_to_linklibs";
   public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
@@ -738,6 +758,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_struct_has_no_methods";
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =
       "-incompatible_use_cc_configure_from_rules";
+  public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
+      "-incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =

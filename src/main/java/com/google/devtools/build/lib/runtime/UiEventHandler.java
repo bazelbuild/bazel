@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
@@ -760,6 +761,12 @@ public final class UiEventHandler implements EventHandler {
   public void testFilteringComplete(TestFilteringCompleteEvent event) {
     stateTracker.testFilteringComplete(event);
     refresh();
+  }
+
+  @Subscribe
+  public void singleTestAnalyzed(TestAnalyzedEvent event) {
+    stateTracker.singleTestAnalyzed(event);
+    refreshSoon();
   }
 
   /**

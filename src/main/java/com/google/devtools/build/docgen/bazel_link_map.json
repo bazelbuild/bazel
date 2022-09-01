@@ -6,6 +6,7 @@
       "build-ref#labels": "/concepts/labels",
       "build-ref#name": "/concepts/labels#target-names",
       "build-ref#BUILD_files": "/concepts/build-files",
+      "build-ref#data": "/concepts/dependencies#data-dependencies",
       "build-ref#dependencies": "/concepts/dependencies",
       "common-definitions": "/reference/be/common-definitions",
       "config": "/rules/config",

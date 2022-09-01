@@ -257,7 +257,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         digestBytes = metadata.getDigest();
       }
       ByteString digest;
-      if (digestBytes.length == 0) {
+      if (digestBytes == null || digestBytes.length == 0) {
         digest = ByteString.EMPTY;
       } else {
         digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
@@ -337,8 +337,29 @@ final class WorkerSpawnRunner implements SpawnRunner {
   }
 
   @VisibleForTesting
-  @SuppressWarnings("Finally") // We want to close handle only when we still own the worker.
   WorkResponse execInWorker(
+      Spawn spawn,
+      WorkerKey key,
+      SpawnExecutionContext context,
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      List<String> flagFiles,
+      MetadataProvider inputFileCache,
+      SpawnMetrics.Builder spawnMetrics)
+      throws InterruptedException, ExecException {
+    if (workerOptions.workerAsResource) {
+      return execInWorkerWorkerAsResource(
+          spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
+    } else {
+      return execInWorkerClassic(
+          spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
+    }
+  }
+
+  // LINT.IfChange(workerAsResource)
+  @SuppressWarnings(
+      "Finally") // We want to return response only if worker successfully returned to the pool
+  WorkResponse execInWorkerWorkerAsResource(
       Spawn spawn,
       WorkerKey key,
       SpawnExecutionContext context,
@@ -352,19 +373,163 @@ final class WorkerSpawnRunner implements SpawnRunner {
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests;
+    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
+        inputFiles.getVirtualInputDigests();
+
+    Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
+    boolean hasOutputFileLock = false;
+
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
+      try {
+        context.prefetchInputsAndWait();
+      } catch (IOException e) {
+        restoreInterrupt(e);
+        String message = "IOException while prefetching for worker:";
+        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
+      } catch (ForbiddenActionInputException e) {
+        throw createUserExecException(
+            e, "Forbidden input found while prefetching for worker:", Code.FORBIDDEN_INPUT);
+      }
+    }
+    Duration setupInputsTime = setupInputsStopwatch.elapsed();
+    spawnMetrics.setSetupTime(setupInputsTime);
+
+    Stopwatch queueStopwatch = Stopwatch.createStarted();
+    ResourceSet resourceSet =
+        ResourceSet.createWithWorkerKey(
+            spawn.getLocalResources().getMemoryMb(),
+            spawn.getLocalResources().getCpuUsage(),
+            spawn.getLocalResources().getLocalTestCount(),
+            key);
+
+    // Worker doesn't automatically return to pool after closing of the handle.
+    ResourceHandle handle = null;
+    try {
+      handle =
+          resourceManager.acquireResources(
+              owner,
+              resourceSet,
+              context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
+      workerOwner.setWorker(handle.getWorker());
+      workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
+      request =
+          createWorkRequest(spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
+
+      // We acquired a worker and resources -- mark that as queuing time.
+      spawnMetrics.setQueueTime(queueStopwatch.elapsed());
+      response =
+          executeRequest(
+              spawn,
+              context,
+              inputFiles,
+              outputs,
+              workerOwner,
+              key,
+              request,
+              spawnMetrics,
+              handle,
+              true);
+
+      if (response == null) {
+        throw createEmptyResponseException(workerOwner.getWorker().getLogFile());
+      }
+
+      if (response.getWasCancelled()) {
+        throw createUserExecException(
+            "Received cancel response for " + response.getRequestId() + " without having cancelled",
+            Code.FINISH_FAILURE);
+      }
+
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(
+                  ProfilerTask.WORKER_COPYING_OUTPUTS,
+                  String.format(
+                      "Worker #%d copying output files", workerOwner.getWorker().getWorkerId()))) {
+        if (workerOwner.getWorker() != null) {
+          Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
+          context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
+          hasOutputFileLock = true;
+          workerOwner.getWorker().finishExecution(execRoot, outputs);
+          spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
+        } else {
+          throw createUserExecException(
+              "The response finished successfully, but worker is taken by finishAsync",
+              Code.FINISH_FAILURE);
+        }
+      } catch (IOException e) {
+        restoreInterrupt(e);
+        String message =
+            ErrorMessage.builder()
+                .message("IOException while finishing worker execution:")
+                .logFile(workerOwner.getWorker().getLogFile())
+                .exception(e)
+                .build()
+                .toString();
+        throw createUserExecException(message, Code.FINISH_FAILURE);
+      }
+
+    } catch (IOException e) {
+      restoreInterrupt(e);
+      String message = "IOException during worker execution:";
+      throw createUserExecException(e, message, Code.BORROW_FAILURE);
+    } catch (UserExecException | InterruptedException e) {
+      Worker worker = workerOwner.getWorker();
+      if (handle != null && worker != null) {
+        try {
+          handle.invalidateAndClose();
+          if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
+            // If the worker has died, we take the lock to a) fail earlier and b) have a chance
+            // to let the other dynamic execution branch take over if the error can be ignored.
+            context.lockOutputFiles(worker.getExitValue().get(), e.getMessage(), null);
+          }
+        } catch (IOException e1) {
+          // The original exception is more important / helpful, so we'll just ignore this one.
+          restoreInterrupt(e1);
+        } finally {
+          workerOwner.setWorker(null);
+        }
+      }
+      throw e;
+    } finally {
+      if (handle != null && workerOwner.getWorker() != null) {
+        try {
+          handle.close();
+        } catch (IOException e) {
+          restoreInterrupt(e);
+          String message = "IOException while returning a worker from the pool:";
+          throw createUserExecException(e, message, Code.BORROW_FAILURE);
+        }
+      }
+    }
+    return response;
+  }
+  // LINT.ThenChange(:classic)
+
+  // TODO (b/214919266) Remove this after filpping the flag.
+  // LINT.IfChange(classic)
+  WorkResponse execInWorkerClassic(
+      Spawn spawn,
+      WorkerKey key,
+      SpawnExecutionContext context,
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      List<String> flagFiles,
+      MetadataProvider inputFileCache,
+      SpawnMetrics.Builder spawnMetrics)
+      throws InterruptedException, ExecException {
+    WorkerOwner workerOwner = new WorkerOwner();
+    WorkResponse response;
+    WorkRequest request;
+    ActionExecutionMetadata owner = spawn.getResourceOwner();
+    ImmutableMap<VirtualActionInput, byte[]> virtualInputDigests =
+        inputFiles.getVirtualInputDigests();
+    boolean hasOutputFileLock = false;
     try {
       Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-        try {
-          virtualInputDigests = inputFiles.materializeVirtualInputs(execRoot);
-        } catch (IOException e) {
-          restoreInterrupt(e);
-          String message = "IOException while materializing virtual inputs:";
-          throw createUserExecException(e, message, Code.VIRTUAL_INPUT_MATERIALIZATION_FAILURE);
-        }
-
         try {
           context.prefetchInputsAndWait();
         } catch (IOException e) {
@@ -380,97 +545,44 @@ final class WorkerSpawnRunner implements SpawnRunner {
       spawnMetrics.setSetupTime(setupInputsTime);
 
       Stopwatch queueStopwatch = Stopwatch.createStarted();
-      if (workerOptions.workerAsResource) {
-        ResourceSet resourceSet =
-            ResourceSet.createWithWorkerKey(
-                spawn.getLocalResources().getMemoryMb(),
-                spawn.getLocalResources().getCpuUsage(),
-                spawn.getLocalResources().getLocalTestCount(),
-                key);
 
-        // Worker doesn't automatically return to pool after closing of the handle.
-        ResourceHandle handle = null;
-        try {
-          handle =
-              resourceManager.acquireResources(
-                  owner,
-                  resourceSet,
-                  context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
-          workerOwner.setWorker(handle.getWorker());
-          workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
-          request =
-              createWorkRequest(
-                  spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.WORKER_BORROW, "Waiting to borrow worker")) {
+        workerOwner.setWorker(workers.borrowObject(key));
+        workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
+        request =
+            createWorkRequest(spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
+      } catch (IOException e) {
+        restoreInterrupt(e);
+        String message = "IOException while borrowing a worker from the pool:";
+        throw createUserExecException(e, message, Code.BORROW_FAILURE);
+      }
 
-          // We acquired a worker and resources -- mark that as queuing time.
-          spawnMetrics.setQueueTime(queueStopwatch.elapsed());
-          response =
-              executeRequest(
-                  spawn,
-                  context,
-                  inputFiles,
-                  outputs,
-                  workerOwner,
-                  key,
-                  request,
-                  spawnMetrics,
-                  handle,
-                  true);
-        } catch (IOException e) {
-          restoreInterrupt(e);
-          String message = "IOException while borrowing a worker from the pool:";
-          throw createUserExecException(e, message, Code.BORROW_FAILURE);
-        } finally {
-          if (handle != null && workerOwner.getWorker() != null) {
-            try {
-              handle.close();
-            } catch (IOException e) {
-              restoreInterrupt(e);
-              String message = "IOException while returning a worker from the pool:";
-              throw createUserExecException(e, message, Code.BORROW_FAILURE);
-            }
-          }
-        }
-      } else {
-        try (SilentCloseable c =
-            Profiler.instance().profile(ProfilerTask.WORKER_BORROW, "Waiting to borrow worker")) {
-          workerOwner.setWorker(workers.borrowObject(key));
-          workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
-          request =
-              createWorkRequest(
-                  spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
-        } catch (IOException e) {
-          restoreInterrupt(e);
-          String message = "IOException while borrowing a worker from the pool:";
-          throw createUserExecException(e, message, Code.BORROW_FAILURE);
-        }
-
-        try (ResourceHandle handle =
-            resourceManager.acquireResources(
-                owner,
-                spawn.getLocalResources(),
-                context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
-          // We acquired a worker and resources -- mark that as queuing time.
-          spawnMetrics.setQueueTime(queueStopwatch.elapsed());
-          response =
-              executeRequest(
-                  spawn,
-                  context,
-                  inputFiles,
-                  outputs,
-                  workerOwner,
-                  key,
-                  request,
-                  spawnMetrics,
-                  handle,
-                  false);
-        } catch (IOException e) {
-          restoreInterrupt(e);
-          String message =
-              "The IOException is thrown from worker allocation, but"
-                  + " there is no worker allocation here.";
-          throw createUserExecException(e, message, Code.BORROW_FAILURE);
-        }
+      try (ResourceHandle handle =
+          resourceManager.acquireResources(
+              owner,
+              spawn.getLocalResources(),
+              context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL)) {
+        // We acquired a worker and resources -- mark that as queuing time.
+        spawnMetrics.setQueueTime(queueStopwatch.elapsed());
+        response =
+            executeRequest(
+                spawn,
+                context,
+                inputFiles,
+                outputs,
+                workerOwner,
+                key,
+                request,
+                spawnMetrics,
+                handle,
+                false);
+      } catch (IOException e) {
+        restoreInterrupt(e);
+        String message =
+            "The IOException is thrown from worker allocation, but"
+                + " there is no worker allocation here.";
+        throw createUserExecException(e, message, Code.BORROW_FAILURE);
       }
 
       if (response == null) {
@@ -491,6 +603,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                       "Worker #%d copying output files", workerOwner.getWorker().getWorkerId()))) {
         Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
         context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
+        hasOutputFileLock = true;
         workerOwner.getWorker().finishExecution(execRoot, outputs);
         spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {
@@ -505,17 +618,19 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw createUserExecException(message, Code.FINISH_FAILURE);
       }
     } catch (UserExecException e) {
-      if (workerOwner.getWorker() != null) {
+      Worker worker = workerOwner.getWorker();
+      if (worker != null) {
         try {
-          workers.invalidateObject(key, workerOwner.getWorker());
-        } catch (IOException e1) {
-          // The original exception is more important / helpful, so we'll just ignore this one.
-          restoreInterrupt(e1);
+          workers.invalidateObject(key, worker);
+          if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
+            // If the worker has died, we take the lock to a) fail earlier and b) have a chance
+            // to let the other dynamic execution branch take over if the error can be ignored.
+            context.lockOutputFiles(worker.getExitValue().get(), e.getMessage(), null);
+          }
         } finally {
           workerOwner.setWorker(null);
         }
       }
-
       throw e;
     } finally {
       if (workerOwner.getWorker() != null) {
@@ -525,6 +640,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     return response;
   }
+  // LINT.ThenChange(:workerAsResource)
 
   /**
    * Executes worker request in worker, waits until the response is ready. Worker and resources
@@ -602,17 +718,20 @@ final class WorkerSpawnRunner implements SpawnRunner {
             handle,
             workerAsResource);
         workerOwner.setWorker(null);
+        if (workerAsResource) {
+          resourceManager.releaseResourceOwnership();
+        }
       } else if (!context.speculating()) {
         // Non-sandboxed workers interrupted outside of dynamic execution can only mean that
         // the user interrupted the build, and we don't want to delay finishing. Instead we
         // kill the worker.
         // Technically, workers are always sandboxed under dynamic execution, at least for now.
-        try {
-          workers.invalidateObject(key, workerOwner.getWorker());
-        } catch (IOException e1) {
-          // Nothing useful we can do here, in fact it may not be possible to get here.
-        } finally {
-          workerOwner.setWorker(null);
+        if (!workerAsResource) {
+          try {
+            workers.invalidateObject(key, workerOwner.getWorker());
+          } finally {
+            workerOwner.setWorker(null);
+          }
         }
       }
       throw e;
@@ -662,6 +781,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
     Thread reaper =
         new Thread(
             () -> {
+              if (workerAsResource) {
+                resourceManager.acquireResourceOwnership();
+              }
+
               Worker w = worker;
               try {
                 if (canCancel) {
@@ -692,10 +815,18 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 }
               } finally {
                 if (w != null) {
-                  try {
-                    workers.returnObject(key, w);
-                  } catch (IllegalStateException e3) {
-                    // The worker already not part of the pool
+                  if (workerAsResource) {
+                    try {
+                      resourceHandle.close();
+                    } catch (IOException | InterruptedException | IllegalStateException e) {
+                      // Error while returning worker to the pool. Could not do anythinng.
+                    }
+                  } else {
+                    try {
+                      workers.returnObject(key, w);
+                    } catch (IllegalStateException e3) {
+                      // The worker already not part of the pool
+                    }
                   }
                 }
               }

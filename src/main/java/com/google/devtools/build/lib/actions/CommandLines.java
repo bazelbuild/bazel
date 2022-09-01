@@ -109,7 +109,7 @@ public class CommandLines {
    *
    * @param artifactExpander The artifact expander to use.
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
-   * @param stripPaths function to strip configuration prefixes from output paths, in accordance
+   * @param pathStripper function to strip configuration prefixes from output paths, in accordance
    *     with the logic in {@link PathStripper}
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
@@ -276,10 +276,10 @@ public class CommandLines {
 
   /** An in-memory param file virtual action input. */
   public static final class ParamFileActionInput implements VirtualActionInput {
-    final PathFragment paramFileExecPath;
-    final Iterable<String> arguments;
-    final ParameterFileType type;
-    final Charset charset;
+    private final PathFragment paramFileExecPath;
+    private final Iterable<String> arguments;
+    private final ParameterFileType type;
+    private final Charset charset;
 
     public ParamFileActionInput(
         PathFragment paramFileExecPath,

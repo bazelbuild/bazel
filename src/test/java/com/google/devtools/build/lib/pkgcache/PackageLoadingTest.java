@@ -118,8 +118,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
@@ -237,7 +236,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         .hasMessageThat()
         .isEqualTo(
             "no such target '//pkg1:not-there': target 'not-there' "
-                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD");
+                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD (Tip: use "
+                + "`query //pkg1:*` to see all the targets in that package)");
   }
 
   /**

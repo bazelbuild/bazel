@@ -107,6 +107,26 @@ public final class TestActionBuilder {
   }
 
   /**
+   * Creates test actions for a test that will never be executed.
+   *
+   * <p>This is only really useful for things like creating incompatible test actions.
+   */
+  public static TestParams createEmptyTestParams() {
+    NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
+    return new TestProvider.TestParams(
+        0,
+        0,
+        false,
+        TestTimeout.ETERNAL,
+        "invalid",
+        ImmutableList.<Artifact.DerivedArtifact>of(),
+        ImmutableList.<Artifact>of(),
+        filesToRunProvider,
+        ImmutableList.<ActionInput>of());
+  }
+
+  /**
    * Creates the test actions and artifacts using the previously set parameters.
    *
    * @return ordered list of test status artifacts

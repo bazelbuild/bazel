@@ -53,6 +53,14 @@ public abstract class TraversalRequest implements SkyKey {
   protected abstract boolean skipTestingForSubpackage();
 
   /**
+   * Whether to emit nodes for empty directories.
+   *
+   * <p>If this returns false, empty directories will not be represented in the result of the
+   * traversal.
+   */
+  protected abstract boolean emitEmptyDirectoryNodes();
+
+  /**
    * Returns information to be attached to any error messages that may be reported.
    *
    * <p>This is purely informational and is not considered in equality.

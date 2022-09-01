@@ -220,6 +220,29 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDependsOnTestOnlyOutputFileDisallowed() throws Exception {
+    useConfiguration("--incompatible_check_testonly_for_output_files");
+    scratch.file(
+        "testonly/BUILD",
+        "genrule(name = 'testutil',",
+        "        outs = ['testutil.cc'],",
+        "        cmd = 'touch testutil.cc',",
+        "        srcs = [],",
+        "        testonly = 1)");
+    checkError(
+        "cc/error",
+        "cclib",
+        // error:
+        "non-test target '//cc/error:cclib' depends on the output file target"
+            + " '//testonly:testutil.cc' of a testonly rule //testonly:testutil and doesn't have"
+            + " testonly attribute set",
+        // build file: testonly=0 -> testonly=1
+        "cc_library(name = 'cclib',",
+        "           srcs  = ['//testonly:testutil.cc'],",
+        "           testonly = 0)");
+  }
+
+  @Test
   public void testDependenceOnDeprecatedRule() throws Exception {
     scratch.file("p/BUILD",
                 "cc_library(name='p', deps=['//q'])");

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -1693,8 +1692,24 @@ public final class RuleContext extends TargetContext
       }
     }
 
+    /**
+     * Same as {@link #build}, except without some attribute checks.
+     *
+     * <p>Don't use this function outside of testing. The use should be limited to cases where
+     * specifying ConfigConditions.EMPTY, which can cause a noMatchError when accessing attributes
+     * within attribute checking.
+     */
+    @VisibleForTesting
+    public RuleContext unsafeBuild() throws InvalidExecGroupException {
+      return build(false);
+    }
+
     @VisibleForTesting
     public RuleContext build() throws InvalidExecGroupException {
+      return build(true);
+    }
+
+    private RuleContext build(boolean attributeChecks) throws InvalidExecGroupException {
       Preconditions.checkNotNull(ruleClassProvider);
       Preconditions.checkNotNull(hostConfiguration);
       Preconditions.checkNotNull(configurationFragmentPolicy);
@@ -1703,14 +1718,21 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(mutability);
       Preconditions.checkNotNull(visibility);
-      AttributeMap attributes =
+      ConfiguredAttributeMapper attributes =
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration);
-      checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
+      // These checks can fail in BuildViewForTesting.getRuleContextForTesting as it specifies
+      // ConfigConditions.EMPTY, resulting in noMatchError accessing attributes without a default
+      // condition.
+      if (attributeChecks) {
+        checkAttributesNonEmpty(attributes);
+        checkAttributesForDuplicateLabels(attributes);
+      }
       // This conditionally checks visibility on config_setting rules based on
       // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
-      // to unconditionally check visibility. See https://github.com/bazelbuild/bazel/issues/12669.
+      // to unconditionally check visibility. See
+      // https://github.com/bazelbuild/bazel/issues/12669.
       if (target.getPackage().getConfigSettingVisibilityPolicy()
           != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
         Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
@@ -1758,6 +1780,20 @@ public final class RuleContext extends TargetContext
         }
         if (isEmpty) {
           reporter.attributeError(attr.getName(), "attribute must be non empty");
+        }
+      }
+    }
+
+    private void checkAttributesForDuplicateLabels(ConfiguredAttributeMapper attributes) {
+      for (String attributeName : attributes.getAttributeNames()) {
+        Attribute attr = attributes.getAttributeDefinition(attributeName);
+        if (attr.getType() != BuildType.LABEL_LIST) {
+          continue;
+        }
+
+        Set<Label> duplicates = attributes.checkForDuplicateLabels(attr);
+        for (Label label : duplicates) {
+          reporter.attributeError(attr.getName(), String.format("Label '%s' is duplicated", label));
         }
       }
     }
@@ -2201,14 +2237,6 @@ public final class RuleContext extends TargetContext
 
     private void validateDirectPrerequisite(
         Attribute attribute, ConfiguredTargetAndData prerequisite) {
-      if (RuleContextConstraintSemantics.checkForIncompatibility(prerequisite.getConfiguredTarget())
-          .isIncompatible()) {
-        // If the prerequisite is incompatible (e.g. has an incompatible provider), we pretend that
-        // there is no further validation needed. Otherwise, it would be difficult to make the
-        // incompatible target satisfy things like required providers and file extensions.
-        return;
-      }
-
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

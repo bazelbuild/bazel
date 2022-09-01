@@ -183,10 +183,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
         "Spawn can't be executed remotely. This is a bug.");
 
     Stopwatch totalTime = Stopwatch.createStarted();
-    boolean uploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
-    boolean acceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
+    boolean acceptCachedResult = remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
+    boolean uploadLocalResults = remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
+
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())

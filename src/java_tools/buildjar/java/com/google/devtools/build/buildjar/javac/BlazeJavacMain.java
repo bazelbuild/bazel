@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
@@ -320,6 +321,11 @@ public class BlazeJavacMain {
     }
   }
 
+  private static final boolean BOOT_CLASSPATH_CACHE_ENABLED =
+      Boolean.parseBoolean(
+          System.getProperty(
+              "com.google.devtools.build.buildjar.javac.enable_boot_classpath_cache", "true"));
+
   /**
    * Multiple javac file manager instances each specific for a combination of bootClassPaths with
    * their digest.
@@ -331,8 +337,13 @@ public class BlazeJavacMain {
    * Returns a BootClassPathCachingFileManager instance that matches the combination of
    * bootClassPaths and their digest in the case of a worker with valid arguments.
    */
+  @Nullable
   private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
       BlazeJavacArguments arguments) {
+    if (!BOOT_CLASSPATH_CACHE_ENABLED) {
+      // Caching disabled by a feature switch.
+      return null;
+    }
     if (!arguments.requestId().isPresent()) {
       // worker mode is not enabled
       return null;
