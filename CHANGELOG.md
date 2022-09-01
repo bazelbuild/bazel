@@ -1,3 +1,11 @@
+## Release 6.0.0-pre.20220823.1 (2022-09-01)
+
+```
+Baseline: ca95fecde07a28736ea815ec64bcd639a234d79c
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Thomas.
+
 ## Release 6.0.0-pre.20220818.1 (2022-08-24)
 
 ```
