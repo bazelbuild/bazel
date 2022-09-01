@@ -384,6 +384,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
+        WorkerMetricsCollector workerMetricsCollector = WorkerMetricsCollector.instance();
+        workerMetricsCollector.setClock(clock);
         profiler.start(
             profiledTasks,
             out,
