@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.BuildView.ExecutionSetup;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -70,7 +71,8 @@ public final class AnalysisAndExecutionPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       BuildOptions buildOptions,
-      TargetPatternPhaseValue loadingResult)
+      TargetPatternPhaseValue loadingResult,
+      ExecutionSetup executionSetupCallback)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
           InvalidConfigurationException, TestExecException {
@@ -119,7 +121,8 @@ public final class AnalysisAndExecutionPhaseRunner {
               TopLevelTargetAnalysisWatcher.createAndRegisterWithEventBus(
                   env.getRuntime().getBlazeModules(), env, request, buildOptions)) {
         analysisAndExecutionResult =
-            runAnalysisAndExecutionPhase(env, request, loadingResult, buildOptions);
+            runAnalysisAndExecutionPhase(
+                env, request, loadingResult, buildOptions, executionSetupCallback);
       }
       BuildResultListener buildResultListener = env.getBuildResultListener();
       AnalysisPhaseRunner.reportTargets(
@@ -178,9 +181,10 @@ public final class AnalysisAndExecutionPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions)
+      BuildOptions targetOptions,
+      ExecutionSetup executionSetupCallback)
       throws InterruptedException, InvalidConfigurationException, ViewCreationFailedException,
-          BuildFailedException, TestExecException {
+          BuildFailedException, TestExecException, AbruptExitException {
     env.getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
 
     ImmutableSet<Label> explicitTargetPatterns =
@@ -212,7 +216,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             /*includeExecutionPhase=*/ true,
             request.getBuildOptions().jobs,
             env.getLocalResourceManager(),
-            env.getBuildResultListener());
+            env.getBuildResultListener(),
+            executionSetupCallback);
   }
 
   /**
