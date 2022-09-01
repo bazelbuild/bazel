@@ -289,13 +289,13 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
   more restricted, and handles bazel-related edge cases.
 
   Args:
-    python_program (str): Path to the python binary to use for execution
-    main_filename (str): The python file to execute
-    args (list[str]): Additional args to pass to the python file
-    env (dict[str, str]): A dict of environment variables to set for the execution
-    module_space (str): The module space/runfiles tree
-    coverage_entrypoint (str): The coverage tool to execute with.
-    workspace (str): The workspace to execute in. This is expected to be a
+    python_program: (str) Path to the python binary to use for execution
+    main_filename: (str) The python file to execute
+    args: (list[str]) Additional args to pass to the python file
+    env: (dict[str, str]) A dict of environment variables to set for the execution
+    module_space: (str) Path to the module space/runfiles tree directory
+    coverage_entrypoint: (str|None) Path to the coverage tool entry point file.
+    workspace: (str|None) Name of the workspace to execute in. This is expected to be a
         directory under the runfiles tree, and will recursively delete the
         runfiles directory if set.
   """
@@ -345,12 +345,12 @@ def _RunForCoverage(python_program, main_filename, args, env,
   """Collects coverage infomration for the given python file.
 
   Args:
-    python_program (str): Path to the python binary to use for execution
-    main_filename (str): The python file to execute
-    args (list[str]): Additional args to pass to the python file
-    env (dict[str, str]): A dict of environment variables to set for the execution
-    coverage_entrypoint (str): The coverage tool to execute with.
-    workspace (str): The workspace to execute in. This is expected to be a
+    python_program: (str) Path to the python binary to use for execution
+    main_filename: (str) The python file to execute
+    args: (list[str]) Additional args to pass to the python file
+    env: (dict[str, str]) A dict of environment variables to set for the execution
+    coverage_entrypoint: (str|None) Path to the coverage entry point to execute with.
+    workspace: (str|None) Name of the workspace to execute in. This is expected to be a
         directory under the runfiles tree, and will recursively delete the
         runfiles directory if set.
   """
