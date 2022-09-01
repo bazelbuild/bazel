@@ -160,14 +160,6 @@ public class DexFileMerger {
     public boolean verbose;
 
     @Option(
-        name = "forceJumbo",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Typically not needed flag intended to imitate dx's --forceJumbo.")
-    public boolean forceJumbo;
-
-    @Option(
         name = "dex_prefix",
         defaultValue = DEX_PREFIX,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
