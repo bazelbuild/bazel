@@ -506,6 +506,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     scratch.file("test_starlark/BUILD");
     RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
     String toolsLoc = toolsRepo + "//tools/objc";
+    scratch.file(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/dummy/BUILD",
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
@@ -576,7 +579,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "            cfg=apple_common.multi_arch_split,",
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
         "        '_dummy_lib': attr.label(",
-        "            default = Label('" + toolsLoc + ":dummy_lib'),),",
+        "            default = Label('" + toolsLoc + "/dummy:dummy_lib'),),",
         "        '_grep_includes': attr.label(",
         "            cfg = 'host',",
         "            allow_single_file = True,",

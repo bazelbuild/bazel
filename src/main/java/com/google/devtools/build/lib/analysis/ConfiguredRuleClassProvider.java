@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
@@ -172,9 +171,6 @@ public /*final*/ class ConfiguredRuleClassProvider
         (BuildOptions options) -> ActionEnvironment.EMPTY;
     private ConstraintSemantics<RuleContext> constraintSemantics =
         new RuleContextConstraintSemantics();
-
-    private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
-        ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
 
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
@@ -382,16 +378,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     /**
-     * Sets the policy for checking if third_party rules declare <code>licenses()</code>. See {@link
-     * #thirdPartyLicenseExistencePolicy} for the default value.
-     */
-    @CanIgnoreReturnValue
-    public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
-      this.thirdPartyLicenseExistencePolicy = policy;
-      return this;
-    }
-
-    /**
      * Adds a transition factory that produces a trimming transition to be run over all targets
      * after other transitions.
      *
@@ -509,7 +495,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       RuleClass.Builder builder =
           new RuleClass.Builder(metadata.name(), metadata.type(), false, ancestorClasses);
       builder.factory(factory);
-      builder.setThirdPartyLicenseExistencePolicy(thirdPartyLicenseExistencePolicy);
       RuleClass ruleClass = instance.build(builder, this);
       ruleMap.put(definitionClass, ruleClass);
       ruleClassMap.put(ruleClass.getName(), ruleClass);
@@ -604,7 +589,6 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          thirdPartyLicenseExistencePolicy,
           networkAllowlistForTests);
     }
 
@@ -697,8 +681,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ConstraintSemantics<RuleContext> constraintSemantics;
 
-  private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
-
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
   @Nullable private final Label networkAllowlistForTests;
 
@@ -726,7 +708,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       @Nullable Label networkAllowlistForTests) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -753,7 +734,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
-    this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
@@ -932,11 +912,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
-  }
-
-  @Override
-  public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
-    return thirdPartyLicenseExistencePolicy;
   }
 
   @Override

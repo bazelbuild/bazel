@@ -84,7 +84,10 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
 
     scratch.file("a/BUILD", "cc_host_toolchain_alias(name='current_cc_host_toolchain')");
 
-    useConfiguration("--host_crosstool_top=//b:my_custom_toolchain_suite", "--host_cpu=k8");
+    useConfiguration(
+        "--noincompatible_enable_cc_toolchain_resolution",
+        "--host_crosstool_top=//b:my_custom_toolchain_suite",
+        "--host_cpu=k8");
     ConfiguredTarget target = getConfiguredTarget("//a:current_cc_host_toolchain");
 
     CcToolchainProvider ccToolchainProvider = target.get(CcToolchainProvider.PROVIDER);

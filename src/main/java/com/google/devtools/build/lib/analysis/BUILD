@@ -340,6 +340,7 @@ java_library(
         ":rule_configured_object_value",
         ":rule_definition_environment",
         ":run_environment_info",
+        ":runfiles_library_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
@@ -1027,6 +1028,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "runfiles_library_info",
+    srcs = ["RunfilesLibraryInfo.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
     ],
 )
 

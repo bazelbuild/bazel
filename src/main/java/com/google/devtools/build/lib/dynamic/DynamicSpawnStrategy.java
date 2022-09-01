@@ -103,13 +103,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
 
-  /** If true, this is the first build since the server started. */
-  private final boolean firstBuild;
-
   /** A callback that allows checking if a given failure can be ignored on one branch. */
   private final IgnoreFailureCheck ignoreFailureCheck;
-
-  private boolean skipBuildWarningShown;
 
   /** Limit on how many threads we should use for dynamic execution. */
   private final ShrinkableSemaphore threadLimiter;
@@ -126,7 +121,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
    *     Spawn}.
    * @param getPostProcessingSpawnForLocalExecution A function that returns any post-processing
    *     spawns that should be run after finishing running a spawn locally.
-   * @param firstBuild True if this is the first build since the server started.
    * @param numCpus The number of CPUs allowed for local execution (--local_cpu_resources).
    * @param jobs The maximum number of jobs (--jobs parameter).
    * @param ignoreFailureCheck A callback to check if a failure on one branch should be allowed to
@@ -137,7 +131,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       DynamicExecutionOptions options,
       Function<Spawn, ExecutionPolicy> getExecutionPolicy,
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution,
-      boolean firstBuild,
       int numCpus,
       int jobs,
       IgnoreFailureCheck ignoreFailureCheck) {
@@ -145,12 +138,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     this.options = options;
     this.getExecutionPolicy = getExecutionPolicy;
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
-    this.firstBuild = firstBuild;
     this.threadLimiter =
         new ShrinkableSemaphore(
-            options.cpuLimited || options.localLoadFactor > 0 ? numCpus : jobs,
-            jobs,
-            options.localLoadFactor);
+            options.localLoadFactor > 0 ? numCpus : jobs, jobs, options.localLoadFactor);
     this.ignoreFailureCheck = ignoreFailureCheck;
   }
 
@@ -378,17 +368,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE));
       return LocalBranch.runLocally(
           spawn, actionExecutionContext, null, getExtraSpawnForLocalExecution);
-    } else if (options.skipFirstBuild && firstBuild) {
-      if (!skipBuildWarningShown) {
-        skipBuildWarningShown = true;
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.info(
-                    "Disabling dynamic execution until we have seen a successful build, see"
-                        + " --experimental_dynamic_skip_first_build."));
-      }
-      return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
     } else if (options.excludeTools) {
       String msg = spawn.getResourceOwner().getProgressMessage();
       if (msg != null && msg.contains(FOR_TOOL)) {

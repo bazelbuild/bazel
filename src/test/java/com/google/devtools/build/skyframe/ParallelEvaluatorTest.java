@@ -62,6 +62,7 @@ import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporary
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.ClassToInstanceMapSkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -3333,5 +3334,65 @@ public class ParallelEvaluatorTest {
     assertThat(resultValue).isEqualTo(new StringValue("value1"));
     // And we threw away the dropper, confirming the #onEvaluationFinished method was called.
     assertThat(dropperRef.get()).isNull();
+  }
+
+  // Test for the basic functionality of ClassToInstanceMapSkyKeyComputeState, demonstrating
+  // that it can hold state associated with different classes and those states are independent.
+  @Test
+  public void classToInstanceMapSkyKeyComputeState(
+      @TestParameter boolean touchStateA, @TestParameter boolean touchStateB)
+      throws InterruptedException {
+    class StateA implements SkyKeyComputeState {
+      boolean touched;
+    }
+    class StateB implements SkyKeyComputeState {
+      boolean touched;
+    }
+    SkyKey key1 = new SkyKeyForSkyKeyComputeStateTests("key1");
+    SkyKey key2 = new SkyKeyForSkyKeyComputeStateTests("key2");
+    AtomicLongMap<SkyKey> numCalls = AtomicLongMap.create();
+    SkyFunction skyFunctionForTest =
+        (skyKey, env) -> {
+          int numCallsForKey = (int) numCalls.incrementAndGet(skyKey);
+          if (skyKey.equals(key1)) {
+            if (numCallsForKey == 1) {
+              if (touchStateA) {
+                env.getState(ClassToInstanceMapSkyKeyComputeState::new)
+                        .getInstance(StateA.class, StateA::new)
+                        .touched =
+                    true;
+              }
+              if (touchStateB) {
+                env.getState(ClassToInstanceMapSkyKeyComputeState::new)
+                        .getInstance(StateB.class, StateB::new)
+                        .touched =
+                    true;
+              }
+              assertThat(env.getValue(key2)).isNull();
+              return null;
+            }
+            assertThat(
+                    env.getState(ClassToInstanceMapSkyKeyComputeState::new)
+                        .getInstance(StateA.class, StateA::new)
+                        .touched)
+                .isEqualTo(touchStateA);
+            assertThat(
+                    env.getState(ClassToInstanceMapSkyKeyComputeState::new)
+                        .getInstance(StateB.class, StateB::new)
+                        .touched)
+                .isEqualTo(touchStateB);
+            SkyValue value = env.getValue(key2);
+            assertThat(value).isEqualTo(new StringValue("value"));
+            return value;
+          }
+          if (skyKey.equals(key2)) {
+            return new StringValue("value");
+          }
+          throw new IllegalStateException();
+        };
+    tester.putSkyFunction(SkyKeyForSkyKeyComputeStateTests.FUNCTION_NAME, skyFunctionForTest);
+    graph = new InMemoryGraphImpl();
+    SkyValue resultValue = eval(/*keepGoing=*/ true, key1);
+    assertThat(resultValue).isEqualTo(new StringValue("value"));
   }
 }

@@ -61,12 +61,14 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    ImmutableList<String> extraArgs = ImmutableList.<String>builder()
-        .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
-        .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
-        .addAll(ImmutableList.copyOf(args))
-        .build();
+    ImmutableList<String> extraArgs =
+        ImmutableList.<String>builder()
+            .add("--noincompatible_enable_cc_toolchain_resolution")
+            .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
+            .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+            .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
+            .addAll(ImmutableList.copyOf(args))
+            .build();
 
     super.useConfiguration(extraArgs.toArray(new String[extraArgs.size()]));
   }

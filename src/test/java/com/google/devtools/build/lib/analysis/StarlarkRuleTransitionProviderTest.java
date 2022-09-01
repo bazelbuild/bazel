@@ -67,6 +67,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
   }

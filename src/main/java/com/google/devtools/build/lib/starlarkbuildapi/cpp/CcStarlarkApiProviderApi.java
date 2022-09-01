@@ -37,7 +37,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> {
       doc =
           "Returns the <a href=\"depset.html\">depset</a> of libraries for either "
               + "<code>FULLY STATIC</code> mode (<code>linkopts=[\"-static\"]</code>) or "
-              + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=1</code>) "
+              + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=True</code>) "
               + "(possibly empty but never <code>None</code>)")
   public Depset /*<FileT>*/ getLibrariesForStarlark();
 
@@ -47,7 +47,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> {
       doc =
           "Returns the list of flags given to the C++ linker command for either "
               + "<code>FULLY STATIC</code> mode (<code>linkopts=[\"-static\"]</code>) or "
-              + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=1</code>) "
+              + "<code>MOSTLY STATIC</code> mode (<code>linkstatic=True</code>) "
               + "(possibly empty but never <code>None</code>)")
   public ImmutableList<String> getLinkopts();
 

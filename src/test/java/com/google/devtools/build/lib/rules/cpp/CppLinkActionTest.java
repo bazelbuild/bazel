@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -134,6 +135,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .addFlagSet(flagSet)
             .addEnvSet(envSet.build())
             .build();
+    CToolchain.Feature archiveParamFile =
+        CToolchain.Feature.newBuilder()
+            .setName(CppRuleClasses.ARCHIVE_PARAM_FILE)
+            .setEnabled(true)
+            .build();
     ImmutableList<CToolchain.Feature> features =
         new ImmutableList.Builder<CToolchain.Feature>()
             .addAll(
@@ -145,6 +151,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     /* supportsInterfaceSharedLibraries= */ false))
             .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
             .add(linkCppStandardLibrary)
+            .add(archiveParamFile)
             .build();
 
     ImmutableList<CToolchain.ActionConfig> actionConfigs =
@@ -161,6 +168,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
           .getFeatureConfiguration(
               ImmutableSet.of(
                   "link_cpp_standard_library",
+                  CppRuleClasses.ARCHIVE_PARAM_FILE,
                   LinkTargetType.EXECUTABLE.getActionName(),
                   LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
                   LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
@@ -534,20 +542,19 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCommandLineSplitting() throws Exception {
+  public void testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOnForLinking()
+      throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
     Artifact output =
         getDerivedArtifact(
             PathFragment.create("output/path.xyz"),
-            getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    final Artifact outputIfso =
-        getDerivedArtifact(
-            PathFragment.create("output/path.ifso"),
-            getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
+            ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
     CcToolchainProvider toolchain =
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
+            .getFeatureConfiguration(ImmutableSet.of());
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(
             ruleContext,
@@ -557,13 +564,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
             ruleContext.getConfiguration(),
             toolchain,
             toolchain.getFdoContext(),
-            FeatureConfiguration.EMPTY,
+            featureConfiguration,
             MockCppSemantics.INSTANCE);
-    builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
-    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
-    assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
     assertThat(builder.canSplitCommandLine()).isTrue();
@@ -571,18 +573,214 @@ public class CppLinkActionTest extends BuildViewTestCase {
     builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
     assertThat(builder.canSplitCommandLine()).isTrue();
 
-    builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
-    assertThat(builder.canSplitCommandLine()).isTrue();
-
     builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isTrue();
+  }
 
+  @Test
+  public void testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOffForIfSo()
+      throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    final Artifact outputIfso =
+        getDerivedArtifact(
+            PathFragment.create("output/path.ifso"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
+            .getFeatureConfiguration(ImmutableSet.of());
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            output,
+            ruleContext.getConfiguration(),
+            toolchain,
+            toolchain.getFdoContext(),
+            featureConfiguration,
+            MockCppSemantics.INSTANCE);
+
+    builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     builder.setInterfaceOutput(outputIfso);
     assertThat(builder.canSplitCommandLine()).isFalse();
 
     builder.setInterfaceOutput(null);
     builder.setLinkType(LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
     assertThat(builder.canSplitCommandLine()).isFalse();
+  }
+
+  @Test
+  public void testCommandLineSplittingWithoutArchiveParamFileFeature_shouldBeOffForArchiving()
+      throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
+            .getFeatureConfiguration(ImmutableSet.of());
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            output,
+            ruleContext.getConfiguration(),
+            toolchain,
+            toolchain.getFdoContext(),
+            featureConfiguration,
+            MockCppSemantics.INSTANCE);
+
+    builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+
+    builder.setLinkType(LinkTargetType.PIC_STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+
+    builder.setLinkType(LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+
+    builder.setLinkType(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+
+    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+
+    builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+  }
+
+  @Test
+  public void testCommandLineSplittingWithArchiveParamFileFeature_shouldBeOnForLinking()
+      throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
+            .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            output,
+            ruleContext.getConfiguration(),
+            toolchain,
+            toolchain.getFdoContext(),
+            featureConfiguration,
+            MockCppSemantics.INSTANCE);
+
+    builder.setLinkType(LinkTargetType.OBJC_EXECUTABLE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJCPP_EXECUTABLE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+  }
+
+  @Test
+  public void testCommandLineSplittingWithArchiveParamFileFeature_shouldBeOffForIfSo()
+      throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    final Artifact outputIfso =
+        getDerivedArtifact(
+            PathFragment.create("output/path.ifso"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
+            .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            output,
+            ruleContext.getConfiguration(),
+            toolchain,
+            toolchain.getFdoContext(),
+            featureConfiguration,
+            MockCppSemantics.INSTANCE);
+
+    builder.setLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+    builder.setInterfaceOutput(outputIfso);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+
+    builder.setInterfaceOutput(null);
+    builder.setLinkType(LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isFalse();
+  }
+
+  @Test
+  public void testCommandLineSplittingWithArchiveParamFileFeature_shouldBeOnForArchiving()
+      throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+    Artifact output =
+        getDerivedArtifact(
+            PathFragment.create("output/path.xyz"),
+            ruleContext.getBinDirectory(),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration =
+        CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
+            .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            output,
+            ruleContext.getConfiguration(),
+            toolchain,
+            toolchain.getFdoContext(),
+            featureConfiguration,
+            MockCppSemantics.INSTANCE);
+
+    builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.PIC_STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJC_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
+
+    builder.setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE);
+    assertThat(builder.canSplitCommandLine()).isTrue();
   }
 
   @Test
@@ -1063,5 +1261,25 @@ public class CppLinkActionTest extends BuildViewTestCase {
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
     assertThat(artifactsToStrings(linkAction.getLinkstampObjectFileInputs()))
         .containsExactly("bin x/_objs/bin/x/linkstamp.o");
+  }
+
+  @Test
+  public void testGccQuotingForParamFilesFeature_enablesGccQuoting() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.GCC_QUOTING_FOR_PARAM_FILES));
+    useConfiguration();
+
+    scratch.file(
+        "foo/BUILD", "cc_binary(", "  name = 'foo',", "  srcs = ['space .cc', 'quote\".cc'],", ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "foo/foo");
+    ParameterFileWriteAction parameterFileWriteAction = paramFileWriteActionForAction(linkAction);
+    assertThat(parameterFileWriteAction).isNotNull();
+
+    assertThat(parameterFileWriteAction.getStringContents()).contains("space\\ .o");
+    assertThat(parameterFileWriteAction.getStringContents()).contains("quote\\\".o");
   }
 }

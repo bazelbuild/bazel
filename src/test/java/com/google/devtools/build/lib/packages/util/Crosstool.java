@@ -124,8 +124,14 @@ public final class Crosstool {
       private String targetLibc = "local";
       private String abiVersion = "local";
       private String abiLibcVersion = "local";
-      private ImmutableList<String> toolchainExecConstraints = ImmutableList.of();
-      private ImmutableList<String> toolchainTargetConstraints = ImmutableList.of();
+      private ImmutableList<String> toolchainExecConstraints =
+          ImmutableList.of(
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      private ImmutableList<String> toolchainTargetConstraints =
+          ImmutableList.of(
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
 
       @CanIgnoreReturnValue
       public Builder withCpu(String cpu) {
@@ -710,8 +716,8 @@ public final class Crosstool {
               : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
           ")",
           "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
-          "    exec_compatible_with = [],",
-          "    target_compatible_with = [],",
+          toolchainConfig.getToolchainExecConstraints(),
+          toolchainConfig.getToolchainTargetConstraints(),
           "    toolchain = ':cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type'",
           ")");

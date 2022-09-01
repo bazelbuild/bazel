@@ -2699,7 +2699,7 @@ function test_missing_outputs_dont_upload_action_result() {
 genrule(
   name = 'foo',
   outs = ["foo.txt"],
-  cmd = "echo foo",
+  cmd = "echo foo-generation-error",
 )
 EOF
 
@@ -2707,6 +2707,7 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       //a:foo >& $TEST_log && fail "Should failed to build"
 
+  expect_log "foo-generation-error"
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 0 ]] || fail "Expected 0 remote cas entries, not $remote_cas_files"
   remote_ac_files="$(count_remote_ac_files)"

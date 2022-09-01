@@ -49,6 +49,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ] + select({

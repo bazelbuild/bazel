@@ -17,7 +17,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.time.Duration;
 import java.util.List;
@@ -61,16 +60,6 @@ public class DynamicExecutionOptions extends OptionsBase {
   public boolean internalSpawnScheduler;
 
   @Option(
-      name = "experimental_dynamic_execution_cpu_limited",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      defaultValue = "false",
-      help =
-          "Deprecated. Use --experimental_dynamic_local_load_factor instead, with the values"
-              + " 0 for false and 1 for true, or with a value in between.")
-  public boolean cpuLimited;
-
-  @Option(
       name = "dynamic_local_strategy",
       converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -95,16 +84,6 @@ public class DynamicExecutionOptions extends OptionsBase {
               + " as the mnemonic sets the default for unspecified mnemonics. Takes"
               + " [mnemonic=]remote_strategy[,remote_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
-
-  @Option(
-      name = "dynamic_worker_strategy",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      defaultValue = "",
-      help = "Deprecated. Please use --dynamic_local_strategy=worker_strategy,local_strategy.")
-  @Deprecated
-  public String dynamicWorkerStrategy;
 
   @Option(
       name = "experimental_local_execution_delay",
@@ -144,16 +123,6 @@ public class DynamicExecutionOptions extends OptionsBase {
               + "execution info if --experimental_require_availability_info=true. No-op if "
               + "--experimental_require_availability_info=false.")
   public List<String> availabilityInfoExempt;
-
-  @Option(
-      name = "experimental_dynamic_skip_first_build",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "false",
-      help =
-          "If set, dynamic execution is turned off until there has been at least one successful"
-              + " build.")
-  public boolean skipFirstBuild;
 
   @Option(
       name = "experimental_dynamic_slow_remote_time",

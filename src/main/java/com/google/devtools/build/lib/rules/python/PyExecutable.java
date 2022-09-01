@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -23,8 +25,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import java.util.ArrayList;
@@ -109,6 +115,13 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     common.addCommonTransitiveInfoProviders(builder, common.getFilesToBuild());
 
     semantics.postInitExecutable(ruleContext, runfilesSupport, common, builder);
+
+    // Support test execution on darwin.
+    if (ApplePlatform.isApplePlatform(ruleContext.getConfiguration().getCpu())
+        && TargetUtils.isTestRule(ruleContext.getRule())) {
+      builder.addNativeDeclaredProvider(
+          new ExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")));
+    }
 
     return builder
         .setFilesToBuild(common.getFilesToBuild())

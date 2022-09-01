@@ -93,33 +93,6 @@ function test_empty_strategy_means_default() {
   expect_not_log "\"FooBar\" = "
 }
 
-function test_dynamic_strategy_skip_first() {
-  mkdir -p pkg
-  cat >pkg/BUILD <<'EOF'
-java_library(
-  name = "pkg",
-  srcs = ["pkg.java"],
-)
-EOF
-  touch pkg/pkg.java
-
-  # Remote strategy is "worker" to make the test work both internally and
-  # externally. We don't really care beyond getting the expected warning right.
-  bazel build --internal_spawn_scheduler --spawn_strategy=dynamic \
-    --dynamic_remote_strategy=worker \
-    --dynamic_local_strategy=standalone \
-    --experimental_debug_spawn_scheduler \
-    --experimental_dynamic_skip_first_build //pkg &> $TEST_log || fail
-  expect_log "Disabling dynamic execution"
-
-  bazel build --internal_spawn_scheduler --spawn_strategy=dynamic \
-    --dynamic_remote_strategy=worker \
-    --dynamic_local_strategy=standalone \
-    --experimental_debug_spawn_scheduler \
-    --experimental_dynamic_skip_first_build //pkg &> $TEST_log || fail
-  expect_not_log "Disabling dynamic execution"
-}
-
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {

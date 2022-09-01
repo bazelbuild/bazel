@@ -912,6 +912,16 @@ will select all rules among `//foo` dependencies that specify at
 least one value in the `data` attribute (every label is at least
 3 characters long due to the `//` and `:`).
 
+To select all rules among `//foo` dependencies with a particular `value` in a
+list-type attribute, use
+
+```
+attr("tags", "[\[ ]value[,\]]", deps(//foo))
+```
+
+This works because the character before `value` will be `[` or a space and the
+character after `value` will be a comma or `]`.
+
 ### Rule visibility filtering: visible {:#visible}
 
 ```

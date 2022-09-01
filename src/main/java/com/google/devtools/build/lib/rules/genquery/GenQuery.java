@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.rules.genquery;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -42,7 +38,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -56,15 +51,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -91,15 +83,10 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
-import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -231,82 +218,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     return ruleContext.getAnalysisEnvironment().getEventHandler();
   }
 
-  /**
-   * Precomputes the transitive closure of the scope. Returns two maps: one identifying the
-   * successful packages, and the other identifying the valid targets. Breaks in the transitive
-   * closure of the scope will cause the query to error out early.
-   */
-  @Nullable
-  private static Pair<ImmutableMap<PackageIdentifier, Package>, ImmutableMap<Label, Target>>
-      constructPackageMap(SkyFunction.Environment env, Collection<Label> scope)
-          throws InterruptedException, BrokenQueryScopeException {
-    // It is not necessary for correctness to construct intermediate NestedSets; we could iterate
-    // over individual targets in scope immediately. However, creating a composite NestedSet first
-    // saves us from iterating over the same sub-NestedSets multiple times.
-    NestedSetBuilder<Label> validTargets = NestedSetBuilder.stableOrder();
-    Set<SkyKey> successfulPackageKeys = Sets.newHashSetWithExpectedSize(scope.size());
-    Collection<SkyKey> transitiveTargetKeys =
-        Collections2.transform(scope, TransitiveTargetKey::of);
-    SkyframeIterableResult transitiveTargetValues =
-        env.getOrderedValuesAndExceptions(transitiveTargetKeys);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    for (SkyKey skyKey : transitiveTargetKeys) {
-      SkyValue value = transitiveTargetValues.next();
-      if (value == null) {
-        BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", skyKey);
-        return null;
-      }
-      TransitiveTargetValue transNode = (TransitiveTargetValue) value;
-      if (transNode.encounteredLoadingError()) {
-        // This should only happen if the unsuccessful package was loaded in a non-selected
-        // path, as otherwise this configured target would have failed earlier. See b/34132681.
-        throw new BrokenQueryScopeException(
-            "errors were encountered while computing transitive closure of the scope.");
-      }
-      validTargets.addTransitive(transNode.getTransitiveTargets());
-      for (Label transitiveLabel : transNode.getTransitiveTargets().toList()) {
-        successfulPackageKeys.add(PackageValue.key(transitiveLabel.getPackageIdentifier()));
-      }
-    }
-
-    // Construct the package id to package map for all successful packages.
-    SkyframeIterableResult transitivePackages =
-        env.getOrderedValuesAndExceptions(successfulPackageKeys);
-    if (env.valuesMissing()) {
-      // Packages from an untaken select branch could be missing: analysis avoids these, but query
-      // does not.
-      return null;
-    }
-    ImmutableMap.Builder<PackageIdentifier, Package> packageMapBuilder = ImmutableMap.builder();
-    for (SkyKey skyKey : successfulPackageKeys) {
-      PackageValue pkg = (PackageValue) transitivePackages.next();
-      if (pkg == null) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "SkyValue " + skyKey + " was missing, this should never happen"));
-        return null;
-      }
-      Preconditions.checkState(
-          !pkg.getPackage().containsErrors(),
-          "package %s was found to both have and not have errors.",
-          skyKey);
-      packageMapBuilder.put(pkg.getPackage().getPackageIdentifier(), pkg.getPackage());
-    }
-    ImmutableMap<PackageIdentifier, Package> packageMap = packageMapBuilder.buildOrThrow();
-    ImmutableMap.Builder<Label, Target> validTargetsMapBuilder = ImmutableMap.builder();
-    for (Label label : validTargets.build().toList()) {
-      try {
-        Target target = packageMap.get(label.getPackageIdentifier()).getTarget(label.getName());
-        validTargetsMapBuilder.put(label, target);
-      } catch (NoSuchTargetException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-    return Pair.of(packageMap, validTargetsMapBuilder.buildOrThrow());
-  }
-
   @Nullable
   private GenQueryResult executeQuery(
       RuleContext ruleContext,
@@ -316,33 +227,31 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       HashFunction hashFunction)
       throws InterruptedException {
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-    Pair<ImmutableMap<PackageIdentifier, Package>, ImmutableMap<Label, Target>> closureInfo;
+
+    GenQueryPackageProvider packageProvider;
     try {
-      closureInfo = constructPackageMap(env, scope);
-      if (closureInfo == null) {
+      packageProvider = new GenQueryPackageProviderFactory().constructPackageMap(env, scope);
+      if (packageProvider == null) {
         return null;
       }
-    } catch (BrokenQueryScopeException e) {
+    } catch (GenQueryPackageProviderFactory.BrokenQueryScopeException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
 
-    ImmutableMap<PackageIdentifier, Package> packageMap = closureInfo.first;
-    ImmutableMap<Label, Target> validTargetsMap = closureInfo.second;
-    PreloadedMapPackageProvider packageProvider =
-        new PreloadedMapPackageProvider(packageMap, validTargetsMap);
-    TargetPatternPreloader preloader = new SkyframeEnvTargetPatternEvaluator(env);
-    Predicate<Label> labelFilter = Predicates.in(validTargetsMap.keySet());
-
     return doQuery(
-        queryOptions, packageProvider, labelFilter, preloader, query, ruleContext, hashFunction);
+        queryOptions,
+        packageProvider,
+        new SkyframeEnvTargetPatternEvaluator(env),
+        query,
+        ruleContext,
+        hashFunction);
   }
 
   @Nullable
   private GenQueryResult doQuery(
       QueryOptions queryOptions,
-      PreloadedMapPackageProvider packageProvider,
-      Predicate<Label> labelFilter,
+      GenQueryPackageProvider packageProvider,
       TargetPatternPreloader preloader,
       String query,
       RuleContext ruleContext,
@@ -352,7 +261,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     QueryEvalResult queryResult;
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target, ?> targets;
-    boolean graphlessQuery = false;
+    boolean graphlessQuery;
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -393,7 +302,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               // (b/127644784). All the packages are already loaded at this point, so there is
               // no need to start up multiple threads anyway.
               /*loadingPhaseThreads=*/ 1,
-              labelFilter,
+              packageProvider.getValidTargetPredicate(),
               getEventHandler(ruleContext),
               settings,
               /*extraFunctions=*/ ImmutableList.of(),
@@ -589,76 +498,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             String.format("recursive target patterns are not permitted: '%s'", pattern),
             TargetPatterns.Code.RECURSIVE_TARGET_PATTERNS_NOT_ALLOWED);
       }
-    }
-  }
-
-  /**
-   * Provide packages and targets to the query operations using precomputed transitive closure.
-   */
-  private static final class PreloadedMapPackageProvider
-      implements PackageProvider, CachingPackageLocator {
-
-    private final ImmutableMap<PackageIdentifier, Package> pkgMap;
-    private final ImmutableMap<Label, Target> labelToTarget;
-
-    public PreloadedMapPackageProvider(ImmutableMap<PackageIdentifier, Package> pkgMap,
-        ImmutableMap<Label, Target> labelToTarget) {
-      this.pkgMap = pkgMap;
-      this.labelToTarget = labelToTarget;
-    }
-
-    @Override
-    public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageId)
-        throws NoSuchPackageException {
-      Package pkg = pkgMap.get(packageId);
-      if (pkg != null) {
-        return pkg;
-      }
-      // Prefer to throw a checked exception on error; malformed genquery should not crash.
-      throw new NoSuchPackageException(packageId, "is not within the scope of the query");
-    }
-
-    @Override
-    public Target getTarget(ExtendedEventHandler eventHandler, Label label)
-        throws NoSuchPackageException, NoSuchTargetException {
-      // Try to perform only one map lookup in the common case.
-      Target target = labelToTarget.get(label);
-      if (target != null) {
-        return target;
-      }
-      // Prefer to throw a checked exception on error; malformed genquery should not crash.
-      getPackage(eventHandler, label.getPackageIdentifier());  // maybe throw NoSuchPackageException
-      throw new NoSuchTargetException(label, "is not within the scope of the query");
-    }
-
-    @Override
-    public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Nullable
-    @Override
-    public Path getBuildFileForPackage(PackageIdentifier packageId) {
-      Package pkg = pkgMap.get(packageId);
-      if (pkg == null) {
-        return null;
-      }
-      return pkg.getBuildFile().getPath();
-    }
-
-    @Nullable
-    @Override
-    public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
-      // TODO(b/123795023): we should have the data here but we don't have all packages for Starlark
-      //  loads present here.
-      Package pkg = pkgMap.get(packageName);
-      return pkg == null ? null : pkg.getBuildFileLabel().getName();
-    }
-  }
-
-  private static class BrokenQueryScopeException extends Exception {
-    public BrokenQueryScopeException(String message) {
-      super(message);
     }
   }
 

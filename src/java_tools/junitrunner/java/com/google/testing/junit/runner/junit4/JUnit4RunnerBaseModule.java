@@ -61,7 +61,7 @@ public abstract class JUnit4RunnerBaseModule {
 
   private static PrintStream asUtf8PrintStream(OutputStream stream) {
     try {
-      return new PrintStream(stream, false /* autoFlush */, StandardCharsets.UTF_8.toString());
+      return new PrintStream(stream, /* autoFlush= */ false, StandardCharsets.UTF_8.toString());
     } catch (UnsupportedEncodingException e) {
       throw new IllegalStateException("UTF-8 must be supported as per the java language spec", e);
     }
