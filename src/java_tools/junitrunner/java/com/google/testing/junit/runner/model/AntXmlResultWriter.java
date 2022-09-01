@@ -91,13 +91,13 @@ public final class AntXmlResultWriter implements XmlResultWriter {
     writeTestCases(writer, result, parentFailures);
     writeTestSuiteOutput(writer);
 
-    writer.endElement();
-
     for (TestResult child : result.getChildResults()) {
       if (!child.getChildResults().isEmpty()) {
         writeTestSuite(writer, child, parentFailures);
       }
     }
+
+    writer.endElement();
   }
 
   private void writeTestSuiteProperties(XmlWriter writer, TestResult result) throws IOException {
