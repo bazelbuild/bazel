@@ -1431,8 +1431,9 @@ public class BzlLoadFunction implements SkyFunction {
       return new BzlLoadFailedException(
           String.format(
               "Every .bzl file must have a corresponding package, but '%s' does not have one."
-                  + " Please create a BUILD file in the same or any parent directory. Note that"
-                  + " this BUILD file does not need to do anything except exist.",
+                  + " Please create a BUILD or BUILD.bazel file in the same or any parent"
+                  + " directory. Note that this BUILD file does not need to do anything except"
+                  + " exist.",
               file),
           Code.PACKAGE_NOT_FOUND);
     }
