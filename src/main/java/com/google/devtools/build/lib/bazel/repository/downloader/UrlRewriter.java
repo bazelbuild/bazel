@@ -71,18 +71,12 @@ public class UrlRewriter {
 
   private final UrlRewriterConfig config;
   private final Function<URL, List<RewrittenURL>> rewriter;
-  @Nullable private final Credentials netrcCreds;
 
   @VisibleForTesting
-  UrlRewriter(
-      Consumer<String> log,
-      String filePathForErrorReporting,
-      Reader reader,
-      @Nullable Credentials netrcCreds)
+  UrlRewriter(Consumer<String> log, String filePathForErrorReporting, Reader reader)
       throws UrlRewriterParseException {
     Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
     this.config = new UrlRewriterConfig(filePathForErrorReporting, reader);
-    this.netrcCreds = netrcCreds;
 
     this.rewriter = this::rewrite;
   }
@@ -92,30 +86,18 @@ public class UrlRewriter {
    *
    * @param configPath Path to the config file to use. May be null.
    * @param reporter Used for logging when URLs are rewritten.
-   * @param clientEnv a map of the current Bazel command's environment
-   * @param fileSystem the Blaze file system
    */
-  public static UrlRewriter getDownloaderUrlRewriter(
-      String configPath,
-      Reporter reporter,
-      ImmutableMap<String, String> clientEnv,
-      FileSystem fileSystem)
+  public static UrlRewriter getDownloaderUrlRewriter(String configPath, Reporter reporter)
       throws UrlRewriterParseException {
     Consumer<String> log = str -> reporter.handle(Event.info(str));
 
     // "empty" UrlRewriter shouldn't alter auth headers
     if (Strings.isNullOrEmpty(configPath)) {
-      return new UrlRewriter(log, "", new StringReader(""), null);
+      return new UrlRewriter(log, "", new StringReader(""));
     }
 
-    Credentials creds = null;
-    try {
-      creds = newCredentialsFromNetrc(clientEnv, fileSystem);
-    } catch (UrlRewriterParseException e) {
-      // If the credentials extraction failed, we're letting bazel try without credentials.
-    }
     try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
-      return new UrlRewriter(log, configPath, reader, creds);
+      return new UrlRewriter(log, configPath, reader);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
@@ -123,8 +105,8 @@ public class UrlRewriter {
 
   /**
    * Rewrites {@code urls} using the configuration provided to {@link
-   * #getDownloaderUrlRewriter(String, Reporter, ImmutableMap, FileSystem)}. The returned list of
-   * URLs may be empty if the configuration used blocks all the input URLs.
+   * #getDownloaderUrlRewriter(String, Reporter)}. The returned list of URLs may be empty if the
+   * configuration used blocks all the input URLs.
    *
    * @param urls The input list of {@link URL}s. May be empty.
    * @return The amended lists of URLs.
@@ -145,7 +127,7 @@ public class UrlRewriter {
    * @return A map of the updated authentication headers.
    */
   public Map<URI, Map<String, String>> updateAuthHeaders(
-      List<RewrittenURL> urls, Map<URI, Map<String, String>> authHeaders) {
+      List<RewrittenURL> urls, Map<URI, Map<String, String>> authHeaders, Credentials netrcCreds) {
     Map<URI, Map<String, String>> updatedAuthHeaders = new HashMap<>(authHeaders);
 
     for (RewrittenURL url : urls) {
@@ -164,10 +146,10 @@ public class UrlRewriter {
         } catch (URISyntaxException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.
         }
-      } else if (this.netrcCreds != null) {
+      } else if (netrcCreds != null) {
         try {
           Map<String, List<String>> urlAuthHeaders =
-              this.netrcCreds.getRequestMetadata(url.url().toURI());
+              netrcCreds.getRequestMetadata(url.url().toURI());
           if (urlAuthHeaders == null || urlAuthHeaders.isEmpty()) {
             continue;
           }
@@ -299,9 +281,8 @@ public class UrlRewriter {
    */
   // TODO : consider re-using RemoteModule.newCredentialsFromNetrc
   @Nullable
-  @VisibleForTesting
-  static Credentials newCredentialsFromNetrc(Map<String, String> clientEnv, FileSystem fileSystem)
-      throws UrlRewriterParseException {
+  public static Credentials newCredentialsFromNetrc(
+      Map<String, String> clientEnv, FileSystem fileSystem) throws UrlRewriterParseException {
     final Optional<String> homeDir;
     if (OS.getCurrent() == OS.WINDOWS) {
       homeDir = Optional.ofNullable(clientEnv.get("USERPROFILE"));

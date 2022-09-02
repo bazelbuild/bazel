@@ -204,7 +204,7 @@ public class BazelRepositoryModule extends BlazeModule {
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     RegistryFactory registryFactory =
-        new RegistryFactoryImpl(new HttpDownloader(), clientEnvironmentSupplier);
+        new RegistryFactoryImpl(downloadManager, clientEnvironmentSupplier);
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
 
@@ -319,20 +319,23 @@ public class BazelRepositoryModule extends BlazeModule {
           env.getReporter()
               .handle(
                   Event.warn(
-                      "Failed to set up cache at "
-                          + repositoryCachePath.toString()
-                          + ": "
-                          + e.getMessage()));
+                      "Failed to set up cache at " + repositoryCachePath + ": " + e.getMessage()));
         }
       }
 
       try {
+        downloadManager.setNetrcCreds(
+            UrlRewriter.newCredentialsFromNetrc(
+                env.getClientEnv(), env.getRuntime().getFileSystem()));
+      } catch (UrlRewriterParseException e) {
+        // If the credentials extraction failed, we're letting bazel try without credentials.
+        env.getReporter()
+            .handle(
+                Event.warn(String.format("Error parsing the .netrc file: %s.", e.getMessage())));
+      }
+      try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(
-                repoOptions == null ? null : repoOptions.downloaderConfig,
-                env.getReporter(),
-                env.getClientEnv(),
-                env.getRuntime().getFileSystem());
+            UrlRewriter.getDownloaderUrlRewriter(repoOptions.downloaderConfig, env.getReporter());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -354,7 +357,7 @@ public class BazelRepositoryModule extends BlazeModule {
                             : env.getBlazeWorkspace().getWorkspace().getRelative(path))
                 .collect(Collectors.toList()));
       } else {
-        downloadManager.setDistdir(ImmutableList.<Path>of());
+        downloadManager.setDistdir(ImmutableList.of());
       }
 
       if (repoOptions.httpTimeoutScaling > 0) {
@@ -475,6 +478,6 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableList.<Class<? extends OptionsBase>>of(RepositoryOptions.class);
+    return ImmutableList.of(RepositoryOptions.class);
   }
 }

@@ -363,9 +363,13 @@ def use_netrc(netrc, urls, patterns):
             # authentication. So ignore them.
             continue
         host = schemerest[1].split("/")[0].split(":")[0]
-        if not host in netrc:
+        if host in netrc:
+            authforhost = netrc[host]
+        elif "" in netrc:
+            authforhost = netrc[""]
+        else:
             continue
-        authforhost = netrc[host]
+
         if host in patterns:
             auth_dict = {
                 "type": "pattern",

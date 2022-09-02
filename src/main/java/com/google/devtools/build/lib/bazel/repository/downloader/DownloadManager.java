@@ -17,14 +17,17 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.auth.Credentials;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
+import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -34,9 +37,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -55,6 +60,7 @@ public class DownloadManager {
   private boolean disableDownload = false;
   private int retries = 0;
   private boolean urlsAsDefaultCanonicalId;
+  @Nullable private Credentials netrcCreds;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -82,6 +88,10 @@ public class DownloadManager {
     this.urlsAsDefaultCanonicalId = urlsAsDefaultCanonicalId;
   }
 
+  public void setNetrcCreds(Credentials netrcCreds) {
+    this.netrcCreds = netrcCreds;
+  }
+
   /**
    * Downloads file to disk and returns path.
    *
@@ -89,7 +99,7 @@ public class DownloadManager {
    * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
    * the cache prior to returning the value.
    *
-   * @param urls list of mirror URLs with identical content
+   * @param originalUrls list of mirror URLs with identical content
    * @param checksum valid checksum which is checked, or absent to disable
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
    * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
@@ -115,11 +125,15 @@ public class DownloadManager {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
-
     if (Strings.isNullOrEmpty(canonicalId) && urlsAsDefaultCanonicalId) {
       canonicalId = originalUrls.stream().map(URL::toExternalForm).collect(Collectors.joining(" "));
     }
 
+    // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a
+    //  .netrc only if it comes from a http_{archive,file,jar} - and it is handled directly
+    //  by Starlark code -, or if a UrlRewriter is present. However, if it comes directly from a
+    //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
+    //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
     ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
     Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
 
@@ -127,7 +141,8 @@ public class DownloadManager {
       ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
       rewrittenUrls =
           rewrittenUrlMappings.stream().map(url -> url.url()).collect(toImmutableList());
-      rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders);
+      rewrittenAuthHeaders =
+          rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
     URL mainUrl; // The "main" URL for this request
@@ -271,6 +286,73 @@ public class DownloadManager {
     }
 
     return destination;
+  }
+
+  /**
+   * Downloads the contents of one URL and reads it into a byte array.
+   *
+   * <p>If the checksum and path to the repository cache is specified, attempt to load the file from
+   * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
+   * the cache prior to returning the value.
+   *
+   * @param originalUrl the original URL of the file
+   * @param eventHandler CLI progress reporter
+   * @param clientEnv environment variables in shell issuing this command
+   * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
+   * @throws IOException if download was attempted and ended up failing
+   * @throws InterruptedException if this thread is being cast into oblivion
+   */
+  public byte[] downloadAndReadOneUrl(
+      URL originalUrl, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
+      throws IOException, InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
+    Map<URI, Map<String, String>> authHeaders = ImmutableMap.of();
+    ImmutableList<URL> rewrittenUrls = ImmutableList.of(originalUrl);
+
+    if (netrcCreds != null) {
+      try {
+        Map<String, List<String>> metadata = netrcCreds.getRequestMetadata(originalUrl.toURI());
+        if (!metadata.isEmpty()) {
+          Entry<String, List<String>> headers = metadata.entrySet().iterator().next();
+          authHeaders =
+              ImmutableMap.of(
+                  originalUrl.toURI(),
+                  ImmutableMap.of(headers.getKey(), headers.getValue().get(0)));
+        }
+      } catch (URISyntaxException e) {
+        // If the credentials extraction failed, we're letting bazel try without credentials.
+      }
+    }
+
+    if (rewriter != null) {
+      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings =
+          rewriter.amend(ImmutableList.of(originalUrl));
+      rewrittenUrls =
+          rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
+      authHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
+    }
+
+    if (rewrittenUrls.isEmpty()) {
+      throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUrl)));
+    }
+
+    HttpDownloader httpDownloader = new HttpDownloader();
+    for (int attempt = 0; attempt <= retries; ++attempt) {
+      try {
+        return httpDownloader.downloadAndReadOneUrl(
+            rewrittenUrls.get(0), authHeaders, eventHandler, clientEnv);
+      } catch (ContentLengthMismatchException e) {
+        if (attempt == retries) {
+          throw e;
+        }
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException(e.getMessage());
+      }
+    }
+
+    throw new IllegalStateException("Unexpected error: file should have been downloaded.");
   }
 
   @Nullable

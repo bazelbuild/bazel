@@ -20,7 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.gson.FieldNamingPolicy;
@@ -42,13 +42,13 @@ import java.util.Optional;
 // TODO(wyv): Insert "For details, see ..." when we have public documentation.
 public class IndexRegistry implements Registry {
   private final URI uri;
-  private final HttpDownloader httpDownloader;
+  private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
 
-  public IndexRegistry(URI uri, HttpDownloader httpDownloader, Map<String, String> clientEnv) {
+  public IndexRegistry(URI uri, DownloadManager downloadManager, Map<String, String> clientEnv) {
     this.uri = uri;
-    this.httpDownloader = httpDownloader;
+    this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
         new GsonBuilder()
@@ -77,7 +77,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     try {
       return Optional.of(
-          httpDownloader.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
+          downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
     } catch (FileNotFoundException e) {
       return Optional.empty();
     }
@@ -117,7 +117,7 @@ public class IndexRegistry implements Registry {
       return Optional.empty();
     }
     String jsonString = new String(bytes.get(), UTF_8);
-    if (jsonString.strip().isEmpty()) {
+    if (jsonString.isBlank()) {
       return Optional.empty();
     }
     try {
