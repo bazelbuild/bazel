@@ -2402,7 +2402,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro(name):",
-        "  analysis_test(name = name, implementation = impl)");
+        "  testing.analysis_test(name = name, implementation = impl)");
     scratch.file(
         "p/BUILD", //
         "load(':b.bzl','my_test_macro')",
@@ -2425,7 +2425,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  )]",
         "def my_test_macro(name):",
         "  native.filegroup(name = 'my_subject', srcs = [])",
-        "  analysis_test(name = name,",
+        "  testing.analysis_test(name = name,",
         "    implementation = impl,",
         "    attrs = {'target_under_test': attr.label_list()},",
         "    attr_values = {'target_under_test': [':my_subject']},",
@@ -2451,7 +2451,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro1(name):",
-        "  analysis_test(name = name, implementation = impl)");
+        "  testing.analysis_test(name = name, implementation = impl)");
     scratch.file(
         "p/b.bzl",
         "def impl(ctx): ",
@@ -2460,7 +2460,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro2(name):",
-        "  analysis_test(name = name, implementation = impl)");
+        "  testing.analysis_test(name = name, implementation = impl)");
     scratch.file(
         "p/BUILD", //
         "load(':a.bzl','my_test_macro1')",
@@ -2491,7 +2491,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro(name):",
-        "  analysis_test(name = name, implementation = impl)");
+        "  testing.analysis_test(name = name, implementation = impl)");
     scratch.file(
         "p/BUILD", //
         "load(':b.bzl','my_test_macro')",
@@ -2515,7 +2515,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro(name):",
-        "  analysis_test(name = name, implementation = impl, attr_values = {'notthere': []})");
+        "  testing.analysis_test(",
+        "    name = name, implementation = impl, attr_values = {'notthere':[]})");
     scratch.file(
         "p/BUILD", //
         "load(':b.bzl','my_test_macro')",
@@ -2538,7 +2539,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro(name):",
-        "  analysis_test(name = name, implementation = impl, attrs = {'name': attr.string()})");
+        "  testing.analysis_test(name = name, implementation = impl, attrs = {'name':"
+            + " attr.string()})");
     scratch.file(
         "p/BUILD", //
         "load(':b.bzl','my_test_macro')",
@@ -2564,7 +2566,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "    message = ''",
         "  )]",
         "def my_test_macro(name):",
-        "  analysis_test(name = name, implementation = impl, attr_values = {'name': 'override'})");
+        "  testing.analysis_test(name = name, implementation = impl, attr_values = {'name':"
+            + " 'override'})");
     scratch.file(
         "p/BUILD", //
         "load(':b.bzl','my_test_macro')",
