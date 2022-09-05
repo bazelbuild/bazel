@@ -38,8 +38,20 @@ def _get_coverage_runner(ctx):
 def _add_constraints(java_info, constraints):
     return java_info
 
+def _find_java_toolchain(ctx):
+    return ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"].java
+
+def _find_java_runtime_toolchain(ctx):
+    return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
+    JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
+    JAVA_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:toolchain_type", mandatory = True),
+    find_java_toolchain = _find_java_toolchain,
+    JAVA_RUNTIME_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+    JAVA_RUNTIME_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:runtime_toolchain_type", mandatory = True),
+    find_java_runtime_toolchain = _find_java_runtime_toolchain,
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
     PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
     EXTRA_SRCS_TYPES = [],
