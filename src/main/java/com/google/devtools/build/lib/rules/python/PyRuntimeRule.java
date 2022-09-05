@@ -59,8 +59,15 @@ public final class PyRuntimeRule implements RuleDefinition {
         This is a target to use for collecting code coverage information from <code>py_binary</code>
         and <code>py_test</code> targets.
 
-        <p>If set, the path to this target determines the entry point for the python coverage tool,
-        and the target and its runfiles will be added to the runfiles when coverage is enabled.</p>
+        <p>If set, the target must either produce a single file or be and executable target.
+        The path to the single file, or the executable if the target is executable,
+        determines the entry point for the python coverage tool.  The target and its
+        runfiles will be added to the runfiles when coverage is enabled.</p>
+
+        <p>The entry point for the tool must be loadable by a python interpreter (e.g. a
+        <code>.py</code> or <code>.pyc</code> file).  It must accept the command line arguments
+        of <a href="https://coverage.readthedocs.io/">coverage.py</a>, at least including
+        the <code>run</code> and <code>lcov</code> subcommands.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("coverage_tool", LABEL).allowedFileTypes(FileTypeSet.NO_FILE))
 
