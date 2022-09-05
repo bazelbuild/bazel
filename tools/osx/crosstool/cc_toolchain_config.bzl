@@ -34,6 +34,9 @@ load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 # The Xcode version from which that has support for deterministic mode
 _SUPPORTS_DETERMINISTIC_MODE = "10.2"
 
+# The Xcode version from which that has -oso_prefix linker option
+_SUPPORTS_OSO_PREFIX = "11"
+
 def _compare_versions(dv1, v2):
     """Return value is <0, 0, >0 depending on DottedVersion dv1 comparison to string v2."""
     return dv1.compare_to(apple_common.dotted_version(v2))
@@ -53,6 +56,23 @@ def _deterministic_libtool_flags(ctx):
     are available."""
     if _can_use_deterministic_libtool(ctx):
         return ["-D"]
+    return []
+
+def _can_use_oso_prefix(ctx):
+    """Returns `True` if the current version of `ld` has -oso_prefix flag, and
+    `False` otherwise."""
+    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    xcode_version = xcode_config.xcode_version()
+    if _compare_versions(xcode_version, _SUPPORTS_OSO_PREFIX) >= 0:
+        return True
+    else:
+        return False
+
+def _deterministic_ld_flags(ctx):
+    """Returns additional `ld` flags to relativize embedded paths, if they are
+    available."""
+    if _can_use_oso_prefix(ctx):
+        return ["OSO_PREFIX_MAP_PWD"]
     return []
 
 def _target_os_version(ctx):
@@ -2175,11 +2195,12 @@ def _impl(ctx):
 
     oso_prefix_feature = feature(
         name = "oso_prefix_is_pwd",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = all_link_actions +
                           ["objc-executable", "objc++-executable"],
-                flag_groups = [flag_group(flags = ["OSO_PREFIX_MAP_PWD"])],
+                flag_groups = [flag_group(flags = _deterministic_ld_flags(ctx))],
             ),
         ],
     )
