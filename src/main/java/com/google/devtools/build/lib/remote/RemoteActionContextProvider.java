@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,6 +49,7 @@ final class RemoteActionContextProvider {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
+  private TempPathGenerator tempPathGenerator;
   private RemoteExecutionService remoteExecutionService;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
 
@@ -157,6 +159,7 @@ final class RemoteActionContextProvider {
               remoteCache,
               remoteExecutor,
               filesToDownload,
+              tempPathGenerator,
               captureCorruptedOutputsDir);
       env.getEventBus().register(remoteExecutionService);
     }
@@ -213,6 +216,10 @@ final class RemoteActionContextProvider {
 
   void setFilesToDownload(ImmutableSet<ActionInput> topLevelOutputs) {
     this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
+  }
+
+  void setTempPathGenerator(TempPathGenerator tempPathGenerator) {
+    this.tempPathGenerator = tempPathGenerator;
   }
 
   public void afterCommand() {
