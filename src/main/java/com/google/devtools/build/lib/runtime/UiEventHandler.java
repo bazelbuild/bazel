@@ -81,15 +81,10 @@ public final class UiEventHandler implements EventHandler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** Latest refresh of the progress bar, if contents other than time changed */
-  private static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
+  /** Minimal time between scheduled updates */
+  private static final long MINIMAL_UPDATE_INTERVAL_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
   private static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
-  /**
-   * Minimal rate limiting, as fraction of the request time so far, if the progress bar cannot be
-   * updated in place
-   */
-  private static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
   private static final long SHORT_REFRESH_MILLIS = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
@@ -101,7 +96,6 @@ public final class UiEventHandler implements EventHandler {
 
   private final boolean cursorControl;
   private final Clock clock;
-  private final long uiStartTimeMillis;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final UiStateTracker stateTracker;
@@ -175,7 +169,6 @@ public final class UiEventHandler implements EventHandler {
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
     this.showTimestamp = options.showTimestamp;
     this.clock = clock;
-    this.uiStartTimeMillis = clock.currentTimeMillis();
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     this.locationPrinter =
         new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
@@ -207,7 +200,7 @@ public final class UiEventHandler implements EventHandler {
               Math.round(options.showProgressRateLimit * 1000),
               NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT);
     }
-    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
+    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MINIMAL_UPDATE_INTERVAL_MILLIS);
     this.stdoutLineBuffer = new ByteArrayOutputStream();
     this.stderrLineBuffer = new ByteArrayOutputStream();
     this.dateShown = false;
@@ -861,17 +854,6 @@ public final class UiEventHandler implements EventHandler {
               clearProgressBar();
               addProgressBar();
               terminal.flush();
-              if (!cursorControl) {
-                // If we can't update the progress bar in place, make sure we increase the update
-                // interval as time progresses, to avoid too many progress messages in place.
-                minimalDelayMillis =
-                    Math.max(
-                        minimalDelayMillis,
-                        Math.round(
-                            NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT
-                                * (clock.currentTimeMillis() - uiStartTimeMillis)));
-                minimalUpdateInterval = Math.max(minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
-              }
             }
           }
         } catch (IOException e) {
