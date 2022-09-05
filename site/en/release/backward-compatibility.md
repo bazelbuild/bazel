@@ -56,8 +56,9 @@ The primary source of information about incompatible changes are GitHub issues
 marked with an ["incompatible-change" label](https://github.com/bazelbuild/bazel/issues?q=label%3Aincompatible-change){: .external}.
 
 For every incompatible change, the issue specifies the following:
+
 * Name of the flag controlling the incompatible change
 * Description of the changed functionality
 * Migration recipe
 
-When an incompatible change is ready for migration with Bazel at HEAD (therefore, also with the next Bazel rolling release), it should be marked with the `migration-ready` label. The incompatible change issue is closed when the incompatible flag is flipped at HEAD.
+When an incompatible change is ready for migration with Bazel at HEAD (therefore, also with the next Bazel rolling release), it should be marked with the `migration-ready` label. The incompatible change issue is closed when the incompatible flag is removed at HEAD.

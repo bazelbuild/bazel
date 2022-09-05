@@ -82,6 +82,8 @@ to the GitHub issue.
 If a problem is found with the flag and users are not expected to migrate yet:
 remove the flags `migration-ready`.
 
+If you plan to flip the flag in the next major release, add label `breaking-change-X.0" to the issue.
+
 ## Updating repositories {:#update-repos}
 
 Bazel CI tests a list of important projects at
@@ -118,6 +120,14 @@ When changing the flag default to true, please:
     `RELNOTES[INC]: --incompatible_name_of_flag is flipped to true. See #xyz for
     details`
     You can include additional information in the rest of the commit description.
-* Use `Fixes #xyz` in the description, so that the GitHub issue gets closed
+* Use `Work towards #xyz` in the description, so that the GitHub issue gets mentioned
     when the commit is merged.
 * Review and update documentation if needed.
+
+## Removing the flag {:#remove-flag}
+
+After the flag is flipped at HEAD, you can start removing the flag. The Github issue should be closed after the flag is removed from Bazel.
+
+* Consider leaving more time for users to migrate if it's a major incompatible change.
+* For the commit that removes the flag, use `Fixes #xyz` in the description
+  so that the GitHub issue gets closed when the commit is merged.
