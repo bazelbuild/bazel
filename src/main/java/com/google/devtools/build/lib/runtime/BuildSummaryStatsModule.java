@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -280,5 +281,17 @@ public class BuildSummaryStatsModule extends BlazeModule {
       termDuration = Duration.ofMillis(UNKNOWN_CPU_TIME);
     }
     return termDuration;
+  }
+
+  @VisibleForTesting
+  void setcpuTimeForBazelJvm(Duration time)
+  {
+    this.cpuTimeForBazelJvm = time;
+  }
+
+  @VisibleForTesting
+  void setstatsSummary(boolean summary)
+  {
+    this.statsSummary = summary;
   }
 }
