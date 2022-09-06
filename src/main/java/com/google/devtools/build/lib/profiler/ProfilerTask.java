@@ -86,6 +86,7 @@ public enum ProfilerTask {
   WORKER_BORROW("borrowing a worker"),
   WORKER_WORKING("waiting for response from worker"),
   WORKER_COPYING_OUTPUTS("copying outputs from worker"),
+  CREDENTIAL_HELPER("calling credential helper"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {
