@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.util.Properties;
 import java.util.Optional;
-import java.lang.reflect.Field;
 import java.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,7 +38,6 @@ import static org.mockito.Mockito.verify;
 public class BuildSummaryStatsModuleTest {
   private BuildSummaryStatsModule buildSummaryStatsModule;
   private Reporter reporterMock;
-  private Class tBSSM;
 
   @Before
   public void setUp() throws Exception {
@@ -54,11 +52,7 @@ public class BuildSummaryStatsModuleTest {
     when(env.getEventBus()).thenReturn(eventBusMock);
     buildSummaryStatsModule = new BuildSummaryStatsModule();
     buildSummaryStatsModule.beforeCommand(env);
-    /* With reflection mechanism, set some fake values to get CPU info. */
-    tBSSM = buildSummaryStatsModule.getClass();
-    Field field0 = tBSSM.getDeclaredField("statsSummary");
-    field0.setAccessible(true);
-    field0.setBoolean(buildSummaryStatsModule, true);
+    buildSummaryStatsModule.setstatsSummary(true);
   }
 
   private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
@@ -81,9 +75,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action2 = createActionEvent(Duration.ofSeconds(5), Duration.ofSeconds(2));
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.actionResultReceived(action2);
-    Field field1 = tBSSM.getDeclaredField("cpuTimeForBazelJvm");
-    field1.setAccessible(true);
-    field1.set(buildSummaryStatsModule, Duration.ofMillis(11000));
+    buildSummaryStatsModule.setcpuTimeForBazelJvm(Duration.ofMillis(11000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",88.00, 55.00, 22.00, 11.00)));
   }
@@ -113,9 +105,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50),
                                                           Duration.ofSeconds(20));
     buildSummaryStatsModule.actionResultReceived(action1);
-    Field field1 = tBSSM.getDeclaredField("cpuTimeForBazelJvm");
-    field1.setAccessible(true);
-    field1.set(buildSummaryStatsModule, Duration.ofMillis(10000));
+    buildSummaryStatsModule.setcpuTimeForBazelJvm(Duration.ofMillis(10000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",80.00, 50.00, 20.00, 10.00)));
     // One more build, and verify that previous values are not preserved.
