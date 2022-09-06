@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.actions.ExecutionRequirements.WORKER_KEY_MNEMONIC;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,8 +31,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
+
 import java.util.Collection;
 import java.util.List;
+
 import javax.annotation.Nullable;
 
 /** Builder for actions that invoke the Android BusyBox. */
@@ -369,6 +373,7 @@ public final class BusyBoxActionBuilder {
       commandLine.add("--logWarnings=false");
       spawnActionBuilder.addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);
       executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      executionInfo.putAll(ImmutableMap.of(WORKER_KEY_MNEMONIC, "AndroidResourceProcessor"));
 
       if (dataContext.isPersistentMultiplexBusyboxTools()) {
         executionInfo.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
