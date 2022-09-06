@@ -88,15 +88,19 @@ def FindPythonBinary(module_space):
   """Finds the real Python binary if it's not a normal absolute path."""
   return FindBinary(module_space, PYTHON_BINARY)
 
+def PrintVerboseCoverage(*args):
+  """Print output if VERBOSE_COVERAGE is non-empty in the environment."""
+  if os.environ.get("VERBOSE_COVERAGE"):
+    print(*args, file=sys.stderr)
+
 def FindCoverageEntryPoint(module_space):
   cov_tool = '%coverage_tool%'
   if cov_tool:
-    if os.environ.get("VERBOSE_COVERAGE"):
-      print('Using toolchain coverage_tool %r' % cov_tool)
+    PrintVerboseCoverage('Using toolchain coverage_tool %r' % cov_tool)
   else:
-   cov_tool = os.environ.get('PYTHON_COVERAGE')
-   if cov_tool and os.environ.get("VERBOSE_COVERAGE"):
-     print('PYTHON_COVERAGE: %r' % cov_tool)
+    cov_tool = os.environ.get('PYTHON_COVERAGE')
+    if cov_tool:
+      PrintVerboseCoverage('PYTHON_COVERAGE: %r' % cov_tool)
   if cov_tool:
     return FindBinary(module_space, cov_tool)
   return None
@@ -251,7 +255,7 @@ def InstrumentedFilePaths():
           file=sys.stderr)
         continue
       if realpath != filename:
-        print("Fixing up {} -> {}".format(realpath, filename), file=sys.stderr)
+        PrintVerboseCoverage("Fixing up {} -> {}".format(realpath, filename))
         yield (realpath, filename)
 
 def UnresolveSymlinks(output_filename):
@@ -283,15 +287,15 @@ def UnresolveSymlinks(output_filename):
 def ExecuteFile(python_program, main_filename, args, env, module_space,
                 coverage_entrypoint, workspace):
   # type: (str, str, list[str], dict[str, str], str, str|None, str|None) -> ...
-  """Executes the given python file using the various environment settings.
+  """Executes the given Python file using the various environment settings.
 
   This will not return, and acts much like os.execv, except is much
-  more restricted, and handles bazel-related edge cases.
+  more restricted, and handles Bazel-related edge cases.
 
   Args:
-    python_program: (str) Path to the python binary to use for execution
-    main_filename: (str) The python file to execute
-    args: (list[str]) Additional args to pass to the python file
+    python_program: (str) Path to the Python binary to use for execution
+    main_filename: (str) The Python file to execute
+    args: (list[str]) Additional args to pass to the Python file
     env: (dict[str, str]) A dict of environment variables to set for the execution
     module_space: (str) Path to the module space/runfiles tree directory
     coverage_entrypoint: (str|None) Path to the coverage tool entry point file.
@@ -301,7 +305,7 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
   """
   # We want to use os.execv instead of subprocess.call, which causes
   # problems with signal passing (making it difficult to kill
-  # bazel). However, these conditions force us to run via
+  # Bazel). However, these conditions force us to run via
   # subprocess.call instead:
   #
   # - On Windows, os.execv doesn't handle arguments with spaces
@@ -335,19 +339,19 @@ def ExecuteFile(python_program, main_filename, args, env, module_space,
 
 def _RunExecv(python_program, main_filename, args, env):
   # type: (str, str, list[str], dict[str, str]) -> ...
-  """Executes the given python file using the various environment settings."""
+  """Executes the given Python file using the various environment settings."""
   os.environ.update(env)
   os.execv(python_program, [python_program, main_filename] + args)
 
 def _RunForCoverage(python_program, main_filename, args, env,
                     coverage_entrypoint, workspace):
   # type: (str, str, list[str], dict[str, str], str, str|None) -> int
-  """Collects coverage infomration for the given python file.
+  """Collects coverage infomration for the given Python file.
 
   Args:
-    python_program: (str) Path to the python binary to use for execution
-    main_filename: (str) The python file to execute
-    args: (list[str]) Additional args to pass to the python file
+    python_program: (str) Path to the Python binary to use for execution
+    main_filename: (str) The Python file to execute
+    args: (list[str]) Additional args to pass to the Python file
     env: (dict[str, str]) A dict of environment variables to set for the execution
     coverage_entrypoint: (str|None) Path to the coverage entry point to execute with.
     workspace: (str|None) Name of the workspace to execute in. This is expected to be a
@@ -361,10 +365,8 @@ def _RunForCoverage(python_program, main_filename, args, env,
     rcfile.write('''[run]
 relative_files = True
 ''')
-  verbose_coverage = os.environ.get("VERBOSE_COVERAGE")
-  if verbose_coverage:
-    print('Coverage entrypoint:', coverage_entrypoint, file=sys.stderr)
-  # First run the target python file via coveragepy to create a .coverage
+  PrintVerboseCoverage('Coverage entrypoint:', coverage_entrypoint)
+  # First run the target Python file via coveragepy to create a .coverage
   # database file, from which we can later export lcov.
   ret_code = subprocess.call(
     [
@@ -381,8 +383,7 @@ relative_files = True
   )
   output_filename = os.path.join(os.environ['COVERAGE_DIR'], 'pylcov.dat')
 
-  if verbose_coverage:
-    print('Converting coveragepy database to lcov:', output_filename, file=sys.stderr)
+  PrintVerboseCoverage('Converting coveragepy database to lcov:', output_filename)
   # Run coveragepy again to convert its .coverage database file into lcov.
   ret_code = subprocess.call(
     [
@@ -398,11 +399,11 @@ relative_files = True
   ) or ret_code
   try:
     os.unlink(rcfile_name)
-  except OSError:
-    # It's possible that the profiled program might execute another python
+  except OSError as err:
+    # It's possible that the profiled program might execute another Python
     # binary through a wrapper that would then delete the rcfile.  Not much
     # we can do about that, besides ignore the failure here.
-    pass
+    PrintVerboseCoverage('Error removing temporary coverage rc file:', err)
   if os.path.isfile(output_filename):
     UnresolveSymlinks(output_filename)
   return ret_code
@@ -469,9 +470,7 @@ def Main():
   if os.environ.get('COVERAGE_DIR'):
     cov_tool = FindCoverageEntryPoint(module_space)
     if cov_tool is None:
-      if os.environ.get("VERBOSE_COVERAGE"):
-        print('Coverage was enabled, but python coverage tool was not configured.',
-              file=sys.stderr)
+      PrintVerboseCoverage('Coverage was enabled, but python coverage tool was not configured.')
     else:
       # Inhibit infinite recursion:
       if 'PYTHON_COVERAGE' in os.environ:

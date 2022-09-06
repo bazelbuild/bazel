@@ -92,6 +92,8 @@ public class BazelPythonSemantics implements PythonSemantics {
   public void collectRunfilesForBinary(
       RuleContext ruleContext, Runfiles.Builder builder, PyCommon common, CcInfo ccInfo) {
     addRuntime(ruleContext, common, builder);
+    // select() and build configuration should ideally remove coverage as
+    // as dependency, but guard against including it at runtime just in case.
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       addCoverageSupport(ruleContext, common, builder);
     }

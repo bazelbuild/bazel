@@ -189,11 +189,11 @@ py_test(
 )
 ```
 
-If you are using a hermetic python toolchain, instead of adding an attribute to
-every `py_test` rule you can instead add the coverage tool to the toolchain
-configuration.
+If you are using a hermetic Python toolchain, instead of adding the coverage
+dependency to every `py_test` target you can instead add the coverage tool to
+the toolchain configuration.
 
-Because the [pip_install][pip_install_rule] rule depends on the python
+Because the [pip_install][pip_install_rule] rule depends on the Python
 toolchain, it cannot be used to fetch the `coverage` module.
 Instead, add in your `WORKSPACE` e.g.
 
