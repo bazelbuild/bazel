@@ -178,9 +178,10 @@ public class BzlCompileFunction implements SkyFunction {
     } catch (SyntaxError.Exception ex) {
       Event.replayEventsOn(env.getListener(), ex.errors());
       return BzlCompileValue.noFile(
-          "compilation of module '%s'%s failed",
+          "compilation of module '%s'%s failed: %s",
           key.label.toPathFragment(),
-          StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+          StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "",
+          ex.getMessage());
     }
   }
 
