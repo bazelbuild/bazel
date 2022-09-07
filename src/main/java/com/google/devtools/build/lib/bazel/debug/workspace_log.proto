@@ -145,8 +145,9 @@ message WorkspaceEvent {
   // Location in the code (.bzl file) where the event originates.
   string location = 1;
 
-  // Label of the rule whose evaluation caused this event.
-  string rule = 2;
+  // The context in which this event happened. Can be "repository @foo", or
+  // "module extension foo in @bar//:quux.bzl".
+  string context = 2;
 
   oneof event {
     ExecuteEvent execute_event = 3;

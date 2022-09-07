@@ -2147,7 +2147,7 @@ EOF
 
   bazel build --experimental_repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
-  expect_log "Failed to download repo ext: download is disabled"
+  expect_log "Failed to download repository @ext: download is disabled"
 }
 
 function test_disable_download_should_allow_distdir() {
