@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
@@ -1071,7 +1070,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .build(),
         supportsConstraintChecking,
-        ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
         /*toolchainTypes=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ ToolchainResolutionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),

@@ -164,6 +164,7 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
         "add_exports": attr.string_list(),
         "add_opens": attr.string_list(),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
     },
 )
 
@@ -177,4 +178,5 @@ java_library = rule(
     },
     fragments = ["java", "cpp"],
     compile_one_filetype = [".java"],
+    toolchains = [semantics.JAVA_TOOLCHAIN],
 )

@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -771,33 +770,6 @@ public class RuleClass {
 
     private boolean supportsConstraintChecking = true;
 
-    /**
-     * The policy on whether Bazel should enforce that third_party rules declare <code>licenses().
-     * </code>. This is only intended for the migration of <a
-     * href="https://github.com/bazelbuild/bazel/issues/7444">GitHub #7444</a>. Our final end state
-     * is to have no license-related logic whatsoever. But that's going to take some time.
-     */
-    public enum ThirdPartyLicenseExistencePolicy {
-      /**
-       * Always do this check, overriding whatever {@link
-       * BuildLanguageOptions#incompatibleDisableThirdPartyLicenseChecking} says.
-       */
-      ALWAYS_CHECK,
-
-      /**
-       * Never do this check, overriding whatever {@link
-       * BuildLanguageOptions#incompatibleDisableThirdPartyLicenseChecking} says.
-       */
-      NEVER_CHECK,
-
-      /**
-       * Do whatever {@link BuildLanguageOptions#incompatibleDisableThirdPartyLicenseChecking} says.
-       */
-      USER_CONTROLLABLE
-    }
-
-    private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
-
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ToolchainResolutionMode useToolchainResolution = ToolchainResolutionMode.INHERIT;
@@ -960,7 +932,6 @@ public class RuleClass {
           ruleDefinitionEnvironmentDigest,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
-          thirdPartyLicenseExistencePolicy,
           toolchainTypes,
           useToolchainResolution,
           executionPlatformConstraints,
@@ -1204,12 +1175,6 @@ public class RuleClass {
     @CanIgnoreReturnValue
     public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
       this.configuredTargetFactory = factory;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setThirdPartyLicenseExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
-      this.thirdPartyLicenseExistencePolicy = policy;
       return this;
     }
 
@@ -1759,8 +1724,6 @@ public class RuleClass {
    */
   private final boolean supportsConstraintChecking;
 
-  private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
-
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final ToolchainResolutionMode useToolchainResolution;
   private final ImmutableSet<Label> executionPlatformConstraints;
@@ -1816,7 +1779,6 @@ public class RuleClass {
       @Nullable byte[] ruleDefinitionEnvironmentDigest,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
-      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<ToolchainTypeRequirement> toolchainTypes,
       ToolchainResolutionMode useToolchainResolution,
       Set<Label> executionPlatformConstraints,
@@ -1856,7 +1818,6 @@ public class RuleClass {
     this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
-    this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
     this.useToolchainResolution = useToolchainResolution;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);

@@ -43,14 +43,11 @@ class TarFileWriter(object):
 
     Args:
       name: the tar file name.
-      compression: compression type: bzip2, bz2, gz, tgz.
+      compression: compression type: gz, tgz.
       root_directory: virtual root to prepend to elements in the archive.
       preserve_tar_mtimes: if true, keep file mtimes from input tar file.
     """
-    if compression in ['bzip2', 'bz2']:
-      mode = 'w:bz2'
-    else:
-      mode = 'w:'
+    mode = 'w:'
     self.gz = compression in ['tgz', 'gz']
     self.name = name
     self.root_directory = root_directory.rstrip('/')

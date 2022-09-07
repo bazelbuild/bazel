@@ -46,7 +46,7 @@ public class UrlRewriterTest {
 
   @Test
   public void byDefaultTheUrlRewriterDoesNothing() throws Exception {
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(""), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(""));
 
     List<URL> urls = ImmutableList.of(new URL("http://example.com"));
     ImmutableList<URL> amended =
@@ -58,7 +58,7 @@ public class UrlRewriterTest {
   @Test
   public void shouldBeAbleToBlockParticularHostsRegardlessOfScheme() throws Exception {
     String config = "block example.com";
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> urls =
         ImmutableList.of(
@@ -74,7 +74,7 @@ public class UrlRewriterTest {
   @Test
   public void shouldAllowAUrlToBeRewritten() throws Exception {
     String config = "rewrite example.com/foo/(.*) mycorp.com/$1/foo";
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
     ImmutableList<URL> amended =
@@ -88,7 +88,7 @@ public class UrlRewriterTest {
     String config =
         "rewrite example.com/foo/(.*) mycorp.com/$1/somewhere\n"
             + "rewrite example.com/foo/(.*) mycorp.com/$1/elsewhere";
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> urls = ImmutableList.of(new URL("https://example.com/foo/bar"));
     ImmutableList<URL> amended =
@@ -103,7 +103,7 @@ public class UrlRewriterTest {
   public void shouldBlockAllUrlsOtherThanSpecificOnes() throws Exception {
     String config = "" + "block *\n" + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> urls =
         ImmutableList.of(
@@ -127,7 +127,7 @@ public class UrlRewriterTest {
             + "# But allow example.com\n"
             + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> urls = ImmutableList.of(new URL("https://foo.com"), new URL("https://example.com"));
     ImmutableList<URL> amended =
@@ -140,7 +140,7 @@ public class UrlRewriterTest {
   public void allowListAppliesToSubdomainsToo() throws Exception {
     String config = "" + "block *\n" + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     ImmutableList<URL> amended =
         munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
@@ -154,7 +154,7 @@ public class UrlRewriterTest {
   public void blockListAppliesToSubdomainsToo() throws Exception {
     String config = "block example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     ImmutableList<URL> amended =
         munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
@@ -168,7 +168,7 @@ public class UrlRewriterTest {
   public void emptyLinesAreFine() throws Exception {
     String config = "" + "\n" + "   \n" + "block *\n" + "\t  \n" + "allow example.com";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     ImmutableList<URL> amended =
         munger.amend(ImmutableList.of(new URL("https://subdomain.example.com"))).stream()
@@ -182,7 +182,7 @@ public class UrlRewriterTest {
   public void rewritingUrlsIsAppliedBeforeBlocking() throws Exception {
     String config = "" + "block bad.com\n" + "rewrite bad.com/foo/(.*) mycorp.com/$1";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> amended =
         munger
@@ -201,7 +201,7 @@ public class UrlRewriterTest {
     String config =
         "" + "block *\n" + "allow mycorp.com\n" + "rewrite bad.com/foo/(.*) mycorp.com/$1";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> amended =
         munger
@@ -263,7 +263,7 @@ public class UrlRewriterTest {
             + "rewrite bad.com/foo/(.*) http://mycorp.com/$1\n"
             + "rewrite bad.com/bar/(.*) https://othercorp.com/bar/$1\n";
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), null);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     List<URL> amended =
         munger
@@ -307,7 +307,7 @@ public class UrlRewriterTest {
     // but no auth
     // headers added
 
-    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config), netrc);
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
 
     ImmutableList<UrlRewriter.RewrittenURL> amended =
         munger.amend(
@@ -318,7 +318,7 @@ public class UrlRewriterTest {
                 new URL("https://my.example.com/no_creds/bar"),
                 new URL("https://should-not-be-overridden.com/")));
     Map<URI, Map<String, String>> updatedAuthHeaders =
-        munger.updateAuthHeaders(amended, ImmutableMap.of());
+        munger.updateAuthHeaders(amended, ImmutableMap.of(), netrc);
 
     String expectedToken =
         "Basic " + Base64.getEncoder().encodeToString(creds.getBytes(ISO_8859_1));

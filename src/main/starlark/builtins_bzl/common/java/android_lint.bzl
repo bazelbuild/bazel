@@ -52,7 +52,7 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
     if not (source_files or source_jars):
         return None
 
-    toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
+    toolchain = semantics.find_java_toolchain(ctx)
     java_runtime = toolchain.java_runtime
     linter = toolchain.android_linter()
     if not linter:
@@ -129,10 +129,3 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
         execution_requirements = {"supports-workers": "1"},
     )
     return android_lint_out
-
-ANDROID_LINT_IMPLICIT_ATTRS = {
-    "_java_toolchain": attr.label(
-        default = semantics.JAVA_TOOLCHAIN_LABEL,
-        providers = [java_common.JavaToolchainInfo],
-    ),
-}

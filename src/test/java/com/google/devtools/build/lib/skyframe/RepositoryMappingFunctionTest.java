@@ -145,7 +145,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRepoNameMapping_asMainModule() throws Exception {
+  public void testRepoNameMapping_asRootModule() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='0.1')",
@@ -165,6 +165,35 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "",
                     RepositoryName.MAIN,
                     "aaa",
+                    RepositoryName.MAIN,
+                    TestConstants.WORKSPACE_NAME,
+                    RepositoryName.MAIN,
+                    "com_foo_bar_b",
+                    RepositoryName.create("bbb~1.0")),
+                name));
+  }
+
+  @Test
+  public void testRepoNameMapping_asRootModule_withOwnRepoName() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='aaa',version='0.1',repo_name='haha')",
+        "bazel_dep(name='bbb',version='1.0', repo_name = 'com_foo_bar_b')");
+    registry.addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')");
+
+    RepositoryName name = RepositoryName.MAIN;
+    SkyKey skyKey = RepositoryMappingValue.key(name);
+    EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
+
+    assertThat(result.hasError()).isFalse();
+    assertThatEvaluationResult(result)
+        .hasEntryThat(skyKey)
+        .isEqualTo(
+            withMappingForRootModule(
+                ImmutableMap.of(
+                    "",
+                    RepositoryName.MAIN,
+                    "haha",
                     RepositoryName.MAIN,
                     TestConstants.WORKSPACE_NAME,
                     RepositoryName.MAIN,

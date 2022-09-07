@@ -48,9 +48,14 @@ The steps below describe how to migrate your project to Bazel:
 
 Examples below come from a migration of the
 [Guava project](https://github.com/google/guava){: .external} from Maven to Bazel.
-The Guava project used is release 22.0. The examples using Guava do not walk through
+The Guava project used is release `v31.1`. The examples using Guava do not walk through
 each step in the migration, but they do show the files and contents that are
 generated or added manually for the migration.
+
+```
+$ git clone https://github.com/google/guava.git && cd guava
+$ git checkout v31.1
+```
 
 ### 1. Create the WORKSPACE file {:#1-build}
 
@@ -78,13 +83,13 @@ Add the following snippet to the `WORKSPACE` file:
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-RULES_JVM_EXTERNAL_TAG = "2.8"
-RULES_JVM_EXTERNAL_SHA = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad"
+RULES_JVM_EXTERNAL_TAG = "4.3"
+RULES_JVM_EXTERNAL_SHA = "6274687f6fc5783b589f56a2f1ed60de3ce1f99bc4e8f9edef3de43bdf7c6e74"
 
 http_archive(
     name = "rules_jvm_external",
-    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
     sha256 = RULES_JVM_EXTERNAL_SHA,
+    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
     url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
 )
 
@@ -92,9 +97,11 @@ load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 maven_install(
     artifacts = [
-        "com.google.code.findbugs:jsr305:1.3.9",
-        "com.google.errorprone:error_prone_annotations:2.0.18",
-        "com.google.j2objc:j2objc-annotations:1.1",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.errorprone:error_prone_annotations:2.11.0",
+        "com.google.j2objc:j2objc-annotations:1.3",
+        "org.codehaus.mojo:animal-sniffer-annotations:1.20",
+        "org.checkerframework:checker-qual:3.12.0",
     ],
     repositories = [
         "https://repo1.maven.org/maven2",
@@ -194,11 +201,16 @@ file in the workspace directory:
 ```python
 java_library(
     name = "everything",
-    srcs = glob(["guava/src/**/*.java"]),
+    srcs = glob([
+        "guava/src/**/*.java",
+        "futures/failureaccess/src/**/*.java",
+    ]),
     deps = [
-      "@maven//:com_google_code_findbugs_jsr305",
-      "@maven//:com_google_errorprone_error_prone_annotations",
-      "@maven//:com_google_j2objc_j2objc_annotations"
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_j2objc_j2objc_annotations",
+        "@maven//:org_checkerframework_checker_qual",
+        "@maven//:org_codehaus_mojo_animal_sniffer_annotations",
     ],
 )
 ```

@@ -216,9 +216,10 @@ public class BuildView {
       boolean includeExecutionPhase,
       int mergedPhasesExecutionJobsCount,
       @Nullable ResourceManager resourceManager,
-      @Nullable BuildResultListener buildResultListener)
+      @Nullable BuildResultListener buildResultListener,
+      @Nullable ExecutionSetup executionSetupCallback)
       throws ViewCreationFailedException, InvalidConfigurationException, InterruptedException,
-          BuildFailedException, TestExecException {
+          BuildFailedException, TestExecException, AbruptExitException {
     logger.atInfo().log("Starting analysis");
     pollInterruptedStatus();
 
@@ -406,6 +407,9 @@ public class BuildView {
       } else {
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
+        // We wait until now to setup for execution, in case the artifact factory was reset
+        // due to a config change.
+        Preconditions.checkNotNull(executionSetupCallback).prepareForExecution();
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
@@ -860,6 +864,13 @@ public class BuildView {
    */
   private void setArtifactRoots(PackageRoots packageRoots) {
     getArtifactFactory().setPackageRoots(packageRoots.getPackageRootLookup());
+  }
+
+  /** Performs the necessary setups for the execution phase. */
+  @FunctionalInterface
+  public interface ExecutionSetup {
+    void prepareForExecution()
+        throws AbruptExitException, BuildFailedException, InterruptedException;
   }
 
   /**

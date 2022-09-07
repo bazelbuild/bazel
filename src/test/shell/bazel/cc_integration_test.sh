@@ -1426,6 +1426,37 @@ EOF
   FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
 }
 
+function test_env_attr_cc_binary() {
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'foo_bin_with_env',
+  srcs = ['foo_test.cc'],
+  env = {'FOO': 'bar'},
+)
+
+cc_binary(
+  name = 'foo_bin',
+  srcs = ['foo_test.cc'],
+)
+EOF
+
+  cat > pkg/foo_test.cc <<EOF
+#include <stdlib.h>
+
+int main() {
+  auto foo = getenv("FOO");
+  if (foo == nullptr) {
+    return 1;
+  }
+  return 0;
+}
+EOF
+
+  bazel run //pkg:foo_bin &> "$TEST_log" && fail "Did not fail as expected. ENV leak?" || true
+  bazel run //pkg:foo_bin_with_env &> "$TEST_log" || fail "Should have used env attr."
+}
+
 function test_getting_compile_action_env_with_cctoolchain_config_features() {
   [ "$PLATFORM" != "darwin" ] || return 0
 

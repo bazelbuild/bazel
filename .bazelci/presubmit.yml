@@ -143,6 +143,8 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/16229
+      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
   macos:
     xcode_version: "13.0"
     shards: 5

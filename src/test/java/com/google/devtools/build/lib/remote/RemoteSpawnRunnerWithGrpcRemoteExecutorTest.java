@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -131,6 +132,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;
+  private TempPathGenerator tempPathGenerator;
   private Path logDir;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
@@ -186,8 +188,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
-    logDir = fs.getPath("/server-logs");
     execRoot.createDirectoryAndParents();
+    tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
+    logDir = fs.getPath("/server-logs");
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn =
         new SimpleSpawn(
@@ -304,6 +307,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteCache,
             executor,
             ImmutableSet.of(),
+            tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null);
     client =
         new RemoteSpawnRunner(

@@ -160,33 +160,6 @@ public class DexFileMerger {
     public boolean verbose;
 
     @Option(
-        name = "max-bytes-wasted-per-file",
-        defaultValue = "0",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
-            "Limit on conservatively allocated but unused bytes per dex file, which can enable "
-                + "faster merging.")
-    public int wasteThresholdPerDex;
-
-    // Undocumented dx option for testing multidex logic
-    @Option(
-        name = "set-max-idx-number",
-        defaultValue = "0",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Limit on fields and methods in a single dex file.")
-    public int maxNumberOfIdxPerDex;
-
-    @Option(
-        name = "forceJumbo",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Typically not needed flag intended to imitate dx's --forceJumbo.")
-    public boolean forceJumbo;
-
-    @Option(
         name = "dex_prefix",
         defaultValue = DEX_PREFIX,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

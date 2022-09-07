@@ -79,7 +79,7 @@ function test_tar() {
 ./etc/nsswitch.conf
 ./usr/
 ./usr/titi"
-  for i in "" ".gz" ".bz2"; do
+  for i in "" ".gz"; do
     assert_content "test-tar-${i:1}.tar$i"
   done;
 

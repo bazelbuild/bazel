@@ -130,6 +130,21 @@ java_library(
 )
 
 java_library(
+    name = "buildtool/symlink_forest",
+    srcs = ["buildtool/SymlinkForest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime/blaze_server_startup_options",
     srcs = ["runtime/BlazeServerStartupOptions.java"],
     deps = [
@@ -240,6 +255,7 @@ java_library(
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
+            "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
             "runtime/CommandLinePathFactory.java",
@@ -249,6 +265,7 @@ java_library(
     ),
     deps = [
         ":build-request-options",
+        ":buildtool/symlink_forest",
         ":keep-going-option",
         ":loading-phase-threads-option",
         ":runtime/blaze_command_result",

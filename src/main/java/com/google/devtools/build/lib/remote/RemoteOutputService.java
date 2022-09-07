@@ -90,9 +90,6 @@ public class RemoteOutputService implements OutputService {
   @Override
   public ModifiedFileSet startBuild(
       EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
-    if (actionInputFetcher != null) {
-      actionInputFetcher.startBuild(eventHandler);
-    }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 

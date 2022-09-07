@@ -29,6 +29,7 @@ feedback to the incompatible change authors.
 Bazel versions.
 
 Bazelisk can:
+
 *   Auto-update Bazel to the latest LTS or rolling release.
 *   Build the project with a Bazel version specified in the .bazelversion
     file. Check in that file into your version control to ensure reproducibility

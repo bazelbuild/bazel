@@ -16,10 +16,6 @@
 
 """Installs an Android application, possibly in an incremental way."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 from concurrent import futures
 import hashlib

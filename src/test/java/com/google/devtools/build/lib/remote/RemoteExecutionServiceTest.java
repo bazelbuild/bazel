@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
+import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -136,6 +137,7 @@ public class RemoteExecutionServiceTest {
   RemoteOptions remoteOptions;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
+  private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
   private FileOutErr outErr;
@@ -150,10 +152,15 @@ public class RemoteExecutionServiceTest {
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
+
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
+
+    tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
+
     fakeFileCache = new FakeActionInputFileCache(execRoot);
 
     remotePathResolver = new DefaultRemotePathResolver(execRoot);
@@ -1779,6 +1786,7 @@ public class RemoteExecutionServiceTest {
         cache,
         executor,
         ImmutableSet.copyOf(topLevelOutputs),
+        tempPathGenerator,
         null);
   }
 

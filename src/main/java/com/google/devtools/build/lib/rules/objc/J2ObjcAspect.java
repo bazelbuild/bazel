@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_TOOLCHAIN_ATTRIBUTE_NAME;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.toList;
 
@@ -39,7 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -68,6 +67,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
@@ -118,13 +118,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private final RepositoryName toolsRepository;
   private final Label ccToolchainType;
   private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
-  private final Label javaToolchain;
+  private final ToolchainTypeRequirement javaToolchainTypeRequirement;
 
   public J2ObjcAspect(RuleDefinitionEnvironment env, CppSemantics cppSemantics) {
     this.toolsRepository = checkNotNull(env.getToolsRepository());
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
     this.ccToolchain = CppRuleClasses.ccToolchainAttribute(env);
-    this.javaToolchain = JavaSemantics.javaToolchainAttribute(env);
+    this.javaToolchainTypeRequirement = JavaRuleClasses.javaToolchainTypeRequirement(env);
   }
 
   /** Returns whether this aspect allows proto services to be generated from this proto rule */
@@ -149,7 +149,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             J2ObjcConfiguration.class,
             ObjcConfiguration.class,
             ProtoConfiguration.class)
-        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(ccToolchainType))
+        .addToolchainTypes(
+            CppRuleClasses.ccToolchainTypeRequirement(ccToolchainType),
+            javaToolchainTypeRequirement)
         .add(
             attr("$grep_includes", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
@@ -222,10 +224,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_proto_toolchain")))
         .add(attr(":j2objc_cc_toolchain", LABEL).value(ccToolchain))
         .add(
-            attr(JAVA_TOOLCHAIN_ATTRIBUTE_NAME, LABEL)
-                .useOutputLicenses()
-                .mandatoryProviders(ToolchainInfo.PROVIDER.id())
-                .value(javaToolchain))
+            attr(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
+                .value(javaToolchainTypeRequirement.toolchainType()))
         .build();
   }
 

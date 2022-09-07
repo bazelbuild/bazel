@@ -15,7 +15,6 @@
 
 import os
 import unittest
-import six
 from src.test.py.bazel import test_base
 
 
@@ -74,7 +73,7 @@ class RunfilesTest(test_base.TestBase):
       self.fail("stdout: %s" % stdout)
 
     self.assertEqual(stdout[0], "Hello %s Foo!" % lang_name)
-    six.assertRegex(self, stdout[1], "^rloc=.*/foo/datadep/hello.txt")
+    self.assertRegex(stdout[1], "^rloc=.*/foo/datadep/hello.txt")
     self.assertNotIn("__ignore_me__", stdout[1])
 
     with open(stdout[1].split("=", 1)[1], "r") as f:
@@ -87,8 +86,7 @@ class RunfilesTest(test_base.TestBase):
     for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
                  ("sh", "Bash", "bar.sh"), ("cc", "C++", "bar.cc")]:
       self.assertEqual(stdout[i], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[i + 1],
-                      "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+      self.assertRegex(stdout[i + 1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
       self.assertNotIn("__ignore_me__", stdout[i + 1])
 
       with open(stdout[i + 1].split("=", 1)[1], "r") as f:
@@ -160,7 +158,7 @@ class RunfilesTest(test_base.TestBase):
       if len(stdout) < 2:
         self.fail("stdout(%s): %s" % (lang[0], stdout))
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
+      self.assertRegex(stdout[1], "^rloc=.*/bar/bar-%s-data.txt" % lang[0])
       self.assertNotIn("__ignore_me__", stdout[1])
 
       with open(stdout[1].split("=", 1)[1], "r") as f:
@@ -258,7 +256,7 @@ class RunfilesTest(test_base.TestBase):
       if len(stdout) < 2:
         self.fail("stdout: %s" % stdout)
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
-      six.assertRegex(self, stdout[1], "^rloc=" + mock_bar_dep)
+      self.assertRegex(stdout[1], "^rloc=" + mock_bar_dep)
       self.assertNotIn("__ignore_me__", stdout[1])
 
       with open(stdout[1].split("=", 1)[1], "r") as f:

@@ -84,7 +84,7 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(1024, Instant.now()),
+                createWorkerStat(1024),
                 true));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1024 * 100;
@@ -112,7 +112,7 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(1024, Instant.now()),
+                createWorkerStat(1024),
                 true));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
@@ -163,7 +163,7 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(2 * 1000, Instant.now()),
+                createWorkerStat(2000),
                 true));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
@@ -195,15 +195,15 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(2 * 1000, Instant.now()),
+                createWorkerStat(2000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                WorkerMetric.WorkerStat.create(4 * 1000, Instant.now()),
+                createWorkerStat(4000),
                 true));
 
     WorkerOptions options = new WorkerOptions();
@@ -236,15 +236,15 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(2 * 1000, Instant.now()),
+                createWorkerStat(2000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                WorkerMetric.WorkerStat.create(4 * 1000, Instant.now()),
+                createWorkerStat(4000),
                 true));
 
     WorkerOptions options = new WorkerOptions();
@@ -283,19 +283,19 @@ public final class WorkerLifecycleManagerTest {
         ImmutableList.of(
             WorkerMetric.create(
                 createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                WorkerMetric.WorkerStat.create(4 * 1000, Instant.now()),
+                createWorkerStat(4000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w3.getWorkerId(), 3L, "smart"),
-                WorkerMetric.WorkerStat.create(3 * 1000, Instant.now()),
+                createWorkerStat(3000),
                 true),
             WorkerMetric.create(
                 createWorkerProperties(w4.getWorkerId(), 4L, "smart"),
-                WorkerMetric.WorkerStat.create(1 * 1000, Instant.now()),
+                createWorkerStat(1000),
                 true));
 
     WorkerOptions options = new WorkerOptions();
@@ -321,6 +321,11 @@ public final class WorkerLifecycleManagerTest {
       int workerId, long processId, String mnemonic) {
     return WorkerMetric.WorkerProperties.create(
         workerId, processId, mnemonic, /* isMultiplex= */ false, /* isSandboxed= */ false);
+  }
+
+  private static WorkerMetric.WorkerStat createWorkerStat(int memoryUsage) {
+    return WorkerMetric.WorkerStat.create(
+        memoryUsage, /*lastCallTimestamp */ Instant.now(), /* timestamp*/ Instant.now());
   }
 
   private static ImmutableList<Entry<String, Integer>> emptyEntryList() {

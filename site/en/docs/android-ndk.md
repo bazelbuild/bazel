@@ -306,8 +306,8 @@ toolchain(
   name = "aarch64-linux-android-clang8.0.7-libcpp_toolchain",
   toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
   target_compatible_with = [
-      "@bazel_tools//platforms:android",
-      "@bazel_tools//platforms:aarch64"
+      "@platforms//os:android",
+      "@platforms//cpu:aarch64",
   ],
   toolchain = "@androidndk//:aarch64-linux-android-clang8.0.7-libcpp",
 )
