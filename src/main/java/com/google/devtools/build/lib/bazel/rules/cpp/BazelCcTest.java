@@ -20,7 +20,5 @@ import com.google.devtools.build.lib.rules.cpp.CcTest;
  * Factory class for the {@code cc_test} rule.
  */
 public class BazelCcTest extends CcTest {
-  public BazelCcTest() {
-    super(BazelCppSemantics.CPP);
-  }
+  public BazelCcTest() {}
 }
