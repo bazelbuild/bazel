@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import com.google.devtools.build.lib.rules.cpp.CcTest;
+import com.google.devtools.build.lib.rules.cpp.CcBinary;
 
 /**
- * Factory class for the {@code cc_test} rule.
+ * Factory class for the {@code cc_binary} rule.
  */
-public class BazelCcTest extends CcTest {
-  public BazelCcTest() {
+public class BazelCcBinary extends CcBinary {
+  public BazelCcBinary() {
     super(BazelCppSemantics.CPP);
   }
 }

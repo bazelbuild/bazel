@@ -24,11 +24,7 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinar
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
-/**
- * Rule definition for cc_binary rules.
- *
- * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
- */
+/** Rule definition for cc_binary rules. */
 public final class BazelCcBinaryRule implements RuleDefinition {
 
   @Override
@@ -82,7 +78,7 @@ public final class BazelCcBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("cc_binary")
         .ancestors(CcBinaryBaseRule.class, BaseRuleClasses.BinaryBaseRule.class)
-        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
+        .factoryClass(BazelCcBinary.class)
         .build();
   }
 }
