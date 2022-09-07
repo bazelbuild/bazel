@@ -421,7 +421,7 @@ _JDKS = [
     "remotejdk11_linux_s390x",
 ] + [
     "remotejdk%s_%s" % (version, os)
-    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+    for os in ("linux", "linux_aarch64", "macos", "macos_aarch64", "win", "win_arm64")
     for version in ("17", "18")
 ]
 
