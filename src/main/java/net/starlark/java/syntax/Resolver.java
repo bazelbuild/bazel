@@ -187,6 +187,23 @@ public final class Resolver extends NodeVisitor {
       return name;
     }
 
+    /** Returns the value denoted by the function's doc string literal, or null if absent. */
+    @Nullable
+    public String getDocumentation() {
+      if (getBody().isEmpty()) {
+        return null;
+      }
+      Statement first = getBody().get(0);
+      if (!(first instanceof ExpressionStatement)) {
+        return null;
+      }
+      Expression expr = ((ExpressionStatement) first).getExpression();
+      if (!(expr instanceof StringLiteral)) {
+        return null;
+      }
+      return ((StringLiteral) expr).getValue();
+    }
+
     /** Returns the function's local bindings, parameters first. */
     public ImmutableList<Binding> getLocals() {
       return locals;
