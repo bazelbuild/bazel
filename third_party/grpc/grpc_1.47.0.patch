@@ -46,6 +46,8 @@ index 7bb6b8bdb9..7644107b70 100644
 +    )
 diff --git a/bazel/grpc_deps.bzl b/bazel/grpc_deps.bzl
 index 09fcad95a2..9b737e5deb 100644
+--- a/bazel/grpc_deps.bzl 
++++ b/bazel/grpc_deps.bzl
 @@ -82,7 +82,7 @@
 
      native.bind(
