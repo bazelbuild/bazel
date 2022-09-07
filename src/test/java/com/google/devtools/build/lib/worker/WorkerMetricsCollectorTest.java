@@ -23,13 +23,12 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.OS;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -46,11 +45,13 @@ public class WorkerMetricsCollectorTest {
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   private final WorkerMetricsCollector spyCollector = spy(WorkerMetricsCollector.instance());
-  @Captor ArgumentCaptor<List<Long>> pidsCaptor;
+  @Captor ArgumentCaptor<ImmutableSet<Long>> pidsCaptor;
+  ManualClock clock = new ManualClock();
 
   @Before
   public void setUp() {
-    WorkerMetricsCollector.instance().clear();
+    spyCollector.clear();
+    spyCollector.setClock(clock);
   }
 
   @Test
@@ -60,7 +61,7 @@ public class WorkerMetricsCollectorTest {
         ImmutableMap.of(
             1L, 1L,
             2L, 2L);
-    List<Long> pids = Arrays.asList(1L, 2L);
+    ImmutableSet<Long> pids = ImmutableSet.of(1L, 2L);
     InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
     Process process = mock(Process.class);
 
@@ -68,11 +69,11 @@ public class WorkerMetricsCollectorTest {
     when(spyCollector.buildPsProcess(subprocessesMap.keySet())).thenReturn(process);
     when(process.getInputStream()).thenReturn(psStream);
 
-    Map<Long, WorkerMetric.WorkerStat> pidResults = spyCollector.collectStats(OS.LINUX, pids);
+    ImmutableMap<Long, Integer> memoryUsageByPid =
+        spyCollector.collectMemoryUsageByPid(OS.LINUX, pids).pidToMemoryInKb;
 
-    assertThat(pidResults).hasSize(2);
-    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3216);
-    assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4096);
+    ImmutableMap<Long, Integer> expectedMemoryUsageByPid = ImmutableMap.of(1L, 3216, 2L, 4096);
+    assertThat(memoryUsageByPid).isEqualTo(expectedMemoryUsageByPid);
   }
 
   @Test
@@ -86,7 +87,7 @@ public class WorkerMetricsCollectorTest {
             4L, 2L,
             5L, 5L,
             6L, 1L);
-    List<Long> pids = Arrays.asList(1L, 2L, 5L);
+    ImmutableSet<Long> pids = ImmutableSet.of(1L, 2L, 5L);
     InputStream psStream = new ByteArrayInputStream(psOutput.getBytes(UTF_8));
     Process process = mock(Process.class);
 
@@ -94,12 +95,12 @@ public class WorkerMetricsCollectorTest {
     when(spyCollector.buildPsProcess(subprocessesMap.keySet())).thenReturn(process);
     when(process.getInputStream()).thenReturn(psStream);
 
-    Map<Long, WorkerMetric.WorkerStat> pidResults = spyCollector.collectStats(OS.LINUX, pids);
+    ImmutableMap<Long, Integer> memoryUsageByPid =
+        spyCollector.collectMemoryUsageByPid(OS.LINUX, pids).pidToMemoryInKb;
 
-    assertThat(pidResults).hasSize(3);
-    assertThat(pidResults.get(1L).getUsedMemoryInKB()).isEqualTo(3216 + 1234);
-    assertThat(pidResults.get(2L).getUsedMemoryInKB()).isEqualTo(4232 + 1001);
-    assertThat(pidResults.get(5L).getUsedMemoryInKB()).isEqualTo(40000);
+    ImmutableMap<Long, Integer> expectedMemoryUsageByPid =
+        ImmutableMap.of(1L, 3216 + 1234, 2L, 4232 + 1001, 5L, 40000);
+    assertThat(memoryUsageByPid).isEqualTo(expectedMemoryUsageByPid);
   }
 
   @Test
@@ -144,13 +145,21 @@ public class WorkerMetricsCollectorTest {
             /*mnemonic= */ "Javac",
             /*isMultiplex= */ true,
             /*isSandboxed= */ false);
-    ImmutableMap<Integer, WorkerMetric.WorkerProperties> map = ImmutableMap.of(1, props1);
+    Instant registrationTime1 = Instant.ofEpochSecond(1000);
+    Instant registrationTime2 = registrationTime1.plusSeconds(10);
+    ImmutableMap<Integer, WorkerMetric.WorkerProperties> propertiesMap = ImmutableMap.of(1, props1);
+    ImmutableMap<Integer, Instant> lastCallMap1 = ImmutableMap.of(1, registrationTime1);
+    ImmutableMap<Integer, Instant> lastCallMap2 = ImmutableMap.of(1, registrationTime2);
 
+    clock.setTime(registrationTime1.toEpochMilli());
     spyCollector.registerWorker(props1);
-    assertThat(spyCollector.getWorkerIdToWorkerProperties()).hasSize(1);
+    assertThat(spyCollector.getWorkerIdToWorkerProperties()).isEqualTo(propertiesMap);
+    assertThat(spyCollector.getWorkerLastCallTime()).isEqualTo(lastCallMap1);
+
+    clock.setTime(registrationTime2.toEpochMilli());
     spyCollector.registerWorker(props2);
-    assertThat(spyCollector.getWorkerIdToWorkerProperties()).hasSize(1);
-    assertThat(spyCollector.getWorkerIdToWorkerProperties()).isEqualTo(map);
+    assertThat(spyCollector.getWorkerIdToWorkerProperties()).isEqualTo(propertiesMap);
+    assertThat(spyCollector.getWorkerLastCallTime()).isEqualTo(lastCallMap2);
   }
 
   @Test
@@ -176,24 +185,34 @@ public class WorkerMetricsCollectorTest {
             /*mnemonic= */ "Proto",
             /*isMultiplex= */ true,
             /*isSandboxed= */ true);
-    WorkerMetric.WorkerStat stat1 = WorkerMetric.WorkerStat.create(1234, Instant.now());
-    WorkerMetric.WorkerStat stat2 = WorkerMetric.WorkerStat.create(2345, Instant.now());
+    Instant registrationTime = Instant.ofEpochSecond(1000);
+    Instant collectionTime = registrationTime.plusSeconds(10);
+    WorkerMetric.WorkerStat stat1 =
+        WorkerMetric.WorkerStat.create(1234, registrationTime, collectionTime);
+    WorkerMetric.WorkerStat stat2 =
+        WorkerMetric.WorkerStat.create(2345, registrationTime, collectionTime);
+    WorkerMetric.WorkerStat stat3 =
+        WorkerMetric.WorkerStat.create(0, registrationTime, collectionTime);
     WorkerMetric workerMetric1 = WorkerMetric.create(props1, stat1, true);
     WorkerMetric workerMetric2 = WorkerMetric.create(props2, stat2, true);
-    WorkerMetric workerMetric3 = WorkerMetric.create(props3, null, false);
-    ImmutableList<Long> expectedPids = ImmutableList.of(100L, 200L, 300L);
+    WorkerMetric workerMetric3 = WorkerMetric.create(props3, stat3, false);
+    ImmutableSet<Long> expectedPids = ImmutableSet.of(100L, 200L, 300L);
     ImmutableMap<Integer, WorkerMetric.WorkerProperties> propsMap =
         ImmutableMap.of(
             1, props1,
             2, props2);
-    ImmutableMap<Long, WorkerMetric.WorkerStat> statsMap =
+    ImmutableMap<Long, Integer> memoryUsageMap =
         ImmutableMap.of(
-            100L, stat1,
-            200L, stat2);
+            100L, stat1.getUsedMemoryInKB(),
+            200L, stat2.getUsedMemoryInKB());
+    WorkerMetricsCollector.MemoryCollectionResult memoryCollectionResult =
+        new WorkerMetricsCollector.MemoryCollectionResult(memoryUsageMap, collectionTime);
     ImmutableList<WorkerMetric> expectedMetrics =
         ImmutableList.of(workerMetric1, workerMetric2, workerMetric3);
 
-    when(spyCollector.collectStats(any(), pidsCaptor.capture())).thenReturn(statsMap);
+    when(spyCollector.collectMemoryUsageByPid(any(), pidsCaptor.capture()))
+        .thenReturn(memoryCollectionResult);
+    clock.setTime(registrationTime.toEpochMilli());
 
     spyCollector.registerWorker(props1);
     spyCollector.registerWorker(props2);
@@ -204,5 +223,25 @@ public class WorkerMetricsCollectorTest {
     assertThat(pidsCaptor.getValue()).containsExactlyElementsIn(expectedPids);
     assertThat(metrics).containsExactlyElementsIn(expectedMetrics);
     assertThat(spyCollector.getWorkerIdToWorkerProperties()).isEqualTo(propsMap);
+  }
+
+  private static class ManualClock implements Clock {
+    private long currentTime = 0L;
+
+    ManualClock() {}
+
+    @Override
+    public long nanoTime() {
+      throw new AssertionError("unexpected method call");
+    }
+
+    @Override
+    public long currentTimeMillis() {
+      return currentTime;
+    }
+
+    void setTime(long currentTime) {
+      this.currentTime = currentTime;
+    }
   }
 }

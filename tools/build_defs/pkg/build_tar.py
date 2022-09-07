@@ -34,8 +34,7 @@ flags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
 flags.DEFINE_string('directory', None,
                     'Directory in which to store the file inside the layer')
 
-flags.DEFINE_string('compression', None,
-                    'Compression (`gz` or `bz2`), default is none.')
+flags.DEFINE_string('compression', None, 'Compression (`gz`), default is none.')
 
 flags.DEFINE_string(
     'owner', '0.0', 'Specify the numeric default owner of all files,'

@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -200,7 +201,7 @@ public class BuildViewForTesting {
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
       throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException,
-          BuildFailedException, TestExecException {
+          BuildFailedException, TestExecException, AbruptExitException {
     populateActionLookupKeyMapAndGetDiff();
     return buildView.update(
         loadingResult,
@@ -220,7 +221,8 @@ public class BuildViewForTesting {
         /*includeExecutionPhase=*/ false,
         /*mergedPhasesExecutionJobsCount=*/ 0,
         /*resourceManager=*/ null,
-        /*buildResultListener=*/ null);
+        /*buildResultListener=*/ null,
+        /*executionSetupCallback=*/ null);
   }
 
   /** Sets the configurations. Not thread-safe. */

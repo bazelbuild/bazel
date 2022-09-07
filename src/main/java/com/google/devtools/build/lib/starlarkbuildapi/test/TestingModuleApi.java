@@ -14,14 +14,19 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Helper module for accessing test infrastructure. */
@@ -88,4 +93,75 @@ public interface TestingModuleApi extends StarlarkValue {
       Dict<?, ?> environment, // <String, String> expected
       Sequence<?> inheritedEnvironment /* <String> expected */)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "analysis_test",
+      doc =
+          "Creates a new analysis test target. <p>The number of transitive dependencies of the test"
+              + " are limited. The limit is controlled by"
+              + " <code>--analysis_testing_deps_limit</code> flag.",
+      parameters = {
+        @Param(
+            name = "name",
+            named = true,
+            doc =
+                "Name of the target. It should be a Starlark identifier, matching pattern"
+                    + " '[A-Za-z_][A-Za-z0-9_]*'."),
+        @Param(
+            name = "implementation",
+            named = true,
+            doc =
+                "The Starlark function implementing this analysis test. It must have exactly one"
+                    + " parameter: <a href=\"ctx.html\">ctx</a>. The function is called during the"
+                    + " analysis phase. It can access the attributes declared by <code>attrs</code>"
+                    + " and populated via <code>attr_values</code>. The implementation function may"
+                    + " not register actions. Instead, it must register a pass/fail result"
+                    + " via providing <a"
+                    + " href='AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>."),
+        @Param(
+            name = "attrs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            defaultValue = "None",
+            doc =
+                "Dictionary declaring the attributes. See the <a href=\"rule.html\">rule</a> call."
+                    + "Attributes are allowed to use configuration transitions defined using <a "
+                    + " href=\"#analysis_test_transition\">analysis_test_transition</a>."),
+        @Param(
+            name = "fragments",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "List of configuration fragments that are available to the implementation of the"
+                    + " analysis test."),
+        @Param(
+            name = StarlarkRuleFunctionsApi.TOOLCHAINS_PARAM,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "The set of toolchains the test requires. See the <a href=\"#rule\">rule</a>"
+                    + " call."),
+        @Param(
+            name = "attr_values",
+            allowedTypes = {@ParamType(type = Dict.class, generic1 = String.class)},
+            named = true,
+            defaultValue = "{}",
+            doc = "Dictionary of attribute values to pass to the implementation."),
+      },
+      useStarlarkThread = true,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ANALYSIS_TEST_CALL)
+  void analysisTest(
+      String name,
+      StarlarkFunction implementation,
+      Object attrs,
+      Sequence<?> fragments,
+      Sequence<?> toolchains,
+      Object argsValue,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException;
 }

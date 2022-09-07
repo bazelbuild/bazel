@@ -507,6 +507,7 @@ public class HttpDownloaderTest {
               new String(
                   httpDownloader.downloadAndReadOneUrl(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      ImmutableMap.of(),
                       eventHandler,
                       Collections.emptyMap()),
                   UTF_8))
@@ -541,6 +542,7 @@ public class HttpDownloaderTest {
           () ->
               httpDownloader.downloadAndReadOneUrl(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                  ImmutableMap.of(),
                   eventHandler,
                   Collections.emptyMap()));
     }

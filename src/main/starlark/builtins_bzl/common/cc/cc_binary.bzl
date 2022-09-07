@@ -957,12 +957,19 @@ def _impl(ctx):
 
     # We construct DefaultInfo here, as other cc_binary-like rules (cc_test) need
     # a different DefaultInfo.
-    default_info = DefaultInfo(
+    other_providers.append(DefaultInfo(
         files = binary_info.files,
         runfiles = binary_info.runfiles,
         executable = binary_info.executable,
-    )
-    other_providers.append(default_info)
+    ))
+
+    # We construct RunEnvironmentInfo here as well.
+    other_providers.append(RunEnvironmentInfo(
+        environment = cc_helper.get_expanded_env(ctx, {}),
+        # cc_binary does not have env_inherit attr.
+        inherited_environment = [],
+    ))
+
     if ctx.fragments.cpp.enable_legacy_cc_provider():
         # buildifier: disable=rule-impl-return
         return struct(

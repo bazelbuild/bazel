@@ -171,66 +171,10 @@ public class BuildTool {
       initializeOutputFilter(request);
 
       if (request.getBuildOptions().shouldMergeSkyframeAnalysisExecution()) {
-        // Target pattern evaluation.
-        TargetPatternPhaseValue loadingResult;
-        Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
-        try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-          loadingResult =
-              AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
-        }
-        env.setWorkspaceName(loadingResult.getWorkspaceName());
-
-        if (request.getBuildOptions().performAnalysisPhase) {
-          executionTool = new ExecutionTool(env, request);
-          // This timer measures time for loading + analysis + execution.
-          Stopwatch timer = Stopwatch.createStarted();
-
-          try (SilentCloseable c = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.prepareForExecution(request.getId());
-          }
-
-          // TODO(b/199053098): implement support for --nobuild.
-          AnalysisAndExecutionResult analysisAndExecutionResult;
-          boolean buildCompleted = false;
-          try {
-            analysisAndExecutionResult =
-                AnalysisAndExecutionPhaseRunner.execute(env, request, buildOptions, loadingResult);
-            buildCompleted = true;
-            result.setBuildConfigurationCollection(
-                analysisAndExecutionResult.getConfigurationCollection());
-            executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
-          } catch (InvalidConfigurationException
-              | TargetParsingException
-              | LoadingFailedException
-              | ViewCreationFailedException
-              | BuildFailedException
-              | TestExecException e) {
-            // These are non-catastrophic.
-            buildCompleted = true;
-            throw e;
-          } catch (Error | RuntimeException e) {
-            // These are catastrophic.
-            catastrophe = true;
-            throw e;
-          } finally {
-            executionTool.unconditionalExecutionPhaseFinalizations(
-                timer, env.getSkyframeExecutor());
-            if (!catastrophe) {
-              executionTool.nonCatastrophicFinalizations(
-                  result,
-                  executionTool.getActionCache(),
-                  /*explanationHandler=*/ null,
-                  buildCompleted);
-            }
-          }
-          FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
-          if (delayedFailureDetail != null) {
-            throw new BuildFailedException(
-                delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
-          }
-        }
+        buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
         return;
       }
+
       AnalysisResult analysisResult =
           AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
 
@@ -350,6 +294,74 @@ public class BuildTool {
                                 return env.getWorkspaceInfoFromDiff();
                               }
                             })));
+      }
+    }
+  }
+
+  /** Performs the merged analysis and execution phase. */
+  private void buildTargetsWithMergedAnalysisExecution(
+      BuildRequest request,
+      BuildResult result,
+      TargetValidator validator,
+      BuildOptions buildOptions)
+      throws InterruptedException, TargetParsingException, LoadingFailedException,
+          AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
+          InvalidConfigurationException {
+
+    // Target pattern evaluation.
+    TargetPatternPhaseValue loadingResult;
+    Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
+    try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
+      loadingResult =
+          AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
+    }
+    env.setWorkspaceName(loadingResult.getWorkspaceName());
+    boolean catastrophe = false;
+
+    if (request.getBuildOptions().performAnalysisPhase) {
+      ExecutionTool executionTool = new ExecutionTool(env, request);
+      // This timer measures time for loading + analysis + execution.
+      Stopwatch timer = Stopwatch.createStarted();
+
+      // TODO(b/199053098): implement support for --nobuild.
+      AnalysisAndExecutionResult analysisAndExecutionResult;
+      boolean buildCompleted = false;
+      try {
+        analysisAndExecutionResult =
+            AnalysisAndExecutionPhaseRunner.execute(
+                env,
+                request,
+                buildOptions,
+                loadingResult,
+                () -> executionTool.prepareForExecution(request.getId()));
+        buildCompleted = true;
+        result.setBuildConfigurationCollection(
+            analysisAndExecutionResult.getConfigurationCollection());
+        executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
+      } catch (InvalidConfigurationException
+          | TargetParsingException
+          | LoadingFailedException
+          | ViewCreationFailedException
+          | BuildFailedException
+          | TestExecException e) {
+        // These are non-catastrophic.
+        buildCompleted = true;
+        throw e;
+      } catch (Error | RuntimeException e) {
+        // These are catastrophic.
+        catastrophe = true;
+        throw e;
+      } finally {
+        executionTool.unconditionalExecutionPhaseFinalizations(timer, env.getSkyframeExecutor());
+        if (!catastrophe) {
+          executionTool.nonCatastrophicFinalizations(
+              result, executionTool.getActionCache(), /*explanationHandler=*/ null, buildCompleted);
+        }
+      }
+      FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
+      if (delayedFailureDetail != null) {
+        throw new BuildFailedException(
+            delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
       }
     }
   }

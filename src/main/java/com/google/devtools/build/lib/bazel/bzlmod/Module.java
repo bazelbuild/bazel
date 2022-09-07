@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
@@ -75,6 +76,13 @@ public abstract class Module {
   public abstract int getCompatibilityLevel();
 
   /**
+   * The name of the repository representing this module, as seen by the module itself. By default,
+   * the name of the repo is the name of the module. This can be specified to ease migration for
+   * projects that have been using a repo name for itself that differs from its module name.
+   */
+  public abstract String getRepoName();
+
+  /**
    * Target patterns identifying execution platforms to register when this module is selected. Note
    * that these are what was written in module files verbatim, and don't contain canonical repo
    * names.
@@ -112,10 +120,10 @@ public abstract class Module {
     if (getKey().equals(ModuleKey.ROOT)) {
       mapping.put("", RepositoryName.MAIN);
     }
-    // Every module should be able to reference itself as @<module name>.
-    // If this is the root module, this perfectly falls into @<module name> => @
-    if (!getName().isEmpty()) {
-      mapping.put(getName(), getCanonicalRepoName());
+    // Every module should be able to reference itself as @<module repo name>.
+    // If this is the root module, this perfectly falls into @<module repo name> => @
+    if (!getRepoName().isEmpty()) {
+      mapping.put(getRepoName(), getCanonicalRepoName());
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
@@ -172,6 +180,9 @@ public abstract class Module {
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
 
+    /** Optional; defaults to {@link #setName}. */
+    public abstract Builder setRepoName(String value);
+
     abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 
     @CanIgnoreReturnValue
@@ -220,6 +231,17 @@ public abstract class Module {
       return this;
     }
 
-    abstract Module build();
+    abstract String getName();
+
+    abstract Optional<String> getRepoName();
+
+    abstract Module autoBuild();
+
+    final Module build() {
+      if (getRepoName().isEmpty()) {
+        setRepoName(getName());
+      }
+      return autoBuild();
+    }
   }
 }

@@ -97,7 +97,6 @@ genrule(
 ) for ext in [
     "",
     ".gz",
-    ".bz2",
 ]]
 
 pkg_tar(
@@ -152,7 +151,6 @@ sh_test(
     data = [
         "testenv.sh",
         ":test-tar-.tar",
-        ":test-tar-bz2.tar.bz2",
         ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-strip_prefix-dot.tar",

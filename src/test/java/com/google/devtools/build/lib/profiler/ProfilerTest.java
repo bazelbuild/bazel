@@ -280,7 +280,7 @@ public final class ProfilerTest {
                     /* mnemonic= */ "dummy1",
                     /* isMultiplex= */ true,
                     /* isSandboxed= */ true),
-                WorkerMetric.WorkerStat.create(1024, Instant.now()),
+                WorkerMetric.WorkerStat.create(1024, Instant.now(), Instant.now()),
                 /* isMeasurable= */ true),
             WorkerMetric.create(
                 WorkerMetric.WorkerProperties.create(
@@ -289,7 +289,7 @@ public final class ProfilerTest {
                     /* mnemonic= */ "dummy2",
                     /* isMultiplex= */ false,
                     /* isSandboxed= */ false),
-                WorkerMetric.WorkerStat.create(2048, Instant.now()),
+                WorkerMetric.WorkerStat.create(2048, Instant.now(), Instant.now()),
                 /* isMeasurable= */ true),
             WorkerMetric.create(
                 WorkerMetric.WorkerProperties.create(

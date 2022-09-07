@@ -2740,9 +2740,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new ActionArtifactCycleReporter(packageManager),
         new TestExpansionCycleReporter(packageManager),
         new RegisteredToolchainsCycleReporter(),
-        // TODO(ulfjack): The StarlarkModuleCycleReporter swallows previously reported cycles
-        // unconditionally! Is that intentional?
-        new StarlarkModuleCycleReporter());
+        // TODO(ulfjack): The BzlLoadCycleReporter swallows previously reported cycles
+        //  unconditionally! Is that intentional?
+        new BzlLoadCycleReporter(),
+        new BzlmodRepoCycleReporter());
   }
 
   public CyclesReporter getCyclesReporter() {

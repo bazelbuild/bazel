@@ -26,11 +26,13 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import java.util.List;
 import org.junit.After;
 import org.junit.Assume;
@@ -77,6 +79,11 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "    cmd = '/bin/mkdir $(location dir)',",
         "    srcs = [],",
         ")");
+  }
+
+  @Before
+  public void setUpWorkerMetricsCollecto() {
+    WorkerMetricsCollector.instance().setClock(new JavaClock());
   }
 
   @After

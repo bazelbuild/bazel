@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNTIME_ATTRIBUTE_NAME;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -76,12 +75,19 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   }
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME);
+    ToolchainInfo toolchainInfo =
+        ruleContext
+            .getToolchainContext()
+            .forToolchainType(
+                ruleContext
+                    .getPrerequisite(JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+                    .getLabel());
+    return from(ruleContext, toolchainInfo);
   }
 
   @Nullable
   public static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName) {
-    if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
+    if (!ruleContext.attributes().has(attributeName, LABEL)) {
       return null;
     }
     TransitiveInfoCollection prerequisite = ruleContext.getPrerequisite(attributeName);
@@ -90,6 +96,11 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
     }
 
     ToolchainInfo toolchainInfo = prerequisite.get(ToolchainInfo.PROVIDER);
+    return from(ruleContext, toolchainInfo);
+  }
+
+  @Nullable
+  private static JavaRuntimeInfo from(RuleContext ruleContext, ToolchainInfo toolchainInfo) {
     if (toolchainInfo != null) {
       try {
         JavaRuntimeInfo result = (JavaRuntimeInfo) toolchainInfo.getValue("java_runtime");

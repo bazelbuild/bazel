@@ -33,20 +33,12 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.reactivex.rxjava3.core.Completable;
@@ -75,27 +67,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected AbstractActionInputPrefetcher(Path execRoot, TempPathGenerator tempPathGenerator) {
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
-  }
-
-  public void startBuild(EventHandler eventHandler) throws AbruptExitException {
-    Path tempDir = tempPathGenerator.getTempDir();
-    if (tempDir.exists()) {
-      eventHandler.handle(Event.warn("Found stale downloads from previous build, deleting..."));
-      try {
-        tempDir.deleteTree();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format("Failed to delete stale downloads: %s", e.getMessage()))
-                    .setRemoteExecution(
-                        RemoteExecution.newBuilder()
-                            .setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
-                    .build()));
-      }
-    }
   }
 
   protected abstract boolean shouldDownloadFile(Path path, FileArtifactValue metadata);

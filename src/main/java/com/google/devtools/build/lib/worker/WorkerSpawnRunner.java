@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
@@ -111,7 +112,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
       WorkerMetricsCollector workerMetricsCollector,
-      XattrProvider xattrProvider) {
+      XattrProvider xattrProvider,
+      Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = checkNotNull(workers);
@@ -124,6 +126,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
     this.metricsCollector = workerMetricsCollector;
+    this.metricsCollector.setClock(clock);
   }
 
   @Override
