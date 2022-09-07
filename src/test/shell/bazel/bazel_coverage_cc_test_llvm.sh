@@ -218,5 +218,194 @@ end_of_record"
   assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
 }
 
+function setup_external_cc_target() {
+  cat > WORKSPACE <<'EOF'
+local_repository(
+    name = "other_repo",
+    path = "other_repo",
+)
+EOF
+
+  cat > BUILD <<'EOF'
+cc_library(
+    name = "b",
+    srcs = ["b.cc"],
+    hdrs = ["b.h"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > b.h <<'EOF'
+int b(bool what);
+EOF
+
+  cat > b.cc <<'EOF'
+int b(bool what) {
+  if (what) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  cat > other_repo/BUILD <<'EOF'
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+    deps = ["@//:b"],
+)
+
+cc_test(
+    name = "t",
+    srcs = ["t.cc"],
+    linkstatic = True,
+    deps = [":a"],
+)
+EOF
+
+  cat > other_repo/a.h <<'EOF'
+int a(bool what);
+EOF
+
+  cat > other_repo/a.cc <<'EOF'
+#include "a.h"
+#include "b.h"
+
+int a(bool what) {
+  if (what) {
+    return b(what);
+  } else {
+    return 1 + b(what);
+  }
+}
+EOF
+
+  cat > other_repo/t.cc <<'EOF'
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+}
+
+function test_external_cc_target_can_collect_coverage() {
+  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  if [[ ! -x ${llvm_profdata} ]]; then
+    return
+  fi
+
+  local -r clang="/usr/bin/clang-9"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+
+  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  if [[ ! -x ${llvm_cov} ]]; then
+    return
+  fi
+
+  setup_external_cc_target
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
+    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
+      --combined_report=lcov --test_output=all \
+        @other_repo//:t --instrumentation_filter=// &>$TEST_log || fail "Coverage for @other_repo//:t failed"
+
+  local expected_result='SF:b.cc
+FN:1,_Z1bb
+FNDA:1,_Z1bb
+FNF:1
+FNH:1
+BRDA:2,0,0,1
+BRDA:2,0,1,0
+BRF:2
+BRH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:4,1
+DA:5,0
+DA:6,0
+DA:7,1
+LH:5
+LF:7
+end_of_record
+SF:external/other_repo/a.cc
+FN:4,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+BRDA:5,0,0,1
+BRDA:5,0,1,0
+BRF:2
+BRH:1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:7,1
+DA:8,0
+DA:9,0
+DA:10,1
+LH:5
+LF:7
+end_of_record'
+
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+}
+
+function test_external_cc_target_coverage_not_collected_by_default() {
+  local -r llvm_profdata="/usr/bin/llvm-profdata-9"
+  if [[ ! -x ${llvm_profdata} ]]; then
+    return
+  fi
+
+  local -r clang="/usr/bin/clang-9"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+
+  local -r llvm_cov="/usr/bin/llvm-cov-9"
+  if [[ ! -x ${llvm_cov} ]]; then
+    return
+  fi
+
+  setup_external_cc_target
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
+    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
+      --combined_report=lcov --test_output=all \
+        @other_repo//:t &>$TEST_log || fail "Coverage for @other_repo//:t failed"
+
+  local expected_result='SF:b.cc
+FN:1,_Z1bb
+FNDA:1,_Z1bb
+FNF:1
+FNH:1
+BRDA:2,0,0,1
+BRDA:2,0,1,0
+BRF:2
+BRH:1
+DA:1,1
+DA:2,1
+DA:3,1
+DA:4,1
+DA:5,0
+DA:6,0
+DA:7,1
+LH:5
+LF:7
+end_of_record'
+
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+}
 
 run_suite "test tests"
