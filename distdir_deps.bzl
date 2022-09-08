@@ -111,18 +111,6 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    "protocolbuffers": {
-        "archive": "2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
-        "sha256": "6a5f67874af66b239b709c572ac1a5a00fdb1b29beaf13c3e6f79b1ba10dc7c4",
-        "urls": [
-            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
-            "https://github.com/protocolbuffers/upb/archive/2de300726a1ba2de9a468468dc5ff9ed17a3215f.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-            "test_WORKSPACE_files",
-        ],
-    },
     "com_github_grpc_grpc": {
         "archive": "v1.47.0.tar.gz",
         "sha256": "271bdc890bf329a8de5b65819f0f9590a5381402429bca37625b63546ed19e54",
@@ -220,19 +208,6 @@ DIST_DEPS = {
             "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
             "https://github.com/c-ares/c-ares/archive/6654436a307a5a686b008c1d4c93b0085da6e6d8.tar.gz",
         ],
-        "used_in": [
-            "additional_distfiles",
-            "test_WORKSPACE_files",
-        ],
-    },
-    "zlib": {
-        "archive": "21767c654d31d2dccdde4330529775c6c5fd5389.tar.gz",
-        "sha256": "ef47b0fbe646d69a2fc5ba012cb278de8e8946a8e9649f83a807cc05559f0eff",
-        "urls": [
-            "https://mirror.bazel.build/github.com/madler/zlib/archive/21767c654d31d2dccdde4330529775c6c5fd5389.tar.gz",
-            "https://github.com/madler/zlib/archive/21767c654d31d2dccdde4330529775c6c5fd5389.tar.gz",
-        ],
-        "strip_prefix": "zlib-21767c654d31d2dccdde4330529775c6c5fd5389",
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
