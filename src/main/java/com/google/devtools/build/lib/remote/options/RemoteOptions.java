@@ -81,6 +81,14 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public String remoteExecutor;
 
   @Option(
+    name = "experimental_remote_cache_key_ignore_stamping",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.REMOTE,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Don't use volatile stamping data in shared cache key. Also disable remote execution for stamping actions.")
+  public boolean remoteCacheKeyIgnoreStamping;
+
+  @Option(
       name = "experimental_remote_execution_keepalive",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
