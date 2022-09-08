@@ -597,6 +597,11 @@ public final class BazelRulesModule extends BlazeModule {
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelShRuleClasses.class, "sh_configure.WORKSPACE"));
+
+      // Load rules_license, which is needed for license attestations for many rules, including
+      // things in @bazel_tools
+      builder.addWorkspaceFileSuffix(
+          ResourceFileLoader.loadResource(BazelRulesModule.class, "rules_license.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
