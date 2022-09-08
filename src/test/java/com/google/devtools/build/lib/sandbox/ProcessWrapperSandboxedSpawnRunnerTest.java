@@ -99,9 +99,8 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     Duration minimumSystemTimeToSpend = Duration.ZERO;
     Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(2));
 
-    CommandEnvironment commandEnvironment =
-        getCommandEnvironmentWithExecutionStatisticsOptionEnabled("workspace");
-
+    CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
+    commandEnvironment.setWorkspaceName("workspace");
     Path execRoot = commandEnvironment.getExecRoot();
     execRoot.createDirectory();
 
@@ -167,8 +166,8 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
     Duration minimumSystemTimeToSpend = Duration.ZERO;
 
-    CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
-    commandEnvironment.setWorkspaceName("workspace");
+    CommandEnvironment commandEnvironment =
+        getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
     commandEnvironment
         .getLocalResourceManager()
         .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

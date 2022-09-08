@@ -247,7 +247,7 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "experimental_collect_local_sandbox_action_metrics",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
