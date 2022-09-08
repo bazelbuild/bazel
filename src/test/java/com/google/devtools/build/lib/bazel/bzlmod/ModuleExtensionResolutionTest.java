@@ -894,8 +894,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "def _ext_impl(ctx):",
         "  internal_repo(name='internal')",
         "  ext_repo(name='ext')",
-        "tag=tag_class(attrs={'file':attr.label()})",
-        "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
+        "ext=module_extension(implementation=_ext_impl)");
 
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
     scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
@@ -910,6 +909,42 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("foo: foo-stuff internal: internal-stuff");
+  }
+
+  @Test
+  public void generatedReposHaveCorrectMappings_moduleOwnRepoName() throws Exception {
+    // tests that things work correctly when the module specifies its own repo name (via
+    // `module(repo_name=...)`).
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='foo',version='1.0',repo_name='bar')",
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(workspaceRoot.getRelative("data.bzl").getPathString(), "data='hello world'");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _ext_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "  ctx.file('data.bzl', \"\"\"load('@bar//:data.bzl', bar_data='data')",
+        "data = 'bar: '+bar_data",
+        "\"\"\")",
+        "ext_repo = repository_rule(implementation=_ext_repo_impl)",
+        "",
+        "ext=module_extension(implementation=lambda ctx: ext_repo(name='ext'))");
+    scratch.file(
+        workspaceRoot.getRelative("ext_data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data='ext: ' + ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:ext_data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("ext: bar: hello world");
   }
 
   @Test

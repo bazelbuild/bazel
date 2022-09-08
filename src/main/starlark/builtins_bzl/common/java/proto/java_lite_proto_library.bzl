@@ -19,7 +19,6 @@ load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = 
 load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "bazel_java_proto_library_rule", "java_compile_for_protos")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
-JAVA_TOOLCHAIN_ATTR = "_java_toolchain"
 
 java_common = _builtins.toplevel.java_common
 ProtoInfo = _builtins.toplevel.ProtoInfo
@@ -79,13 +78,11 @@ java_lite_proto_aspect = aspect(
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
-        JAVA_TOOLCHAIN_ATTR: attr.label(
-            default = Label(semantics.JAVA_TOOLCHAIN_LABEL),
-        ),
     },
     fragments = ["java"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],
+    toolchains = [semantics.JAVA_TOOLCHAIN],
 )
 
 def _rule_impl(ctx):

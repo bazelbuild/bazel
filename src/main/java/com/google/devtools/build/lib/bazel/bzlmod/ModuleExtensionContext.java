@@ -40,6 +40,7 @@ import net.starlark.java.eval.StarlarkSemantics;
             + " argument to the <code>implementation</code> function when you create a module"
             + " extension.")
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
+  private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
 
   protected ModuleExtensionContext(
@@ -51,6 +52,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
+      ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules) {
     super(
         workingDirectory,
@@ -61,6 +63,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         processWrapper,
         starlarkSemantics,
         remoteExecutor);
+    this.extensionId = extensionId;
     this.modules = modules;
   }
 
@@ -70,7 +73,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
 
   @Override
   protected String getIdentifyingStringForLogging() {
-    return "TODO";
+    return String.format(
+        "module extension %s in %s", extensionId.getExtensionName(), extensionId.getBzlFileLabel());
   }
 
   @Override

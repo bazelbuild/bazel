@@ -109,16 +109,6 @@ public interface JavaSemantics {
   String DIRECT_SOURCE_JARS_OUTPUT_GROUP =
       OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
 
-  /** Implementation for the :jvm attribute. */
-  static Label jvmAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel("//tools/jdk:current_java_runtime");
-  }
-
-  /** Implementation for the :host_jdk attribute. */
-  static Label hostJdkAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel("//tools/jdk:current_host_java_runtime");
-  }
-
   /**
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.

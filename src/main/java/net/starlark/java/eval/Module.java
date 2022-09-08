@@ -61,6 +61,9 @@ public final class Module implements Resolver.Module {
   // Its toString appears to Starlark in str(function): "<function f from ...>".
   @Nullable private Object clientData;
 
+  // An optional doc string for the module. Set after construction when evaluating a .bzl file.
+  @Nullable private String documentation;
+
   private Module(ImmutableMap<String, Object> predeclared) {
     this.predeclared = predeclared;
   }
@@ -134,6 +137,25 @@ public final class Module implements Resolver.Module {
   @Nullable
   public Object getClientData() {
     return clientData;
+  }
+
+  /** Sets the module's doc string. It may be retrieved using {@link #getDocumentation}. */
+  public void setDocumentation(String documentation) {
+    this.documentation = documentation;
+  }
+
+  /**
+   * Returns the module's doc string, or null if absent.
+   *
+   * <p>Morally equivalent to calling {@code program.getResolvedFunction().getDocumentation()} when
+   * the Module has a corresponding {@link net.starlark.java.syntax.Program}. We need to separately
+   * save the doc string inside the Module because (1) a Module will usually outlive the Program;
+   * and (2) there isn't always a 1-to-1 match between a Module and a Program (multiple programs may
+   * be executed in the same module in REPL or in tests).
+   */
+  @Nullable
+  public String getDocumentation() {
+    return documentation;
   }
 
   /** Returns the value of a predeclared (not universal) binding in this module. */

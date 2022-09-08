@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -105,8 +104,7 @@ public class DownloadManager {
    * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
    * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
-   * @param repo the name of the external repository for which the file was fetched; used only for
-   *     reporting
+   * @param context the context in which the file was fetched; used only for reporting
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
@@ -120,7 +118,7 @@ public class DownloadManager {
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      String repo)
+      String context)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -187,9 +185,7 @@ public class DownloadManager {
               repositoryCache.get(cacheKey, destination, cacheKeyType, canonicalId);
           if (cachedDestination != null) {
             // Cache hit!
-            eventHandler.post(
-                new RepositoryCacheHitEvent(
-                    RepositoryName.createUnvalidated(repo), cacheKey, mainUrl));
+            eventHandler.post(new RepositoryCacheHitEvent(context, cacheKey, mainUrl));
             return cachedDestination;
           }
         } catch (IOException e) {
@@ -249,8 +245,7 @@ public class DownloadManager {
     }
 
     if (disableDownload) {
-      throw new IOException(
-          String.format("Failed to download repo %s: download is disabled.", repo));
+      throw new IOException(String.format("Failed to download %s: download is disabled.", context));
     }
 
     if (rewrittenUrls.isEmpty() && !originalUrls.isEmpty()) {

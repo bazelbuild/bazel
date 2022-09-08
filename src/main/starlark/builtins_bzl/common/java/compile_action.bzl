@@ -150,7 +150,7 @@ def compile_action(
         exported_plugins = exported_plugins,
         javac_opts = [ctx.expand_location(opt) for opt in javacopts],
         neverlink = neverlink,
-        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+        java_toolchain = semantics.find_java_toolchain(ctx),
         output = output_class_jar,
         output_source_jar = output_source_jar,
         strict_deps = _filter_strict_deps(strict_deps),
@@ -169,10 +169,3 @@ def compile_action(
     )
 
     return java_info, compilation_info
-
-COMPILE_ACTION_IMPLICIT_ATTRS = {
-    "_java_toolchain": attr.label(
-        default = semantics.JAVA_TOOLCHAIN_LABEL,
-        providers = [java_common.JavaToolchainInfo],
-    ),
-}

@@ -21,7 +21,6 @@ change in Bazel to adhere to this policy.
 
 1. [Flip the incompatible flag.](#flip-flag)
 
-
 ## GitHub issue {:#github-issue}
 
 [File a GitHub issue](https://github.com/bazelbuild/bazel/issues){: .external}
@@ -43,8 +42,6 @@ We recommend that:
   update their code. Ideally, when the change is mechanical, include a link to a
   migration tool.
 
-* The description includes the intended length of migration window.
-
 * The description includes an example of the error message users will get if
   they don't migrate. This will make the GitHub issue more discoverable from
   search engines. Make sure that the error message is helpful and actionable.
@@ -55,7 +52,6 @@ For the migration tool, consider contributing to
 [Buildifier](https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md){: .external}.
 It is able to apply automated fixes to `BUILD`, `WORKSPACE`, and `.bzl` files.
 It may also report warnings.
-
 
 ## Implementation {:#implementation}
 
@@ -71,52 +67,67 @@ should contain the URL of the GitHub issue. As the flag name starts with
 
 In the commit description, add a brief summary of the flag.
 Also add [`RELNOTES:`](release-notes.md) in the following form:
-`RELNOTES: --incompatible_name_of_flag has been added. See #yxz for details`
+`RELNOTES: --incompatible_name_of_flag has been added. See #xyz for details`
 
 The commit should also update the relevant documentation. As the documentation
 is versioned, we recommend updating the documentation in the same commit
 as the code change.
 
-
 ## Labels {:#labels}
 
-Once the commit is merged, add the label
+Once the commit is merged and the incompatible change is ready to be adopted, add the label
 [`migration-ready`](https://github.com/bazelbuild/bazel/labels/migration-ready){: .external}
 to the GitHub issue.
 
-Later a [Bazel release manager](https://github.com/bazelbuild/continuous-integration/blob/master/docs/release-playbook.md){: .external}
-will update the issue and replace the label with `migration-xx.yy`.
-
-The label `breaking-change-xx.yy` communicates when we plan to flip the flag. If
-a migration window needs to be extended, the author updates the label on GitHub
-issue accordingly.
-
 If a problem is found with the flag and users are not expected to migrate yet:
-remove the flags `migration-xx.yy`.
+remove the flags `migration-ready`.
+
+If you plan to flip the flag in the next major release, add label `breaking-change-X.0" to the issue.
 
 ## Updating repositories {:#update-repos}
 
-1. Ensure that the core repositories are migrated. On the
-  [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
-  the flag should appear under "The following flags didn't break any passing Bazel team owned/co-owned projects".
-1. Notify the owners of the other repositories.
-1. Wait 14 days after the notifications to proceed, or until the flag is under
-   "The following flags didn't break any passing projects" in the CI.
+Bazel CI tests a list of important projects at
+[Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream){: .external}. Most of them are often
+dependencies of other Bazel projects, therefore it's important to migrate them to unblock the migration for the broader community.
+
+To monitor the migration status of those projects, you can use the
+[`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
+check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects){: .external}.
+
+Migrating projects in the downstream pipeline is NOT entirely the responsibility of the incompatible change author. But you can do the following to accelerate the migration and make life easier for both Bazel users and the Bazel Green Team.
+
+1. File Github issues to notify the owners of the downstream projects broken by your incompatible change.
+1. Send PRs to fix downstream projects.
+1. Reach out to the Bazel community for help on migration (e.g. [Bazel Rules Authors SIG](https://bazel-contrib.github.io/SIG-rules-authors/)).
 
 ## Flipping the flag {:#flip-flag}
 
 Before flipping the default value of the flag to true, please make sure that:
 
-  * The migration window is respected.
-  * User concerns and questions have been resolved.
+* Core repositories in the ecosystem are migrated.
+
+    On the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
+    the flag should appear under `The following flags didn't break any passing Bazel team owned/co-owned projects`.
+
+* User concerns and questions have been resolved.
+
+When the flag is ready to flip in Bazel, but blocked on internal migration at Google, please consider setting the flag value to false in the internal `blazerc` file to unblock the flag flip. By doing this, we can ensure Bazel users depend on the new behaviour by default as early as possible.
 
 When changing the flag default to true, please:
 
-  * Use `RELNOTES[INC]` in the commit description, with the
+* Use `RELNOTES[INC]` in the commit description, with the
     following format:
-    `RELNOTES[INC]: --incompatible_name_of_flag is flipped to true. See #yxz for
+    `RELNOTES[INC]: --incompatible_name_of_flag is flipped to true. See #xyz for
     details`
     You can include additional information in the rest of the commit description.
-  * Use `Fixes #xyz` in the description, so that the GitHub issue gets closed
+* Use `Work towards #xyz` in the description, so that the GitHub issue gets mentioned
     when the commit is merged.
-  * Review and update documentation if needed.
+* Review and update documentation if needed.
+
+## Removing the flag {:#remove-flag}
+
+After the flag is flipped at HEAD, you can start removing the flag. The Github issue should be closed after the flag is removed from Bazel.
+
+* Consider leaving more time for users to migrate if it's a major incompatible change.
+* For the commit that removes the flag, use `Fixes #xyz` in the description
+  so that the GitHub issue gets closed when the commit is merged.

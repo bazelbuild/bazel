@@ -44,8 +44,9 @@ platforms:
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
-      - "-c"
-      - "opt"
+      # TODO(pcloudy): Disable opt build due to https://github.com/bazelbuild/bazel/issues/16225
+      # - "-c"
+      # - "opt"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"
@@ -53,8 +54,9 @@ platforms:
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
-      - "-c"
-      - "opt"
+      # TODO(pcloudy): Disable opt build due to https://github.com/bazelbuild/bazel/issues/16225
+      # - "-c"
+      # - "opt"
       - "--cpu=x64_arm64_windows"
     build_targets:
       - "//src:bazel.exe"

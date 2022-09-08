@@ -96,6 +96,12 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
+    public ModuleBuilder setRepoName(String value) {
+      this.builder.setRepoName(value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public ModuleBuilder setRegistry(FakeRegistry value) {
       this.builder.setRegistry(value);
       return this;

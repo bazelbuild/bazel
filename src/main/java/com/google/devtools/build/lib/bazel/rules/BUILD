@@ -28,6 +28,7 @@ java_library(
         "xcode_configure.WORKSPACE",
         ":builtins_bzl_zip",
         ":coverage.WORKSPACE",
+        ":rules_license.WORKSPACE",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -135,6 +136,18 @@ gen_workspace_stanza(
         load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
     """,
     repos = ["remote_coverage_tools"],
+    use_maybe = 1,
+    visibility = ["//:__pkg__"],
+)
+
+gen_workspace_stanza(
+    name = "rules_license",
+    out = "rules_license.WORKSPACE",
+    preamble = """
+        load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+        load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+    """,
+    repos = ["rules_license"],
     use_maybe = 1,
     visibility = ["//:__pkg__"],
 )
