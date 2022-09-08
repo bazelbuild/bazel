@@ -405,26 +405,6 @@ public final class PatchUtilTest {
   }
 
   @Test
-  public void testMissingBothOldAndNewFile() throws IOException {
-    Path patchFile =
-        scratch.file(
-            "/root/patchfile",
-            "diff --git a/ b/",
-            "index f3008f9..ec4aaa0 100644",
-            "@@ -2,4 +2,5 @@",
-            " ",
-            " void main(){",
-            "   printf(\"Hello foo\");",
-            "+  printf(\"Hello from patch\");",
-            " }");
-    PatchFailedException expected =
-        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("Wrong patch format near line 3, neither new file or old file are specified.");
-  }
-
-  @Test
   public void testCannotFindFileToPatch() throws IOException {
     Path patchFile =
         scratch.file(
@@ -550,7 +530,7 @@ public final class PatchUtilTest {
   }
 
   @Test
-  public void testWrongChunkFormat1() throws IOException {
+  public void testUnexpectedContextLine() throws IOException {
     scratch.file(
         "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
     Path patchFile =
@@ -576,7 +556,7 @@ public final class PatchUtilTest {
   }
 
   @Test
-  public void testWrongChunkFormat2() throws IOException {
+  public void testMissingContextLine() throws IOException {
     scratch.file(
         "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
     Path patchFile =
@@ -597,7 +577,7 @@ public final class PatchUtilTest {
   }
 
   @Test
-  public void testWrongChunkFormat3() throws IOException {
+  public void testMissingChunkHeader() throws IOException {
     scratch.file(
         "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
     Path patchFile =
@@ -618,5 +598,27 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains("Looks like a unified diff at line 3, but no patch chunk was found.");
+  }
+
+  @Test
+  public void testMissingPreludeLines() throws IOException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo.cc b/foo.cc",
+            "index f3008f9..ec4aaa0 100644",
+            // Missing "--- a/foo.cc",
+            // Missing "+++ b/foo.cc",
+            "@@ -2,4 +2,5 @@",
+            " ",
+            " void main(){",
+            "   printf(\"Hello foo\");",
+            "+  printf(\"Hello from patch\");",
+            " }");
+    PatchFailedException expected =
+        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("The patch content must start with ---/+++ prelude lines at line 3");
   }
 }

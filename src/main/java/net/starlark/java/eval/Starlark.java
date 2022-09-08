@@ -914,6 +914,10 @@ public final class Starlark {
     // two array lookups.
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals());
 
+    if (module.getDocumentation() == null) {
+      module.setDocumentation(rfn.getDocumentation());
+    }
+
     StarlarkFunction toplevel =
         new StarlarkFunction(
             rfn,

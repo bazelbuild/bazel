@@ -171,7 +171,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       ModuleExtensionContext moduleContext =
-          createContext(env, usagesValue, starlarkSemantics, extension);
+          createContext(env, usagesValue, starlarkSemantics, extensionId, extension);
       threadContext.storeInThread(thread);
       try {
         Starlark.fastcall(
@@ -232,6 +232,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       Environment env,
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
+      ModuleExtensionId extensionId,
       ModuleExtension extension)
       throws SingleExtensionEvalFunctionException {
     Path workingDirectory =
@@ -262,6 +263,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         processWrapper,
         starlarkSemantics,
         repositoryRemoteExecutor,
+        extensionId,
         StarlarkList.immutableCopyOf(modules));
   }
 
