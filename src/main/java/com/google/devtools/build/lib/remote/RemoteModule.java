@@ -313,10 +313,7 @@ public final class RemoteModule extends BlazeModule {
 
     boolean enableScrubbing = remoteOptions.scrubber != null;
     if (enableScrubbing && enableRemoteExecution) {
-
-      throw createOptionsExitException(
-          "Cannot combine remote cache key scrubbing with remote execution",
-          FailureDetails.RemoteOptions.Code.EXECUTION_WITH_SCRUBBING);
+      env.getReporter().handle(Event.warn("Cannot combine remote cache key scrubbing with remote execution. All actions with cache key scrubbing will be executed locally"));
     }
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
