@@ -1452,24 +1452,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(linkAction.getArguments())).contains(minOSVersionOption);
   }
 
-  protected void checkWatchSimulatorDepCompile(RuleType ruleType) throws Exception {
-    ruleType.scratchTarget(scratch, "deps", "['//package:objcLib']", "platform_type", "'watchos'");
-    scratch.file("package/BUILD", "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
-
-    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
-
-    String i386Bin =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x_bin";
-    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
-    CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
-    CommandAction objcLibCompileAction =
-        (CommandAction)
-            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
-
-    assertAppleSdkPlatformEnv(objcLibCompileAction, "WatchSimulator");
-    assertThat(objcLibCompileAction.getArguments()).containsAtLeast("-arch_only", "i386").inOrder();
-  }
-
   protected void checkWatchSimulatorLinkAction(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch, "deps", "['//package:objcLib']", "platform_type", "'watchos'");
     scratch.file("package/BUILD", "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");

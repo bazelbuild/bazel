@@ -590,11 +590,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testWatchSimulatorDepCompile() throws Exception {
-    checkWatchSimulatorDepCompile(getRuleType());
-  }
-
-  @Test
   public void testDylibBinaryType() throws Exception {
     getRuleType().scratchTarget(scratch, "binary_type", "'dylib'");
 
