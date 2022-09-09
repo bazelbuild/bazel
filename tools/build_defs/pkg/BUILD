@@ -134,14 +134,6 @@ pkg_tar(
     strip_prefix = ".",
 )
 
-pkg_tar(
-    name = "test-tar-files_dict",
-    build_tar = ":build_tar",
-    files = {
-        ":etc/nsswitch.conf": "not-etc/mapped-filename.conf",
-    },
-)
-
 sh_test(
     name = "build_test",
     size = "medium",
@@ -151,7 +143,6 @@ sh_test(
     data = [
         "testenv.sh",
         ":test-tar-.tar",
-        ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",

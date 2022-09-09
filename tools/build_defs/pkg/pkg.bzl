@@ -15,13 +15,6 @@
 
 load(":path.bzl", "compute_data_path", "dest_path")
 
-def _remap(remap_paths, path):
-    """If path starts with a key in remap_paths, rewrite it."""
-    for prefix, replacement in remap_paths.items():
-        if path.startswith(prefix):
-            return replacement + path[len(prefix):]
-    return path
-
 def _quote(filename, protect = "="):
     """Quote the filename, by escaping = by \\= and \\ by \\\\"""
     return filename.replace("\\", "\\\\").replace(protect, "\\" + protect)
@@ -31,9 +24,6 @@ def _pkg_tar_impl(ctx):
 
     # Compute the relative path
     data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
-
-    # Find a list of path remappings to apply.
-    remap_paths = ctx.attr.remap_paths
 
     # Start building the arguments.
     args = [
@@ -59,15 +49,9 @@ def _pkg_tar_impl(ctx):
         file_inputs = ctx.files.srcs[:]
 
     args += [
-        "--file=%s=%s" % (_quote(f.path), _remap(remap_paths, dest_path(f, data_path)))
+        "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
         for f in file_inputs
     ]
-    for target, f_dest_path in ctx.attr.files.items():
-        target_files = target.files.to_list()
-        if len(target_files) != 1:
-            fail("Each input must describe exactly one file.", attr = "files")
-        file_inputs += target_files
-        args += ["--file=%s=%s" % (_quote(target_files[0].path), f_dest_path)]
     if ctx.attr.extension:
         dotPos = ctx.attr.extension.find(".")
         if dotPos > 0:
@@ -94,14 +78,12 @@ _real_pkg_tar = rule(
         "strip_prefix": attr.string(),
         "package_dir": attr.string(default = "/"),
         "srcs": attr.label_list(allow_files = True),
-        "files": attr.label_keyed_string_dict(allow_files = True),
         "mode": attr.string(default = "0555"),
         "out": attr.output(),
         "owner": attr.string(default = "0.0"),
         "ownername": attr.string(default = "."),
         "extension": attr.string(default = "tar"),
         "include_runfiles": attr.bool(),
-        "remap_paths": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(
             default = Label("//tools/build_defs/pkg:build_tar"),
