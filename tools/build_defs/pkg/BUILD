@@ -90,8 +90,6 @@ genrule(
     build_tar = ":build_tar",
     extension = "tar%s" % ext,
     mode = "0644",
-    owner = "42.24",
-    ownername = "titi.tata",
     package_dir = "/",
     strip_prefix = ".",
 ) for ext in [

@@ -30,8 +30,6 @@ def _pkg_tar_impl(ctx):
         "--output=" + ctx.outputs.out.path,
         "--directory=" + ctx.attr.package_dir,
         "--mode=" + ctx.attr.mode,
-        "--owner=" + ctx.attr.owner,
-        "--owner_name=" + ctx.attr.ownername,
     ]
 
     # Add runfiles if requested
@@ -80,8 +78,6 @@ _real_pkg_tar = rule(
         "srcs": attr.label_list(allow_files = True),
         "mode": attr.string(default = "0555"),
         "out": attr.output(),
-        "owner": attr.string(default = "0.0"),
-        "ownername": attr.string(default = "."),
         "extension": attr.string(default = "tar"),
         "include_runfiles": attr.bool(),
         # Implicit dependencies.
