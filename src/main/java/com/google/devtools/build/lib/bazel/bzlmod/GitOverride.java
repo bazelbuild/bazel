@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Specifies that a module should be retrieved from a Git repository. */
@@ -55,5 +56,10 @@ public abstract class GitOverride implements NonRegistryOverride {
         .setRuleClassName("git_repository")
         .setAttributes(attrBuilder.buildOrThrow())
         .build();
+  }
+
+  @Override
+  public ResolutionReason getResolutionReason() {
+    return ResolutionReason.GIT_OVERRIDE;
   }
 }

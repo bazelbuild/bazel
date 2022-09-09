@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Specifies that a module should be retrieved from an archive. */
@@ -58,5 +59,10 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
         .setPatches(getPatches())
         .setPatchStrip(getPatchStrip())
         .build();
+  }
+
+  @Override
+  public ResolutionReason getResolutionReason() {
+    return ResolutionReason.ARCHIVE_OVERRIDE;
   }
 }

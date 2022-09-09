@@ -13,16 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
-import com.google.devtools.build.lib.bazel.bzlmod.ModqueryExecutor;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.Charset;
 import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.QueryType;
 import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.QueryTypeConverter;
 import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.TargetModule;
@@ -35,7 +42,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
-import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ModqueryCommand.Code;
@@ -43,25 +49,27 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.io.OutputStreamWriter;
 import java.util.List;
 import java.util.Objects;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
     name = ModqueryCommand.NAME,
+    // TODO(andreisolo): figure out which extra options are really needed
     options = {
       ModqueryOptions.class,
+      // Don't know what these do but were used in fetch
       PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
     },
-    // TODO(andreisolo): figure out which extra options are really needed
     help = "resource:modquery.txt",
     shortDescription = "Queries the Bzlmod external dependency graph",
     allowResidue = true)
@@ -71,26 +79,23 @@ public final class ModqueryCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    BazelModuleResolutionValue moduleResolution;
     BazelModuleInspectorValue moduleInspector;
 
+    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+    LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setNumThreads(threadsOption.threads)
+            .setEventHandler(env.getReporter())
+            .build();
+
     try {
-      // Don't know exactly what it does, used in 'fetch'
       env.syncPackageLoading(options);
-
-      SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-      LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
-
-      EvaluationContext evaluationContext =
-          EvaluationContext.newBuilder()
-              .setNumThreads(threadsOption.threads)
-              .setEventHandler(env.getReporter())
-              .build();
 
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(BazelModuleResolutionValue.KEY, BazelModuleInspectorValue.KEY),
-              evaluationContext);
+              ImmutableSet.of(BazelModuleInspectorValue.KEY), evaluationContext);
 
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
@@ -100,9 +105,6 @@ public final class ModqueryCommand implements BlazeCommand {
         }
         return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
       }
-
-      moduleResolution =
-          (BazelModuleResolutionValue) evaluationResult.get(BazelModuleResolutionValue.KEY);
 
       moduleInspector =
           (BazelModuleInspectorValue) evaluationResult.get(BazelModuleInspectorValue.KEY);
@@ -117,18 +119,6 @@ public final class ModqueryCommand implements BlazeCommand {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
 
-    AnsiTerminalPrinter printer =
-        new AnsiTerminalPrinter(
-            env.getReporter().getOutErr().getOutputStream(),
-            options.getOptions(UiOptions.class).useColor());
-
-    ModqueryExecutor modqueryExecutor =
-        new ModqueryExecutor(
-            moduleResolution.getDepGraph(),
-            moduleInspector.getDepGraph(),
-            moduleInspector.getModulesIndex(),
-            printer);
-
     ModqueryOptions modqueryOptions = options.getOptions(ModqueryOptions.class);
     Preconditions.checkArgument(modqueryOptions != null);
 
@@ -138,6 +128,7 @@ public final class ModqueryCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
     }
 
+    // The first keyword in the residue must be the QueryType, and then comes a list of "arguments".
     String queryInput = options.getResidue().get(0);
     QueryType query;
     try {
@@ -147,12 +138,21 @@ public final class ModqueryCommand implements BlazeCommand {
           String.format("Invalid query type, choose one from : %s.", QueryType.printValues());
       return reportAndCreateFailureResult(env, errorMessage, Code.MODQUERY_COMMAND_UNKNOWN);
     }
-
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
 
+    // Arguments are structured as a list of comma-separated target lists for generality,
+    // even though there can only be 0 or 1 args so far.
     ImmutableList<ImmutableSet<ModuleKey>> argsKeysList;
+    AugmentedModule rootModule = moduleInspector.getDepGraph().get(ModuleKey.ROOT);
     try {
-      argsKeysList = parseTargetArgs(args, query.getArgNumber(), moduleInspector.getModulesIndex());
+      argsKeysList =
+          parseTargetArgs(
+              query.getArgNumber(),
+              moduleInspector.getModulesIndex(),
+              args,
+              rootModule.getDeps(),
+              rootModule.getUnusedDeps(),
+              modqueryOptions.includeUnused);
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
     } catch (OptionsParsingException e) {
@@ -160,19 +160,80 @@ public final class ModqueryCommand implements BlazeCommand {
     }
     /* Extract and check the --from argument */
     ImmutableSet<ModuleKey> fromKeys;
-    try {
-      fromKeys =
-          targetListToModuleKeySet(modqueryOptions.modulesFrom, moduleInspector.getModulesIndex());
-    } catch (InvalidArgumentException e) {
-      return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+    if (modqueryOptions.modulesFrom == null) {
+      fromKeys = ImmutableSet.of(ModuleKey.ROOT);
+    } else {
+      try {
+        fromKeys =
+            targetListToModuleKeySet(
+                modqueryOptions.modulesFrom,
+                moduleInspector.getModulesIndex(),
+                rootModule.getDeps(),
+                rootModule.getUnusedDeps(),
+                modqueryOptions.includeUnused);
+      } catch (InvalidArgumentException e) {
+        return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
+      }
     }
+
+    ImmutableMap<ModuleKey, BzlmodRepoRuleValue> repoRuleValues = null;
+    // If the query is a SHOW, also request the BzlmodRepoRuleValues from SkyFrame.
+    // Unused modules do not have a BzlmodRepoRuleValue, so they are filtered out.
+    if (query == QueryType.SHOW) {
+      try {
+        ImmutableSet<ModuleKey> keys =
+            argsKeysList.get(0).stream()
+                .filter(
+                    k ->
+                        ModqueryExecutor.filterUnused(
+                            k, modqueryOptions.includeUnused, false, moduleInspector.getDepGraph()))
+                .collect(toImmutableSet());
+        ImmutableSet<SkyKey> skyKeys =
+            keys.stream()
+                .map(k -> BzlmodRepoRuleValue.key(k.getCanonicalRepoName()))
+                .collect(toImmutableSet());
+        EvaluationResult<SkyValue> result =
+            env.getSkyframeExecutor().prepareAndGet(skyKeys, evaluationContext);
+        repoRuleValues =
+            keys.stream()
+                .collect(
+                    toImmutableMap(
+                        k -> k,
+                        k ->
+                            (BzlmodRepoRuleValue)
+                                result.get(BzlmodRepoRuleValue.key(k.getCanonicalRepoName()))));
+      } catch (InterruptedException e) {
+        String errorMessage = "Modquery interrupted: " + e.getMessage();
+        env.getReporter().handle(Event.error(errorMessage));
+        return BlazeCommandResult.detailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(errorMessage));
+      }
+    }
+
+    // Workaround to allow different default value for DEPS and EXPLAIN, and also use
+    // Integer.MAX_VALUE instead of the exact number string.
+    if (modqueryOptions.depth < 1) {
+      if (query == QueryType.EXPLAIN || query == QueryType.DEPS) {
+        modqueryOptions.depth = 1;
+      } else {
+        modqueryOptions.depth = Integer.MAX_VALUE;
+      }
+    }
+
+    ModqueryExecutor modqueryExecutor =
+        new ModqueryExecutor(
+            moduleInspector.getDepGraph(),
+            modqueryOptions,
+            new OutputStreamWriter(
+                env.getReporter().getOutErr().getOutputStream(),
+                modqueryOptions.charset == Charset.UTF8 ? UTF_8 : US_ASCII));
 
     switch (query) {
       case TREE:
         modqueryExecutor.tree(fromKeys);
         break;
       case DEPS:
-        modqueryExecutor.deps(argsKeysList.get(0));
+        modqueryExecutor.tree(argsKeysList.get(0));
         break;
       case PATH:
         modqueryExecutor.path(fromKeys, argsKeysList.get(0));
@@ -181,21 +242,33 @@ public final class ModqueryCommand implements BlazeCommand {
         modqueryExecutor.allPaths(fromKeys, argsKeysList.get(0));
         break;
       case EXPLAIN:
-        modqueryExecutor.explain(argsKeysList.get(0));
+        modqueryExecutor.allPaths(fromKeys, argsKeysList.get(0));
         break;
       case SHOW:
-        modqueryExecutor.show(argsKeysList.get(0));
+        Preconditions.checkArgument(repoRuleValues != null);
+        modqueryExecutor.show(repoRuleValues);
         break;
     }
 
     return BlazeCommandResult.success();
   }
 
+  /**
+   * A general parser for an undefined number of arguments. The arguments are comma-separated lists
+   * of {@link TargetModule}s. Each target {@link TargetModule} can represent a {@code repo_name},
+   * as defined in the {@code MODULE.bazel} file of the root project, a specific version of a
+   * module, or all present versions of a module. The root module can only be specified by the
+   * {@code root} keyword, which takes precedence over the other above (in case of modules named
+   * root).
+   */
   @VisibleForTesting
   public static ImmutableList<ImmutableSet<ModuleKey>> parseTargetArgs(
-      List<String> args,
       int requiredArgNum,
-      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
+      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
+      List<String> args,
+      ImmutableBiMap<String, ModuleKey> rootDeps,
+      ImmutableBiMap<String, ModuleKey> rootUnusedDeps,
+      boolean includeUnused)
       throws OptionsParsingException, InvalidArgumentException {
     if (requiredArgNum != args.size()) {
       throw new InvalidArgumentException(
@@ -211,30 +284,52 @@ public final class ModqueryCommand implements BlazeCommand {
 
     for (String arg : args) {
       ImmutableList<TargetModule> targetList = converter.convert(arg);
-      ImmutableSet<ModuleKey> argModuleKeys = targetListToModuleKeySet(targetList, modulesIndex);
+      ImmutableSet<ModuleKey> argModuleKeys =
+          targetListToModuleKeySet(
+              targetList, modulesIndex, rootDeps, rootUnusedDeps, includeUnused);
       argsKeysListBuilder.add(argModuleKeys);
     }
     return argsKeysListBuilder.build();
   }
 
+  /** Collects a list of {@link TargetModule} into a set of {@link ModuleKey}s. */
   private static ImmutableSet<ModuleKey> targetListToModuleKeySet(
       ImmutableList<TargetModule> targetList,
-      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
+      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
+      ImmutableBiMap<String, ModuleKey> rootDeps,
+      ImmutableBiMap<String, ModuleKey> rootUnusedDeps,
+      boolean includeUnused)
       throws InvalidArgumentException {
     ImmutableSet.Builder<ModuleKey> allTargetKeys = new ImmutableSet.Builder<>();
     for (TargetModule targetModule : targetList) {
-      allTargetKeys.addAll(targetToModuleKeySet(targetModule, modulesIndex));
+      allTargetKeys.addAll(
+          targetToModuleKeySet(
+              targetModule, modulesIndex, rootDeps, rootUnusedDeps, includeUnused));
     }
     return allTargetKeys.build();
   }
 
-  // Helper to check the module-version argument exists and retrieve its present version(s)
-  // (ModuleKey(s)) if not specified
+  /**
+   * Helper to check the module (and version) of the given {@link TargetModule} exists and retrieve
+   * it, (or retrieve all present versions if it's semantic specifies it, i.e. when <code>
+   * Version == null</code>).
+   */
   private static ImmutableSet<ModuleKey> targetToModuleKeySet(
-      TargetModule target, ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex)
+      TargetModule target,
+      ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex,
+      ImmutableBiMap<String, ModuleKey> rootDeps,
+      ImmutableBiMap<String, ModuleKey> rootUnusedDeps,
+      boolean includeUnused)
       throws InvalidArgumentException {
     if (target.getName().isEmpty() && Objects.equals(target.getVersion(), Version.EMPTY)) {
       return ImmutableSet.of(ModuleKey.ROOT);
+    }
+    if (rootDeps.containsKey(target.getName())) {
+      if (includeUnused && rootUnusedDeps.containsKey(target.getName())) {
+        return ImmutableSet.of(
+            rootDeps.get(target.getName()), rootUnusedDeps.get(target.getName()));
+      }
+      return ImmutableSet.of(rootDeps.get(target.getName()));
     }
     ImmutableSet<ModuleKey> existingKeys = modulesIndex.get(target.getName());
 
@@ -281,7 +376,10 @@ public final class ModqueryCommand implements BlazeCommand {
                 .build()));
   }
 
-  /** Exception thrown when a user-input argument is invalid */
+  /**
+   * Exception thrown when a user-input argument is invalid (wrong number of arguments or the
+   * specified modules do not exist).
+   */
   @VisibleForTesting
   public static class InvalidArgumentException extends Exception {
     private final Code code;

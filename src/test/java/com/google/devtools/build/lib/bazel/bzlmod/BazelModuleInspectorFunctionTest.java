@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.AugmentedModuleBuilder.buildAugmentedModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 
 import com.google.common.collect.ImmutableList;
@@ -24,10 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
-import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.Map.Entry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -73,15 +70,16 @@ public class BazelModuleInspectorFunctionTest {
     assertThat(depGraph.entrySet())
         .containsExactly(
             buildAugmentedModule(ModuleKey.ROOT, "aaa")
-                .addDep("bbb", "1.0")
-                .addDep("ccc", "2.0")
+                .addDep("bbb_from_aaa", "bbb", "1.0")
+                .addDep("ccc_from_aaa", "ccc", "2.0")
                 .buildEntry(),
             buildAugmentedModule("bbb", "1.0")
-                .addDep("ddd", "2.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addChangedDep(
+                    "ddd_from_bbb", "ddd", "2.0", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
             buildAugmentedModule("ccc", "2.0")
-                .addDep("ddd", "2.0")
+                .addDep("ddd_from_ccc", "ddd", "2.0")
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
             buildAugmentedModule("ddd", "2.0")
@@ -136,7 +134,7 @@ public class BazelModuleInspectorFunctionTest {
                 .addDep("ccc", "2.0")
                 .buildEntry(),
             buildAugmentedModule("bbb", "1.0")
-                .addDep("ddd", "2.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addChangedDep("ddd", "2.0", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
             buildAugmentedModule("ccc", "2.0")
@@ -196,7 +194,7 @@ public class BazelModuleInspectorFunctionTest {
                 .addDependant("ccc", "2.0")
                 .buildEntry(),
             buildAugmentedModule("ccc", "2.0")
-                .addDep("bbb", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addChangedDep("bbb", "1.0", "1.0-pre", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .addStillDependant("bbb", "1.0")
                 .buildEntry(),
             buildAugmentedModule("bbb", "1.0-pre")
@@ -210,8 +208,8 @@ public class BazelModuleInspectorFunctionTest {
   public void testSingleVersionOverride_withRemoval() throws Exception {
     // Original (non-resolved) dep graph
     // single_version_override (ccc, 2.0)
-    // aaa -> bbb 1.0 -> ccc 1.0 -> ddd -> 1.0
-    //                   ccc 2.0 -> ddd -> 2.0
+    // aaa -> bbb 1.0 -> ccc 1.0 -> ddd 1.0
+    //                   ccc 2.0 -> ddd 2.0
     ImmutableMap<ModuleKey, Module> unprunedDepGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
@@ -252,7 +250,7 @@ public class BazelModuleInspectorFunctionTest {
         .containsExactly(
             buildAugmentedModule(ModuleKey.ROOT, "aaa").addDep("bbb", "1.0").buildEntry(),
             buildAugmentedModule("bbb", "1.0")
-                .addDep("ccc", "2.0", ResolutionReason.SINGLE_VERSION_OVERRIDE)
+                .addChangedDep("ccc", "2.0", "1.0", ResolutionReason.SINGLE_VERSION_OVERRIDE)
                 .addStillDependant(ModuleKey.ROOT)
                 .buildEntry(),
             buildAugmentedModule("ccc", "1.0", false)
@@ -303,7 +301,7 @@ public class BazelModuleInspectorFunctionTest {
     assertThat(depGraph.entrySet())
         .containsExactly(
             buildAugmentedModule(ModuleKey.ROOT, "aaa")
-                .addDep("bbb", "", ResolutionReason.NON_REGISTRY_OVERRIDE)
+                .addChangedDep("bbb", "", "1.0", ResolutionReason.ARCHIVE_OVERRIDE)
                 .buildEntry(),
             buildAugmentedModule("bbb", "1.0", false)
                 .addOriginalDependant(ModuleKey.ROOT)
@@ -369,13 +367,13 @@ public class BazelModuleInspectorFunctionTest {
     assertThat(depGraph.entrySet())
         .containsExactly(
             buildAugmentedModule(ModuleKey.ROOT, "aaa")
-                .addDep("bbb", "1.0")
-                .addDep("bbb", "2.0")
+                .addDep("bbb1", "bbb", "1.0")
+                .addDep("bbb2", "bbb", "2.0")
                 .addDep("ccc", "2.0")
                 .buildEntry(),
             buildAugmentedModule("bbb", "1.0")
                 .addStillDependant(ModuleKey.ROOT)
-                .addDep("ccc", "1.5", ResolutionReason.MULTIPLE_VERSION_OVERRIDE)
+                .addChangedDep("ccc", "1.5", "1.0", ResolutionReason.MULTIPLE_VERSION_OVERRIDE)
                 .buildEntry(),
             buildAugmentedModule("bbb", "2.0")
                 .addStillDependant(ModuleKey.ROOT)
@@ -447,7 +445,7 @@ public class BazelModuleInspectorFunctionTest {
 
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "C",
+            "ccc",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
@@ -468,9 +466,9 @@ public class BazelModuleInspectorFunctionTest {
         .containsExactly(
             buildAugmentedModule(ModuleKey.ROOT, "aaa")
                 .addDep("bbb1", "1.0")
-                .addDep("bbb2", "1.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addChangedDep("bbb2", "1.1", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .addDep("bbb3", "1.0")
-                .addDep("bbb4", "1.1", ResolutionReason.MINIMAL_VERSION_SELECTION)
+                .addChangedDep("bbb4", "1.1", "1.0", ResolutionReason.MINIMAL_VERSION_SELECTION)
                 .buildEntry(),
             buildAugmentedModule("bbb1", "1.0")
                 .addDep("ccc", "1.0")
@@ -502,92 +500,5 @@ public class BazelModuleInspectorFunctionTest {
             buildAugmentedModule("ccc", "1.5").addOriginalDependant("bbb2", "1.0").buildEntry(),
             buildAugmentedModule("ccc", "2.0").addStillDependant("bbb3", "1.0").buildEntry(),
             buildAugmentedModule("ccc", "3.0").addOriginalDependant("bbb4", "1.0").buildEntry());
-  }
-
-  static ModuleAugmentBuilder buildAugmentedModule(
-      ModuleKey key, String name, Version version, boolean loaded) {
-    ModuleAugmentBuilder myBuilder = new ModuleAugmentBuilder();
-    myBuilder.key = key;
-    myBuilder.builder =
-        AugmentedModule.builder(key).setName(name).setVersion(version).setLoaded(loaded);
-    return myBuilder;
-  }
-
-  static ModuleAugmentBuilder buildAugmentedModule(String name, String version, boolean loaded)
-      throws ParseException {
-    ModuleKey key = createModuleKey(name, version);
-    return buildAugmentedModule(key, name, Version.parse(version), loaded);
-  }
-
-  static ModuleAugmentBuilder buildAugmentedModule(String name, String version)
-      throws ParseException {
-    ModuleKey key = createModuleKey(name, version);
-    return buildAugmentedModule(key, name, Version.parse(version), true);
-  }
-
-  static ModuleAugmentBuilder buildAugmentedModule(ModuleKey key, String name) {
-    return buildAugmentedModule(key, name, key.getVersion(), true);
-  }
-
-  private static final class ModuleAugmentBuilder {
-
-    private AugmentedModule.Builder builder;
-    private ModuleKey key;
-
-    private ModuleAugmentBuilder() {}
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addDep(String name, String version, ResolutionReason reason) {
-      this.builder.addDep(createModuleKey(name, version), reason);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addDep(String name, String version) {
-      this.builder.addDep(createModuleKey(name, version), ResolutionReason.ORIGINAL);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addDependant(String name, String version) {
-      this.builder.addDependant(createModuleKey(name, version));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addDependant(ModuleKey key) {
-      this.builder.addDependant(key);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addOriginalDependant(String name, String version) {
-      this.builder.addOriginalDependant(createModuleKey(name, version));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addOriginalDependant(ModuleKey key) {
-      this.builder.addOriginalDependant(key);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addStillDependant(String name, String version) {
-      this.builder.addOriginalDependant(createModuleKey(name, version));
-      this.builder.addDependant(createModuleKey(name, version));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    ModuleAugmentBuilder addStillDependant(ModuleKey key) {
-      this.builder.addOriginalDependant(key);
-      this.builder.addDependant(key);
-      return this;
-    }
-
-    Entry<ModuleKey, AugmentedModule> buildEntry() {
-      return new SimpleEntry<>(this.key, this.builder.build());
-    }
   }
 }
