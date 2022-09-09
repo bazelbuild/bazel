@@ -488,12 +488,10 @@ load(":a.bzl", "a")
 a(name="a")
 EOF
 
-  # TODO(tjgq): This should fail to build.
-  bazel build //a:a || fail "build failed"
-  assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
-  expect_symlink bazel-bin/a/a.link
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
+  expect_log "symlink() with \"target_file\" directory param requires that \"output\" be declared as a directory"
 
-  bazel build --noincompatible_disallow_symlink_file_to_dir || fail "build failed"
+  bazel build --noincompatible_disallow_symlink_file_to_dir //a:a || fail "build failed"
   assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
   expect_symlink bazel-bin/a/a.link
 

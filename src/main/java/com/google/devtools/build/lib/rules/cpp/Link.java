@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -35,13 +36,18 @@ public abstract class Link {
    * but will never be expanded to their constituent {@code .o} files. {@link CppLinkAction} checks
    * that these files are never added as non-libraries.
    */
-  public static final FileTypeSet SHARED_LIBRARY_FILETYPES = FileTypeSet.of(
-      CppFileTypes.SHARED_LIBRARY,
-      CppFileTypes.VERSIONED_SHARED_LIBRARY,
-      CppFileTypes.INTERFACE_SHARED_LIBRARY);
+  public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
+      FileTypeSet.of(
+          CppFileTypes.SHARED_LIBRARY,
+          CppFileTypes.VERSIONED_SHARED_LIBRARY,
+          CppFileTypes.INTERFACE_SHARED_LIBRARY,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet ONLY_SHARED_LIBRARY_FILETYPES =
-      FileTypeSet.of(CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
+      FileTypeSet.of(
+          CppFileTypes.SHARED_LIBRARY,
+          CppFileTypes.VERSIONED_SHARED_LIBRARY,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet ONLY_INTERFACE_LIBRARY_FILETYPES =
       FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY);
@@ -52,10 +58,15 @@ public abstract class Link {
           CppFileTypes.PIC_ARCHIVE,
           CppFileTypes.ALWAYS_LINK_LIBRARY,
           CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
-          CppFileTypes.RUST_RLIB);
+          CppFileTypes.RUST_RLIB,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet ARCHIVE_FILETYPES =
-      FileTypeSet.of(CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE, CppFileTypes.RUST_RLIB);
+      FileTypeSet.of(
+          CppFileTypes.ARCHIVE,
+          CppFileTypes.PIC_ARCHIVE,
+          CppFileTypes.RUST_RLIB,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet LINK_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.ALWAYS_LINK_LIBRARY,
