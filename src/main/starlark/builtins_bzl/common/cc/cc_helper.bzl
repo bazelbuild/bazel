@@ -505,7 +505,7 @@ def _build_precompiled_files(ctx):
             pic_alwayslink_static_libraries.append(src)
         elif _matches_extension(short_path, ALWAYSLINK_LIBRARY):
             alwayslink_static_libraries.append(src)
-        elif _is_shared_library_extension_valid(short_path):
+        elif _is_valid_shared_library_artifact(src):
             shared_libraries.append(src)
     return (
         objects,
@@ -533,13 +533,24 @@ def _is_versioned_shared_library_extension_valid(shared_library_name):
             return True
     return False
 
-def _is_shared_library_extension_valid(shared_library_name):
+# NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
+# it has better performance (checking for extension in a short list rather than multiple
+# string.endswith() checks)
+def _is_valid_shared_library_name(shared_library_name):
     if (shared_library_name.endswith(".so") or
         shared_library_name.endswith(".dll") or
         shared_library_name.endswith(".dylib")):
         return True
 
     return _is_versioned_shared_library_extension_valid(shared_library_name)
+
+_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib"]
+
+def _is_valid_shared_library_artifact(shared_library):
+    if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
+        return True
+
+    return _is_versioned_shared_library_extension_valid(shared_library.basename)
 
 def _get_providers(deps, provider):
     providers = []
@@ -932,7 +943,8 @@ cc_helper = struct(
     is_test_target = _is_test_target,
     extensions = extensions,
     build_precompiled_files = _build_precompiled_files,
-    is_shared_library_extension_valid = _is_shared_library_extension_valid,
+    is_valid_shared_library_name = _is_valid_shared_library_name,
+    is_valid_shared_library_artifact = _is_valid_shared_library_artifact,
     get_providers = _get_providers,
     is_compilation_outputs_empty = _is_compilation_outputs_empty,
     matches_extension = _matches_extension,

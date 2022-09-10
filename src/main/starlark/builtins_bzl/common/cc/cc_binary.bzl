@@ -471,7 +471,7 @@ def _create_transitive_linking_actions(
     # entries during linking process.
     for libs in precompiled_files[:]:
         for artifact in libs:
-            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_shared_library_extension_valid(artifact.basename):
+            if _matches([".so", ".dylib", ".dll", ".ifso", ".tbd", ".lib", ".dll.a"], artifact.basename) or cc_helper.is_valid_shared_library_artifact(artifact):
                 library_to_link = cc_common.create_library_to_link(
                     actions = ctx.actions,
                     feature_configuration = feature_configuration,
@@ -647,7 +647,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     # the target name.
     # This is no longer necessary, the toolchain can figure out the correct file extensions.
     target_name = ctx.label.name
-    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_shared_library_extension_valid(target_name))
+    has_legacy_link_shared_name = _is_link_shared(ctx) and (_matches([".so", ".dylib", ".dll"], target_name) or cc_helper.is_valid_shared_library_name(target_name))
     binary = None
     if has_legacy_link_shared_name:
         binary = ctx.actions.declare_file(target_name)
