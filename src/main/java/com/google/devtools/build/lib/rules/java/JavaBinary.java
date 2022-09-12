@@ -353,9 +353,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // of safety.)
       if (javaConfig.enforceOneVersionOnJavaTests() || !isJavaTestRule(ruleContext)) {
         builder.addOutputGroup(
-            javaConfig.enforceOneVersionValidationAction()
-                ? OutputGroupInfo.VALIDATION
-                : OutputGroupInfo.HIDDEN_TOP_LEVEL,
+            OutputGroupInfo.VALIDATION,
             OneVersionCheckActionBuilder.newBuilder()
                 .withEnforcementLevel(javaConfig.oneVersionEnforcementLevel())
                 .outputArtifact(

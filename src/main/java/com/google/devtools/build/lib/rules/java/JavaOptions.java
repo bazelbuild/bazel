@@ -451,14 +451,13 @@ public class JavaOptions extends FragmentOptions {
               + " violations.")
   public boolean enforceOneVersionOnJavaTests;
 
+  @Deprecated
   @Option(
       name = "experimental_one_version_enforcement_validation_action",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
-              + " enforce one version using validation actions.")
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean enforceOneVersionValidationAction;
 
   @Option(
@@ -655,7 +654,6 @@ public class JavaOptions extends FragmentOptions {
     host.importDepsCheckingLevel = importDepsCheckingLevel;
     // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
     host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
-    host.enforceOneVersionValidationAction = enforceOneVersionValidationAction;
     host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
     host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
