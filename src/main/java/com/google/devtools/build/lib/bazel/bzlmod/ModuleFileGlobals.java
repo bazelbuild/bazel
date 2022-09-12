@@ -167,30 +167,6 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "''"),
-        @Param(
-            name = "execution_platforms_to_register",
-            doc =
-                "A list of already-defined execution platforms to be registered when this module is"
-                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
-                    + " either <code>@</code> or <code>//</code>). See <a"
-                    + " href=\"${link toolchains}\">toolchain resolution</a> for more"
-                    + " information.",
-            named = true,
-            positional = false,
-            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
-            defaultValue = "[]"),
-        @Param(
-            name = "toolchains_to_register",
-            doc =
-                "A list of already-defined toolchains to be registered when this module is"
-                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
-                    + " either <code>@</code> or <code>//</code>). See <a"
-                    + " href=\"${link toolchains}\">toolchain resolution</a> for more"
-                    + " information.",
-            named = true,
-            positional = false,
-            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
-            defaultValue = "[]"),
       },
       useStarlarkThread = true)
   public void module(
@@ -198,8 +174,6 @@ public class ModuleFileGlobals {
       String version,
       StarlarkInt compatibilityLevel,
       String repoName,
-      Iterable<?> executionPlatformsToRegister,
-      Iterable<?> toolchainsToRegister,
       StarlarkThread thread)
       throws EvalException {
     if (moduleCalled) {
@@ -222,18 +196,11 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in module()", e);
     }
-    // TODO(wyv): migrate users of execution_platforms_to_register and toolchains_to_register to
-    // register_execution_platforms and register_toolchains, and remove the former two attributes.
     module
         .setName(name)
         .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
-        .setRepoName(repoName)
-        .addExecutionPlatformsToRegister(
-            checkAllAbsolutePatterns(
-                executionPlatformsToRegister, "execution_platforms_to_register"))
-        .addToolchainsToRegister(
-            checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
+        .setRepoName(repoName);
   }
 
   private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)

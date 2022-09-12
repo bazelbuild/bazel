@@ -183,13 +183,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "    name='aaa',",
         "    version='0.1',",
         "    compatibility_level=4,",
-        "    toolchains_to_register=['//my:toolchain', '//my:toolchain2'],",
-        "    execution_platforms_to_register=['//my:platform', '//my:platform2'],",
         ")",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0',repo_name='see')",
-        "register_toolchains('//my:toolchain3', '//my:toolchain4')",
-        "register_execution_platforms('//my:platform3', '//my:platform4')",
+        "register_toolchains('//my:toolchain', '//my:toolchain2')",
+        "register_execution_platforms('//my:platform', '//my:platform2')",
         "single_version_override(module_name='ddd',version='18')",
         "local_path_override(module_name='eee',path='somewhere/else')",
         "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
@@ -209,11 +207,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ModuleBuilder.create("aaa", "0.1", 4)
                 .setKey(ModuleKey.ROOT)
                 .addExecutionPlatformsToRegister(
-                    ImmutableList.of(
-                        "//my:platform", "//my:platform2", "//my:platform3", "//my:platform4"))
-                .addToolchainsToRegister(
-                    ImmutableList.of(
-                        "//my:toolchain", "//my:toolchain2", "//my:toolchain3", "//my:toolchain4"))
+                    ImmutableList.of("//my:platform", "//my:platform2"))
+                .addToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("bbb", createModuleKey("bbb", "1.0"))
                 .addDep("see", createModuleKey("ccc", "2.0"))
                 .build());
