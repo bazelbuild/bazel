@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -125,7 +126,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   @Override
   protected String getIdentifyingStringForLogging() {
-    return "repository " + repoName.getNameWithAt();
+    return RepositoryFetchProgress.repositoryFetchContextString(repoName);
   }
 
   @StarlarkMethod(
