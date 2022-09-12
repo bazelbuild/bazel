@@ -1506,4 +1506,92 @@ EOF
   expect_log "\"PWD\": \"/proc/self/cwd\""
 }
 
+function external_cc_test_setup() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/lib
+  cat > other_repo/lib/BUILD <<'EOF'
+cc_library(
+  name = "lib",
+  srcs = ["lib.cpp"],
+  hdrs = ["lib.h"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > other_repo/lib/lib.h <<'EOF'
+void print_greeting();
+EOF
+  cat > other_repo/lib/lib.cpp <<'EOF'
+#include <cstdio>
+void print_greeting() {
+  printf("Hello, world!\n");
+}
+EOF
+
+  mkdir -p other_repo/test
+  cat > other_repo/test/BUILD <<'EOF'
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = ["//lib"],
+)
+EOF
+  cat > other_repo/test/test.cpp <<'EOF'
+#include "lib/lib.h"
+int main() {
+  print_greeting();
+}
+EOF
+}
+
+function test_external_cc_test_sandboxed() {
+  [ "$PLATFORM" != "windows" ] || return 0
+
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=sandboxed \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_sandboxed_sibling_repository_layout() {
+  [ "$PLATFORM" != "windows" ] || return 0
+
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=sandboxed \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_local() {
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_local_sibling_repository_layout() {
+  external_cc_test_setup
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
 run_suite "cc_integration_test"
