@@ -752,7 +752,8 @@ final class AspectFunction implements SkyFunction {
     if (transitivePackagesForPackageRootResolution != null) {
       finalTransitivePackagesForPackageRootResolution =
           transitivePackagesForPackageRootResolution
-              .addTransitive(real.getTransitivePackagesForPackageRootResolution())
+              .addTransitive(
+                  Preconditions.checkNotNull(real.getTransitivePackagesForPackageRootResolution()))
               .add(originalTarget.getPackage())
               .build();
     }

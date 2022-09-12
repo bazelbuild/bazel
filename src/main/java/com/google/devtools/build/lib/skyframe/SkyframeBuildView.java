@@ -388,7 +388,9 @@ public final class SkyframeBuildView {
         AspectValue aspectValue = (AspectValue) val;
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
         if (packages != null) {
-          packages.addTransitive(aspectValue.getTransitivePackagesForPackageRootResolution());
+          packages.addTransitive(
+              Preconditions.checkNotNull(
+                  aspectValue.getTransitivePackagesForPackageRootResolution()));
         }
         aspectKeysBuilder.add(aspectValue.getKey());
       }
@@ -403,7 +405,8 @@ public final class SkyframeBuildView {
       }
       cts.add(ctValue.getConfiguredTarget());
       if (packages != null) {
-        packages.addTransitive(ctValue.getTransitivePackagesForPackageRootResolution());
+        packages.addTransitive(
+            Preconditions.checkNotNull(ctValue.getTransitivePackagesForPackageRootResolution()));
       }
     }
     PackageRoots packageRoots =

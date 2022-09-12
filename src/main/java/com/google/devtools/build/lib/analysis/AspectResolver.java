@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -99,7 +100,8 @@ public final class AspectResolver {
         result.put(dep, aspectValue.getConfiguredAspect());
         if (transitivePackages != null) {
           transitivePackages.addTransitive(
-              aspectValue.getTransitivePackagesForPackageRootResolution());
+              Preconditions.checkNotNull(
+                  aspectValue.getTransitivePackagesForPackageRootResolution()));
         }
       }
     }

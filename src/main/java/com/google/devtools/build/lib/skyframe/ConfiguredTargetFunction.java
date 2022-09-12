@@ -1146,7 +1146,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         }
         if (transitivePackagesForPackageRootResolution != null) {
           transitivePackagesForPackageRootResolution.addTransitive(
-              depValue.getTransitivePackagesForPackageRootResolution());
+              Preconditions.checkNotNull(depValue.getTransitivePackagesForPackageRootResolution()));
         }
       }
 

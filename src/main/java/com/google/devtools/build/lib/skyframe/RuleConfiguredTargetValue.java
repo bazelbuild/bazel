@@ -69,9 +69,10 @@ public final class RuleConfiguredTargetValue
     return actions;
   }
 
+  @Nullable
   @Override
   public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
+    return transitivePackagesForPackageRootResolution;
   }
 
   @Override

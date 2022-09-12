@@ -142,6 +142,7 @@ java_library(
         ":ignored_package_prefixes_function",
         ":ignored_package_prefixes_value",
         ":incremental_artifact_conflict_finder",
+        ":incremental_package_roots",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":map_as_package_roots",
@@ -1506,6 +1507,23 @@ java_library(
 )
 
 java_library(
+    name = "incremental_package_roots",
+    srcs = ["IncrementalPackageRoots.java"],
+    deps = [
+        ":top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib:buildtool/symlink_forest",
+        "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "interner_with_presence_check",
     srcs = ["InternerWithPresenceCheck.java"],
     deps = [
@@ -2683,7 +2701,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
     ],

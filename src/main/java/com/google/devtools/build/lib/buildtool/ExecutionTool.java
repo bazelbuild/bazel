@@ -92,7 +92,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
+import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -265,28 +265,22 @@ public class ExecutionTool {
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
       Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
-      PackageRoots noSymlinkPackageRoots = new PackageRootsNoSymlinkCreation(singleSourceRoot);
-      try {
-        SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-            getExecRoot(),
-            singleSourceRoot.asPath(),
-            /*prefix=*/ env.getDirectories().getProductName() + "-",
-            request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage("Failed to prepare the symlink forest")
-                    .setSymlinkForest(
-                        FailureDetails.SymlinkForest.newBuilder()
-                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
-                    .build()),
-            e);
-      }
-      env.getEventBus().post(new ExecRootPreparedEvent(noSymlinkPackageRoots.getPackageRootsMap()));
+      IncrementalPackageRoots incrementalPackageRoots =
+          IncrementalPackageRoots.createAndRegisterToEventBus(
+              getExecRoot(),
+              singleSourceRoot,
+              env.getEventBus(),
+              env.getDirectories().getProductName() + "-",
+              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
+      skyframeExecutor.setIncrementalPackageRoots(incrementalPackageRoots);
+
+      // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
+      // via IncrementalPackageRoots.
+      env.getEventBus().post(ExecRootPreparedEvent.NO_PACKAGE_ROOTS_MAP);
       env.getSkyframeBuildView()
           .getArtifactFactory()
-          .setPackageRoots(noSymlinkPackageRoots.getPackageRootLookup());
+          .setPackageRoots(incrementalPackageRoots.getPackageRootLookup());
     }
 
     OutputService outputService = env.getOutputService();

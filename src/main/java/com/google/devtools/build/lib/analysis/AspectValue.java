@@ -82,9 +82,10 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
     transitivePackagesForPackageRootResolution = null;
   }
 
+  @Nullable
   @Override
   public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
+    return transitivePackagesForPackageRootResolution;
   }
 
   @Override

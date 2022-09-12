@@ -389,6 +389,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
 
+  // Reset while preparing for execution in each build.
+  private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
+
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -2246,9 +2249,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
+  public void setIncrementalPackageRoots(IncrementalPackageRoots incrementalPackageRoots) {
+    this.incrementalPackageRoots = Optional.of(incrementalPackageRoots);
+  }
+
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
+
+    if (incrementalPackageRoots.isPresent()) {
+      incrementalPackageRoots.get().shutdown();
+      incrementalPackageRoots = Optional.empty();
+    }
     skyframeActionExecutor.executionOver();
     actionExecutionFunction.complete(eventHandler);
   }
