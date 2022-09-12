@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -388,7 +390,7 @@ public class BuildRequest implements OptionsProvider {
    *
    * @return list of warnings
    */
-  public List<String> validateOptions() {
+  public List<String> validateOptions() throws InvalidConfigurationException {
     List<String> warnings = new ArrayList<>();
 
     int localTestJobs = getExecutionOptions().localTestJobs;
@@ -414,6 +416,16 @@ public class BuildRequest implements OptionsProvider {
       warnings.add(
           "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and"
               + " will be ignored.");
+    }
+
+    // TODO(b/246324830): Support this.
+    if (getBuildOptions().mergedSkyframeAnalysisExecution
+        && getPackageOptions().packagePath.size() != 1) {
+      throw new InvalidConfigurationException(
+          "--experimental_merged_skyframe_analysis_execution requires a single --package_path"
+              + " entry. Found a list of size: "
+              + getPackageOptions().packagePath.size(),
+          Code.INVALID_BUILD_OPTIONS);
     }
 
     return warnings;

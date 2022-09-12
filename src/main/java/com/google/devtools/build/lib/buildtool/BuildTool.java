@@ -680,7 +680,7 @@ public class BuildTool {
    * settings that conflict.
    */
   @VisibleForTesting
-  public void validateOptions(BuildRequest request) {
+  public void validateOptions(BuildRequest request) throws InvalidConfigurationException {
     for (String issue : request.validateOptions()) {
       getReporter().handle(Event.warn(issue));
     }

@@ -25,6 +25,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -468,6 +469,21 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     BuildResult result = buildTarget("//foo:bar.txt");
 
     assertThat(result.getSuccess()).isTrue();
+  }
+
+  @Test
+  public void multiplePackagePath_gracefulExit() throws Exception {
+    write("foo/BUILD", "sh_binary(name = 'root', srcs = ['root.sh'])");
+    write("foo/root.sh");
+    addOptions("--package_path='%workspace%:''$(pwd)'");
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:root"));
+
+    assertThat(e.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(2);
+    assertThat(e.getMessage())
+        .contains(
+            "--experimental_merged_skyframe_analysis_execution requires a single --package_path"
+                + " entry. Found a list of size: 2");
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
