@@ -113,6 +113,7 @@ java_test(
         ":PyExecutableTestBase",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/execution_info",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
         "//third_party:truth",
     ],
