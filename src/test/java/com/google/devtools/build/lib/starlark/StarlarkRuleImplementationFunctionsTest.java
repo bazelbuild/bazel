@@ -2387,11 +2387,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testLazyArgsWithParamFileInvalidFormatString() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(
-        "Invalid value for parameter \"param_file_arg\": Expected string with a single \"--file=\"",
+        "Invalid value for parameter \"param_file_arg\": "
+            + "Expected string with a single \"%s\", got \"--file=\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=')");
     ev.checkEvalErrorContains(
         "Invalid value for parameter \"param_file_arg\": "
-            + "Expected string with a single \"--file=%s%s\"",
+            + "Expected string with a single \"%s\", got \"--file=%s%s\"",
         "args = ruleContext.actions.args()\n" + "args.use_param_file('--file=%s%s')");
   }
 
