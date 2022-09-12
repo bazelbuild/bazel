@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -755,15 +754,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     useConfiguration("--ios_minimum_os=1.0");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
-    CppLinkAction archiveAction = (CppLinkAction) getGeneratingAction(archive);
+    CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
     Artifact objectFilesFromGenJar =
         getFirstArtifactEndingWith(archiveAction.getInputs(), "source_files");
     Artifact normalObjectFile = getFirstArtifactEndingWith(archiveAction.getInputs(), "test.o");
 
-    // Test that the archive commandline contains the individual object files inside
+    // Test that the archive obj list param file contains the individual object files inside
     // the object file tree artifact.
-    assertThat(archiveAction.getLinkCommandLine().arguments(DUMMY_ARTIFACT_EXPANDER))
-        .containsAtLeast(
+    assertThat(paramFileCommandLineForAction(archiveAction).arguments(DUMMY_ARTIFACT_EXPANDER))
+        .containsExactly(
             objectFilesFromGenJar.getExecPathString() + "/children1",
             objectFilesFromGenJar.getExecPathString() + "/children2",
             normalObjectFile.getExecPathString());
