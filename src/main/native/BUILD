@@ -31,6 +31,7 @@ filegroup(
             "darwin/system_disk_space_monitor_jni.cc",
             "darwin/system_load_advisory_monitor_jni.cc",
             "darwin/system_memory_pressure_jni.cc",
+            "darwin/system_network_stats.cc",
             "darwin/system_suspension_monitor_jni.cc",
             "darwin/system_thermal_monitor_jni.cc",
             "darwin/util.cc",
