@@ -107,24 +107,44 @@ int main(void) {
 EOF
 
   generate_and_execute_instrumented_binary coverage_srcs/test \
-      "$COVERAGE_DIR_VAR/coverage_srcs" \
       coverage_srcs/a.h coverage_srcs/a.cc \
       coverage_srcs/b.h \
       coverage_srcs/t.cc
 
-  # g++ generates the notes files in the current directory. The documentation
-  # (https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files)
-  # says they are placed in the same directory as the object file, but they
-  # are not. Therefore we move them in the same directory.
-  agcno=$(ls *a.gcno)
-  tgcno=$(ls *t.gcno)
-  mv $agcno coverage_srcs/$agcno
-  mv $tgcno coverage_srcs/$tgcno
+  # Prior to version 11, g++ generates the notes files in the current directory
+  # instead of next to the object file despite the documentation indicating otherwise:
+  # https://gcc.gnu.org/onlinedocs/gcc/Gcov-Data-Files.html#Gcov-Data-Files
+  # This is fixed in g++ 11 so we have to handle both cases.
+
+  local not_found=0
+  ls coverage_srcs/*a.gcno > /dev/null 2>&1 || not_found=$?
+  if [[ $not_found -ne 0 ]]; then
+    agcno=$(ls *a.gcno)
+    tgcno=$(ls *t.gcno)
+    agcda=$(ls *a.gcda)
+    tgcda=$(ls *t.gcda)
+    mv $agcno coverage_srcs/$agcno
+    mv $tgcno coverage_srcs/$tgcno
+    mv $agcda coverage_srcs/$agcda
+    mv $tgcda coverage_srcs/$tgcda
+  fi
+  agcno=$(ls coverage_srcs/*a.gcno)
+  tgcno=$(ls coverage_srcs/*t.gcno)
+  agcda=$(ls coverage_srcs/*a.gcda)
+  tgcda=$(ls coverage_srcs/*t.gcda)
+  # Even though gcov expects the gcda files to be next to the gcno files,
+  # during Bazel execution this will not be the case. collect_cc_coverage.sh
+  # expects them to be in the COVERAGE_DIR and will move the gcno files itself.
+  # We cannot use -fprofile-dir during compilation because this causes the
+  # filenames to undergo mangling; see
+  # https://github.com/bazelbuild/bazel/issues/16229
+  mv $agcda "$COVERAGE_DIR_VAR/$agcda"
+  mv $tgcda "$COVERAGE_DIR_VAR/$tgcda"
 
   # All generated .gcno files need to be in the manifest otherwise
   # the coverage report will be incomplete.
-  echo "coverage_srcs/$tgcno" >> "$COVERAGE_MANIFEST_VAR"
-  echo "coverage_srcs/$agcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "$tgcno" >> "$COVERAGE_MANIFEST_VAR"
+  echo "$agcno" >> "$COVERAGE_MANIFEST_VAR"
 }
 
 # Generates and executes an instrumented binary:
@@ -138,17 +158,7 @@ EOF
 # - path_to_binary destination of the binary produced by g++
 function generate_and_execute_instrumented_binary() {
   local path_to_binary="${1}"; shift
-  local gcda_directory="${1}"; shift
-  # -fprofile-arcs   Instruments $path_to_binary. During execution the binary
-  #                  records code coverage information.
-  # -ftest-coverage  Produces a notes (.gcno) file that coverage utilities
-  #                  (e.g. gcov, lcov) can use to show a coverage report.
-  # -fprofile-dir    Sets the directory where the profile data (gcda) appears.
-  #
-  # The profile data files need to be at a specific location where the C++
-  # coverage scripts expects them to be ($COVERAGE_DIR/path/to/sources/).
-  g++ -fprofile-arcs -ftest-coverage \
-      -fprofile-dir="$gcda_directory" \
+  g++ -coverage \
       "$@" -o "$path_to_binary"  \
        || fail "Couldn't produce the instrumented binary for $@ \
             with path_to_binary $path_to_binary"
@@ -274,6 +284,7 @@ EOF
 
 
 function test_cc_test_coverage_gcov() {
+    local -r gcov_location=$(which gcov)
     "$gcov_location" -version | grep "LLVM" && \
       echo "gcov LLVM version not supported. Skipping test." && return
     # gcov -v | grep "gcov" outputs a line that looks like this:
@@ -316,8 +327,16 @@ function test_cc_test_coverage_gcov() {
         fail "Number of lines in C++ gcov coverage output file is "\
         "$nr_lines and different than 17"
     else
-      agcda=$(ls $COVERAGE_DIR_VAR/*a.gcda.gcov.json.gz)
-      tgcda=$(ls $COVERAGE_DIR_VAR/*t.gcda.gcov.json.gz)
+      # There may or may not be "gcda" in the extension.
+      local not_found=0
+      ls $COVERAGE_DIR_VAR/*.gcda.gcov.json.gz > /dev/null 2>&1 || not_found=$?
+      if [[ $not_found -ne 0 ]]; then
+        agcda=$(ls $COVERAGE_DIR_VAR/*a.gcov.json.gz)
+        tgcda=$(ls $COVERAGE_DIR_VAR/*t.gcov.json.gz)
+      else
+        agcda=$(ls $COVERAGE_DIR_VAR/*a.gcda.gcov.json.gz)
+        tgcda=$(ls $COVERAGE_DIR_VAR/*t.gcda.gcov.json.gz)
+      fi
       output_file_json="output_file.json"
       zcat $agcda $tgcda > $output_file_json
 
