@@ -3811,14 +3811,7 @@ EOF
   expect_log "Executing genrule .* failed: (Exit 1):"
 }
 
-function test_external_cc_test() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
+function setup_external_cc_test() {
   cat >> WORKSPACE <<'EOF'
 local_repository(
   name = "other_repo",
@@ -3862,10 +3855,38 @@ int main() {
   print_greeting();
 }
 EOF
+}
+
+function test_external_cc_test() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_external_cc_test
 
   bazel test \
       --test_output=errors \
       --remote_executor=grpc://localhost:${worker_port} \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+}
+
+function test_external_cc_test_sibling_repository_layout() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_external_cc_test
+
+  bazel test \
+      --test_output=errors \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
