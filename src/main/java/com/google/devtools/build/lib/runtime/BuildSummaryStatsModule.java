@@ -284,14 +284,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setcpuTimeForBazelJvm(Duration time)
+  void setCpuTimeForBazelJvm(Duration time)
   {
     this.cpuTimeForBazelJvm = time;
-  }
-
-  @VisibleForTesting
-  void setstatsSummary(boolean summary)
-  {
-    this.statsSummary = summary;
   }
 }
