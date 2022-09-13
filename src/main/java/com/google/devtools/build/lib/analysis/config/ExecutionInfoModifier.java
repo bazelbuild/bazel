@@ -21,6 +21,8 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -81,7 +83,9 @@ public abstract class ExecutionInfoModifier {
                     .regexPattern()
                     .pattern(),
                 specMatcher.group("sign").equals("-"),
-                specMatcher.group("key")));
+                specMatcher.group("key")
+            )
+        );
       }
       return ExecutionInfoModifier.create(input, expressionBuilder.build());
     }
@@ -101,6 +105,28 @@ public abstract class ExecutionInfoModifier {
    */
   public boolean matches(String mnemonic) {
     return expressions().stream().anyMatch(expr -> expr.pattern().matcher(mnemonic).matches());
+  }
+
+  /**
+   * Merge all the elements of {@code executionInfoList} into a single {@link ExecutionInfoModifier}.
+   * The expressions in the returned instance may contain the same pattern multiple times.
+   */
+  public static ExecutionInfoModifier collapse(List<ExecutionInfoModifier> executionInfoList, boolean isAdditive) {
+    ImmutableList.Builder<Expression> allExpressionsBuilder = ImmutableList.builder();
+
+    if (executionInfoList != null && executionInfoList.size() > 0) {
+      if (isAdditive) {
+        for (ExecutionInfoModifier eim : executionInfoList) {
+          allExpressionsBuilder.addAll(eim.expressions());
+        }
+      } else {
+        // When not treating execution info as additive, only the last passed option wins.
+        allExpressionsBuilder.addAll(executionInfoList.get(executionInfoList.size() - 1).expressions());
+      }
+
+    }
+
+    return create("", allExpressionsBuilder.build());
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */

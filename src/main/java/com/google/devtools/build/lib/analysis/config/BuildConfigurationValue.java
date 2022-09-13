@@ -894,7 +894,7 @@ public class BuildConfigurationValue
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (!options.executionInfoModifier.matches(mnemonic)) {
+    if (!ExecutionInfoModifier.collapse(options.executionInfoModifier, options.additiveModifyExecutionInfo).matches(mnemonic)) {
       return executionInfo;
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
@@ -904,7 +904,7 @@ public class BuildConfigurationValue
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    options.executionInfoModifier.apply(mnemonic, executionInfo);
+    ExecutionInfoModifier.collapse(options.executionInfoModifier, options.additiveModifyExecutionInfo).apply(mnemonic, executionInfo);
   }
 
   /** Returns the list of default features used for all packages. */
