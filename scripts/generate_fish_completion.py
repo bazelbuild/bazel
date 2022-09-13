@@ -71,7 +71,7 @@ class BazelCompletionWriter(object):
     """Initializes writer state.
 
     Args:
-        bazel: String containing a path the a bazel binary to run.
+        bazel: String containing a path to the bazel binary to run.
         output_user_root: String path to user root directory used for
           running bazel commands.
     """
