@@ -390,8 +390,10 @@ public class CollectLocalResourceUsage extends Thread {
       }
       NetIoCounter previous = entry.getValue();
       NetIoCounter next = nextNetIoCounters.get(name);
-      deltaBytesSent += calcDeltaBytes(previous.bytesSent(), next.bytesSent());
-      deltaBytesRecv += calcDeltaBytes(previous.bytesRecv(), next.bytesRecv());
+      if (next != null) {
+        deltaBytesSent += calcDeltaBytes(previous.bytesSent(), next.bytesSent());
+        deltaBytesRecv += calcDeltaBytes(previous.bytesRecv(), next.bytesRecv());
+      }
     }
     double upMbps = calcNetworkMbps(deltaBytesSent, deltaNanos);
     double downMbps = calcNetworkMbps(deltaBytesRecv, deltaNanos);
