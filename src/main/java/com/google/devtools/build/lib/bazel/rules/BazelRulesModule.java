@@ -54,33 +54,6 @@ public final class BazelRulesModule extends BlazeModule {
   public static class BuildGraveyardOptions extends OptionsBase {
 
     @Option(
-        name = "incompatible_disable_legacy_proto_provider",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableLegacyProtoProvider;
-
-    @Option(
-        name = "incompatible_disable_proto_source_root",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableProtoSourceRoot;
-
-    @Option(
-        name = "incompatible_do_not_emit_buggy_external_repo_import",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean doNotUseBuggyImportPath;
-
-    @Option(
         name = "incompatible_disable_crosstool_file",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -153,15 +126,6 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "Deprecated no-op.")
     public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
-
-    @Option(
-        name = "experimental_enable_cc_toolchain_config_info",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "No-op")
-    public boolean enableCcToolchainConfigInfoFromStarlark;
 
     @Option(
         name = "output_symbol_counts",
@@ -241,25 +205,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean disableLegacyToolchainStarlarkApi;
 
     @Option(
-        name = "incompatible_disable_late_bound_option_defaults",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "This option is deprecated and has no effect.")
-    public boolean incompatibleDisableLateBoundOptionDefaults;
-
-    @Deprecated
-    @Option(
-        name = "ui",
-        oldName = "experimental_ui",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "No-op.")
-    public boolean experimentalUi;
-
-    @Option(
         name = "incompatible_enable_profile_by_default",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -267,15 +212,6 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean enableProfileByDefault;
-
-    @Option(
-        name = "experimental_skyframe_eval_with_ordered_list",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public boolean skyframeEvalWithOrderedList;
 
     @Option(
         name = "legacy_spawn_scheduler",
@@ -425,15 +361,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean forceIgnoreDashStatic;
 
     @Option(
-        name = "incompatible_use_native_patch",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "This option is deprecated and has no effect.")
-    public boolean useNativePatch;
-
-    @Option(
         name = "experimental_profile_action_counts",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -491,43 +418,6 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean experimentalAllowTopLevelAspectsParameters;
-
-    @Option(
-        name = "experimental_required_aspects",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        help = "No-op")
-    public boolean experimentalRequiredAspects;
-
-    @Option(
-        name = "experimental_shadowed_action",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        help = "No-op")
-    public boolean shadowedAction;
-
-    @Option(
-        name = "json_trace_compression",
-        oldName = "experimental_json_trace_compression",
-        defaultValue = "auto",
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        help = "No-op")
-    public TriState enableTracerCompression;
-
-    @Option(
-        name = "experimental_profile_cpu_usage",
-        defaultValue = "true",
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        help = "No-op")
-    public boolean enableCpuUsageProfiling;
 
     @Option(
         name = "bes_best_effort",
