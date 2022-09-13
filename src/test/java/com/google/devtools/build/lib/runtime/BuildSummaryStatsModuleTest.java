@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Properties;
 import java.util.Optional;
 import java.time.Duration;
@@ -46,13 +48,18 @@ public class BuildSummaryStatsModuleTest {
     reporterMock = mock(Reporter.class);
     SkyframeExecutor skyframeExecutorMock = mock(SkyframeExecutor.class);
     EventBus eventBusMock = mock(EventBus.class);
+    OptionsParsingResult optionsParsingResultMock = mock(OptionsParsingResult.class);
+    ExecutionOptions executionOptionsMock = mock(ExecutionOptions.class);
+    executionOptionsMock.statsSummary = true;
     when(env.getReporter()).thenReturn(reporterMock);
     when(env.getSkyframeExecutor()).thenReturn(skyframeExecutorMock);
     when(skyframeExecutorMock.getActionKeyContext()).thenReturn(actionKeyContextMock);
     when(env.getEventBus()).thenReturn(eventBusMock);
+    when(env.getOptions()).thenReturn(optionsParsingResultMock);
+    when(optionsParsingResultMock.getOptions(ExecutionOptions.class)).thenReturn(executionOptionsMock);
     buildSummaryStatsModule = new BuildSummaryStatsModule();
     buildSummaryStatsModule.beforeCommand(env);
-    buildSummaryStatsModule.setstatsSummary(true);
+    buildSummaryStatsModule.executorInit(env, null, null);
   }
 
   private ActionResultReceivedEvent createActionEvent(Duration userTime, Duration systemTime) {
@@ -75,7 +82,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action2 = createActionEvent(Duration.ofSeconds(5), Duration.ofSeconds(2));
     buildSummaryStatsModule.actionResultReceived(action1);
     buildSummaryStatsModule.actionResultReceived(action2);
-    buildSummaryStatsModule.setcpuTimeForBazelJvm(Duration.ofMillis(11000));
+    buildSummaryStatsModule.setCpuTimeForBazelJvm(Duration.ofMillis(11000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",88.00, 55.00, 22.00, 11.00)));
   }
@@ -105,7 +112,7 @@ public class BuildSummaryStatsModuleTest {
     ActionResultReceivedEvent action1 = createActionEvent(Duration.ofSeconds(50),
                                                           Duration.ofSeconds(20));
     buildSummaryStatsModule.actionResultReceived(action1);
-    buildSummaryStatsModule.setcpuTimeForBazelJvm(Duration.ofMillis(10000));
+    buildSummaryStatsModule.setCpuTimeForBazelJvm(Duration.ofMillis(10000));
     buildSummaryStatsModule.buildComplete(createBuildEvent());
     verify(reporterMock).handle(Event.info(String.format("CPU time %.2fs (user %.2fs, system %.2fs, bazel jvm %.2fs)",80.00, 50.00, 20.00, 10.00)));
     // One more build, and verify that previous values are not preserved.
