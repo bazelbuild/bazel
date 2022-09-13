@@ -49,7 +49,9 @@ java_library(
     srcs = ["SystemNetworkStats.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
