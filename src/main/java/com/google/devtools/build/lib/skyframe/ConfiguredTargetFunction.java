@@ -147,10 +147,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link
-   * ConfiguredTargetValue} will be needed for package root resolution later in the build. If not,
+   * ConfiguredTargetValue} will be needed later (see {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredObjectValue#getTransitivePackages}). If not,
    * they are not collected and stored.
    */
-  private final boolean storeTransitivePackagesForPackageRootResolution;
+  private final boolean storeTransitivePackages;
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
@@ -158,14 +159,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
       AtomicReference<Semaphore> cpuBoundSemaphore,
-      boolean storeTransitivePackagesForPackageRootResolution,
+      boolean storeTransitivePackages,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
-    this.storeTransitivePackagesForPackageRootResolution =
-        storeTransitivePackagesForPackageRootResolution;
+    this.storeTransitivePackages = storeTransitivePackages;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.configuredTargetProgress = configuredTargetProgress;
   }
@@ -191,7 +191,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   static class State implements SkyKeyComputeState {
     /** Null if ConfiguredTargetFuncton is not storing this information. */
-    @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution;
+    @Nullable NestedSetBuilder<Package> transitivePackages;
 
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
@@ -199,9 +199,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ComputeDependenciesState computeDependenciesState = new ComputeDependenciesState();
 
-    State(boolean storeTransitivePackagesForPackageRootResolution) {
-      this.transitivePackagesForPackageRootResolution =
-          storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
+    State(boolean storeTransitivePackages) {
+      this.transitivePackages = storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
     }
   }
 
@@ -250,7 +249,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws ReportedException, UnreportedException, InterruptedException {
-    State state = env.getState(() -> new State(storeTransitivePackagesForPackageRootResolution));
+    State state = env.getState(() -> new State(storeTransitivePackages));
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
       // Fetching blocks on other resources, so we don't want to hold on to the semaphore meanwhile.
@@ -276,9 +275,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // not prepared for it.
       return new NonRuleConfiguredTargetValue(
           new EmptyConfiguredTarget(target.getLabel(), configuredTargetKey.getConfigurationKey()),
-          state.transitivePackagesForPackageRootResolution == null
-              ? null
-              : state.transitivePackagesForPackageRootResolution.build());
+          state.transitivePackages == null ? null : state.transitivePackages.build());
     }
 
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
@@ -312,7 +309,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           getConfigConditions(
               env,
               targetAndConfiguration,
-              state.transitivePackagesForPackageRootResolution,
+              state.transitivePackages,
               platformInfo,
               state.transitiveRootCauses);
       if (env.valuesMissing()) {
@@ -344,7 +341,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               env,
               platformInfo,
-              state.transitivePackagesForPackageRootResolution);
+              state.transitivePackages);
       if (incompatibleTarget == null) {
         return null;
       }
@@ -356,7 +353,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap =
           computeDependencies(
               state.computeDependenciesState,
-              state.transitivePackagesForPackageRootResolution,
+              state.transitivePackages,
               state.transitiveRootCauses,
               env,
               resolver,
@@ -390,7 +387,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               depValueMap,
               configConditions,
               platformInfo,
-              state.transitivePackagesForPackageRootResolution);
+              state.transitivePackages);
       if (incompatibleTarget.isPresent()) {
         return incompatibleTarget.get();
       }
@@ -423,7 +420,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContexts,
               execGroupCollectionBuilder,
-              state.transitivePackagesForPackageRootResolution);
+              state.transitivePackages);
       if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
       }
@@ -545,8 +542,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       state.transitiveRootCauses.add(
           new LoadingFailedCause(label, DetailedExitCode.of(failureDetail)));
     }
-    if (state.transitivePackagesForPackageRootResolution != null) {
-      state.transitivePackagesForPackageRootResolution.add(pkg);
+    if (state.transitivePackages != null) {
+      state.transitivePackages.add(pkg);
     }
     state.targetAndConfiguration = new TargetAndConfiguration(target, configuration);
     return state.targetAndConfiguration;
@@ -780,7 +777,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   @Nullable
   static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       ComputeDependenciesState state,
-      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
+      @Nullable NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Cause> transitiveRootCauses,
       Environment env,
       SkyframeDependencyResolver resolver,
@@ -877,11 +874,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       } else {
         depValues =
             resolveConfiguredTargetDependencies(
-                env,
-                ctgValue,
-                depValueNames.values(),
-                transitivePackagesForPackageRootResolution,
-                transitiveRootCauses);
+                env, ctgValue, depValueNames.values(), transitivePackages, transitiveRootCauses);
         if (env.valuesMissing()) {
           return null;
         }
@@ -895,7 +888,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       } else {
         depAspects =
             AspectResolver.resolveAspectDependencies(
-                env, depValues, depValueNames.values(), transitivePackagesForPackageRootResolution);
+                env, depValues, depValueNames.values(), transitivePackages);
         if (env.valuesMissing()) {
           return null;
         }
@@ -942,7 +935,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   static ConfigConditions getConfigConditions(
       Environment env,
       TargetAndConfiguration ctgValue,
-      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
+      @Nullable NestedSetBuilder<Package> transitivePackages,
       @Nullable PlatformInfo platformInfo,
       NestedSetBuilder<Cause> transitiveRootCauses)
       throws ConfiguredValueCreationException, InterruptedException {
@@ -982,11 +975,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     try {
       configValues =
           resolveConfiguredTargetDependencies(
-              env,
-              ctgValue,
-              configConditionDeps,
-              transitivePackagesForPackageRootResolution,
-              transitiveRootCauses);
+              env, ctgValue, configConditionDeps, transitivePackages, transitiveRootCauses);
       if (configValues == null) {
         return null;
       }
@@ -1040,7 +1029,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       TargetAndConfiguration ctgValue,
       Collection<Dependency> deps,
-      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
+      @Nullable NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
@@ -1144,9 +1133,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         } catch (NoSuchTargetException e) {
           throw new IllegalStateException("Target already verified for " + dep, e);
         }
-        if (transitivePackagesForPackageRootResolution != null) {
-          transitivePackagesForPackageRootResolution.addTransitive(
-              Preconditions.checkNotNull(depValue.getTransitivePackagesForPackageRootResolution()));
+        if (transitivePackages != null) {
+          transitivePackages.addTransitive(
+              Preconditions.checkNotNull(depValue.getTransitivePackages()));
         }
       }
 
@@ -1182,7 +1171,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
+      @Nullable NestedSetBuilder<Package> transitivePackagesBuilder)
       throws ConfiguredValueCreationException, InterruptedException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
@@ -1194,6 +1183,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     }
 
+    NestedSet<Package> transitivePackages =
+        transitivePackagesBuilder == null ? null : transitivePackagesBuilder.build();
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
@@ -1211,6 +1202,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               depValueMap,
               configConditions,
               toolchainContexts,
+              transitivePackages,
               execGroupCollectionBuilder);
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
@@ -1256,11 +1248,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     if (configuredTarget instanceof RuleConfiguredTarget) {
       RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-      return new RuleConfiguredTargetValue(
-          ruleConfiguredTarget,
-          transitivePackagesForPackageRootResolution == null
-              ? null
-              : transitivePackagesForPackageRootResolution.build());
+      return new RuleConfiguredTargetValue(ruleConfiguredTarget, transitivePackages);
     } else {
       // Expected 4 args, but got 3.
       Preconditions.checkState(
@@ -1269,11 +1257,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTargetKey,
           analysisEnvironment.getRegisteredActions(),
           configuredTarget);
-      return new NonRuleConfiguredTargetValue(
-          configuredTarget,
-          transitivePackagesForPackageRootResolution == null
-              ? null
-              : transitivePackagesForPackageRootResolution.build());
+      return new NonRuleConfiguredTargetValue(configuredTarget, transitivePackages);
     }
   }
 

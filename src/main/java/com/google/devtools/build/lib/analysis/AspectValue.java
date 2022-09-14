@@ -35,20 +35,20 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
   @Nullable private AspectKey key;
   @Nullable private ConfiguredAspect configuredAspect;
   // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private transient NestedSet<Package> transitivePackagesForPackageRootResolution;
+  @Nullable private transient NestedSet<Package> transitivePackages;
 
   public AspectValue(
       AspectKey key,
       Aspect aspect,
       Location location,
       ConfiguredAspect configuredAspect,
-      NestedSet<Package> transitivePackagesForPackageRootResolution) {
+      NestedSet<Package> transitivePackages) {
     super(configuredAspect.getActions());
     this.key = key;
     this.aspect = Preconditions.checkNotNull(aspect, location);
     this.location = Preconditions.checkNotNull(location, aspect);
     this.configuredAspect = Preconditions.checkNotNull(configuredAspect, location);
-    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
+    this.transitivePackages = transitivePackages;
   }
 
   public ConfiguredAspect getConfiguredAspect() {
@@ -79,13 +79,13 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
       key = null;
       configuredAspect = null;
     }
-    transitivePackagesForPackageRootResolution = null;
+    transitivePackages = null;
   }
 
   @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return transitivePackagesForPackageRootResolution;
+  public NestedSet<Package> getTransitivePackages() {
+    return transitivePackages;
   }
 
   @Override

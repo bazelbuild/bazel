@@ -46,8 +46,7 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
     ConfiguredTargetValue ctValue =
         SkyframeExecutorTestUtils.getExistingConfiguredTargetValue(
             skyframeExecutor, Label.parseCanonical(target), config);
-    List<Package> transitivePackages =
-        ctValue.getTransitivePackagesForPackageRootResolution().toList();
+    List<Package> transitivePackages = ctValue.getTransitivePackages().toList();
     List<String> packageNames = Lists.transform(transitivePackages,
         new Function<Package, String>() {
           @Override

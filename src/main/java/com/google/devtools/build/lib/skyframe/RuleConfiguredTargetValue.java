@@ -41,19 +41,18 @@ public final class RuleConfiguredTargetValue
   private final ImmutableList<ActionAnalysisMetadata> actions;
 
   // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
+  @Nullable private NestedSet<Package> transitivePackages;
 
   // Transitive packages are not serialized.
   @AutoCodec.Instantiator
   RuleConfiguredTargetValue(RuleConfiguredTarget configuredTarget) {
-    this(configuredTarget, /*transitivePackagesForPackageRootResolution=*/ null);
+    this(configuredTarget, /*transitivePackages=*/ null);
   }
 
   public RuleConfiguredTargetValue(
-      RuleConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
+      RuleConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
-    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
+    this.transitivePackages = transitivePackages;
     // These are specifically *not* copied to save memory.
     this.actions = configuredTarget.getActions();
   }
@@ -71,8 +70,8 @@ public final class RuleConfiguredTargetValue
 
   @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return transitivePackagesForPackageRootResolution;
+  public NestedSet<Package> getTransitivePackages() {
+    return transitivePackages;
   }
 
   @Override
@@ -81,7 +80,7 @@ public final class RuleConfiguredTargetValue
     if (clearEverything) {
       configuredTarget = null;
     }
-    transitivePackagesForPackageRootResolution = null;
+    transitivePackages = null;
   }
 
   @Override
