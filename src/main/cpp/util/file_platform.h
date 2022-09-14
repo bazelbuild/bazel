@@ -90,7 +90,11 @@ int ReadFromHandle(file_handle_type handle, void *data, size_t size,
 // Replaces 'content' with contents of file 'filename'.
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads the whole file.
+// If fails to read content from the file, `error_message` can provide extra
+// information about the failure.
 // Returns false on error. Can be called from a signal handler.
+bool ReadFile(const std::string &filename, std::string *content,
+              std::string *error_message, int max_size = 0);
 bool ReadFile(const std::string &filename, std::string *content,
               int max_size = 0);
 bool ReadFile(const Path &path, std::string *content, int max_size = 0);
