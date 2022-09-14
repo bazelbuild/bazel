@@ -475,15 +475,16 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   public void multiplePackagePath_gracefulExit() throws Exception {
     write("foo/BUILD", "sh_binary(name = 'root', srcs = ['root.sh'])");
     write("foo/root.sh");
-    addOptions("--package_path='%workspace%:''$(pwd)'");
+    write("otherroot/bar/BUILD", "cc_library(name = 'bar')");
+    addOptions("--package_path=%workspace%:otherroot");
     InvalidConfigurationException e =
-        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:root"));
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:root", "//bar"));
 
     assertThat(e.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(2);
     assertThat(e.getMessage())
         .contains(
-            "--experimental_merged_skyframe_analysis_execution requires a single --package_path"
-                + " entry. Found a list of size: 2");
+            "--experimental_merged_skyframe_analysis_execution requires a single package path"
+                + " entry");
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
