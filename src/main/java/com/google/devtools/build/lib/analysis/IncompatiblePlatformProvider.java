@@ -71,9 +71,11 @@ public abstract class IncompatiblePlatformProvider
     Preconditions.checkNotNull(constraints);
     Preconditions.checkArgument(!constraints.isEmpty());
 
-    // Deduplicate and sort the list of constraints.
+    // Deduplicate and sort the list of constraints. Doing it here means that everyone inspecting
+    // this provider doesn't have to deal with it.
     ImmutableSet<ConstraintValueInfo> filteredConstraints = ImmutableSet.copyOf(constraints);
-    ImmutableList<ConstraintValueInfo> filteredAndSortedConstraints = ImmutableList.sortedCopyOf(
+    ImmutableList<ConstraintValueInfo> filteredAndSortedConstraints =
+        ImmutableList.sortedCopyOf(
             (ConstraintValueInfo a, ConstraintValueInfo b) -> b.label().compareTo(a.label()),
             filteredConstraints);
 

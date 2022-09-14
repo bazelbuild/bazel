@@ -326,7 +326,8 @@ public class TopLevelConstraintSemantics {
     message += "s [";
 
     boolean first = true;
-    for (ConstraintValueInfo constraintValueInfo : provider.constraintsResponsibleForIncompatibility()) {
+    for (ConstraintValueInfo constraintValueInfo :
+        provider.constraintsResponsibleForIncompatibility()) {
       if (first) {
         first = false;
       } else {
