@@ -154,6 +154,15 @@ platform(
     ],
 )
 
+platform(
+    name = "foo3_bar2_platform",
+    parents = ["${default_host_platform}"],
+    constraint_values = [
+        ":foo3",
+        ":bar2",
+    ],
+)
+
 sh_test(
     name = "pass_on_foo1",
     srcs = ["pass.sh"],
@@ -877,6 +886,44 @@ EOF
     //target_skipping:pass_on_everything_but_foo1_and_foo2 &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
   expect_log '^//target_skipping:pass_on_everything_but_foo1_and_foo2  *  PASSED in'
+}
+
+function test_composition() {
+  cat >> target_skipping/BUILD <<EOF
+sh_test(
+    name = "pass_on_foo3_and_bar2",
+    srcs = [":pass.sh"],
+    target_compatible_with = select({
+        ":foo3": [],
+        "//conditions:default": [":not_compatible"],
+    }) + select({
+        ":bar2": [],
+        "//conditions:default": [":not_compatible"],
+    }),
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_bar2_platform \
+    --platforms=@//target_skipping:foo3_bar2_platform \
+    --nocache_test_results \
+    //target_skipping:pass_on_foo3_and_bar2 &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log '^//target_skipping:pass_on_foo3_and_bar2  *  PASSED in'
+
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:pass_on_foo3_and_bar2 &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+
+  expect_log 'ERROR: Target //target_skipping:pass_on_foo3_and_bar2 is incompatible and cannot be built, but was explicitly requested'
+  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:not_compatible$"
+  expect_log 'FAILED: Build did NOT complete successfully'
 }
 
 function test_incompatible_with_aliased_constraint() {
