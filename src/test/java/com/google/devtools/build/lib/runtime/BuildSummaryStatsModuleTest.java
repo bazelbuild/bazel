@@ -49,14 +49,14 @@ public class BuildSummaryStatsModuleTest {
     SkyframeExecutor skyframeExecutorMock = mock(SkyframeExecutor.class);
     EventBus eventBusMock = mock(EventBus.class);
     OptionsParsingResult optionsParsingResultMock = mock(OptionsParsingResult.class);
-    ExecutionOptions executionOptionsMock = mock(ExecutionOptions.class);
-    executionOptionsMock.statsSummary = true;
+    ExecutionOptions executionOptions = new ExecutionOptions();
+    executionOptions.statsSummary = true;
     when(env.getReporter()).thenReturn(reporterMock);
     when(env.getSkyframeExecutor()).thenReturn(skyframeExecutorMock);
     when(skyframeExecutorMock.getActionKeyContext()).thenReturn(actionKeyContextMock);
     when(env.getEventBus()).thenReturn(eventBusMock);
     when(env.getOptions()).thenReturn(optionsParsingResultMock);
-    when(optionsParsingResultMock.getOptions(ExecutionOptions.class)).thenReturn(executionOptionsMock);
+    when(optionsParsingResultMock.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
     buildSummaryStatsModule = new BuildSummaryStatsModule();
     buildSummaryStatsModule.beforeCommand(env);
     buildSummaryStatsModule.executorInit(env, null, null);
