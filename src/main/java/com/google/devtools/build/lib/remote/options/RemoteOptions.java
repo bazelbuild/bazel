@@ -280,7 +280,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "incompatible_remote_results_ignore_disk",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
