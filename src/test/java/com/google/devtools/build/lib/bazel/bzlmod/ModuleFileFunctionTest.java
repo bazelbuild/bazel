@@ -214,7 +214,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .build());
     assertThat(rootModuleFileValue.getOverrides())
         .containsExactly(
-            "ddd", SingleVersionOverride.create(Version.parse("18"), "", ImmutableList.of(), 0),
+            "ddd",
+                SingleVersionOverride.create(
+                    Version.parse("18"), "", ImmutableList.of(), ImmutableList.of(), 0),
             "eee", LocalPathOverride.create("somewhere/else"),
             "fff",
                 MultipleVersionOverride.create(
@@ -222,6 +224,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "ggg",
                 ArchiveOverride.create(
                     ImmutableList.of("https://hello.com/world.zip"),
+                    ImmutableList.of(),
                     ImmutableList.of(),
                     "",
                     "",
@@ -419,7 +422,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     SkyKey skyKey =
         ModuleFileValue.key(
             createModuleKey("bbb", "1.0"),
-            SingleVersionOverride.create(Version.EMPTY, registry2.getUrl(), ImmutableList.of(), 0));
+            SingleVersionOverride.create(
+                Version.EMPTY, registry2.getUrl(), ImmutableList.of(), ImmutableList.of(), 0));
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {

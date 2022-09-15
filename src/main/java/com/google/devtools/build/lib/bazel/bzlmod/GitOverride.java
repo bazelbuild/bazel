@@ -25,8 +25,12 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 @AutoValue
 public abstract class GitOverride implements NonRegistryOverride {
   public static GitOverride create(
-      String remote, String commit, ImmutableList<String> patches, int patchStrip) {
-    return new AutoValue_GitOverride(remote, commit, patches, patchStrip);
+      String remote,
+      String commit,
+      ImmutableList<String> patches,
+      ImmutableList<String> patchCmds,
+      int patchStrip) {
+    return new AutoValue_GitOverride(remote, commit, patches, patchCmds, patchStrip);
   }
 
   /** The URL pointing to the git repository. */
@@ -37,6 +41,9 @@ public abstract class GitOverride implements NonRegistryOverride {
 
   /** The patches to apply after fetching from Git. Should be a list of labels. */
   public abstract ImmutableList<String> getPatches();
+
+  /** The patch commands to execute after fetching from Git. Should be a list of commands. */
+  public abstract ImmutableList<String> getPatchCmds();
 
   /** The number of path segments to strip from the paths in the supplied patches. */
   public abstract int getPatchStrip();
@@ -50,6 +57,7 @@ public abstract class GitOverride implements NonRegistryOverride {
         .put("remote", getRemote())
         .put("commit", getCommit())
         .put("patches", getPatches())
+        .put("patch_cmds", getPatchCmds())
         .put("patch_args", ImmutableList.of("-p" + getPatchStrip()));
     return RepoSpec.builder()
         .setBzlFile("@bazel_tools//tools/build_defs/repo:git.bzl")

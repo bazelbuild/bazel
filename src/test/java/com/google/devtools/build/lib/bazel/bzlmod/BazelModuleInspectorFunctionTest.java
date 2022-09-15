@@ -231,7 +231,9 @@ public class BazelModuleInspectorFunctionTest {
 
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
-            "ccc", SingleVersionOverride.create(Version.parse("2.0"), "", ImmutableList.of(), 0));
+            "ccc",
+            SingleVersionOverride.create(
+                Version.parse("2.0"), "", ImmutableList.of(), ImmutableList.of(), 0));
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(
@@ -289,7 +291,12 @@ public class BazelModuleInspectorFunctionTest {
         ImmutableMap.of(
             "bbb",
             ArchiveOverride.create(
-                ImmutableList.of("file://users/user/bbb.zip"), ImmutableList.of(), "", "", 0));
+                ImmutableList.of("file://users/user/bbb.zip"),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                "",
+                "",
+                0));
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(ModuleKey.ROOT, createModuleKey("bbb", ""), createModuleKey("ccc", "1.1"));
