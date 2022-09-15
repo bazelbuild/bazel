@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -76,10 +75,11 @@ public abstract class IncompatiblePlatformProvider
 
     // Deduplicate and sort the list of incompatible constraints. Doing it here means that everyone
     // inspecting this provider doesn't have to deal with it.
-    constraints = constraints.stream()
-	.sorted(Comparator.comparing(ConstraintValueInfo::label))
-	.distinct()
-	.collect(toImmutableList());
+    constraints =
+        constraints.stream()
+            .sorted(Comparator.comparing(ConstraintValueInfo::label))
+            .distinct()
+            .collect(toImmutableList());
 
     return new AutoValue_IncompatiblePlatformProvider(targetPlatform, null, constraints);
   }
