@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.IncompatiblePlatformProviderApi;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
@@ -71,15 +74,14 @@ public abstract class IncompatiblePlatformProvider
     Preconditions.checkNotNull(constraints);
     Preconditions.checkArgument(!constraints.isEmpty());
 
-    // Deduplicate and sort the list of constraints. Doing it here means that everyone inspecting
-    // this provider doesn't have to deal with it.
-    ImmutableSet<ConstraintValueInfo> filteredConstraints = ImmutableSet.copyOf(constraints);
-    ImmutableList<ConstraintValueInfo> filteredAndSortedConstraints =
-        ImmutableList.sortedCopyOf(
-            (ConstraintValueInfo a, ConstraintValueInfo b) -> b.label().compareTo(a.label()),
-            filteredConstraints);
+    // Deduplicate and sort the list of incompatible constraints. Doing it here means that everyone
+    // inspecting this provider doesn't have to deal with it.
+    constraints = constraints.stream()
+	.sorted(Comparator.comparing(ConstraintValueInfo::label))
+	.distinct()
+	.collect(toImmutableList());
 
-    return new AutoValue_IncompatiblePlatformProvider(targetPlatform, null, filteredAndSortedConstraints);
+    return new AutoValue_IncompatiblePlatformProvider(targetPlatform, null, constraints);
   }
 
   @Override
