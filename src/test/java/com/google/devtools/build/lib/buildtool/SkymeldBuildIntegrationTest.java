@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -120,8 +121,12 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "environment(name = 'two')");
   }
 
-  private void assertSingleOutputBuilt(String target) throws Exception {
-    assertThat(Iterables.getOnlyElement(getArtifacts(target)).getPath().isFile()).isTrue();
+  @CanIgnoreReturnValue
+  private Path assertSingleOutputBuilt(String target) throws Exception {
+    Path singleOutput = Iterables.getOnlyElement(getArtifacts(target)).getPath();
+    assertThat(singleOutput.isFile()).isTrue();
+
+    return singleOutput;
   }
 
   @Test
@@ -485,6 +490,29 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         .contains(
             "--experimental_merged_skyframe_analysis_execution requires a single package path"
                 + " entry");
+  }
+
+  // Regression test for b/245919888.
+  @Test
+  public void outputFileRemoved_regeneratedWithIncrementalBuild() throws Exception {
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    BuildResult result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    Path fooOut = assertSingleOutputBuilt("//foo:foo");
+
+    fooOut.delete();
+
+    BuildResult incrementalBuild = buildTarget("//foo:foo");
+
+    assertThat(incrementalBuild.getSuccess()).isTrue();
+    assertSingleOutputBuilt("//foo:foo");
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {

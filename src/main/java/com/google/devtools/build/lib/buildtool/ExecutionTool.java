@@ -253,7 +253,7 @@ public class ExecutionTool {
       throws AbruptExitException, BuildFailedException, InterruptedException,
           InvalidConfigurationException {
     init();
-    BuildRequestOptions options = request.getBuildOptions();
+    BuildRequestOptions buildRequestOptions = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     List<Root> pkgPathEntries = env.getPackageLocator().getPathEntries();
@@ -307,7 +307,7 @@ public class ExecutionTool {
     }
 
     ActionCache actionCache = null;
-    if (options.useActionCache) {
+    if (buildRequestOptions.useActionCache) {
       actionCache = getActionCache();
       actionCache.resetStatistics();
     }
@@ -317,11 +317,19 @@ public class ExecutionTool {
           (SkyframeBuilder)
               createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
     }
+
+    skyframeExecutor.drainChangedFiles();
+    boolean shouldTrustRemoteArtifacts =
+        env.getOutputService() != null && env.getOutputService().shouldTrustRemoteArtifacts();
+    skyframeExecutor.detectModifiedOutputFiles(
+        modifiedOutputFiles,
+        env.getBlazeWorkspace().getLastExecutionTimeRange(),
+        shouldTrustRemoteArtifacts,
+        buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
           skyframeBuilder.getFileCache(), skyframeBuilder.getActionInputPrefetcher());
     }
-    // TODO(b/199053098): Setup progress reporting objects in SkyframeActionExecutor.
     try (SilentCloseable c =
         Profiler.instance().profile("prepareSkyframeActionExecutorForExecution")) {
       skyframeExecutor.prepareSkyframeActionExecutorForExecution(
@@ -336,7 +344,6 @@ public class ExecutionTool {
         executorLifecycleListener.executionPhaseStarting(null, () -> null);
       }
     }
-
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
       configureResourceManager(env.getLocalResourceManager(), request);
     }
