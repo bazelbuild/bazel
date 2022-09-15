@@ -201,7 +201,9 @@ final class AspectFunction implements SkyFunction {
           aspect,
           target.getLocation(),
           ConfiguredAspect.forNonapplicableTarget(),
-          state.transitivePackagesForPackageRootResolution.build());
+          state.transitivePackagesForPackageRootResolution == null
+              ? null
+              : state.transitivePackagesForPackageRootResolution.build());
     }
 
     if (AliasProvider.isAlias(associatedTarget)) {

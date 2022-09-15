@@ -65,19 +65,19 @@ fi
 
 function set_up() {
   mkdir -p target_skipping || fail "couldn't create directory"
-  cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
+  cat > target_skipping/pass.sh <<'EOF'
 #!/bin/bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
-  cat > target_skipping/fail.sh <<EOF|| fail "couldn't create fail.sh"
+  cat > target_skipping/fail.sh <<'EOF'
 #!/bin/bash
 exit 1
 EOF
   chmod +x target_skipping/fail.sh
-
-  cat > target_skipping/BUILD <<EOF || fail "couldn't create BUILD file"
+  # Not using 'EOF' because injecting default_host_platform
+  cat > target_skipping/BUILD <<EOF
 # We're not validating visibility here. Let everything access these targets.
 package(default_visibility = ["//visibility:public"])
 
@@ -202,7 +202,7 @@ function tear_down() {
 
 function set_up_custom_toolchain() {
   mkdir -p target_skipping/custom_tools/
-  cat > target_skipping/custom_tools/BUILD <<EOF
+  cat > target_skipping/custom_tools/BUILD <<'EOF'
 load(":toolchain.bzl", "custom_toolchain")
 
 toolchain_type(name = "toolchain_type")
@@ -225,7 +225,7 @@ toolchain(
 )
 EOF
 
-  cat > target_skipping/custom_tools/toolchain.bzl <<EOF
+  cat > target_skipping/custom_tools/toolchain.bzl <<'EOF'
 def _custom_binary_impl(ctx):
     info = ctx.toolchains["//target_skipping/custom_tools:toolchain_type"].custom_info
     out = ctx.actions.declare_file(ctx.label.name)
@@ -275,7 +275,7 @@ EOF
 # the target_compatible_with attribute. This is a regression test for
 # https://github.com/bazelbuild/bazel/issues/13250.
 function test_config_setting_in_target_compatible_with() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 config_setting(
     name = "foo3_config_setting",
     constraint_values = [":foo3"],
@@ -370,7 +370,7 @@ function test_skipping_for_rules_that_dont_create_actions() {
   # Create a fake shared library for cc_import.
   echo > target_skipping/some_precompiled_library.so
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 cc_import(
     name = "some_precompiled_library",
     shared_library = "some_precompiled_library.so",
@@ -536,7 +536,7 @@ EOF
 # Validate that targets are skipped when the implementation is in Starlark
 # instead of in Java.
 function test_starlark_skipping() {
-  cat > target_skipping/rules.bzl <<EOF
+  cat > target_skipping/rules.bzl <<'EOF'
 def _echo_rule_impl(ctx):
     ctx.actions.write(ctx.outputs.out, ctx.attr.text)
     return []
@@ -557,7 +557,7 @@ def echo_rule(name, **kwargs):
     )
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 load("//target_skipping:rules.bzl", "echo_rule")
 
 echo_rule(
@@ -589,7 +589,7 @@ EOF
 # Validates that rules with custom providers are skipped when incompatible.
 # This is valuable because we use providers to convey incompatibility.
 function test_dependencies_with_providers() {
-  cat > target_skipping/rules.bzl <<EOF
+  cat > target_skipping/rules.bzl <<'EOF'
 DummyProvider = provider()
 
 def _dummy_rule_impl(ctx):
@@ -603,7 +603,7 @@ dummy_rule = rule(
 )
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 load("//target_skipping:rules.bzl", "dummy_rule")
 
 dummy_rule(
@@ -633,7 +633,7 @@ EOF
 }
 
 function test_dependencies_with_extensions() {
-  cat > target_skipping/rules.bzl <<EOF
+  cat > target_skipping/rules.bzl <<'EOF'
 def _dummy_rule_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name + ".cc")
     ctx.actions.write(out, "Dummy content")
@@ -644,7 +644,7 @@ dummy_rule = rule(
 )
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 load("//target_skipping:rules.bzl", "dummy_rule")
 
 # Generates a dummy.cc file.
@@ -675,7 +675,7 @@ EOF
 # Validates the same thing as test_non_top_level_skipping, but with a cc_test
 # and adding one more level of dependencies.
 function test_cc_test() {
-  cat > target_skipping/generator_tool.cc <<EOF
+  cat > target_skipping/generator_tool.cc <<'EOF'
 #include <cstdio>
 int main() {
   printf("int main() { return 1; }\\n");
@@ -683,7 +683,7 @@ int main() {
 }
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 cc_binary(
     name = "generator_tool",
     srcs = ["generator_tool.cc"],
@@ -693,7 +693,7 @@ cc_binary(
 genrule(
     name = "generate_with_tool",
     outs = ["generated_test.cc"],
-    cmd = "\$(location :generator_tool) > \$(OUTS)",
+    cmd = "$(location :generator_tool) > $(OUTS)",
     tools = [":generator_tool"],
 )
 
@@ -738,7 +738,7 @@ EOF
 # Validates the same thing as test_cc_test, but with multiple violated
 # constraints.
 function test_cc_test_multiple_constraints() {
-  cat > target_skipping/generator_tool.cc <<EOF
+  cat > target_skipping/generator_tool.cc <<'EOF'
 #include <cstdio>
 int main() {
   printf("int main() { return 1; }\\n");
@@ -746,7 +746,7 @@ int main() {
 }
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 cc_binary(
     name = "generator_tool",
     srcs = ["generator_tool.cc"],
@@ -756,7 +756,7 @@ cc_binary(
 genrule(
     name = "generate_with_tool",
     outs = ["generated_test.cc"],
-    cmd = "\$(location :generator_tool) > \$(OUTS)",
+    cmd = "$(location :generator_tool) > $(OUTS)",
     tools = [":generator_tool"],
 )
 
@@ -785,7 +785,7 @@ EOF
 
 # Validates that we can express targets being compatible with A _or_ B.
 function test_or_logic() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 sh_test(
     name = "pass_on_foo1_or_foo2_but_not_on_foo3",
     srcs = [":pass.sh"],
@@ -833,6 +833,7 @@ EOF
 function test_inverse_logic() {
   setup_skylib_support
 
+  # Not using 'EOF' because injecting skylib_package
   cat >> target_skipping/BUILD <<EOF
 load("${skylib_package}lib:selects.bzl", "selects")
 
@@ -880,7 +881,7 @@ EOF
 }
 
 function test_incompatible_with_aliased_constraint() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 alias(
     name = "also_foo3",
     actual = ":foo3",
@@ -912,7 +913,7 @@ EOF
 }
 
 function test_incompatible_with_aliased_target() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 alias(
     name = "also_some_foo3_target",
     actual = ":some_foo3_target",
@@ -936,7 +937,7 @@ EOF
 function test_incompatible_with_missing_toolchain() {
   set_up_custom_toolchain
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 load(
     "//target_skipping/custom_tools:toolchain.bzl",
     "compiler_flag",
@@ -998,7 +999,7 @@ EOF
 # are not evaluated. I.e. there should be no need to guard the dependencies
 # with a select() statement.
 function test_invalid_deps_are_ignored_when_incompatible() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 cc_binary(
     name = "incompatible_tool",
     deps = [
@@ -1025,7 +1026,7 @@ EOF
 # with the target platform can still be used as a host tool.
 function test_host_tool() {
   # Create an arbitrary host tool.
-  cat > target_skipping/host_tool.cc <<EOF
+  cat > target_skipping/host_tool.cc <<'EOF'
 #include <cstdio>
 int main() {
   printf("Hello World\\n");
@@ -1033,7 +1034,7 @@ int main() {
 }
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 cc_binary(
     name = "host_tool",
     srcs = ["host_tool.cc"],
@@ -1045,7 +1046,7 @@ cc_binary(
 genrule(
     name = "use_host_tool",
     outs = ["host_tool_message.txt"],
-    cmd = "\$(location :host_tool) >> \$(OUTS)",
+    cmd = "$(location :host_tool) >> $(OUTS)",
     tools = [":host_tool"],
     target_compatible_with = [
         ":foo2",
@@ -1085,6 +1086,7 @@ EOF
 function test_analysistest() {
   setup_skylib_support
 
+  # Not using 'EOF' because injecting skylib_package
   cat > target_skipping/analysistest.bzl <<EOF
 load("${skylib_package}lib:unittest.bzl", "analysistest")
 
@@ -1096,7 +1098,7 @@ def _analysistest_test_impl(ctx):
 analysistest_test = analysistest.make(_analysistest_test_impl)
 EOF
 
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 load(":analysistest.bzl", "analysistest_test")
 
 analysistest_test(
@@ -1123,12 +1125,12 @@ EOF
 }
 
 function write_query_test_targets() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 genrule(
     name = "genrule_foo1",
     target_compatible_with = [":foo1"],
     outs = ["foo1.sh"],
-    cmd = "echo 'exit 0' > \$(OUTS)",
+    cmd = "echo 'exit 0' > $(OUTS)",
 )
 
 sh_binary(
@@ -1202,7 +1204,7 @@ function test_cquery_with_glob() {
 # erroring on unbuildable targets.
 function test_cquery_incompatible_target() {
   mkdir -p target_skipping
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 sh_test(
     name = "depender",
     srcs = ["depender.sh"],
@@ -1229,7 +1231,7 @@ EOF
 # Runs a cquery and makes sure that we can properly distinguish between
 # incompatible targets and compatible targets.
 function test_cquery_with_starlark_formatting() {
-  cat > target_skipping/compatibility.cquery <<EOF
+  cat > target_skipping/compatibility.cquery <<'EOF'
 def format(target):
     if "IncompatiblePlatformProvider" in providers(target):
         result = "incompatible"
@@ -1305,7 +1307,7 @@ function test_aquery_incompatible_target() {
 
 # Use aspects to interact with incompatible targets and validate the behaviour.
 function test_aspect_skipping() {
-  cat >> target_skipping/BUILD <<EOF
+  cat >> target_skipping/BUILD <<'EOF'
 load(":defs.bzl", "basic_rule", "rule_with_aspect")
 # This target is compatible with all platforms and configurations. This target
 # exists to validate the behaviour of aspects running against incompatible
@@ -1361,7 +1363,7 @@ rule_with_aspect(
 genrule(
     name = "generated_file",
     outs = ["generated_file.txt"],
-    cmd = "echo '' > \$(OUTS)",
+    cmd = "echo '' > $(OUTS)",
     target_compatible_with = [
         ":foo1",
     ],
@@ -1371,7 +1373,7 @@ rule_with_aspect(
     inspect = ":generated_file",
 )
 EOF
-  cat > target_skipping/defs.bzl <<EOF
+  cat > target_skipping/defs.bzl <<'EOF'
 BasicProvider = provider()
 def _basic_rule_impl(ctx):
     return [DefaultInfo(), BasicProvider()]
