@@ -100,7 +100,7 @@ EOF
 }
 
 function setup_head_android_tools_if_exists() {
-  local head_android_tools=$(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar.gz)
+  local head_android_tools=$(rlocation io_bazel/tools/android/runtime_deps/android_tools.tar)
   if [[ -f $head_android_tools ]]; then
     HEAD_ANDROID_TOOLS_WS="$TEST_TMPDIR/head_android_tools"
     mkdir "$HEAD_ANDROID_TOOLS_WS"

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Thin sh_test macro to run Android integration shell tests against versioned
-and HEAD android_tools.tar.gz.
+and HEAD android_tools.tar.
 
 This is required to ensure coverage for developing unbundled Android tools,
 like the ResourceProcessorBusyBox and Desugar.
@@ -50,7 +50,7 @@ def android_sh_test(**kwargs):
         name = name + "_with_head_android_tools",
         args = ["--without_platforms"],
         data = data + [
-            "//tools/android/runtime_deps:android_tools.tar.gz",
+            "//tools/android/runtime_deps:android_tools.tar",
         ],
         **kwargs
     )

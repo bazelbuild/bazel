@@ -286,7 +286,7 @@ sh_test(
     srcs = ["bazel_android_tools_test.sh"],
     data = [
         ":test-deps",
-        "//tools/android/runtime_deps:android_tools.tar.gz",
+        "//tools/android/runtime_deps:android_tools.tar",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["no_windows"],

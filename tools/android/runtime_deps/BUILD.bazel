@@ -84,6 +84,5 @@ pkg_tar(
         "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android:all_android_tools_deploy.jar",
     ],
-    extension = "tar.gz",
     visibility = ["//src/test/shell/bazel:__subpackages__"],
 )
