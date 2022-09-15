@@ -451,7 +451,6 @@ public class JavaOptions extends FragmentOptions {
               + " violations.")
   public boolean enforceOneVersionOnJavaTests;
 
-  @Deprecated
   @Option(
       name = "experimental_one_version_enforcement_validation_action",
       defaultValue = "false",
