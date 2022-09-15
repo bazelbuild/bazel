@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import net.starlark.java.eval.StarlarkValue;
+
 /**
  * Enum used to represent tri-state parameters in rule attributes (yes/no/auto).
  */
-public enum TriState {
+public enum TriState implements StarlarkValue {
   YES,
   NO,
   AUTO;

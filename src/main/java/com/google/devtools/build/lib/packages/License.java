@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Support for license and distribution checking. */
 @Immutable
@@ -53,7 +54,7 @@ public final class License implements LicenseApi {
    * <p>Note that the order is important for the purposes of finding the least
    * restrictive license.
    */
-  public enum LicenseType {
+  public enum LicenseType implements StarlarkValue {
     BY_EXCEPTION_ONLY,
     RESTRICTED,
     RESTRICTED_IF_STATICALLY_LINKED,
@@ -95,7 +96,7 @@ public final class License implements LicenseApi {
   /**
    * The types of distribution that are supported.
    */
-  public enum DistributionType {
+  public enum DistributionType implements StarlarkValue {
     INTERNAL,
     WEB,
     CLIENT,

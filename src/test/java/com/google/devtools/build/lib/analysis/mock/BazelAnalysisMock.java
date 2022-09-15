@@ -220,6 +220,26 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")",
         "java_plugins_flag_alias(name = 'java_plugins_flag_alias')");
 
+    config.create("embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
+      "package_group(name='function_transition_allowlist',packages=['//...'])");
+    config.create("embedded_tools/tools/java/runfiles/java_current_repository.bzl",
+      "_CurrentRepositoryInfo = provider()",
+      "def _current_repository_impl(ctx):",
+      "    return _CurrentRepositoryInfo(value = ctx.build_setting_value)",
+      "current_repository_setting = rule(",
+      "    implementation = _current_repository_impl,",
+      "    build_setting = config.string(),",
+      ")",
+      "def _java_current_repository_impl(ctx):",
+      "  jar_file = ctx.actions.declare_file('empty.jar')",
+      "  ctx.actions.write(jar_file, '')",
+      "  return [JavaInfo(output_jar = jar_file, compile_jar = jar_file)]",
+      "java_current_repository = rule(implementation = _java_current_repository_impl)");
+    config.create("embedded_tools/tools/java/runfiles/BUILD",
+      "load(':java_current_repository.bzl','current_repository_setting','java_current_repository')",
+      "java_current_repository(name='java_current_repository')",
+      "current_repository_setting(name='current_repository',build_setting_default='')");
+
     config.create(
         TestConstants.CONSTRAINTS_PATH + "/android/BUILD",
         "package(default_visibility=['//visibility:public'])",

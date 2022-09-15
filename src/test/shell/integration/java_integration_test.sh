@@ -883,4 +883,169 @@ EOF
       || fail "aspect Args do not contain both params files"
 }
 
+function test_java_current_repository() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+java_library(
+  name = "library",
+  srcs = ["Library.java"],
+  visibility = ["//visibility:public"],
+)
+
+java_binary(
+  name = "binary",
+  srcs = ["Binary.java"],
+  main_class = "com.example.Binary",
+  deps = [
+    ":library",
+  ],
+)
+
+java_test(
+  name = "test",
+  srcs = ["Test.java"],
+  main_class = "com.example.Test",
+  use_testrunner = False,
+  deps = [
+    ":library",
+  ],
+)
+EOF
+
+  cat > pkg/Library.java <<'EOF'
+package com.example;
+
+import static com.google.devtools.build.runfiles.RunfilesConstants.CURRENT_REPOSITORY;
+
+public class Library {
+  public static void printRepositoryName() {
+    System.out.printf("in pkg/Library.java: '%s'%n", CURRENT_REPOSITORY);
+  }
+}
+EOF
+
+  cat > pkg/Binary.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.RunfilesConstants;
+
+public class Binary {
+  public static void main(String[] args) {
+    System.out.printf("in pkg/Binary.java: '%s'%n", RunfilesConstants.CURRENT_REPOSITORY);
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  cat > pkg/Test.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.RunfilesConstants;
+
+public class Test {
+  public static void main(String[] args) {
+    System.out.printf("in pkg/Test.java: '%s'%n", RunfilesConstants.CURRENT_REPOSITORY);
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/pkg
+  cat > other_repo/pkg/BUILD.bazel <<'EOF'
+java_library(
+  name = "library2",
+  srcs = ["Library2.java"],
+)
+
+java_binary(
+  name = "binary",
+  srcs = ["Binary.java"],
+  main_class = "com.example.Binary",
+  deps = [
+    ":library2",
+    "@//pkg:library",
+  ],
+)
+java_test(
+  name = "test",
+  srcs = ["Test.java"],
+  main_class = "com.example.Test",
+  use_testrunner = False,
+  deps = [
+    ":library2",
+    "@//pkg:library",
+  ],
+)
+EOF
+
+  cat > other_repo/pkg/Library2.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.RunfilesConstants;
+
+public class Library2 {
+  public static void printRepositoryName() {
+    System.out.printf("in external/other_repo/pkg/Library2.java: '%s'%n", RunfilesConstants.CURRENT_REPOSITORY);
+  }
+}
+EOF
+
+  cat > other_repo/pkg/Binary.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.RunfilesConstants;
+
+public class Binary {
+  public static void main(String[] args) {
+    System.out.printf("in external/other_repo/pkg/Binary.java: '%s'%n", RunfilesConstants.CURRENT_REPOSITORY);
+    Library2.printRepositoryName();
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  cat > other_repo/pkg/Test.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.RunfilesConstants;
+
+public class Test {
+  public static void main(String[] args) {
+    System.out.printf("in external/other_repo/pkg/Test.java: '%s'%n", RunfilesConstants.CURRENT_REPOSITORY);
+    Library2.printRepositoryName();
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  bazel run //pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in pkg/Binary.java: ''"
+  expect_log "in pkg/Library.java: ''"
+
+  bazel test --test_output=streamed //pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in pkg/Test.java: ''"
+  expect_log "in pkg/Library.java: ''"
+
+  bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in external/other_repo/pkg/Binary.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in pkg/Library.java: ''"
+
+  bazel test --test_output=streamed \
+    @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in external/other_repo/pkg/Test.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in pkg/Library.java: ''"
+}
+
 run_suite "Java integration tests"

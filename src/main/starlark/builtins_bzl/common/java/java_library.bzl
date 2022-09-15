@@ -23,6 +23,17 @@ load(":common/java/java_semantics.bzl", "semantics")
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 CcInfo = _builtins.toplevel.CcInfo
+transition = _builtins.toplevel.transition
+repository_name = _builtins.native.repository_name
+
+def _current_repository_transition_impl(settings, attr):
+    return {"@bazel_tools//tools/java/runfiles:current_repository": attr.current_repository}
+
+_current_repository_transition = transition(
+    implementation = _current_repository_transition_impl,
+    inputs = [],
+    outputs = ["@bazel_tools//tools/java/runfiles:current_repository"],
+)
 
 def bazel_java_library_rule(
         ctx,
@@ -37,7 +48,8 @@ def bazel_java_library_rule(
         neverlink = False,
         proguard_specs = [],
         add_exports = [],
-        add_opens = []):
+        add_opens = [],
+        runfiles_constants = None):
     """Implements java_library.
 
     Use this call when you need to produce a fully fledged java_library from
@@ -58,6 +70,7 @@ def bazel_java_library_rule(
       proguard_specs: (list[File]) Files to be used as Proguard specification.
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
+      runfiles_constants: (Target) Target providing RunfilesConstants.CURRENT_REPOSITORY.
     Returns:
       (list[provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
@@ -68,7 +81,7 @@ def bazel_java_library_rule(
     target, base_info = basic_java_library(
         ctx,
         srcs,
-        deps,
+        deps + [runfiles_constants],
         runtime_deps,
         plugins,
         exports,
@@ -110,6 +123,8 @@ def _proxy(ctx):
         ctx.files.proguard_specs,
         ctx.attr.add_exports,
         ctx.attr.add_opens,
+        # This attribute is subject to an outgoing transition.
+        ctx.attr._runfiles_constants[0],
     ).values()
 
 JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS
@@ -164,11 +179,21 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
         "add_exports": attr.string_list(),
         "add_opens": attr.string_list(),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        # Consumed by _current_repository_transition.
+        "current_repository": attr.string(),
+        "_runfiles_constants": attr.label(
+            default = "@bazel_tools//tools/java/runfiles:java_current_repository",
+            providers = [JavaInfo],
+            cfg = _current_repository_transition,
+        ),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
     },
 )
 
-java_library = rule(
+_java_library = rule(
     _proxy,
     attrs = JAVA_LIBRARY_ATTRS,
     provides = [JavaInfo],
@@ -180,3 +205,10 @@ java_library = rule(
     compile_one_filetype = [".java"],
     toolchains = [semantics.JAVA_TOOLCHAIN],
 )
+
+def java_library(**kwargs):
+    _java_library(
+        # Skip over the leading '@'.
+        current_repository = repository_name()[1:],
+        **kwargs
+    )

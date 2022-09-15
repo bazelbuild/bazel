@@ -1,3 +1,5 @@
+load(":java_current_repository.bzl", "current_repository_setting", "java_current_repository")
+
 java_library(
     name = "runfiles",
     srcs = [
@@ -5,4 +7,27 @@ java_library(
         "Util.java",
     ],
     visibility = ["//visibility:public"],
+    runtime_deps = [":runfiles_constants_stub"],
+)
+
+java_library(
+    name = "runfiles_constants_stub",
+    srcs = ["RunfilesConstants.java"],
+)
+
+current_repository_setting(
+    name = "current_repository",
+    build_setting_default = "",
+    visibility = ["//visibility:private"],
+)
+
+java_current_repository(
+    name = "java_current_repository",
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )

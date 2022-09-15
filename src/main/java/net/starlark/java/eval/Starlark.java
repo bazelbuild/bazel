@@ -206,6 +206,8 @@ public final class Starlark {
       return StarlarkList.copyOf(mutability, (List<?>) x);
     } else if (x instanceof Map) {
       return Dict.copyOf(mutability, (Map<?, ?>) x);
+    } else if (x instanceof Set && ((Set<?>) x).size() == 1) {
+      return StarlarkList.copyOf(mutability, (Set<?>) x);
     }
     throw new InvalidStarlarkValueException(x.getClass());
   }

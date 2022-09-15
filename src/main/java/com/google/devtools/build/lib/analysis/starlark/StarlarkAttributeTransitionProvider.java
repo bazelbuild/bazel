@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -53,7 +54,9 @@ public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
-  StarlarkAttributeTransitionProvider(
+  // Only public for use in BazelJava* rules while these rules have not yet been Starlarkified.
+  // Do not use for any other purpose.
+  public StarlarkAttributeTransitionProvider(
       StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }

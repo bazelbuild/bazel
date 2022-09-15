@@ -10,6 +10,12 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = ["//tools/java/runfiles:bzl_srcs"],
+    visibility = ["//tools:__pkg__"],
+)
+
 genrule(
     name = "copy_java_stub_template",
     srcs = [

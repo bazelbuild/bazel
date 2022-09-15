@@ -102,6 +102,8 @@ public final class BazelJavaTestRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("test_class", STRING))
+        .addAttribute(BazelJavaCurrentRepositorySupport.CURRENT_REPOSITORY_ATTRIBUTE)
+        .addAttribute(BazelJavaCurrentRepositorySupport.RUNFILES_CONSTANTS_ATTRIBUTE)
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }

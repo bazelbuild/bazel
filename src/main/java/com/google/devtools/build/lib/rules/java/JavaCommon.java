@@ -513,6 +513,15 @@ public class JavaCommon {
     return jvmFlags;
   }
 
+  private static List<TransitiveInfoCollection> getRunfilesConstants(RuleContext ruleContext) {
+    // This attribute is only available on Bazel Java rules.
+    if (ruleContext.attributes().has("$runfiles_constants", BuildType.LABEL)) {
+      return ImmutableList.copyOf(ruleContext.getPrerequisites("$runfiles_constants"));
+    } else {
+      return ImmutableList.of();
+    }
+  }
+
   private static List<TransitiveInfoCollection> getRuntimeDeps(RuleContext ruleContext) {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
@@ -616,6 +625,7 @@ public class JavaCommon {
       builder.addAll(getRuntimeDeps(ruleContext));
       builder.addAll(getExports(ruleContext));
     }
+    builder.addAll(getRunfilesConstants(ruleContext));
     builder.addAll(ruleContext.getPrerequisites("deps"));
 
     semantics.collectTargetsTreatedAsDeps(ruleContext, builder, type);

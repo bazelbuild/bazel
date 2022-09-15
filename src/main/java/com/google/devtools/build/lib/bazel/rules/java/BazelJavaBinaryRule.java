@@ -14,14 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -29,6 +26,10 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 /**
  * Rule definition for the java_binary rule.
@@ -101,6 +102,8 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                         return rule.get("create_executable", BOOLEAN);
                       }
                     }))
+        .addAttribute(BazelJavaCurrentRepositorySupport.CURRENT_REPOSITORY_ATTRIBUTE)
+        .addAttribute(BazelJavaCurrentRepositorySupport.RUNFILES_CONSTANTS_ATTRIBUTE)
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }

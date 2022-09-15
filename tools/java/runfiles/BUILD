@@ -15,9 +15,18 @@ filegroup(
 )
 
 filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
+
+filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
+        "RunfilesConstants.java",
+        "RunfilesConstants.java.tpl",
+        "java_current_repository.bzl",
         ":java-srcs",
     ],
     visibility = ["//tools/java:__pkg__"],
