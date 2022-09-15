@@ -1,3 +1,23 @@
+## Release 6.0.0-pre.20220909.2 (2022-09-15)
+
+```
+Baseline: d3bef49f9182f6bcb6f609530970a7945ce51cbf
+```
+
+Incompatible changes:
+
+  - analysis_test moved into testing.analysis_test
+
+Important changes:
+
+  - selects() no longer produce irrelevant duplicate label checks
+  - Adds a dexer output cache to CompatDexBuilder to improve build
+    speed.
+  - Improved error messages when analyzing inline bzl code
+  - Improved error messages when analyzing inline bzl code
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, Charles-Francois Natali, Emil Kattainen, Fabian Meumertzheim, James Broadhead, jheaff1, kshyanashree, Noa Resare, Philipp Schrader, Shuai Zhang, Xavier Bonaventura.
+
 ## Release 6.0.0-pre.20220825.4 (2022-09-15)
 
 ```
