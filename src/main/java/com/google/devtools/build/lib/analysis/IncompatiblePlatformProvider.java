@@ -108,7 +108,7 @@ public abstract class IncompatiblePlatformProvider
    * <p>This may be null. If it is null, then {@code getTargetsResponsibleForIncompatibility()} is
    * guaranteed to be non-null. It will have at least one element in it if it is not null.
    *
-   * <p>The list is sorted based on the toString() result of each constraint.
+   * <p>The list is sorted based on the stringified label of each constraint.
    */
   @Nullable
   public abstract ImmutableList<ConstraintValueInfo> constraintsResponsibleForIncompatibility();
