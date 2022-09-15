@@ -109,6 +109,7 @@ public final class ActionInputMapTest {
   @Test
   public void putTreeArtifact_addsEmptyTreeArtifact() {
     SpecialArtifact tree = createTreeArtifact("tree");
+    TreeArtifactValue treeValue = TreeArtifactValue.empty();
 
     map.putTreeArtifact(tree, TreeArtifactValue.empty(), /*depOwner=*/ null);
 
