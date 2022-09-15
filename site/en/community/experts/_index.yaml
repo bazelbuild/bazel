@@ -1,6 +1,8 @@
 book_path: /_book.yaml
 project_path: /_project.yaml
 title: Bazel Community Experts
+image_path: /images/placeholder.png
+
 landing_page:
   nav: left
   rows:
