@@ -78,10 +78,10 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:lib",
+            "@//pkg:lib",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:lib",
+            "@//pkg:bin -> @//pkg:lib",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -138,14 +138,14 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
     String golden =
         join(
             "Python 2-only deps:",
-            "//pkg:lib2",
+            "@//pkg:lib2",
             "",
             "Python 3-only deps:",
-            "//pkg:lib3",
+            "@//pkg:lib3",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:lib2",
-            "//pkg:bin -> //pkg:lib3",
+            "@//pkg:bin -> @//pkg:lib2",
+            "@//pkg:bin -> @//pkg:lib3",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -168,10 +168,10 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:bin",
+            "@//pkg:bin",
             "",
             "Paths to these deps:",
-            "//pkg:bin",
+            "@//pkg:bin",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -209,10 +209,10 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:libB",
+            "@//pkg:libB",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:libC -> //pkg:libB",
+            "@//pkg:bin -> @//pkg:libC -> @//pkg:libB",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -251,10 +251,10 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:libC",
+            "@//pkg:libC",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:libC",
+            "@//pkg:bin -> @//pkg:libC",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -294,12 +294,12 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:libA",
-            "//pkg:libC",
+            "@//pkg:libA",
+            "@//pkg:libC",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:libA",
-            "//pkg:bin -> //pkg:libC",
+            "@//pkg:bin -> @//pkg:libA",
+            "@//pkg:bin -> @//pkg:libC",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -338,10 +338,10 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:libA",
+            "@//pkg:libA",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:libB -> //pkg:libA",
+            "@//pkg:bin -> @//pkg:libB -> @//pkg:libA",
             "");
     assertThat(result).isEqualTo(golden);
   }
@@ -391,10 +391,10 @@ public class PythonSrcsVersionAspectTest extends BuildViewTestCase {
             "<None>",
             "",
             "Python 3-only deps:",
-            "//pkg:libB",
+            "@//pkg:libB",
             "",
             "Paths to these deps:",
-            "//pkg:bin -> //pkg:libC -> //pkg:libB",
+            "@//pkg:bin -> @//pkg:libC -> @//pkg:libB",
             "");
     assertThat(result).isEqualTo(golden);
   }

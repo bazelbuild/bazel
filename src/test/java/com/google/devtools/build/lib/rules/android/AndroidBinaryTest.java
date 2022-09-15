@@ -3777,7 +3777,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "/FooFlags.java");
     FileWriteAction action = (FileWriteAction) getGeneratingAction(flagList);
     assertThat(action.getFileContents())
-        .isEqualTo("//java/com/foo:flag1: on\n//java/com/foo:flag2: off");
+        .isEqualTo("@//java/com/foo:flag1: on\n@//java/com/foo:flag2: off");
   }
 
   @Test
