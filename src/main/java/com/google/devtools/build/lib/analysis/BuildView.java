@@ -870,7 +870,8 @@ public class BuildView {
   @FunctionalInterface
   public interface ExecutionSetup {
     void prepareForExecution()
-        throws AbruptExitException, BuildFailedException, InterruptedException;
+        throws AbruptExitException, BuildFailedException, InvalidConfigurationException,
+            InterruptedException;
   }
 
   /**

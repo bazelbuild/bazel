@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -85,6 +84,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -244,24 +244,28 @@ public class ExecutionTool {
   /**
    * Sets up for execution.
    *
-   * <p>b/199053098: This method concentrates the setup steps for execution, which were previously
-   * scattered over several classes. We need this in order to merge analysis & execution phases.
-   * TODO(b/199053098): Minimize code duplication with the main code path. TODO(b/213040766): Write
-   * tests for these setup steps.
+   * <p>This method concentrates the setup steps for execution, which were previously scattered over
+   * several classes. We need this in order to merge analysis & execution phases.
+   *
+   * <p>TODO(b/213040766): Write tests for these setup steps.
    */
   public void prepareForExecution(UUID buildId)
-      throws AbruptExitException, BuildFailedException, InterruptedException {
+      throws AbruptExitException, BuildFailedException, InterruptedException,
+          InvalidConfigurationException {
     init();
     BuildRequestOptions options = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    // TODO(b/199053098): Support symlink forest.
     List<Root> pkgPathEntries = env.getPackageLocator().getPathEntries();
-    Preconditions.checkState(
-        pkgPathEntries.size() == 1,
-        "--experimental_merged_skyframe_analysis_execution requires a single package path entry."
-            + " Found a list of size: %s",
-        pkgPathEntries.size());
+
+    // TODO(b/246324830): Support this.
+    if (pkgPathEntries.size() != 1) {
+      throw new InvalidConfigurationException(
+          "--experimental_merged_skyframe_analysis_execution requires a single package path"
+              + " entry. Found instead: "
+              + pkgPathEntries,
+          BuildConfiguration.Code.INVALID_BUILD_OPTIONS);
+    }
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
       Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);

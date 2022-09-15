@@ -49,8 +49,13 @@ final class WorkerLifecycleManager extends Thread {
 
   @Override
   public void run() {
+    if (workerOptions.totalWorkerMemoryLimitMb == 0) {
+      return;
+    }
+
     isWorking = true;
 
+    // This loop works until method stopProcessing() called by WorkerModule.
     while (isWorking) {
       try {
         Thread.sleep(SLEEP_INTERVAL.toMillis());
