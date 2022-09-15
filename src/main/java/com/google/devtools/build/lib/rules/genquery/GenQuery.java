@@ -97,6 +97,7 @@ import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -175,11 +176,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     GenQueryResult result;
     try (SilentCloseable c =
         Profiler.instance().profile("GenQuery.executeQuery " + ruleContext.getLabel())) {
+      List<Label> scope = ruleContext.attributes().get("scope", BuildType.GENQUERY_SCOPE_TYPE_LIST);
       result =
           executeQuery(
               ruleContext,
               queryOptions,
-              ruleContext.attributes().get("scope", BuildType.GENQUERY_SCOPE_TYPE_LIST),
+              scope != null ? ImmutableList.copyOf(scope) : ImmutableList.of(),
               query,
               outputArtifact.getPath().getFileSystem().getDigestFunction().getHashFunction());
     }
@@ -222,7 +224,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   private GenQueryResult executeQuery(
       RuleContext ruleContext,
       QueryOptions queryOptions,
-      Collection<Label> scope,
+      ImmutableList<Label> scope,
       String query,
       HashFunction hashFunction)
       throws InterruptedException {
@@ -230,7 +232,11 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     GenQueryPackageProvider packageProvider;
     try {
-      packageProvider = new GenQueryPackageProviderFactory().constructPackageMap(env, scope);
+      GenQueryPackageProviderFactory packageProviderFactory =
+          ruleContext.getConfiguration().getFragment(GenQueryConfiguration.class).skipTtvs()
+              ? new GenQueryDirectPackageProviderFactory()
+              : new GenQueryTtvPackageProviderFactory();
+      packageProvider = packageProviderFactory.constructPackageMap(env, scope);
       if (packageProvider == null) {
         return null;
       }
@@ -330,10 +336,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    GenQueryConfiguration genQueryConfig =
-        ruleContext.getConfiguration().getFragment(GenQueryConfiguration.class);
     GenQueryOutputStream outputStream =
-        new GenQueryOutputStream(genQueryConfig.inMemoryCompressionEnabled());
+        new GenQueryOutputStream(
+            ruleContext
+                .getConfiguration()
+                .getFragment(GenQueryConfiguration.class)
+                .inMemoryCompressionEnabled());
     Set<Target> result = targets.getResult();
     try {
       QueryOutputUtils.output(
