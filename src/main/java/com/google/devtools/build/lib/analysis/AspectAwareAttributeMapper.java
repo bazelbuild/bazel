@@ -135,7 +135,7 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {
+  public void visitLabels(String attributeName, Consumer<Label> consumer) {
     throw new UnsupportedOperationException("rule + aspects label visition is not supported");
   }
 
