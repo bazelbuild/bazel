@@ -1,3 +1,22 @@
+## Release 6.0.0-pre.20220825.4 (2022-09-15)
+
+```
+Baseline: c92d0e1c0bfbc2573104ff09d8dec282e85cafa1
+
+Cherry picks:
+
+   + e898060863fa0579d45f67c2c998b6ef5289199b:
+     Automated rollback of commit
+     14a0d830b95ca1a3f15baa3f76d8aa55afa2fe20.
+```
+
+Important changes:
+
+  - --experimental_enable_bzlmod has been renamed --enable_bzlmod,
+    and still defaults to false.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Ed Schouten, Igor Nazarenko, John Millikin, Ken Micklas, Yannic.
+
 ## Release 6.0.0-pre.20220823.1 (2022-09-01)
 
 ```
