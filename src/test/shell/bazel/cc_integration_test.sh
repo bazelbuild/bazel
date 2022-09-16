@@ -1594,4 +1594,118 @@ function test_external_cc_test_local_sibling_repository_layout() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
+function test_bazel_current_repository_define() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+cc_library(
+  name = "library",
+  srcs = ["library.cpp"],
+  hdrs = ["library.h"],
+  visibility = ["//visibility:public"],
+)
+
+cc_binary(
+  name = "binary",
+  srcs = ["binary.cpp"],
+  deps = [":library"],
+)
+
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = [":library"],
+)
+EOF
+
+  cat > pkg/library.cpp <<'EOF'
+#include "library.h"
+#include <iostream>
+void print_repo_name() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+}
+EOF
+
+  cat > pkg/library.h <<'EOF'
+void print_repo_name();
+EOF
+
+  cat > pkg/binary.cpp <<'EOF'
+#include <iostream>
+#include "library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  cat > pkg/test.cpp <<'EOF'
+#include <iostream>
+#include "library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/pkg
+  cat > other_repo/pkg/BUILD.bazel <<'EOF'
+cc_binary(
+  name = "binary",
+  srcs = ["binary.cpp"],
+  deps = ["@//pkg:library"],
+)
+
+cc_test(
+  name = "test",
+  srcs = ["test.cpp"],
+  deps = ["@//pkg:library"],
+)
+EOF
+
+  cat > other_repo/pkg/binary.cpp <<'EOF'
+#include <iostream>
+#include "pkg/library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  cat > other_repo/pkg/test.cpp <<'EOF'
+#include <iostream>
+#include "pkg/library.h"
+int main() {
+  std::cout << "in " << __FILE__ << ": '" << BAZEL_CURRENT_REPOSITORY << "'" << std::endl;
+  print_repo_name();
+}
+EOF
+
+  bazel run //pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in pkg/binary.cpp: ''"
+  expect_log "in pkg/library.cpp: ''"
+
+  bazel test --test_output=streamed //pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in pkg/test.cpp: ''"
+  expect_log "in pkg/library.cpp: ''"
+
+  bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in external/other_repo/pkg/binary.cpp: 'other_repo'"
+  expect_log "in pkg/library.cpp: ''"
+
+  bazel test --test_output=streamed \
+    @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in external/other_repo/pkg/test.cpp: 'other_repo'"
+  expect_log "in pkg/library.cpp: ''"
+}
+
 run_suite "cc_integration_test"

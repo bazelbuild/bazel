@@ -690,7 +690,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         cc_toolchain = cc_toolchain,
         user_compile_flags = cc_helper.get_copts(ctx, common, feature_configuration, additional_make_variable_substitutions),
         defines = common.defines,
-        local_defines = common.local_defines,
+        local_defines = common.local_defines + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
         loose_includes = common.loose_include_dirs,
         system_includes = common.system_include_dirs,
         private_hdrs = common.private_hdrs,

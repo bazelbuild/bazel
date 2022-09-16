@@ -927,6 +927,9 @@ def _is_stamping_enabled_for_aspect(ctx):
         stamp = ctx.rule.attr.stamp
     return stamp
 
+def _get_local_defines_for_runfiles_lookup(ctx):
+    return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+
 cc_helper = struct(
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
@@ -972,4 +975,5 @@ cc_helper = struct(
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
     is_stamping_enabled = _is_stamping_enabled,
     is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
+    get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
 )
