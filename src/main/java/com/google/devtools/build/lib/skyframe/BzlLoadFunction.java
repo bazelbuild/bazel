@@ -800,19 +800,17 @@ public class BzlLoadFunction implements SkyFunction {
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
+    // The BazelModuleContext holds additional contextual info to be associated with the Module,
+    // including the label and a reified copy of the load DAG.
+    BazelModuleContext bazelModuleContext =
+        BazelModuleContext.create(
+            label, repoMapping, prog.getFilename(), ImmutableMap.copyOf(loadMap), transitiveDigest);
+
     // Construct the initial Starlark module used for executing the program.
     // The set of keys in the predeclared environment matches the set of predeclareds used to
     // compile the .bzl file into a Program.
-    Module module = Module.withPredeclared(builtins.starlarkSemantics, predeclared);
-    // The BazelModuleContext holds additional contextual info to be associated with the Module,
-    // including the label and a reified copy of the load DAG.
-    module.setClientData(
-        BazelModuleContext.create(
-            label,
-            repoMapping,
-            prog.getFilename(),
-            ImmutableMap.copyOf(loadMap),
-            transitiveDigest));
+    Module module =
+        Module.withPredeclaredAndData(builtins.starlarkSemantics, predeclared, bazelModuleContext);
 
     // The BzlInitThreadContext holds Starlark thread-local state to be read and updated during
     // evaluation.

@@ -165,8 +165,8 @@ public final class BazelEvaluationTestCase {
     if (this.module == null) {
       ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
       Object clientData = newModule(predeclared);
-      Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
-      module.setClientData(clientData);
+      Module module =
+          Module.withPredeclaredAndData(semantics, predeclared.buildOrThrow(), clientData);
       this.module = module;
     }
     return this.module;
