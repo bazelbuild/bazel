@@ -64,6 +64,15 @@ public final class BuildLanguageOptions extends OptionsBase {
   // <== Add new options here in alphabetic order ==>
 
   @Option(
+      name = "incompatible_remove_rule_name_parameter",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, `rule` can't be called with the `name` parameter.")
+  public boolean incompatibleRemoveRuleNameParameter;
+
+  @Option(
       name = "incompatible_disallow_symlink_file_to_dir",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -624,6 +633,7 @@ public final class BuildLanguageOptions extends OptionsBase {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
+            .setBool(INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, incompatibleRemoveRuleNameParameter)
             .setBool(
                 INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
@@ -704,6 +714,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
+      "-incompatible_remove_rule_name_parameter";
   public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
       "+incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
