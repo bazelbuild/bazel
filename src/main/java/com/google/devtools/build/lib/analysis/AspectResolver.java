@@ -100,8 +100,7 @@ public final class AspectResolver {
         result.put(dep, aspectValue.getConfiguredAspect());
         if (transitivePackages != null) {
           transitivePackages.addTransitive(
-              Preconditions.checkNotNull(
-                  aspectValue.getTransitivePackagesForPackageRootResolution()));
+              Preconditions.checkNotNull(aspectValue.getTransitivePackages()));
         }
       }
     }

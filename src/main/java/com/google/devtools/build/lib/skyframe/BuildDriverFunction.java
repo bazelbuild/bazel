@@ -241,11 +241,10 @@ public class BuildDriverFunction implements SkyFunction {
     // transitive packages for package root resolution is already cleared. In such a case, the
     // symlinks should have already been planted.
     TopLevelTargetAnalyzedEvent topLevelTargetAnalyzedEvent =
-        configuredTargetValue.getTransitivePackagesForPackageRootResolution() == null
+        configuredTargetValue.getTransitivePackages() == null
             ? TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget)
             : TopLevelTargetAnalyzedEvent.create(
-                configuredTarget,
-                configuredTargetValue.getTransitivePackagesForPackageRootResolution());
+                configuredTarget, configuredTargetValue.getTransitivePackages());
 
     env.getListener().post(topLevelTargetAnalyzedEvent);
   }
@@ -406,12 +405,10 @@ public class BuildDriverFunction implements SkyFunction {
     // transitive packages for package root resolution is already cleared. In such a case, the
     // symlinks should have already been planted.
     AspectAnalyzedEvent aspectAnalyzedEvent =
-        aspectValue.getTransitivePackagesForPackageRootResolution() == null
+        aspectValue.getTransitivePackages() == null
             ? AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(aspectKey, configuredAspect)
             : AspectAnalyzedEvent.create(
-                aspectKey,
-                configuredAspect,
-                aspectValue.getTransitivePackagesForPackageRootResolution());
+                aspectKey, configuredAspect, aspectValue.getTransitivePackages());
 
     env.getListener().post(aspectAnalyzedEvent);
   }

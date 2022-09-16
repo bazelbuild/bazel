@@ -120,24 +120,24 @@ final class AspectFunction implements SkyFunction {
   private final RuleClassProvider ruleClassProvider;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link AspectValue} will
-   * be needed for package root resolution later in the build. If not, they are not collected and
-   * stored.
+   * be needed later (see {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredObjectValue#getTransitivePackages}). If not,
+   * they are not collected and stored.
    */
-  private final boolean storeTransitivePackagesForPackageRootResolution;
+  private final boolean storeTransitivePackages;
 
   AspectFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      boolean storeTransitivePackagesForPackageRootResolution) {
+      boolean storeTransitivePackages) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
-    this.storeTransitivePackagesForPackageRootResolution =
-        storeTransitivePackagesForPackageRootResolution;
+    this.storeTransitivePackages = storeTransitivePackages;
   }
 
   static class State implements SkyKeyComputeState {
     /** Null if AspectFuncton is not storing this information. */
-    @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution;
+    @Nullable NestedSetBuilder<Package> transitivePackages;
 
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
@@ -145,9 +145,8 @@ final class AspectFunction implements SkyFunction {
 
     ComputeDependenciesState computeDependenciesState = new ComputeDependenciesState();
 
-    State(boolean storeTransitivePackagesForPackageRootResolution) {
-      this.transitivePackagesForPackageRootResolution =
-          storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
+    State(boolean storeTransitivePackages) {
+      this.transitivePackages = storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
     }
   }
 
@@ -177,7 +176,7 @@ final class AspectFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws AspectFunctionException, InterruptedException {
     AspectKey key = (AspectKey) skyKey.argument();
-    State state = env.getState(() -> new State(storeTransitivePackagesForPackageRootResolution));
+    State state = env.getState(() -> new State(storeTransitivePackages));
 
     if (state.initialValues == null) {
       InitialValues initialValues = getInitialValues(key, env);
@@ -201,9 +200,7 @@ final class AspectFunction implements SkyFunction {
           aspect,
           target.getLocation(),
           ConfiguredAspect.forNonapplicableTarget(),
-          state.transitivePackagesForPackageRootResolution == null
-              ? null
-              : state.transitivePackagesForPackageRootResolution.build());
+          state.transitivePackages == null ? null : state.transitivePackages.build());
     }
 
     if (AliasProvider.isAlias(associatedTarget)) {
@@ -244,8 +241,7 @@ final class AspectFunction implements SkyFunction {
               aspect,
               target.getLocation(),
               ConfiguredAspect.forNonapplicableTarget(),
-              /*transitivePackagesForPackageRootResolution=*/ NestedSetBuilder.emptySet(
-                  Order.STABLE_ORDER));
+              /*transitivePackages=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
         }
       }
     }
@@ -308,7 +304,7 @@ final class AspectFunction implements SkyFunction {
           ConfiguredTargetFunction.getConfigConditions(
               env,
               originalTargetAndConfiguration,
-              state.transitivePackagesForPackageRootResolution,
+              state.transitivePackages,
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.getTargetPlatform(),
@@ -323,7 +319,7 @@ final class AspectFunction implements SkyFunction {
         depValueMap =
             ConfiguredTargetFunction.computeDependencies(
                 state.computeDependenciesState,
-                state.transitivePackagesForPackageRootResolution,
+                state.transitivePackages,
                 state.transitiveRootCauses,
                 env,
                 resolver,
@@ -384,7 +380,7 @@ final class AspectFunction implements SkyFunction {
           toolchainContexts,
           execGroupCollectionBuilder,
           depValueMap,
-          state.transitivePackagesForPackageRootResolution);
+          state.transitivePackages);
     } catch (DependencyEvaluationException e) {
       // TODO(bazel-team): consolidate all env.getListener().handle() calls in this method, like in
       // ConfiguredTargetFunction. This encourages clear, consistent user messages (ideally without
@@ -636,8 +632,8 @@ final class AspectFunction implements SkyFunction {
     // the real configured target.
     Label aliasedLabel = aliasChain.size() > 1 ? aliasChain.get(1) : configuredTarget.getLabel();
 
-    NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
-        storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
+    NestedSetBuilder<Package> transitivePackages =
+        storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
     // Compute the Dependency from originalTarget to aliasedLabel
@@ -661,7 +657,7 @@ final class AspectFunction implements SkyFunction {
           ConfiguredTargetFunction.getConfigConditions(
               env,
               originalTargetAndAspectConfiguration,
-              transitivePackagesForPackageRootResolution,
+              transitivePackages,
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.getTargetPlatform(),
@@ -726,12 +722,7 @@ final class AspectFunction implements SkyFunction {
     // Now that we have a Dependency, we can compute the aliased key and depend on it
     AspectKey actualKey = buildAliasAspectKey(originalKey, aliasedLabel, dep);
     return createAliasAspect(
-        env,
-        originalTarget.getTarget(),
-        originalKey,
-        aspect,
-        actualKey,
-        transitivePackagesForPackageRootResolution);
+        env, originalTarget.getTarget(), originalKey, aspect, actualKey, transitivePackages);
   }
 
   @Nullable
@@ -741,7 +732,7 @@ final class AspectFunction implements SkyFunction {
       AspectKey originalKey,
       Aspect aspect,
       AspectKey depKey,
-      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
+      @Nullable NestedSetBuilder<Package> transitivePackages)
       throws InterruptedException {
     // Compute the AspectValue of the target the alias refers to (which can itself be either an
     // alias or a real target)
@@ -750,12 +741,11 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
 
-    NestedSet<Package> finalTransitivePackagesForPackageRootResolution = null;
-    if (transitivePackagesForPackageRootResolution != null) {
-      finalTransitivePackagesForPackageRootResolution =
-          transitivePackagesForPackageRootResolution
-              .addTransitive(
-                  Preconditions.checkNotNull(real.getTransitivePackagesForPackageRootResolution()))
+    NestedSet<Package> finalTransitivePackages = null;
+    if (transitivePackages != null) {
+      finalTransitivePackages =
+          transitivePackages
+              .addTransitive(Preconditions.checkNotNull(real.getTransitivePackages()))
               .add(originalTarget.getPackage())
               .build();
     }
@@ -764,7 +754,7 @@ final class AspectFunction implements SkyFunction {
         aspect,
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        finalTransitivePackagesForPackageRootResolution);
+        finalTransitivePackages);
   }
 
   @Nullable
@@ -841,7 +831,7 @@ final class AspectFunction implements SkyFunction {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
-      @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
+      @Nullable NestedSetBuilder<Package> transitivePackages)
       throws AspectFunctionException, InterruptedException {
     // Should be successfully evaluated and cached from the loading phase.
     StarlarkBuiltinsValue starlarkBuiltinsValue =
@@ -862,12 +852,7 @@ final class AspectFunction implements SkyFunction {
       OutputFile outputFile = (OutputFile) associatedTarget.getTarget();
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
-          env,
-          associatedTarget.getTarget(),
-          key,
-          aspect,
-          key.withLabel(label),
-          transitivePackagesForPackageRootResolution);
+          env, associatedTarget.getTarget(), key, aspect, key.withLabel(label), transitivePackages);
     } else if (AspectResolver.aspectMatchesConfiguredTarget(associatedTarget, aspect)) {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());
@@ -885,6 +870,7 @@ final class AspectFunction implements SkyFunction {
                     execGroupCollectionBuilder,
                     configuration,
                     view.getHostConfiguration(),
+                    transitivePackages == null ? null : transitivePackages.build(),
                     key);
       } catch (MissingDepException e) {
         Preconditions.checkState(env.valuesMissing());
@@ -922,9 +908,7 @@ final class AspectFunction implements SkyFunction {
         aspect,
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
-        transitivePackagesForPackageRootResolution == null
-            ? null
-            : transitivePackagesForPackageRootResolution.build());
+        transitivePackages == null ? null : transitivePackages.build());
   }
 
   @Override

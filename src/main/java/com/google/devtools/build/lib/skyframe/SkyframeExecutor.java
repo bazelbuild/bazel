@@ -970,9 +970,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
    * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
-   * builds where this is not null do not need to track a package -> source root map, and so do not
-   * need to track all loaded packages.
+   * builds where this is not null do not need to track a package -> source root map. In addition,
+   * such builds can only occur in a monorepo, and thus do not need to produce repo mapping
+   * manifests for runfiles. These two conditions together mean that such builds do not need to
+   * track all loaded packages.
+   *
+   * <p>See also {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredObjectValue#getTransitivePackages}.
    */
+  // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
   @Nullable
   protected Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
     return null;
