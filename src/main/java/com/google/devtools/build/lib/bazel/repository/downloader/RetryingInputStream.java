@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.io.IOException;
@@ -22,6 +23,7 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.SocketTimeoutException;
 import java.net.URLConnection;
+import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -38,11 +40,9 @@ class RetryingInputStream extends InputStream {
 
   /** Lambda for establishing a connection. */
   interface Reconnector {
-
     /** Establishes a connection with the same parameters as what was passed to us initially. */
-    URLConnection connect(
-        Throwable cause, ImmutableMap<String, String> extraHeaders)
-            throws IOException;
+    URLConnection connect(Throwable cause, ImmutableMap<String, List<String>> extraHeaders)
+        throws IOException;
   }
 
   private volatile InputStream delegate;
@@ -117,11 +117,12 @@ class RetryingInputStream extends InputStream {
       URLConnection connection;
       long amountRead = toto.get();
       if (amountRead == 0) {
-        connection = reconnector.connect(cause, ImmutableMap.<String, String>of());
+        connection = reconnector.connect(cause, ImmutableMap.of());
       } else {
         connection =
             reconnector.connect(
-                cause, ImmutableMap.of("Range", String.format("bytes=%d-", amountRead)));
+                cause,
+                ImmutableMap.of("Range", ImmutableList.of(String.format("bytes=%d-", amountRead))));
         if (!Strings.nullToEmpty(connection.getHeaderField("Content-Range"))
                 .startsWith(String.format("bytes %d-", amountRead))) {
           throw new IOException(String.format(

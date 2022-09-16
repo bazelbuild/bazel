@@ -317,7 +317,7 @@ public class UrlRewriterTest {
                 new URL("https://my.example.com/from_other_netrc_entry/bar"),
                 new URL("https://my.example.com/no_creds/bar"),
                 new URL("https://should-not-be-overridden.com/")));
-    Map<URI, Map<String, String>> updatedAuthHeaders =
+    Map<URI, Map<String, List<String>>> updatedAuthHeaders =
         munger.updateAuthHeaders(amended, ImmutableMap.of(), netrc);
 
     String expectedToken =
@@ -330,11 +330,11 @@ public class UrlRewriterTest {
     assertThat(updatedAuthHeaders)
         .containsExactly(
             new URI("https://user:password@mycorp.com/foo/bar"),
-            ImmutableMap.of("Authorization", expectedToken),
+            ImmutableMap.of("Authorization", ImmutableList.of(expectedToken)),
             new URI("https://mycorp.com/from_netrc/bar"),
-            ImmutableMap.of("Authorization", expectedFirstNetrcToken),
+            ImmutableMap.of("Authorization", ImmutableList.of(expectedFirstNetrcToken)),
             new URI("https://myothercorp.com/from_netrc/bar"),
-            ImmutableMap.of("Authorization", expectedSecondNetrcToken));
+            ImmutableMap.of("Authorization", ImmutableList.of(expectedSecondNetrcToken)));
     // yet all four urls should be present
     assertThat(amended)
         .containsExactly(

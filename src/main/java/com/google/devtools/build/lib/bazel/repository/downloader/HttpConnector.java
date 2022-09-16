@@ -91,7 +91,8 @@ class HttpConnector {
     return Math.round(unscaled * timeoutScaling);
   }
 
-  URLConnection connect(URL originalUrl, Function<URL, ImmutableMap<String, String>> requestHeaders)
+  URLConnection connect(
+      URL originalUrl, Function<URL, ImmutableMap<String, List<String>>> requestHeaders)
       throws IOException {
 
     if (Thread.interrupted()) {
@@ -116,13 +117,16 @@ class HttpConnector {
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
         connection.setInstanceFollowRedirects(false);
-        for (Map.Entry<String, String> entry : requestHeaders.apply(url).entrySet()) {
+        for (Map.Entry<String, List<String>> entry : requestHeaders.apply(url).entrySet()) {
           if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
             // We're not going to ask for compression if we're downloading a file that already
             // appears to be compressed.
             continue;
           }
-          connection.addRequestProperty(entry.getKey(), entry.getValue());
+          String key = entry.getKey();
+          for (String value : entry.getValue()) {
+            connection.addRequestProperty(key, value);
+          }
         }
         if (connection.getRequestProperty("User-Agent") == null) {
           connection.setRequestProperty("User-Agent", USER_AGENT_VALUE);

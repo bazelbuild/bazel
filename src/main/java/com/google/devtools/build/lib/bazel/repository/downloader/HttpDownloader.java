@@ -63,7 +63,7 @@ public class HttpDownloader implements Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
@@ -132,7 +132,7 @@ public class HttpDownloader implements Downloader {
   /** Downloads the contents of one URL and reads it into a byte array. */
   public byte[] downloadAndReadOneUrl(
       URL url,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)
       throws IOException, InterruptedException {

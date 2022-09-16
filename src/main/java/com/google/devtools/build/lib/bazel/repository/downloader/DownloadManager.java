@@ -111,7 +111,7 @@ public class DownloadManager {
    */
   public Path download(
       List<URL> originalUrls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Optional<String> type,
@@ -133,7 +133,7 @@ public class DownloadManager {
     //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
     //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
     ImmutableList<URL> rewrittenUrls = ImmutableList.copyOf(originalUrls);
-    Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
+    Map<URI, Map<String, List<String>>> rewrittenAuthHeaders = authHeaders;
 
     if (rewriter != null) {
       ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
@@ -303,7 +303,7 @@ public class DownloadManager {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
-    Map<URI, Map<String, String>> authHeaders = ImmutableMap.of();
+    Map<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
     ImmutableList<URL> rewrittenUrls = ImmutableList.of(originalUrl);
 
     if (netrcCreds != null) {
@@ -314,7 +314,7 @@ public class DownloadManager {
           authHeaders =
               ImmutableMap.of(
                   originalUrl.toURI(),
-                  ImmutableMap.of(headers.getKey(), headers.getValue().get(0)));
+                  ImmutableMap.of(headers.getKey(), ImmutableList.of(headers.getValue().get(0))));
         }
       } catch (URISyntaxException e) {
         // If the credentials extraction failed, we're letting bazel try without credentials.
