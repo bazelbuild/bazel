@@ -248,6 +248,7 @@ java_library(
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
         "starlark/StarlarkRuleContext.java",
         "starlark/StarlarkRuleTransitionProvider.java",
+        "starlark/UnresolvedSymlinkAction.java",
         "test/AnalysisTestActionBuilder.java",
         "test/BaselineCoverageAction.java",
         "test/CoverageCommon.java",

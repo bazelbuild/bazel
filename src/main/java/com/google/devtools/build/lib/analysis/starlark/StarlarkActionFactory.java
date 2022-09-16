@@ -274,7 +274,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             ? (String) progressMessageUnchecked
             : "Creating symlink " + outputArtifact.getExecPathString();
 
-    SymlinkAction action;
+    Action action;
     if (targetFile != Starlark.NONE) {
       Artifact inputArtifact = (Artifact) targetFile;
       if (outputArtifact.isSymlink()) {
@@ -328,11 +328,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       action =
-          SymlinkAction.createUnresolved(
-              ruleContext.getActionOwner(),
-              outputArtifact,
-              PathFragment.create((String) targetPath),
-              progressMessage);
+          UnresolvedSymlinkAction.create(
+              ruleContext.getActionOwner(), outputArtifact, (String) targetPath, progressMessage);
     }
     registerAction(action);
   }
