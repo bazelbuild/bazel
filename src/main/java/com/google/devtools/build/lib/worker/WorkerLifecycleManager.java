@@ -85,9 +85,9 @@ final class WorkerLifecycleManager extends Thread {
       ImmutableList<WorkerMetric> workerMetrics, WorkerPool workerPool, WorkerOptions options)
       throws InterruptedException {
 
-    if (options.totalWorkerMemoryLimitMb == 0) {
-      return;
-    }
+//     if (options.totalWorkerMemoryLimitMb == 0) {
+//       return;
+//     }
 
     int workerMemeoryUsage =
         workerMetrics.stream()
