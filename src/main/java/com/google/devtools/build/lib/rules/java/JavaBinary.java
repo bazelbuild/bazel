@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
@@ -27,12 +26,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -59,13 +56,10 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -76,7 +70,6 @@ import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -151,7 +144,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Lists.newArrayList(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     helper.addLibrariesToAttributes(deps);
     attributesBuilder.addNativeLibraries(
-        collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
+        JavaCommon.collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
 
     // deploy_env is valid for java_binary, but not for java_test.
     if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
@@ -774,31 +767,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         }
       }
     }
-  }
-
-  /**
-   * Collects the native libraries in the transitive closure of the deps.
-   *
-   * @param deps the dependencies to be included as roots of the transitive closure.
-   * @return the native libraries found in the transitive closure of the deps.
-   */
-  public static Collection<Artifact> collectNativeLibraries(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    NestedSet<LibraryToLink> linkerInputs =
-        NestedSetBuilder.fromNestedSets(
-                Streams.concat(
-                        JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps)
-                            .stream()
-                            .map(JavaCcInfoProvider::getCcInfo)
-                            .map(CcInfo::getCcNativeLibraryInfo)
-                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries),
-                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-                            .map(CcInfo::getCcNativeLibraryInfo)
-                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries))
-                    .collect(toImmutableList()))
-            .build();
-
-    return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 
   private static boolean isJavaTestRule(RuleContext ruleContext) {
