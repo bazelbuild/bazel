@@ -71,8 +71,8 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
-  protected ListenableFuture<Void> doDownloadFile(Path tempPath, FileArtifactValue metadata)
-      throws IOException {
+  protected ListenableFuture<Void> doDownloadFile(
+      Path tempPath, FileArtifactValue metadata, Priority priority) throws IOException {
     checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
     RequestMetadata requestMetadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, metadata.getActionId(), null);
