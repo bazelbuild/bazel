@@ -136,12 +136,15 @@ function test_cpp_with_mingw_gcc() {
   export PATH="/mingw64/bin:$PATH"
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
+    --noincompatible_enable_cc_toolchain_resoluton \
     --compiler=mingw-gcc --experimental_strict_action_env
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib_fbaaaedd.so ${cpp_pkg}:hello-lib\
+    --noincompatible_enable_cc_toolchain_resoluton \
     --compiler=mingw-gcc --output_groups=dynamic_library \
     --experimental_strict_action_env
   assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \
+   --noincompatible_enable_cc_toolchain_resoluton \
     --experimental_strict_action_env
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
