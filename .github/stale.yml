@@ -1,8 +1,8 @@
-# Number of days of inactivity before an Issue or Pull Request becomes stale
-daysUntilStale: 7
-# Number of days of inactivity before a stale Issue or Pull Request is closed
-daysUntilClose: 7
-# Only issues or pull requests with all of these labels are checked if stale. Defaults to `[]` (disabled)
+# Number of days of inactivity before an Issue becomes stale
+daysUntilStale: 14
+# Number of days of inactivity before a stale Issue is closed
+daysUntilClose: 14
+# Only issues with all of these labels are checked if stale. Defaults to `[]` (disabled)
 onlyLabels:
  - awaiting-user-response
 # Comment to post when marking as stale. Set to `false` to disable
@@ -14,5 +14,5 @@ unmarkComment: false
 closeComment: >
   Closing as stale. Please reopen if you'd like to work on this further.
 limitPerRun: 30
-# Limit to only `issues` or `pulls`
+# Limit to only `issues`
 only: issues
