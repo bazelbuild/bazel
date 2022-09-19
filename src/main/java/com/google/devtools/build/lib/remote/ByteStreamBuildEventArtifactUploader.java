@@ -77,7 +77,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final Set<PathFragment> omittedTreeRoots = Sets.newConcurrentHashSet();
   private final XattrProvider xattrProvider;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
-  private final Path profilePath;
+  @Nullable private final Path profilePath;
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
@@ -89,7 +89,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       String commandId,
       XattrProvider xattrProvider,
       RemoteBuildEventUploadMode remoteBuildEventUploadMode,
-      Path profilePath) {
+      @Nullable Path profilePath) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -371,10 +371,12 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       for (PathMetadata pair : uploads) {
         Path path = pair.getPath();
         Digest digest = pair.getDigest();
-        if (!pair.isRemote()) {
-          localPaths.add(path);
-        } else if (digest != null) {
-          pathToDigest.put(path, digest);
+        if (digest != null) {
+          if (pair.isRemote()) {
+            pathToDigest.put(path, digest);
+          } else {
+            localPaths.add(path);
+          }
         } else {
           skippedPaths.add(path);
         }

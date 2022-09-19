@@ -484,7 +484,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /*commandId=*/ "none",
         SyscallCache.NO_CACHE,
         RemoteBuildEventUploadMode.ALL,
-        /*profilePath=*/ fs.getPath("command.profile.gz"));
+        /*profilePath=*/ null);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {
