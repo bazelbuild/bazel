@@ -346,6 +346,7 @@ EOF
       || fail "expected output binary to be for armv7k architecture"
 
   bazel build --verbose_failures //package:lipo_out \
+      --noincompatible_enable_cc_toolchain_resolution \
       --watchos_cpus=i386 \
       --xcode_version=$XCODE_VERSION \
       || fail "should build watch binary"
@@ -539,7 +540,7 @@ static int dummy __attribute__((unused,used)) = 0;
 EOF
 
   bazel build --verbose_failures //package:static_lib \
-      --noincompatible_enable_cc_toolchain_resolution
+      --noincompatible_enable_cc_toolchain_resolution \
       --ios_multi_cpus=i386,x86_64 \
       --ios_minimum_os=8.0 \
       --xcode_version=$XCODE_VERSION \
