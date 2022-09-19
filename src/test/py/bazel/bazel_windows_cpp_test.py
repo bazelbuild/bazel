@@ -1056,7 +1056,8 @@ class BazelWindowsCppTest(test_base.TestBase):
         '}',
     ])
     exit_code, _, stderr = self.RunBazel(
-        ['build', '-s', '--cpu=arm64_windows', '//:main'])
+        ['build', '-s', '--cpu=arm64_windows',
+         '--noincompatible_enable_cc_toolchain_resolution', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
 
