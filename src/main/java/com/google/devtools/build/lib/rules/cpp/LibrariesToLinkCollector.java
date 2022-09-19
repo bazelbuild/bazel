@@ -162,16 +162,25 @@ public class LibrariesToLinkCollector {
       //    solib root: other_target.runfiles/some_repo
       //
       // Cases 1, 3, 4, 5, 7, and 8b are covered by an rpath that walks up the root relative path.
+      // Cases 2 and 6 covered by walking into file.runfiles/main_repo.
       // Case 8a is covered by walking up some_repo/pkg and then into main_repo.
-      // Cases 2 and 6 are currently not covered as they would require an rpath containing the
-      // binary filename, which may contain commas that would clash with the `-Wl` argument used to
-      // pass the rpath to the linker.
-      // TODO(#14600): Fix this by using `-Xlinker` instead of `-Wl`.
+      boolean isExternal =
+          output.getRunfilesPath().startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
+      boolean usesLegacyRepositoryLayout = output.getRoot().isLegacy();
       ImmutableList.Builder<String> execRoots = ImmutableList.builder();
       // Handles cases 1, 3, 4, 5, and 7.
       execRoots.add("../".repeat(output.getRootRelativePath().segmentCount() - 1));
-      if (output.getRunfilesPath().startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)
-          && output.getRoot().isLegacy()) {
+      // Handle cases 2 and 6.
+      String solibRepositoryName;
+      if (isExternal && !usesLegacyRepositoryLayout) {
+        // Case 6b
+        solibRepositoryName = output.getRunfilesPath().getSegment(1);
+      } else {
+        // Cases 2 and 6a
+        solibRepositoryName = workspaceName;
+      }
+      execRoots.add(output.getFilename() + ".runfiles/" + solibRepositoryName + "/");
+      if (isExternal && usesLegacyRepositoryLayout) {
         // Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
         // walk up some_repo/pkg and then down into main_repo.
         execRoots.add(
