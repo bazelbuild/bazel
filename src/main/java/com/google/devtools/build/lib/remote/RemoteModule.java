@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
+import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -634,7 +635,8 @@ public final class RemoteModule extends BlazeModule {
             actionContextProvider.getRemoteCache(),
             remoteBytestreamUriPrefix,
             buildRequestId,
-            invocationId));
+            invocationId,
+            remoteOptions.remoteBuildEventUploadMode));
 
     if (enableRemoteDownloader) {
       remoteDownloaderSupplier.set(
@@ -732,7 +734,9 @@ public final class RemoteModule extends BlazeModule {
       actionContextProvider.setFilesToDownload(ImmutableSet.copyOf(filesToDownload));
     }
 
-    if (remoteOptions != null && remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
+    if (remoteOptions != null
+        && remoteOptions.remoteBuildEventUploadMode == RemoteBuildEventUploadMode.ALL
+        && remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
       parseNoCacheOutputs(analysisResult);
     }
   }

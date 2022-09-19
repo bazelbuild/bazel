@@ -17,8 +17,11 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
@@ -32,6 +35,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
   private final String remoteServerInstanceName;
   private final String buildRequestId;
   private final String commandId;
+  private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
   @Nullable private ByteStreamBuildEventArtifactUploader uploader;
 
@@ -42,7 +46,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
       RemoteCache remoteCache,
       String remoteServerInstanceName,
       String buildRequestId,
-      String commandId) {
+      String commandId,
+      RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -50,11 +55,20 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
     this.remoteServerInstanceName = remoteServerInstanceName;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
+    this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
   }
 
   @Override
   public BuildEventArtifactUploader create(CommandEnvironment env) {
     checkState(uploader == null, "Already created");
+
+    Path profilePath;
+    CommonCommandOptions options = env.getOptions().getOptions(CommonCommandOptions.class);
+    if (options != null && options.profilePath != null) {
+      profilePath = env.getWorkspace().getRelative(options.profilePath);
+    } else {
+      profilePath = env.getDirectories().getOutputBase().getRelative("command.profile.gz");
+    }
     uploader =
         new ByteStreamBuildEventArtifactUploader(
             executor,
@@ -64,7 +78,9 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
             remoteServerInstanceName,
             buildRequestId,
             commandId,
-            env.getXattrProvider());
+            env.getXattrProvider(),
+            remoteBuildEventUploadMode,
+            profilePath);
     return uploader;
   }
 

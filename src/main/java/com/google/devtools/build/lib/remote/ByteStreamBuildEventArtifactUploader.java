@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
+import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -52,12 +53,14 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** A {@link BuildEventArtifactUploader} backed by {@link RemoteCache}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
+  private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -73,6 +76,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final Set<PathFragment> omittedFiles = Sets.newConcurrentHashSet();
   private final Set<PathFragment> omittedTreeRoots = Sets.newConcurrentHashSet();
   private final XattrProvider xattrProvider;
+  private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
+  private final Path profilePath;
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
@@ -82,7 +87,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       String remoteServerInstanceName,
       String buildRequestId,
       String commandId,
-      XattrProvider xattrProvider) {
+      XattrProvider xattrProvider,
+      RemoteBuildEventUploadMode remoteBuildEventUploadMode,
+      Path profilePath) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -92,6 +99,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.remoteServerInstanceName = remoteServerInstanceName;
     this.scheduler = Schedulers.from(executor);
     this.xattrProvider = xattrProvider;
+    this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
+    this.profilePath = profilePath;
   }
 
   public void omitFile(Path file) {
@@ -197,8 +206,23 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     }
   }
 
-  private static boolean shouldUpload(PathMetadata path) {
-    return path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
+  private boolean shouldUpload(PathMetadata path) {
+    boolean result =
+        path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
+
+    if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
+      result = result && (isTestLog(path) || isProfile(path));
+    }
+
+    return result;
+  }
+
+  private boolean isTestLog(PathMetadata path) {
+    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
+  }
+
+  private boolean isProfile(PathMetadata path) {
+    return path.getPath().equals(profilePath);
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -207,8 +231,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
     for (PathMetadata path : paths) {
-      // Query remote cache for files even if omitted from uploading
-      if (shouldUpload(path) || path.isOmitted()) {
+      if (path.getDigest() != null && !path.isRemote() && !path.isDirectory()) {
         filesToQuery.add(path);
         digestsToQuery.add(path.getDigest());
       } else {
@@ -256,17 +279,18 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
               return toCompletable(
                       () -> remoteCache.uploadFile(context, path.getDigest(), path.getPath()),
                       executor)
-                  .toSingleDefault(path)
+                  .toSingle(
+                      () ->
+                          new PathMetadata(
+                              path.getPath(),
+                              path.getDigest(),
+                              path.isDirectory(),
+                              /*remote=*/ true,
+                              path.isOmitted()))
                   .onErrorResumeNext(
                       error -> {
                         reporterUploadError(error);
-                        return Single.just(
-                            new PathMetadata(
-                                path.getPath(),
-                                /*digest=*/ null,
-                                path.isDirectory(),
-                                path.isRemote(),
-                                path.isOmitted()));
+                        return Single.just(path);
                       });
             })
         .collect(Collectors.toList());
@@ -347,7 +371,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       for (PathMetadata pair : uploads) {
         Path path = pair.getPath();
         Digest digest = pair.getDigest();
-        if (!pair.isRemote() && pair.isOmitted()) {
+        if (!pair.isRemote()) {
           localPaths.add(path);
         } else if (digest != null) {
           pathToDigest.put(path, digest);
