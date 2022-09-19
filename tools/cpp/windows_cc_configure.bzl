@@ -298,7 +298,7 @@ def _is_support_winsdk_selection(repository_ctx, vc_path):
 
     # By checking the source code of VCVARSALL.BAT in VC 2015, we know that
     # when devenv.exe or wdexpress.exe exists, VCVARSALL.BAT supports Windows SDK selection.
-    vc_common_ide = repository_ctx.path(vc_path).dirname.get_child("Common7").get_child("IDE")
+    vc_common_ide = repository_ctx.path(vc_path).dirname.get_child("Common7", "IDE")
     for tool in ["devenv.exe", "wdexpress.exe"]:
         if vc_common_ide.get_child(tool).exists:
             return True
