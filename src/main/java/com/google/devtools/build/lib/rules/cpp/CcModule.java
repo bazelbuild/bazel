@@ -204,8 +204,13 @@ public abstract class CcModule
 
   @Override
   public String getToolForAction(
-      FeatureConfigurationForStarlark featureConfiguration, String actionName) {
-    return featureConfiguration.getFeatureConfiguration().getToolPathForAction(actionName);
+      FeatureConfigurationForStarlark featureConfiguration, String actionName)
+      throws EvalException {
+    try {
+      return featureConfiguration.getFeatureConfiguration().getToolPathForAction(actionName);
+    } catch (IllegalArgumentException illegalArgumentException) {
+      throw new EvalException(illegalArgumentException);
+    }
   }
 
   @Override
