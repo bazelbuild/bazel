@@ -59,7 +59,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_stop_exporting_language_modules",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -722,7 +722,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   // booleans: the +/- prefix indicates the default value (true/false).
   public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
-      "-incompatible_stop_exporting_language_modules";
+      "+incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
       "-incompatible_remove_rule_name_parameter";
   public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
