@@ -333,7 +333,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(execution_platforms_to_register=['//:plat'])",
+        "register_execution_platforms('//:plat')",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='1.1')");
     registry

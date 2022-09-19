@@ -167,30 +167,6 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "''"),
-        @Param(
-            name = "execution_platforms_to_register",
-            doc =
-                "A list of already-defined execution platforms to be registered when this module is"
-                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
-                    + " either <code>@</code> or <code>//</code>). See <a"
-                    + " href=\"${link toolchains}\">toolchain resolution</a> for more"
-                    + " information.",
-            named = true,
-            positional = false,
-            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
-            defaultValue = "[]"),
-        @Param(
-            name = "toolchains_to_register",
-            doc =
-                "A list of already-defined toolchains to be registered when this module is"
-                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
-                    + " either <code>@</code> or <code>//</code>). See <a"
-                    + " href=\"${link toolchains}\">toolchain resolution</a> for more"
-                    + " information.",
-            named = true,
-            positional = false,
-            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
-            defaultValue = "[]"),
       },
       useStarlarkThread = true)
   public void module(
@@ -198,8 +174,6 @@ public class ModuleFileGlobals {
       String version,
       StarlarkInt compatibilityLevel,
       String repoName,
-      Iterable<?> executionPlatformsToRegister,
-      Iterable<?> toolchainsToRegister,
       StarlarkThread thread)
       throws EvalException {
     if (moduleCalled) {
@@ -222,18 +196,11 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in module()", e);
     }
-    // TODO(wyv): migrate users of execution_platforms_to_register and toolchains_to_register to
-    // register_execution_platforms and register_toolchains, and remove the former two attributes.
     module
         .setName(name)
         .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
-        .setRepoName(repoName)
-        .addExecutionPlatformsToRegister(
-            checkAllAbsolutePatterns(
-                executionPlatformsToRegister, "execution_platforms_to_register"))
-        .addToolchainsToRegister(
-            checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
+        .setRepoName(repoName);
   }
 
   private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
@@ -546,6 +513,14 @@ public class ModuleFileGlobals {
             positional = false,
             defaultValue = "[]"),
         @Param(
+            name = "patch_cmds",
+            doc =
+                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]"),
+        @Param(
             name = "patch_strip",
             doc = "Same as the --strip argument of Unix patch.",
             named = true,
@@ -557,6 +532,7 @@ public class ModuleFileGlobals {
       String version,
       String registry,
       Iterable<?> patches,
+      Iterable<?> patchCmds,
       StarlarkInt patchStrip)
       throws EvalException {
     Version parsedVersion;
@@ -571,6 +547,7 @@ public class ModuleFileGlobals {
             parsedVersion,
             registry,
             Sequence.cast(patches, String.class, "patches").getImmutableList(),
+            Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("single_version_override.patch_strip")));
   }
 
@@ -671,6 +648,14 @@ public class ModuleFileGlobals {
             positional = false,
             defaultValue = "[]"),
         @Param(
+            name = "patch_cmds",
+            doc =
+                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]"),
+        @Param(
             name = "patch_strip",
             doc = "Same as the --strip argument of Unix patch.",
             named = true,
@@ -683,6 +668,7 @@ public class ModuleFileGlobals {
       String integrity,
       String stripPrefix,
       Iterable<?> patches,
+      Iterable<?> patchCmds,
       StarlarkInt patchStrip)
       throws EvalException {
     ImmutableList<String> urlList =
@@ -694,6 +680,7 @@ public class ModuleFileGlobals {
         ArchiveOverride.create(
             urlList,
             Sequence.cast(patches, String.class, "patches").getImmutableList(),
+            Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             integrity,
             stripPrefix,
             patchStrip.toInt("archive_override.patch_strip")));
@@ -733,6 +720,14 @@ public class ModuleFileGlobals {
             positional = false,
             defaultValue = "[]"),
         @Param(
+            name = "patch_cmds",
+            doc =
+                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]"),
+        @Param(
             name = "patch_strip",
             doc = "Same as the --strip argument of Unix patch.",
             named = true,
@@ -740,7 +735,12 @@ public class ModuleFileGlobals {
             defaultValue = "0"),
       })
   public void gitOverride(
-      String moduleName, String remote, String commit, Iterable<?> patches, StarlarkInt patchStrip)
+      String moduleName,
+      String remote,
+      String commit,
+      Iterable<?> patches,
+      Iterable<?> patchCmds,
+      StarlarkInt patchStrip)
       throws EvalException {
     addOverride(
         moduleName,
@@ -748,6 +748,7 @@ public class ModuleFileGlobals {
             remote,
             commit,
             Sequence.cast(patches, String.class, "patches").getImmutableList(),
+            Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("git_override.patch_strip")));
   }
 

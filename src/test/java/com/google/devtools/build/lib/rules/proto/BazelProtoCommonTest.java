@@ -580,11 +580,11 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     getConfiguredTarget("//bar:simple");
 
     assertContainsEvent(
-        "The 'srcs' attribute of '//third_party/x:mixed' contains protos for which 'MyRule'"
+        "The 'srcs' attribute of '@//third_party/x:mixed' contains protos for which 'MyRule'"
             + " shouldn't generate code (third_party/x/metadata.proto,"
             + " third_party/x/descriptor.proto), in addition to protos for which it should"
             + " (third_party/x/something.proto).\n"
-            + "Separate '//third_party/x:mixed' into 2 proto_library rules.");
+            + "Separate '@//third_party/x:mixed' into 2 proto_library rules.");
   }
 
   /** Verifies <code>proto_common.declare_generated_files</code> call. */

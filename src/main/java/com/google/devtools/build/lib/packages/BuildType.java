@@ -465,7 +465,7 @@ public final class BuildType {
       ImmutableSet.Builder<Label> keys = ImmutableSet.builder();
       for (Selector<T> selector : elements) {
         for (Label label : selector.getEntries().keySet()) {
-          if (!Selector.isReservedLabel(label)) {
+          if (!Selector.isDefaultConditionLabel(label)) {
             keys.add(label);
           }
         }
@@ -639,10 +639,10 @@ public final class BuildType {
     }
 
     /**
-     * Returns true for labels that are "reserved selector key words" and not intended to map to
-     * actual targets.
+     * Returns true for the default condition label, which is not intended to map to an actual
+     * target.
      */
-    public static boolean isReservedLabel(Label label) {
+    public static boolean isDefaultConditionLabel(Label label) {
       return DEFAULT_CONDITION_LABEL.equals(label);
     }
   }

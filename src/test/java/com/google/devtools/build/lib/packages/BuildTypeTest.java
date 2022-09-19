@@ -514,14 +514,13 @@ public final class BuildTypeTest {
     assertThat(e).hasMessageThat().contains("expected value of type 'list(label)'");
   }
 
-  /**
-   * Tests for "reserved" key labels (i.e. not intended to map to actual targets).
-   */
+  /** Test for the default condition key label which is not intended to map to an actual target. */
   @Test
-  public void testReservedKeyLabels() throws Exception {
-    assertThat(BuildType.Selector.isReservedLabel(Label.parseCanonical("//condition:a"))).isFalse();
+  public void testDefaultConditionLabel() throws Exception {
+    assertThat(BuildType.Selector.isDefaultConditionLabel(Label.parseCanonical("//condition:a")))
+        .isFalse();
     assertThat(
-            BuildType.Selector.isReservedLabel(
+            BuildType.Selector.isDefaultConditionLabel(
                 Label.parseCanonical(Selector.DEFAULT_CONDITION_KEY)))
         .isTrue();
   }

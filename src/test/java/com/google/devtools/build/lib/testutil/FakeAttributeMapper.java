@@ -112,7 +112,7 @@ public class FakeAttributeMapper implements AttributeMap {
   public void visitAllLabels(BiConsumer<Attribute, Label> consumer) {}
 
   @Override
-  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {}
+  public void visitLabels(String attributeName, Consumer<Label> consumer) {}
 
   @Override
   public void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer) {}

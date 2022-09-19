@@ -219,7 +219,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
-        .containsExactly("//:suite", "//:test_a", "//:test_b");
+        .containsExactly("@//:suite", "@//:test_a", "@//:test_b");
   }
 
   @Test
@@ -252,7 +252,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
-        .containsExactly("//:suite", "//:test_b");
+        .containsExactly("@//:suite", "@//:test_b");
   }
 
   @Test
@@ -285,7 +285,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
       StructImpl info = (StructImpl) a.get(key);
       labels.addAll(((Depset) info.getValue("labels")).getSet(String.class).toList());
     }
-    assertThat(labels).containsExactly("//:test_a", "//:test_b");
+    assertThat(labels).containsExactly("@//:test_a", "@//:test_b");
   }
 
   private void writeLabelCollectionAspect() throws IOException {

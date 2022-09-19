@@ -126,9 +126,11 @@ public class UrlRewriter {
    * @param authHeaders A map of the URLs and their corresponding auth tokens.
    * @return A map of the updated authentication headers.
    */
-  public Map<URI, Map<String, String>> updateAuthHeaders(
-      List<RewrittenURL> urls, Map<URI, Map<String, String>> authHeaders, Credentials netrcCreds) {
-    Map<URI, Map<String, String>> updatedAuthHeaders = new HashMap<>(authHeaders);
+  public Map<URI, Map<String, List<String>>> updateAuthHeaders(
+      List<RewrittenURL> urls,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      Credentials netrcCreds) {
+    Map<URI, Map<String, List<String>>> updatedAuthHeaders = new HashMap<>(authHeaders);
 
     for (RewrittenURL url : urls) {
       // if URL was not re-written by UrlRewriter in first place, we should not attach auth headers
@@ -142,7 +144,8 @@ public class UrlRewriter {
         try {
           String token =
               "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(ISO_8859_1));
-          updatedAuthHeaders.put(url.url().toURI(), ImmutableMap.of("Authorization", token));
+          updatedAuthHeaders.put(
+              url.url().toURI(), ImmutableMap.of("Authorization", ImmutableList.of(token)));
         } catch (URISyntaxException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.
         }
@@ -159,7 +162,8 @@ public class UrlRewriter {
           if (firstAuthHeader.getValue() != null && !firstAuthHeader.getValue().isEmpty()) {
             updatedAuthHeaders.put(
                 url.url().toURI(),
-                ImmutableMap.of(firstAuthHeader.getKey(), firstAuthHeader.getValue().get(0)));
+                ImmutableMap.of(
+                    firstAuthHeader.getKey(), ImmutableList.of(firstAuthHeader.getValue().get(0))));
           }
         } catch (URISyntaxException | IOException e) {
           // If the credentials extraction failed, we're letting bazel try without credentials.

@@ -395,6 +395,13 @@ public class PatchUtil {
       throws PatchFailedException {
     // If the patchContent is not empty, it should have correct format.
     if (!patchContent.isEmpty()) {
+      if (patchContent.size() < 2
+          || !patchContent.get(0).startsWith("---")
+          || !patchContent.get(1).startsWith("+++")) {
+        throw new PatchFailedException(
+            String.format(
+                "The patch content must start with ---/+++ prelude lines at line %d.", loc));
+      }
       if (header == null) {
         throw new PatchFailedException(
             String.format(

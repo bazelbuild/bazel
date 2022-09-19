@@ -205,7 +205,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "module(name='aaa',version='0.1')",
         "bazel_dep(name='bbb',version='1.0')",
         "single_version_override(",
-        "  module_name='ccc',version='3.0',patches=['//:foo.patch'],patch_strip=1)");
+        "  module_name='ccc',version='3.0',patches=['//:foo.patch'], patch_cmds=['echo hi'],"
+            + " patch_strip=1)");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/usr/local/modules")
@@ -238,6 +239,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                         "/usr/local/modules/ccc~3.0",
                         "patches",
                         ImmutableList.of("//:foo.patch"),
+                        "patch_cmds",
+                        ImmutableList.of("echo hi"),
                         "patch_args",
                         ImmutableList.of("-p1")))
                 .build());

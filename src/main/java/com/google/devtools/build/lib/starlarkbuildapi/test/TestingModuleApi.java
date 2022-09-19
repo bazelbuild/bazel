@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.test;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -35,32 +36,14 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi extends StarlarkValue {
 
-  // TODO(bazel-team): Change this function to be the actual ExecutionInfo.PROVIDER.
+  // NOTE: The return type here should be ExecutionInfoApi.ExecutionInfoApiProvider, but using that
+  // breaks the doc generator. ProviderApi is close enough for now, and the docgen accepts it. We
+  // manually put an href link so users have a chance of finding the real docs.
   @StarlarkMethod(
       name = "ExecutionInfo",
-      doc =
-          "Creates a new execution info provider. Use this provider to specify special"
-              + "environments requirements needed to run tests.",
-      parameters = {
-        @Param(
-            name = "requirements",
-            named = false,
-            positional = true,
-            doc =
-                "A map of string keys and values to indicate special execution requirements,"
-                    + " such as hardware platforms, etc. These keys and values are passed to the"
-                    + " executor of the test action as parameters to configure the execution"
-                    + " environment."),
-        @Param(
-            name = "exec_group",
-            named = true,
-            positional = false,
-            defaultValue = "'test'",
-            doc = "The name of the execution group to use for executing the test."),
-      })
-  ExecutionInfoApi executionInfo(
-      /* <String, String> expected */ Dict<?, ?> requirements, String execGroup)
-      throws EvalException;
+      doc = "<a href='ExecutionInfo.html'>testing.ExecutionInfo</a> provider key/constructor",
+      structField = true)
+  ProviderApi executionInfo() throws EvalException;
 
   @StarlarkMethod(
       name = "TestEnvironment",

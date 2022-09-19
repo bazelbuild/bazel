@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.TransitiveBaseTraversalFunction.TargetAndErrorIfAnyImpl;
+import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -48,8 +48,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Label label = Label.parseCanonical("//foo:foo");
     scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "')");
     Package pkg = loadPackage(label.getPackageIdentifier());
-    TargetAndErrorIfAnyImpl targetAndErrorIfAny =
-        new TargetAndErrorIfAnyImpl(
+    TargetAndErrorIfAny targetAndErrorIfAny =
+        new TargetAndErrorIfAny(
             /*packageLoadedSuccessfully=*/ true,
             /*errorLoadingTarget=*/ null,
             pkg.getTarget(label.getName()));
@@ -105,8 +105,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
-    TargetAndErrorIfAnyImpl targetAndErrorIfAny =
-        new TargetAndErrorIfAnyImpl(
+    TargetAndErrorIfAny targetAndErrorIfAny =
+        new TargetAndErrorIfAny(
             /*packageLoadedSuccessfully=*/ true,
             /*errorLoadingTarget=*/ null,
             pkg.getTarget(label.getName()));
@@ -144,8 +144,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Label label = Label.parseCanonical("//foo:foo");
     scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
-    TargetAndErrorIfAnyImpl targetAndErrorIfAny =
-        new TargetAndErrorIfAnyImpl(
+    TargetAndErrorIfAny targetAndErrorIfAny =
+        new TargetAndErrorIfAny(
             /*packageLoadedSuccessfully=*/ true,
             /*errorLoadingTarget=*/ new NoSuchTargetException("self error is long and last"),
             pkg.getTarget(label.getName()));
@@ -196,8 +196,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
         "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'foo',attr = [':bad'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
-    TargetAndErrorIfAnyImpl targetAndErrorIfAny =
-        new TargetAndErrorIfAnyImpl(
+    TargetAndErrorIfAny targetAndErrorIfAny =
+        new TargetAndErrorIfAny(
             /*packageLoadedSuccessfully=*/ true,
             /*errorLoadingTarget=*/ null,
             pkg.getTarget(label.getName()));

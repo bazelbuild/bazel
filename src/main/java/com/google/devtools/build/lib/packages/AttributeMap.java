@@ -125,13 +125,13 @@ public interface AttributeMap {
    * (either by being a label or being a collection that includes labels).
    *
    * <p>If it is not necessary to visit labels of every attribute, prefer {@link
-   * #visitLabels(Attribute, Consumer)} or {@link #visitLabels(DependencyFilter, BiConsumer)} for
+   * #visitLabels(String, Consumer)} or {@link #visitLabels(DependencyFilter, BiConsumer)} for
    * better performance.
    */
   void visitAllLabels(BiConsumer<Attribute, Label> consumer);
 
   /** Same as {@link #visitAllLabels} but for a single attribute. */
-  void visitLabels(Attribute attribute, Consumer<Label> consumer);
+  void visitLabels(String attributeName, Consumer<Label> consumer);
 
   /** Same as {@link #visitAllLabels} but for attributes matching a {@link DependencyFilter}. */
   void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer);

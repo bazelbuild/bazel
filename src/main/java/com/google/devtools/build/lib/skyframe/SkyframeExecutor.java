@@ -160,6 +160,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -182,6 +183,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompl
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -388,6 +390,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // Reset after each build.
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
+  private RegexFilter extraActionFilter;
+
+  // Reset while preparing for execution in each build.
+  private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -575,6 +581,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
+    map.put(
+        GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE,
+        GenQueryDirectPackageProviderFactory.FUNCTION);
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -659,7 +668,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               }
             },
             this::getIncrementalArtifactConflictFinder,
-            this::getRuleContextConstraintSemantics));
+            this::getRuleContextConstraintSemantics,
+            this::getExtraActionFilter));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -963,9 +973,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
    * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
-   * builds where this is not null do not need to track a package -> source root map, and so do not
-   * need to track all loaded packages.
+   * builds where this is not null do not need to track a package -> source root map. In addition,
+   * such builds can only occur in a monorepo, and thus do not need to produce repo mapping
+   * manifests for runfiles. These two conditions together mean that such builds do not need to
+   * track all loaded packages.
+   *
+   * <p>See also {@link
+   * com.google.devtools.build.lib.analysis.ConfiguredObjectValue#getTransitivePackages}.
    */
+  // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
   @Nullable
   protected Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
     return null;
@@ -2246,9 +2262,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
+  public void setIncrementalPackageRoots(IncrementalPackageRoots incrementalPackageRoots) {
+    this.incrementalPackageRoots = Optional.of(incrementalPackageRoots);
+  }
+
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
+
+    if (incrementalPackageRoots.isPresent()) {
+      incrementalPackageRoots.get().shutdown();
+      incrementalPackageRoots = Optional.empty();
+    }
     skyframeActionExecutor.executionOver();
     actionExecutionFunction.complete(eventHandler);
   }
@@ -2952,6 +2977,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void setRuleContextConstraintSemantics(
       RuleContextConstraintSemantics ruleContextConstraintSemantics) {
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
+  }
+
+  private RegexFilter getExtraActionFilter() {
+    return Preconditions.checkNotNull(extraActionFilter);
+  }
+
+  public void setExtraActionFilter(RegexFilter extraActionFilter) {
+    this.extraActionFilter = extraActionFilter;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */

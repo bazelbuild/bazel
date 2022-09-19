@@ -446,6 +446,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None",
             positional = false,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER,
+            valueWhenDisabled = "None",
             doc =
                 "Deprecated: do not use.<p>The name of this rule, as understood by Bazel and"
                     + " reported in contexts such as logging,"

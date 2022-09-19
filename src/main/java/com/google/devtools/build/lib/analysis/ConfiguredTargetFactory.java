@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
@@ -181,6 +182,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable NestedSet<Package> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -196,6 +198,7 @@ public final class ConfiguredTargetFactory {
             prerequisiteMap,
             configConditions,
             toolchainContexts,
+            transitivePackages,
             execGroupCollectionBuilder);
       } finally {
         CurrentRuleTracker.endConfiguredTarget();
@@ -290,6 +293,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable NestedSet<Package> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -316,6 +320,7 @@ public final class ConfiguredTargetFactory {
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
                     prerequisiteMap.values()))
+            .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
     List<NestedSet<AnalysisFailure>> analysisFailures =
@@ -506,6 +511,7 @@ public final class ConfiguredTargetFactory {
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
       BuildConfigurationValue hostConfiguration,
+      @Nullable NestedSet<Package> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     RuleContext ruleContext =
@@ -533,6 +539,7 @@ public final class ConfiguredTargetFactory {
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
                     Iterables.concat(prerequisiteMap.values(), ImmutableList.of(associatedTarget))))
+            .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors

@@ -129,8 +129,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   @Test
   public void execAsync_collectsExecutionStatistics() throws Exception {
-    CommandEnvironment commandEnvironment =
-        getCommandEnvironmentWithExecutionStatisticsOptionEnabled("workspace");
+    CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Path cpuTimeSpenderPath =
         SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());
@@ -170,7 +169,8 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   @Test
   public void execAsync_statisticsCollectionDisabled_returnsEmptyStatistics() throws Exception {
-    CommandEnvironment commandEnvironment = createCommandEnvironment();
+    CommandEnvironment commandEnvironment =
+        getCommandEnvironmentWithExecutionStatisticsOptionDisabled("workspace");
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Path cpuTimeSpenderPath =
         SpawnRunnerTestUtil.copyCpuTimeSpenderIntoPath(commandEnvironment.getExecRoot());

@@ -467,7 +467,7 @@ public class BuildViewForTesting {
     RawAttributeMapper mapper = RawAttributeMapper.of(rule);
     for (Attribute attribute : rule.getAttributes()) {
       for (Label label : mapper.getConfigurabilityKeys(attribute.getName(), attribute.getType())) {
-        if (BuildType.Selector.isReservedLabel(label)) {
+        if (BuildType.Selector.isDefaultConditionLabel(label)) {
           continue;
         }
         ConfiguredTarget ct =

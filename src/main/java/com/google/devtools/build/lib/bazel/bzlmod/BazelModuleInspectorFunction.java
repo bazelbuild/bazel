@@ -139,14 +139,18 @@ public class BazelModuleInspectorFunction implements SkyFunction {
             } else {
               // There is no other possible override
               Preconditions.checkArgument(override instanceof NonRegistryOverride);
-              reason = ResolutionReason.NON_REGISTRY_OVERRIDE;
+              reason = ((NonRegistryOverride) override).getResolutionReason();
             }
           } else {
             reason = ResolutionReason.MINIMAL_VERSION_SELECTION;
           }
         }
 
-        parentBuilder.addDep(key, reason);
+        if (!reason.equals(ResolutionReason.ORIGINAL)) {
+          parentBuilder.addUnusedDep(childDep, originalKey);
+        }
+        parentBuilder.addDep(childDep, key);
+        parentBuilder.addDepReason(childDep, reason);
       }
     }
 

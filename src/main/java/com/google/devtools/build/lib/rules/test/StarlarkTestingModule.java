@@ -36,10 +36,8 @@ public class StarlarkTestingModule implements TestingModuleApi {
   private static final Pattern RULE_NAME_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
   @Override
-  public ExecutionInfo executionInfo(
-      Dict<?, ?> requirements /* <String, String> */, String execGroup) throws EvalException {
-    return new ExecutionInfo(
-        Dict.cast(requirements, String.class, String.class, "requirements"), execGroup);
+  public ExecutionInfo.ExecutionInfoProvider executionInfo() {
+    return ExecutionInfo.PROVIDER;
   }
 
   @Override

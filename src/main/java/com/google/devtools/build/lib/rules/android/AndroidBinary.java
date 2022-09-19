@@ -772,6 +772,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ruleContext.registerAction(checkAction.build(ruleContext));
     }
 
+    OutputGroupInfo androidApplicationOutputGroupInfo =
+        ruleContext.getPrerequisite("application_resources", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    if (androidApplicationOutputGroupInfo != null) {
+      for (String key : androidApplicationOutputGroupInfo.getFieldNames()) {
+        builder.addOutputGroup(key, androidApplicationOutputGroupInfo.getOutputGroup(key));
+      }
+    }
+
     androidCommon.addTransitiveInfoProviders(
         builder,
         /* aar= */ null,

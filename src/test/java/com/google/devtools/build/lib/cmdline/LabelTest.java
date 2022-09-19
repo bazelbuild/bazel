@@ -515,7 +515,7 @@ public class LabelTest {
   @Test
   public void starlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");
-    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("//x:x");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
 
     label = Label.parseCanonical("@hello//x");
@@ -524,12 +524,12 @@ public class LabelTest {
   }
 
   @Test
-  public void starlarkStr_unambiguous() throws Exception {
+  public void starlarkStr_ambiguous() throws Exception {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, true)
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
             .build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@x//y:y");
   }
 
@@ -537,18 +537,18 @@ public class LabelTest {
   public void starlarkStr_canonicalLabelLiteral() throws Exception {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@@//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
   }
 
   @Test
-  public void starlarkStr_unambiguousAndCanonicalLabelLiteral() throws Exception {
+  public void starlarkStr_ambiguousAndCanonicalLabelLiteral() throws Exception {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, true)
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
             .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .build();
-    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("@@//x:x");
+    assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
   }
 }

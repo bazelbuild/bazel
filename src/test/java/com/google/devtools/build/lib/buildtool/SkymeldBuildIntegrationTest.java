@@ -25,9 +25,11 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -119,8 +121,12 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "environment(name = 'two')");
   }
 
-  private void assertSingleOutputBuilt(String target) throws Exception {
-    assertThat(Iterables.getOnlyElement(getArtifacts(target)).getPath().isFile()).isTrue();
+  @CanIgnoreReturnValue
+  private Path assertSingleOutputBuilt(String target) throws Exception {
+    Path singleOutput = Iterables.getOnlyElement(getArtifacts(target)).getPath();
+    assertThat(singleOutput.isFile()).isTrue();
+
+    return singleOutput;
   }
 
   @Test
@@ -468,6 +474,45 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     BuildResult result = buildTarget("//foo:bar.txt");
 
     assertThat(result.getSuccess()).isTrue();
+  }
+
+  @Test
+  public void multiplePackagePath_gracefulExit() throws Exception {
+    write("foo/BUILD", "sh_binary(name = 'root', srcs = ['root.sh'])");
+    write("foo/root.sh");
+    write("otherroot/bar/BUILD", "cc_library(name = 'bar')");
+    addOptions("--package_path=%workspace%:otherroot");
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:root", "//bar"));
+
+    assertThat(e.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(2);
+    assertThat(e.getMessage())
+        .contains(
+            "--experimental_merged_skyframe_analysis_execution requires a single package path"
+                + " entry");
+  }
+
+  // Regression test for b/245919888.
+  @Test
+  public void outputFileRemoved_regeneratedWithIncrementalBuild() throws Exception {
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+
+    BuildResult result = buildTarget("//foo:foo");
+
+    assertThat(result.getSuccess()).isTrue();
+    Path fooOut = assertSingleOutputBuilt("//foo:foo");
+
+    fooOut.delete();
+
+    BuildResult incrementalBuild = buildTarget("//foo:foo");
+
+    assertThat(incrementalBuild.getSuccess()).isTrue();
+    assertSingleOutputBuilt("//foo:foo");
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {

@@ -34,4 +34,8 @@ public interface XattrProvider {
   default byte[] getxattr(Path path, String xattrName) throws IOException {
     return path.getxattr(xattrName);
   }
+
+  default byte[] getxattr(Path path, String xattrName, Symlinks followSymlinks) throws IOException {
+    return path.getxattr(xattrName, followSymlinks);
+  }
 }

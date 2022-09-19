@@ -58,8 +58,7 @@ public abstract class BazelModuleContext {
    * Returns a label for a {@link net.starlark.java.eval.Module}.
    *
    * <p>This is a user-facing value and we rely on this string to be a valid label for the {@link
-   * net.starlark.java.eval.Module} (and that only). Please see the documentation of {@link
-   * net.starlark.java.eval.Module#setClientData(Object)} for more details.
+   * net.starlark.java.eval.Module} (and that only).
    */
   @Override
   public final String toString() {

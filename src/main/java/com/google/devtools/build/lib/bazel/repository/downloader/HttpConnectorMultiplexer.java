@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -30,6 +32,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,12 +50,12 @@ import java.util.Map;
 @ThreadSafe
 final class HttpConnectorMultiplexer {
 
-  private static final ImmutableMap<String, String> REQUEST_HEADERS =
+  private static final ImmutableMap<String, List<String>> REQUEST_HEADERS =
       ImmutableMap.of(
           "Accept-Encoding",
-          "gzip",
+          ImmutableList.of("gzip"),
           "User-Agent",
-          "Bazel/" + BlazeVersionInfo.instance().getReleaseName());
+          ImmutableList.of("Bazel/" + BlazeVersionInfo.instance().getReleaseName()));
 
   private final EventHandler eventHandler;
   private final HttpConnector connector;
@@ -84,8 +87,9 @@ final class HttpConnectorMultiplexer {
    *
    * @param url the URL to conenct to. can be: file, http, or https
    * @param checksum checksum lazily checked on entire payload, or empty to disable
-   * @return an {@link InputStream} of response payload
+   * @param authHeaders the authentication headers
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
+   * @return an {@link InputStream} of response payload
    * @throws IOException if all mirrors are down and contains suppressed exception of each attempt
    * @throws InterruptedIOException if current thread is being cast into oblivion
    * @throws IllegalArgumentException if {@code urls} is empty or has an unsupported protocol
@@ -93,27 +97,27 @@ final class HttpConnectorMultiplexer {
   public HttpStream connect(
       URL url,
       Optional<Checksum> checksum,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<URI, Map<String, List<String>>> authHeaders,
       Optional<String> type)
       throws IOException {
     Preconditions.checkArgument(HttpUtils.isUrlSupportedByDownloader(url));
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    Function<URL, ImmutableMap<String, String>> headerFunction =
+    Function<URL, ImmutableMap<String, List<String>>> headerFunction =
         getHeaderFunction(REQUEST_HEADERS, authHeaders);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
         url,
         checksum,
-        (Throwable cause, ImmutableMap<String, String> extraHeaders) -> {
+        (Throwable cause, ImmutableMap<String, List<String>> extraHeaders) -> {
           eventHandler.handle(
               Event.progress(String.format("Lost connection for %s due to %s", url, cause)));
           return connector.connect(
               connection.getURL(),
               newUrl ->
-                  new ImmutableMap.Builder<String, String>()
+                  new ImmutableMap.Builder<String, List<String>>()
                       .putAll(headerFunction.apply(newUrl))
                       .putAll(extraHeaders)
                       .buildOrThrow());
@@ -121,13 +125,15 @@ final class HttpConnectorMultiplexer {
         type);
   }
 
-  public static Function<URL, ImmutableMap<String, String>> getHeaderFunction(
-      Map<String, String> baseHeaders, Map<URI, Map<String, String>> additionalHeaders) {
+  @VisibleForTesting
+  static Function<URL, ImmutableMap<String, List<String>>> getHeaderFunction(
+      Map<String, List<String>> baseHeaders,
+      Map<URI, Map<String, List<String>>> additionalHeaders) {
     return url -> {
-      ImmutableMap<String, String> headers = ImmutableMap.copyOf(baseHeaders);
+      ImmutableMap<String, List<String>> headers = ImmutableMap.copyOf(baseHeaders);
       try {
         if (additionalHeaders.containsKey(url.toURI())) {
-          Map<String, String> newHeaders = new HashMap<>(headers);
+          Map<String, List<String>> newHeaders = new HashMap<>(headers);
           newHeaders.putAll(additionalHeaders.get(url.toURI()));
           headers = ImmutableMap.copyOf(newHeaders);
         }

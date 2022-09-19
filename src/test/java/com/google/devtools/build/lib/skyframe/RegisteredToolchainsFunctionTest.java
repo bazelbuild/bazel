@@ -298,7 +298,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(toolchains_to_register=['//:tool'])",
+        "register_toolchains('//:tool')",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='1.1')",
         "bazel_dep(name='toolchain_def',version='1.0')");

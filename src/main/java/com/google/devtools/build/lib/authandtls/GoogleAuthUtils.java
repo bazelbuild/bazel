@@ -33,6 +33,7 @@ import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -160,18 +161,30 @@ public final class GoogleAuthUtils {
     }
   }
 
+  private static EventLoopGroup currentEventLoopGroup = null;
+
+  private static synchronized EventLoopGroup getEventLoopGroup() throws IOException {
+    if (currentEventLoopGroup == null) {
+      if (KQueue.isAvailable()) {
+        currentEventLoopGroup = new KQueueEventLoopGroup();
+      } else if (Epoll.isAvailable()) {
+        currentEventLoopGroup = new EpollEventLoopGroup();
+      } else {
+        throw new IOException("Creating event loop groups is unsupported on this platform");
+      }
+    }
+    return currentEventLoopGroup;
+  }
+
   private static NettyChannelBuilder newUnixNettyChannelBuilder(String target) throws IOException {
     DomainSocketAddress address = new DomainSocketAddress(target.replaceFirst("^unix:", ""));
-    NettyChannelBuilder builder = NettyChannelBuilder.forAddress(address);
+    NettyChannelBuilder builder =
+        NettyChannelBuilder.forAddress(address).eventLoopGroup(getEventLoopGroup());
     if (KQueue.isAvailable()) {
-      return builder
-          .channelType(KQueueDomainSocketChannel.class)
-          .eventLoopGroup(new KQueueEventLoopGroup());
+      return builder.channelType(KQueueDomainSocketChannel.class);
     }
     if (Epoll.isAvailable()) {
-      return builder
-          .channelType(EpollDomainSocketChannel.class)
-          .eventLoopGroup(new EpollEventLoopGroup());
+      return builder.channelType(EpollDomainSocketChannel.class);
     }
 
     throw new IOException("Unix domain sockets are unsupported on this platform");

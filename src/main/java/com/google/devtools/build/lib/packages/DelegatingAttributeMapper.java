@@ -84,8 +84,8 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {
-    delegate.visitLabels(attribute, consumer);
+  public void visitLabels(String attributeName, Consumer<Label> consumer) {
+    delegate.visitLabels(attributeName, consumer);
   }
 
   @Override

@@ -63,6 +63,7 @@ cc_binary(
         "system_disk_space_monitor_jni.cc",
         "system_load_advisory_monitor_jni.cc",
         "system_memory_pressure_jni.cc",
+        "system_network_stats.cc",
         "system_suspension_monitor_jni.cc",
         "system_thermal_monitor_jni.cc",
         "//src/main/native:jni.h",

@@ -392,6 +392,7 @@ public final class Profiler {
       boolean collectTaskHistograms,
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
+      boolean collectSystemNetworkUsage,
       WorkerMetricsCollector workerMetricsCollector,
       BugReporter bugReporter)
       throws IOException {
@@ -450,7 +451,11 @@ public final class Profiler {
     // Start collecting Bazel and system-wide CPU metric collection.
     resourceUsageThread =
         new CollectLocalResourceUsage(
-            bugReporter, workerMetricsCollector, collectWorkerDataInProfiler, collectLoadAverage);
+            bugReporter,
+            workerMetricsCollector,
+            collectWorkerDataInProfiler,
+            collectLoadAverage,
+            collectSystemNetworkUsage);
     resourceUsageThread.setDaemon(true);
     resourceUsageThread.start();
   }
@@ -1159,6 +1164,8 @@ public final class Profiler {
                 || data.type == ProfilerTask.ACTION_COUNTS
                 || data.type == ProfilerTask.SYSTEM_CPU_USAGE
                 || data.type == ProfilerTask.SYSTEM_MEMORY_USAGE
+                || data.type == ProfilerTask.SYSTEM_NETWORK_UP_USAGE
+                || data.type == ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE
                 || data.type == ProfilerTask.WORKERS_MEMORY_USAGE
                 || data.type == ProfilerTask.SYSTEM_LOAD_AVERAGE) {
               // Skip counts equal to zero. They will show up as a thin line in the profile.
@@ -1185,6 +1192,10 @@ public final class Profiler {
                   break;
                 case SYSTEM_MEMORY_USAGE:
                   writer.name("cname").value("bad");
+                  break;
+                case SYSTEM_NETWORK_UP_USAGE:
+                case SYSTEM_NETWORK_DOWN_USAGE:
+                  writer.name("cname").value("rail_response");
                   break;
                 case WORKERS_MEMORY_USAGE:
                   writer.name("cname").value("rail_animation");
@@ -1220,6 +1231,12 @@ public final class Profiler {
                   break;
                 case SYSTEM_MEMORY_USAGE:
                   writer.name("system memory").value(data.description);
+                  break;
+                case SYSTEM_NETWORK_UP_USAGE:
+                  writer.name("system network up (Mbps)").value(data.description);
+                  break;
+                case SYSTEM_NETWORK_DOWN_USAGE:
+                  writer.name("system network down (Mbps)").value(data.description);
                   break;
                 case WORKERS_MEMORY_USAGE:
                   writer.name("workers memory").value(data.description);

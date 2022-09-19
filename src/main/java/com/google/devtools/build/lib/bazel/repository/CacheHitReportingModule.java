@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEv
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.Pair;
@@ -54,10 +55,8 @@ public final class CacheHitReportingModule extends BlazeModule {
 
   @Subscribe
   public void failed(RepositoryFailedEvent event) {
-    // TODO(wyv): figure out where to put this context generation logic (right now it needs to be
-    //  kept in sync with StarlarkRepositoryContext.getIdentifyingStringForLogging), and add an
-    //  event for the failure of a module extension too
-    String context = "repository " + event.getRepo().getNameWithAt();
+    // TODO(wyv): add an event for the failure of a module extension too
+    String context = RepositoryFetchProgress.repositoryFetchContextString(event.getRepo());
     Set<Pair<String, URL>> cacheHits = cacheHitsByContext.get(context);
     if (cacheHits != null && !cacheHits.isEmpty()) {
       StringBuilder info = new StringBuilder();

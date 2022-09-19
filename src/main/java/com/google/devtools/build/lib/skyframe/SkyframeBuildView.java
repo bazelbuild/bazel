@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -388,7 +389,7 @@ public final class SkyframeBuildView {
         AspectValue aspectValue = (AspectValue) val;
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
         if (packages != null) {
-          packages.addTransitive(aspectValue.getTransitivePackagesForPackageRootResolution());
+          packages.addTransitive(Preconditions.checkNotNull(aspectValue.getTransitivePackages()));
         }
         aspectKeysBuilder.add(aspectValue.getKey());
       }
@@ -403,7 +404,7 @@ public final class SkyframeBuildView {
       }
       cts.add(ctValue.getConfiguredTarget());
       if (packages != null) {
-        packages.addTransitive(ctValue.getTransitivePackagesForPackageRootResolution());
+        packages.addTransitive(Preconditions.checkNotNull(ctValue.getTransitivePackages()));
       }
     }
     PackageRoots packageRoots =
@@ -1218,6 +1219,7 @@ public final class SkyframeBuildView {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      @Nullable NestedSet<Package> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -1236,6 +1238,7 @@ public final class SkyframeBuildView {
         prerequisiteMap,
         configConditions,
         toolchainContexts,
+        transitivePackages,
         execGroupCollectionBuilder);
   }
 

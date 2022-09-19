@@ -13,28 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelVisitationUtils;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -48,7 +43,7 @@ import javax.annotation.Nullable;
  * This class can be extended to define {@link SkyFunction}s that traverse a target and its
  * transitive dependencies and return values based on that traversal.
  *
- * <p>The {@code TProcessedTargets} type parameter represents the result of processing a target and
+ * <p>The {@code ProcessedTargetsT} type parameter represents the result of processing a target and
  * its transitive dependencies.
  *
  * <p>{@code TransitiveBaseTraversalFunction} asks for one to be constructed via {@link
@@ -117,7 +112,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     if (env.valuesMissing()) {
       return null;
     }
-    // Process deps from attributes. It is essential that the second-to-last getValue(s) call we
+    // Process deps from aspects. It is essential that the second-to-last getValue(s) call we
     // made to skyframe for building this node was for the corresponding PackageValue.
     Iterable<SkyKey> labelAspectKeys =
         getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny);
@@ -201,7 +196,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
   protected abstract AdvertisedProviderSet getAdvertisedProviderSet(
       Label toLabel, SkyValue toVal, Environment env) throws InterruptedException;
 
-  private final boolean hasDepThatSatisfies(
+  private boolean hasDepThatSatisfies(
       Aspect aspect, Iterable<Label> depLabels, SkyframeLookupResult fullDepMap, Environment env)
       throws InterruptedException {
     for (Label depLabel : depLabels) {
@@ -222,112 +217,10 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     return false;
   }
 
-  interface TargetAndErrorIfAny {
-
-    boolean isPackageLoadedSuccessfully();
-
-    @Nullable NoSuchTargetException getErrorLoadingTarget();
-
-    Target getTarget();
-  }
-
-  @VisibleForTesting
-  static class TargetAndErrorIfAnyImpl implements TargetAndErrorIfAny {
-
-    private final boolean packageLoadedSuccessfully;
-    @Nullable private final NoSuchTargetException errorLoadingTarget;
-    private final Target target;
-
-    @VisibleForTesting
-    TargetAndErrorIfAnyImpl(
-        boolean packageLoadedSuccessfully,
-        @Nullable NoSuchTargetException errorLoadingTarget,
-        Target target) {
-      this.packageLoadedSuccessfully = packageLoadedSuccessfully;
-      this.errorLoadingTarget = errorLoadingTarget;
-      this.target = target;
-    }
-
-    @Override
-    public boolean isPackageLoadedSuccessfully() {
-      return packageLoadedSuccessfully;
-    }
-
-    @Override
-    @Nullable
-    public NoSuchTargetException getErrorLoadingTarget() {
-      return errorLoadingTarget;
-    }
-
-    @Override
-    public Target getTarget() {
-      return target;
-    }
-  }
-
-  @Nullable // Returns null if values are missing.
-  @VisibleForTesting
+  @Nullable
   TargetAndErrorIfAny loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    if (label.getName().contains("/")) {
-      // This target is in a subdirectory, therefore it could potentially be invalidated by
-      // a new BUILD file appearing in the hierarchy.
-      PathFragment containingDirectory = getContainingDirectory(label);
-      PackageIdentifier newPkgId =
-          PackageIdentifier.create(label.getRepository(), containingDirectory);
-      ContainingPackageLookupValue containingPackageLookupValue;
-      try {
-        containingPackageLookupValue =
-            (ContainingPackageLookupValue)
-                env.getValueOrThrow(
-                    ContainingPackageLookupValue.key(newPkgId),
-                    BuildFileNotFoundException.class,
-                    InconsistentFilesystemException.class);
-      } catch (InconsistentFilesystemException e) {
-        throw new NoSuchTargetException(label, e.getMessage());
-      }
-      if (containingPackageLookupValue == null) {
-        return null;
-      }
-
-      if (!containingPackageLookupValue.hasContainingPackage()) {
-        // This means the label's package doesn't exist. E.g. there is no package 'a' and we are
-        // trying to build the target for label 'a:b/foo'.
-        throw new BuildFileNotFoundException(
-            label.getPackageIdentifier(),
-            "BUILD file not found on package path for '"
-                + label.getPackageFragment().getPathString()
-                + "'");
-      }
-      if (!containingPackageLookupValue
-          .getContainingPackageName()
-          .equals(label.getPackageIdentifier())) {
-        throw new NoSuchTargetException(
-            label,
-            String.format(
-                "Label '%s' crosses boundary of subpackage '%s'",
-                label, containingPackageLookupValue.getContainingPackageName()));
-      }
-    }
-
-    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
-    PackageValue packageValue =
-        (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
-    if (env.valuesMissing() || packageValue == null) {
-      return null;
-    }
-
-    Package pkg = packageValue.getPackage();
-    Target target = pkg.getTarget(label.getName());
-    NoSuchTargetException error = pkg.containsErrors() ? new NoSuchTargetException(target) : null;
-    return new TargetAndErrorIfAnyImpl(
-        /* packageLoadedSuccessfully= */ !pkg.containsErrors(), error, target);
-  }
-
-  private static PathFragment getContainingDirectory(Label label) {
-    PathFragment pkg = label.getPackageFragment();
-    String name = label.getName();
-    return name.equals(".") ? pkg : pkg.getRelative(name).getParentDirectory();
+    return TargetLoadingUtil.loadTarget(env, label);
   }
 
   /**

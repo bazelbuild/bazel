@@ -150,8 +150,6 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
-      # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/16229
-      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
     include_json_profile:
       - build
       - test
@@ -301,8 +299,9 @@ tasks:
       # See https://github.com/bazelbuild/bazel/issues/8162 (also disabled for local exec)
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
-      # We hit connection timeout error for downl with RBE, see b/217865760
+      # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
+      - "-//src/test/shell/bazel:verify_workspace"
     include_json_profile:
       - build
       - test

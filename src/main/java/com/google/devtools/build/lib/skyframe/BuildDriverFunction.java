@@ -80,14 +80,17 @@ public class BuildDriverFunction implements SkyFunction {
   private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
+  private final Supplier<RegexFilter> extraActionFilterSupplier;
 
   BuildDriverFunction(
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
-      Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics) {
+      Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
+      Supplier<RegexFilter> extraActionFilterSupplier) {
     this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
+    this.extraActionFilterSupplier = extraActionFilterSupplier;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -146,13 +149,13 @@ public class BuildDriverFunction implements SkyFunction {
         topLevelSkyValue instanceof ConfiguredTargetValue
             || topLevelSkyValue instanceof TopLevelAspectsValue);
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
-      ConfiguredTarget configuredTarget =
-          ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget();
+      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
+      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
       // At this point, the target is considered "analyzed". It's important that this event is sent
       // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
       // concluded, we need to have the *complete* list of analyzed targets ready in
       // BuildResultListener.
-      env.getListener().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
+      postTopLevelTargetAnalyzedEvent(env, configuredTargetValue, configuredTarget);
 
       BuildConfigurationValue buildConfigurationValue =
           configuredTarget.getConfigurationKey() == null
@@ -231,6 +234,22 @@ public class BuildDriverFunction implements SkyFunction {
     }
 
     return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+  }
+
+  private static void postTopLevelTargetAnalyzedEvent(
+      Environment env,
+      ConfiguredTargetValue configuredTargetValue,
+      ConfiguredTarget configuredTarget) {
+    // It's possible that this code path is triggered AFTER the analysis cache clean up and the
+    // transitive packages for package root resolution is already cleared. In such a case, the
+    // symlinks should have already been planted.
+    TopLevelTargetAnalyzedEvent topLevelTargetAnalyzedEvent =
+        configuredTargetValue.getTransitivePackages() == null
+            ? TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget)
+            : TopLevelTargetAnalyzedEvent.create(
+                configuredTarget, configuredTargetValue.getTransitivePackages());
+
+    env.getListener().post(topLevelTargetAnalyzedEvent);
   }
 
   /**
@@ -321,7 +340,7 @@ public class BuildDriverFunction implements SkyFunction {
       declareDependenciesAndCheckValues(
           env,
           Iterables.concat(
-              artifactsToBuild.build(),
+              Artifact.keys(artifactsToBuild.build()),
               Collections.singletonList(
                   TargetCompletionValue.key(
                       (ConfiguredTargetKey) actionLookupKey, topLevelArtifactContext, false))));
@@ -363,12 +382,13 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener().post(SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-    for (SkyValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
-      AspectKey aspectKey = ((AspectValue) aspectValue).getKey();
-      ConfiguredAspect configuredAspect = ((AspectValue) aspectValue).getConfiguredAspect();
+    for (SkyValue value : topLevelAspectsValue.getTopLevelAspectsValues()) {
+      AspectValue aspectValue = (AspectValue) value;
+      AspectKey aspectKey = aspectValue.getKey();
+      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
           configuredAspect.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
-      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+      postAspectAnalyzedEvent(env, aspectValue, aspectKey, configuredAspect);
       aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
     // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
@@ -376,7 +396,24 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
 
     declareDependenciesAndCheckValues(
-        env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
+        env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
+  }
+
+  private static void postAspectAnalyzedEvent(
+      Environment env,
+      AspectValue aspectValue,
+      AspectKey aspectKey,
+      ConfiguredAspect configuredAspect) {
+    // It's possible that this code path is triggered AFTER the analysis cache clean up and the
+    // transitive packages for package root resolution is already cleared. In such a case, the
+    // symlinks should have already been planted.
+    AspectAnalyzedEvent aspectAnalyzedEvent =
+        aspectValue.getTransitivePackages() == null
+            ? AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(aspectKey, configuredAspect)
+            : AspectAnalyzedEvent.create(
+                aspectKey, configuredAspect, aspectValue.getTransitivePackages());
+
+    env.getListener().post(aspectAnalyzedEvent);
   }
 
   /**
@@ -419,7 +456,9 @@ public class BuildDriverFunction implements SkyFunction {
       ExtraActionArtifactsProvider provider, ImmutableSet.Builder<Artifact> artifactsToBuild) {
     if (provider != null) {
       addArtifactsToBuilder(
-          provider.getTransitiveExtraActionArtifacts().toList(), artifactsToBuild, null);
+          provider.getTransitiveExtraActionArtifacts().toList(),
+          artifactsToBuild,
+          extraActionFilterSupplier.get());
     }
   }
 

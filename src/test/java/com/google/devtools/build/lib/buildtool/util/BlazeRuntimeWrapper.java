@@ -325,6 +325,7 @@ public class BlazeRuntimeWrapper {
               /*collectTaskHistograms=*/ true,
               /*collectWorkerDataInProfiler=*/ false,
               /*collectLoadAverage=*/ false,
+              /*collectSystemNetworkUsage=*/ false,
               WorkerMetricsCollector.instance(),
               runtime.getBugReporter());
 

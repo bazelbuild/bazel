@@ -37,17 +37,34 @@ public class GenQueryConfiguration extends Fragment {
             "If true, the in-memory representation of genquery results may be compressed as "
                 + "is necessary. Can save sufficient memory at the expense of more CPU usage.")
     public boolean compressInMemoryResults;
+
+    @Option(
+        name = "experimental_skip_ttvs_for_genquery",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        help =
+            "If true, genquery loads its scope's transitive closure directly instead of by using "
+                + "'TransitiveTargetValue' Skyframe work.")
+    public boolean skipTtvs;
   }
 
   private final boolean inMemoryCompressionEnabled;
+  private final boolean skipTtvs;
 
   public GenQueryConfiguration(BuildOptions buildOptions) {
     this.inMemoryCompressionEnabled =
         buildOptions.get(GenQueryOptions.class).compressInMemoryResults;
+    this.skipTtvs = buildOptions.get(GenQueryOptions.class).skipTtvs;
   }
 
-  /** Returns whether or not genquery stored in memory can be stored in compressed form. */
+  /** Returns whether genquery results stored in memory can be stored in compressed form. */
   boolean inMemoryCompressionEnabled() {
     return inMemoryCompressionEnabled;
+  }
+
+  /** Returns whether genquery should load its scope's transitive closure directly. */
+  boolean skipTtvs() {
+    return skipTtvs;
   }
 }

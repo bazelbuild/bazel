@@ -382,6 +382,7 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
+    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -433,6 +434,7 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
+    options.collectLocalExecutionStatistics = false;
     Path execRoot = fs.getPath("/execroot");
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
@@ -478,6 +480,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
     Path execRoot = fs.getPath("/execroot");
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             execRoot,
@@ -559,6 +562,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -793,6 +797,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -818,6 +823,7 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -849,6 +855,7 @@ public class LocalSpawnRunnerTest {
     LocalEnvProvider localEnvProvider = mock(LocalEnvProvider.class);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),

@@ -3,18 +3,24 @@
 # 2. Run `bazel build --experimental_enable_bzlmod //src:bazel_nojdk`.
 
 module(
-  name = "bazel",
-  version = "6.0.0-pre",
+    name = "bazel",
+    version = "6.0.0-pre",
+    repo_name = "io_bazel",
 )
 
 bazel_dep(name = "rules_license", version = "0.0.3")
-bazel_dep(name = "bazel_skylib", version = "1.0.3")
+bazel_dep(name = "bazel_skylib", version = "1.2.0")
 bazel_dep(name = "protobuf", version = "3.19.2", repo_name = "com_google_protobuf")
-bazel_dep(name = "grpc", version = "1.41.0", repo_name = "com_github_grpc_grpc")
-bazel_dep(name = "platforms", version = "0.0.4")
-bazel_dep(name = "rules_pkg", version = "0.5.1")
+bazel_dep(name = "grpc", version = "1.47.0", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "platforms", version = "0.0.5")
+bazel_dep(name = "rules_pkg", version = "0.7.0")
 bazel_dep(name = "stardoc", version = "0.5.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.0-4")
+
+# The following are required when building without WORKSPACE SUFFIX
+bazel_dep(name = "rules_cc", version = "0.0.1")
+bazel_dep(name = "rules_java", version = "5.1.0")
+bazel_dep(name = "rules_proto", version = "4.0.0")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
@@ -28,21 +34,9 @@ local_path_override(
   path = "./third_party/googleapis",
 )
 
-# The following are required when building without WORKSPACE SUFFIX
-bazel_dep(name = "rules_cc", version = "0.0.1")
-bazel_dep(name = "rules_python", version = "0.4.0")
-bazel_dep(name = "rules_java", version = "5.0.0")
-bazel_dep(name = "rules_proto", version = "4.0.0")
-
-# In-direct dependencies
-# - abseil-cpp: Bazel doesn't need to see abseil-cpp directly, but it does
-#   need a newer version to be able to build on latest macOS.
-bazel_dep(name = "abseil-cpp", version = "20211102.0")
-
-
 # TODO(pcloudy): Remove this when rules_jvm_external adopts Bzlmod.
 single_version_override(
-  module_name = "protobuf",
-  patches = ["//third_party/protobuf:3.19.2.bzlmod.patch"],
-  patch_strip = 1,
+    module_name = "protobuf",
+    patches = ["//third_party/protobuf:3.19.2.bzlmod.patch"],
+    patch_strip = 1,
 )

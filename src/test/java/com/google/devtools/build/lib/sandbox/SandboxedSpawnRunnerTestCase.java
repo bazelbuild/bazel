@@ -38,9 +38,9 @@ public abstract class SandboxedSpawnRunnerTestCase extends BuildIntegrationTestC
    * Returns a command environment with local execution statistics enabled and the given workspace
    * name set.
    */
-  protected CommandEnvironment getCommandEnvironmentWithExecutionStatisticsOptionEnabled(
+  protected CommandEnvironment getCommandEnvironmentWithExecutionStatisticsOptionDisabled(
       String workspaceName) throws Exception {
-    runtimeWrapper.addOptions("--experimental_collect_local_sandbox_action_metrics");
+    runtimeWrapper.addOptions("--noexperimental_collect_local_sandbox_action_metrics");
     CommandEnvironment env = runtimeWrapper.newCommand();
     env.setWorkspaceName(workspaceName);
     env.getLocalResourceManager().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

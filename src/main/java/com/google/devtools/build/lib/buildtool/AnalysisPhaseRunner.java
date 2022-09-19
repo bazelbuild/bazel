@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -288,7 +289,8 @@ public final class AnalysisPhaseRunner {
       AnalysisResult analysisResult,
       Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
     for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-      env.getEventBus().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
+      env.getEventBus()
+          .post(TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget));
       if (analysisResult.getTargetsToSkip().contains(configuredTarget)) {
         env.getEventBus().post(TopLevelTargetSkippedEvent.create(configuredTarget));
       }
@@ -305,7 +307,10 @@ public final class AnalysisPhaseRunner {
     }
 
     for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
-      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
+      env.getEventBus()
+          .post(
+              AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(
+                  entry.getKey(), entry.getValue()));
     }
   }
 

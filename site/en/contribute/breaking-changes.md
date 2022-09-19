@@ -120,14 +120,17 @@ When changing the flag default to true, please:
     `RELNOTES[INC]: --incompatible_name_of_flag is flipped to true. See #xyz for
     details`
     You can include additional information in the rest of the commit description.
-* Use `Work towards #xyz` in the description, so that the GitHub issue gets mentioned
+* Use `Fixes #xyz` in the description, so that the GitHub issue gets closed
     when the commit is merged.
 * Review and update documentation if needed.
+* File a new issue `#abc` to track the removal of the flag.
 
 ## Removing the flag {:#remove-flag}
 
-After the flag is flipped at HEAD, you can start removing the flag. The Github issue should be closed after the flag is removed from Bazel.
+After the flag is flipped at HEAD, it should be removed from Bazel eventually.
+When you plan to remove the incompatible flag:
 
 * Consider leaving more time for users to migrate if it's a major incompatible change.
-* For the commit that removes the flag, use `Fixes #xyz` in the description
+  Ideally, the flag  should be available in at least one major release.
+* For the commit that removes the flag, use `Fixes #abc` in the description
   so that the GitHub issue gets closed when the commit is merged.

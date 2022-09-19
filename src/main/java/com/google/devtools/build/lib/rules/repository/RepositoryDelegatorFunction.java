@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -405,17 +405,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     setupRepositoryRoot(repoRoot);
 
-    String repositoryName = ((RepositoryName) skyKey.argument()).getNameWithAt();
-    env.getListener().post(new RepositoryFetching(repositoryName, false));
+    RepositoryName repoName = (RepositoryName) skyKey.argument();
+    env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
     RepositoryDirectoryValue.Builder repoBuilder;
     try {
       repoBuilder = handler.fetch(rule, repoRoot, directories, env, markerData, skyKey);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
-      env.getListener().post(new RepositoryFetching(repositoryName, true));
-      env.getListener()
-          .post(new RepositoryFailedEvent((RepositoryName) skyKey.argument(), e.getMessage()));
+      env.getListener().post(RepositoryFetchProgress.finished(repoName));
+      env.getListener().post(new RepositoryFailedEvent(repoName, e.getMessage()));
       env.getListener()
           .handle(
               Event.error(
@@ -428,10 +427,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     if (env.valuesMissing()) {
-      env.getListener().post(new RepositoryFetching(repositoryName, false, "Restarting."));
+      env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "Restarting."));
       return null;
     }
-    env.getListener().post(new RepositoryFetching(repositoryName, true));
+    env.getListener().post(RepositoryFetchProgress.finished(repoName));
     return Preconditions.checkNotNull(repoBuilder);
   }
 
@@ -642,34 +641,4 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
   }
 
-  private static class RepositoryFetching implements FetchProgress {
-    final String id;
-    final boolean finished;
-    final String message;
-
-    RepositoryFetching(String name, boolean finished) {
-      this(name, finished, finished ? "finished." : "fetching");
-    }
-
-    RepositoryFetching(String name, boolean finished, String message) {
-      this.id = name;
-      this.finished = finished;
-      this.message = message;
-    }
-
-    @Override
-    public String getResourceIdentifier() {
-      return id;
-    }
-
-    @Override
-    public String getProgress() {
-      return message;
-    }
-
-    @Override
-    public boolean isFinished() {
-      return finished;
-    }
-  }
 }

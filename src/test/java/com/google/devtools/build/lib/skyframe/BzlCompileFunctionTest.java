@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -166,36 +165,5 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
               new StarlarkThread(mu, StarlarkSemantics.DEFAULT));
       assertThat(val.toString()).isEqualTo("[-9223372036854775809, 9223372036854775808]");
     }
-  }
-
-  @Test
-  public void testErrorMessageContainsExceptionInfo() throws Exception {
-    // If an analysis error occurs, the cause of that error should be communicated to the user.
-    // Check that syntax errors in remote repositories are percolated back to the user.
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo'",
-        ")");
-    Path repoPath = scratch.dir("/a_remote_repo");
-    scratch.file("/a_remote_repo/WORKSPACE");
-    scratch.file("/a_remote_repo/remote_pkg/BUILD", "load(':foo.bzl', 'broken')");
-    scratch.file("/a_remote_repo/remote_pkg/foo.bzl", "def broken():", "  undefined_token");
-    invalidatePackages(/*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
-    SkyKey skyKey =
-        BzlCompileValue.key(
-            Root.fromPath(repoPath),
-            Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:foo.bzl"));
-    AssertionError e =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                SkyframeExecutorTestUtils.evaluate(
-                    getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(
-            "ERROR /a_remote_repo/remote_pkg/foo.bzl:2:3: name 'undefined_token' is not defined");
   }
 }

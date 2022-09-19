@@ -696,7 +696,8 @@ public abstract class PathFragment
   }
 
   /**
-   * Returns true if the passed path contains uplevel references ".." or single-dot references "."
+   * Returns true if the passed path does not contain uplevel references ("..") or single-dot
+   * references (".").
    *
    * <p>This is useful to check a string for normalization before constructing a PathFragment, since
    * these are always normalized and will throw uplevel references away.
