@@ -230,6 +230,7 @@ function test_android_binary_sibling_repository_layout() {
   # platform for ARM but not x86. Enabling it for x86 requires an
   # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
