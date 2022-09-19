@@ -549,25 +549,18 @@ public class CppActionConfigs {
                         "      flag_group {",
                         "        expand_if_true: 'is_cc_test'",
                         // TODO(b/27153401): This should probably be @loader_path on osx.
-                        "        flag: '-Xlinker'",
-                        "        flag: '-rpath'",
-                        "        flag: '-Xlinker'",
-                        "        flag: '$EXEC_ORIGIN/%{runtime_library_search_directories}'",
+                        "        flag: ",
+                        "          '-Wl,-rpath,$EXEC_ORIGIN/%{runtime_library_search_directories}'",
                         "      }",
                         "      flag_group {",
                         "        expand_if_false: 'is_cc_test'",
                         ifLinux(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '$ORIGIN/" + "%{runtime_library_search_directories}'"),
+                            "        flag: '-Wl,-rpath,$ORIGIN/"
+                                + "%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '@loader_path/"
+                            "        flag: '-Wl,-rpath,@loader_path/"
                                 + "%{runtime_library_search_directories}'"),
                         "      }",
                         "    }",
@@ -586,16 +579,11 @@ public class CppActionConfigs {
                         "      flag_group {",
                         ifLinux(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '$ORIGIN/" + "%{runtime_library_search_directories}'"),
+                            "        flag: '-Wl,-rpath,$ORIGIN/"
+                                + "%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '@loader_path/"
+                            "        flag: '-Wl,-rpath,@loader_path/"
                                 + "%{runtime_library_search_directories}'"),
                         "    }",
                         "  }",
