@@ -405,6 +405,7 @@ public class BuildView {
                 viewOptions.cpuHeavySkyKeysThreadPoolSize);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       } else {
+        skyframeExecutor.setExtraActionFilter(viewOptions.extraActionFilter);
         skyframeExecutor.setRuleContextConstraintSemantics(
             (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics());
         // We wait until now to setup for execution, in case the artifact factory was reset
