@@ -130,7 +130,10 @@ public abstract class CcModule
 
   private static final ImmutableList<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableList.of(
-          "bazel_internal/test_rules/cc", "rust/private");
+          "bazel_internal/test_rules/cc",
+          "tools/build_defs/android/dev",
+          "tools/build_defs/android/release/blaze",
+          "rust/private");
 
   public abstract CppSemantics getSemantics();
 
@@ -2291,6 +2294,7 @@ public abstract class CcModule
       Object pdbFile,
       Object winDefFile,
       Object useShareableArtifactFactory,
+      Object buildConfig,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
@@ -2311,7 +2315,8 @@ public abstract class CcModule
         useTestOnlyFlags,
         pdbFile,
         winDefFile,
-        useShareableArtifactFactory)) {
+        useShareableArtifactFactory,
+        buildConfig)) {
       checkPrivateStarlarkificationAllowlist(thread);
     }
     Language language = parseLanguage(languageString);
@@ -2360,11 +2365,9 @@ public abstract class CcModule
                 .build();
     FeatureConfiguration actualFeatureConfiguration =
         featureConfiguration.getFeatureConfiguration();
-    CppConfiguration cppConfiguration =
-        actions
-            .getActionConstructionContext()
-            .getConfiguration()
-            .getFragment(CppConfiguration.class);
+    BuildConfigurationValue buildConfiguration =
+        convertFromNoneable(buildConfig, actions.getActionConstructionContext().getConfiguration());
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
     ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     CcLinkingHelper helper =
         new CcLinkingHelper(
@@ -2376,7 +2379,7 @@ public abstract class CcModule
                 actualFeatureConfiguration,
                 ccToolchainProvider,
                 fdoContext,
-                actions.getActionConstructionContext().getConfiguration(),
+                buildConfiguration,
                 cppConfiguration,
                 BazelStarlarkContext.from(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
@@ -2561,6 +2564,18 @@ public abstract class CcModule
                 labelReplacement,
                 outputReplacement,
                 getSemantics()));
+  }
+
+  @StarlarkMethod(
+      name = "get_build_info",
+      documented = false,
+      parameters = {@Param(name = "ctx")},
+      useStarlarkThread = true)
+  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(
+        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
   }
 
   private ImmutableList<Pair<Artifact, Label>> convertSequenceTupleToPair(Sequence<?> sequenceTuple)

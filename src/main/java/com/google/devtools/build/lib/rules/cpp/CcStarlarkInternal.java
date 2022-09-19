@@ -26,18 +26,14 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utility methods for rules in Starlark Builtins */
@@ -105,16 +101,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new CcStarlarkApiInfo(ccInfo);
   }
 
-  @StarlarkMethod(
-      name = "get_build_info",
-      documented = false,
-      parameters = {@Param(name = "ctx")})
-  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext)
-      throws EvalException, InterruptedException {
-    return StarlarkList.immutableCopyOf(
-        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
-  }
-
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;
@@ -177,21 +163,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "default_hdrs_check_computed_default", documented = false)
   public ComputedDefault getDefaultHdrsCheckComputedDefault() {
     return new DefaultHdrsCheckBuiltinComputedDefault();
-  }
-
-  // TODO(b/207761932): perhaps move this to another internal module
-  @StarlarkMethod(
-      name = "declare_shareable_artifact",
-      parameters = {
-        @Param(name = "ctx"),
-        @Param(name = "path"),
-      },
-      documented = false)
-  public FileApi createShareableArtifact(StarlarkRuleContext ruleContext, String path)
-      throws EvalException {
-    return ruleContext
-        .getRuleContext()
-        .getShareableArtifact(PathFragment.create(path), ruleContext.getBinDirectory());
   }
 
   static class DefParserComputedDefault extends ComputedDefault

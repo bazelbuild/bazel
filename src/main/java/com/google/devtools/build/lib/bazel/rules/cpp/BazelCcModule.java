@@ -224,6 +224,7 @@ public class BazelCcModule extends CcModule
         pdbFile,
         winDefFile,
         Starlark.UNBOUND,
+        Starlark.UNBOUND,
         thread);
   }
 
