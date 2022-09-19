@@ -2122,7 +2122,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     assertThat(Joiner.on(" ").join(action.getLinkCommandLine().arguments()))
-        .doesNotContain("-Xlinker -rpath");
+        .doesNotContain("-Wl,-rpath");
   }
 
   @Test
@@ -2155,21 +2155,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv)
-        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
-        .inOrder();
-    assertThat(linkArgv)
-        .containsAtLeast(
-            "-Xlinker",
-            "-rpath",
-            "-Xlinker",
-            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME + "/_solib_k8/")
-        .inOrder();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
     assertThat(linkArgv)
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
     assertThat(linkArgv).contains("-lno-transition_Slibdep1");
     assertThat(Joiner.on(" ").join(linkArgv))
-        .doesNotContain("-Xlinker -rpath -Xlinker $ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+        .doesNotContain("-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv))
         .doesNotContain("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-lST-");
@@ -2224,18 +2215,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact mainBin = getBinArtifact("main", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv)
-        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
-        .inOrder();
-    assertThat(linkArgv)
-        .containsAtLeast(
-            "-Xlinker",
-            "-rpath",
-            "-Xlinker",
-            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME + "/_solib_k8/")
-        .inOrder();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
     assertThat(Joiner.on(" ").join(linkArgv))
-        .contains("-Xlinker -rpath -Xlinker $ORIGIN/../../../k8-fastbuild-ST-");
+        .contains("-Wl,-rpath,$ORIGIN/../../../k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild-ST-");
     assertThat(Joiner.on(" ").join(linkArgv)).containsMatch("-lST-[0-9a-f]+_transition_Slibdep2");

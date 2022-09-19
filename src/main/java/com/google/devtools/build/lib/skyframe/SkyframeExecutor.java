@@ -183,6 +183,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompl
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -389,6 +390,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // Reset after each build.
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
+  private RegexFilter extraActionFilter;
 
   // Reset while preparing for execution in each build.
   private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
@@ -666,7 +668,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               }
             },
             this::getIncrementalArtifactConflictFinder,
-            this::getRuleContextConstraintSemantics));
+            this::getRuleContextConstraintSemantics,
+            this::getExtraActionFilter));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -2974,6 +2977,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void setRuleContextConstraintSemantics(
       RuleContextConstraintSemantics ruleContextConstraintSemantics) {
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
+  }
+
+  private RegexFilter getExtraActionFilter() {
+    return Preconditions.checkNotNull(extraActionFilter);
+  }
+
+  public void setExtraActionFilter(RegexFilter extraActionFilter) {
+    this.extraActionFilter = extraActionFilter;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */

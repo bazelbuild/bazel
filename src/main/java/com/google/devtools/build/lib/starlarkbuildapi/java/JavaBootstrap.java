@@ -15,8 +15,11 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 import net.starlark.java.eval.FlagGuardedValue;
 
@@ -27,6 +30,11 @@ public class JavaBootstrap implements Bootstrap {
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
+  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("rules_java", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/java"));
 
   public JavaBootstrap(
       JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
@@ -41,9 +49,24 @@ public class JavaBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put("java_common", javaCommonApi);
-    builder.put("JavaInfo", javaInfoProviderApi);
-    builder.put("JavaPluginInfo", javaPluginInfoProviderApi);
+    builder.put(
+        "java_common",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            javaCommonApi,
+            allowedRepositories));
+    builder.put(
+        "JavaInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            javaInfoProviderApi,
+            allowedRepositories));
+    builder.put(
+        "JavaPluginInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            javaPluginInfoProviderApi,
+            allowedRepositories));
 
     builder.put(
         ProguardSpecProviderApi.NAME,

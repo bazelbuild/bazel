@@ -15,16 +15,26 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
 import net.starlark.java.eval.FlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
+  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("rules_cc", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
+
   private final CcModuleApi<
           ? extends StarlarkActionFactoryApi,
           ? extends FileApi,
@@ -113,10 +123,30 @@ public class CcBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put("cc_common", ccModule);
-    builder.put("CcInfo", ccInfoProvider);
-    builder.put("DebugPackageInfo", debugPackageInfoProvider);
-    builder.put("CcToolchainConfigInfo", ccToolchainConfigInfoProvider);
+    builder.put(
+        "cc_common",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            ccModule,
+            allowedRepositories));
+    builder.put(
+        "CcInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            ccInfoProvider,
+            allowedRepositories));
+    builder.put(
+        "DebugPackageInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            debugPackageInfoProvider,
+            allowedRepositories));
+    builder.put(
+        "CcToolchainConfigInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            ccToolchainConfigInfoProvider,
+            allowedRepositories));
     builder.put(
         "py_wrap_cc_helper_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
@@ -125,7 +155,17 @@ public class CcBootstrap implements Bootstrap {
         "go_wrap_cc_helper_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, goWrapCcHelper));
-    builder.put("PyWrapCcInfo", pyWrapCcInfoProvider);
-    builder.put("PyCcLinkParamsProvider", pyCcLinkInfoParamsInfoProvider);
+    builder.put(
+        "PyWrapCcInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            pyWrapCcInfoProvider,
+            PyBootstrap.allowedRepositories));
+    builder.put(
+        "PyCcLinkParamsProvider",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            pyCcLinkInfoParamsInfoProvider,
+            PyBootstrap.allowedRepositories));
   }
 }

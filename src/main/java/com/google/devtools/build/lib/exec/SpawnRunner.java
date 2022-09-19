@@ -30,6 +30,9 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -161,7 +164,8 @@ public interface SpawnRunner {
     default void prefetchInputsAndWait()
         throws IOException, InterruptedException, ForbiddenActionInputException {
       ListenableFuture<Void> future = prefetchInputs();
-      try {
+      try (SilentCloseable s =
+          Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
         future.get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();

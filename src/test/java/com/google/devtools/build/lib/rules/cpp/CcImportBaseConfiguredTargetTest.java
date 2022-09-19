@@ -444,9 +444,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     Artifact mainBin = getBinArtifact("bin", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv)
-        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua")
-        .inOrder();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua");
   }
 
   @Test
@@ -527,8 +525,6 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     Artifact mainBin = getBinArtifact("bin", main);
     CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
     List<String> linkArgv = action.getLinkCommandLine().arguments();
-    assertThat(linkArgv)
-        .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua")
-        .inOrder();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua");
   }
 }

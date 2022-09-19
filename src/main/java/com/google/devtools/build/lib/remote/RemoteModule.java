@@ -325,9 +325,11 @@ public final class RemoteModule extends BlazeModule {
     ThreadFactory threadFactory =
         new ThreadFactoryBuilder().setNameFormat("remote-executor-%d").build();
     if (jobs != 0) {
-      executorService =
+      ThreadPoolExecutor tpe =
           new ThreadPoolExecutor(
-              /*corePoolSize=*/ 0, jobs, 60L, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+              jobs, jobs, 60L, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+      tpe.allowCoreThreadTimeOut(true);
+      executorService = tpe;
     } else {
       executorService = Executors.newCachedThreadPool(threadFactory);
     }

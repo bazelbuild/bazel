@@ -33,9 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
@@ -64,6 +61,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   protected final Path execRoot;
 
+  /** Priority for the staging task. */
+  protected enum Priority {
+    /**
+     * High priority tasks are tasks that are critical to the wall time e.g. staging inputs to local
+     * actions.
+     */
+    HIGH,
+    /**
+     * Low priority tasks are tasks that don't have impact on the wall time e.g. staging outputs of
+     * toplevel targets/aspects.
+     */
+    LOW,
+  }
+
   protected AbstractActionInputPrefetcher(Path execRoot, TempPathGenerator tempPathGenerator) {
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
@@ -77,7 +88,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
-      Path tempPath, FileArtifactValue metadata) throws IOException;
+      Path tempPath, FileArtifactValue metadata, Priority priority) throws IOException;
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
@@ -98,6 +109,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
+    return prefetchFiles(inputs, metadataProvider, Priority.HIGH);
+  }
+
+  protected ListenableFuture<Void> prefetchFiles(
+      Iterable<? extends ActionInput> inputs,
+      MetadataProvider metadataProvider,
+      Priority priority) {
     Map<SpecialArtifact, List<TreeFileArtifact>> trees = new HashMap<>();
     List<ActionInput> files = new ArrayList<>();
     for (ActionInput input : inputs) {
@@ -120,22 +138,22 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             .flatMapSingle(
                 entry ->
                     toTransferResult(
-                        prefetchInputTree(metadataProvider, entry.getKey(), entry.getValue())));
+                        prefetchInputTree(
+                            metadataProvider, entry.getKey(), entry.getValue(), priority)));
     Flowable<TransferResult> fileDownloads =
         Flowable.fromIterable(files)
-            .flatMapSingle(input -> toTransferResult(prefetchInputFile(metadataProvider, input)));
+            .flatMapSingle(
+                input -> toTransferResult(prefetchInputFile(metadataProvider, input, priority)));
     Flowable<TransferResult> transfers = Flowable.merge(treeDownloads, fileDownloads);
     Completable prefetch = mergeBulkTransfer(transfers).onErrorResumeNext(this::onErrorResumeNext);
-    Completable prefetchWithProfiler =
-        Completable.using(
-            () -> Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs"),
-            profiler -> prefetch,
-            SilentCloseable::close);
-    return toListenableFuture(prefetchWithProfiler);
+    return toListenableFuture(prefetch);
   }
 
   private Completable prefetchInputTree(
-      MetadataProvider provider, SpecialArtifact tree, List<TreeFileArtifact> treeFiles) {
+      MetadataProvider provider,
+      SpecialArtifact tree,
+      List<TreeFileArtifact> treeFiles,
+      Priority priority) {
     Path treeRoot = execRoot.getRelative(tree.getExecPath());
     HashMap<TreeFileArtifact, Path> treeFileTmpPathMap = new HashMap<>();
 
@@ -153,7 +171,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                   treeFileTmpPathMap.put(treeFile, tempPath);
 
                   return toTransferResult(
-                      toCompletable(() -> doDownloadFile(tempPath, metadata), directExecutor()));
+                      toCompletable(
+                          () -> doDownloadFile(tempPath, metadata, priority), directExecutor()));
                 });
 
     AtomicBoolean completed = new AtomicBoolean();
@@ -211,8 +230,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return downloadCache.executeIfNot(treeRoot, download);
   }
 
-  private Completable prefetchInputFile(MetadataProvider metadataProvider, ActionInput input)
-      throws IOException {
+  private Completable prefetchInputFile(
+      MetadataProvider metadataProvider, ActionInput input, Priority priority) throws IOException {
     if (input instanceof VirtualActionInput) {
       prefetchVirtualActionInput((VirtualActionInput) input);
       return Completable.complete();
@@ -224,7 +243,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     Path path = execRoot.getRelative(input.getExecPath());
-    return downloadFileRx(path, metadata);
+    return downloadFileRx(path, metadata, priority);
   }
 
   /**
@@ -233,7 +252,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  public Completable downloadFileRx(Path path, FileArtifactValue metadata) {
+  public Completable downloadFileRx(Path path, FileArtifactValue metadata, Priority priority) {
     if (!shouldDownloadFile(path, metadata)) {
       return Completable.complete();
     }
@@ -253,7 +272,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         Completable.using(
             tempPathGenerator::generateTempPath,
             tempPath ->
-                toCompletable(() -> doDownloadFile(tempPath, metadata), directExecutor())
+                toCompletable(() -> doDownloadFile(tempPath, metadata, priority), directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(tempPath, finalPath);
@@ -277,7 +296,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * download finished.
    */
   public ListenableFuture<Void> downloadFileAsync(Path path, FileArtifactValue metadata) {
-    return toListenableFuture(downloadFileRx(path, metadata));
+    return toListenableFuture(downloadFileRx(path, metadata, Priority.LOW));
   }
 
   /**

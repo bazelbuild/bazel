@@ -80,14 +80,17 @@ public class BuildDriverFunction implements SkyFunction {
   private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
+  private final Supplier<RegexFilter> extraActionFilterSupplier;
 
   BuildDriverFunction(
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
-      Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics) {
+      Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
+      Supplier<RegexFilter> extraActionFilterSupplier) {
     this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
+    this.extraActionFilterSupplier = extraActionFilterSupplier;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -337,7 +340,7 @@ public class BuildDriverFunction implements SkyFunction {
       declareDependenciesAndCheckValues(
           env,
           Iterables.concat(
-              artifactsToBuild.build(),
+              Artifact.keys(artifactsToBuild.build()),
               Collections.singletonList(
                   TargetCompletionValue.key(
                       (ConfiguredTargetKey) actionLookupKey, topLevelArtifactContext, false))));
@@ -393,7 +396,7 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener().post(TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey));
 
     declareDependenciesAndCheckValues(
-        env, Iterables.concat(artifactsToBuild.build(), aspectCompletionKeys));
+        env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
   }
 
   private static void postAspectAnalyzedEvent(
@@ -453,7 +456,9 @@ public class BuildDriverFunction implements SkyFunction {
       ExtraActionArtifactsProvider provider, ImmutableSet.Builder<Artifact> artifactsToBuild) {
     if (provider != null) {
       addArtifactsToBuilder(
-          provider.getTransitiveExtraActionArtifacts().toList(), artifactsToBuild, null);
+          provider.getTransitiveExtraActionArtifacts().toList(),
+          artifactsToBuild,
+          extraActionFilterSupplier.get());
     }
   }
 

@@ -3315,4 +3315,60 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     CommandLine commandLine = args.build();
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
   }
+
+  @Test
+  public void testDeclareSharedArtifactIsPrivateAPI() throws Exception {
+    scratch.file(
+        "abc/rule.bzl",
+        "def _impl(ctx):",
+        " ctx.actions.declare_shareable_artifact('foo')",
+        " return []",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in declare_shareable_artifact: Rule in 'abc' cannot use private API");
+  }
+
+  @Test
+  public void testDeclareSharedArtifact_differentFileRoot() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  a1 = ctx.actions.declare_shareable_artifact(ctx.label.name + '1.so')",
+        "  ctx.actions.write(a1, '')",
+        "  a2 = ctx.actions.declare_shareable_artifact(",
+        "           ctx.label.name + '2.so',",
+        "           ctx.host_configuration.bin_dir",
+        "       )",
+        "  ctx.actions.write(a2, '')",
+        "  return [DefaultInfo(files = depset([a1, a2]))]",
+        "",
+        "r = rule(implementation = _impl)");
+    scratch.file("test/BUILD", "load(':rule.bzl', 'r')", "r(name = 'foo')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:foo");
+
+    assertThat(target).isNotNull();
+    Artifact a1 =
+        getFilesToBuild(target).toSet().stream()
+            .filter(artifactNamed("foo1.so"))
+            .findFirst()
+            .orElse(null);
+    assertThat(a1).isNotNull();
+    assertThat(a1.getRoot().getExecPathString())
+        .isEqualTo(getRelativeOutputPath() + "/k8-fastbuild/bin");
+    Artifact a2 =
+        getFilesToBuild(target).toSet().stream()
+            .filter(artifactNamed("foo2.so"))
+            .findFirst()
+            .orElse(null);
+    assertThat(a2).isNotNull();
+    assertThat(a2.getRoot().getExecPathString()).isEqualTo(getRelativeOutputPath() + "/host/bin");
+  }
 }
