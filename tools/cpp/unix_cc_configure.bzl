@@ -279,6 +279,18 @@ def _coverage_flags(repository_ctx, darwin):
 def _is_clang(repository_ctx, cc):
     return "clang" in repository_ctx.execute([cc, "-v"]).stderr
 
+def _is_gcc(repository_ctx, cc):
+    # GCC's version output uses the basename of argv[0] as the program name:
+    # https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=gcc/gcc.cc;h=158461167951c1b9540322fb19be6a89d6da07fc;hb=HEAD#l8728
+    return repository_ctx.execute([cc, "--version"]).stdout.startswith("gcc ")
+
+def _get_compiler_name(repository_ctx, cc):
+    if _is_clang(repository_ctx, cc):
+        return "clang"
+    if _is_gcc(repository_ctx, cc):
+        return "gcc"
+    return "compiler"
+
 def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
     """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
@@ -492,7 +504,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
-                "clang" if is_clang else "compiler",
+                _get_compiler_name(repository_ctx, cc),
                 False,
             )),
             "%{abi_version}": escape_string(get_env_var(

@@ -1708,4 +1708,51 @@ EOF
   expect_log "in pkg/library.cpp: ''"
 }
 
+function test_compiler_flag_gcc() {
+  # The default macOS toolchain always uses XCode's clang.
+  [ "$PLATFORM" != "darwin" ] || return 0
+  type -P gcc || return 0
+
+  cat > BUILD.bazel <<'EOF'
+config_setting(
+    name = "gcc_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "gcc"},
+)
+
+cc_binary(
+  name = "main",
+  srcs = select({":gcc_compiler": ["main.cc"]}),
+)
+EOF
+  cat > main.cc <<'EOF'
+int main() {}
+EOF
+
+  bazel build //:main --repo_env=CC=gcc || fail "Expected compiler flag to have value 'gcc'"
+}
+
+function test_compiler_flag_clang() {
+  # TODO: The default toolchain always uses XCode's clang, but sets the compiler name to the generic
+  #  "compiler".
+  [ "$PLATFORM" != "darwin" ] || return 0
+  type -P clang || return 0
+
+  cat > BUILD.bazel <<'EOF'
+config_setting(
+    name = "clang_compiler",
+    flag_values = {"@bazel_tools//tools/cpp:compiler": "clang"},
+)
+
+cc_binary(
+  name = "main",
+  srcs = select({":clang_compiler": ["main.cc"]}),
+)
+EOF
+  cat > main.cc <<'EOF'
+int main() {}
+EOF
+
+  bazel build //:main --repo_env=CC=clang || fail "Expected compiler flag to have value 'clang'"
+}
+
 run_suite "cc_integration_test"
