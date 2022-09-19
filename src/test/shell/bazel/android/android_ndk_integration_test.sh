@@ -209,6 +209,7 @@ function test_android_binary() {
   # platform for ARM but not x86. Enabling it for x86 requires an
   # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
@@ -251,6 +252,7 @@ function test_android_binary_clang() {
   # platform for ARM but not x86. Enabling it for x86 requires an
   # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
   add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
+  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
@@ -434,13 +436,11 @@ int main(){
 }
 EOF
   assert_build //:foo \
-    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
-    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
