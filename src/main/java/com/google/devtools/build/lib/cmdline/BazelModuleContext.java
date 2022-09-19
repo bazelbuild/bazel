@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 
 /**
@@ -35,7 +36,7 @@ public abstract class BazelModuleContext {
   public abstract Label label();
 
   /** The repository mapping applicable to the repo where the .bzl file is located in. */
-  public abstract RepositoryMapping repoMapping();
+  @Nullable public abstract RepositoryMapping repoMapping();
 
   /** Returns the name of the module's .bzl file, as provided to the parser. */
   public abstract String filename();
@@ -52,7 +53,7 @@ public abstract class BazelModuleContext {
    */
   @SuppressWarnings({"AutoValueImmutableFields", "mutable"})
   @AutoValue.CopyAnnotations
-  public abstract byte[] bzlTransitiveDigest();
+  @Nullable public abstract byte[] bzlTransitiveDigest();
 
   /**
    * Returns a label for a {@link net.starlark.java.eval.Module}.

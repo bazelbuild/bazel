@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -156,6 +159,7 @@ public class BzlCompileFunction implements SkyFunction {
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
       predeclared = starlarkEnv.getUninjectedBuildBzlEnv();
+
     }
 
     // We have all deps. Parse, resolve, and return.
@@ -171,7 +175,18 @@ public class BzlCompileFunction implements SkyFunction {
     StarlarkFile file = StarlarkFile.parse(input, options);
 
     // compile
-    Module module = Module.withPredeclared(semantics, predeclared);
+    final Module module;
+
+    if (key.kind == BzlCompileValue.Kind.EMPTY_PRELUDE) {
+      module = Module.withPredeclared(semantics, predeclared);
+    } else {
+      // The BazelModuleContext holds additional contextual info to be associated with the Module,
+      // including the label and a reified copy of the load DAG.
+      BazelModuleContext bazelModuleContext =
+          BazelModuleContext.create(
+              key.label, null, file.getName(), ImmutableMap.of(), null);
+      module = Module.withPredeclaredAndData(semantics, predeclared, bazelModuleContext);
+    }
     try {
       Program prog = Program.compileFile(file, module);
       return BzlCompileValue.withProgram(prog, digest);
