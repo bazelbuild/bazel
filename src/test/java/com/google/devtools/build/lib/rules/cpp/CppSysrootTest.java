@@ -178,7 +178,8 @@ public final class CppSysrootTest extends BuildViewTestCase {
       useConfiguration(
           "--cpu=" + cpu,
           "--grte_top=//a/grte/top",
-          "--host_crosstool_top=" + analysisMock.ccSupport().getMockCrosstoolLabel());
+          "--host_crosstool_top=" + analysisMock.ccSupport().getMockCrosstoolLabel(),
+          "--noincompatible_enable_cc_toolchain_resolution");
       config = getHostConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }

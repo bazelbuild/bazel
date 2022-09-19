@@ -80,7 +80,7 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
       //package:lipo_out --ios_multi_cpus=i386,x86_64 \
-      -- noincompatible_enable_cc_toolchain_resolution \\
+      --noincompatible_enable_cc_toolchain_resolution \
       || fail "should build starlark_apple_binary and obtain info via lipo"
 
   cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
