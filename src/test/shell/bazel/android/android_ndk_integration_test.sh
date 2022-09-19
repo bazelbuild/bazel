@@ -38,9 +38,7 @@ fail_if_no_android_ndk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains $1
 
 function create_android_binary() {
   mkdir -p java/bazel
@@ -396,11 +394,13 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-stlport \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-stlport \
@@ -434,11 +434,13 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
@@ -471,11 +473,13 @@ int main(){
 }
 EOF
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
@@ -546,11 +550,13 @@ function test_crosstool_libcpp_with_multiarch() {
   cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
 
   assert_build //java/bazel:bin \
+    --noincompatible_enable_cc_toolchain_resolution \
     --fat_apk_cpu="$cpus" \
     --android_crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //java/bazel:bin \
+    --noincompatible_enable_cc_toolchain_resolution \
     --features=compiler_param_file \
     --fat_apk_cpu="$cpus" \
     --android_crosstool_top=@androidndk//:toolchain-libcpp \

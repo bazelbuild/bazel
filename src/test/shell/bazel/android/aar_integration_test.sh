@@ -33,9 +33,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  resolve_android_toolchains_with_platforms
-fi
+resolve_android_toolchains "$1"
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/1928.
 function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
