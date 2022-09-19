@@ -218,10 +218,15 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
-      boolean isSplit =
-          trans instanceof SplitTransition
-              || trans instanceof TransitionFactory
-              || trans instanceof StarlarkDefinedConfigTransition;
+      boolean isSplit = false;
+      if (trans instanceof SplitTransition || trans instanceof StarlarkDefinedConfigTransition) {
+        isSplit = true;
+      } else if (trans instanceof TransitionFactory) {
+        TransitionFactory<?> tf = (TransitionFactory<?>) trans;
+        if (tf.isSplit()) {
+          isSplit = true;
+        }
+      }
       if (isSplit && defaultValue instanceof StarlarkLateBoundDefault) {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
