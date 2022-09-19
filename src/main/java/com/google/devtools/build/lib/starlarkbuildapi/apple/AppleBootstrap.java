@@ -15,10 +15,20 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 
 /** {@link Bootstrap} for Starlark objects related to apple rules. */
 public class AppleBootstrap implements Bootstrap {
+
+  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("rules_apple", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/apple"));
 
   private final AppleCommonApi<?, ?, ?, ?, ?, ?> appleCommon;
 
@@ -28,6 +38,11 @@ public class AppleBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put("apple_common", appleCommon);
+    builder.put(
+        "apple_common",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            appleCommon,
+            allowedRepositories));
   }
 }
