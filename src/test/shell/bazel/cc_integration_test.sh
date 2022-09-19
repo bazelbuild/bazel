@@ -1732,9 +1732,6 @@ EOF
 }
 
 function test_compiler_flag_clang() {
-  # TODO: The default toolchain always uses XCode's clang, but sets the compiler name to the generic
-  #  "compiler".
-  [ "$PLATFORM" != "darwin" ] || return 0
   type -P clang || return 0
 
   cat > BUILD.bazel <<'EOF'
