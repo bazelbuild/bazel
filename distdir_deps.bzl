@@ -53,7 +53,7 @@ DIST_DEPS = {
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
         "archive": "rules_cc-0.0.2.tar.gz",
-        "sha256": "58bff40957ace85c2de21ebfyc72e53ed3a0d33af8cc20abd0ceec55c63be7de2",
+        "sha256": "58bff40957ace85c2de21ebfc72e53ed3a0d33af8cc20abd0ceec55c63be7de2",
         "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.2/rules_cc-0.0.2.tar.gz"],
         "used_in": [
             "additional_distfiles",
