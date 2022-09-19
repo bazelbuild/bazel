@@ -29,7 +29,7 @@ local_path_override(
 )
 
 # The following are required when building without WORKSPACE SUFFIX
-bazel_dep(name = "rules_cc", version = "0.0.1")
+bazel_dep(name = "rules_cc", version = "0.0.2")
 bazel_dep(name = "rules_python", version = "0.4.0")
 bazel_dep(name = "rules_java", version = "5.0.0")
 bazel_dep(name = "rules_proto", version = "4.0.0")
