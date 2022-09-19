@@ -1,7 +1,5 @@
 # This file will replace the content of the WORKSPACE file when Bzlmod is enabled
 # No WORKSPACE prefix or suffix are added.
-# Eventually this file should be empty after fully migrating to Bzlmod.
-workspace(name = "io_bazel")
 
 # Required by @com_google_protobuf//java/util:util in protobuf 3.19.0
 # TODO(pcloudy): Remove those bind rules, when com_google_protobuf can
