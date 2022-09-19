@@ -29,6 +29,7 @@ public class PyBootstrap implements Bootstrap {
   public static final ImmutableSet<PackageIdentifier> allowedRepositories =
       ImmutableSet.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("bazel_tools", ""),
           PackageIdentifier.createUnchecked("rules_pyhton", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
