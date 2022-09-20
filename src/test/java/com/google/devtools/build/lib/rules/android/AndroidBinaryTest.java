@@ -1571,22 +1571,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testResourceCycleShrinkingWithoutResourceShinking() throws Exception {
-    useConfiguration("--experimental_android_resource_cycle_shrinking=true");
-    checkError(
-        "java/a",
-        "a",
-        "resource cycle shrinking can only be enabled when resource shrinking is enabled",
-        "android_binary(",
-        "    name = 'a',",
-        "    srcs = ['A.java'],",
-        "    manifest = 'AndroidManifest.xml',",
-        "    resource_files = [ 'res/values/values.xml' ], ",
-        "    shrink_resources = 0,",
-        ")");
-  }
-
-  @Test
   public void testResourceShrinking_requiresProguard() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
@@ -4106,18 +4090,34 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testAapt2ResourceCycleShinkingWithoutResourceShrinking() throws Exception {
     useConfiguration("--experimental_android_resource_cycle_shrinking=true");
-    checkError(
-        "java/a",
-        "a",
-        "resource cycle shrinking can only be enabled when resource shrinking is enabled",
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
         "android_binary(",
         "    name = 'a',",
         "    srcs = ['A.java'],",
         "    manifest = 'AndroidManifest.xml',",
         "    resource_files = [ 'res/values/values.xml' ], ",
         "    shrink_resources = 0,",
+        "    proguard_specs = ['proguard-spec.pro'],",
         ")");
+
+    ConfiguredTargetAndData targetAndData =
+        getConfiguredTargetAndData("//java/com/google/android/hello:a");
+    ConfiguredTarget binary = targetAndData.getConfiguredTarget();
+
+    Artifact jar = getResourceClassJar(targetAndData);
+    assertThat(getGeneratingAction(jar).getMnemonic()).isEqualTo("RClassGenerator");
+    assertThat(getGeneratingSpawnActionArgs(jar)).doesNotContain("--nofinalFields");
+
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
+
+    List<String> packageArgs =
+        getGeneratingSpawnActionArgs(getFirstArtifactEndingWith(artifacts, "_a_proguard.cfg"));
+
+    assertThat(flagValue("--tool", packageArgs)).isEqualTo("AAPT2_PACKAGE");
+    assertThat(packageArgs).doesNotContain("--conditionalKeepRules");
   }
+
 
   @Test
   public void testOnlyProguardSpecs() throws Exception {

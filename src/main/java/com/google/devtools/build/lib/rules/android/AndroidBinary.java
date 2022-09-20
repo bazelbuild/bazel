@@ -1118,14 +1118,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   /** Returns {@code true} if resource shrinking should be performed. */
   static boolean shouldShrinkResourceCycles(
-      AndroidConfiguration androidConfig, RuleErrorConsumer errorConsumer, boolean shrinkResources)
-      throws RuleErrorException {
+      AndroidConfiguration androidConfig,
+      RuleErrorConsumer errorConsumer,
+      boolean shrinkResources) {
     boolean global = androidConfig.useAndroidResourceCycleShrinking();
-    if (global && !shrinkResources) {
-      throw errorConsumer.throwWithRuleError(
-          "resource cycle shrinking can only be enabled when resource shrinking is enabled");
-    }
-    return global;
+    return global && shrinkResources;
   }
 
   private static ResourceApk shrinkResources(
