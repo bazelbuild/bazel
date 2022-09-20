@@ -856,6 +856,10 @@ public final class RemoteModule extends BlazeModule {
 
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();
+      var gen = actionContextProvider.getTempPathGenerator();
+      if (gen != null) {
+        deleteStaleDownloads(gen.getTempDir());
+      }
     }
 
     try {
@@ -920,9 +924,16 @@ public final class RemoteModule extends BlazeModule {
     if (tempDir.exists()) {
       env.getReporter()
           .handle(Event.warn("Found stale downloads from previous build, deleting..."));
-      try {
-        tempDir.deleteTree();
-      } catch (IOException e) {
+      deleteStaleDownloads(tempDir);
+    }
+
+    return new TempPathGenerator(tempDir);
+  }
+
+  private void deleteStaleDownloads(Path tempDir) throws AbruptExitException {
+    try {
+      tempDir.deleteTree();
+    } catch (IOException e) {
         throw new AbruptExitException(
             DetailedExitCode.of(
                 ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
@@ -935,9 +946,6 @@ public final class RemoteModule extends BlazeModule {
                     .build()));
       }
     }
-
-    return new TempPathGenerator(tempDir);
-  }
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder)

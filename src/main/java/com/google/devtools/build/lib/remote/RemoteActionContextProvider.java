@@ -222,6 +222,10 @@ final class RemoteActionContextProvider {
     this.tempPathGenerator = tempPathGenerator;
   }
 
+  TempPathGenerator getTempPathGenerator() {
+    return tempPathGenerator;
+  }
+
   public void afterCommand() {
     BlockWaitingModule blockWaitingModule =
         checkNotNull(env.getRuntime().getBlazeModule(BlockWaitingModule.class));

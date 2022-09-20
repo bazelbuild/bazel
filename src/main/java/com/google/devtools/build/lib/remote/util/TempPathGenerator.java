@@ -19,7 +19,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 /** A generator that generate temporary path under a given directory. */
 @ThreadSafe
-public class TempPathGenerator {
+public final class TempPathGenerator {
   private final Path tempDir;
   private final AtomicInteger index = new AtomicInteger();
 
