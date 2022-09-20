@@ -1557,7 +1557,9 @@ public class RemoteExecutionServiceTest {
   public void uploadInputsIfNotPresent_interrupted_requestCancelled() throws Exception {
     CountDownLatch uploadBlobCalled = new CountDownLatch(1);
     CountDownLatch interrupted = new CountDownLatch(1);
+    CountDownLatch futureDone = new CountDownLatch(1);
     SettableFuture<ImmutableSet<Digest>> future = SettableFuture.create();
+    future.addListener(futureDone::countDown, directExecutor());
     doAnswer(
             invocationOnMock -> {
               uploadBlobCalled.countDown();
@@ -1591,6 +1593,7 @@ public class RemoteExecutionServiceTest {
     uploadBlobCalled.await();
     thread.interrupt();
     interrupted.await();
+    futureDone.await();
 
     assertThat(future.isCancelled()).isTrue();
   }
