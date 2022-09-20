@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
@@ -37,7 +38,9 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
@@ -67,7 +70,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final Optional<CallCredentials> credentials;
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
-  private final RemoteOptions options;
+  private final RemoteOptions remoteOptions;
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -79,20 +82,20 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
 
   public GrpcRemoteDownloader(
-      String buildRequestId,
-      String commandId,
-      ReferenceCountedChannel channel,
-      Optional<CallCredentials> credentials,
-      RemoteRetrier retrier,
-      RemoteCacheClient cacheClient,
-      RemoteOptions options) {
+          String buildRequestId,
+          String commandId,
+          ReferenceCountedChannel channel,
+          Optional<CallCredentials> credentials,
+          RemoteRetrier retrier,
+          RemoteCacheClient cacheClient,
+          RemoteOptions remoteOptions) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.channel = channel;
     this.credentials = credentials;
     this.retrier = retrier;
     this.cacheClient = cacheClient;
-    this.options = options;
+    this.remoteOptions = remoteOptions;
   }
 
   @Override
@@ -121,7 +124,13 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
-        newFetchBlobRequest(options.remoteInstanceName, urls, authHeaders, checksum, canonicalId);
+        newFetchBlobRequest(
+                remoteOptions.remoteInstanceName,
+                urls,
+                authHeaders,
+                checksum,
+                canonicalId,
+                remoteOptions.remoteDownloaderSendAllHeaders);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -151,7 +160,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       List<URL> urls,
       Map<URI, Map<String, List<String>>> authHeaders,
       com.google.common.base.Optional<Checksum> checksum,
-      String canonicalId) {
+      String canonicalId,
+      boolean includeAllHeaders) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
     for (URL url : urls) {
@@ -172,7 +182,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
               .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(authHeaders))
+              .setValue(authHeadersJson(authHeaders, includeAllHeaders))
               .build());
     }
 
@@ -184,9 +194,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return FetchGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-        .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
+        .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(remoteOptions))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(remoteOptions.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
   private OutputStream newOutputStream(
@@ -198,16 +208,24 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return out;
   }
 
-  private static String authHeadersJson(Map<URI, Map<String, List<String>>> authHeaders) {
+  private static String authHeadersJson(Map<URI, Map<String, List<String>>> authHeaders, boolean includeAllHeaders) {
     Map<String, JsonObject> subObjects = new TreeMap<>();
     for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
       JsonObject subObject = new JsonObject();
       Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
       for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
-        // TODO(yannic): Introduce incompatible flag for including all headers, not just the first.
-        String value = Iterables.getFirst(subEntry.getValue(), null);
-        if (value != null) {
-          subObject.addProperty(subEntry.getKey(), value);
+        if (includeAllHeaders) {
+          JsonArray values = new JsonArray(subEntry.getValue().size());
+          for (String value : subEntry.getValue()) {
+            values.add(value);
+          }
+          subObject.add(subEntry.getKey(), values);
+        } else {
+          // TODO(yannic): Introduce incompatible flag for including all headers, not just the first.
+          String value = Iterables.getFirst(subEntry.getValue(), null);
+          if (value != null) {
+            subObject.add(subEntry.getKey(), new JsonPrimitive(value));
+          }
         }
       }
       subObjects.put(entry.getKey().toString(), subObject);
