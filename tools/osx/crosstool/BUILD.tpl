@@ -13,14 +13,14 @@ load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 alias(name = "osx_archs.bzl", actual = "@bazel_tools//tools/osx/crosstool:osx_archs.bzl")
 
 CC_TOOLCHAINS = [(
-    cpu + "|compiler",
+    cpu + "|clang",
     ":cc-compiler-" + cpu,
 ) for cpu in OSX_TOOLS_ARCHS] + [(
     cpu,
     ":cc-compiler-" + cpu,
 ) for cpu in OSX_TOOLS_ARCHS] + [
-    ("k8|compiler", ":cc-compiler-darwin_x86_64"),
-    ("darwin|compiler", ":cc-compiler-darwin_x86_64"),
+    ("k8|clang", ":cc-compiler-darwin_x86_64"),
+    ("darwin|clang", ":cc-compiler-darwin_x86_64"),
     ("k8", ":cc-compiler-darwin_x86_64"),
     ("darwin", ":cc-compiler-darwin_x86_64"),
     ("armeabi-v7a|compiler", ":cc-compiler-armeabi-v7a"),
@@ -91,7 +91,7 @@ alias(
 [
     cc_toolchain_config(
         name = arch,
-        compiler = "compiler",
+        compiler = "clang",
         cpu = arch,
         cxx_builtin_include_directories = [
 %{cxx_builtin_include_directories}
