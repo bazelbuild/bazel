@@ -21,6 +21,7 @@ FILES = [
     "java_compilation",
     "test_status",
     "worker_protocol",
+    "execution_graph",
 ]
 
 [proto_library(

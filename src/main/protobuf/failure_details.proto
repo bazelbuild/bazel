@@ -148,6 +148,7 @@ message FailureDetail {
     ExternalDeps external_deps = 181;
     DiffAwareness diff_awareness = 182;
     ModqueryCommand modquery_command = 183;
+    BuildReport build_report = 184;
   }
 
   reserved 102; // For internal use
@@ -338,6 +339,19 @@ message SymlinkForest {
   }
 
   Code code = 1;
+}
+
+message BuildReport {
+  enum Code {
+    BUILD_REPORT_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    BUILD_REPORT_UPLOADER_NEEDS_PACKAGE_PATHS = 1
+        [(metadata) = { exit_code: 36 }];
+    BUILD_REPORT_WRITE_FAILED = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+  // Additional data for partial failures might include the build report that
+  // failed to be written.
 }
 
 message PackageOptions {

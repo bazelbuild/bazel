@@ -129,6 +129,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -193,6 +194,7 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:any_java_proto",
         "//src/main/protobuf:command_line_java_proto",
+        "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
@@ -201,6 +203,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
@@ -218,6 +221,7 @@ java_test(
         "//third_party/protobuf:protobuf_java",
         "@com_google_protobuf//java/util",
         "@com_google_testparameterinjector//:testparameterinjector",
+        "@zstd-jni//:zstd-jni",
     ],
 )
 
