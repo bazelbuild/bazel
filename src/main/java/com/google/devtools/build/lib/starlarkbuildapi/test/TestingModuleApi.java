@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.test;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -36,14 +35,11 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi extends StarlarkValue {
 
-  // NOTE: The return type here should be ExecutionInfoApi.ExecutionInfoApiProvider, but using that
-  // breaks the doc generator. ProviderApi is close enough for now, and the docgen accepts it. We
-  // manually put an href link so users have a chance of finding the real docs.
   @StarlarkMethod(
       name = "ExecutionInfo",
       doc = "<a href='ExecutionInfo.html'>testing.ExecutionInfo</a> provider key/constructor",
       structField = true)
-  ProviderApi executionInfo() throws EvalException;
+  ExecutionInfoApi.ExecutionInfoApiProvider executionInfo() throws EvalException;
 
   @StarlarkMethod(
       name = "TestEnvironment",
