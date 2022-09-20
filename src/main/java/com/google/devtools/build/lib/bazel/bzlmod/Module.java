@@ -82,6 +82,9 @@ public abstract class Module {
    */
   public abstract String getRepoName();
 
+  /** List of bazel compatible versions that would run/fail this module */
+  public abstract ImmutableList<String> getBazelCompatibility();
+
   /**
    * Target patterns identifying execution platforms to register when this module is selected. Note
    * that these are what was written in module files verbatim, and don't contain canonical repo
@@ -182,6 +185,14 @@ public abstract class Module {
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
+
+    abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addBazelCompatibilityValues(Iterable<String> values) {
+      bazelCompatibilityBuilder().addAll(values);
+      return this;
+    }
 
     abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 

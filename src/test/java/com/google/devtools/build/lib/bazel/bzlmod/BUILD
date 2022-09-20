@@ -27,6 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
