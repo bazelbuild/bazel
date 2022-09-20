@@ -18,13 +18,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
 /**
  * A Path object to be used into Starlark remote repository.
@@ -96,12 +100,19 @@ final class StarlarkPath implements StarlarkValue {
 
   @StarlarkMethod(
       name = "get_child",
-      doc = "Append the given path to this path and return the resulted path.",
-      parameters = {
-        @Param(name = "child_path", doc = "The path to append to this path."),
-      })
-  public StarlarkPath getChild(String childPath) {
-    return new StarlarkPath(path.getChild(childPath));
+      doc = "Returns the path obtained by joining this path with the given relative paths.",
+      extraPositionals =
+          @Param(
+              name = "relative_paths",
+              doc =
+                  "Zero or more relative path strings to append to this path with path separators"
+                      + "added as needed."))
+  public StarlarkPath getChild(Tuple relativePaths) throws EvalException {
+    return new StarlarkPath(
+        path.getRelative(
+            String.join(
+                Character.toString(PathFragment.SEPARATOR_CHAR),
+                Sequence.cast(relativePaths, String.class, "relative_paths"))));
   }
 
   @StarlarkMethod(
