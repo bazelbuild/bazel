@@ -43,6 +43,25 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public String buildEventUploadStrategy;
 
   @Option(
+    name = "experimental_build_event_upload_retry_attempt",
+    defaultValue = "4",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    help = "The number of times Bazel would attempt to retry uploading a build event."
+  )
+  public int buildEventUploadAttempt;
+
+  @Option(
+    name = "experimental_build_event_upload_retry_attempt_delay",
+    defaultValue = "1000",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+    help = 
+		"Between each retry upload attempt, Bazel would sleep "
+			  + "for 'delay_duration * (1.6 ^ attempt)' milliseconds")
+  public int buildEventUploadAttemptDelay;
+
+  @Option(
       name = "experimental_stream_log_file_uploads",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
