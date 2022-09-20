@@ -911,19 +911,24 @@ public abstract class TargetPattern {
           throw new TargetParsingException(
               "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
         }
-        String repoPart = pattern.substring(1, pkgStart);
+        boolean isCanonicalRepoName = pattern.startsWith("@@");
+        String repoPart = pattern.substring(isCanonicalRepoName ? 2 : 1, pkgStart);
         try {
           RepositoryName.validate(repoPart);
         } catch (LabelSyntaxException e) {
           throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
         }
-        repository = repoMapping.get(repoPart);
-        if (!repository.isVisible()) {
-          throw new TargetParsingException(
-              String.format(
-                  "Repository '@%s' is not visible from repository '@%s'",
-                  repository.getName(), repository.getOwnerRepoIfNotVisible()),
-              Code.PACKAGE_NOT_FOUND);
+        if (isCanonicalRepoName) {
+          repository = RepositoryName.createUnvalidated(repoPart);
+        } else {
+          repository = repoMapping.get(repoPart);
+          if (!repository.isVisible()) {
+            throw new TargetParsingException(
+                String.format(
+                    "Repository '@%s' is not visible from repository '@%s'",
+                    repository.getName(), repository.getOwnerRepoIfNotVisible()),
+                Code.PACKAGE_NOT_FOUND);
+          }
         }
 
         pattern = pattern.substring(pkgStart);
