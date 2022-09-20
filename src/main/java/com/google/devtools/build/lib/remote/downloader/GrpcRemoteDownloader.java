@@ -220,10 +220,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           }
           subObject.add(subEntry.getKey(), values);
         } else {
-          // TODO(yannic): Introduce incompatible flag for including all headers, not just the first.
           String value = Iterables.getFirst(subEntry.getValue(), null);
           if (value != null) {
-            subObject.add(subEntry.getKey(), new JsonPrimitive(value));
+            subObject.addProperty(subEntry.getKey(), value);
           }
         }
       }
